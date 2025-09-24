@@ -6,8 +6,8 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.util import Inches
 
+from all2md._attachment_utils import extract_pptx_image_data
 from all2md.pptx2markdown import (
-    _extract_image_data,
     _process_paragraph_format,
     _process_run_format,
     _process_shape,
@@ -68,9 +68,9 @@ def test_extract_image_data():
     DummyImage.blob = png_bytes
     DummyShape = type("DummyShape", (), {})()
     DummyShape.image = DummyImage
-    data = _extract_image_data(DummyShape)
-    assert data.startswith("data:image/png;base64,")
-    assert data == f"data:image/png;base64,{base64.b64encode(png_bytes).decode()}"
+    data = extract_pptx_image_data(DummyShape)
+    assert data == png_bytes  # Should return raw bytes now
+    assert isinstance(data, bytes)
 
 
 def test_process_shape_picture():
@@ -81,10 +81,14 @@ def test_process_shape_picture():
     shape = type(
         "S", (), {"has_text_frame": False, "shape_type": MSO_SHAPE_TYPE.PICTURE, "alt_text": "alt", "image": dummy_img}
     )()
-    no_md = _process_shape(shape, convert_images_to_base64=False)
-    assert no_md == "![alt]()"
-    yes_md = _process_shape(shape, convert_images_to_base64=True)
-    assert yes_md == f"![alt]({_extract_image_data(shape)})"
+    from all2md.options import PptxOptions
+
+    options_alt = PptxOptions(attachment_mode="alt_text")
+    no_md = _process_shape(shape, options_alt)
+    assert no_md == "![alt]"
+    options_base64 = PptxOptions(attachment_mode="base64")
+    yes_md = _process_shape(shape, options_base64)
+    assert yes_md.startswith("![alt](data:image/") and yes_md.endswith(")")
 
 
 def test_process_shape_chart():
@@ -95,7 +99,10 @@ def test_process_shape_chart():
     chart_data.add_series("Series 1", (1.0, 2.0, 3.0))
     x, y, cx, cy = Inches(1), Inches(1), Inches(4), Inches(3)
     graphic_frame = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
-    md_chart = _process_shape(graphic_frame, convert_images_to_base64=False)
+    from all2md.options import PptxOptions
+
+    options = PptxOptions(attachment_mode="alt_text")
+    md_chart = _process_shape(graphic_frame, options)
     expected = "\n".join(["| Category | A | B | C |", "| --- | --- | --- | --- |", "| Series 1 | 1.0 | 2.0 | 3.0 |"])
     assert md_chart == expected
 
@@ -105,7 +112,10 @@ def test_pptx_to_markdown_default():
     # tmpfile = NamedTemporaryFile("wb", suffix=".pptx", delete=False)
     # prs.save(tmpfile.name)
 
-    output = pptx_to_markdown(prs, convert_images_to_base64=False, slide_numbers=True)
+    from all2md.options import PptxOptions
+
+    options = PptxOptions(attachment_mode="alt_text", slide_numbers=True)
+    output = pptx_to_markdown(prs, options=options)
     assert "# Slide 1: Test PowerPoint Presentation" in output
     assert "First Level Bullet" in output
     assert "| Header 1 | Header 2 | Header 3 |" in output
@@ -114,6 +124,9 @@ def test_pptx_to_markdown_default():
 
 def test_pptx_to_markdown_no_slide_numbers():
     prs = create_test_presentation()
-    output = pptx_to_markdown(prs, convert_images_to_base64=False, slide_numbers=False)
+    from all2md.options import PptxOptions
+
+    options = PptxOptions(attachment_mode="alt_text", slide_numbers=False)
+    output = pptx_to_markdown(prs, options=options)
     assert "# Test PowerPoint Presentation" in output
     assert "Slide 1:" not in output

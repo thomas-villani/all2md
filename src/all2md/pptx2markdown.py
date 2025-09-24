@@ -51,7 +51,7 @@ Examples
 --------
 Basic presentation conversion:
 
-    >>> from pptx2markdown import pptx_to_markdown
+    >>> from all2md.pptx2markdown import pptx_to_markdown
     >>> with open('presentation.pptx', 'rb') as f:
     ...     markdown = pptx_to_markdown(f)
     >>> print(markdown)
@@ -79,8 +79,6 @@ The focus is on extracting textual and structural content.
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import base64
-import imghdr
 import logging
 from typing import Any, Union
 
@@ -89,7 +87,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
 
-from ._attachment_utils import process_attachment, resolve_deprecated_options
+from ._attachment_utils import extract_pptx_image_data, process_attachment
 from ._input_utils import validate_and_convert_input
 from .exceptions import MdparseConversionError
 from .options import PptxOptions
@@ -178,23 +176,6 @@ def _process_table(table: Any) -> str:
     return "\n".join(markdown_rows)
 
 
-def _extract_image_data(shape: Any) -> str:
-    """Extract image data and convert to base64."""
-    # try:
-    image = shape.image
-    image_bytes = image.blob
-
-    # Determine image type from blob
-    image_type = imghdr.what(None, h=image_bytes)
-
-    # Convert to base64
-    b64_data = base64.b64encode(image_bytes).decode("utf-8")
-    return f"data:image/{image_type};base64,{b64_data}"
-    # except Exception as e:
-    #     logger.error(f"Failed to extract image data: {str(e)}")
-    #     return None
-
-
 def _process_shape(shape: Any, options: PptxOptions) -> str | None:
     """Process a single shape and convert to markdown."""
     # try:
@@ -209,7 +190,7 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
     # Handle pictures
     elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
         # Extract image data if needed
-        image_data = _extract_image_data(shape) if options.attachment_mode != "skip" else None
+        image_data = extract_pptx_image_data(shape) if options.attachment_mode != "skip" else None
         if image_data and not isinstance(image_data, bytes):
             image_data = None
         alt_text = shape.alt_text or "image"
@@ -223,7 +204,7 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
             attachment_mode=options.attachment_mode,
             attachment_output_dir=options.attachment_output_dir,
             attachment_base_url=options.attachment_base_url,
-            is_image=True
+            is_image=True,
         )
 
     # Handle charts (convert to tables if possible)
@@ -252,12 +233,7 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
     #     return ''
 
 
-def pptx_to_markdown(
-    input_data: Union[str, Any],
-    options: PptxOptions | None = None,
-    convert_images_to_base64: bool | None = None,  # Deprecated, use options.convert_images_to_base64
-    slide_numbers: bool | None = None  # Deprecated, use options.slide_numbers
-) -> str:
+def pptx_to_markdown(input_data: Union[str, Any], options: PptxOptions | None = None) -> str:
     """Convert a PowerPoint presentation to Markdown format.
 
     Parameters
@@ -278,27 +254,12 @@ def pptx_to_markdown(
     if options is None:
         options = PptxOptions()
 
-    # Handle deprecated parameters
-    if convert_images_to_base64 is not None:
-        options.convert_images_to_base64 = convert_images_to_base64
-    if slide_numbers is not None:
-        options.slide_numbers = slide_numbers
-
-    # Resolve deprecated attachment options to new unified system
-    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
-        options.attachment_mode,
-        options.attachment_output_dir,
-        options.attachment_base_url,
-        convert_images_to_base64=options.convert_images_to_base64
-    )
-
     # Validate and convert input
     try:
         from pptx.presentation import Presentation as PresentationType
 
         doc_input, input_type = validate_and_convert_input(
-            input_data,
-            supported_types=["path-like", "file-like", "pptx.Presentation objects"]
+            input_data, supported_types=["path-like", "file-like", "pptx.Presentation objects"]
         )
 
         # Open presentation based on input type
@@ -310,16 +271,13 @@ def pptx_to_markdown(
     except Exception as e:
         if "python-pptx" in str(e).lower() or "pptx" in str(e).lower():
             raise MdparseConversionError(
-                "python-pptx library is required for PPTX conversion. "
-                "Install with: pip install python-pptx",
+                "python-pptx library is required for PPTX conversion. Install with: pip install python-pptx",
                 conversion_stage="dependency_check",
-                original_error=e
+                original_error=e,
             ) from e
         else:
             raise MdparseConversionError(
-                f"Failed to open PPTX presentation: {str(e)}",
-                conversion_stage="document_opening",
-                original_error=e
+                f"Failed to open PPTX presentation: {str(e)}", conversion_stage="document_opening", original_error=e
             ) from e
 
     # Get Markdown options (create default if not provided) - currently not used in processing
@@ -333,7 +291,7 @@ def pptx_to_markdown(
         # Process slide title if present
         if slide.shapes.title:
             title_text = _process_text_frame(slide.shapes.title.text_frame)
-            if slide_numbers:
+            if options.slide_numbers:
                 slide_content.append(f"# Slide {i}: {title_text.strip()}\n")
             else:
                 slide_content.append(f"# {title_text.strip()}\n")

@@ -102,7 +102,7 @@ from urllib.request import urlopen
 
 from bs4 import BeautifulSoup, NavigableString
 
-from ._attachment_utils import process_attachment, resolve_deprecated_options
+from ._attachment_utils import process_attachment
 from ._input_utils import is_path_like, validate_and_convert_input
 from .constants import (
     DANGEROUS_HTML_ATTRIBUTES,
@@ -132,14 +132,6 @@ class HTMLToMarkdown:
         Symbol to use for emphasis formatting.
     bullet_symbols : str, default = "*-+"
         Characters to cycle through for nested bullet lists.
-    remove_images : bool, default = False
-        Remove all images from output.
-    base_url : str or None, default = None
-        Base URL for resolving relative URLs.
-    download_images : bool, default = False
-        Download images and embed as data URIs.
-    embed_images_as_data_uri : bool, default = False
-        Convert image sources to data URI format.
     preserve_nbsp : bool, default = False
         Preserve non-breaking spaces in output.
     strip_dangerous_elements : bool, default = False
@@ -158,10 +150,6 @@ class HTMLToMarkdown:
         extract_title: bool = False,
         emphasis_symbol: Literal["*", "_"] = "*",
         bullet_symbols: str = "*-+",
-        remove_images: bool = False,
-        base_url: str | None = None,
-        download_images: bool = False,
-        embed_images_as_data_uri: bool = False,
         preserve_nbsp: bool = False,
         strip_dangerous_elements: bool = False,
         table_alignment_auto_detect: bool = True,
@@ -176,22 +164,12 @@ class HTMLToMarkdown:
         self.extract_title = extract_title
         self.emphasis_symbol = emphasis_symbol
         self.bullet_symbols = bullet_symbols
-        self.remove_images = remove_images
-        self.base_url = base_url
-        self.download_images = download_images
-        self.embed_images_as_data_uri = embed_images_as_data_uri
         self.preserve_nbsp = preserve_nbsp
 
-        # Resolve deprecated attachment options to new unified system
-        self.attachment_mode, self.attachment_output_dir, self.attachment_base_url = resolve_deprecated_options(
-            attachment_mode,
-            attachment_output_dir,
-            attachment_base_url,
-            remove_images=remove_images,
-            download_images=download_images,
-            embed_images_as_data_uri=embed_images_as_data_uri,
-            base_url=base_url
-        )
+        # Set attachment handling options
+        self.attachment_mode = attachment_mode
+        self.attachment_output_dir = attachment_output_dir
+        self.attachment_base_url = attachment_base_url
         self.strip_dangerous_elements = strip_dangerous_elements
         self.table_alignment_auto_detect = table_alignment_auto_detect
         self.preserve_nested_structure = preserve_nested_structure
@@ -292,9 +270,9 @@ class HTMLToMarkdown:
         str
             Resolved absolute URL or original URL if no base_url.
         """
-        if not self.base_url or urlparse(url).scheme:
+        if not self.attachment_base_url or urlparse(url).scheme:
             return url
-        return urljoin(self.base_url, url)
+        return urljoin(self.attachment_base_url, url)
 
     def _download_image_data(self, url: str) -> bytes:
         """Download image data from URL."""
@@ -302,7 +280,7 @@ class HTMLToMarkdown:
             with urlopen(url) as response:
                 return response.read()
         except Exception as e:
-            raise Exception(f"Failed to download image from {url}: {e}")
+            raise Exception(f"Failed to download image from {url}: {e}") from e
 
     def _download_image_as_data_uri(self, url: str) -> str:
         """Download image and convert to data URI.
@@ -730,8 +708,15 @@ class HTMLToMarkdown:
 
         # Generate filename from URL or use generic name
         from urllib.parse import urlparse
+
         parsed_url = urlparse(resolved_src)
         filename = os.path.basename(parsed_url.path) or "image.png"
+
+        # For HTML, if we have a resolved URL and alt_text mode, preserve the URL
+        if self.attachment_mode == "alt_text" and resolved_src and resolved_src != src:
+            # URL was resolved, preserve it
+            title_attr = f' "{title}"' if title else ""
+            return f"![{alt or filename}]({resolved_src}{title_attr})"
 
         # Process image using unified attachment handling
         processed_image = process_attachment(
@@ -741,7 +726,7 @@ class HTMLToMarkdown:
             attachment_mode=self.attachment_mode,
             attachment_output_dir=self.attachment_output_dir,
             attachment_base_url=self.attachment_base_url,
-            is_image=True
+            is_image=True,
         )
 
         return processed_image
@@ -780,19 +765,7 @@ class HTMLToMarkdown:
         return content.strip()
 
 
-def html_to_markdown(
-    input_data: Union[str, Path, IO[str], IO[bytes]],
-    options: HtmlOptions | None = None,
-    use_hash_headings: bool | None = None,  # Deprecated, use options.use_hash_headings
-    extract_title: bool | None = None,  # Deprecated, use options.extract_title
-    emphasis_symbol: Literal["*", "_"] | None = None,  # Deprecated, use options.markdown_options.emphasis_symbol
-    bullet_symbols: str | None = None,  # Deprecated, use options.markdown_options.bullet_symbols
-    remove_images: bool | None = None,  # Deprecated, use options.remove_images
-    base_url: str | None = None,  # Deprecated, use options.base_url
-    download_images: bool | None = None,  # Deprecated, use options.download_images
-    preserve_nbsp: bool | None = None,  # Deprecated, use options.preserve_nbsp
-    strip_dangerous_elements: bool | None = None,  # Deprecated, use options.strip_dangerous_elements
-) -> str:
+def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: HtmlOptions | None = None) -> str:
     """Convert HTML to Markdown format.
 
     Processes HTML content from various input sources and converts it to
@@ -811,21 +784,6 @@ def html_to_markdown(
         - File-like object opened in binary mode (will be decoded as UTF-8)
     options : HtmlOptions or None, default None
         Configuration options for HTML conversion. If None, uses default settings.
-    use_hash_headings : bool or None, optional
-        **Deprecated**: Use options.use_hash_headings instead.
-        If True, use hash-style headings (# Header). If False, use underline style.
-    extract_title : bool or None, optional
-        **Deprecated**: Use options.extract_title instead.
-        If True, extract HTML title tag as main heading.
-    emphasis_symbol : {"*", "_"} or None, optional
-        **Deprecated**: Use options.markdown_options.emphasis_symbol instead.
-        Symbol to use for emphasis formatting.
-    bullet_symbols : str or None, optional
-        **Deprecated**: Use options.markdown_options.bullet_symbols instead.
-        Characters to use for bullet points in nested lists.
-    remove_images : bool or None, optional
-        **Deprecated**: Use options.remove_images instead.
-        If True, remove all images from output.
 
     Returns
     -------
@@ -884,30 +842,6 @@ def html_to_markdown(
     if options is None:
         options = HtmlOptions()
 
-    # Handle deprecated parameters
-    if use_hash_headings is not None:
-        options.use_hash_headings = use_hash_headings
-    if extract_title is not None:
-        options.extract_title = extract_title
-    if remove_images is not None:
-        options.remove_images = remove_images
-    if base_url is not None:
-        options.base_url = base_url
-    if download_images is not None:
-        options.download_images = download_images
-    if preserve_nbsp is not None:
-        options.preserve_nbsp = preserve_nbsp
-    if strip_dangerous_elements is not None:
-        options.strip_dangerous_elements = strip_dangerous_elements
-
-    # Handle deprecated markdown options
-    if options.markdown_options is None:
-        options.markdown_options = MarkdownOptions()
-    if emphasis_symbol is not None:
-        options.markdown_options.emphasis_symbol = emphasis_symbol
-    if bullet_symbols is not None:
-        options.markdown_options.bullet_symbols = bullet_symbols
-
     # Determine if input_data is HTML content or a file path/object
     html_content = ""
     if isinstance(input_data, str):
@@ -958,12 +892,8 @@ def html_to_markdown(
         converter = HTMLToMarkdown(
             hash_headings=options.use_hash_headings,
             extract_title=options.extract_title,
-            emphasis_symbol=options.markdown_options.emphasis_symbol,
-            bullet_symbols=options.markdown_options.bullet_symbols,
-            remove_images=options.remove_images,
-            base_url=options.base_url,
-            download_images=options.download_images,
-            embed_images_as_data_uri=options.embed_images_as_data_uri,
+            emphasis_symbol=options.markdown_options.emphasis_symbol if options.markdown_options else None,
+            bullet_symbols=options.markdown_options.bullet_symbols if options.markdown_options else None,
             preserve_nbsp=options.preserve_nbsp,
             strip_dangerous_elements=options.strip_dangerous_elements,
             table_alignment_auto_detect=options.table_alignment_auto_detect,

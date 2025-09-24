@@ -1,4 +1,3 @@
-import pytest
 from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
 from all2md.options import HtmlOptions, MarkdownOptions
 
@@ -79,9 +78,9 @@ def test_link_with_and_without_title():
 
 def test_image_and_removal():
     html = '<img src="img.png" alt="Alt" title="T">'
-    conv_keep = HTMLToMarkdown(remove_images=False)
-    conv_remove = HTMLToMarkdown(remove_images=True)
-    assert conv_keep.convert(html) == '![Alt](img.png "T")'
+    conv_keep = HTMLToMarkdown(attachment_mode="alt_text")
+    conv_remove = HTMLToMarkdown(attachment_mode="skip")
+    assert conv_keep.convert(html) == "![Alt]"
     assert conv_remove.convert(html) == ""
 
 
@@ -101,6 +100,7 @@ def test_inline_code_and_special_characters():
 
     # Test with escaping disabled
     from all2md.options import MarkdownOptions
+
     converter_no_escape = HTMLToMarkdown(markdown_options=MarkdownOptions(escape_special=False))
     md_no_escape = converter_no_escape.convert(html)
     assert md_no_escape == "* _ ` # + - . ! [ ] ( ) { } \\"
@@ -143,9 +143,9 @@ def test_custom_emphasis_symbol_and_bullets():
 
 def test_title_extraction_default_and_no_hash():
     html = "<html><head><title>My Title</title></head><body><p>Para</p></body></html>"
-    md_default = html_to_markdown(html, extract_title=True)
+    md_default = html_to_markdown(html, options=HtmlOptions(extract_title=True, use_hash_headings=True))
     assert md_default == "# My Title\n\nPara"
-    md_no_hash = html_to_markdown(html, use_hash_headings=False, extract_title=True)
+    md_no_hash = html_to_markdown(html, options=HtmlOptions(extract_title=True, use_hash_headings=False))
     assert md_no_hash == "My Title\n========\n\nPara"
 
 
@@ -154,6 +154,7 @@ def test_html_to_markdown_alias():
 
 
 # New tests for enhanced features
+
 
 def test_markdown_escaping_enabled():
     """Test that special Markdown characters are escaped when escape_special is True."""
@@ -289,15 +290,15 @@ def test_nested_blockquotes():
     result = converter.convert(html)
     assert "> First level quote" in result
     # Should have proper nested quoting
-    lines = result.split('\n')
-    nested_quotes = [line for line in lines if line.startswith('> >')]
+    lines = result.split("\n")
+    nested_quotes = [line for line in lines if line.startswith("> >")]
     assert len(nested_quotes) > 0
 
 
 def test_base_url_resolution():
     """Test base URL resolution for relative links and images."""
     html = '<p><a href="/page">Link</a> <img src="/image.jpg" alt="Image"></p>'
-    converter = HTMLToMarkdown(base_url="https://example.com")
+    converter = HTMLToMarkdown(attachment_base_url="https://example.com")
     result = converter.convert(html)
     assert "https://example.com/page" in result
     assert "https://example.com/image.jpg" in result
@@ -306,7 +307,7 @@ def test_base_url_resolution():
 def test_image_removal():
     """Test image removal functionality."""
     html = '<p>Text <img src="image.jpg" alt="Image"> more text</p>'
-    converter = HTMLToMarkdown(remove_images=True)
+    converter = HTMLToMarkdown(attachment_mode="skip")
     result = converter.convert(html)
     assert "![Image]" not in result
     assert "Text" in result and "more text" in result
@@ -327,7 +328,7 @@ def test_multiple_header_rows():
     """
     converter = HTMLToMarkdown()
     result = converter.convert(html)
-    lines = result.strip().split('\n')
+    _lines = result.strip().split("\n")
     # Should have main header, separator, additional header row, then data
     assert "Group A" in result and "Group B" in result
     assert "Sub 1" in result and "Sub 2" in result
@@ -345,7 +346,7 @@ def test_empty_elements_handling():
     converter = HTMLToMarkdown()
     result = converter.convert(html).strip()
     # Should not produce excessive whitespace or empty content
-    assert len(result) == 0 or result.count('\n') < 5
+    assert len(result) == 0 or result.count("\n") < 5
 
 
 def test_options_object_usage():
@@ -368,13 +369,13 @@ def test_options_object_usage():
         strip_dangerous_elements=True,
         table_alignment_auto_detect=True,
         preserve_nbsp=True,
-        markdown_options=MarkdownOptions(escape_special=True)
+        markdown_options=MarkdownOptions(escape_special=True),
     )
 
     result = html_to_markdown(html, options=options)
 
     assert "\\*" in result  # Escaped special chars
-    assert "&" in result    # Decoded entities
+    assert "&" in result  # Decoded entities
     assert "*Data Table*" in result  # Caption
     assert ":---:" in result  # Center alignment
     assert "alert" not in result  # Sanitized dangerous content
@@ -386,12 +387,12 @@ def test_code_fence_with_language():
     converter = HTMLToMarkdown()
     result = converter.convert(html)
     assert "```python" in result
-    assert 'def hello():' in result
+    assert "def hello():" in result
 
 
 def test_inline_code_with_backticks():
     """Test inline code containing backticks."""
-    html = '<p>Use <code>`markdown`</code> syntax</p>'
+    html = "<p>Use <code>`markdown`</code> syntax</p>"
     converter = HTMLToMarkdown()
     result = converter.convert(html)
     # Should handle backticks within inline code appropriately

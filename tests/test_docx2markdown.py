@@ -245,8 +245,14 @@ def test_docx_to_markdown_images(tmp_path, monkeypatch):
     img_file.write_bytes(data)
     doc = docx.Document()
     doc.add_picture(str(img_file))
-    md_text = md.docx_to_markdown(doc, convert_images_to_base64=False)
-    assert "![image]()" in md_text
-    monkeypatch.setattr(md, "_extract_image_data", lambda parent, rid: "dataURI")
-    md_text2 = md.docx_to_markdown(doc, convert_images_to_base64=True)
-    assert "![image](dataURI)" in md_text2
+    from all2md.options import DocxOptions
+
+    options1 = DocxOptions(attachment_mode="alt_text")
+    md_text = md.docx_to_markdown(doc, options=options1)
+    assert "![image]" == md_text
+    from all2md import _attachment_utils
+
+    monkeypatch.setattr(_attachment_utils, "extract_docx_image_data", lambda parent, rid: b"fake_image_bytes")
+    options2 = DocxOptions(attachment_mode="base64")
+    md_text2 = md.docx_to_markdown(doc, options=options2)
+    assert "![image](data:image/png;base64," in md_text2

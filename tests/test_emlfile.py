@@ -68,17 +68,12 @@ References: <ref1@example.com>
 Hello world
 """
     f = StringIO(eml)
-    msgs = parse_email_chain(f)
-    assert isinstance(msgs, list) and len(msgs) == 1
-    m = msgs[0]
-    assert m["from"] == "A <a@example.com>"
-    assert m["to"] == "B <b@example.com>"
-    assert m["subject"] == "Test Email"
-    assert m["date"].year == 2023 and m["date"].hour == 10 and m["date"].tzinfo is not None
-    assert m["content"].strip() == "Hello world"
-    assert m["message_id"] == "<msg1@example.com>"
-    assert m["in_reply_to"] == "<prev@example.com>"
-    assert m["references"] == "<ref1@example.com>"
+    md = parse_email_chain(f)
+    assert isinstance(md, str)
+    assert "From: A <a@example.com>" in md
+    assert "To: B <b@example.com>" in md
+    assert "Subject: Test Email" in md
+    assert "Hello world" in md
 
 
 def test_parse_email_chain_file_path(tmp_path):
@@ -92,11 +87,10 @@ File content here
 """
     p = tmp_path / "test.eml"
     p.write_text(eml, encoding="utf-8")
-    msgs = parse_email_chain(str(p))
-    assert len(msgs) == 1
-    m = msgs[0]
-    assert m["subject"] == "File Path Test"
-    assert "File content here" in m["content"]
+    md = parse_email_chain(str(p))
+    assert isinstance(md, str)
+    assert "Subject: File Path Test" in md
+    assert "File content here" in md
 
 
 def test_parse_email_chain_invalid_type():
@@ -119,10 +113,10 @@ Content-Type: text/html; charset="utf-8"
 </html>
 """
     f = StringIO(eml)
-    msgs = parse_email_chain(f)
-    assert len(msgs) == 1
-    m = msgs[0]
-    assert "<p>This is <b>HTML</b> content.</p>" in m["content"]
+    md = parse_email_chain(f)
+    assert isinstance(md, str)
+    assert "Subject: HTML Only" in md
+    assert "<p>This is <b>HTML</b> content.</p>" in md
 
 
 # def test_parse_email_chain_missing_optional_headers():
@@ -167,24 +161,20 @@ Original content line 2
 <https://urldefense.com/remove>This link
 """
     f = StringIO(eml)
-    msgs = parse_email_chain(f)
-    assert len(msgs) == 2
-    m0, m1 = msgs
-    # original message from chain should be first (older)
-    assert m0["from"] == "Original <orig@example.com>"
-    assert m0["to"] == "Respond <resp@example.com>"
-    assert m0["subject"] == "Re: Chain Example"
-    assert m0["date"].year == 2023 and m0["date"].month == 1 and m0["date"].day == 2
-    assert "This is quoted" in m0["content"]
-    assert "Original content line 1" in m0["content"]
-    assert "<https://urldefense.com" not in m0["content"]
-    assert m0.get("cc") == "CC <cc@example.com>"
-    # top message should be second (newer)
-    assert m1["from"] == "Top <top@example.com>"
-    assert m1["to"] == "Bot <bot@example.com>"
-    assert m1["subject"] == "Chain Example"
-    assert "Here is my message" in m1["content"]
-    assert m1.get("cc") is None
+    md = parse_email_chain(f)
+    assert isinstance(md, str)
+    # Should contain both messages in chronological order (older first)
+    assert "From: Original <orig@example.com>" in md
+    assert "From: Top <top@example.com>" in md
+    assert "Subject: Re: Chain Example" in md
+    assert "Subject: Chain Example" in md
+    assert "This is quoted" in md
+    assert "Original content line 1" in md
+    assert "Here is my message" in md
+    # URL defense links should be cleaned
+    assert "<https://urldefense.com" not in md
+    # CC should appear
+    assert "cc: CC <cc@example.com>" in md
 
 
 def test_parse_email_chain_as_markdown_chain():
@@ -204,7 +194,7 @@ Subject: Re: Chain Example
 Quoted content
 """
     f = StringIO(eml)
-    md = parse_email_chain(f, as_markdown=True)
+    md = parse_email_chain(f)
     # Older message first
     assert md.startswith("From: Original <orig@example.com>")
     # cc line only in first block

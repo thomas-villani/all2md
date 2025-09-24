@@ -113,8 +113,9 @@ class MdparseFormatError(MdparseError):
         Available supported formats
     """
 
-    def __init__(self, message: str | None = None, format_type: str | None = None,
-                 supported_formats: list[str] | None = None):
+    def __init__(
+        self, message: str | None = None, format_type: str | None = None, supported_formats: list[str] | None = None
+    ):
         if message is None:
             if format_type:
                 message = f"Unsupported format: '{format_type}'"
@@ -188,8 +189,6 @@ class MdparseConversionError(MdparseError):
         Where in the conversion process the error occurred
     """
 
-    def __init__(self, message: str, conversion_stage: str | None = None,
-                 original_error: Exception | None = None):
+    def __init__(self, message: str, conversion_stage: str | None = None, original_error: Exception | None = None):
         super().__init__(message, original_error)
         self.conversion_stage = conversion_stage
-

@@ -1,17 +1,14 @@
-import fitz
 import tempfile
-from pathlib import Path
+
+import fitz
 
 from all2md import pdf2markdown as mod
-from all2md.options import PdfOptions, MarkdownOptions
+from all2md.options import MarkdownOptions, PdfOptions
 
 
 class FakePageIdent:
     def __init__(self):
-        spans = [
-            {"text": "a" * 100, "size": 12.0, "flags": 0},
-            {"text": "b" * 10, "size": 20.0, "flags": 0}
-        ]
+        spans = [{"text": "a" * 100, "size": 12.0, "flags": 0}, {"text": "b" * 10, "size": 20.0, "flags": 0}]
         line = {"dir": (1, 0), "spans": spans}
         block = {"lines": [line]}
         self.blocks = [block]
@@ -82,10 +79,7 @@ def test_resolve_links_multiple_links():
 def test_header_detection_with_font_weight():
     """Test header detection using font weight."""
     doc = FakeDocIdent()
-    options = PdfOptions(
-        header_use_font_weight=True,
-        header_use_all_caps=False
-    )
+    options = PdfOptions(header_use_font_weight=True, header_use_all_caps=False)
     hdr = mod.IdentifyHeaders(doc, options=options)
     # The implementation would need to check for bold flag
     assert hdr.header_id is not None
@@ -96,7 +90,7 @@ def test_header_detection_with_percentile():
     doc = FakeDocIdent()
     options = PdfOptions(
         header_percentile_threshold=80,  # Top 20% of sizes
-        header_min_occurrences=1
+        header_min_occurrences=1,
     )
     hdr = mod.IdentifyHeaders(doc, options=options)
     assert hdr.header_id.get(20) == "# "  # Large font should be header
@@ -107,7 +101,7 @@ def test_header_detection_with_allowlist():
     doc = FakeDocIdent()
     options = PdfOptions(
         header_size_allowlist=[14.0, 16.0],  # Force these sizes to be headers
-        header_min_occurrences=0
+        header_min_occurrences=0,
     )
     hdr = mod.IdentifyHeaders(doc, options=options)
     # 14 and 16 should be treated as headers even if not frequent
@@ -119,7 +113,7 @@ def test_header_detection_with_denylist():
     doc = FakeDocIdent()
     options = PdfOptions(
         header_size_denylist=[20.0],  # Prevent this size from being a header
-        header_min_occurrences=0
+        header_min_occurrences=0,
     )
     hdr = mod.IdentifyHeaders(doc, options=options)
     # 20 should not be a header even though it's larger
@@ -130,9 +124,9 @@ def test_detect_columns():
     """Test multi-column layout detection."""
     # Create blocks simulating two columns
     blocks = [
-        {"bbox": [50, 100, 250, 200]},   # Left column, top
+        {"bbox": [50, 100, 250, 200]},  # Left column, top
         {"bbox": [300, 100, 500, 200]},  # Right column, top
-        {"bbox": [50, 250, 250, 350]},   # Left column, bottom
+        {"bbox": [50, 250, 250, 350]},  # Left column, bottom
         {"bbox": [300, 250, 500, 350]},  # Right column, bottom
     ]
     columns = mod.detect_columns(blocks, column_gap_threshold=30)
@@ -171,10 +165,12 @@ def test_merge_hyphenated_text():
 
 def test_detect_tables_by_ruling_lines():
     """Test fallback table detection using ruling lines."""
+
     # This would need a mock page with drawing commands
     # For now, test that the function exists and handles empty input
     class MockPage:
         rect = fitz.Rect(0, 0, 600, 800)
+
         def get_drawings(self):
             return []
 
@@ -184,10 +180,7 @@ def test_detect_tables_by_ruling_lines():
 
 def test_page_separator_customization():
     """Test customizable page separators."""
-    md_options = MarkdownOptions(
-        page_separator_format="--- Page {page_num} ---",
-        include_page_numbers=True
-    )
+    md_options = MarkdownOptions(page_separator_format="--- Page {page_num} ---", include_page_numbers=True)
     # Would need to test in full pdf_to_markdown flow
     assert "{page_num}" in md_options.page_separator_format
 
@@ -196,13 +189,14 @@ def test_image_extraction_options():
     """Test image extraction configuration."""
     with tempfile.TemporaryDirectory() as tmpdir:
         options = PdfOptions(
-            extract_images=True,
-            image_output_dir=tmpdir,
+            attachment_mode="skip",
+            attachment_output_dir=tmpdir,
             image_placement_markers=True,
-            include_image_captions=True
+            include_image_captions=True,
         )
-        assert options.extract_images is True
-        assert options.image_output_dir == tmpdir
+        assert options.attachment_mode == "skip"
+        assert options.attachment_output_dir == tmpdir
+        assert options.image_placement_markers is True
 
 
 def test_resolve_links_overlap():

@@ -43,17 +43,12 @@ from .constants import (
     DEFAULT_ATTACHMENT_MODE,
     DEFAULT_ATTACHMENT_OUTPUT_DIR,
     # HTML-specific constants
-    DEFAULT_BASE_URL,
     DEFAULT_BULLET_SYMBOLS,
     DEFAULT_COLUMN_GAP_THRESHOLD,
-    DEFAULT_CONVERT_IMAGES_TO_BASE64,
     DEFAULT_DETECT_COLUMNS,
     DEFAULT_DETECT_MERGED_CELLS,
-    DEFAULT_DOWNLOAD_IMAGES,
-    DEFAULT_EMBED_IMAGES_AS_DATA_URI,
     DEFAULT_EMPHASIS_SYMBOL,
     DEFAULT_ESCAPE_SPECIAL,
-    DEFAULT_EXTRACT_IMAGES,
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_HANDLE_ROTATED_TEXT,
     # PDF-specific constants
@@ -61,7 +56,6 @@ from .constants import (
     DEFAULT_HEADER_PERCENTILE_THRESHOLD,
     DEFAULT_HEADER_USE_ALL_CAPS,
     DEFAULT_HEADER_USE_FONT_WEIGHT,
-    DEFAULT_IMAGE_OUTPUT_DIR,
     DEFAULT_IMAGE_PLACEMENT_MARKERS,
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
@@ -71,7 +65,6 @@ from .constants import (
     DEFAULT_PAGE_SEPARATOR_FORMAT,
     DEFAULT_PRESERVE_NBSP,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
-    DEFAULT_REMOVE_IMAGES,
     DEFAULT_SLIDE_NUMBERS,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
@@ -192,13 +185,6 @@ class PdfOptions:
     table_ruling_line_threshold : float, default 0.5
         Threshold for detecting table ruling lines.
 
-    # Image extraction parameters (deprecated - use attachment_mode)
-    extract_images : bool, default False
-        **Deprecated**: Use attachment_mode instead.
-        Extract images from PDF.
-    image_output_dir : str | None, default None
-        **Deprecated**: Use attachment_output_dir instead.
-        Directory to save extracted images.
     image_placement_markers : bool, default True
         Add markers showing image positions.
     include_image_captions : bool, default True
@@ -237,7 +223,7 @@ class PdfOptions:
     """
 
     pages: list[int] | None = None
-    convert_images_to_base64: bool = DEFAULT_CONVERT_IMAGES_TO_BASE64
+    convert_images_to_base64: bool = False
     password: str | None = None
 
     # Header detection parameters
@@ -260,9 +246,6 @@ class PdfOptions:
     detect_merged_cells: bool = DEFAULT_DETECT_MERGED_CELLS
     table_ruling_line_threshold: float = DEFAULT_TABLE_RULING_LINE_THRESHOLD
 
-    # Image extraction parameters (deprecated - use attachment_mode)
-    extract_images: bool = DEFAULT_EXTRACT_IMAGES
-    image_output_dir: str | None = DEFAULT_IMAGE_OUTPUT_DIR
     image_placement_markers: bool = DEFAULT_IMAGE_PLACEMENT_MARKERS
     include_image_captions: bool = DEFAULT_INCLUDE_IMAGE_CAPTIONS
 
@@ -283,9 +266,6 @@ class DocxOptions:
 
     Parameters
     ----------
-    convert_images_to_base64 : bool, default False
-        **Deprecated**: Use attachment_mode instead.
-        Whether to embed images as base64-encoded data URLs.
     preserve_tables : bool, default True
         Whether to preserve table formatting in Markdown.
     attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
@@ -311,7 +291,6 @@ class DocxOptions:
         >>> options = DocxOptions(markdown_options=md_opts)
     """
 
-    convert_images_to_base64: bool = DEFAULT_CONVERT_IMAGES_TO_BASE64
     preserve_tables: bool = True
     attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
     attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
@@ -333,18 +312,6 @@ class HtmlOptions:
         Whether to use # syntax for headings instead of underline style.
     extract_title : bool, default False
         Whether to extract and use the HTML <title> element.
-    remove_images : bool, default False
-        **Deprecated**: Use attachment_mode instead.
-        Whether to completely remove images from the output.
-    base_url : str or None, default None
-        **Deprecated**: Use attachment_base_url instead.
-        Base URL for converting relative image/link URLs to absolute URLs.
-    download_images : bool, default False
-        **Deprecated**: Use attachment_mode instead.
-        Whether to download images and embed them as data URIs.
-    embed_images_as_data_uri : bool, default False
-        **Deprecated**: Use attachment_mode instead.
-        Whether to convert image sources to data URI format.
     preserve_nbsp : bool, default False
         Whether to preserve non-breaking spaces (&nbsp;) in the output.
     strip_dangerous_elements : bool, default False
@@ -383,10 +350,6 @@ class HtmlOptions:
 
     use_hash_headings: bool = DEFAULT_USE_HASH_HEADINGS
     extract_title: bool = DEFAULT_EXTRACT_TITLE
-    remove_images: bool = DEFAULT_REMOVE_IMAGES
-    base_url: str | None = DEFAULT_BASE_URL
-    download_images: bool = DEFAULT_DOWNLOAD_IMAGES
-    embed_images_as_data_uri: bool = DEFAULT_EMBED_IMAGES_AS_DATA_URI
     preserve_nbsp: bool = DEFAULT_PRESERVE_NBSP
     strip_dangerous_elements: bool = DEFAULT_STRIP_DANGEROUS_ELEMENTS
     table_alignment_auto_detect: bool = DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT
@@ -406,9 +369,6 @@ class PptxOptions:
 
     Parameters
     ----------
-    convert_images_to_base64 : bool, default False
-        **Deprecated**: Use attachment_mode instead.
-        Whether to embed images as base64-encoded data URLs.
     slide_numbers : bool, default False
         Whether to include slide numbers in the output.
     include_notes : bool, default True
@@ -435,7 +395,6 @@ class PptxOptions:
         >>> options = PptxOptions(include_notes=False)
     """
 
-    convert_images_to_base64: bool = DEFAULT_CONVERT_IMAGES_TO_BASE64
     slide_numbers: bool = DEFAULT_SLIDE_NUMBERS
     include_notes: bool = True
     attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
@@ -455,9 +414,6 @@ class EmlOptions:
     ----------
     include_headers : bool, default True
         Whether to include email headers (From, To, Subject, Date) in output.
-    include_attachments_info : bool, default True
-        **Deprecated**: Use attachment_mode instead.
-        Whether to include attachment information in the output.
     preserve_thread_structure : bool, default True
         Whether to maintain email thread/reply chain structure.
     attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
@@ -483,10 +439,8 @@ class EmlOptions:
     """
 
     include_headers: bool = True
-    include_attachments_info: bool = True
     preserve_thread_structure: bool = True
     attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
     attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
     attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
     markdown_options: MarkdownOptions | None = None
-

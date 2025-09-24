@@ -93,7 +93,7 @@ def is_file_like(obj: Any) -> bool:
     >>> is_file_like("not_file_like")
     False
     """
-    return hasattr(obj, 'read') and callable(obj.read)
+    return hasattr(obj, "read") and callable(obj.read)
 
 
 def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -> list[int] | None:
@@ -132,7 +132,7 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
         raise MdparseInputError(
             f"Pages must be a list of integers, got {type(pages).__name__}",
             parameter_name="pages",
-            parameter_value=pages
+            parameter_value=pages,
         )
 
     for page_num in pages:
@@ -140,30 +140,28 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
             raise MdparseInputError(
                 f"Page numbers must be integers, got {type(page_num).__name__}: {page_num}",
                 parameter_name="pages",
-                parameter_value=pages
+                parameter_value=pages,
             )
 
         if page_num < 0:
             raise MdparseInputError(
                 f"Invalid page number: {page_num}. Pages must be 0-based (>= 0).",
                 parameter_name="pages",
-                parameter_value=pages
+                parameter_value=pages,
             )
 
         if max_pages is not None and page_num >= max_pages:
             raise MdparseInputError(
-                f"Page number {page_num} is out of range. Document has {max_pages} pages (0-{max_pages-1}).",
+                f"Page number {page_num} is out of range. Document has {max_pages} pages (0-{max_pages - 1}).",
                 parameter_name="pages",
-                parameter_value=pages
+                parameter_value=pages,
             )
 
     return pages
 
 
 def validate_and_convert_input(
-    input_data: InputType,
-    supported_types: list[str] | None = None,
-    require_binary: bool = False
+    input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
 ) -> tuple[Any, str]:
     """Validate input and convert to appropriate format for processing.
 
@@ -212,16 +210,12 @@ def validate_and_convert_input(
         path_str = str(input_data)
         if not os.path.exists(path_str):
             raise MdparseInputError(
-                f"File does not exist: {path_str}",
-                parameter_name="input_data",
-                parameter_value=input_data
+                f"File does not exist: {path_str}", parameter_name="input_data", parameter_value=input_data
             )
 
         if not os.path.isfile(path_str):
             raise MdparseInputError(
-                f"Path is not a file: {path_str}",
-                parameter_name="input_data",
-                parameter_value=input_data
+                f"Path is not a file: {path_str}", parameter_name="input_data", parameter_value=input_data
             )
 
         return input_data, "path"
@@ -233,26 +227,26 @@ def validate_and_convert_input(
     # Handle file-like objects
     elif is_file_like(input_data):
         # Check if it's the right mode (binary vs text)
-        if require_binary and hasattr(input_data, 'mode'):
-            if 'b' not in str(input_data.mode):
+        if require_binary and hasattr(input_data, "mode"):
+            if "b" not in str(input_data.mode):
                 raise MdparseInputError(
                     f"File must be opened in binary mode, got mode: {input_data.mode}",
                     parameter_name="input_data",
-                    parameter_value=input_data
+                    parameter_value=input_data,
                 )
 
         return input_data, "file"
 
     # Handle document objects (e.g., PyMuPDF Document, python-docx Document)
-    elif hasattr(input_data, '__class__'):
+    elif hasattr(input_data, "__class__"):
         # This is likely a document object from a library
         class_name = input_data.__class__.__name__
 
         # Accept common document objects
         known_document_types = [
-            'Document',  # python-docx, PyMuPDF
-            'Presentation',  # python-pptx
-            'Workbook',  # openpyxl
+            "Document",  # python-docx, PyMuPDF
+            "Presentation",  # python-pptx
+            "Workbook",  # openpyxl
         ]
 
         if class_name in known_document_types:
@@ -269,7 +263,7 @@ def validate_and_convert_input(
         raise MdparseInputError(
             f"Unsupported input type: {type_name}. Supported types: {supported_str}",
             parameter_name="input_data",
-            parameter_value=input_data
+            parameter_value=input_data,
         )
 
 
@@ -299,21 +293,17 @@ def escape_markdown_special(text: str, escape_chars: str | None = None) -> str:
         escape_chars = MARKDOWN_SPECIAL_CHARS
 
     # Escape backslashes first to avoid double-escaping
-    text = text.replace('\\', '\\\\')
+    text = text.replace("\\", "\\\\")
 
     # Escape each special character
     for char in escape_chars:
-        if char != '\\':  # Already handled backslashes
-            text = text.replace(char, f'\\{char}')
+        if char != "\\":  # Already handled backslashes
+            text = text.replace(char, f"\\{char}")
 
     return text
 
 
-def format_special_text(
-    text: str,
-    format_type: str,
-    mode: str = "html"
-) -> str:
+def format_special_text(text: str, format_type: str, mode: str = "html") -> str:
     """Format special text (underline, superscript, subscript) according to mode.
 
     Parameters
@@ -346,31 +336,22 @@ def format_special_text(
         return text
 
     format_map = {
-        "html": {
-            "underline": f"<u>{text}</u>",
-            "superscript": f"<sup>{text}</sup>",
-            "subscript": f"<sub>{text}</sub>"
-        },
-        "markdown": {
-            "underline": f"__{text}__",
-            "superscript": f"^{text}^",
-            "subscript": f"~{text}~"
-        }
+        "html": {"underline": f"<u>{text}</u>", "superscript": f"<sup>{text}</sup>", "subscript": f"<sub>{text}</sub>"},
+        "markdown": {"underline": f"__{text}__", "superscript": f"^{text}^", "subscript": f"~{text}~"},
     }
 
     if mode not in format_map:
         raise MdparseInputError(
             f"Invalid mode: {mode}. Must be 'html', 'markdown', or 'ignore'",
             parameter_name="mode",
-            parameter_value=mode
+            parameter_value=mode,
         )
 
     if format_type not in format_map[mode]:
         raise MdparseInputError(
             f"Invalid format_type: {format_type}. Must be 'underline', 'superscript', or 'subscript'",
             parameter_name="format_type",
-            parameter_value=format_type
+            parameter_value=format_type,
         )
 
     return format_map[mode][format_type]
-

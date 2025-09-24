@@ -78,12 +78,8 @@ from io import BytesIO, StringIO
 from typing import IO, Union
 
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
-from .constants import DOCUMENT_EXTENSIONS as _DOCUMENT_EXTENSIONS
-from .constants import IMAGE_EXTENSIONS as _IMAGE_EXTENSIONS
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
-# Import and re-export the constants
-from .constants import PLAINTEXT_EXTENSIONS as _PLAINTEXT_EXTENSIONS
 from .exceptions import MdparseConversionError, MdparseInputError
 from .options import DocxOptions, EmlOptions, HtmlOptions, PdfOptions, PptxOptions
 
@@ -98,7 +94,7 @@ def parse_file(
     file: IO,
     filename: str,
     return_mimetype: bool = False,
-    options: dict | None = None  # Reserved for future per-format options
+    options: dict | None = None,  # Reserved for future per-format options
 ) -> Union[str, None, tuple[Union[str, None], Union[str, None]]]:
     """Parse file and return content as Markdown format.
 
@@ -188,9 +184,7 @@ def parse_file(
         try:
             import pandas as pd
         except ImportError as e:
-            raise ImportError(
-                "`pandas` is required to read xlsx files. Install with `pip install pandas`."
-            ) from e
+            raise ImportError("`pandas` is required to read xlsx files. Install with `pip install pandas`.") from e
 
         excel_file = pd.ExcelFile(file)
         content = ""
@@ -244,7 +238,7 @@ def parse_file(
 
         file.seek(0)
         eml_stream: StringIO = StringIO(file.read().decode("utf-8"))
-        content = parse_email_chain(eml_stream, as_markdown=True)
+        content = parse_email_chain(eml_stream)
     # Others
     else:  # elif file.content_type == "application/octet-stream":
         # guess = mimetypes.guess_type(file.filename)[0]
@@ -269,4 +263,12 @@ __all__ = [
     "IMAGE_EXTENSIONS",
     "PLAINTEXT_EXTENSIONS",
     "parse_file",
+    # Re-exported classes and exceptions for public API
+    "DocxOptions",
+    "EmlOptions",
+    "HtmlOptions",
+    "PdfOptions",
+    "PptxOptions",
+    "MdparseConversionError",
+    "MdparseInputError",
 ]

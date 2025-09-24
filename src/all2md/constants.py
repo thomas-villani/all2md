@@ -55,9 +55,6 @@ DEFAULT_BULLETED_LIST_INDENT = 24
 # Conversion Behavior Constants
 # =============================================================================
 
-# Image handling (deprecated - use attachment handling)
-DEFAULT_CONVERT_IMAGES_TO_BASE64 = False
-DEFAULT_REMOVE_IMAGES = False
 
 # Attachment handling (unified across all converters) - defined after AttachmentMode type
 DEFAULT_ATTACHMENT_OUTPUT_DIR = None
@@ -105,9 +102,6 @@ DEFAULT_TABLE_FALLBACK_DETECTION = True
 DEFAULT_DETECT_MERGED_CELLS = True
 DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
 
-# Image extraction constants
-DEFAULT_EXTRACT_IMAGES = False
-DEFAULT_IMAGE_OUTPUT_DIR = None
 DEFAULT_IMAGE_PLACEMENT_MARKERS = True
 DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
 
@@ -124,12 +118,8 @@ HTML_BULLET_SYMBOLS = "*-+"
 
 # HTML entity handling
 DEFAULT_PRESERVE_NBSP = False
-HTML_ENTITIES_TO_PRESERVE = ["nbsp"] # Entities that might need special handling
+HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handling
 
-# Image handling
-DEFAULT_BASE_URL = None
-DEFAULT_DOWNLOAD_IMAGES = False
-DEFAULT_EMBED_IMAGES_AS_DATA_URI = False
 
 # Content sanitization
 DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
@@ -145,23 +135,13 @@ MAX_CODE_FENCE_LENGTH = 10
 
 # Table handling
 DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
-TABLE_ALIGNMENT_MAPPING = {
-    "left": ":---",
-    "center": ":---:",
-    "right": "---:",
-    "justify": ":---"
-}
+TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "justify": ":---"}
 
 # =============================================================================
 # Email Processing Constants
 # =============================================================================
 
-EMAIL_DATE_FORMATS = [
-    "%a, %d %b %Y %H:%M:%S %z",
-    "%d %b %Y %H:%M:%S %z",
-    "%a, %d %b %Y %H:%M:%S",
-    "%d %b %Y %H:%M:%S"
-]
+EMAIL_DATE_FORMATS = ["%a, %d %b %Y %H:%M:%S %z", "%d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S", "%d %b %Y %H:%M:%S"]
 
 # =============================================================================
 # PDF to Markdown Constants
@@ -173,7 +153,7 @@ PDF_PAGE_SIZES = {
     "Letter": (612.0, 792.0),
     "Legal": (612.0, 1008.0),
     "A3": (842.0, 1191.0),
-    "A5": (420.0, 595.0)
+    "A5": (420.0, 595.0),
 }
 
 PDF_DEFAULT_MARGINS = (50, 50, 50, 50)  # top, right, bottom, left
@@ -183,34 +163,206 @@ PDF_DEFAULT_MARGINS = (50, 50, 50, 50)  # top, right, bottom, left
 # =============================================================================
 
 PLAINTEXT_EXTENSIONS = [
-    ".adoc", ".asciidoc", ".asm", ".asp", ".aspx", ".atom", ".awk", ".babelrc", ".bash",
-    ".bat", ".bazel", ".bib", ".bzl", ".c", ".cfg", ".cjs", ".clj", ".cmake",
-    ".cmd", ".coffee", ".conf", ".config", ".cpp", ".cs", ".csh", ".cshtml", ".cson",
-    ".css", ".csv", ".cypher", ".d", ".dart", ".desktop", ".diff", ".dockerfile", ".dtd",
-    ".editorconfig", ".ejs", ".el", ".elm", ".env", ".erb", ".erl", ".eslintignore", ".eslintrc",
-    ".ex", ".exs", ".f", ".f90", ".f95", ".fish", ".for", ".fs", ".gemspec",
-    ".geojson", ".gitattributes", ".gitignore", ".gn", ".go", ".gql", ".gradle", ".graphql", ".graphqlrc",
-    ".groovy", ".gyp", ".h", ".haml", ".hbs", ".hcl", ".hjson", ".hpp", ".hrl",
-    ".hs", ".htaccess", ".htm", ".html", ".htpasswd", ".ics", ".iml", ".inf", ".ini",
-    ".ipynb", ".jade", ".java", ".jbuilder", ".jenkinsfile", ".jl", ".js", ".json", ".json5",
-    ".jsonld", ".jsx", ".ksh", ".kt", ".kts", ".less", ".liquid", ".lisp", ".log",
-    ".lua", ".m", ".mak", ".make", ".markdown", ".md", ".mdown", ".mdwn", ".mdx",
-    ".mediawiki", ".mjs", ".mkd", ".mkdn", ".mm", ".mustache", ".nfo", ".nginx", ".nim",
-    ".npmrc", ".nsi", ".nt", ".opml", ".org", ".p", ".pas", ".patch", ".php",
-    ".pl", ".plist", ".pod", ".podspec", ".pp", ".prettierignore", ".prisma", ".pro", ".properties",
-    ".proto", ".ps1", ".pug", ".py", ".pyx", ".r", ".rake", ".rb", ".rdoc",
-    ".reg", ".rhtml", ".robots", ".rs", ".rss", ".rst", ".sas", ".sass", ".sbt",
-    ".scala", ".scm", ".scss", ".sed", ".sgml", ".sh", ".shtml", ".sitemap", ".sql",
-    ".styl", ".stylelintrc", ".svelte", ".svg", ".swift", ".tcl", ".tex", ".textile", ".tf",
-    ".thor", ".toml", ".tpl", ".ts", ".tsv", ".tsx", ".ttl", ".twig", ".txt",
-    ".v", ".vb", ".vbhtml", ".vcf", ".vhd", ".vim", ".vue", ".webmanifest", ".wiki",
-    ".wsdl", ".wsgi", ".xaml", ".xhtml", ".xml", ".xsd", ".yaml", ".yml", ".zsh",
+    ".adoc",
+    ".asciidoc",
+    ".asm",
+    ".asp",
+    ".aspx",
+    ".atom",
+    ".awk",
+    ".babelrc",
+    ".bash",
+    ".bat",
+    ".bazel",
+    ".bib",
+    ".bzl",
+    ".c",
+    ".cfg",
+    ".cjs",
+    ".clj",
+    ".cmake",
+    ".cmd",
+    ".coffee",
+    ".conf",
+    ".config",
+    ".cpp",
+    ".cs",
+    ".csh",
+    ".cshtml",
+    ".cson",
+    ".css",
+    ".csv",
+    ".cypher",
+    ".d",
+    ".dart",
+    ".desktop",
+    ".diff",
+    ".dockerfile",
+    ".dtd",
+    ".editorconfig",
+    ".ejs",
+    ".el",
+    ".elm",
+    ".env",
+    ".erb",
+    ".erl",
+    ".eslintignore",
+    ".eslintrc",
+    ".ex",
+    ".exs",
+    ".f",
+    ".f90",
+    ".f95",
+    ".fish",
+    ".for",
+    ".fs",
+    ".gemspec",
+    ".geojson",
+    ".gitattributes",
+    ".gitignore",
+    ".gn",
+    ".go",
+    ".gql",
+    ".gradle",
+    ".graphql",
+    ".graphqlrc",
+    ".groovy",
+    ".gyp",
+    ".h",
+    ".haml",
+    ".hbs",
+    ".hcl",
+    ".hjson",
+    ".hpp",
+    ".hrl",
+    ".hs",
+    ".htaccess",
+    ".htm",
+    ".html",
+    ".htpasswd",
+    ".ics",
+    ".iml",
+    ".inf",
+    ".ini",
+    ".ipynb",
+    ".jade",
+    ".java",
+    ".jbuilder",
+    ".jenkinsfile",
+    ".jl",
+    ".js",
+    ".json",
+    ".json5",
+    ".jsonld",
+    ".jsx",
+    ".ksh",
+    ".kt",
+    ".kts",
+    ".less",
+    ".liquid",
+    ".lisp",
+    ".log",
+    ".lua",
+    ".m",
+    ".mak",
+    ".make",
+    ".markdown",
+    ".md",
+    ".mdown",
+    ".mdwn",
+    ".mdx",
+    ".mediawiki",
+    ".mjs",
+    ".mkd",
+    ".mkdn",
+    ".mm",
+    ".mustache",
+    ".nfo",
+    ".nginx",
+    ".nim",
+    ".npmrc",
+    ".nsi",
+    ".nt",
+    ".opml",
+    ".org",
+    ".p",
+    ".pas",
+    ".patch",
+    ".php",
+    ".pl",
+    ".plist",
+    ".pod",
+    ".podspec",
+    ".pp",
+    ".prettierignore",
+    ".prisma",
+    ".pro",
+    ".properties",
+    ".proto",
+    ".ps1",
+    ".pug",
+    ".py",
+    ".pyx",
+    ".r",
+    ".rake",
+    ".rb",
+    ".rdoc",
+    ".reg",
+    ".rhtml",
+    ".robots",
+    ".rs",
+    ".rss",
+    ".rst",
+    ".sas",
+    ".sass",
+    ".sbt",
+    ".scala",
+    ".scm",
+    ".scss",
+    ".sed",
+    ".sgml",
+    ".sh",
+    ".shtml",
+    ".sitemap",
+    ".sql",
+    ".styl",
+    ".stylelintrc",
+    ".svelte",
+    ".svg",
+    ".swift",
+    ".tcl",
+    ".tex",
+    ".textile",
+    ".tf",
+    ".thor",
+    ".toml",
+    ".tpl",
+    ".ts",
+    ".tsv",
+    ".tsx",
+    ".ttl",
+    ".twig",
+    ".txt",
+    ".v",
+    ".vb",
+    ".vbhtml",
+    ".vcf",
+    ".vhd",
+    ".vim",
+    ".vue",
+    ".webmanifest",
+    ".wiki",
+    ".wsdl",
+    ".wsgi",
+    ".xaml",
+    ".xhtml",
+    ".xml",
+    ".xsd",
+    ".yaml",
+    ".yml",
+    ".zsh",
 ]
 
-DOCUMENT_EXTENSIONS = [
-    ".pdf", ".csv", ".xlsx", ".docx", ".pptx", ".eml"
-]
+DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xlsx", ".docx", ".pptx", ".eml"]
 
-IMAGE_EXTENSIONS = [
-    ".jpg", ".jpeg", ".png", ".gif"
-]
+IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]

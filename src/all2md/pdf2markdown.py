@@ -107,7 +107,7 @@ from typing import Union
 
 import fitz
 
-from ._attachment_utils import process_attachment, resolve_deprecated_options
+from ._attachment_utils import process_attachment
 from ._input_utils import escape_markdown_special, validate_and_convert_input, validate_page_range
 from .constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
@@ -126,12 +126,13 @@ def _check_pymupdf_version() -> None:
     MdparseConversionError
         If PyMuPDF version is too old
     """
-    min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split('.')))
+    min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
     if fitz.pymupdf_version_tuple < min_version:
         raise MdparseConversionError(
             f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
             f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
         )
+
 
 _check_pymupdf_version()
 
@@ -166,7 +167,13 @@ class IdentifyHeaders:
         PDF conversion options used for header detection
     """
 
-    def __init__(self, doc: fitz.Document, pages: list[int] | range | None = None, body_limit: float | None = None, options: PdfOptions | None = None) -> None:
+    def __init__(
+        self,
+        doc: fitz.Document,
+        pages: list[int] | range | None = None,
+        body_limit: float | None = None,
+        options: PdfOptions | None = None,
+    ) -> None:
         """Initialize header identification by analyzing font sizes.
 
         Reads all text spans from specified pages and builds a frequency
@@ -242,8 +249,7 @@ class IdentifyHeaders:
 
         # Filter by minimum occurrences
         if self.options.header_min_occurrences > 0:
-            fontsizes = {k: v for k, v in fontsizes.items()
-                        if v >= self.options.header_min_occurrences}
+            fontsizes = {k: v for k, v in fontsizes.items() if v >= self.options.header_min_occurrences}
 
         # If not provided, choose the most frequent font size as body text.
         # If no text at all on all pages, just use 12
@@ -431,7 +437,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
         return None
 
     bbox = fitz.Rect(span["bbox"])  # span bbox
-    span_text = span['text']
+    span_text = span["text"]
 
     # Find all links that overlap with this span
     overlapping_links = []
@@ -503,7 +509,13 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     return None
 
 
-def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: IdentifyHeaders, md_options: MarkdownOptions | None = None, pdf_options: PdfOptions | None = None) -> str:
+def page_to_markdown(
+    page: fitz.Page,
+    clip: fitz.Rect | None,
+    hdr_prefix: IdentifyHeaders,
+    md_options: MarkdownOptions | None = None,
+    pdf_options: PdfOptions | None = None,
+) -> str:
     """Convert text from a page region to Markdown format.
 
     Extracts and processes text within the specified clipping rectangle,
@@ -623,7 +635,7 @@ def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: Identi
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
                     else:
-                        span_text = s['text'].strip()
+                        span_text = s["text"].strip()
                         if md_options and md_options.escape_special:
                             span_text = escape_markdown_special(span_text)
                         text = f"{hdr_string}{prefix}{span_text}{suffix} "
@@ -712,7 +724,7 @@ def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | No
                 attachment_mode=options.attachment_mode,
                 attachment_output_dir=options.attachment_output_dir,
                 attachment_base_url=options.attachment_base_url,
-                is_image=True
+                is_image=True,
             )
 
             # Try to detect caption
@@ -720,11 +732,7 @@ def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | No
             if options.include_image_captions:
                 caption = detect_image_caption(page, bbox)
 
-            images.append({
-                'bbox': bbox,
-                'path': image_path,
-                'caption': caption
-            })
+            images.append({"bbox": bbox, "path": image_path, "caption": caption})
 
             # Clean up
             if pix_rgb != pix:
@@ -758,21 +766,15 @@ def detect_image_caption(page: fitz.Page, image_bbox: fitz.Rect) -> str | None:
     """
     # Define search region below and above image
     caption_patterns = [
-        r'^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+\d+',
-        r'^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+[A-Z]\.',
+        r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+\d+",
+        r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+[A-Z]\.",
     ]
 
     # Search below image
-    search_below = fitz.Rect(image_bbox.x0 - 20,
-                             image_bbox.y1,
-                             image_bbox.x1 + 20,
-                             image_bbox.y1 + 50)
+    search_below = fitz.Rect(image_bbox.x0 - 20, image_bbox.y1, image_bbox.x1 + 20, image_bbox.y1 + 50)
 
     # Search above image (less common)
-    search_above = fitz.Rect(image_bbox.x0 - 20,
-                             image_bbox.y0 - 50,
-                             image_bbox.x1 + 20,
-                             image_bbox.y0)
+    search_above = fitz.Rect(image_bbox.x0 - 20, image_bbox.y0 - 50, image_bbox.x1 + 20, image_bbox.y0)
 
     for search_rect in [search_below, search_above]:
         text = page.get_textbox(search_rect)
@@ -843,7 +845,7 @@ def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> li
     table_rects: list[fitz.Rect] = []
 
     # Group horizontal lines by proximity
-    h_lines.sort(key=lambda l: l[1])  # Sort by y-coordinate
+    h_lines.sort(key=lambda line: line[1])  # Sort by y-coordinate
 
     if len(h_lines) >= 2 and len(v_lines) >= 2:
         # Look for regions with multiple h_lines and v_lines
@@ -853,15 +855,12 @@ def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> li
                 y2 = h_lines[j][1]
 
                 # Find v_lines that span between these h_lines
-                spanning_vlines = [v for v in v_lines
-                                  if v[1] <= y1 + 5 and v[3] >= y2 - 5]
+                spanning_vlines = [v for v in v_lines if v[1] <= y1 + 5 and v[3] >= y2 - 5]
 
                 if len(spanning_vlines) >= 2:
                     # Found a potential table
-                    x_min = min(min(h_lines[i][0], h_lines[j][0]),
-                               min(v[0] for v in spanning_vlines))
-                    x_max = max(max(h_lines[i][2], h_lines[j][2]),
-                               max(v[2] for v in spanning_vlines))
+                    x_min = min(min(h_lines[i][0], h_lines[j][0]), min(v[0] for v in spanning_vlines))
+                    x_max = max(max(h_lines[i][2], h_lines[j][2]), max(v[2] for v in spanning_vlines))
 
                     table_rect = fitz.Rect(x_min, y1, x_max, y2)
 
@@ -965,13 +964,7 @@ def parse_page(page: fitz.Page, options: PdfOptions | None = None) -> list[tuple
     return text_rects
 
 
-def pdf_to_markdown(
-    input_data: Union[str, BytesIO, fitz.Document],
-    options: PdfOptions | None = None,
-    pages: list[int] | None = None,  # Deprecated, use options.pages
-    convert_images_to_base64: bool | None = None,  # Deprecated, use options.convert_images_to_base64
-    password: str | None = None  # Deprecated, use options.password
-) -> str:
+def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: PdfOptions | None = None) -> str:
     """Convert PDF document to Markdown format.
 
     This function processes PDF documents and converts them to well-formatted
@@ -987,15 +980,6 @@ def pdf_to_markdown(
         - Already opened PyMuPDF Document object
     options : PdfOptions or None, default None
         Configuration options for PDF conversion. If None, uses default settings.
-    pages : list[int] or None, optional
-        **Deprecated**: Use options.pages instead.
-        List of 0-based page numbers to convert. If None, converts all pages.
-    convert_images_to_base64 : bool or None, optional
-        **Deprecated**: Use options.convert_images_to_base64 instead.
-        Whether to embed images as base64-encoded data URLs.
-    password : str or None, optional
-        **Deprecated**: Use options.password instead.
-        Password for encrypted PDF documents.
 
     Returns
     -------
@@ -1043,28 +1027,9 @@ def pdf_to_markdown(
     if options is None:
         options = PdfOptions()
 
-    # Handle deprecated parameters (with deprecation warnings would be ideal)
-    if pages is not None and options.pages is None:
-        options.pages = pages
-    if convert_images_to_base64 is not None and options.convert_images_to_base64 is None:
-        options.convert_images_to_base64 = convert_images_to_base64
-    if password is not None and options.password is None:
-        options.password = password
-
-    # Resolve deprecated attachment options to new unified system
-    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
-        options.attachment_mode,
-        options.attachment_output_dir,
-        options.attachment_base_url,
-        extract_images=options.extract_images,
-        convert_images_to_base64=options.convert_images_to_base64,
-        image_output_dir=options.image_output_dir
-    )
-
     # Validate and convert input
     doc_input, input_type = validate_and_convert_input(
-        input_data,
-        supported_types=["path-like", "file-like (BytesIO)", "fitz.Document objects"]
+        input_data, supported_types=["path-like", "file-like (BytesIO)", "fitz.Document objects"]
     )
 
     # Open document based on input type
@@ -1074,20 +1039,19 @@ def pdf_to_markdown(
         elif input_type in ("file", "bytes"):
             doc = fitz.open(stream=doc_input)
         elif input_type == "object":
-            if isinstance(doc_input, fitz.Document) or (hasattr(doc_input, "page_count")
-                                                        and hasattr(doc_input, "__getitem__")):
+            if isinstance(doc_input, fitz.Document) or (
+                hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
+            ):
                 doc = doc_input
             else:
                 raise MdparseInputError(
                     f"Expected fitz.Document object, got {type(doc_input).__name__}",
                     parameter_name="input_data",
-                    parameter_value=doc_input
+                    parameter_value=doc_input,
                 )
         else:
             raise MdparseInputError(
-                f"Unsupported input type: {input_type}",
-                parameter_name="input_data",
-                parameter_value=doc_input
+                f"Unsupported input type: {input_type}", parameter_name="input_data", parameter_value=doc_input
             )
     except Exception as e:
         if "password" in str(e).lower() or "encrypt" in str(e).lower():
@@ -1095,9 +1059,7 @@ def pdf_to_markdown(
             raise MdparsePasswordError(filename=filename) from e
         else:
             raise MdparseConversionError(
-                f"Failed to open PDF document: {str(e)}",
-                conversion_stage="document_opening",
-                original_error=e
+                f"Failed to open PDF document: {str(e)}", conversion_stage="document_opening", original_error=e
             ) from e
 
     # Validate page range
@@ -1106,15 +1068,13 @@ def pdf_to_markdown(
         pages_to_use: range | list[int] = validated_pages if validated_pages else range(doc.page_count)
     except Exception as e:
         raise MdparseInputError(
-            f"Invalid page range: {str(e)}",
-            parameter_name="pages",
-            parameter_value=options.pages
+            f"Invalid page range: {str(e)}", parameter_name="pages", parameter_value=options.pages
         ) from e
 
     # Get Markdown options (create default if not provided)
     md_options = options.markdown_options or MarkdownOptions()
 
-    hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else pages, options=options)
+    hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=options)
     md_string = ""
 
     for pno in pages_to_use:
@@ -1122,7 +1082,7 @@ def pdf_to_markdown(
 
         # Extract images if requested
         page_images = []
-        if options.extract_images:
+        if options.attachment_mode == "download":
             page_images = extract_page_images(page, pno, options)
 
         # 1. first locate all tables on page
@@ -1130,7 +1090,7 @@ def pdf_to_markdown(
 
         # Use fallback table detection if enabled and no tables found
         if options.table_fallback_detection and not tabs.tables:
-            fallback_rects = detect_tables_by_ruling_lines(page, options.table_ruling_line_threshold)
+            _fallback_rects = detect_tables_by_ruling_lines(page, options.table_ruling_line_threshold)
             # Note: We can't create actual table objects from fallback detection,
             # but we can mark these regions for special processing
 
@@ -1184,7 +1144,7 @@ def pdf_to_markdown(
         # Add image placement markers if enabled
         if page_images and options.image_placement_markers:
             # Sort images by vertical position
-            page_images.sort(key=lambda img: img['bbox'].y0)
+            page_images.sort(key=lambda img: img["bbox"].y0)
 
             # Insert images at appropriate positions
             combined_rects: list[tuple[str, fitz.Rect, Union[int, dict]]] = []
@@ -1192,9 +1152,9 @@ def pdf_to_markdown(
 
             for rtype, r, idx in text_rects:
                 # Check if any images should be placed before this rect
-                while img_idx < len(page_images) and page_images[img_idx]['bbox'].y1 <= r.y0:
+                while img_idx < len(page_images) and page_images[img_idx]["bbox"].y1 <= r.y0:
                     img = page_images[img_idx]
-                    combined_rects.append(('image', img['bbox'], img))
+                    combined_rects.append(("image", img["bbox"], img))
                     img_idx += 1
 
                 combined_rects.append((rtype, r, idx))
@@ -1202,7 +1162,7 @@ def pdf_to_markdown(
             # Add remaining images
             while img_idx < len(page_images):
                 img = page_images[img_idx]
-                combined_rects.append(('image', img['bbox'], img))
+                combined_rects.append(("image", img["bbox"], img))
                 img_idx += 1
 
             text_rects = combined_rects  # type: ignore[assignment]
@@ -1217,19 +1177,19 @@ def pdf_to_markdown(
             elif rtype == "image":  # an image
                 img_info = idx  # type: ignore[assignment]  # In this case, idx contains the image info dict
                 if isinstance(img_info, dict):  # Type guard
-                    if img_info['path'].startswith('data:'):
+                    if img_info["path"].startswith("data:"):
                         # Embedded base64 image
                         md_string += f"![{img_info.get('caption', 'Image')}]({img_info['path']})\n"
                     else:
                         # File path
                         md_string += f"![{img_info.get('caption', 'Image')}]({img_info['path']})\n"
-                    if img_info.get('caption'):
+                    if img_info.get("caption"):
                         md_string += f"*{img_info['caption']}*\n"
                 md_string += "\n"
 
         # Add customizable page separator
         if md_options.include_page_numbers:
-            separator = md_options.page_separator_format.replace('{page_num}', str(pno + 1))
+            separator = md_options.page_separator_format.replace("{page_num}", str(pno + 1))
             md_string += f"\n{separator}\n\n"
         else:
             md_string += f"\n{md_options.page_separator}\n\n"

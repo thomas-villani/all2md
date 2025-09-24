@@ -91,9 +91,9 @@ from email.utils import parsedate_to_datetime
 from io import StringIO
 from typing import Any, Match, Union
 
-from ._attachment_utils import process_attachment, resolve_deprecated_options
+from ._attachment_utils import process_attachment
 from .exceptions import MdparseConversionError, MdparseInputError
-from .options import EmlOptions, MarkdownOptions
+from .options import EmlOptions
 
 
 def format_email_chain_as_markdown(eml_chain: list[dict[str, Any]]) -> str:
@@ -340,7 +340,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
 
     for part in msg.walk():
         # Skip the main message parts
-        if part.get_content_maintype() == 'multipart':
+        if part.get_content_maintype() == "multipart":
             continue
 
         # Check if this is an attachment
@@ -358,7 +358,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
 
             # Determine if it's an image
             content_type = part.get_content_type()
-            is_image = content_type.startswith('image/') if content_type else False
+            is_image = content_type.startswith("image/") if content_type else False
 
             # Process using unified attachment handling
             processed_attachment = process_attachment(
@@ -368,7 +368,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
                 attachment_mode=options.attachment_mode,
                 attachment_output_dir=options.attachment_output_dir,
                 attachment_base_url=options.attachment_base_url,
-                is_image=is_image
+                is_image=is_image,
             )
 
             if processed_attachment:
@@ -419,9 +419,7 @@ def clean_message(raw: str) -> str:
 
 
 def parse_email_chain(
-    input_data: Union[str, StringIO],
-    options: EmlOptions | None = None,
-    as_markdown: bool | None = None  # Deprecated, use return format handling instead
+    input_data: Union[str, StringIO], options: EmlOptions | None = None
 ) -> Union[str, list[dict[str, Any]]]:
     """Parse EML file containing email chain into structured data or Markdown.
 
@@ -434,14 +432,14 @@ def parse_email_chain(
     eml_file : str or StringIO
         Path to the EML file as a string, or StringIO object containing
         the email content to parse.
-    as_markdown : bool, default False
+    as_markdown : bool, default True
         If True, returns formatted Markdown string representation of the
         email chain. If False, returns list of structured message dictionaries.
 
     Returns
     -------
     str or list[dict[str, Any]]
-        If as_markdown is True, returns formatted Markdown string.
+        By default, returns formatted Markdown string.
         If as_markdown is False, returns list of dictionaries with message data
         including 'from', 'to', 'subject', 'date', 'content', and metadata.
 
@@ -470,18 +468,8 @@ def parse_email_chain(
     if options is None:
         options = EmlOptions()
 
-    # Handle deprecated parameter
-    if as_markdown is None:
-        # Determine output format - for now, use default of structured data
-        as_markdown = False
-
-    # Resolve deprecated attachment options to new unified system
-    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
-        options.attachment_mode,
-        options.attachment_output_dir,
-        options.attachment_base_url,
-        include_attachments_info=options.include_attachments_info
-    )
+    # Default output format - markdown (consistent with other converters)
+    as_markdown = True
 
     # Get Markdown options - currently not used during processing
     # md_options = options.markdown_options or MarkdownOptions()
@@ -495,19 +483,16 @@ def parse_email_chain(
             eml_msg = message_from_file(input_data, policy=policy.default)
         else:
             raise MdparseInputError(
-                f"Unsupported input type: {type(input_data).__name__}. "
-                "Expected str (file path) or StringIO object",
+                f"Unsupported input type: {type(input_data).__name__}. Expected str (file path) or StringIO object",
                 parameter_name="input_data",
-                parameter_value=input_data
+                parameter_value=input_data,
             )
     except Exception as e:
         if isinstance(e, (MdparseInputError, MdparseConversionError)):
             raise
         else:
             raise MdparseConversionError(
-                f"Failed to parse email data: {str(e)}",
-                conversion_stage="email_parsing",
-                original_error=e
+                f"Failed to parse email data: {str(e)}", conversion_stage="email_parsing", original_error=e
             ) from e
 
     messages = []
