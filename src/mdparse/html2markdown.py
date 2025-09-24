@@ -46,22 +46,33 @@ Dependencies
 
 Examples
 --------
-Basic HTML conversion:
+Basic HTML string conversion:
 
-    >>> from html2markdown import HTMLToMarkdown
-    >>> converter = HTMLToMarkdown()
+    >>> from mdparse.html2markdown import html_to_markdown
     >>> html = '<h1>Title</h1><p>Content with <strong>bold</strong> text.</p>'
-    >>> markdown = converter.convert(html)
+    >>> markdown = html_to_markdown(html)
     >>> print(markdown)
 
-Custom configuration:
+Convert HTML file:
 
-    >>> converter = HTMLToMarkdown(
-    ...     hash_headings=False,
-    ...     emphasis_symbol="_",
-    ...     bullet_symbols="+-*"
+    >>> markdown = html_to_markdown('document.html')
+    >>> print(markdown)
+
+Convert with file-like object:
+
+    >>> from io import StringIO
+    >>> html_content = StringIO('<h2>Header</h2><p>Content</p>')
+    >>> markdown = html_to_markdown(html_content)
+
+Custom configuration with options:
+
+    >>> from mdparse.options import HtmlOptions, MarkdownOptions
+    >>> options = HtmlOptions(
+    ...     use_hash_headings=False,
+    ...     extract_title=True,
+    ...     markdown_options=MarkdownOptions(emphasis_symbol="_")
     ... )
-    >>> result = converter.convert(html_content)
+    >>> markdown = html_to_markdown('document.html', options=options)
 """
 
 #  Copyright (c) 2023-2025 Tom Villani, Ph.D.
@@ -80,10 +91,16 @@ Custom configuration:
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import os
 import re
-from typing import Any, Literal
+from pathlib import Path
+from typing import IO, Any, Literal, Union
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, NavigableString
+
+from ._input_utils import is_path_like, validate_and_convert_input
+from .exceptions import MdparseConversionError, MdparseInputError
+from .options import HtmlOptions, MarkdownOptions
 
 
 class HTMLToMarkdown:
@@ -105,12 +122,14 @@ class HTMLToMarkdown:
         emphasis_symbol: Literal["*", "_"] = "*",
         bullet_symbols: str = "*-+",
         remove_images: bool = False,
+        markdown_options: MarkdownOptions | None = None
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
         self.emphasis_symbol = emphasis_symbol
         self.bullet_symbols = bullet_symbols
         self.remove_images = remove_images
+        self.markdown_options = markdown_options or MarkdownOptions()
 
         self._list_depth = 0
         self._in_code_block = False
@@ -355,37 +374,196 @@ class HTMLToMarkdown:
 
 
 def html_to_markdown(
-    html: str,
-    use_hash_headings: bool = True,
-    extract_title: bool = False,
-    emphasis_symbol: Literal["*", "_"] = "*",
-    bullet_symbols: str = "*-+",
-    remove_images: bool = False,
+    input_data: Union[str, Path, IO[str], IO[bytes]],
+    options: HtmlOptions | None = None,
+    use_hash_headings: bool | None = None,  # Deprecated, use options.use_hash_headings
+    extract_title: bool | None = None,      # Deprecated, use options.extract_title
+    emphasis_symbol: Literal["*", "_"] | None = None,  # Deprecated, use options.markdown_options.emphasis_symbol
+    bullet_symbols: str | None = None,      # Deprecated, use options.markdown_options.bullet_symbols
+    remove_images: bool | None = None,      # Deprecated, use options.remove_images
 ) -> str:
-    """Convert HTML to Markdown.
+    """Convert HTML to Markdown format.
+
+    Processes HTML content from various input sources and converts it to
+    well-formatted Markdown while preserving document structure, formatting,
+    tables, lists, and embedded content. Handles complex HTML structures
+    with configurable conversion options.
 
     Parameters
     ----------
-    html
-    use_hash_headings
-    extract_title
-    emphasis_symbol
-    bullet_symbols
-    remove_images
+    input_data : str, pathlib.Path, or file-like object
+        HTML content to convert. Can be:
+        - String containing HTML content directly
+        - String path to HTML file
+        - pathlib.Path object pointing to HTML file
+        - File-like object (StringIO, TextIOWrapper) containing HTML content
+        - File-like object opened in binary mode (will be decoded as UTF-8)
+    options : HtmlOptions or None, default None
+        Configuration options for HTML conversion. If None, uses default settings.
+    use_hash_headings : bool or None, optional
+        **Deprecated**: Use options.use_hash_headings instead.
+        If True, use hash-style headings (# Header). If False, use underline style.
+    extract_title : bool or None, optional
+        **Deprecated**: Use options.extract_title instead.
+        If True, extract HTML title tag as main heading.
+    emphasis_symbol : {"*", "_"} or None, optional
+        **Deprecated**: Use options.markdown_options.emphasis_symbol instead.
+        Symbol to use for emphasis formatting.
+    bullet_symbols : str or None, optional
+        **Deprecated**: Use options.markdown_options.bullet_symbols instead.
+        Characters to use for bullet points in nested lists.
+    remove_images : bool or None, optional
+        **Deprecated**: Use options.remove_images instead.
+        If True, remove all images from output.
 
     Returns
     -------
     str
+        Markdown representation of the HTML content with preserved formatting,
+        structure, and content.
 
+    Raises
+    ------
+    MdparseInputError
+        If input type is not supported or file cannot be read
+    MdparseConversionError
+        If HTML parsing or conversion fails
+
+    Examples
+    --------
+    Convert HTML string directly:
+
+        >>> html = '<h1>Title</h1><p>Content with <strong>bold</strong> text.</p>'
+        >>> markdown = html_to_markdown(html)
+        >>> print(markdown)
+        # Title
+
+        Content with **bold** text.
+
+    Convert HTML file:
+
+        >>> markdown = html_to_markdown('document.html')
+        >>> print(markdown)
+
+    Convert with custom options:
+
+        >>> from mdparse.options import HtmlOptions, MarkdownOptions
+        >>> options = HtmlOptions(
+        ...     use_hash_headings=False,
+        ...     extract_title=True,
+        ...     markdown_options=MarkdownOptions(emphasis_symbol="_")
+        ... )
+        >>> markdown = html_to_markdown('document.html', options=options)
+
+    Use with file-like object:
+
+        >>> from io import StringIO
+        >>> html_content = StringIO('<h2>Header</h2><p>Paragraph</p>')
+        >>> markdown = html_to_markdown(html_content)
+
+    Notes
+    -----
+    - Automatically detects whether string input is file path or HTML content
+    - Supports both text and binary file-like objects
+    - Handles UTF-8 encoding for file inputs
+    - Preserves HTML structure including tables, lists, and formatting
+    - Configurable heading styles and list formatting
     """
-    converter = HTMLToMarkdown(
-        hash_headings=use_hash_headings,
-        extract_title=extract_title,
-        emphasis_symbol=emphasis_symbol,
-        bullet_symbols=bullet_symbols,
-        remove_images=remove_images,
-    )
-    return converter.convert(html)
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = HtmlOptions()
+
+    # Handle deprecated parameters
+    if use_hash_headings is not None:
+        options.use_hash_headings = use_hash_headings
+    if extract_title is not None:
+        options.extract_title = extract_title
+    if remove_images is not None:
+        options.remove_images = remove_images
+
+    # Handle deprecated markdown options
+    if options.markdown_options is None:
+        options.markdown_options = MarkdownOptions()
+    if emphasis_symbol is not None:
+        options.markdown_options.emphasis_symbol = emphasis_symbol
+    if bullet_symbols is not None:
+        options.markdown_options.bullet_symbols = bullet_symbols
+
+    # Determine if input_data is HTML content or a file path/object
+    html_content = ""
+    if isinstance(input_data, str):
+        # Check if it's a file path or HTML content
+        if is_path_like(input_data) and os.path.exists(str(input_data)):
+            # It's a file path - read the file
+            try:
+                with open(str(input_data), 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+            except Exception as e:
+
+                raise MdparseConversionError(
+                    f"Failed to read HTML file: {str(e)}",
+                    conversion_stage="file_reading",
+                    original_error=e
+                ) from e
+        else:
+            # It's HTML content as a string
+            html_content = input_data
+    else:
+        # Use validate_and_convert_input for other types
+        try:
+            doc_input, input_type = validate_and_convert_input(
+                input_data,
+                supported_types=["path-like", "file-like", "HTML strings"]
+            )
+
+            if input_type == "path":
+                # Read from file path
+                with open(str(doc_input), 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+            elif input_type == "file":
+                # Read from file-like object
+                html_content = doc_input.read()
+                if isinstance(html_content, bytes):
+                    html_content = html_content.decode('utf-8')
+            else:
+                raise MdparseInputError(
+                    f"Unsupported input type for HTML conversion: {type(input_data).__name__}",
+                    parameter_name="input_data",
+                    parameter_value=input_data
+                )
+        except Exception as e:
+            if isinstance(e, (MdparseInputError, MdparseConversionError)):
+                raise
+            else:
+                raise MdparseConversionError(
+                    f"Failed to process HTML input: {str(e)}",
+                    conversion_stage="input_processing",
+                    original_error=e
+                ) from e
+
+    try:
+        converter = HTMLToMarkdown(
+            hash_headings=options.use_hash_headings,
+            extract_title=options.extract_title,
+            emphasis_symbol=options.markdown_options.emphasis_symbol,
+            bullet_symbols=options.markdown_options.bullet_symbols,
+            remove_images=options.remove_images,
+            markdown_options=options.markdown_options
+        )
+        return converter.convert(html_content)
+    except ImportError as e:
+        raise MdparseConversionError(
+            "BeautifulSoup4 library is required for HTML conversion. "
+            "Install with: pip install beautifulsoup4",
+            conversion_stage="dependency_check",
+            original_error=e
+        ) from e
+    except Exception as e:
+        raise MdparseConversionError(
+            f"Failed to convert HTML to Markdown: {str(e)}",
+            conversion_stage="html_parsing",
+            original_error=e
+        ) from e
 
 
 def _test() -> None:

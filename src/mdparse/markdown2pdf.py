@@ -1,38 +1,5 @@
 #  Copyright (c) 2023-2025 Tom Villani, Ph.D.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all copies or substantial
-#  portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-#  This file is part of the llmcli project.
-#
-#  llmcli is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  llmcli is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with llmcli. If not, see <https://www.gnu.org/licenses/>.
-#
-#  For inquiries, please contact: thomas.villani@gmail.com
-#
-#  SPDX-License-Identifier: GPL-3.0-or-later
-# src/llmcli/mdparse/markdown2pdf.py
+
 
 """
 markdown2pdf - A module to convert Markdown to PDF using PyMuPDF (fitz).
@@ -783,29 +750,72 @@ def markdown_to_pdf(
     Returns:
         Path to the generated PDF file
     """
-    # Set page size
-    page_sizes = {
-        "A4": (595.0, 842.0),
-        "Letter": (612.0, 792.0),
-        "Legal": (612.0, 1008.0),
-        "A3": (842.0, 1190.0),
-        "A5": (420.0, 595.0),
-    }
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = Markdown2PdfOptions()
 
-    page_dimensions = page_sizes.get(page_size, page_sizes["A4"])
+    # Handle deprecated parameters
+    if styles is not None:
+        options.styles = styles
+    if page_size is not None:
+        options.page_size = page_size
+    if margins is not None:
+        options.margins = margins
 
-    # Set margins
-    if not margins:
-        margins = (50, 50, 50, 50)  # left, top, right, bottom
+    # Validate input data
+    if not isinstance(input_data, str):
+        raise MdparseInputError(
+            f"Input must be a string (content or path), got {type(input_data).__name__}",
+            parameter_name="input_data",
+            parameter_value=input_data
+        )
 
-    converter = MarkdownToPDF(styles=styles, page_size=page_dimensions, margins=margins)
+    # Validate and prepare output path
+    try:
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+    except Exception as e:
+        raise MdparseInputError(
+            f"Cannot create output directory: {str(e)}",
+            parameter_name="output_path",
+            parameter_value=output_path
+        ) from e
 
-    # Check if input is a file path or markdown content
-    if os.path.isfile(input_text_or_path):
-        # It's a file path
-        converter.convert_file(input_text_or_path, output_path)
-    else:
-        # Treat it as markdown content
-        converter.convert(input_text_or_path, output_path)
+    try:
+        # Get page dimensions from constants
+        page_dimensions = PDF_PAGE_SIZES.get(options.page_size, PDF_PAGE_SIZES[PDF_DEFAULT_PAGE_SIZE])
 
-    return output_path
+        # Use provided margins or defaults
+        margins_to_use = options.margins or PDF_DEFAULT_MARGINS
+
+        converter = MarkdownToPDF(
+            styles=options.styles,
+            page_size=page_dimensions,
+            margins=margins_to_use
+        )
+
+        # Check if input is a file path or markdown content
+        if os.path.isfile(input_data):
+            # It's a file path
+            converter.convert_file(input_data, output_path)
+        else:
+            # Treat it as markdown content
+            converter.convert(input_data, output_path)
+
+        return output_path
+
+    except Exception as e:
+        if "fitz" in str(e).lower() or "pymupdf" in str(e).lower():
+            raise MdparseConversionError(
+                "PyMuPDF library is required for PDF generation. "
+                "Install with: pip install pymupdf",
+                conversion_stage="dependency_check",
+                original_error=e
+            ) from e
+        else:
+            raise MdparseConversionError(
+                f"Failed to generate PDF: {str(e)}",
+                conversion_stage="pdf_generation",
+                original_error=e
+            ) from e

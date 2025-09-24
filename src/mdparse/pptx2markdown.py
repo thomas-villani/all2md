@@ -80,14 +80,19 @@ The focus is on extracting textual and structural content.
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import base64
-import logging
 import imghdr
-from typing import Any
+import logging
+from typing import Any, Union
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
+
+from ._input_utils import validate_and_convert_input, escape_markdown_special, format_special_text
+from .constants import DEFAULT_CONVERT_IMAGES_TO_BASE64, DEFAULT_SLIDE_NUMBERS
+from .exceptions import MdparseInputError, MdparseConversionError
+from .options import PptxOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +243,12 @@ def _process_shape(shape: Any, convert_images_to_base64: bool = False) -> str | 
     #     return ''
 
 
-def pptx_to_markdown(pptx_file: Any, convert_images_to_base64: bool = False, slide_numbers: bool = False) -> str:
+def pptx_to_markdown(
+    input_data: Union[str, Any],
+    options: PptxOptions | None = None,
+    convert_images_to_base64: bool | None = None,  # Deprecated, use options.convert_images_to_base64
+    slide_numbers: bool | None = None  # Deprecated, use options.slide_numbers
+) -> str:
     """Convert a PowerPoint presentation to Markdown format.
 
     Parameters
@@ -255,14 +265,48 @@ def pptx_to_markdown(pptx_file: Any, convert_images_to_base64: bool = False, sli
     str
         The presentation content in Markdown format
     """
-    from pptx.presentation import Presentation as PresentationType
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = PptxOptions()
 
-    if isinstance(pptx_file, str):
-        prs = Presentation(pptx_file)
-    elif isinstance(pptx_file, PresentationType):
-        prs = pptx_file
-    else:
-        raise TypeError(f"Expected str with filename or Presentation object, found: {type(pptx_file)}")
+    # Handle deprecated parameters
+    if convert_images_to_base64 is not None:
+        options.convert_images_to_base64 = convert_images_to_base64
+    if slide_numbers is not None:
+        options.slide_numbers = slide_numbers
+
+    # Validate and convert input
+    try:
+        from pptx.presentation import Presentation as PresentationType
+
+        doc_input, input_type = validate_and_convert_input(
+            input_data,
+            supported_types=["path-like", "file-like", "pptx.Presentation objects"]
+        )
+
+        # Open presentation based on input type
+        if input_type == "object" and isinstance(doc_input, PresentationType):
+            prs = doc_input
+        else:
+            prs = Presentation(doc_input)
+
+    except Exception as e:
+        if "python-pptx" in str(e).lower() or "pptx" in str(e).lower():
+            raise MdparseConversionError(
+                "python-pptx library is required for PPTX conversion. "
+                "Install with: pip install python-pptx",
+                conversion_stage="dependency_check",
+                original_error=e
+            ) from e
+        else:
+            raise MdparseConversionError(
+                f"Failed to open PPTX presentation: {str(e)}",
+                conversion_stage="document_opening",
+                original_error=e
+            ) from e
+
+    # Get Markdown options (create default if not provided)
+    md_options = options.markdown_options or MarkdownOptions()
 
     markdown_content = []
 

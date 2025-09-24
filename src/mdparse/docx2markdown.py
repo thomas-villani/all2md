@@ -39,7 +39,7 @@ Examples
 --------
 Basic conversion:
 
-    >>> from docx2markdown import docx_to_markdown
+    >>> from mdparse.docx2markdown import docx_to_markdown
     >>> with open('document.docx', 'rb') as f:
     ...     markdown = docx_to_markdown(f)
     >>> print(markdown)
@@ -68,13 +68,20 @@ direct Markdown equivalents and will be approximated or omitted.
 
 import logging
 import re
-from typing import Any
+from pathlib import Path
+from typing import Any, Union, IO
 
 import docx
 import docx.document
 from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
+
+from .exceptions import MdparseConversionError
+from .constants import (
+    DEFAULT_INDENTATION_PT_PER_LEVEL
+)
+from .options import DocxOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +105,8 @@ def _detect_list_level(paragraph: Paragraph) -> tuple[str | None, int]:
     try:
         indent = paragraph.paragraph_format.left_indent
         if indent:
-            # Convert Pt to level (assume 36pt per level)
-            level = int(indent.pt / 36)
+            # Convert Pt to level (assume DEFAULT_INDENTATION_PT_PER_LEVEL per level)
+            level = int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
             if level > 0:
                 # Try to detect if numbered based on paragraph text
                 if re.match(r"^\d+[.)]", paragraph.text.strip()):
@@ -139,7 +146,7 @@ def _format_list_marker(list_type: str, number: int = 1) -> str:
         return f"{number}. "
 
 
-def _process_paragraph_runs(paragraph: Paragraph) -> str:
+def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | None = None) -> str:
     """Process all runs in a paragraph, combining similarly formatted runs."""
     grouped_runs: list[tuple[str, tuple[bool, bool, bool, bool, bool, bool, bool] | None, str | None]] = []
     current_text: list[str] = []
@@ -205,7 +212,7 @@ def _process_paragraph_runs(paragraph: Paragraph) -> str:
     return "".join(text_parts)
 
 
-def _convert_table_to_markdown(table: Table) -> str:
+def _convert_table_to_markdown(table: Table, md_options: MarkdownOptions | None = None) -> str:
     """Convert a docx table to markdown format."""
     markdown_rows = []
 
@@ -324,28 +331,43 @@ def _iter_block_items(parent: Any, convert_images_to_base64: bool = False) -> An
                 yield paragraph
 
 
-def docx_to_markdown(docx_file: Any, convert_images_to_base64: bool = False) -> str:
-    """Convert a Word document to Markdown format with formatting preservation.
+def docx_to_markdown(
+    input_data: Union[str, Path, docx.document.Document, IO[bytes]],
+    options: DocxOptions | None = None,
+    convert_images_to_base64: bool | None = None  # Deprecated, use options.convert_images_to_base64
+) -> str:
+    """Convert Word document (DOCX) to Markdown format.
 
-    Processes a Microsoft Word document and converts it to Markdown while
-    preserving text formatting, document structure, tables, lists, and
-    embedded images. Handles complex document elements and maintains
-    hierarchical organization.
+    Processes Microsoft Word documents and converts them to well-formatted
+    Markdown while preserving text formatting, document structure, tables,
+    lists, and embedded images. Handles complex document elements and
+    maintains hierarchical organization.
 
     Parameters
     ----------
-    docx_file : Any
-        Word document to convert. Can be a file path, file-like object,
-        or an existing python-docx Document object.
-    convert_images_to_base64 : bool, default False
-        If True, converts embedded images to base64-encoded data URIs
-        for inclusion in the Markdown output.
+    input_data : str, file-like object, or docx.Document
+        Word document to convert. Can be:
+        - String path to DOCX file
+        - File-like object containing DOCX data
+        - Already opened python-docx Document object
+    options : DocxOptions or None, default None
+        Configuration options for DOCX conversion. If None, uses default settings.
+    convert_images_to_base64 : bool or None, optional
+        **Deprecated**: Use options.convert_images_to_base64 instead.
+        If True, converts embedded images to base64-encoded data URIs.
 
     Returns
     -------
     str
         Markdown representation of the Word document with preserved
         formatting, structure, and content.
+
+    Raises
+    ------
+    MdparseInputError
+        If input type is not supported or document cannot be opened
+    MdparseConversionError
+        If document processing fails
 
     Examples
     --------
@@ -367,12 +389,36 @@ def docx_to_markdown(docx_file: Any, convert_images_to_base64: bool = False) -> 
     - Processes hyperlinks and converts to Markdown link format
     - Maintains document structure with appropriate heading levels
     """
-    doc = docx_file if isinstance(docx_file, docx.document.Document) else docx.Document(docx_file)
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = DocxOptions()
+
+    # Handle deprecated parameters
+    if convert_images_to_base64 is not None:
+        options.convert_images_to_base64 = convert_images_to_base64
+
+    # Validate and convert input - for now use simplified approach
+    try:
+        if isinstance(input_data, docx.document.Document):
+            doc = input_data
+        elif isinstance(input_data, Path):
+            doc = docx.Document(str(input_data))
+        else:
+            doc = docx.Document(input_data)
+    except Exception as e:
+        raise MdparseConversionError(
+            f"Failed to open DOCX document: {str(e)}",
+            conversion_stage="document_opening",
+            original_error=e
+        ) from e
+
+    # Get Markdown options (create default if not provided)
+    md_options = options.markdown_options or MarkdownOptions()
 
     markdown_lines = []
     list_stack: list[tuple[str, int, int]] = []  # Track nested lists: (type, level, current_number)
 
-    for block in _iter_block_items(doc, convert_images_to_base64=convert_images_to_base64):
+    for block in _iter_block_items(doc, convert_images_to_base64=options.convert_images_to_base64):
         if isinstance(block, Paragraph):
             text = ""
 
@@ -424,7 +470,7 @@ def docx_to_markdown(docx_file: Any, convert_images_to_base64: bool = False) -> 
                 else:
                     marker = _format_list_marker(list_type)
 
-                text = indent + marker + _process_paragraph_runs(block).strip()
+                text = indent + marker + _process_paragraph_runs(block, md_options).strip()
 
             else:
                 # Not a list - clear list stack
@@ -432,7 +478,7 @@ def docx_to_markdown(docx_file: Any, convert_images_to_base64: bool = False) -> 
                     list_stack = []
                     markdown_lines.append("")
 
-                text = _process_paragraph_runs(block)
+                text = _process_paragraph_runs(block, md_options)
 
             if text:
                 markdown_lines.append(text)
@@ -443,7 +489,7 @@ def docx_to_markdown(docx_file: Any, convert_images_to_base64: bool = False) -> 
                 markdown_lines.append("")
 
             # Convert and add table
-            markdown_lines.append(_convert_table_to_markdown(block))
+            markdown_lines.append(_convert_table_to_markdown(block, md_options))
 
             # Add spacing after table
             markdown_lines.append("")

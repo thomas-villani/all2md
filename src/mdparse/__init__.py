@@ -75,245 +75,85 @@ import base64
 import mimetypes
 import os
 from io import BytesIO, StringIO
-from typing import IO
+from typing import IO, Union
 
-PLAINTEXT_EXTENSIONS = [
-    ".txt",  # Plain text file
-    ".tsv",
-    ".md",  # Markdown file
-    ".json",  # JavaScript Object Notation file
-    ".xml",  # Extensible Markup Language file
-    ".html",  # Hypertext Markup Language file
-    ".htm",
-    ".css",  # Cascading Style Sheets file
-    ".js",  # JavaScript file
-    ".py",  # Python source code file
-    ".java",  # Java source code file
-    ".c",  # C source code file
-    ".h",  # C source header file
-    ".cs",  # C# source file
-    ".cpp",  # C++ source code file
-    ".hpp",  # C++ header file
-    ".rb",  # Ruby source code file
-    ".go",  # Go source code file
-    ".php",  # PHP source code file
-    ".sh",  # Shell script file
-    ".pl",  # Perl script file
-    ".sql",  # SQL database script file
-    ".yaml",  # YAML Ain't Markup Language file
-    ".toml",  # Tom's obvious markup language
-    ".ini",  # Initialization file
-    ".bat",  # Batch file
-    ".r",  # R source code file
-    ".swift",  # Swift source code file
-    ".scala",  # Scala source code file
-    ".ts",  # TypeScript file
-    ".log",  # Log file
-    ".properties",  # Java properties file
-    ".kt",  # Kotlin source file
-    ".kts",  # Kotlin script file
-    ".rs",  # Rust source file
-    ".lua",  # Lua source file
-    ".ps1",  # PowerShell script
-    ".vb",  # Visual Basic source file
-    ".cmake",  # CMake build file
-    ".gradle",  # Gradle build file
-    ".groovy",  # Groovy source file
-    ".dart",  # Dart source file
-    ".elm",  # Elm source file
-    ".ex",  # Elixir source file
-    ".exs",  # Elixir script file
-    ".fs",  # F# source file
-    ".nim",  # Nim source file
-    ".m",  # Objective-C source file
-    ".mm",  # Objective-C++ source file
-    ".rst",  # reStructuredText file
-    ".jsx",  # React JavaScript XML file
-    ".tsx",  # TypeScript XML file
-    ".vue",  # Vue.js component file
-    ".svelte",  # Svelte component file
-    ".htm",  # Alternative HTML extension
-    ".xhtml",  # Extensible HTML file
-    ".tpl",  # Template file
-    ".haml",  # HTML Abstraction Markup Language
-    ".jade",  # Jade template file
-    ".pug",  # Pug template file
-    ".ejs",  # Embedded JavaScript template
-    ".csv",  # Comma-separated values file
-    ".clj",  # Clojure source file
-    ".coffee",  # CoffeeScript source file
-    ".hs",  # Haskell source file
-    ".jl",  # Julia source file
-    ".scm",  # Scheme source file
-    ".lisp",  # Lisp source file
-    ".asm",  # Assembly language source file
-    ".erl",  # Erlang source file
-    ".hrl",  # Erlang header file
-    ".proto",  # Protocol Buffers file
-    ".tf",  # Terraform configuration file
-    ".cfg",  # Configuration file
-    ".conf",  # Configuration file
-    ".pyx",  # Cython source file
-    ".sass",  # Sass stylesheet file
-    ".scss",  # SCSS stylesheet file
-    ".less",  # Less stylesheet file
-    ".styl",  # Stylus stylesheet file
-    ".hbs",  # Handlebars template file
-    ".mustache",  # Mustache template file
-    ".liquid",  # Liquid template file
-    ".erb",  # ERB template file
-    ".rake",  # Ruby Rake file
-    ".gemspec",  # Ruby gem specification
-    ".podspec",  # CocoaPods specification file
-    ".pp",  # Puppet file
-    ".env",  # Environment file
-    ".graphql",  # GraphQL file
-    ".gql",  # GraphQL file
-    ".diff",  # Diff file
-    ".patch",  # Patch file
-    ".tex",  # LaTeX document file
-    ".bib",  # BibTeX bibliography file
-    ".adoc",  # AsciiDoc file
-    ".textile",  # Textile markup file
-    ".wiki",  # Wiki markup file
-    ".mediawiki",  # MediaWiki markup file
-    ".pod",  # Perl POD documentation
-    ".rdoc",  # RDoc documentation
-    ".org",  # Org-mode file
-    ".markdown",  # Full Markdown file extension
-    ".mdown",  # Alternative Markdown extension
-    ".mkd",  # Alternative Markdown extension
-    ".mkdn",  # Alternative Markdown extension
-    ".mdwn",  # Alternative Markdown extension
-    ".mdx",  # MDX Markdown file
-    ".asciidoc",  # AsciiDoc file
-    ".opml",  # OPML file
-    ".rss",  # RSS feed
-    ".atom",  # Atom feed
-    ".ics",  # iCalendar file
-    ".vcf",  # vCard file
-    ".desktop",  # Linux desktop entry file
-    ".plist",  # Property list file
-    ".wsdl",  # Web Services Description Language file
-    ".xsd",  # XML Schema Definition file
-    ".dtd",  # Document Type Definition file
-    ".jsonld",  # JSON-LD file
-    ".json5",  # JSON5 file
-    ".hjson",  # Hjson file
-    ".cson",  # CoffeeScript Object Notation file
-    ".geojson",  # GeoJSON file
-    ".webmanifest",  # Web app manifest
-    ".nfo",  # NFO file
-    ".reg",  # Windows Registry file
-    ".inf",  # Information file
-    ".config",  # Configuration file
-    ".xaml",  # XAML file
-    ".sgml",  # SGML file
-    ".bash",  # Bash script
-    ".csh",  # C Shell script
-    ".zsh",  # Z Shell script
-    ".fish",  # Fish shell script
-    ".ksh",  # Korn Shell script
-    ".cmd",  # Windows Command script
-    ".awk",  # AWK script
-    ".sed",  # SED script
-    ".vim",  # Vim script
-    ".el",  # Emacs Lisp file
-    ".svg",  # SVG file (XML-based)
-    ".asp",  # Active Server Pages file
-    ".aspx",  # ASP.NET file
-    ".cshtml",  # Razor file
-    ".vbhtml",  # Visual Basic Razor file
-    ".rhtml",  # Ruby HTML file
-    ".shtml",  # Server-parsed HTML file
-    ".yml",  # Alternative YAML extension
-    ".htaccess",  # Apache configuration file
-    ".htpasswd",  # Apache password file
-    ".d",  # D programming language source file
-    ".f",  # Fortran source file
-    ".f90",  # Fortran 90 source file
-    ".f95",  # Fortran 95 source file
-    ".for",  # Fortran source file
-    ".pas",  # Pascal source file
-    ".pro",  # Prolog source file
-    ".tcl",  # Tcl script file
-    ".thor",  # Thor script file
-    ".sas",  # SAS program file
-    ".v",  # Verilog source file
-    ".vhd",  # VHDL source file
-    ".make",  # Makefile
-    ".mak",  # Alternative makefile
-    ".jbuilder",  # JBuilder project file
-    ".sbt",  # Scala build tool file
-    ".cypher",  # Cypher query language file
-    ".nsi",  # NSIS installer script
-    ".nt",  # N-Triples file
-    ".ttl",  # Turtle file
-    ".p",  # Prolog source file
-    ".gyp",  # GYP build file
-    ".gn",  # GN build file
-    ".bazel",  # Bazel build file
-    ".eslintignore",  # ESLint ignore file
-    ".prettierignore",  # Prettier ignore file
-    ".bzl",  # Bazel rule file
-    ".twig",  # Twig template file
-    ".iml",  # IntelliJ module file
-    ".nginx",  # Nginx configuration file
-    ".mjs",  # JavaScript module file
-    ".cjs",  # CommonJS module file
-    ".wsgi",  # WSGI file
-    ".prisma",  # Prisma schema file
-    ".hcl",  # HashiCorp Configuration Language
-    ".ipynb",  # Jupyter Notebook (JSON format)
-    ".dockerfile",  # Docker configuration file
-    ".jenkinsfile",  # Jenkins pipeline file
-    ".eslintrc",  # ESLint configuration file
-    ".babelrc",  # Babel configuration file
-    ".stylelintrc",  # Stylelint configuration file
-    ".editorconfig",  # EditorConfig file
-    ".gitignore",  # Git ignore file
-    ".gitattributes",  # Git attributes file
-    ".npmrc",  # npm configuration file
-    ".graphqlrc",  # GraphQL configuration file
-    ".robots",  # Robots.txt file
-    ".sitemap",  # Sitemap file
-]
+from .constants import PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
+from .exceptions import MdparseConversionError, MdparseInputError
+from .options import PdfOptions, DocxOptions, HtmlOptions, PptxOptions, EmlOptions
 
-DOCUMENT_EXTENSIONS = [
-    ".pdf",
-    ".csv",
-    ".xlsx",
-    ".docx",
-    ".pptx",
-    ".eml",
-]
+# Extensions lists moved to constants.py - keep references for backward compatibility
+# Import and re-export the constants
+from .constants import (
+    PLAINTEXT_EXTENSIONS as _PLAINTEXT_EXTENSIONS,
+    DOCUMENT_EXTENSIONS as _DOCUMENT_EXTENSIONS,
+    IMAGE_EXTENSIONS as _IMAGE_EXTENSIONS
+)
 
-IMAGE_EXTENSIONS = [
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-]
-
+# Re-export for backward compatibility - all extension lists are now in constants.py
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
 
-def parse_file(file: IO, filename: str, return_mimetype: bool = False) -> str | None | tuple[str | None, str | None]:
-    """Parse the file and return the content as markdown (if possible) or None (if not)
+# Main parse function starts here
+
+
+def parse_file(
+    file: IO,
+    filename: str,
+    return_mimetype: bool = False,
+    options: dict | None = None  # Reserved for future per-format options
+) -> Union[str, None, tuple[Union[str, None], Union[str, None]]]:
+    """Parse file and return content as Markdown format.
+
+    This is the main entry point for the mdparse library. It automatically
+    detects file type based on filename and MIME type, then routes to the
+    appropriate specialized converter for processing.
 
     Parameters
     ----------
     file : IO
-        A file-like object (e.g. BytesIO)
+        A file-like object containing the document data
     filename : str
-        Name needed for mimetype guessing
+        Filename used for MIME type detection and format determination
     return_mimetype : bool, default False
-        If True, returns (content, mimetype)
+        If True, returns tuple of (content, mimetype) instead of just content
+    options : dict or None, optional
+        Reserved for future per-format conversion options
 
     Returns
     -------
-    str or None
+    str or None or tuple
+        - If return_mimetype=False: Markdown content as string, or None if unsupported
+        - If return_mimetype=True: tuple of (content, mimetype) where either may be None
 
+    Raises
+    ------
+    ImportError
+        If required dependencies for specific file formats are not installed
+    MdparseConversionError
+        If file processing fails due to corruption, format issues, etc.
+    MdparseInputError
+        If file or filename parameters are invalid
+
+    Examples
+    --------
+    Basic usage:
+
+        >>> with open('document.pdf', 'rb') as f:
+        ...     content = parse_file(f, 'document.pdf')
+        >>> print(type(content))
+        <class 'str'>
+
+    With MIME type detection:
+
+        >>> with open('document.docx', 'rb') as f:
+        ...     content, mimetype = parse_file(f, 'document.docx', return_mimetype=True)
+        >>> print(mimetype)
+        application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+    Notes
+    -----
+    Supported formats include PDF, Word (DOCX), PowerPoint (PPTX), HTML,
+    email (EML), Excel (XLSX), images, and 200+ text file formats.
     """
 
     _, extension = os.path.splitext(filename)

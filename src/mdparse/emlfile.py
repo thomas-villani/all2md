@@ -84,12 +84,18 @@ to handle common encoding issues and format variations gracefully.
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import datetime
+import os
 import re
 from email import message_from_file, policy
 from email.message import Message
 from email.utils import parsedate_to_datetime
 from io import StringIO
-from typing import Any, Match
+from typing import Any, Match, Union
+
+from ._input_utils import validate_and_convert_input, escape_markdown_special
+from .constants import EMAIL_DATE_FORMATS
+from .exceptions import MdparseInputError, MdparseConversionError
+from .options import EmlOptions, MarkdownOptions
 
 
 def format_email_chain_as_markdown(eml_chain: list[dict[str, Any]]) -> str:
@@ -349,12 +355,16 @@ def clean_message(raw: str) -> str:
     return "\n".join(keep)
 
 
-def parse_email_chain(eml_file: str | StringIO, as_markdown: bool = False) -> str | list[dict[str, Any]]:
-    """Parse an EML file containing an email chain into structured message data.
+def parse_email_chain(
+    input_data: Union[str, StringIO],
+    options: EmlOptions | None = None,
+    as_markdown: bool | None = None  # Deprecated, use return format handling instead
+) -> Union[str, list[dict[str, Any]]]:
+    """Parse EML file containing email chain into structured data or Markdown.
 
     Processes email files (.eml format) and extracts individual messages from
-    email chains, including reply threads and forwarded messages. Returns either
-    structured message dictionaries or formatted Markdown representation.
+    email chains, including reply threads and forwarded messages. Handles complex
+    email structures and preserves thread hierarchy.
 
     Parameters
     ----------
@@ -393,13 +403,41 @@ def parse_email_chain(eml_file: str | StringIO, as_markdown: bool = False) -> st
     - Cleans quoted content and URL redirects from messages
     - Supports both file paths and StringIO objects as input
     """
-    if isinstance(eml_file, str):
-        with open(eml_file, encoding="utf-8") as f:
-            eml_msg = message_from_file(f, policy=policy.default)
-    elif isinstance(eml_file, StringIO):
-        eml_msg = message_from_file(eml_file, policy=policy.default)
-    else:
-        raise TypeError(f"Expected string or file, found: {type(eml_file)}")
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = EmlOptions()
+
+    # Handle deprecated parameter
+    if as_markdown is None:
+        # Determine output format - for now, use default of structured data
+        as_markdown = False
+
+    # Get Markdown options
+    md_options = options.markdown_options or MarkdownOptions()
+
+    # Validate and process input
+    try:
+        if isinstance(input_data, str):
+            with open(input_data, encoding="utf-8") as f:
+                eml_msg = message_from_file(f, policy=policy.default)
+        elif isinstance(input_data, StringIO):
+            eml_msg = message_from_file(input_data, policy=policy.default)
+        else:
+            raise MdparseInputError(
+                f"Unsupported input type: {type(input_data).__name__}. "
+                "Expected str (file path) or StringIO object",
+                parameter_name="input_data",
+                parameter_value=input_data
+            )
+    except Exception as e:
+        if isinstance(e, (MdparseInputError, MdparseConversionError)):
+            raise
+        else:
+            raise MdparseConversionError(
+                f"Failed to parse email data: {str(e)}",
+                conversion_stage="email_parsing",
+                original_error=e
+            ) from e
 
     messages = []
 

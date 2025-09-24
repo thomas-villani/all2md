@@ -1,4 +1,47 @@
-"""
+"""PDF to Markdown conversion module.
+
+This module provides advanced PDF parsing with table detection using PyMuPDF.
+It extracts text content, handles complex layouts, and converts them to
+well-formatted Markdown with support for headers, tables, links, and code blocks.
+
+The conversion process identifies document structure including headers based on
+font sizes, preserves table layouts using PyMuPDF's table detection, and
+maintains formatting for code blocks, emphasis, and links.
+
+Key Features
+------------
+- Advanced table detection and Markdown formatting
+- Header identification based on font size analysis
+- Link extraction and Markdown link formatting
+- Code block detection for monospace fonts
+- Page-by-page processing with customizable page ranges
+- Password-protected PDF support
+- Image embedding as base64 data URLs
+
+Dependencies
+------------
+- PyMuPDF (fitz) v1.24.0 or later for PDF processing
+- Required for all PDF operations including text extraction and table detection
+
+Examples
+--------
+Basic PDF conversion:
+
+    >>> from mdparse.pdf2markdown import pdf_to_markdown
+    >>> markdown_content = pdf_to_markdown("document.pdf")
+
+Convert specific pages with options:
+
+    >>> from mdparse.options import PdfOptions
+    >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
+    >>> content = pdf_to_markdown("document.pdf", options=options)
+
+Convert from file-like object:
+
+    >>> from io import BytesIO
+    >>> with open("document.pdf", "rb") as f:
+    ...     content = pdf_to_markdown(BytesIO(f.read()))
+
 Original from pdf4llm package, modified by Tom Villani to improve table processing.
 
 ---
@@ -58,25 +101,81 @@ License GNU Affero GPL 3.0
 import re
 import string
 from io import BytesIO
+from pathlib import Path
+from typing import Union
 
 import fitz
 
-if fitz.pymupdf_version_tuple < (1, 24, 0):
-    raise NotImplementedError("PyMuPDF version 1.24.0 or later is needed.")
+from ._input_utils import escape_markdown_special, validate_and_convert_input, validate_page_range
+from .constants import (
+    DEFAULT_OVERLAP_THRESHOLD_PERCENT,
+    DEFAULT_OVERLAP_THRESHOLD_PX,
+    PDF_MIN_PYMUPDF_VERSION,
+)
+from .exceptions import MdparseConversionError, MdparseInputError, MdparsePasswordError
+from .options import MarkdownOptions, PdfOptions
+
+
+def _check_pymupdf_version() -> None:
+    """Check that PyMuPDF version meets minimum requirements.
+
+    Raises
+    ------
+    MdparseConversionError
+        If PyMuPDF version is too old
+    """
+    min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split('.')))
+    if fitz.pymupdf_version_tuple < min_version:
+        raise MdparseConversionError(
+            f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
+            f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
+        )
+
+_check_pymupdf_version()
 
 SPACES = set(string.whitespace)  # used to check relevance of text pieces
 paragraph_fixer = re.compile(r"(?<!\n)\n(?!\n)")
 
 
 class IdentifyHeaders:
-    """Compute data for identifying header text."""
+    """Compute data for identifying header text based on font size analysis.
+
+    This class analyzes font sizes across document pages to identify which
+    font sizes should be treated as headers versus body text. It creates
+    a mapping from font sizes to Markdown header levels (# ## ### etc.).
+
+    Parameters
+    ----------
+    doc : fitz.Document
+        PDF document to analyze
+    pages : list[int], range, or None, optional
+        Pages to analyze for font size distribution. If None, analyzes all pages.
+    body_limit : float or None, optional
+        Font size threshold below which text is considered body text.
+        If None, uses the most frequent font size as body text baseline.
+
+    Attributes
+    ----------
+    header_id : dict[int, str]
+        Mapping from font size to markdown header prefix string
+    """
 
     def __init__(self, doc: fitz.Document, pages: list[int] | range | None = None, body_limit: float | None = None) -> None:
-        """Read all text and make a dictionary of fontsizes.
+        """Initialize header identification by analyzing font sizes.
 
-        Args:
-            pages: optional list of pages to consider
-            body_limit: consider text with larger font size as some header
+        Reads all text spans from specified pages and builds a frequency
+        distribution of font sizes. Uses this to determine which font sizes
+        should be treated as headers versus body text.
+
+        Parameters
+        ----------
+        doc : fitz.Document
+            PDF document to analyze
+        pages : list[int], range, or None, optional
+            Pages to analyze for font size distribution. If None, analyzes all pages.
+        body_limit : float or None, optional
+            Font size threshold below which text is considered body text.
+            If None, uses the most frequent font size as body text baseline.
         """
         pages_to_use: range | list[int] = pages if pages is not None else range(doc.page_count)
         fontsizes: dict[int, int] = {}
@@ -114,39 +213,89 @@ class IdentifyHeaders:
             self.header_id[size] = "#" * (i + 1) + " "
 
     def get_header_id(self, span: dict) -> str:
-        """Return appropriate markdown header prefix.
+        """Return appropriate markdown header prefix for a text span.
 
-        Given a text span from a "dict"/"radict" extraction, determine the
-        markdown header prefix string of 0 to many concatenated '#' characters.
+        Analyzes the font size of a text span and returns the corresponding
+        Markdown header prefix (e.g., "# ", "## ", "### ") or empty string
+        if the span should be treated as body text.
+
+        Parameters
+        ----------
+        span : dict
+            Text span dictionary from PyMuPDF extraction containing 'size' key
+
+        Returns
+        -------
+        str
+            Markdown header prefix string ("# ", "## ", etc.) or empty string
         """
         fontsize = round(span["size"])  # compute fontsize
         hdr_id = self.header_id.get(fontsize, "")
         return hdr_id
 
 
-def resolve_links(links: list, span: dict) -> str | None:
-    """Accept a span bbox and return a markdown link string."""
+def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None) -> str | None:
+    """Accept a span bbox and return a markdown link string.
+
+    Parameters
+    ----------
+    links : list
+        List of link dictionaries from page.get_links()
+    span : dict
+        Text span dictionary containing bbox and text information
+    md_options : MarkdownOptions or None, optional
+        Markdown formatting options for escaping special characters
+
+    Returns
+    -------
+    str or None
+        Formatted markdown link string if overlap detected, None otherwise
+    """
     bbox = fitz.Rect(span["bbox"])  # span bbox
-    # a link should overlap at least 70% of the span
-    bbox_area = 0.7 * abs(bbox)
+    # a link should overlap at least {DEFAULT_OVERLAP_THRESHOLD_PERCENT}% of the span
+    bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
     for link in links:
         hot = link["from"]  # the hot area of the link
         if not abs(hot & bbox) >= bbox_area:
             continue  # does not touch the bbox
-        text = f"[{span['text'].strip()}]({link['uri']})"
+        link_text = span['text'].strip()
+        if md_options and md_options.escape_special:
+            link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
+        text = f"[{link_text}]({link['uri']})"
         return text
     return None
 
 
-def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: IdentifyHeaders) -> str:
-    """Output the text found inside the given clip.
+def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: IdentifyHeaders, md_options: MarkdownOptions | None = None) -> str:
+    """Convert text from a page region to Markdown format.
 
-    This is an alternative for plain text in that it outputs
-    text enriched with markdown styling.
-    The logic is capable of recognizing headers, body text, code blocks,
-    inline code, bold, italic and bold-italic styling.
-    There is also some effort for list supported (ordered / unordered) in
-    that typical characters are replaced by respective markdown characters.
+    Extracts and processes text within the specified clipping rectangle,
+    applying Markdown formatting for headers, emphasis, code blocks, and links.
+    Handles various text styling including bold, italic, headers, and monospace fonts.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page object to extract text from
+    clip : fitz.Rect or None
+        Clipping rectangle to limit text extraction. If None, uses entire page.
+    hdr_prefix : IdentifyHeaders
+        Header identification object for determining header levels
+    md_options : MarkdownOptions or None, optional
+        Markdown formatting options including character escaping preferences
+
+    Returns
+    -------
+    str
+        Markdown-formatted text content from the specified page region
+
+    Notes
+    -----
+    - Recognizes headers, body text, code blocks, inline code styling
+    - Handles bold, italic, and bold-italic text formatting
+    - Provides basic support for ordered and unordered lists
+    - Processes hyperlinks and converts them to Markdown link format
+    - Detects code blocks using monospace font analysis
     """
     out_string = ""
     code = False  # mode indicator: outputting code
@@ -171,7 +320,7 @@ def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: Identi
             this_y = line["bbox"][3]  # current bottom coord
 
             # check for still being on same line
-            same_line = abs(this_y - previous_y) <= 5 and previous_y > 0
+            same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
 
             if same_line and out_string.endswith("\n"):
                 out_string = out_string[:-1]
@@ -233,11 +382,14 @@ def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: Identi
                             prefix += "_"
                             suffix = "_" + suffix
 
-                    ltext = resolve_links(links, s)
+                    ltext = resolve_links(links, s, md_options)
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
                     else:
-                        text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                        span_text = s['text'].strip()
+                        if md_options and md_options.escape_special:
+                            span_text = escape_markdown_special(span_text)
+                        text = f"{hdr_string}{prefix}{span_text}{suffix} "
                     text = (
                         text.replace("<", "&lt;")
                         .replace(">", "&gt;")
@@ -347,35 +499,143 @@ def parse_page(page: fitz.Page) -> list[tuple[str, fitz.Rect, int]]:
     return text_rects
 
 
-def pdf_to_markdown(doc: fitz.Document | BytesIO | str, pages: list[int] | None = None) -> str:
-    """Process the document and return the text of its pages.
+def pdf_to_markdown(
+    input_data: Union[str, BytesIO, fitz.Document],
+    options: PdfOptions | None = None,
+    pages: list[int] | None = None,  # Deprecated, use options.pages
+    convert_images_to_base64: bool | None = None,  # Deprecated, use options.convert_images_to_base64
+    password: str | None = None  # Deprecated, use options.password
+) -> str:
+    """Convert PDF document to Markdown format.
 
-    Will attempt to find tables and parse them in-line.
-
-    .. Note:: Occasionally tables end up out of order compared to their original position in the text,
-              and complex tables can cause issues with breaking into multiple tables.
-
+    This function processes PDF documents and converts them to well-formatted
+    Markdown with support for headers, tables, links, and code blocks. It uses
+    PyMuPDF's advanced table detection and preserves document structure.
 
     Parameters
     ----------
-    doc : fitz.Document | BytesIO | str
-        Source document to process
-    pages : list[int]
-        List of page numbers to process (0-indexed)
+    input_data : str, BytesIO, or fitz.Document
+        PDF document to convert. Can be:
+        - String path to PDF file
+        - BytesIO object containing PDF data
+        - Already opened PyMuPDF Document object
+    options : PdfOptions or None, default None
+        Configuration options for PDF conversion. If None, uses default settings.
+    pages : list[int] or None, optional
+        **Deprecated**: Use options.pages instead.
+        List of 0-based page numbers to convert. If None, converts all pages.
+    convert_images_to_base64 : bool or None, optional
+        **Deprecated**: Use options.convert_images_to_base64 instead.
+        Whether to embed images as base64-encoded data URLs.
+    password : str or None, optional
+        **Deprecated**: Use options.password instead.
+        Password for encrypted PDF documents.
 
     Returns
     -------
     str
-        Markdown version of PDF.
+        Markdown-formatted text content of the PDF document.
 
+    Raises
+    ------
+    MdparseInputError
+        If input type is not supported or page numbers are invalid
+    MdparsePasswordError
+        If PDF is password-protected and no/incorrect password provided
+    MdparseConversionError
+        If document cannot be processed or PyMuPDF version is too old
+
+    Notes
+    -----
+    - Tables may occasionally appear out of order compared to original layout
+    - Complex tables can sometimes break into multiple separate tables
+    - Headers are identified based on font size analysis
+    - Code blocks are detected using monospace font analysis
+
+    Examples
+    --------
+    Basic conversion:
+
+        >>> markdown_text = pdf_to_markdown("document.pdf")
+
+    Convert specific pages with base64 images:
+
+        >>> from mdparse.options import PdfOptions
+        >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
+        >>> content = pdf_to_markdown("document.pdf", options=options)
+
+    Convert from BytesIO with password:
+
+        >>> from io import BytesIO
+        >>> with open("encrypted.pdf", "rb") as f:
+        ...     data = BytesIO(f.read())
+        >>> options = PdfOptions(password="secret123")
+        >>> content = pdf_to_markdown(data, options=options)
     """
 
-    if isinstance(doc, str):
-        doc = fitz.open(filename=doc)
-    elif isinstance(doc, BytesIO):
-        doc = fitz.open(stream=doc)
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = PdfOptions()
 
-    pages_to_use: range | list[int] = pages if pages else range(doc.page_count)
+    # Handle deprecated parameters (with deprecation warnings would be ideal)
+    if pages is not None and options.pages is None:
+        options.pages = pages
+    if convert_images_to_base64 is not None and options.convert_images_to_base64 is None:
+        options.convert_images_to_base64 = convert_images_to_base64
+    if password is not None and options.password is None:
+        options.password = password
+
+    # Validate and convert input
+    doc_input, input_type = validate_and_convert_input(
+        input_data,
+        supported_types=["path-like", "file-like (BytesIO)", "fitz.Document objects"]
+    )
+
+    # Open document based on input type
+    try:
+        if input_type == "path":
+            doc = fitz.open(filename=str(doc_input))
+        elif input_type in ("file", "bytes"):
+            doc = fitz.open(stream=doc_input)
+        elif input_type == "object":
+            if isinstance(doc_input, fitz.Document):
+                doc = doc_input
+            else:
+                raise MdparseInputError(
+                    f"Expected fitz.Document object, got {type(doc_input).__name__}",
+                    parameter_name="input_data",
+                    parameter_value=doc_input
+                )
+        else:
+            raise MdparseInputError(
+                f"Unsupported input type: {input_type}",
+                parameter_name="input_data",
+                parameter_value=doc_input
+            )
+    except Exception as e:
+        if "password" in str(e).lower() or "encrypt" in str(e).lower():
+            filename = str(input_data) if isinstance(input_data, (str, Path)) else None
+            raise MdparsePasswordError(filename=filename) from e
+        else:
+            raise MdparseConversionError(
+                f"Failed to open PDF document: {str(e)}",
+                conversion_stage="document_opening",
+                original_error=e
+            ) from e
+
+    # Validate page range
+    try:
+        validated_pages = validate_page_range(options.pages, doc.page_count)
+        pages_to_use: range | list[int] = validated_pages if validated_pages else range(doc.page_count)
+    except Exception as e:
+        raise MdparseInputError(
+            f"Invalid page range: {str(e)}",
+            parameter_name="pages",
+            parameter_value=options.pages
+        ) from e
+
+    # Get Markdown options (create default if not provided)
+    md_options = options.markdown_options or MarkdownOptions()
 
     hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else pages)
     md_string = ""
@@ -435,11 +695,11 @@ def pdf_to_markdown(doc: fitz.Document | BytesIO | str, pages: list[int] | None 
         # we have all rectangles and can start outputting their contents
         for rtype, r, idx in text_rects:
             if rtype == "text":  # a text rectangle
-                md_string += page_to_markdown(page, r, hdr_prefix)  # write MD content
+                md_string += page_to_markdown(page, r, hdr_prefix, md_options)  # write MD content
                 md_string += "\n"
             else:  # a table rect
                 md_string += tabs[idx].to_markdown(clean=False)
 
-        md_string += "\n-----\n\n"
+        md_string += f"\n{md_options.page_separator}\n\n"
 
     return md_string

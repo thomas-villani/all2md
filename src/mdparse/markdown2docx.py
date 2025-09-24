@@ -85,18 +85,23 @@ structure while working within Word's formatting constraints.
 
 import copy
 import re
-from typing import Any
+from typing import Any, Union
 
 import docx.opc.constants
 import docx.text.paragraph
 import docx.text.run
 from docx import Document
 from docx.enum.style import WD_STYLE_TYPE
+
+from ._input_utils import validate_and_convert_input, escape_markdown_special
+from .constants import DEFAULT_BULLETED_LIST_INDENT
+from .exceptions import MdparseInputError, MdparseConversionError
+from .options import Markdown2DocxOptions
 from docx.oxml.ns import qn
 from docx.oxml.shared import OxmlElement
 from docx.shared import Inches, Pt, RGBColor
 
-BULLETED_LIST_INDENT = 24
+BULLETED_LIST_INDENT = DEFAULT_BULLETED_LIST_INDENT
 
 
 def get_or_create_hyperlink_style(document: Any) -> Any:
@@ -240,23 +245,97 @@ def insert_hr(paragraph: docx.text.paragraph.Paragraph) -> None:
     pBdr.append(bottom)
 
 
-def markdown_to_docx(markdown_text: str, document: Any | None = None) -> Any:
-    """Convert Markdown to DOCX format.
+def markdown_to_docx(
+    markdown_text: str,
+    options: Markdown2DocxOptions | None = None,
+    document: Any | None = None  # Deprecated, use options.template_document
+) -> Any:
+    """Convert Markdown content to Word document (DOCX) format.
+
+    Processes Markdown text and converts it to a formatted Word document
+    while preserving structure, formatting, and styling. Creates appropriate
+    Word elements for headers, lists, tables, links, and text formatting.
 
     Parameters
     ----------
     markdown_text : str
-        The markdown str to convert
-    document : docx.Document
-        Optionally provide a starting document (e.g. a template) to append to.
+        Markdown content to convert to Word document
+    options : Markdown2DocxOptions or None, default None
+        Configuration options for Word document generation. If None, uses defaults.
+    document : docx.Document or None, optional
+        **Deprecated**: Use options.template_document instead.
+        Existing Word document to append content to (template document).
 
     Returns
     -------
     docx.Document
+        Generated Word document object with converted Markdown content
 
+    Raises
+    ------
+    MdparseInputError
+        If markdown_text is not a valid string
+    MdparseConversionError
+        If document creation fails or python-docx is not available
+
+    Examples
+    --------
+    Basic conversion:
+
+        >>> markdown = "# Title\n\nThis is **bold** text."
+        >>> doc = markdown_to_docx(markdown)
+        >>> doc.save("output.docx")
+
+    With template document:
+
+        >>> from mdparse.options import Markdown2DocxOptions
+        >>> from docx import Document
+        >>> template = Document("template.docx")
+        >>> options = Markdown2DocxOptions(template_document=template)
+        >>> doc = markdown_to_docx(markdown, options=options)
+
+    With custom list indentation:
+
+        >>> options = Markdown2DocxOptions(bulleted_list_indent=36)
+        >>> doc = markdown_to_docx(markdown, options=options)
     """
-    if document is None:
-        document = Document()
+    # Handle backward compatibility and merge options
+    if options is None:
+        options = Markdown2DocxOptions()
+
+    # Handle deprecated parameter
+    if document is not None:
+        options.template_document = document
+
+    # Validate input
+    if not isinstance(markdown_text, str):
+        raise MdparseInputError(
+            f"Markdown text must be a string, got {type(markdown_text).__name__}",
+            parameter_name="markdown_text",
+            parameter_value=markdown_text
+        )
+
+    try:
+        # Create or use provided document
+        if options.template_document is not None:
+            document = options.template_document
+        else:
+            document = Document()
+
+    except Exception as e:
+        if "python-docx" in str(e).lower() or "docx" in str(e).lower():
+            raise MdparseConversionError(
+                "python-docx library is required for DOCX generation. "
+                "Install with: pip install python-docx",
+                conversion_stage="dependency_check",
+                original_error=e
+            ) from e
+        else:
+            raise MdparseConversionError(
+                f"Failed to create Word document: {str(e)}",
+                conversion_stage="document_creation",
+                original_error=e
+            ) from e
 
     try:
         # Create a 'Code' style
