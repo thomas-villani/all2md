@@ -1,0 +1,101 @@
+[project]
+name = "mdparse"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Thomas.Villani", email = "thomas.villani@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.5",
+    "pandas>=2.3.2",
+    "pymupdf>=1.26.4",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
+    "standard-imghdr>=3.13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "pytest>=8.4.2",
+    "ruff>=0.13.1",
+    "sphinx>=8.2.3",
+    "sphinx-rtd-theme>=3.0.2",
+]
+
+[tool.ruff]
+# Target Python version
+target-version = "py310"
+# Maximum line length (compatible with black)
+line-length = 120
+
+# Exclude some common directories
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+# Enable fixing issues automatically when possible
+fix = true
+
+[tool.ruff.lint]
+# Enable selected rules (you can customize this list)
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes errors
+    "W",  # pycodestyle warnings
+    "C",  # complexity checks
+    "B",  # flake8-bugbear
+    "I",  # import-related rules
+]
+# Ignore specific rules if needed
+ignore = [
+    "E501",  # line too long (handle with black)
+    "C901"
+]
+
+
+[tool.mypy]
+# Python version to check against
+python_version = 3.12
+
+# Paths to ignore (similar to ruff exclude)
+exclude = "build|dist|.venv|.mypy_cache"
+
+# Enable strict optional checking
+strict_optional = true
+
+# Disallow untyped function definitions
+disallow_untyped_defs = true
+
+# Disallow untyped calls
+disallow_untyped_calls = true
+
+# Disallow untyped decorators
+disallow_untyped_decorators = true
+
+# Warn about unused ignores
+warn_unused_ignores = true
+
+# Warn about unreachable code
+warn_unreachable = true
+
+# Show error codes in output
+show_error_codes = true
+
+# Ignore missing imports (useful if some dependencies lack type hints)
+ignore_missing_imports = true
+
+# Follow imports normally (can be changed to silent if needed)
+follow_imports = "normal"
+
+# Cache directory
+cache_dir = ".mypy_cache"
