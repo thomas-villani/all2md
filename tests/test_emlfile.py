@@ -3,7 +3,7 @@ from io import StringIO
 
 import pytest
 
-from mdparse.emlfile import format_email_chain_as_markdown, parse_email_chain
+from all2md.emlfile import format_email_chain_as_markdown, parse_email_chain
 
 
 def test_format_email_chain_as_markdown_basic():

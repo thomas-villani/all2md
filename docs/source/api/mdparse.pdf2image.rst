@@ -1,7 +1,7 @@
-mdparse.pdf2image module
+all2md.pdf2image module
 ========================
 
-.. automodule:: mdparse.pdf2image
+.. automodule:: all2md.pdf2image
    :members:
    :show-inheritance:
    :undoc-members:

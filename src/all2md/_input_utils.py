@@ -1,7 +1,7 @@
-"""Utilities for uniform input handling across mdparse modules.
+"""Utilities for uniform input handling across all2md modules.
 
 This module provides standardized input validation and conversion functions
-that are used across all conversion modules in mdparse. This ensures
+that are used across all conversion modules in all2md. This ensures
 consistent behavior when handling different input types (paths, file-like
 objects, bytes, etc.) and provides clear error messages for unsupported inputs.
 
@@ -123,7 +123,7 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
     >>> validate_page_range([-1], max_pages=5)
     Traceback (most recent call last):
     ...
-    mdparse.exceptions.MdparseInputError: Invalid page number: -1. Pages must be 0-based.
+    all2md.exceptions.MdparseInputError: Invalid page number: -1. Pages must be 0-based.
     """
     if pages is None:
         return None

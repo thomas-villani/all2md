@@ -1,7 +1,7 @@
 Usage Guide
 ===========
 
-This comprehensive guide covers all aspects of using mdparse for document conversion.
+This comprehensive guide covers all aspects of using all2md for document conversion.
 
 Core Concepts
 -------------
@@ -9,7 +9,7 @@ Core Concepts
 File Type Detection
 ~~~~~~~~~~~~~~~~~~~
 
-mdparse automatically detects file types using:
+all2md automatically detects file types using:
 
 1. **File extensions** - Primary method for format detection
 2. **MIME type analysis** - Secondary validation
@@ -17,7 +17,7 @@ mdparse automatically detects file types using:
 
 .. code-block:: python
 
-   from mdparse import parse_file
+   from all2md import parse_file
 
    # Automatic detection based on filename
    with open('document.pdf', 'rb') as f:
@@ -29,7 +29,7 @@ mdparse automatically detects file types using:
 Supported Extensions
 ~~~~~~~~~~~~~~~~~~~~
 
-mdparse supports these file extensions:
+all2md supports these file extensions:
 
 * **Documents**: ``.pdf``, ``.docx``, ``.pptx``, ``.html``, ``.eml``
 * **Spreadsheets**: ``.xlsx``, ``.csv``, ``.tsv``
@@ -48,7 +48,7 @@ PDF conversion offers the most advanced features:
 
 .. code-block:: python
 
-   from mdparse.pdf2markdown import pdf_to_markdown
+   from all2md.pdf2markdown import pdf_to_markdown
    from io import BytesIO
 
    with open('document.pdf', 'rb') as f:
@@ -83,7 +83,7 @@ Word Document Processing
 
 .. code-block:: python
 
-   from mdparse.docx2markdown import docx_to_markdown
+   from all2md.docx2markdown import docx_to_markdown
 
    # Preserves bold, italic, underline, strikethrough
    with open('formatted.docx', 'rb') as f:
@@ -125,7 +125,7 @@ PowerPoint Processing
 
 .. code-block:: python
 
-   from mdparse.pptx2markdown import pptx_to_markdown
+   from all2md.pptx2markdown import pptx_to_markdown
 
    markdown = pptx_to_markdown(pptx_file)
    # Each slide becomes a section with:
@@ -158,7 +158,7 @@ Email Processing
 
 .. code-block:: python
 
-   from mdparse.emlfile import parse_email_chain
+   from all2md.emlfile import parse_email_chain
 
    # Parse as structured data
    messages = parse_email_chain('conversation.eml')
@@ -194,7 +194,7 @@ HTML Processing
 
 .. code-block:: python
 
-   from mdparse.html2markdown import HTMLToMarkdown
+   from all2md.html2markdown import HTMLToMarkdown
 
    # Default settings
    converter = HTMLToMarkdown()
@@ -249,7 +249,7 @@ Markdown to Word
 
 .. code-block:: python
 
-   from mdparse.markdown2docx import markdown_to_docx
+   from all2md.markdown2docx import markdown_to_docx
 
    markdown_text = """
    # Document Title
@@ -296,7 +296,7 @@ PDF to Images
 
 .. code-block:: python
 
-   from mdparse.pdf2image import pdf_to_images
+   from all2md.pdf2image import pdf_to_images
 
    # High resolution conversion
    images = pdf_to_images(
@@ -333,7 +333,7 @@ Processing Multiple Files
 
    import os
    from pathlib import Path
-   from mdparse import parse_file
+   from all2md import parse_file
 
    def convert_folder(input_folder, output_folder):
        input_path = Path(input_folder)
@@ -366,7 +366,7 @@ Parallel Processing
 
    from concurrent.futures import ThreadPoolExecutor
    from pathlib import Path
-   from mdparse import parse_file
+   from all2md import parse_file
 
    def convert_file(file_path, output_dir):
        try:
@@ -462,7 +462,7 @@ Common Errors and Solutions
 .. code-block:: python
 
    try:
-       from mdparse.pdf2markdown import pdf_to_markdown
+       from all2md.pdf2markdown import pdf_to_markdown
        markdown = pdf_to_markdown(file_obj)
    except ImportError as e:
        print("PDF processing requires PyMuPDF. Install with: pip install pymupdf")
@@ -506,7 +506,7 @@ Robust Error Handling
 
 .. code-block:: python
 
-   from mdparse import parse_file
+   from all2md import parse_file
    import logging
 
    def safe_convert(filepath, output_path):
@@ -592,7 +592,7 @@ Web Application Integration
 .. code-block:: python
 
    from flask import Flask, request, jsonify
-   from mdparse import parse_file
+   from all2md import parse_file
    from werkzeug.utils import secure_filename
    import tempfile
    import os
@@ -632,7 +632,7 @@ Command Line Tool
 
    import argparse
    from pathlib import Path
-   from mdparse import parse_file
+   from all2md import parse_file
 
    def main():
        parser = argparse.ArgumentParser(description='Convert documents to Markdown')
@@ -671,4 +671,4 @@ Command Line Tool
    if __name__ == '__main__':
        exit(main())
 
-This completes the comprehensive usage guide covering all major features and use cases of mdparse.
+This completes the comprehensive usage guide covering all major features and use cases of all2md.

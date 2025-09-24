@@ -1,7 +1,7 @@
-mdparse
+all2md
 =======
 
 .. toctree::
    :maxdepth: 4
 
-   mdparse
+   all2md

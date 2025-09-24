@@ -1,7 +1,7 @@
-"""Constants and default values for mdparse library.
+"""Constants and default values for all2md library.
 
 This module centralizes all hardcoded values, magic numbers, and default
-configuration constants used across the mdparse library. This improves
+configuration constants used across the all2md library. This improves
 maintainability and discoverability of configurable parameters.
 
 Constants are organized by category: formatting, conversion behavior,

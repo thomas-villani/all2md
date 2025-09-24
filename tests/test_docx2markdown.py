@@ -2,7 +2,7 @@ import base64
 
 import docx
 
-from mdparse import docx2markdown as md
+from all2md import docx2markdown as md
 
 
 class FakeIndent:

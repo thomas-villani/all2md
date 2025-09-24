@@ -1,4 +1,4 @@
-"""Custom exceptions for the mdparse library.
+"""Custom exceptions for the all2md library.
 
 This module defines specialized exception classes for various error conditions
 that can occur during document parsing and conversion operations. These
@@ -31,10 +31,10 @@ Exception Hierarchy
 
 
 class MdparseError(Exception):
-    """Base exception class for all mdparse-specific errors.
+    """Base exception class for all all2md-specific errors.
 
     This serves as the root exception class for all custom exceptions
-    raised by the mdparse library. Catching this will catch all
+    raised by the all2md library. Catching this will catch all
     library-specific errors.
 
     Parameters
@@ -93,7 +93,7 @@ class MdparseFormatError(MdparseError):
     """Exception raised when attempting to process an unsupported file format.
 
     This exception indicates that the requested file format or conversion
-    operation is not supported by the current version of mdparse or that
+    operation is not supported by the current version of all2md or that
     required dependencies are missing.
 
     Parameters

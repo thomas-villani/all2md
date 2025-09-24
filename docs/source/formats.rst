@@ -1,7 +1,7 @@
 Supported Formats
 =================
 
-mdparse supports a comprehensive range of file formats for conversion to and from Markdown. This page provides detailed information about format support, capabilities, and limitations.
+all2md supports a comprehensive range of file formats for conversion to and from Markdown. This page provides detailed information about format support, capabilities, and limitations.
 
 Document Formats
 ----------------
@@ -33,7 +33,7 @@ PDF (.pdf)
 
 .. code-block:: python
 
-   from mdparse.pdf2markdown import pdf_to_markdown
+   from all2md.pdf2markdown import pdf_to_markdown
 
    # Convert entire document
    markdown = pdf_to_markdown('report.pdf')
@@ -68,7 +68,7 @@ Microsoft Word (.docx)
 
 .. code-block:: python
 
-   from mdparse.docx2markdown import docx_to_markdown
+   from all2md.docx2markdown import docx_to_markdown
 
    # Basic conversion
    markdown = docx_to_markdown('document.docx')
@@ -104,7 +104,7 @@ PowerPoint (.pptx)
 
 .. code-block:: python
 
-   from mdparse.pptx2markdown import pptx_to_markdown
+   from all2md.pptx2markdown import pptx_to_markdown
 
    markdown = pptx_to_markdown('presentation.pptx')
 
@@ -139,7 +139,7 @@ HTML (.html, .htm)
 
 .. code-block:: python
 
-   from mdparse.html2markdown import HTMLToMarkdown
+   from all2md.html2markdown import HTMLToMarkdown
 
    converter = HTMLToMarkdown(
        hash_headings=True,
@@ -177,7 +177,7 @@ Email (.eml)
 
 .. code-block:: python
 
-   from mdparse.emlfile import parse_email_chain
+   from all2md.emlfile import parse_email_chain
 
    # Get structured data
    messages = parse_email_chain('conversation.eml')
@@ -309,7 +309,7 @@ Markdown to Word (.docx)
 
 .. code-block:: python
 
-   from mdparse.markdown2docx import markdown_to_docx
+   from all2md.markdown2docx import markdown_to_docx
 
    doc = markdown_to_docx(markdown_text)
    doc.save('output.docx')
@@ -332,7 +332,7 @@ PDF to Images
 
 .. code-block:: python
 
-   from mdparse.pdf2image import pdf_to_images
+   from all2md.pdf2image import pdf_to_images
 
    # High quality PNG conversion
    images = pdf_to_images('document.pdf', fmt='png', zoom=2.0)
@@ -456,4 +456,4 @@ Encoding and Character Support
 - Encoding detection with fallbacks
 - Error reporting for problematic content
 
-This comprehensive format support makes mdparse suitable for a wide range of document processing tasks, from simple text conversion to complex document workflow automation.
+This comprehensive format support makes all2md suitable for a wide range of document processing tasks, from simple text conversion to complex document workflow automation.

@@ -27,12 +27,12 @@ Examples
 --------
 Basic PDF conversion:
 
-    >>> from mdparse.pdf2markdown import pdf_to_markdown
+    >>> from all2md.pdf2markdown import pdf_to_markdown
     >>> markdown_content = pdf_to_markdown("document.pdf")
 
 Convert specific pages with options:
 
-    >>> from mdparse.options import PdfOptions
+    >>> from all2md.options import PdfOptions
     >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
     >>> content = pdf_to_markdown("document.pdf", options=options)
 
@@ -560,7 +560,7 @@ def pdf_to_markdown(
 
     Convert specific pages with base64 images:
 
-        >>> from mdparse.options import PdfOptions
+        >>> from all2md.options import PdfOptions
         >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
         >>> content = pdf_to_markdown("document.pdf", options=options)
 

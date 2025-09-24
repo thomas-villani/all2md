@@ -1,7 +1,7 @@
-mdparse.pptx2markdown module
+all2md.pptx2markdown module
 ============================
 
-.. automodule:: mdparse.pptx2markdown
+.. automodule:: all2md.pptx2markdown
    :members:
    :show-inheritance:
    :undoc-members:

@@ -1,7 +1,7 @@
 Contributing Guide
 ==================
 
-Thank you for your interest in contributing to mdparse! This guide will help you get started with development and ensure your contributions align with the project's standards.
+Thank you for your interest in contributing to all2md! This guide will help you get started with development and ensure your contributions align with the project's standards.
 
 Getting Started
 ---------------
@@ -13,8 +13,8 @@ Development Environment Setup
 
    .. code-block:: bash
 
-      git clone https://github.com/yourusername/mdparse.git
-      cd mdparse
+      git clone https://github.com/yourusername/all2md.git
+      cd all2md
 
 2. **Create a Virtual Environment**
 
@@ -29,13 +29,13 @@ Development Environment Setup
 
       pip install -e .[dev]
 
-   This installs mdparse in editable mode with all development tools.
+   This installs all2md in editable mode with all development tools.
 
 4. **Verify Installation**
 
    .. code-block:: bash
 
-      python -c "import mdparse; print('Installation successful!')"
+      python -c "import all2md; print('Installation successful!')"
 
 Code Quality Standards
 ----------------------
@@ -150,7 +150,7 @@ Once tests are implemented:
    pytest
 
    # Run with coverage
-   pytest --cov=src/mdparse
+   pytest --cov=src/all2md
 
    # Run specific test file
    pytest tests/unit/test_pdf2markdown.py
@@ -240,7 +240,7 @@ Code Contribution Process
 
       # Test manually with various file types
       python -c "
-      from mdparse import parse_file
+      from all2md import parse_file
       # Test your changes here
       "
 
@@ -340,7 +340,7 @@ To add support for a new file format:
 
    .. code-block:: python
 
-      # src/mdparse/newformat2markdown.py
+      # src/all2md/newformat2markdown.py
       """New format to Markdown conversion module.
 
       This module provides functionality to convert [FORMAT] files
@@ -367,7 +367,7 @@ To add support for a new file format:
 
 2. **Update Main Parser**
 
-   Add format detection in ``src/mdparse/__init__.py``:
+   Add format detection in ``src/all2md/__init__.py``:
 
    .. code-block:: python
 
@@ -404,7 +404,7 @@ To add support for a new file format:
 
       # tests/unit/test_newformat2markdown.py
       import pytest
-      from mdparse.newformat2markdown import newformat_to_markdown
+      from all2md.newformat2markdown import newformat_to_markdown
 
       def test_basic_conversion():
           # Test implementation
@@ -425,7 +425,7 @@ Bug Reports
 When reporting bugs, please include:
 
 - **Python version** and operating system
-- **mdparse version**
+- **all2md version**
 - **Complete error message** with traceback
 - **Minimal reproduction case**
 - **Expected vs actual behavior**
@@ -504,4 +504,4 @@ If you need help with development:
 3. Start a GitHub discussion
 4. Ask specific questions in pull requests
 
-Thank you for contributing to mdparse! Your efforts help make document conversion more accessible and reliable for everyone.
+Thank you for contributing to all2md! Your efforts help make document conversion more accessible and reliable for everyone.

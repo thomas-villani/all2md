@@ -1,4 +1,4 @@
-from mdparse.html2markdown import HTMLToMarkdown, html_to_markdown
+from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
 
 
 def test_heading_hash_true():

@@ -1,7 +1,7 @@
-mdparse.pdf2markdown module
+all2md.pdf2markdown module
 ===========================
 
-.. automodule:: mdparse.pdf2markdown
+.. automodule:: all2md.pdf2markdown
    :members:
    :show-inheritance:
    :undoc-members:

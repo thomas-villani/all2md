@@ -1,6 +1,6 @@
-"""mdparse - A Python document conversion library for bidirectional transformation.
+"""all2md - A Python document conversion library for bidirectional transformation.
 
-mdparse provides a comprehensive solution for converting between various file formats
+all2md provides a comprehensive solution for converting between various file formats
 and Markdown. It supports PDF, Word (DOCX), PowerPoint (PPTX), HTML, email (EML),
 Excel (XLSX), images, and 200+ text file formats with intelligent content extraction
 and formatting preservation.
@@ -37,7 +37,7 @@ Examples
 --------
 Basic usage for file conversion:
 
-    >>> from mdparse import parse_file
+    >>> from all2md import parse_file
     >>> with open('document.pdf', 'rb') as f:
     ...     markdown_content = parse_file(f, 'document.pdf')
     >>> print(markdown_content)
@@ -104,7 +104,7 @@ def parse_file(
 ) -> Union[str, None, tuple[Union[str, None], Union[str, None]]]:
     """Parse file and return content as Markdown format.
 
-    This is the main entry point for the mdparse library. It automatically
+    This is the main entry point for the all2md library. It automatically
     detects file type based on filename and MIME type, then routes to the
     appropriate specialized converter for processing.
 

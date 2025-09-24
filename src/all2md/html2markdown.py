@@ -48,7 +48,7 @@ Examples
 --------
 Basic HTML string conversion:
 
-    >>> from mdparse.html2markdown import html_to_markdown
+    >>> from all2md.html2markdown import html_to_markdown
     >>> html = '<h1>Title</h1><p>Content with <strong>bold</strong> text.</p>'
     >>> markdown = html_to_markdown(html)
     >>> print(markdown)
@@ -66,7 +66,7 @@ Convert with file-like object:
 
 Custom configuration with options:
 
-    >>> from mdparse.options import HtmlOptions, MarkdownOptions
+    >>> from all2md.options import HtmlOptions, MarkdownOptions
     >>> options = HtmlOptions(
     ...     use_hash_headings=False,
     ...     extract_title=True,
@@ -447,7 +447,7 @@ def html_to_markdown(
 
     Convert with custom options:
 
-        >>> from mdparse.options import HtmlOptions, MarkdownOptions
+        >>> from all2md.options import HtmlOptions, MarkdownOptions
         >>> options = HtmlOptions(
         ...     use_hash_headings=False,
         ...     extract_title=True,

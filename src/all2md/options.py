@@ -1,7 +1,7 @@
-"""Configuration options and settings for mdparse conversion modules.
+"""Configuration options and settings for all2md conversion modules.
 
 This module provides dataclass-based configuration options for all conversion
-modules in the mdparse library. Using dataclasses provides type safety,
+modules in the all2md library. Using dataclasses provides type safety,
 default values, and a clean API for configuring conversion behavior.
 
 Each converter module has its own Options dataclass with module-specific

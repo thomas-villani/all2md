@@ -1,16 +1,16 @@
 Quick Start Guide
 =================
 
-This guide will get you up and running with mdparse in just a few minutes.
+This guide will get you up and running with all2md in just a few minutes.
 
 Basic Usage
 -----------
 
-The simplest way to use mdparse is with the main ``parse_file`` function:
+The simplest way to use all2md is with the main ``parse_file`` function:
 
 .. code-block:: python
 
-   from mdparse import parse_file
+   from all2md import parse_file
 
    # Convert any supported file to Markdown
    with open('document.pdf', 'rb') as f:
@@ -34,7 +34,7 @@ PDF Documents
 
 .. code-block:: python
 
-   from mdparse.pdf2markdown import pdf_to_markdown
+   from all2md.pdf2markdown import pdf_to_markdown
    from io import BytesIO
 
    with open('report.pdf', 'rb') as f:
@@ -50,7 +50,7 @@ Word Documents
 
 .. code-block:: python
 
-   from mdparse.docx2markdown import docx_to_markdown
+   from all2md.docx2markdown import docx_to_markdown
 
    # Basic conversion
    with open('document.docx', 'rb') as f:
@@ -65,7 +65,7 @@ PowerPoint Presentations
 
 .. code-block:: python
 
-   from mdparse.pptx2markdown import pptx_to_markdown
+   from all2md.pptx2markdown import pptx_to_markdown
 
    with open('presentation.pptx', 'rb') as f:
        markdown = pptx_to_markdown(f)
@@ -76,7 +76,7 @@ Email Files
 
 .. code-block:: python
 
-   from mdparse.emlfile import parse_email_chain
+   from all2md.emlfile import parse_email_chain
 
    # Get structured data
    messages = parse_email_chain('conversation.eml')
@@ -95,7 +95,7 @@ HTML Content
 
 .. code-block:: python
 
-   from mdparse.html2markdown import HTMLToMarkdown
+   from all2md.html2markdown import HTMLToMarkdown
 
    converter = HTMLToMarkdown()
 
@@ -119,7 +119,7 @@ Markdown to Word
 
 .. code-block:: python
 
-   from mdparse.markdown2docx import markdown_to_docx
+   from all2md.markdown2docx import markdown_to_docx
 
    markdown_text = """
    # My Document
@@ -143,7 +143,7 @@ PDF to Images
 
 .. code-block:: python
 
-   from mdparse.pdf2image import pdf_to_images
+   from all2md.pdf2image import pdf_to_images
 
    # Convert all pages to images
    images = pdf_to_images('document.pdf', fmt='png', zoom=2.0)
@@ -170,7 +170,7 @@ From Memory
 .. code-block:: python
 
    from io import BytesIO
-   from mdparse import parse_file
+   from all2md import parse_file
 
    # Load file into memory
    with open('document.pdf', 'rb') as f:
@@ -187,7 +187,7 @@ From URL
 
    import requests
    from io import BytesIO
-   from mdparse import parse_file
+   from all2md import parse_file
 
    # Download and convert
    response = requests.get('https://example.com/document.pdf')
@@ -203,7 +203,7 @@ Multiple Files
 .. code-block:: python
 
    import os
-   from mdparse import parse_file
+   from all2md import parse_file
 
    input_folder = 'documents'
    output_folder = 'markdown'
@@ -227,7 +227,7 @@ Directory Processing
 .. code-block:: python
 
    from pathlib import Path
-   from mdparse import parse_file
+   from all2md import parse_file
 
    def convert_directory(input_dir, output_dir):
        input_path = Path(input_dir)
@@ -257,7 +257,7 @@ Basic Error Handling
 
 .. code-block:: python
 
-   from mdparse import parse_file
+   from all2md import parse_file
 
    try:
        with open('document.pdf', 'rb') as f:
@@ -275,7 +275,7 @@ Checking File Support
 
 .. code-block:: python
 
-   from mdparse import ALL_ALLOWED_EXTENSIONS
+   from all2md import ALL_ALLOWED_EXTENSIONS
    import os
 
    def is_supported(filename):
@@ -296,7 +296,7 @@ HTML Converter
 
 .. code-block:: python
 
-   from mdparse.html2markdown import HTMLToMarkdown
+   from all2md.html2markdown import HTMLToMarkdown
 
    # Custom configuration
    converter = HTMLToMarkdown(
@@ -317,8 +317,8 @@ Document Conversion Pipeline
 
 .. code-block:: python
 
-   from mdparse import parse_file
-   from mdparse.markdown2docx import markdown_to_docx
+   from all2md import parse_file
+   from all2md.markdown2docx import markdown_to_docx
 
    def convert_to_word_via_markdown(input_file, output_file):
        # Step 1: Convert input to Markdown
@@ -336,7 +336,7 @@ Content Extraction
 
 .. code-block:: python
 
-   from mdparse import parse_file
+   from all2md import parse_file
    import re
 
    def extract_headers(file_path):
@@ -357,4 +357,4 @@ Next Steps
 - Read the :doc:`usage` guide for detailed information
 - Explore the :doc:`api` reference for all available functions
 - Check :doc:`formats` for complete format support details
-- See :doc:`contributing` if you want to help improve mdparse
+- See :doc:`contributing` if you want to help improve all2md

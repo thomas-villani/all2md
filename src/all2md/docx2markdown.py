@@ -39,7 +39,7 @@ Examples
 --------
 Basic conversion:
 
-    >>> from mdparse.docx2markdown import docx_to_markdown
+    >>> from all2md.docx2markdown import docx_to_markdown
     >>> with open('document.docx', 'rb') as f:
     ...     markdown = docx_to_markdown(f)
     >>> print(markdown)

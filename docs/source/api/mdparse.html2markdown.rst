@@ -1,7 +1,7 @@
-mdparse.html2markdown module
+all2md.html2markdown module
 ============================
 
-.. automodule:: mdparse.html2markdown
+.. automodule:: all2md.html2markdown
    :members:
    :show-inheritance:
    :undoc-members:

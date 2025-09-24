@@ -11,13 +11,13 @@ System Requirements
 Basic Installation
 ------------------
 
-Install mdparse from PyPI using pip:
+Install all2md from PyPI using pip:
 
 .. code-block:: bash
 
-   pip install mdparse
+   pip install all2md
 
-This will install mdparse with its core dependencies. Optional dependencies for specific formats are installed automatically when needed.
+This will install all2md with its core dependencies. Optional dependencies for specific formats are installed automatically when needed.
 
 Development Installation
 ------------------------
@@ -26,13 +26,13 @@ For development or contributing to the project:
 
 .. code-block:: bash
 
-   git clone https://github.com/thomas-villani/mdparse.git
-   cd mdparse
+   git clone https://github.com/thomas-villani/all2md.git
+   cd all2md
    python -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    pip install -e .[dev]
 
-This installs mdparse in editable mode with development tools.
+This installs all2md in editable mode with development tools.
 
 Dependencies
 ------------
@@ -40,7 +40,7 @@ Dependencies
 Core Dependencies
 ~~~~~~~~~~~~~~~~~
 
-mdparse automatically installs these core dependencies:
+all2md automatically installs these core dependencies:
 
 * **PyMuPDF** (≥1.26.4) - PDF processing and table detection
 * **python-docx** (≥1.2.0) - Word document handling
@@ -67,11 +67,11 @@ Test your installation:
 
 .. code-block:: python
 
-   import mdparse
-   print(f"mdparse version: {mdparse.__version__}")
+   import all2md
+   print(f"all2md version: {all2md.__version__}")
 
    # Test basic functionality
-   from mdparse import parse_file
+   from all2md import parse_file
    from io import StringIO
 
    # Test with a simple text file
@@ -91,23 +91,23 @@ Common Issues
 
    .. code-block:: bash
 
-      pip install --upgrade mdparse
+      pip install --upgrade all2md
 
 **Permission Errors**
    On some systems, you might need to use:
 
    .. code-block:: bash
 
-      pip install --user mdparse
+      pip install --user all2md
 
 **Virtual Environment Issues**
    Always use a virtual environment for development:
 
    .. code-block:: bash
 
-      python -m venv mdparse-env
-      source mdparse-env/bin/activate
-      pip install mdparse
+      python -m venv all2md-env
+      source all2md-env/bin/activate
+      pip install all2md
 
 **PyMuPDF Installation Issues**
    PyMuPDF requires specific system libraries. If installation fails:
@@ -143,7 +143,7 @@ Linux
 Docker Installation
 -------------------
 
-Use mdparse in a Docker container:
+Use all2md in a Docker container:
 
 .. code-block:: dockerfile
 
@@ -154,8 +154,8 @@ Use mdparse in a Docker container:
        build-essential \
        && rm -rf /var/lib/apt/lists/*
 
-   # Install mdparse
-   RUN pip install mdparse
+   # Install all2md
+   RUN pip install all2md
 
    # Your application code
    COPY . /app
@@ -168,24 +168,24 @@ To upgrade to the latest version:
 
 .. code-block:: bash
 
-   pip install --upgrade mdparse
+   pip install --upgrade all2md
 
 To upgrade to a specific version:
 
 .. code-block:: bash
 
-   pip install mdparse==1.2.0
+   pip install all2md==1.2.0
 
 Uninstalling
 ------------
 
-To remove mdparse:
+To remove all2md:
 
 .. code-block:: bash
 
-   pip uninstall mdparse
+   pip uninstall all2md
 
-This will remove mdparse but keep its dependencies. To remove dependencies that are no longer needed, use:
+This will remove all2md but keep its dependencies. To remove dependencies that are no longer needed, use:
 
 .. code-block:: bash
 

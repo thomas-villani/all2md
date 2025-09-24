@@ -1,6 +1,6 @@
 import fitz
 
-from mdparse import pdf2markdown as mod
+from all2md import pdf2markdown as mod
 
 
 class FakePageIdent:

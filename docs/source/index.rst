@@ -1,7 +1,7 @@
-mdparse Documentation
+all2md Documentation
 =====================
 
-**mdparse** is a comprehensive Python library for bidirectional document conversion between various file formats and Markdown. It provides intelligent content extraction and formatting preservation for PDF, Word, PowerPoint, HTML, email, Excel, images, and 200+ text file formats.
+**all2md** is a comprehensive Python library for bidirectional document conversion between various file formats and Markdown. It provides intelligent content extraction and formatting preservation for PDF, Word, PowerPoint, HTML, email, Excel, images, and 200+ text file formats.
 
 Key Features
 ------------
@@ -16,7 +16,7 @@ Quick Start
 
 .. code-block:: python
 
-   from mdparse import parse_file
+   from all2md import parse_file
 
    # Convert any supported file to Markdown
    with open('document.pdf', 'rb') as f:
@@ -26,11 +26,11 @@ Quick Start
 Installation
 ------------
 
-Install mdparse from PyPI:
+Install all2md from PyPI:
 
 .. code-block:: bash
 
-   pip install mdparse
+   pip install all2md
 
 Requirements:
 * Python 3.12+

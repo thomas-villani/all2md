@@ -6,7 +6,7 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.util import Inches
 
-from mdparse.pptx2markdown import (
+from all2md.pptx2markdown import (
     _extract_image_data,
     _process_paragraph_format,
     _process_run_format,

@@ -40,13 +40,13 @@
 
 ### Install from PyPI
 ```bash
-pip install mdparse
+pip install all2md
 ```
 
 ### Install for Development
 ```bash
 git clone https://github.com/username/mdparse.git
-cd mdparse
+cd all2md
 pip install -e .
 ```
 
@@ -55,7 +55,7 @@ pip install -e .
 ### Basic Usage
 
 ```python
-from mdparse import parse_file
+from all2md import parse_file
 
 # Convert any supported file to Markdown
 with open('document.pdf', 'rb') as f:
@@ -74,8 +74,9 @@ print(content)
 ### Format-Specific Examples
 
 #### PDF to Markdown
+
 ```python
-from mdparse.pdf2markdown import pdf_to_markdown
+from all2md.pdf2markdown import pdf_to_markdown
 from io import BytesIO
 
 with open('report.pdf', 'rb') as f:
@@ -85,8 +86,9 @@ with open('report.pdf', 'rb') as f:
 ```
 
 #### Word Document to Markdown
+
 ```python
-from mdparse.docx2markdown import docx_to_markdown
+from all2md.docx2markdown import docx_to_markdown
 
 with open('document.docx', 'rb') as f:
     markdown = docx_to_markdown(f, convert_images_to_base64=True)
@@ -94,8 +96,9 @@ with open('document.docx', 'rb') as f:
 ```
 
 #### Email Chain Processing
+
 ```python
-from mdparse.emlfile import parse_email_chain
+from all2md.emlfile import parse_email_chain
 
 # Get structured data
 messages = parse_email_chain('conversation.eml')
@@ -110,8 +113,9 @@ print(markdown)
 ```
 
 #### PowerPoint to Markdown
+
 ```python
-from mdparse.pptx2markdown import pptx_to_markdown
+from all2md.pptx2markdown import pptx_to_markdown
 
 with open('presentation.pptx', 'rb') as f:
     markdown = pptx_to_markdown(f)
@@ -119,8 +123,9 @@ with open('presentation.pptx', 'rb') as f:
 ```
 
 #### HTML to Markdown
+
 ```python
-from mdparse.html2markdown import HTMLToMarkdown
+from all2md.html2markdown import HTMLToMarkdown
 
 converter = HTMLToMarkdown(
     hash_headings=True,
@@ -136,8 +141,9 @@ print(markdown)
 ### Reverse Conversion (Markdown to Format)
 
 #### Markdown to Word Document
+
 ```python
-from mdparse.markdown2docx import markdown_to_docx
+from all2md.markdown2docx import markdown_to_docx
 
 markdown_text = """
 # My Document
@@ -156,8 +162,9 @@ doc.save('output.docx')
 ```
 
 #### PDF to Images
+
 ```python
-from mdparse.pdf2image import pdf_to_images
+from all2md.pdf2image import pdf_to_images
 
 # Convert to image list
 images = pdf_to_images('document.pdf', fmt='png', zoom=2.0)
@@ -236,7 +243,7 @@ images = pdf_to_images(
 ### Setup Development Environment
 ```bash
 git clone https://github.com/username/mdparse.git
-cd mdparse
+cd all2md
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e .[dev]
