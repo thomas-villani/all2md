@@ -55,9 +55,13 @@ DEFAULT_BULLETED_LIST_INDENT = 24
 # Conversion Behavior Constants
 # =============================================================================
 
-# Image handling
+# Image handling (deprecated - use attachment handling)
 DEFAULT_CONVERT_IMAGES_TO_BASE64 = False
 DEFAULT_REMOVE_IMAGES = False
+
+# Attachment handling (unified across all converters) - defined after AttachmentMode type
+DEFAULT_ATTACHMENT_OUTPUT_DIR = None
+DEFAULT_ATTACHMENT_BASE_URL = None
 
 # Text processing
 DEFAULT_ESCAPE_SPECIAL = True
@@ -73,6 +77,10 @@ UnderlineMode = Literal["html", "markdown", "ignore"]
 SuperscriptMode = Literal["html", "markdown", "ignore"]
 SubscriptMode = Literal["html", "markdown", "ignore"]
 EmphasisSymbol = Literal["*", "_"]
+AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
+
+# Attachment handling defaults - defined here after AttachmentMode type
+DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 
 # =============================================================================
 # PDF-specific Constants

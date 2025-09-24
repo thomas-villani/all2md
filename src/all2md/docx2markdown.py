@@ -68,24 +68,18 @@ direct Markdown equivalents and will be approximated or omitted.
 
 import logging
 import re
-import requests
 from pathlib import Path
-from typing import Any, Union, IO
-from urllib.parse import urlparse
+from typing import IO, Any, Union
 
 import docx
 import docx.document
 from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_ALIGN_VERTICAL
-from docx.shared import Inches
 
+from ._attachment_utils import process_attachment, resolve_deprecated_options
+from .constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from .exceptions import MdparseConversionError
-from .constants import (
-    DEFAULT_INDENTATION_PT_PER_LEVEL
-)
 from .options import DocxOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
@@ -288,7 +282,7 @@ def _extract_image_data(parent: Any, blip_rId: str) -> str | None:
         return None
 
 
-def _iter_block_items(parent: Any, convert_images_to_base64: bool = False) -> Any:
+def _iter_block_items(parent: Any, options: DocxOptions) -> Any:
     """
     Generate a sequence of Paragraph and Table elements in order, handling images.
     """
@@ -320,32 +314,39 @@ def _iter_block_items(parent: Any, convert_images_to_base64: bool = False) -> An
                         title = t[0]
 
                     # Get image data
-                    if convert_images_to_base64:
-                        blip = pic.xpath(".//a:blip")[0]
-                        blip_rId = blip.get(
-                            "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
-                        )
-                        image_data = _extract_image_data(parent, blip_rId)
+                    blip = pic.xpath(".//a:blip")[0]
+                    blip_rId = blip.get(
+                        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+                    )
+                    raw_image_data = _extract_image_data(parent, blip_rId)
+                    if not isinstance(raw_image_data, (bytes, type(None))):
+                        raw_image_data = None
 
-                        if image_data:
-                            img_data.append((title, image_data))
-                    else:
-                        img_data.append((title, ""))
+                    # Process image using unified attachment handling
+                    image_filename = f"image_{len(img_data) + 1}.png"
+                    processed_image = process_attachment(
+                        attachment_data=raw_image_data,
+                        attachment_name=image_filename,
+                        alt_text=title or "image",
+                        attachment_mode=options.attachment_mode,
+                        attachment_output_dir=options.attachment_output_dir,
+                        attachment_base_url=options.attachment_base_url,
+                        is_image=True
+                    )
+
+                    img_data.append((title, processed_image))
 
             if has_image and img_data:
                 # Create a new paragraph with default style for each image
                 from docx.oxml.shared import OxmlElement
 
-                for title, data in img_data:
+                for title, processed_image in img_data:
                     p = OxmlElement("w:p")
                     r = OxmlElement("w:r")
                     t = OxmlElement("w:t")
 
-                    # Create markdown image with data URL
-                    if title:
-                        t.text = f"![{title}]({data})"
-                    else:
-                        t.text = f"![image]({data})"
+                    # The processed_image already contains the proper markdown
+                    t.text = processed_image
 
                     r.append(t)
                     p.append(r)
@@ -423,6 +424,14 @@ def docx_to_markdown(
     if convert_images_to_base64 is not None:
         options.convert_images_to_base64 = convert_images_to_base64
 
+    # Resolve deprecated attachment options to new unified system
+    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
+        options.attachment_mode,
+        options.attachment_output_dir,
+        options.attachment_base_url,
+        convert_images_to_base64=options.convert_images_to_base64
+    )
+
     # Validate and convert input - for now use simplified approach
     try:
         if isinstance(input_data, docx.document.Document):
@@ -444,7 +453,7 @@ def docx_to_markdown(
     markdown_lines = []
     list_stack: list[tuple[str, int, int]] = []  # Track nested lists: (type, level, current_number)
 
-    for block in _iter_block_items(doc, convert_images_to_base64=options.convert_images_to_base64):
+    for block in _iter_block_items(doc, options=options):
         if isinstance(block, Paragraph):
             text = ""
 

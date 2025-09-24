@@ -102,6 +102,7 @@ from urllib.request import urlopen
 
 from bs4 import BeautifulSoup, NavigableString
 
+from ._attachment_utils import process_attachment, resolve_deprecated_options
 from ._input_utils import is_path_like, validate_and_convert_input
 from .constants import (
     DANGEROUS_HTML_ATTRIBUTES,
@@ -166,6 +167,10 @@ class HTMLToMarkdown:
         table_alignment_auto_detect: bool = True,
         preserve_nested_structure: bool = True,
         markdown_options: MarkdownOptions | None = None,
+        # New unified attachment handling parameters
+        attachment_mode: str = "alt_text",
+        attachment_output_dir: str | None = None,
+        attachment_base_url: str | None = None,
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
@@ -176,6 +181,17 @@ class HTMLToMarkdown:
         self.download_images = download_images
         self.embed_images_as_data_uri = embed_images_as_data_uri
         self.preserve_nbsp = preserve_nbsp
+
+        # Resolve deprecated attachment options to new unified system
+        self.attachment_mode, self.attachment_output_dir, self.attachment_base_url = resolve_deprecated_options(
+            attachment_mode,
+            attachment_output_dir,
+            attachment_base_url,
+            remove_images=remove_images,
+            download_images=download_images,
+            embed_images_as_data_uri=embed_images_as_data_uri,
+            base_url=base_url
+        )
         self.strip_dangerous_elements = strip_dangerous_elements
         self.table_alignment_auto_detect = table_alignment_auto_detect
         self.preserve_nested_structure = preserve_nested_structure
@@ -279,6 +295,14 @@ class HTMLToMarkdown:
         if not self.base_url or urlparse(url).scheme:
             return url
         return urljoin(self.base_url, url)
+
+    def _download_image_data(self, url: str) -> bytes:
+        """Download image data from URL."""
+        try:
+            with urlopen(url) as response:
+                return response.read()
+        except Exception as e:
+            raise Exception(f"Failed to download image from {url}: {e}")
 
     def _download_image_as_data_uri(self, url: str) -> str:
         """Download image and convert to data URI.
@@ -682,7 +706,7 @@ class HTMLToMarkdown:
 
     def _process_image(self, node: Any) -> str:
         """Process images with enhanced handling options."""
-        if self.remove_images:
+        if self.attachment_mode == "skip":
             return ""
 
         src = node.get("src", "")
@@ -695,12 +719,32 @@ class HTMLToMarkdown:
         # Resolve relative URLs
         resolved_src = self._resolve_url(src)
 
-        # Handle image downloading/embedding
-        if self.download_images or self.embed_images_as_data_uri:
-            resolved_src = self._download_image_as_data_uri(resolved_src)
+        # Download image data if needed for base64 or download modes
+        image_data = None
+        if self.attachment_mode in ["base64", "download"]:
+            try:
+                image_data = self._download_image_data(resolved_src)
+            except Exception:
+                # Fall back to alt_text mode if download fails
+                self.attachment_mode = "alt_text"
 
-        title_part = f' "{title}"' if title else ""
-        return f"![{alt}]({resolved_src}{title_part})"
+        # Generate filename from URL or use generic name
+        from urllib.parse import urlparse
+        parsed_url = urlparse(resolved_src)
+        filename = os.path.basename(parsed_url.path) or "image.png"
+
+        # Process image using unified attachment handling
+        processed_image = process_attachment(
+            attachment_data=image_data,
+            attachment_name=filename,
+            alt_text=alt or title or filename,
+            attachment_mode=self.attachment_mode,
+            attachment_output_dir=self.attachment_output_dir,
+            attachment_base_url=self.attachment_base_url,
+            is_image=True
+        )
+
+        return processed_image
 
     def _wrap_text(self, wrapper: str, node: Any) -> str:
         """Wrap text with markdown syntax."""
@@ -925,6 +969,9 @@ def html_to_markdown(
             table_alignment_auto_detect=options.table_alignment_auto_detect,
             preserve_nested_structure=options.preserve_nested_structure,
             markdown_options=options.markdown_options,
+            attachment_mode=options.attachment_mode,
+            attachment_output_dir=options.attachment_output_dir,
+            attachment_base_url=options.attachment_base_url,
         )
         return converter.convert(html_content)
     except ImportError as e:

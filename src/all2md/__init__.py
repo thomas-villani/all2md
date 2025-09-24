@@ -77,17 +77,15 @@ import os
 from io import BytesIO, StringIO
 from typing import IO, Union
 
-from .constants import PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
-from .exceptions import MdparseConversionError, MdparseInputError
-from .options import PdfOptions, DocxOptions, HtmlOptions, PptxOptions, EmlOptions
+from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from .constants import DOCUMENT_EXTENSIONS as _DOCUMENT_EXTENSIONS
+from .constants import IMAGE_EXTENSIONS as _IMAGE_EXTENSIONS
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 # Import and re-export the constants
-from .constants import (
-    PLAINTEXT_EXTENSIONS as _PLAINTEXT_EXTENSIONS,
-    DOCUMENT_EXTENSIONS as _DOCUMENT_EXTENSIONS,
-    IMAGE_EXTENSIONS as _IMAGE_EXTENSIONS
-)
+from .constants import PLAINTEXT_EXTENSIONS as _PLAINTEXT_EXTENSIONS
+from .exceptions import MdparseConversionError, MdparseInputError
+from .options import DocxOptions, EmlOptions, HtmlOptions, PdfOptions, PptxOptions
 
 # Re-export for backward compatibility - all extension lists are now in constants.py
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS

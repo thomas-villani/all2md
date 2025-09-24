@@ -37,52 +37,52 @@ Options Classes
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from dataclasses import dataclass
-from typing import Any
 
 from .constants import (
+    DEFAULT_ATTACHMENT_BASE_URL,
+    DEFAULT_ATTACHMENT_MODE,
+    DEFAULT_ATTACHMENT_OUTPUT_DIR,
+    # HTML-specific constants
+    DEFAULT_BASE_URL,
     DEFAULT_BULLET_SYMBOLS,
-    DEFAULT_BULLETED_LIST_INDENT,
+    DEFAULT_COLUMN_GAP_THRESHOLD,
     DEFAULT_CONVERT_IMAGES_TO_BASE64,
+    DEFAULT_DETECT_COLUMNS,
+    DEFAULT_DETECT_MERGED_CELLS,
+    DEFAULT_DOWNLOAD_IMAGES,
+    DEFAULT_EMBED_IMAGES_AS_DATA_URI,
     DEFAULT_EMPHASIS_SYMBOL,
     DEFAULT_ESCAPE_SPECIAL,
+    DEFAULT_EXTRACT_IMAGES,
     DEFAULT_EXTRACT_TITLE,
+    DEFAULT_HANDLE_ROTATED_TEXT,
+    # PDF-specific constants
+    DEFAULT_HEADER_MIN_OCCURRENCES,
+    DEFAULT_HEADER_PERCENTILE_THRESHOLD,
+    DEFAULT_HEADER_USE_ALL_CAPS,
+    DEFAULT_HEADER_USE_FONT_WEIGHT,
+    DEFAULT_IMAGE_OUTPUT_DIR,
+    DEFAULT_IMAGE_PLACEMENT_MARKERS,
+    DEFAULT_INCLUDE_IMAGE_CAPTIONS,
+    DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LIST_INDENT_WIDTH,
+    DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_PAGE_SEPARATOR,
+    DEFAULT_PAGE_SEPARATOR_FORMAT,
+    DEFAULT_PRESERVE_NBSP,
+    DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_REMOVE_IMAGES,
     DEFAULT_SLIDE_NUMBERS,
+    DEFAULT_STRIP_DANGEROUS_ELEMENTS,
+    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
+    DEFAULT_TABLE_FALLBACK_DETECTION,
+    DEFAULT_TABLE_RULING_LINE_THRESHOLD,
     DEFAULT_USE_HASH_HEADINGS,
-    PDF_DEFAULT_MARGINS,
-    PDF_DEFAULT_PAGE_SIZE,
+    AttachmentMode,
     EmphasisSymbol,
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
-    # HTML-specific constants
-    DEFAULT_BASE_URL,
-    DEFAULT_DOWNLOAD_IMAGES,
-    DEFAULT_EMBED_IMAGES_AS_DATA_URI,
-    DEFAULT_PRESERVE_NBSP,
-    DEFAULT_PRESERVE_NESTED_STRUCTURE,
-    DEFAULT_STRIP_DANGEROUS_ELEMENTS,
-    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
-    # PDF-specific constants
-    DEFAULT_HEADER_MIN_OCCURRENCES,
-    DEFAULT_HEADER_USE_FONT_WEIGHT,
-    DEFAULT_HEADER_USE_ALL_CAPS,
-    DEFAULT_HEADER_PERCENTILE_THRESHOLD,
-    DEFAULT_DETECT_COLUMNS,
-    DEFAULT_MERGE_HYPHENATED_WORDS,
-    DEFAULT_HANDLE_ROTATED_TEXT,
-    DEFAULT_COLUMN_GAP_THRESHOLD,
-    DEFAULT_TABLE_FALLBACK_DETECTION,
-    DEFAULT_DETECT_MERGED_CELLS,
-    DEFAULT_TABLE_RULING_LINE_THRESHOLD,
-    DEFAULT_EXTRACT_IMAGES,
-    DEFAULT_IMAGE_OUTPUT_DIR,
-    DEFAULT_IMAGE_PLACEMENT_MARKERS,
-    DEFAULT_INCLUDE_IMAGE_CAPTIONS,
-    DEFAULT_PAGE_SEPARATOR_FORMAT,
-    DEFAULT_INCLUDE_PAGE_NUMBERS,
 )
 
 
@@ -192,15 +192,29 @@ class PdfOptions:
     table_ruling_line_threshold : float, default 0.5
         Threshold for detecting table ruling lines.
 
-    # Image extraction parameters
+    # Image extraction parameters (deprecated - use attachment_mode)
     extract_images : bool, default False
+        **Deprecated**: Use attachment_mode instead.
         Extract images from PDF.
     image_output_dir : str | None, default None
+        **Deprecated**: Use attachment_output_dir instead.
         Directory to save extracted images.
     image_placement_markers : bool, default True
         Add markers showing image positions.
     include_image_captions : bool, default True
         Try to extract image captions.
+
+    # Unified attachment handling
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
+        How to handle attachments (images):
+        - "skip": Remove attachments completely
+        - "alt_text": Use alt-text or filename references
+        - "download": Save to folder and reference with links
+        - "base64": Embed as base64 data URIs
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
 
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
@@ -246,11 +260,16 @@ class PdfOptions:
     detect_merged_cells: bool = DEFAULT_DETECT_MERGED_CELLS
     table_ruling_line_threshold: float = DEFAULT_TABLE_RULING_LINE_THRESHOLD
 
-    # Image extraction parameters
+    # Image extraction parameters (deprecated - use attachment_mode)
     extract_images: bool = DEFAULT_EXTRACT_IMAGES
     image_output_dir: str | None = DEFAULT_IMAGE_OUTPUT_DIR
     image_placement_markers: bool = DEFAULT_IMAGE_PLACEMENT_MARKERS
     include_image_captions: bool = DEFAULT_INCLUDE_IMAGE_CAPTIONS
+
+    # Unified attachment handling
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
 
     markdown_options: MarkdownOptions | None = None
 
@@ -265,9 +284,20 @@ class DocxOptions:
     Parameters
     ----------
     convert_images_to_base64 : bool, default False
+        **Deprecated**: Use attachment_mode instead.
         Whether to embed images as base64-encoded data URLs.
     preserve_tables : bool, default True
         Whether to preserve table formatting in Markdown.
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
+        How to handle attachments (images):
+        - "skip": Remove attachments completely
+        - "alt_text": Use alt-text or filename references
+        - "download": Save to folder and reference with links
+        - "base64": Embed as base64 data URIs
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
@@ -283,6 +313,9 @@ class DocxOptions:
 
     convert_images_to_base64: bool = DEFAULT_CONVERT_IMAGES_TO_BASE64
     preserve_tables: bool = True
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
     markdown_options: MarkdownOptions | None = None
 
 
@@ -301,12 +334,16 @@ class HtmlOptions:
     extract_title : bool, default False
         Whether to extract and use the HTML <title> element.
     remove_images : bool, default False
+        **Deprecated**: Use attachment_mode instead.
         Whether to completely remove images from the output.
     base_url : str or None, default None
+        **Deprecated**: Use attachment_base_url instead.
         Base URL for converting relative image/link URLs to absolute URLs.
     download_images : bool, default False
+        **Deprecated**: Use attachment_mode instead.
         Whether to download images and embed them as data URIs.
     embed_images_as_data_uri : bool, default False
+        **Deprecated**: Use attachment_mode instead.
         Whether to convert image sources to data URI format.
     preserve_nbsp : bool, default False
         Whether to preserve non-breaking spaces (&nbsp;) in the output.
@@ -316,6 +353,16 @@ class HtmlOptions:
         Whether to automatically detect table column alignment from CSS/attributes.
     preserve_nested_structure : bool, default True
         Whether to maintain proper nesting for blockquotes and other elements.
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
+        How to handle attachments (images):
+        - "skip": Remove attachments completely
+        - "alt_text": Use alt-text or filename references
+        - "download": Save to folder and reference with links
+        - "base64": Embed as base64 data URIs
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
@@ -344,6 +391,9 @@ class HtmlOptions:
     strip_dangerous_elements: bool = DEFAULT_STRIP_DANGEROUS_ELEMENTS
     table_alignment_auto_detect: bool = DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT
     preserve_nested_structure: bool = DEFAULT_PRESERVE_NESTED_STRUCTURE
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
     markdown_options: MarkdownOptions | None = None
 
 
@@ -357,11 +407,22 @@ class PptxOptions:
     Parameters
     ----------
     convert_images_to_base64 : bool, default False
+        **Deprecated**: Use attachment_mode instead.
         Whether to embed images as base64-encoded data URLs.
     slide_numbers : bool, default False
         Whether to include slide numbers in the output.
     include_notes : bool, default True
         Whether to include speaker notes in the conversion.
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
+        How to handle attachments (images):
+        - "skip": Remove attachments completely
+        - "alt_text": Use alt-text or filename references
+        - "download": Save to folder and reference with links
+        - "base64": Embed as base64 data URIs
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
@@ -377,6 +438,9 @@ class PptxOptions:
     convert_images_to_base64: bool = DEFAULT_CONVERT_IMAGES_TO_BASE64
     slide_numbers: bool = DEFAULT_SLIDE_NUMBERS
     include_notes: bool = True
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
     markdown_options: MarkdownOptions | None = None
 
 
@@ -392,9 +456,20 @@ class EmlOptions:
     include_headers : bool, default True
         Whether to include email headers (From, To, Subject, Date) in output.
     include_attachments_info : bool, default True
+        **Deprecated**: Use attachment_mode instead.
         Whether to include attachment information in the output.
     preserve_thread_structure : bool, default True
         Whether to maintain email thread/reply chain structure.
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
+        How to handle attachments (images and files):
+        - "skip": Remove attachments completely
+        - "alt_text": Use alt-text for images, filename for files
+        - "download": Save to folder and reference with links
+        - "base64": Embed as base64 data URIs (images only)
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
@@ -410,67 +485,8 @@ class EmlOptions:
     include_headers: bool = True
     include_attachments_info: bool = True
     preserve_thread_structure: bool = True
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
     markdown_options: MarkdownOptions | None = None
-
-
-@dataclass
-class Markdown2PdfOptions:
-    """Configuration options for Markdown-to-PDF conversion.
-
-    This dataclass contains settings for converting Markdown content
-    to PDF format, including styling and layout options.
-
-    Parameters
-    ----------
-    styles : dict[str, dict] or None, default None
-        Custom style definitions for PDF elements.
-    page_size : str, default "A4"
-        Page size for PDF output ("A4", "Letter", "Legal", "A3", "A5").
-    margins : tuple[float, float, float, float] or None, default None
-        Page margins as (top, right, bottom, left) in points.
-
-    Examples
-    --------
-    Create PDF with custom margins:
-        >>> options = Markdown2PdfOptions(margins=(72, 72, 72, 72))  # 1 inch margins
-
-    Create Letter-sized PDF:
-        >>> options = Markdown2PdfOptions(page_size="Letter")
-    """
-
-    styles: dict[str, dict] | None = None
-    page_size: str = PDF_DEFAULT_PAGE_SIZE
-    margins: tuple[float, float, float, float] | None = PDF_DEFAULT_MARGINS
-
-
-@dataclass
-class Markdown2DocxOptions:
-    """Configuration options for Markdown-to-DOCX conversion.
-
-    This dataclass contains settings for converting Markdown content
-    to Word document format, including styling and document options.
-
-    Parameters
-    ----------
-    template_document : Any or None, default None
-        Existing Word document to use as a template.
-    preserve_styles : bool, default True
-        Whether to preserve and apply Word document styles.
-    bulleted_list_indent : int, default 24
-        Indentation amount for bulleted lists in points.
-
-    Examples
-    --------
-    Convert with custom list indentation:
-        >>> options = Markdown2DocxOptions(bulleted_list_indent=36)
-
-    Use existing document as template:
-        >>> from docx import Document
-        >>> template = Document("template.docx")
-        >>> options = Markdown2DocxOptions(template_document=template)
-    """
-
-    template_document: Any | None = None
-    preserve_styles: bool = True
-    bulleted_list_indent: int = DEFAULT_BULLETED_LIST_INDENT
 

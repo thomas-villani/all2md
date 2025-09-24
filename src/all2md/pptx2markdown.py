@@ -89,10 +89,10 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
 
-from ._input_utils import validate_and_convert_input, escape_markdown_special, format_special_text
-from .constants import DEFAULT_CONVERT_IMAGES_TO_BASE64, DEFAULT_SLIDE_NUMBERS
-from .exceptions import MdparseInputError, MdparseConversionError
-from .options import PptxOptions, MarkdownOptions
+from ._attachment_utils import process_attachment, resolve_deprecated_options
+from ._input_utils import validate_and_convert_input
+from .exceptions import MdparseConversionError
+from .options import PptxOptions
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ def _extract_image_data(shape: Any) -> str:
     #     return None
 
 
-def _process_shape(shape: Any, convert_images_to_base64: bool = False) -> str | None:
+def _process_shape(shape: Any, options: PptxOptions) -> str | None:
     """Process a single shape and convert to markdown."""
     # try:
     # Handle text boxes and other shapes with text
@@ -208,14 +208,23 @@ def _process_shape(shape: Any, convert_images_to_base64: bool = False) -> str | 
 
     # Handle pictures
     elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
-        if convert_images_to_base64:
-            image_data = _extract_image_data(shape)
-            if image_data:
-                alt_text = shape.alt_text or "image"
-                return f"![{alt_text}]({image_data})"
-        else:
-            alt_text = shape.alt_text or "image"
-            return f"![{alt_text}]()"
+        # Extract image data if needed
+        image_data = _extract_image_data(shape) if options.attachment_mode != "skip" else None
+        if image_data and not isinstance(image_data, bytes):
+            image_data = None
+        alt_text = shape.alt_text or "image"
+        image_filename = f"slide_image_{id(shape)}.png"
+
+        # Process image using unified attachment handling
+        return process_attachment(
+            attachment_data=image_data,
+            attachment_name=image_filename,
+            alt_text=alt_text,
+            attachment_mode=options.attachment_mode,
+            attachment_output_dir=options.attachment_output_dir,
+            attachment_base_url=options.attachment_base_url,
+            is_image=True
+        )
 
     # Handle charts (convert to tables if possible)
     elif isinstance(shape, GraphicFrame) and hasattr(shape, "chart"):
@@ -275,6 +284,14 @@ def pptx_to_markdown(
     if slide_numbers is not None:
         options.slide_numbers = slide_numbers
 
+    # Resolve deprecated attachment options to new unified system
+    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
+        options.attachment_mode,
+        options.attachment_output_dir,
+        options.attachment_base_url,
+        convert_images_to_base64=options.convert_images_to_base64
+    )
+
     # Validate and convert input
     try:
         from pptx.presentation import Presentation as PresentationType
@@ -305,8 +322,8 @@ def pptx_to_markdown(
                 original_error=e
             ) from e
 
-    # Get Markdown options (create default if not provided)
-    md_options = options.markdown_options or MarkdownOptions()
+    # Get Markdown options (create default if not provided) - currently not used in processing
+    # md_options = options.markdown_options or MarkdownOptions()
 
     markdown_content = []
 
@@ -323,7 +340,7 @@ def pptx_to_markdown(
 
         # Process all shapes in the slide
         for shape in slide.shapes:
-            shape_content = _process_shape(shape, convert_images_to_base64)
+            shape_content = _process_shape(shape, options)
             if shape_content:
                 slide_content.append(shape_content + "\n")
 

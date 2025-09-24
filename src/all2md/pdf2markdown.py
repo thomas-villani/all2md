@@ -98,16 +98,16 @@ License GNU Affero GPL 3.0
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import base64
 import re
 import string
 from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Union
+from typing import Union
 
 import fitz
 
+from ._attachment_utils import process_attachment, resolve_deprecated_options
 from ._input_utils import escape_markdown_special, validate_and_convert_input, validate_page_range
 from .constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
@@ -672,7 +672,11 @@ def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | No
         - 'path': Path to saved image or data URI
         - 'caption': Detected caption text (if any)
     """
-    if not options or not options.extract_images:
+    if not options or options.attachment_mode == "skip":
+        return []
+
+    # For alt_text mode, only extract if we need image placement markers
+    if options.attachment_mode == "alt_text" and not options.image_placement_markers:
         return []
 
     images = []
@@ -697,22 +701,19 @@ def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | No
 
             bbox = img_rects[0]  # Use first occurrence
 
-            # Save or convert image
-            if options.image_output_dir:
-                # Save to file
-                output_dir = Path(options.image_output_dir)
-                output_dir.mkdir(parents=True, exist_ok=True)
+            # Process image using unified attachment handling
+            img_bytes = pix_rgb.tobytes("png")
+            img_filename = f"page_{page_num + 1}_img_{img_idx + 1}.png"
 
-                img_filename = f"page_{page_num + 1}_img_{img_idx + 1}.png"
-                img_path = output_dir / img_filename
-
-                pix_rgb.save(str(img_path))
-                image_path = str(img_path)
-            else:
-                # Convert to base64 data URI
-                img_bytes = pix_rgb.tobytes("png")
-                img_base64 = base64.b64encode(img_bytes).decode()
-                image_path = f"data:image/png;base64,{img_base64}"
+            image_path = process_attachment(
+                attachment_data=img_bytes,
+                attachment_name=img_filename,
+                alt_text=f"Image from page {page_num + 1}",
+                attachment_mode=options.attachment_mode,
+                attachment_output_dir=options.attachment_output_dir,
+                attachment_base_url=options.attachment_base_url,
+                is_image=True
+            )
 
             # Try to detect caption
             caption = None
@@ -1049,6 +1050,16 @@ def pdf_to_markdown(
         options.convert_images_to_base64 = convert_images_to_base64
     if password is not None and options.password is None:
         options.password = password
+
+    # Resolve deprecated attachment options to new unified system
+    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
+        options.attachment_mode,
+        options.attachment_output_dir,
+        options.attachment_base_url,
+        extract_images=options.extract_images,
+        convert_images_to_base64=options.convert_images_to_base64,
+        image_output_dir=options.image_output_dir
+    )
 
     # Validate and convert input
     doc_input, input_type = validate_and_convert_input(

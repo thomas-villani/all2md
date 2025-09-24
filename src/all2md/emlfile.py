@@ -84,7 +84,6 @@ to handle common encoding issues and format variations gracefully.
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import datetime
-import os
 import re
 from email import message_from_file, policy
 from email.message import Message
@@ -92,9 +91,8 @@ from email.utils import parsedate_to_datetime
 from io import StringIO
 from typing import Any, Match, Union
 
-from ._input_utils import validate_and_convert_input, escape_markdown_special
-from .constants import EMAIL_DATE_FORMATS
-from .exceptions import MdparseInputError, MdparseConversionError
+from ._attachment_utils import process_attachment, resolve_deprecated_options
+from .exceptions import MdparseConversionError, MdparseInputError
 from .options import EmlOptions, MarkdownOptions
 
 
@@ -316,6 +314,71 @@ def split_chain(content: str) -> list[dict[str, Any]]:
     return formatted_msgs
 
 
+def process_email_attachments(msg: Message, options: EmlOptions) -> str:
+    """Process email attachments and return markdown representation.
+
+    Extracts attachments from an email message and processes them according
+    to the specified attachment mode.
+
+    Parameters
+    ----------
+    msg : Message
+        Email message object containing attachments
+    options : EmlOptions
+        Configuration options for attachment processing
+
+    Returns
+    -------
+    str
+        Markdown representation of attachments
+    """
+    if options.attachment_mode == "skip":
+        return ""
+
+    attachments = []
+    attachment_count = 0
+
+    for part in msg.walk():
+        # Skip the main message parts
+        if part.get_content_maintype() == 'multipart':
+            continue
+
+        # Check if this is an attachment
+        content_disposition = part.get("Content-Disposition")
+        if content_disposition and "attachment" in content_disposition:
+            attachment_count += 1
+            filename = part.get_filename()
+            if not filename:
+                filename = f"attachment_{attachment_count}"
+
+            # Get attachment data
+            attachment_data = part.get_payload(decode=True)
+            if not isinstance(attachment_data, (bytes, type(None))):
+                attachment_data = None
+
+            # Determine if it's an image
+            content_type = part.get_content_type()
+            is_image = content_type.startswith('image/') if content_type else False
+
+            # Process using unified attachment handling
+            processed_attachment = process_attachment(
+                attachment_data=attachment_data,
+                attachment_name=filename,
+                alt_text=filename,
+                attachment_mode=options.attachment_mode,
+                attachment_output_dir=options.attachment_output_dir,
+                attachment_base_url=options.attachment_base_url,
+                is_image=is_image
+            )
+
+            if processed_attachment:
+                attachments.append(processed_attachment)
+
+    if attachments:
+        return "\n\n**Attachments:**\n" + "\n".join(attachments) + "\n"
+    return ""
+
+
 def clean_message(raw: str) -> str:
     """Clean and normalize email message content by removing unwanted elements.
 
@@ -412,8 +475,16 @@ def parse_email_chain(
         # Determine output format - for now, use default of structured data
         as_markdown = False
 
-    # Get Markdown options
-    md_options = options.markdown_options or MarkdownOptions()
+    # Resolve deprecated attachment options to new unified system
+    options.attachment_mode, options.attachment_output_dir, options.attachment_base_url = resolve_deprecated_options(
+        options.attachment_mode,
+        options.attachment_output_dir,
+        options.attachment_base_url,
+        include_attachments_info=options.include_attachments_info
+    )
+
+    # Get Markdown options - currently not used during processing
+    # md_options = options.markdown_options or MarkdownOptions()
 
     # Validate and process input
     try:
@@ -443,6 +514,12 @@ def parse_email_chain(
 
     # Parse the primary message first
     message = parse_single_message(eml_msg)
+
+    # Process attachments if needed
+    if options.attachment_mode != "skip":
+        attachment_content = process_email_attachments(eml_msg, options)
+        if attachment_content:
+            message["content"] += attachment_content
 
     # If there's quoted content, try to parse it into separate messages
     if message["content"]:
