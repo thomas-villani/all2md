@@ -57,6 +57,14 @@ from .constants import (
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
+    # HTML-specific constants
+    DEFAULT_BASE_URL,
+    DEFAULT_DOWNLOAD_IMAGES,
+    DEFAULT_EMBED_IMAGES_AS_DATA_URI,
+    DEFAULT_PRESERVE_NBSP,
+    DEFAULT_PRESERVE_NESTED_STRUCTURE,
+    DEFAULT_STRIP_DANGEROUS_ELEMENTS,
+    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
 )
 
 
@@ -180,7 +188,8 @@ class HtmlOptions:
     """Configuration options for HTML-to-Markdown conversion.
 
     This dataclass contains settings specific to HTML document processing,
-    including heading styles, title extraction, and image handling.
+    including heading styles, title extraction, image handling, content
+    sanitization, and advanced formatting options.
 
     Parameters
     ----------
@@ -190,6 +199,20 @@ class HtmlOptions:
         Whether to extract and use the HTML <title> element.
     remove_images : bool, default False
         Whether to completely remove images from the output.
+    base_url : str or None, default None
+        Base URL for converting relative image/link URLs to absolute URLs.
+    download_images : bool, default False
+        Whether to download images and embed them as data URIs.
+    embed_images_as_data_uri : bool, default False
+        Whether to convert image sources to data URI format.
+    preserve_nbsp : bool, default False
+        Whether to preserve non-breaking spaces (&nbsp;) in the output.
+    strip_dangerous_elements : bool, default False
+        Whether to remove potentially dangerous HTML elements (script, style, etc.).
+    table_alignment_auto_detect : bool, default True
+        Whether to automatically detect table column alignment from CSS/attributes.
+    preserve_nested_structure : bool, default True
+        Whether to maintain proper nesting for blockquotes and other elements.
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
@@ -200,11 +223,24 @@ class HtmlOptions:
 
     Convert and extract page title:
         >>> options = HtmlOptions(extract_title=True, remove_images=True)
+
+    Convert with image download and base URL resolution:
+        >>> options = HtmlOptions(base_url="https://example.com", download_images=True)
+
+    Convert with content sanitization:
+        >>> options = HtmlOptions(strip_dangerous_elements=True, preserve_nbsp=True)
     """
 
     use_hash_headings: bool = DEFAULT_USE_HASH_HEADINGS
     extract_title: bool = DEFAULT_EXTRACT_TITLE
     remove_images: bool = DEFAULT_REMOVE_IMAGES
+    base_url: str | None = DEFAULT_BASE_URL
+    download_images: bool = DEFAULT_DOWNLOAD_IMAGES
+    embed_images_as_data_uri: bool = DEFAULT_EMBED_IMAGES_AS_DATA_URI
+    preserve_nbsp: bool = DEFAULT_PRESERVE_NBSP
+    strip_dangerous_elements: bool = DEFAULT_STRIP_DANGEROUS_ELEMENTS
+    table_alignment_auto_detect: bool = DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT
+    preserve_nested_structure: bool = DEFAULT_PRESERVE_NESTED_STRUCTURE
     markdown_options: MarkdownOptions | None = None
 
 

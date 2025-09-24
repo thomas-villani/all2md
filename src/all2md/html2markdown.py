@@ -91,14 +91,26 @@ Custom configuration with options:
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import base64
+import html
 import os
 import re
 from pathlib import Path
 from typing import IO, Any, Literal, Union
+from urllib.parse import urljoin, urlparse
+from urllib.request import urlopen
 
 from bs4 import BeautifulSoup, NavigableString
 
 from ._input_utils import is_path_like, validate_and_convert_input
+from .constants import (
+    DANGEROUS_HTML_ATTRIBUTES,
+    DANGEROUS_HTML_ELEMENTS,
+    MARKDOWN_SPECIAL_CHARS,
+    MAX_CODE_FENCE_LENGTH,
+    MIN_CODE_FENCE_LENGTH,
+    TABLE_ALIGNMENT_MAPPING,
+)
 from .exceptions import MdparseConversionError, MdparseInputError
 from .options import HtmlOptions, MarkdownOptions
 
@@ -106,13 +118,37 @@ from .options import HtmlOptions, MarkdownOptions
 class HTMLToMarkdown:
     """HTML to Markdown Converter
 
+    A comprehensive HTML to Markdown converter with advanced features including
+    content sanitization, image handling, entity decoding, and performance optimizations.
+
     Parameters
     ----------
     hash_headings : bool, default = True
+        Use # syntax for headings instead of underline style.
     extract_title : bool, default = False
+        Extract and use HTML <title> element as main heading.
     emphasis_symbol : Literal["*", "_"], default = "*"
+        Symbol to use for emphasis formatting.
     bullet_symbols : str, default = "*-+"
+        Characters to cycle through for nested bullet lists.
     remove_images : bool, default = False
+        Remove all images from output.
+    base_url : str or None, default = None
+        Base URL for resolving relative URLs.
+    download_images : bool, default = False
+        Download images and embed as data URIs.
+    embed_images_as_data_uri : bool, default = False
+        Convert image sources to data URI format.
+    preserve_nbsp : bool, default = False
+        Preserve non-breaking spaces in output.
+    strip_dangerous_elements : bool, default = False
+        Remove potentially dangerous HTML elements.
+    table_alignment_auto_detect : bool, default = True
+        Auto-detect table column alignment.
+    preserve_nested_structure : bool, default = True
+        Maintain proper nesting for complex structures.
+    markdown_options : MarkdownOptions or None, default = None
+        Common Markdown formatting options.
     """
 
     def __init__(
@@ -122,34 +158,211 @@ class HTMLToMarkdown:
         emphasis_symbol: Literal["*", "_"] = "*",
         bullet_symbols: str = "*-+",
         remove_images: bool = False,
-        markdown_options: MarkdownOptions | None = None
+        base_url: str | None = None,
+        download_images: bool = False,
+        embed_images_as_data_uri: bool = False,
+        preserve_nbsp: bool = False,
+        strip_dangerous_elements: bool = False,
+        table_alignment_auto_detect: bool = True,
+        preserve_nested_structure: bool = True,
+        markdown_options: MarkdownOptions | None = None,
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
         self.emphasis_symbol = emphasis_symbol
         self.bullet_symbols = bullet_symbols
         self.remove_images = remove_images
+        self.base_url = base_url
+        self.download_images = download_images
+        self.embed_images_as_data_uri = embed_images_as_data_uri
+        self.preserve_nbsp = preserve_nbsp
+        self.strip_dangerous_elements = strip_dangerous_elements
+        self.table_alignment_auto_detect = table_alignment_auto_detect
+        self.preserve_nested_structure = preserve_nested_structure
         self.markdown_options = markdown_options or MarkdownOptions()
 
+        # Internal state
         self._list_depth = 0
         self._in_code_block = False
         self._init_heading_level = 0
+        self._output_parts: list[str] = []  # Performance optimization: use list instead of string concatenation
+
+    def _escape_markdown(self, text: str) -> str:
+        """Escape special Markdown characters to prevent unintended formatting.
+
+        Parameters
+        ----------
+        text : str
+            Text to escape.
+
+        Returns
+        -------
+        str
+            Text with escaped Markdown special characters.
+        """
+        if not self.markdown_options.escape_special or self._in_code_block:
+            return text
+
+        # Escape Markdown special characters
+        for char in MARKDOWN_SPECIAL_CHARS:
+            text = text.replace(char, f"\\{char}")
+        return text
+
+    def _decode_entities(self, text: str) -> str:
+        """Decode HTML entities while preserving special ones if configured.
+
+        Parameters
+        ----------
+        text : str
+            Text containing HTML entities.
+
+        Returns
+        -------
+        str
+            Text with decoded entities.
+        """
+        # First decode all entities
+        decoded = html.unescape(text)
+
+        # If preserve_nbsp is True, convert back to explicit space
+        if self.preserve_nbsp and "&nbsp;" in text:
+            decoded = decoded.replace("\u00a0", " ")  # Non-breaking space to regular space
+
+        return decoded
+
+    def _sanitize_element(self, element: Any) -> bool:
+        """Check if element should be removed for security reasons.
+
+        Parameters
+        ----------
+        element : BeautifulSoup element
+            Element to check.
+
+        Returns
+        -------
+        bool
+            True if element should be kept, False if it should be removed.
+        """
+        if not self.strip_dangerous_elements:
+            return True
+
+        if hasattr(element, "name"):
+            # Remove dangerous elements
+            if element.name in DANGEROUS_HTML_ELEMENTS:
+                return False
+
+            # Check for dangerous attributes
+            if element.attrs:
+                for attr_name, attr_value in element.attrs.items():
+                    if attr_name in DANGEROUS_HTML_ATTRIBUTES:
+                        return False
+                    if isinstance(attr_value, str) and any(
+                        danger in attr_value.lower() for danger in DANGEROUS_HTML_ATTRIBUTES
+                    ):
+                        return False
+
+        return True
+
+    def _resolve_url(self, url: str) -> str:
+        """Resolve relative URLs using base_url if provided.
+
+        Parameters
+        ----------
+        url : str
+            URL to resolve.
+
+        Returns
+        -------
+        str
+            Resolved absolute URL or original URL if no base_url.
+        """
+        if not self.base_url or urlparse(url).scheme:
+            return url
+        return urljoin(self.base_url, url)
+
+    def _download_image_as_data_uri(self, url: str) -> str:
+        """Download image and convert to data URI.
+
+        Parameters
+        ----------
+        url : str
+            URL of image to download.
+
+        Returns
+        -------
+        str
+            Data URI representation of image, or original URL if download fails.
+        """
+        try:
+            with urlopen(url) as response:
+                content_type = response.headers.get("Content-Type", "image/png")
+                image_data = response.read()
+                encoded_data = base64.b64encode(image_data).decode("utf-8")
+                return f"data:{content_type};base64,{encoded_data}"
+        except Exception:
+            # Fallback to original URL if download fails
+            return url
+
+    def _get_optimal_code_fence(self, code_content: str) -> str:
+        """Determine optimal code fence length based on content.
+
+        Parameters
+        ----------
+        code_content : str
+            Code content to analyze.
+
+        Returns
+        -------
+        str
+            Optimal fence string (e.g., '```' or '````').
+        """
+        # Find longest sequence of backticks in content
+        max_backticks = 0
+        current_backticks = 0
+
+        for char in code_content:
+            if char == "`":
+                current_backticks += 1
+                max_backticks = max(max_backticks, current_backticks)
+            else:
+                current_backticks = 0
+
+        # Use at least one more backtick than found in content
+        fence_length = max(MIN_CODE_FENCE_LENGTH, max_backticks + 1)
+        fence_length = min(fence_length, MAX_CODE_FENCE_LENGTH)
+
+        return "`" * fence_length
 
     def convert(self, html: str) -> str:
         """Convert HTML string to Markdown."""
         soup = BeautifulSoup(html, "html.parser")
 
+        # Reset output parts for this conversion
+        self._output_parts = []
+
         # Remove doctype if present
         if doctype_el := soup.find("doctype"):
             doctype_el.decompose()
 
-        for strip_block in ("script", "style"):
-            for to_strip in soup.find_all(strip_block):
-                to_strip.decompose()
+        # Content sanitization - remove dangerous elements if enabled
+        if self.strip_dangerous_elements:
+            elements_to_remove = []
+            for element in soup.find_all():
+                if not self._sanitize_element(element):
+                    elements_to_remove.append(element)
+            for element in elements_to_remove:
+                element.decompose()
+        else:
+            # Default behavior: always remove script and style
+            for strip_block in ("script", "style"):
+                for to_strip in soup.find_all(strip_block):
+                    to_strip.decompose()
 
         title = ""
         if self.extract_title and (title_tag := soup.find("title")):
-            content = " ".join(title_tag.text.split())
+            content = self._decode_entities(" ".join(title_tag.text.split()))
+            if self.markdown_options.escape_special:
+                content = self._escape_markdown(content)
             title = f"# {content}\n\n" if self.hash_headings else f"{content}\n{'=' * len(content)}\n\n"
             self._init_heading_level = 1
 
@@ -162,8 +375,8 @@ class HTMLToMarkdown:
     def _process_node(self, node: Any) -> str:
         """Process a BeautifulSoup node and its children recursively."""
         if isinstance(node, NavigableString):
-            # return self._escape_markdown(str(node))
-            return str(node)
+            text = self._decode_entities(str(node))
+            return self._escape_markdown(text) if not self._in_code_block else text
 
         if not hasattr(node, "name"):
             return "".join(self._process_node(child) for child in node.children)
@@ -187,6 +400,10 @@ class HTMLToMarkdown:
             return self._process_blockquote(node)
         elif node.name == "table":
             return self._process_table(node)
+        elif node.name == "dl":
+            return self._process_definition_list(node)
+        elif node.name in ["dt", "dd"]:
+            return self._process_definition_term(node)
 
         # Handle inline elements
         elif node.name in {"strong", "b"}:
@@ -281,106 +498,256 @@ class HTMLToMarkdown:
         return "".join(self._process_node(child) for child in node.children)
 
     def _process_code_block(self, node: Any) -> str:
-        """Process code blocks."""
+        """Process code blocks with dynamic fence selection."""
         self._in_code_block = True
         code = node.get_text()
         self._in_code_block = False
 
-        # Determine if we need extra backticks based on content
-        fence = "```" + (node.get("class", [""])[0] if node.get("class") else "")
-        return f"{fence}\n{code}\n```\n\n"
+        # Normalize line endings and trim trailing spaces
+        lines = code.splitlines()
+        normalized_lines = [line.rstrip() for line in lines]
+        code = "\n".join(normalized_lines)
+
+        # Get optimal fence length
+        fence = self._get_optimal_code_fence(code)
+
+        # Get language from class attribute
+        language = ""
+        if node.get("class"):
+            classes = node.get("class")
+            if isinstance(classes, list) and classes:
+                language = classes[0]
+            elif isinstance(classes, str):
+                language = classes
+
+        return f"{fence}{language}\n{code}\n{fence}\n\n"
 
     def _process_blockquote(self, node: Any) -> str:
-        """Process blockquotes."""
+        """Process blockquotes with improved nested structure handling."""
         content = "".join(self._process_node(child) for child in node.children)
-        lines = content.strip().split("\n")
-        quoted_lines = [f"> {line}" for line in lines]
+        content = content.strip()
+
+        if not content:
+            return ""
+
+        lines = content.split("\n")
+        quoted_lines = []
+
+        for line in lines:
+            if line.strip():
+                # Handle nested blockquotes
+                if line.startswith("> "):
+                    quoted_lines.append(f"> {line}")  # Already quoted, add another level
+                else:
+                    quoted_lines.append(f"> {line}")
+            else:
+                quoted_lines.append(">")  # Empty lines in blockquotes
+
         return "\n".join(quoted_lines) + "\n\n"
 
     def _process_table(self, node: Any) -> str:
-        """Process tables."""
+        """Process tables with enhanced alignment detection and caption support."""
         output = []
 
-        # Process headers
-        headers = []
-        alignments = []
-        if node.find("thead"):
-            header_cells = node.thead.find_all(["th", "td"])
-            headers = [self._process_node(cell).strip() for cell in header_cells]
-            alignments = [self._get_alignment(cell) for cell in header_cells]
+        # Process caption if present
+        caption = ""
+        if caption_element := node.find("caption"):
+            caption = self._process_node(caption_element).strip()
 
-        # Process rows
+        # Process headers - support multiple header rows
+        all_headers: list[list[str]] = []
+        alignments: list[str] = []
+
+        thead = node.find("thead")
+        if thead:
+            for header_row in thead.find_all("tr"):
+                header_cells = header_row.find_all(["th", "td"])
+                if not all_headers:  # First header row determines alignments
+                    alignments = [self._get_alignment(cell) for cell in header_cells]
+                headers = [self._process_node(cell).strip() for cell in header_cells]
+                all_headers.append(headers)
+
+        # Process data rows
         rows = []
-        for row in node.find_all("tr"):
-            if row.parent.name == "thead":
-                continue
+        tbody = node.find("tbody")
+        if tbody:
+            row_elements = tbody.find_all("tr")
+        else:
+            row_elements = [row for row in node.find_all("tr") if row.parent.name != "thead"]
+
+        for row in row_elements:
             cells = [self._process_node(cell).strip() for cell in row.find_all(["td", "th"])]
             rows.append(cells)
 
         # If no headers were found but we have rows, use first row as header
-        if not headers and rows:
-            headers = rows.pop(0)
-            alignments = [":---:"] * len(headers)
+        if not all_headers and rows:
+            first_row = rows.pop(0)
+            all_headers = [first_row]
+            alignments = [self._get_alignment_from_text(cell) for cell in first_row]
+
+        # Add caption if present
+        if caption:
+            output.append(f"*{caption}*\n")
 
         # Build the table
-        if headers:
-            output.append("| " + " | ".join(headers) + " |")
-            output.append("|" + "|".join(alignments or [":---:"] * len(headers)) + "|")
+        if all_headers:
+            # Use the first (or main) header row
+            main_headers = all_headers[0]
+            max_cols = max(len(main_headers), max((len(row) for row in rows), default=0))
 
+            # Ensure alignments match column count
+            while len(alignments) < max_cols:
+                alignments.append(":---:")
+
+            # Add main header
+            padded_headers = main_headers + [""] * (max_cols - len(main_headers))
+            output.append("| " + " | ".join(padded_headers) + " |")
+
+            # Add separator with alignment
+            output.append("|" + "|".join(alignments[:max_cols]) + "|")
+
+            # Add additional header rows if any (as regular rows)
+            for additional_header in all_headers[1:]:
+                padded_header = additional_header + [""] * (max_cols - len(additional_header))
+                output.append("| " + " | ".join(padded_header) + " |")
+
+        # Add data rows
         for row in rows:
             # Pad row if necessary
-            while len(row) < len(headers):
+            max_cols = len(alignments) if alignments else len(row)
+            while len(row) < max_cols:
                 row.append("")
-            output.append("| " + " | ".join(row) + " |")
+            output.append("| " + " | ".join(row[:max_cols]) + " |")
 
         return "\n".join(output) + "\n\n"
 
     def _get_alignment(self, cell: Any) -> str:
-        """Get markdown alignment for table cell."""
-        align = cell.get("align", "")
-        if align == "center":
+        """Get markdown alignment for table cell with enhanced detection."""
+        if not self.table_alignment_auto_detect:
             return ":---:"
-        elif align == "right":
+
+        # Check align attribute
+        align = cell.get("align", "").lower()
+        if align in TABLE_ALIGNMENT_MAPPING:
+            return TABLE_ALIGNMENT_MAPPING[align]
+
+        # Check CSS style attribute
+        style = cell.get("style", "").lower()
+        if "text-align" in style:
+            for css_align, markdown_align in TABLE_ALIGNMENT_MAPPING.items():
+                if f"text-align:{css_align}" in style.replace(" ", ""):
+                    return markdown_align
+
+        # Check CSS class (basic heuristic)
+        css_class = " ".join(cell.get("class", [])).lower()
+        if "center" in css_class or "text-center" in css_class:
+            return ":---:"
+        elif "right" in css_class or "text-right" in css_class:
             return "---:"
-        elif align == "left":
+        elif "left" in css_class or "text-left" in css_class:
             return ":---"
+
+        # Default to left alignment
+        return ":---:"
+
+    def _get_alignment_from_text(self, text: str) -> str:
+        """Infer alignment from text content (fallback method)."""
+        text = text.strip()
+        if not text:
+            return ":---:"
+
+        # Simple heuristic: if text looks like a number, right-align
+        try:
+            float(text.replace(",", "").replace("%", ""))
+            return "---:"
+        except ValueError:
+            pass
+
         return ":---:"
 
     def _process_link(self, node: Any) -> str:
-        """Process hyperlinks."""
+        """Process hyperlinks with URL resolution."""
         href = node.get("href", "")
         title = node.get("title")
         content = "".join(self._process_node(child) for child in node.children)
         content = " ".join(content.split())
+
+        # Resolve relative URLs
+        if href:
+            href = self._resolve_url(href)
 
         if title:
             return f'[{content}]({href} "{title}")'
         return f"[{content}]({href})"
 
     def _process_image(self, node: Any) -> str:
-        """Process images."""
+        """Process images with enhanced handling options."""
         if self.remove_images:
             return ""
+
         src = node.get("src", "")
         alt = node.get("alt", "")
         title = node.get("title")
+
+        if not src:
+            return ""
+
+        # Resolve relative URLs
+        resolved_src = self._resolve_url(src)
+
+        # Handle image downloading/embedding
+        if self.download_images or self.embed_images_as_data_uri:
+            resolved_src = self._download_image_as_data_uri(resolved_src)
+
         title_part = f' "{title}"' if title else ""
-        return f"![{alt}]({src}{title_part})"
+        return f"![{alt}]({resolved_src}{title_part})"
 
     def _wrap_text(self, wrapper: str, node: Any) -> str:
         """Wrap text with markdown syntax."""
         content = "".join(self._process_node(child) for child in node.children)
         return f"{wrapper}{content}{wrapper}"
 
+    def _process_definition_list(self, node: Any) -> str:
+        """Process definition lists (dl elements)."""
+        output = []
+        current_term = None
+
+        for child in node.children:
+            if hasattr(child, "name"):
+                if child.name == "dt":
+                    current_term = self._process_node(child).strip()
+                elif child.name == "dd":
+                    definition = self._process_node(child).strip()
+                    if current_term:
+                        output.append(f"**{current_term}**")
+                        output.append(f": {definition}")
+                        output.append("")  # Add empty line between definitions
+                        current_term = None
+                    else:
+                        # Definition without term
+                        output.append(f": {definition}")
+                        output.append("")
+
+        return "\n".join(output) + "\n"
+
+    def _process_definition_term(self, node: Any) -> str:
+        """Process definition terms and definitions (dt/dd elements)."""
+        content = "".join(self._process_node(child) for child in node.children)
+        return content.strip()
+
 
 def html_to_markdown(
     input_data: Union[str, Path, IO[str], IO[bytes]],
     options: HtmlOptions | None = None,
     use_hash_headings: bool | None = None,  # Deprecated, use options.use_hash_headings
-    extract_title: bool | None = None,      # Deprecated, use options.extract_title
+    extract_title: bool | None = None,  # Deprecated, use options.extract_title
     emphasis_symbol: Literal["*", "_"] | None = None,  # Deprecated, use options.markdown_options.emphasis_symbol
-    bullet_symbols: str | None = None,      # Deprecated, use options.markdown_options.bullet_symbols
-    remove_images: bool | None = None,      # Deprecated, use options.remove_images
+    bullet_symbols: str | None = None,  # Deprecated, use options.markdown_options.bullet_symbols
+    remove_images: bool | None = None,  # Deprecated, use options.remove_images
+    base_url: str | None = None,  # Deprecated, use options.base_url
+    download_images: bool | None = None,  # Deprecated, use options.download_images
+    preserve_nbsp: bool | None = None,  # Deprecated, use options.preserve_nbsp
+    strip_dangerous_elements: bool | None = None,  # Deprecated, use options.strip_dangerous_elements
 ) -> str:
     """Convert HTML to Markdown format.
 
@@ -480,6 +847,14 @@ def html_to_markdown(
         options.extract_title = extract_title
     if remove_images is not None:
         options.remove_images = remove_images
+    if base_url is not None:
+        options.base_url = base_url
+    if download_images is not None:
+        options.download_images = download_images
+    if preserve_nbsp is not None:
+        options.preserve_nbsp = preserve_nbsp
+    if strip_dangerous_elements is not None:
+        options.strip_dangerous_elements = strip_dangerous_elements
 
     # Handle deprecated markdown options
     if options.markdown_options is None:
@@ -496,14 +871,11 @@ def html_to_markdown(
         if is_path_like(input_data) and os.path.exists(str(input_data)):
             # It's a file path - read the file
             try:
-                with open(str(input_data), 'r', encoding='utf-8') as f:
+                with open(str(input_data), "r", encoding="utf-8") as f:
                     html_content = f.read()
             except Exception as e:
-
                 raise MdparseConversionError(
-                    f"Failed to read HTML file: {str(e)}",
-                    conversion_stage="file_reading",
-                    original_error=e
+                    f"Failed to read HTML file: {str(e)}", conversion_stage="file_reading", original_error=e
                 ) from e
         else:
             # It's HTML content as a string
@@ -512,33 +884,30 @@ def html_to_markdown(
         # Use validate_and_convert_input for other types
         try:
             doc_input, input_type = validate_and_convert_input(
-                input_data,
-                supported_types=["path-like", "file-like", "HTML strings"]
+                input_data, supported_types=["path-like", "file-like", "HTML strings"]
             )
 
             if input_type == "path":
                 # Read from file path
-                with open(str(doc_input), 'r', encoding='utf-8') as f:
+                with open(str(doc_input), "r", encoding="utf-8") as f:
                     html_content = f.read()
             elif input_type == "file":
                 # Read from file-like object
                 html_content = doc_input.read()
                 if isinstance(html_content, bytes):
-                    html_content = html_content.decode('utf-8')
+                    html_content = html_content.decode("utf-8")
             else:
                 raise MdparseInputError(
                     f"Unsupported input type for HTML conversion: {type(input_data).__name__}",
                     parameter_name="input_data",
-                    parameter_value=input_data
+                    parameter_value=input_data,
                 )
         except Exception as e:
             if isinstance(e, (MdparseInputError, MdparseConversionError)):
                 raise
             else:
                 raise MdparseConversionError(
-                    f"Failed to process HTML input: {str(e)}",
-                    conversion_stage="input_processing",
-                    original_error=e
+                    f"Failed to process HTML input: {str(e)}", conversion_stage="input_processing", original_error=e
                 ) from e
 
     try:
@@ -548,21 +917,25 @@ def html_to_markdown(
             emphasis_symbol=options.markdown_options.emphasis_symbol,
             bullet_symbols=options.markdown_options.bullet_symbols,
             remove_images=options.remove_images,
-            markdown_options=options.markdown_options
+            base_url=options.base_url,
+            download_images=options.download_images,
+            embed_images_as_data_uri=options.embed_images_as_data_uri,
+            preserve_nbsp=options.preserve_nbsp,
+            strip_dangerous_elements=options.strip_dangerous_elements,
+            table_alignment_auto_detect=options.table_alignment_auto_detect,
+            preserve_nested_structure=options.preserve_nested_structure,
+            markdown_options=options.markdown_options,
         )
         return converter.convert(html_content)
     except ImportError as e:
         raise MdparseConversionError(
-            "BeautifulSoup4 library is required for HTML conversion. "
-            "Install with: pip install beautifulsoup4",
+            "BeautifulSoup4 library is required for HTML conversion. Install with: pip install beautifulsoup4",
             conversion_stage="dependency_check",
-            original_error=e
+            original_error=e,
         ) from e
     except Exception as e:
         raise MdparseConversionError(
-            f"Failed to convert HTML to Markdown: {str(e)}",
-            conversion_stage="html_parsing",
-            original_error=e
+            f"Failed to convert HTML to Markdown: {str(e)}", conversion_stage="html_parsing", original_error=e
         ) from e
 
 

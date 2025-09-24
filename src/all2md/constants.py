@@ -87,6 +87,36 @@ PDF_MIN_PYMUPDF_VERSION = "1.24.0"
 HTML_EMPHASIS_SYMBOLS = ["*", "_"]
 HTML_BULLET_SYMBOLS = "*-+"
 
+# HTML entity handling
+DEFAULT_PRESERVE_NBSP = False
+HTML_ENTITIES_TO_PRESERVE = ["nbsp"] # Entities that might need special handling
+
+# Image handling
+DEFAULT_BASE_URL = None
+DEFAULT_DOWNLOAD_IMAGES = False
+DEFAULT_EMBED_IMAGES_AS_DATA_URI = False
+
+# Content sanitization
+DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
+DANGEROUS_HTML_ELEMENTS = {"script", "style", "object", "embed", "form", "input", "iframe"}
+DANGEROUS_HTML_ATTRIBUTES = {"onclick", "onload", "onerror", "onmouseover", "onfocus", "onblur", "javascript:"}
+
+# Block structure
+DEFAULT_PRESERVE_NESTED_STRUCTURE = True
+
+# Code block handling
+MIN_CODE_FENCE_LENGTH = 3
+MAX_CODE_FENCE_LENGTH = 10
+
+# Table handling
+DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
+TABLE_ALIGNMENT_MAPPING = {
+    "left": ":---",
+    "center": ":---:",
+    "right": "---:",
+    "justify": ":---"
+}
+
 # =============================================================================
 # Email Processing Constants
 # =============================================================================

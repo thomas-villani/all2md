@@ -126,7 +126,7 @@ def test_pdf_to_markdown_no_tables(monkeypatch):
             return ""
 
     monkeypatch.setattr(mod, "IdentifyHeaders", DummyHdr)
-    monkeypatch.setattr(mod, "page_to_markdown", lambda page, clip, hdr: "A")
+    monkeypatch.setattr(mod, "page_to_markdown", lambda page, clip, hdr, opts: "A")
 
     class FakeTables:
         def __init__(self, tables):

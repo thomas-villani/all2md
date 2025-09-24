@@ -598,7 +598,8 @@ def pdf_to_markdown(
         elif input_type in ("file", "bytes"):
             doc = fitz.open(stream=doc_input)
         elif input_type == "object":
-            if isinstance(doc_input, fitz.Document):
+            if isinstance(doc_input, fitz.Document) or (hasattr(doc_input, "page_count")
+                                                        and hasattr(doc_input, "__getitem__")):
                 doc = doc_input
             else:
                 raise MdparseInputError(
