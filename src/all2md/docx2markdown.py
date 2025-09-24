@@ -120,24 +120,37 @@ def _detect_list_level(paragraph: Paragraph) -> tuple[str | None, int]:
 
     # Check for built-in list styles
     style_name = paragraph.style.name
-    if match := re.match(r"List\s*Bullet\s?(?P<level>\d+)?", style_name, re.I):
-        return "bullet", int(match.group("level") or 1)
-    elif match := re.match(r"List\s*Number\s?(?P<level>\d+)?", style_name, re.I):
-        return "number", int(match.group("level") or 1)
+    base_type = None
+    style_level = 1
 
-    # Check indentation level
+    if match := re.match(r"List\s*Bullet\s?(?P<level>\d+)?", style_name, re.I):
+        base_type = "bullet"
+        style_level = int(match.group("level") or 1)
+    elif match := re.match(r"List\s*Number\s?(?P<level>\d+)?", style_name, re.I):
+        base_type = "number"
+        style_level = int(match.group("level") or 1)
+
+    # Check indentation level for additional nesting
+    indent_level = 0
     try:
         indent = paragraph.paragraph_format.left_indent
         if indent:
             # Convert Pt to level (assume DEFAULT_INDENTATION_PT_PER_LEVEL per level)
-            level = int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
-            if level > 0:
-                # Try to detect if numbered based on paragraph text
-                if re.match(r"^\d+[.)]", paragraph.text.strip()):
-                    return "number", level
-                return "bullet", level
+            indent_level = int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
     except AttributeError:
         pass
+
+    # If we have a list style, combine with indentation
+    if base_type:
+        final_level = max(style_level, style_level + indent_level)
+        return base_type, final_level
+
+    # Check indentation level for paragraphs without list styles
+    if indent_level > 0:
+        # Try to detect if numbered based on paragraph text
+        if re.match(r"^\d+[.)]", paragraph.text.strip()):
+            return "number", indent_level
+        return "bullet", indent_level
 
     return None, 0
 
@@ -162,10 +175,12 @@ def _get_run_formatting_key(run: Any) -> tuple[bool, bool, bool, bool, bool, boo
     )
 
 
-def _format_list_marker(list_type: str, number: int = 1) -> str:
+def _format_list_marker(list_type: str, number: int = 1, level: int = 1, bullet_symbols: str = "*-+") -> str:
     """Generate a properly formatted list marker."""
     if list_type == "bullet":
-        return "* "
+        # Use different bullet symbols for different levels
+        symbol_index = (level - 1) % len(bullet_symbols)
+        return bullet_symbols[symbol_index] + " "
     else:
         return f"{number}. "
 
@@ -472,10 +487,11 @@ def docx_to_markdown(
                     indent += "   " if lst_type == "number" else "  "
 
                 # Add marker with proper numbering or bullet
+                bullet_symbols = md_options.bullet_symbols if md_options else "*-+"
                 if list_type == "number":
-                    marker = _format_list_marker(list_type, list_stack[-1][2])
+                    marker = _format_list_marker(list_type, list_stack[-1][2], level, bullet_symbols)
                 else:
-                    marker = _format_list_marker(list_type)
+                    marker = _format_list_marker(list_type, 1, level, bullet_symbols)
 
                 text = indent + marker + _process_paragraph_runs(block, md_options).strip()
 

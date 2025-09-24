@@ -213,18 +213,83 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
         # Basic chart data extraction
         data_rows = []
 
-        # Extract categories (x-axis)
-        categories = [cat.label for cat in chart.plots[0].categories if hasattr(cat, "label")]
-        if categories:
-            data_rows.append("| Category | " + " | ".join(str(cat) for cat in categories) + " |")
-            data_rows.append("| --- | " + " | ".join(["---"] * len(categories)) + " |")
+        # Check if this is a scatter plot (XY chart)
+        try:
+            chart_type = chart.chart_type
+            is_scatter = hasattr(chart_type, 'XY_SCATTER') and chart_type == chart_type.XY_SCATTER
+        except Exception:
+            is_scatter = False
 
-        # Extract series data
-        for series in chart.series:
-            values = list(series.values)
-            data_rows.append(f"| {series.name} | " + " | ".join(str(val) for val in values) + " |")
+        if is_scatter:
+            # For scatter plots, extract X,Y pairs from XML
+            for series in chart.series:
+                try:
+                    x_values = []
+                    y_values = []
 
-        return "\n".join(data_rows)
+                    # Try to extract X and Y values from series XML
+                    if hasattr(series, '_element'):
+                        import xml.etree.ElementTree as ET
+                        element = series._element
+                        ns = {'c': 'http://schemas.openxmlformats.org/drawingml/2006/chart'}
+
+                        # Extract X values
+                        x_val_ref = element.find('.//c:xVal', ns)
+                        if x_val_ref is not None:
+                            num_cache = x_val_ref.find('.//c:numCache', ns)
+                            if num_cache is not None:
+                                pt_elements = num_cache.findall('.//c:pt', ns)
+                                for pt in pt_elements:
+                                    v_element = pt.find('c:v', ns)
+                                    if v_element is not None and v_element.text:
+                                        x_values.append(float(v_element.text))
+
+                        # Extract Y values
+                        y_val_ref = element.find('.//c:yVal', ns)
+                        if y_val_ref is not None:
+                            num_cache = y_val_ref.find('.//c:numCache', ns)
+                            if num_cache is not None:
+                                pt_elements = num_cache.findall('.//c:pt', ns)
+                                for pt in pt_elements:
+                                    v_element = pt.find('c:v', ns)
+                                    if v_element is not None and v_element.text:
+                                        y_values.append(float(v_element.text))
+
+                    # Create table with X,Y pairs if we found both
+                    if x_values and y_values and len(x_values) == len(y_values):
+                        data_rows.append(f"| {series.name} X | " + " | ".join(str(x) for x in x_values) + " |")
+                        data_rows.append(f"| {series.name} Y | " + " | ".join(str(y) for y in y_values) + " |")
+                        if len(data_rows) >= 2 and "---" not in data_rows[-2]:
+                            data_rows.insert(-2, "| --- | " + " | ".join(["---"] * len(x_values)) + " |")
+                    else:
+                        # Fallback to just Y values
+                        values = list(series.values)
+                        data_rows.append(f"| {series.name} | " + " | ".join(str(val) for val in values) + " |")
+                except Exception:
+                    # Fallback to basic series processing
+                    values = list(series.values)
+                    data_rows.append(f"| {series.name} | " + " | ".join(str(val) for val in values) + " |")
+        else:
+            # Standard chart processing
+            # Extract categories (x-axis)
+            try:
+                categories = [cat.label for cat in chart.plots[0].categories if hasattr(cat, "label")]
+                if categories:
+                    data_rows.append("| Category | " + " | ".join(str(cat) for cat in categories) + " |")
+                    data_rows.append("| --- | " + " | ".join(["---"] * len(categories)) + " |")
+            except Exception:
+                pass
+
+            # Extract series data
+            for series in chart.series:
+                try:
+                    values = list(series.values)
+                    data_rows.append(f"| {series.name} | " + " | ".join(str(val) for val in values) + " |")
+                except Exception:
+                    # Skip series that can't be processed
+                    continue
+
+        return "\n".join(data_rows) if data_rows else f"Chart: {getattr(chart, 'chart_title', 'Untitled Chart')}"
 
     return None
 

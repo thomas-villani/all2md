@@ -305,6 +305,57 @@ class HTMLToMarkdown:
             # Fallback to original URL if download fails
             return url
 
+    def _extract_language_from_attrs(self, node: Any) -> str:
+        """Extract language identifier from various HTML attributes and patterns.
+
+        Checks for language in:
+        - class attributes with patterns like language-xxx, lang-xxx, brush: xxx
+        - data-lang attributes
+        - child code elements' classes
+        """
+        import re
+
+        language = ""
+
+        # Check node's class attribute
+        if node.get("class"):
+            classes = node.get("class")
+            if isinstance(classes, str):
+                classes = [classes]
+
+            for cls in classes:
+                # Check for language-xxx pattern
+                if match := re.match(r"language-(\w+)", cls):
+                    return match.group(1)
+                # Check for lang-xxx pattern
+                elif match := re.match(r"lang-(\w+)", cls):
+                    return match.group(1)
+                # Check for brush: xxx pattern
+                elif match := re.match(r"brush:\s*(\w+)", cls):
+                    return match.group(1)
+                # Use the class as-is if it's a simple language name
+                elif cls and not cls.startswith("hljs") and not cls.startswith("highlight"):
+                    language = cls
+
+        # Check data-lang attribute
+        if node.get("data-lang"):
+            return node.get("data-lang")
+
+        # Check child code element's classes (for pre > code structures)
+        code_child = node.find("code")
+        if code_child and code_child.get("class"):
+            classes = code_child.get("class")
+            if isinstance(classes, str):
+                classes = [classes]
+
+            for cls in classes:
+                if match := re.match(r"language-(\w+)", cls):
+                    return match.group(1)
+                elif match := re.match(r"lang-(\w+)", cls):
+                    return match.group(1)
+
+        return language
+
     def _get_optimal_code_fence(self, code_content: str) -> str:
         """Determine optimal code fence length based on content.
 
@@ -501,9 +552,14 @@ class HTMLToMarkdown:
 
     def _process_code_block(self, node: Any) -> str:
         """Process code blocks with dynamic fence selection."""
+        import html
+
         self._in_code_block = True
         code = node.get_text()
         self._in_code_block = False
+
+        # Decode HTML entities in code content
+        code = html.unescape(code)
 
         # Normalize line endings and trim trailing spaces
         lines = code.splitlines()
@@ -513,14 +569,8 @@ class HTMLToMarkdown:
         # Get optimal fence length
         fence = self._get_optimal_code_fence(code)
 
-        # Get language from class attribute
-        language = ""
-        if node.get("class"):
-            classes = node.get("class")
-            if isinstance(classes, list) and classes:
-                language = classes[0]
-            elif isinstance(classes, str):
-                language = classes
+        # Get language from various attributes
+        language = self._extract_language_from_attrs(node)
 
         return f"{fence}{language}\n{code}\n{fence}\n\n"
 
@@ -575,17 +625,40 @@ class HTMLToMarkdown:
         if tbody:
             row_elements = tbody.find_all("tr")
         else:
-            row_elements = [row for row in node.find_all("tr") if row.parent.name != "thead"]
+            row_elements = [row for row in node.find_all("tr") if row.parent.name not in ("thead", "tfoot")]
 
         for row in row_elements:
             cells = [self._process_node(cell).strip() for cell in row.find_all(["td", "th"])]
             rows.append(cells)
 
-        # If no headers were found but we have rows, use first row as header
+        # Process footer rows (tfoot)
+        tfoot = node.find("tfoot")
+        if tfoot:
+            for row in tfoot.find_all("tr"):
+                cells = [self._process_node(cell).strip() for cell in row.find_all(["td", "th"])]
+                rows.append(cells)
+
+        # If no headers were found but we have rows, check if first row contains th elements
         if not all_headers and rows:
-            first_row = rows.pop(0)
-            all_headers = [first_row]
-            alignments = [self._get_alignment_from_text(cell) for cell in first_row]
+            # Find the first actual tr element to check for th elements
+            first_tr = None
+            for tr in node.find_all("tr"):
+                if tr.parent.name not in ("thead", "tfoot"):
+                    first_tr = tr
+                    break
+
+            if first_tr and first_tr.find_all("th"):
+                # First row has th elements, use it as header
+                header_cells = first_tr.find_all(["th", "td"])
+                alignments = [self._get_alignment(cell) for cell in header_cells]
+                headers = [self._process_node(cell).strip() for cell in header_cells]
+                all_headers = [headers]
+                rows.pop(0)  # Remove the header row from data rows
+            else:
+                # No th elements, treat first row as regular header
+                first_row = rows.pop(0)
+                all_headers = [first_row]
+                alignments = [self._get_alignment_from_text(cell) for cell in first_row]
 
         # Add caption if present
         if caption:
@@ -636,12 +709,14 @@ class HTMLToMarkdown:
         # Check CSS style attribute
         style = cell.get("style", "").lower()
         if "text-align" in style:
+            # Handle both 'text-align: value' and 'text-align:value' formats
+            normalized_style = style.replace(" ", "")
             for css_align, markdown_align in TABLE_ALIGNMENT_MAPPING.items():
-                if f"text-align:{css_align}" in style.replace(" ", ""):
+                if f"text-align:{css_align}" in normalized_style:
                     return markdown_align
 
         # Check CSS class (basic heuristic)
-        css_class = " ".join(cell.get("class", [])).lower()
+        css_class = " ".join(cell.get("class", [])).lower() if cell.get("class") else ""
         if "center" in css_class or "text-center" in css_class:
             return ":---:"
         elif "right" in css_class or "text-right" in css_class:
@@ -649,7 +724,7 @@ class HTMLToMarkdown:
         elif "left" in css_class or "text-left" in css_class:
             return ":---"
 
-        # Default to left alignment
+        # Default to center alignment (standard markdown table default)
         return ":---:"
 
     def _get_alignment_from_text(self, text: str) -> str:
@@ -889,20 +964,28 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
                 ) from e
 
     try:
-        converter = HTMLToMarkdown(
-            hash_headings=options.use_hash_headings,
-            extract_title=options.extract_title,
-            emphasis_symbol=options.markdown_options.emphasis_symbol if options.markdown_options else None,
-            bullet_symbols=options.markdown_options.bullet_symbols if options.markdown_options else None,
-            preserve_nbsp=options.preserve_nbsp,
-            strip_dangerous_elements=options.strip_dangerous_elements,
-            table_alignment_auto_detect=options.table_alignment_auto_detect,
-            preserve_nested_structure=options.preserve_nested_structure,
-            markdown_options=options.markdown_options,
-            attachment_mode=options.attachment_mode,
-            attachment_output_dir=options.attachment_output_dir,
-            attachment_base_url=options.attachment_base_url,
-        )
+        # Prepare converter arguments, only passing non-None values
+        converter_kwargs = {
+            "hash_headings": options.use_hash_headings,
+            "extract_title": options.extract_title,
+            "preserve_nbsp": options.preserve_nbsp,
+            "strip_dangerous_elements": options.strip_dangerous_elements,
+            "table_alignment_auto_detect": options.table_alignment_auto_detect,
+            "preserve_nested_structure": options.preserve_nested_structure,
+            "markdown_options": options.markdown_options,
+            "attachment_mode": options.attachment_mode,
+            "attachment_output_dir": options.attachment_output_dir,
+            "attachment_base_url": options.attachment_base_url,
+        }
+
+        # Only add emphasis_symbol and bullet_symbols if markdown_options exists
+        if options.markdown_options:
+            if options.markdown_options.emphasis_symbol is not None:
+                converter_kwargs["emphasis_symbol"] = options.markdown_options.emphasis_symbol
+            if options.markdown_options.bullet_symbols is not None:
+                converter_kwargs["bullet_symbols"] = options.markdown_options.bullet_symbols
+
+        converter = HTMLToMarkdown(**converter_kwargs)
         return converter.convert(html_content)
     except ImportError as e:
         raise MdparseConversionError(

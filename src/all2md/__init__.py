@@ -165,8 +165,15 @@ def parse_file(
         if is_dot_file:
             file_mimetype = "text/plain"
 
+    # HTML file
+    if file_mimetype == "text/html" or extension in (".html", ".htm"):
+        from .html2markdown import html_to_markdown
+
+        file.seek(0)
+        html_content = file.read().decode("utf-8", errors="replace")
+        content = html_to_markdown(html_content)
     # Plain text
-    if (file_mimetype and file_mimetype.startswith("text/")) or extension in PLAINTEXT_EXTENSIONS:
+    elif (file_mimetype and file_mimetype.startswith("text/")) or extension in PLAINTEXT_EXTENSIONS:
         file.seek(0)
         if extension in (".csv", ".tsv"):
             try:
@@ -237,7 +244,15 @@ def parse_file(
         from .emlfile import parse_email_chain
 
         file.seek(0)
-        eml_stream: StringIO = StringIO(file.read().decode("utf-8"))
+        # Handle encoding issues gracefully
+        try:
+            raw_data = file.read()
+            decoded_data = raw_data.decode("utf-8")
+        except UnicodeDecodeError:
+            # Try with error handling for mixed encodings
+            decoded_data = raw_data.decode("utf-8", errors="replace")
+
+        eml_stream: StringIO = StringIO(decoded_data)
         content = parse_email_chain(eml_stream)
     # Others
     else:  # elif file.content_type == "application/octet-stream":

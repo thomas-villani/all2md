@@ -1,0 +1,383 @@
+"""Integration tests for PDF image and figure handling."""
+
+import tempfile
+from pathlib import Path
+import fitz
+import pytest
+
+from all2md.pdf2markdown import pdf_to_markdown
+from all2md.options import PdfOptions
+from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+from tests.pdf_test_fixtures import create_test_pdf_bytes, create_temp_pdf_file
+
+
+class TestPdfImages:
+    """Test PDF image and figure handling with real PDFs."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def test_image_extraction_basic(self):
+        """Test basic image extraction from PDF."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock image list
+        mock_image = {
+            'number': 0,
+            'bbox': fitz.Rect(100, 100, 200, 200),
+            'matrix': fitz.Matrix(1, 0, 0, 1, 0, 0),
+            'image': MINIMAL_PNG_BYTES
+        }
+
+        mock_page.get_images.return_value = [mock_image]
+        mock_page.get_text.return_value = {"blocks": []}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(
+            attachment_mode="alt_text",
+            image_placement_markers=True
+        )
+
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should indicate image presence
+        # Exact format depends on implementation
+
+    def test_image_placement_markers(self):
+        """Test image placement marker options."""
+        options_with_markers = PdfOptions(
+            image_placement_markers=True,
+            attachment_mode="alt_text"
+        )
+
+        options_without_markers = PdfOptions(
+            image_placement_markers=False,
+            attachment_mode="skip"
+        )
+
+        # Both should be valid configurations
+        assert options_with_markers.image_placement_markers is True
+        assert options_without_markers.image_placement_markers is False
+
+    @patch('all2md.pdf2markdown.fitz.open')
+    def test_image_caption_detection(self, mock_fitz_open):
+        """Test detection of image captions."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock image with potential caption nearby
+        image_bbox = fitz.Rect(100, 100, 300, 200)
+        caption_bbox = fitz.Rect(100, 210, 300, 230)
+
+        # Mock image
+        mock_image = {
+            'number': 0,
+            'bbox': image_bbox,
+            'matrix': fitz.Matrix(1, 0, 0, 1, 0, 0),
+            'image': MINIMAL_PNG_BYTES
+        }
+
+        # Mock caption text
+        caption_span = {
+            "text": "Figure 1: Sample image caption",
+            "bbox": tuple(caption_bbox),
+            "size": 10.0,
+            "flags": 2,  # Italic, often used for captions
+            "dir": (1, 0)
+        }
+
+        caption_line = {"spans": [caption_span], "dir": (1, 0), "bbox": tuple(caption_bbox)}
+        caption_block = {"lines": [caption_line], "bbox": tuple(caption_bbox)}
+
+        mock_page.get_images.return_value = [mock_image]
+        mock_page.get_text.return_value = {"blocks": [caption_block]}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(include_image_captions=True)
+
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should include caption text
+        assert "Figure 1" in result
+        assert "Sample image caption" in result
+
+    @patch('all2md.pdf2markdown.fitz.open')
+    def test_multiple_images_per_page(self, mock_fitz_open):
+        """Test handling of multiple images on a single page."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock multiple images
+        mock_images = [
+            {
+                'number': 0,
+                'bbox': fitz.Rect(50, 100, 150, 200),
+                'matrix': fitz.Matrix(1, 0, 0, 1, 0, 0),
+                'image': MINIMAL_PNG_BYTES
+            },
+            {
+                'number': 1,
+                'bbox': fitz.Rect(200, 100, 300, 200),
+                'matrix': fitz.Matrix(1, 0, 0, 1, 0, 0),
+                'image': MINIMAL_PNG_BYTES
+            },
+            {
+                'number': 2,
+                'bbox': fitz.Rect(350, 100, 450, 200),
+                'matrix': fitz.Matrix(1, 0, 0, 1, 0, 0),
+                'image': MINIMAL_PNG_BYTES
+            }
+        ]
+
+        mock_page.get_images.return_value = mock_images
+        mock_page.get_text.return_value = {"blocks": []}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(attachment_mode="alt_text")
+
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should handle multiple images
+        # Exact representation depends on implementation
+
+    def test_image_download_mode(self):
+        """Test image download mode configuration."""
+        download_dir = self.temp_dir / "images"
+
+        options = PdfOptions(
+            attachment_mode="download",
+            attachment_output_dir=str(download_dir)
+        )
+
+        # Should be valid configuration
+        assert options.attachment_mode == "download"
+        assert options.attachment_output_dir == str(download_dir)
+
+    def test_image_base64_embedding(self):
+        """Test base64 image embedding mode."""
+        options = PdfOptions(attachment_mode="base64")
+
+        # Should be valid configuration
+        assert options.attachment_mode == "base64"
+
+    @patch('all2md.pdf2markdown.fitz.open')
+    def test_image_format_detection(self, mock_fitz_open):
+        """Test detection of different image formats in PDF."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock images of different formats
+        png_image = {
+            'number': 0,
+            'bbox': fitz.Rect(100, 100, 200, 200),
+            'ext': 'png',
+            'image': MINIMAL_PNG_BYTES
+        }
+
+        # Mock JPEG image (using PNG bytes for simplicity)
+        jpeg_image = {
+            'number': 1,
+            'bbox': fitz.Rect(250, 100, 350, 200),
+            'ext': 'jpeg',
+            'image': MINIMAL_PNG_BYTES  # Fake JPEG data
+        }
+
+        mock_page.get_images.return_value = [png_image, jpeg_image]
+        mock_page.get_text.return_value = {"blocks": []}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(attachment_mode="alt_text")
+
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should handle different image formats
+
+    @patch('all2md.pdf2markdown.fitz.open')
+    def test_image_text_flow_integration(self, mock_fitz_open):
+        """Test integration of images with text flow."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock text blocks around image
+        text_before = {
+            "text": "This is text before the image.",
+            "bbox": (100, 50, 400, 80),
+            "size": 12.0,
+            "flags": 0,
+            "dir": (1, 0)
+        }
+
+        text_after = {
+            "text": "This is text after the image.",
+            "bbox": (100, 250, 400, 280),
+            "size": 12.0,
+            "flags": 0,
+            "dir": (1, 0)
+        }
+
+        # Mock image in between
+        mock_image = {
+            'number': 0,
+            'bbox': fitz.Rect(100, 100, 300, 200),
+            'image': MINIMAL_PNG_BYTES
+        }
+
+        # Create blocks
+        text_before_line = {"spans": [text_before], "dir": (1, 0)}
+        text_after_line = {"spans": [text_after], "dir": (1, 0)}
+
+        text_before_block = {"lines": [text_before_line], "bbox": text_before["bbox"]}
+        text_after_block = {"lines": [text_after_line], "bbox": text_after["bbox"]}
+
+        mock_page.get_images.return_value = [mock_image]
+        mock_page.get_text.return_value = {"blocks": [text_before_block, text_after_block]}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(attachment_mode="alt_text")
+
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should maintain proper order: text before, image, text after
+        assert "text before" in result
+        assert "text after" in result
+
+    @patch('all2md.pdf2markdown.fitz.open')
+    def test_figure_complex_layouts(self, mock_fitz_open):
+        """Test handling of complex figure layouts."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock complex figure with multiple components
+        main_image = {
+            'number': 0,
+            'bbox': fitz.Rect(100, 100, 400, 300),
+            'image': MINIMAL_PNG_BYTES
+        }
+
+        # Small legend or annotation images
+        legend_image = {
+            'number': 1,
+            'bbox': fitz.Rect(420, 100, 480, 160),
+            'image': MINIMAL_PNG_BYTES
+        }
+
+        # Mock accompanying text
+        figure_title = {
+            "text": "Figure 2: Complex diagram",
+            "bbox": (100, 80, 400, 95),
+            "size": 11.0,
+            "flags": 16,  # Bold
+            "dir": (1, 0)
+        }
+
+        figure_caption = {
+            "text": "This diagram shows the relationship between components A, B, and C.",
+            "bbox": (100, 320, 400, 350),
+            "size": 9.0,
+            "flags": 2,   # Italic
+            "dir": (1, 0)
+        }
+
+        # Create blocks
+        title_line = {"spans": [figure_title], "dir": (1, 0)}
+        caption_line = {"spans": [figure_caption], "dir": (1, 0)}
+
+        title_block = {"lines": [title_line], "bbox": figure_title["bbox"]}
+        caption_block = {"lines": [caption_line], "bbox": figure_caption["bbox"]}
+
+        mock_page.get_images.return_value = [main_image, legend_image]
+        mock_page.get_text.return_value = {"blocks": [title_block, caption_block]}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(
+            include_image_captions=True,
+            attachment_mode="alt_text"
+        )
+
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should include figure title and caption
+        assert "Figure 2" in result
+        assert "Complex diagram" in result
+        assert "relationship between" in result
+
+    def test_image_skip_mode(self):
+        """Test skipping images entirely."""
+        options = PdfOptions(attachment_mode="skip")
+
+        # Should be valid configuration
+        assert options.attachment_mode == "skip"
+
+        # In this mode, images would be omitted from output
+
+    @patch('all2md.pdf2markdown.fitz.open')
+    def test_corrupted_image_handling(self, mock_fitz_open):
+        """Test handling of corrupted or unreadable images."""
+        mock_doc = Mock()
+        mock_page = Mock()
+
+        # Mock corrupted image (empty or invalid data)
+        corrupted_image = {
+            'number': 0,
+            'bbox': fitz.Rect(100, 100, 200, 200),
+            'image': b''  # Empty/corrupted data
+        }
+
+        mock_page.get_images.return_value = [corrupted_image]
+        mock_page.get_text.return_value = {"blocks": []}
+        mock_page.get_links.return_value = []
+        mock_page.rect = fitz.Rect(0, 0, 500, 600)
+
+        mock_doc.__getitem__ = Mock(return_value=mock_page)
+        mock_doc.page_count = 1
+        mock_fitz_open.return_value = mock_doc
+
+        options = PdfOptions(attachment_mode="alt_text")
+
+        # Should handle corrupted images gracefully
+        result = pdf_to_markdown(mock_doc, options=options)
+        assert_markdown_valid(result)
+
+        # Should not crash on corrupted image data

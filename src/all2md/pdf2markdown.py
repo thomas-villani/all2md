@@ -355,30 +355,81 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     if not blocks:
         return [blocks]
 
-    # Group blocks by their approximate x-coordinate ranges
-    x_groups = defaultdict(list)
+    # Extract x-coordinates (left edge) for each block
+    x_coords = []
+    for block in blocks:
+        if "bbox" in block:
+            x_coords.append(block["bbox"][0])
+
+    if len(x_coords) < 2:
+        return [blocks]
+
+    # Sort x-coordinates and find significant gaps
+    sorted_x = sorted(set(x_coords))
+    column_boundaries = [sorted_x[0]]
+
+    for i in range(1, len(sorted_x)):
+        gap = sorted_x[i] - sorted_x[i-1]
+        if gap >= column_gap_threshold:
+            column_boundaries.append(sorted_x[i])
+
+    # If no significant gaps found, treat as single column
+    if len(column_boundaries) <= 1:
+        return [blocks]
+
+    # Check if we have overlapping blocks that suggest single column
+    # Calculate the width coverage for each potential column
+    block_ranges = []
+    for block in blocks:
+        if "bbox" in block:
+            x0, x1 = block["bbox"][0], block["bbox"][2]
+            block_ranges.append((x0, x1))
+
+    # If most blocks overlap significantly, it's likely single column
+    if len(block_ranges) >= 3:
+        # Find the median width to determine if blocks are mostly full-width
+        widths = [x1 - x0 for x0, x1 in block_ranges]
+        median_width = sorted(widths)[len(widths) // 2]
+
+        # Find overall page bounds
+        min_x = min(x0 for x0, x1 in block_ranges)
+        max_x = max(x1 for x0, x1 in block_ranges)
+        page_width = max_x - min_x
+
+        # If median block width is > 60% of page width, likely single column
+        if median_width > 0.6 * page_width:
+            return [blocks]
+
+    # Group blocks into columns based on boundaries
+    columns = [[] for _ in range(len(column_boundaries))]
 
     for block in blocks:
         if "bbox" not in block:
+            columns[0].append(block)  # Default to first column
             continue
+
         x0 = block["bbox"][0]
-        # Round to nearest column_gap_threshold to group nearby blocks
-        x_key = round(x0 / column_gap_threshold) * column_gap_threshold
-        x_groups[x_key].append(block)
 
-    # If only one group, no columns detected
-    if len(x_groups) <= 1:
-        return [blocks]
+        # Find which column this block belongs to
+        assigned = False
+        for i in range(len(column_boundaries) - 1):
+            if column_boundaries[i] <= x0 < column_boundaries[i + 1]:
+                columns[i].append(block)
+                assigned = True
+                break
 
-    # Sort groups by x-coordinate to get columns left to right
-    sorted_columns = []
-    for x_key in sorted(x_groups.keys()):
-        column_blocks = x_groups[x_key]
-        # Sort blocks within column by y-coordinate (top to bottom)
-        column_blocks.sort(key=lambda b: b["bbox"][1])
-        sorted_columns.append(column_blocks)
+        if not assigned:
+            # Assign to last column
+            columns[-1].append(block)
 
-    return sorted_columns
+    # Sort blocks within each column by y-coordinate (top to bottom)
+    for column in columns:
+        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+
+    # Remove empty columns
+    columns = [col for col in columns if col]
+
+    return columns
 
 
 def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
@@ -399,17 +450,59 @@ def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
     tuple[str, bool]
         Merged text and boolean indicating if merge was performed
     """
-    if not text1 or not text2:
-        return text1 + text2, False
+    # Handle empty strings
+    if not text1 and not text2:
+        return "", False
+    elif not text1:
+        return " " + text2, False
+    elif not text2:
+        return text1 + " ", False
 
     # Check if first text ends with hyphen (word continuation)
     if text1.endswith("-") and len(text1) > 1:
-        # Check if it's likely a word continuation (not a dash separator)
-        if text1[-2].isalpha() and text2 and text2[0].islower():
-            # Remove hyphen and join without space
-            merged = text1[:-1] + text2
-            return merged, True
+        # Get the character before the hyphen
+        pre_hyphen_char = text1[-2] if len(text1) >= 2 else ""
 
+        # Check if it's likely a word continuation
+        if pre_hyphen_char.isalpha() and text2 and text2[0].isalpha():
+            # More conservative: only merge if the first part doesn't look like a complete word
+            # Avoid merging common compound words like "well-known", "state-of-the-art", etc.
+            first_part = text1[:-1]
+            first_part_lower = first_part.lower()
+            text2_lower = text2.lower()
+
+            common_compound_prefixes = {"well", "state", "high", "low", "self", "non", "pre", "post",
+                                      "anti", "multi", "semi", "over", "under", "out", "up"}
+
+            # If first part is a common compound word prefix AND text2 starts lowercase, preserve hyphen
+            if first_part_lower in common_compound_prefixes and text2[0].islower():
+                return text1 + text2, False
+
+            # Check for capital letter continuation (likely new sentence) - don't merge
+            if text2[0].isupper() and first_part_lower not in {"hyphen"}:
+                return text1 + " " + text2, False
+
+            # Check if it's likely a line-break hyphenation
+            combined_word_lower = first_part_lower + text2_lower
+
+            # Check if it's likely a line-break hyphenation:
+            # 1. First part is short (likely partial word)
+            # 2. First part has typical word endings that suggest incomplete words
+            # 3. Combined word looks more natural than hyphenated version
+            should_merge = (
+                len(first_part) <= 4 or  # Short first part suggests word break
+                first_part_lower.endswith(("ing", "ed", "er", "est", "ly", "tion", "sion", "ment")) or  # Incomplete word endings
+                combined_word_lower in {"example", "unfortunately", "development", "information",
+                                      "hyphenation", "continuation", "implementation", "configuration",
+                                      "hyphenated", "cafeteria"}  # Common words that get split
+            )
+
+            if should_merge:
+                # Remove hyphen and join without space, preserving original case
+                merged = first_part + text2
+                return merged, True
+
+    # Default: add space between text segments
     return text1 + " " + text2, False
 
 

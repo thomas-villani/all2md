@@ -96,6 +96,17 @@ from .exceptions import MdparseConversionError, MdparseInputError
 from .options import EmlOptions
 
 
+def _parse_date_safely(date_str: str | None) -> datetime.datetime | None:
+    """Safely parse a date string, returning None if parsing fails."""
+    if not date_str:
+        return None
+
+    try:
+        return parsedate_to_datetime(date_str).replace(tzinfo=datetime.UTC)
+    except (ValueError, TypeError):
+        return None
+
+
 def format_email_chain_as_markdown(eml_chain: list[dict[str, Any]]) -> str:
     """Convert a list of email dictionaries to formatted Markdown string.
 
@@ -138,7 +149,7 @@ def format_email_chain_as_markdown(eml_chain: list[dict[str, Any]]) -> str:
         md += f"To: {item['to']}\n"
         if item.get("cc"):
             md += f"cc: {item['cc']}\n"
-        if "date" in item:
+        if "date" in item and item['date'] is not None:
             md += f"Date: {item['date'].strftime('%m/%d/%y %H:%M')}\n"
         if "subject" in item:
             md += f"Subject: {item['subject']}\n"
@@ -235,7 +246,7 @@ def parse_single_message(msg: Message) -> dict[str, Any]:
         "from": msg["from"],
         "to": msg["to"],
         "subject": msg["subject"],
-        "date": (parsedate_to_datetime(msg["date"]).replace(tzinfo=datetime.UTC) if msg["date"] else None),
+        "date": _parse_date_safely(msg["date"]),
         "content": content,
         "message_id": msg["message-id"],
         "in_reply_to": msg["in-reply-to"],
@@ -304,9 +315,7 @@ def split_chain(content: str) -> list[dict[str, Any]]:
             d = part_match.groupdict()
             d["content"] = part[: part_match.start()] + part[part_match.end() :]
             if "date" in d:
-                mdate = parsedate_to_datetime(d["date"])
-                if mdate:
-                    d["date"] = mdate.replace(tzinfo=datetime.UTC)
+                d["date"] = _parse_date_safely(d["date"])
             formatted_msgs.append(d)
         elif part:  # Only add non-empty parts without headers
             formatted_msgs.append({"content": part})
