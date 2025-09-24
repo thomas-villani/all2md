@@ -65,6 +65,24 @@ from .constants import (
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
+    # PDF-specific constants
+    DEFAULT_HEADER_MIN_OCCURRENCES,
+    DEFAULT_HEADER_USE_FONT_WEIGHT,
+    DEFAULT_HEADER_USE_ALL_CAPS,
+    DEFAULT_HEADER_PERCENTILE_THRESHOLD,
+    DEFAULT_DETECT_COLUMNS,
+    DEFAULT_MERGE_HYPHENATED_WORDS,
+    DEFAULT_HANDLE_ROTATED_TEXT,
+    DEFAULT_COLUMN_GAP_THRESHOLD,
+    DEFAULT_TABLE_FALLBACK_DETECTION,
+    DEFAULT_DETECT_MERGED_CELLS,
+    DEFAULT_TABLE_RULING_LINE_THRESHOLD,
+    DEFAULT_EXTRACT_IMAGES,
+    DEFAULT_IMAGE_OUTPUT_DIR,
+    DEFAULT_IMAGE_PLACEMENT_MARKERS,
+    DEFAULT_INCLUDE_IMAGE_CAPTIONS,
+    DEFAULT_PAGE_SEPARATOR_FORMAT,
+    DEFAULT_INCLUDE_PAGE_NUMBERS,
 )
 
 
@@ -88,6 +106,10 @@ class MarkdownOptions:
         Characters to cycle through for nested bullet lists.
     page_separator : str, default "-----"
         Text used to separate pages or sections in output.
+    page_separator_format : str, default "-----"
+        Format string for page separators. Can include {page_num} placeholder.
+    include_page_numbers : bool, default False
+        Whether to include page numbers in page separators.
     list_indent_width : int, default 4
         Number of spaces to use for each level of list indentation.
     underline_mode : {"html", "markdown", "ignore"}, default "html"
@@ -111,6 +133,8 @@ class MarkdownOptions:
     emphasis_symbol: EmphasisSymbol = DEFAULT_EMPHASIS_SYMBOL
     bullet_symbols: str = DEFAULT_BULLET_SYMBOLS
     page_separator: str = DEFAULT_PAGE_SEPARATOR
+    page_separator_format: str = DEFAULT_PAGE_SEPARATOR_FORMAT
+    include_page_numbers: bool = DEFAULT_INCLUDE_PAGE_NUMBERS
     list_indent_width: int = DEFAULT_LIST_INDENT_WIDTH
     underline_mode: UnderlineMode = "html"
     superscript_mode: SuperscriptMode = "html"
@@ -133,6 +157,51 @@ class PdfOptions:
         Whether to embed images as base64-encoded data URLs.
     password : str or None, default None
         Password for encrypted PDF documents.
+
+    # Header detection parameters
+    header_sample_pages : int | list[int] | None, default None
+        Pages to sample for header font size analysis. If None, samples all pages.
+    header_percentile_threshold : float, default 75
+        Percentile threshold for header detection (e.g., 75 = top 25% of font sizes).
+    header_min_occurrences : int, default 3
+        Minimum occurrences of a font size to consider it for headers.
+    header_size_allowlist : list[float] | None, default None
+        Specific font sizes to always treat as headers.
+    header_size_denylist : list[float] | None, default None
+        Font sizes to never treat as headers.
+    header_use_font_weight : bool, default True
+        Consider bold/font weight when detecting headers.
+    header_use_all_caps : bool, default True
+        Consider all-caps text as potential headers.
+
+    # Reading order and layout parameters
+    detect_columns : bool, default True
+        Enable multi-column layout detection.
+    merge_hyphenated_words : bool, default True
+        Merge words split by hyphens at line breaks.
+    handle_rotated_text : bool, default True
+        Process rotated text blocks.
+    column_gap_threshold : float, default 20
+        Minimum gap between columns in points.
+
+    # Table detection parameters
+    table_fallback_detection : bool, default True
+        Use heuristic fallback if PyMuPDF table detection fails.
+    detect_merged_cells : bool, default True
+        Attempt to identify merged cells in tables.
+    table_ruling_line_threshold : float, default 0.5
+        Threshold for detecting table ruling lines.
+
+    # Image extraction parameters
+    extract_images : bool, default False
+        Extract images from PDF.
+    image_output_dir : str | None, default None
+        Directory to save extracted images.
+    image_placement_markers : bool, default True
+        Add markers showing image positions.
+    include_image_captions : bool, default True
+        Try to extract image captions.
+
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
@@ -144,11 +213,45 @@ class PdfOptions:
     Convert with custom Markdown formatting:
         >>> md_opts = MarkdownOptions(emphasis_symbol="_", page_separator="---")
         >>> options = PdfOptions(markdown_options=md_opts)
+
+    Configure header detection:
+        >>> options = PdfOptions(
+        ...     header_sample_pages=[0, 1, 2],
+        ...     header_percentile_threshold=80,
+        ...     header_use_all_caps=True
+        ... )
     """
 
     pages: list[int] | None = None
     convert_images_to_base64: bool = DEFAULT_CONVERT_IMAGES_TO_BASE64
     password: str | None = None
+
+    # Header detection parameters
+    header_sample_pages: int | list[int] | None = None
+    header_percentile_threshold: float = DEFAULT_HEADER_PERCENTILE_THRESHOLD
+    header_min_occurrences: int = DEFAULT_HEADER_MIN_OCCURRENCES
+    header_size_allowlist: list[float] | None = None
+    header_size_denylist: list[float] | None = None
+    header_use_font_weight: bool = DEFAULT_HEADER_USE_FONT_WEIGHT
+    header_use_all_caps: bool = DEFAULT_HEADER_USE_ALL_CAPS
+
+    # Reading order and layout parameters
+    detect_columns: bool = DEFAULT_DETECT_COLUMNS
+    merge_hyphenated_words: bool = DEFAULT_MERGE_HYPHENATED_WORDS
+    handle_rotated_text: bool = DEFAULT_HANDLE_ROTATED_TEXT
+    column_gap_threshold: float = DEFAULT_COLUMN_GAP_THRESHOLD
+
+    # Table detection parameters
+    table_fallback_detection: bool = DEFAULT_TABLE_FALLBACK_DETECTION
+    detect_merged_cells: bool = DEFAULT_DETECT_MERGED_CELLS
+    table_ruling_line_threshold: float = DEFAULT_TABLE_RULING_LINE_THRESHOLD
+
+    # Image extraction parameters
+    extract_images: bool = DEFAULT_EXTRACT_IMAGES
+    image_output_dir: str | None = DEFAULT_IMAGE_OUTPUT_DIR
+    image_placement_markers: bool = DEFAULT_IMAGE_PLACEMENT_MARKERS
+    include_image_captions: bool = DEFAULT_INCLUDE_IMAGE_CAPTIONS
+
     markdown_options: MarkdownOptions | None = None
 
 

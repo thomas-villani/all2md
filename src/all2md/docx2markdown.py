@@ -68,14 +68,19 @@ direct Markdown equivalents and will be approximated or omitted.
 
 import logging
 import re
+import requests
 from pathlib import Path
 from typing import Any, Union, IO
+from urllib.parse import urlparse
 
 import docx
 import docx.document
 from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ALIGN_VERTICAL
+from docx.shared import Inches
 
 from .exceptions import MdparseConversionError
 from .constants import (
@@ -87,11 +92,32 @@ logger = logging.getLogger(__name__)
 
 
 def _detect_list_level(paragraph: Paragraph) -> tuple[str | None, int]:
-    """Detect the list level of a paragraph based on its style and indentation.
+    """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth
     """
     if not paragraph.style or not paragraph.style.name:
+        # Check for Word native numbering properties
+        if hasattr(paragraph, '_p') and paragraph._p is not None:
+            try:
+                # Check for numPr (numbering properties) element
+                num_pr = paragraph._p.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numPr')
+                if num_pr is not None:
+                    # Get numbering level
+                    ilvl_elem = num_pr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl')
+                    level = int(ilvl_elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0')) + 1 if ilvl_elem is not None else 1
+
+                    # Get numbering ID to determine list type
+                    num_id_elem = num_pr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId')
+                    if num_id_elem is not None:
+                        # For now, detect type from paragraph text pattern
+                        text = paragraph.text.strip()
+                        if re.match(r"^\d+[.)]", text) or re.match(r"^[a-zA-Z][.)]", text):
+                            return "number", level
+                        else:
+                            return "bullet", level
+            except Exception:
+                pass
         return None, 0
 
     # Check for built-in list styles

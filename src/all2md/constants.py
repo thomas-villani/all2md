@@ -80,6 +80,33 @@ EmphasisSymbol = Literal["*", "_"]
 
 PDF_MIN_PYMUPDF_VERSION = "1.24.0"
 
+# Header detection constants
+DEFAULT_HEADER_MIN_OCCURRENCES = 3
+DEFAULT_HEADER_USE_FONT_WEIGHT = True
+DEFAULT_HEADER_USE_ALL_CAPS = True
+DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
+
+# Column detection constants
+DEFAULT_DETECT_COLUMNS = True
+DEFAULT_MERGE_HYPHENATED_WORDS = True
+DEFAULT_HANDLE_ROTATED_TEXT = True
+DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
+
+# Table detection fallback constants
+DEFAULT_TABLE_FALLBACK_DETECTION = True
+DEFAULT_DETECT_MERGED_CELLS = True
+DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
+
+# Image extraction constants
+DEFAULT_EXTRACT_IMAGES = False
+DEFAULT_IMAGE_OUTPUT_DIR = None
+DEFAULT_IMAGE_PLACEMENT_MARKERS = True
+DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
+
+# Page separator constants
+DEFAULT_PAGE_SEPARATOR_FORMAT = "-----"
+DEFAULT_INCLUDE_PAGE_NUMBERS = False
+
 # =============================================================================
 # HTML to Markdown Constants
 # =============================================================================

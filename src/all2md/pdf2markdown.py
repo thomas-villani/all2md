@@ -98,11 +98,13 @@ License GNU Affero GPL 3.0
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import base64
 import re
 import string
+from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 import fitz
 
@@ -153,14 +155,18 @@ class IdentifyHeaders:
     body_limit : float or None, optional
         Font size threshold below which text is considered body text.
         If None, uses the most frequent font size as body text baseline.
+    options : PdfOptions or None, optional
+        PDF conversion options containing header detection parameters.
 
     Attributes
     ----------
     header_id : dict[int, str]
         Mapping from font size to markdown header prefix string
+    options : PdfOptions
+        PDF conversion options used for header detection
     """
 
-    def __init__(self, doc: fitz.Document, pages: list[int] | range | None = None, body_limit: float | None = None) -> None:
+    def __init__(self, doc: fitz.Document, pages: list[int] | range | None = None, body_limit: float | None = None, options: PdfOptions | None = None) -> None:
         """Initialize header identification by analyzing font sizes.
 
         Reads all text spans from specified pages and builds a frequency
@@ -176,9 +182,28 @@ class IdentifyHeaders:
         body_limit : float or None, optional
             Font size threshold below which text is considered body text.
             If None, uses the most frequent font size as body text baseline.
+        options : PdfOptions or None, optional
+            PDF conversion options containing header detection parameters.
         """
-        pages_to_use: range | list[int] = pages if pages is not None else range(doc.page_count)
+        self.options = options or PdfOptions()
+
+        # Determine pages to sample for header analysis
+        if self.options.header_sample_pages is not None:
+            if isinstance(self.options.header_sample_pages, int):
+                # Sample first N pages
+                pages_to_sample = list(range(min(self.options.header_sample_pages, doc.page_count)))
+            else:
+                # Use specific page list
+                pages_to_sample = [p for p in self.options.header_sample_pages if p < doc.page_count]
+        elif pages is not None:
+            pages_to_sample = pages if isinstance(pages, list) else list(pages)
+        else:
+            pages_to_sample = list(range(doc.page_count))
+
+        pages_to_use: list[int] = pages_to_sample
         fontsizes: dict[int, int] = {}
+        fontweight_sizes: dict[int, int] = {}  # Track bold font sizes
+        allcaps_sizes: dict[int, int] = {}  # Track all-caps text sizes
         for pno in pages_to_use:
             page = doc[pno]
             blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
@@ -190,11 +215,35 @@ class IdentifyHeaders:
                 if not SPACES.issuperset(s["text"]) and line["dir"] == (1, 0)
             ]:
                 fontsz = round(span["size"])
-                count = fontsizes.get(fontsz, 0) + len(span["text"].strip())
+                text = span["text"].strip()
+                text_len = len(text)
+
+                # Track font size occurrences
+                count = fontsizes.get(fontsz, 0) + text_len
                 fontsizes[fontsz] = count
+
+                # Track bold text if enabled
+                if self.options.header_use_font_weight and (span["flags"] & 16):  # Bold flag
+                    fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
+
+                # Track all-caps text if enabled
+                if self.options.header_use_all_caps and text.isupper() and text.isalpha():
+                    allcaps_sizes[fontsz] = allcaps_sizes.get(fontsz, 0) + text_len
 
         # maps a fontsize to a string of multiple # header tag characters
         self.header_id = {}
+        self.bold_header_sizes = set()  # Track which sizes are headers due to bold
+        self.allcaps_header_sizes = set()  # Track which sizes are headers due to all-caps
+
+        # Apply allowlist/denylist filters
+        if self.options.header_size_denylist:
+            for size in self.options.header_size_denylist:
+                fontsizes.pop(round(size), None)
+
+        # Filter by minimum occurrences
+        if self.options.header_min_occurrences > 0:
+            fontsizes = {k: v for k, v in fontsizes.items()
+                        if v >= self.options.header_min_occurrences}
 
         # If not provided, choose the most frequent font size as body text.
         # If no text at all on all pages, just use 12
@@ -206,11 +255,41 @@ class IdentifyHeaders:
             )
             body_limit = temp[0][0] if temp else 12
 
-        sizes = sorted([f for f in fontsizes if f > body_limit], reverse=True)
+        # Get header sizes based on percentile threshold
+        if self.options.header_percentile_threshold and fontsizes:
+            sorted_sizes = sorted(fontsizes.keys(), reverse=True)
+            percentile_idx = int(len(sorted_sizes) * (1 - self.options.header_percentile_threshold / 100))
+            percentile_threshold = sorted_sizes[max(0, percentile_idx - 1)] if percentile_idx > 0 else sorted_sizes[0]
+            sizes = [s for s in sorted_sizes if s >= percentile_threshold and s > body_limit]
+        else:
+            sizes = sorted([f for f in fontsizes if f > body_limit], reverse=True)
+
+        # Add sizes from allowlist
+        if self.options.header_size_allowlist:
+            for size in self.options.header_size_allowlist:
+                rounded_size = round(size)
+                if rounded_size not in sizes and rounded_size > body_limit:
+                    sizes.append(rounded_size)
+            sizes = sorted(sizes, reverse=True)
+
+        # Add bold and all-caps sizes as potential headers
+        if self.options.header_use_font_weight:
+            for size in fontweight_sizes:
+                if size not in sizes and size >= body_limit:
+                    sizes.append(size)
+                    self.bold_header_sizes.add(size)
+
+        if self.options.header_use_all_caps:
+            for size in allcaps_sizes:
+                if size not in sizes and size >= body_limit:
+                    sizes.append(size)
+                    self.allcaps_header_sizes.add(size)
+
+        sizes = sorted(set(sizes), reverse=True)
 
         # make the header tag dictionary
         for i, size in enumerate(sizes):
-            self.header_id[size] = "#" * (i + 1) + " "
+            self.header_id[size] = "#" * min(i + 1, 6) + " "  # Limit to h6
 
     def get_header_id(self, span: dict) -> str:
         """Return appropriate markdown header prefix for a text span.
@@ -231,11 +310,108 @@ class IdentifyHeaders:
         """
         fontsize = round(span["size"])  # compute fontsize
         hdr_id = self.header_id.get(fontsize, "")
+
+        # Check for additional header indicators if no size-based header found
+        if not hdr_id and self.options:
+            text = span.get("text", "").strip()
+
+            # Check for bold header
+            if self.options.header_use_font_weight and (span.get("flags", 0) & 16):
+                if fontsize in self.bold_header_sizes:
+                    hdr_id = self.header_id.get(fontsize, "")
+
+            # Check for all-caps header
+            if self.options.header_use_all_caps and text.isupper() and text.isalpha():
+                if fontsize in self.allcaps_header_sizes:
+                    hdr_id = self.header_id.get(fontsize, "")
+
         return hdr_id
+
+
+def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[dict]]:
+    """Detect multi-column layout in text blocks.
+
+    Analyzes the x-coordinates of text blocks to identify column boundaries
+    and groups blocks into columns based on their horizontal positions.
+
+    Parameters
+    ----------
+    blocks : list
+        List of text blocks from PyMuPDF page extraction
+    column_gap_threshold : float, default 20
+        Minimum gap between columns in points
+
+    Returns
+    -------
+    list[list[dict]]
+        List of columns, where each column is a list of blocks
+    """
+    if not blocks:
+        return [blocks]
+
+    # Group blocks by their approximate x-coordinate ranges
+    x_groups = defaultdict(list)
+
+    for block in blocks:
+        if "bbox" not in block:
+            continue
+        x0 = block["bbox"][0]
+        # Round to nearest column_gap_threshold to group nearby blocks
+        x_key = round(x0 / column_gap_threshold) * column_gap_threshold
+        x_groups[x_key].append(block)
+
+    # If only one group, no columns detected
+    if len(x_groups) <= 1:
+        return [blocks]
+
+    # Sort groups by x-coordinate to get columns left to right
+    sorted_columns = []
+    for x_key in sorted(x_groups.keys()):
+        column_blocks = x_groups[x_key]
+        # Sort blocks within column by y-coordinate (top to bottom)
+        column_blocks.sort(key=lambda b: b["bbox"][1])
+        sorted_columns.append(column_blocks)
+
+    return sorted_columns
+
+
+def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
+    """Merge text with hyphenation at line break.
+
+    Detects if text1 ends with a hyphen (word continuation) and merges
+    with text2 appropriately, removing the hyphen if it's a word break.
+
+    Parameters
+    ----------
+    text1 : str
+        Text from end of first line
+    text2 : str
+        Text from beginning of second line
+
+    Returns
+    -------
+    tuple[str, bool]
+        Merged text and boolean indicating if merge was performed
+    """
+    if not text1 or not text2:
+        return text1 + text2, False
+
+    # Check if first text ends with hyphen (word continuation)
+    if text1.endswith("-") and len(text1) > 1:
+        # Check if it's likely a word continuation (not a dash separator)
+        if text1[-2].isalpha() and text2 and text2[0].islower():
+            # Remove hyphen and join without space
+            merged = text1[:-1] + text2
+            return merged, True
+
+    return text1 + " " + text2, False
 
 
 def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None) -> str | None:
     """Accept a span bbox and return a markdown link string.
+
+    Enhanced to handle partial overlaps and multiple links within a span
+    by using character-level bbox analysis when needed.
 
     Parameters
     ----------
@@ -251,22 +427,83 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     str or None
         Formatted markdown link string if overlap detected, None otherwise
     """
+    if not links or not span.get("text"):
+        return None
+
     bbox = fitz.Rect(span["bbox"])  # span bbox
-    # a link should overlap at least {DEFAULT_OVERLAP_THRESHOLD_PERCENT}% of the span
-    bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
+    span_text = span['text']
+
+    # Find all links that overlap with this span
+    overlapping_links = []
     for link in links:
         hot = link["from"]  # the hot area of the link
-        if not abs(hot & bbox) >= bbox_area:
-            continue  # does not touch the bbox
-        link_text = span['text'].strip()
+        overlap = hot & bbox
+        if abs(overlap) > 0:
+            overlapping_links.append((link, overlap))
+
+    if not overlapping_links:
+        return None
+
+    # If single link covers most of the span, use simple approach
+    if len(overlapping_links) == 1:
+        link, overlap = overlapping_links[0]
+        bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
+        if abs(overlap) >= bbox_area:
+            link_text = span_text.strip()
+            if md_options and md_options.escape_special:
+                link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
+            return f"[{link_text}]({link['uri']})"
+
+    # Handle multiple or partial links by character-level analysis
+    # Estimate character positions based on bbox width
+    if len(span_text) == 0:
+        return None
+
+    char_width = bbox.width / len(span_text)
+    result_parts = []
+    last_end = 0
+
+    # Sort links by their x-coordinate
+    overlapping_links.sort(key=lambda x: x[1].x0)
+
+    for link, overlap in overlapping_links:
+        # Calculate character range for this link
+        start_char = max(0, int((overlap.x0 - bbox.x0) / char_width))
+        end_char = min(len(span_text), int((overlap.x1 - bbox.x0) / char_width))
+
+        if start_char >= end_char:
+            continue
+
+        # Add non-link text before this link
+        if start_char > last_end:
+            text_before = span_text[last_end:start_char]
+            if md_options and md_options.escape_special:
+                text_before = escape_markdown_special(text_before, md_options.bullet_symbols)
+            result_parts.append(text_before)
+
+        # Add link text
+        link_text = span_text[start_char:end_char].strip()
+        if link_text:
+            if md_options and md_options.escape_special:
+                link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
+            result_parts.append(f"[{link_text}]({link['uri']})")
+            last_end = end_char
+
+    # Add remaining non-link text
+    if last_end < len(span_text):
+        text_after = span_text[last_end:]
         if md_options and md_options.escape_special:
-            link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
-        text = f"[{link_text}]({link['uri']})"
-        return text
+            text_after = escape_markdown_special(text_after, md_options.bullet_symbols)
+        result_parts.append(text_after)
+
+    # Return combined result if any links were found
+    if result_parts:
+        return "".join(result_parts)
+
     return None
 
 
-def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: IdentifyHeaders, md_options: MarkdownOptions | None = None) -> str:
+def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: IdentifyHeaders, md_options: MarkdownOptions | None = None, pdf_options: PdfOptions | None = None) -> str:
     """Convert text from a page region to Markdown format.
 
     Extracts and processes text within the specified clipping rectangle,
@@ -412,7 +649,235 @@ def page_to_markdown(page: fitz.Page, clip: fitz.Rect | None, hdr_prefix: Identi
     return out_string.replace(" \n", "\n")
 
 
-def parse_page(page: fitz.Page) -> list[tuple[str, fitz.Rect, int]]:
+def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | None = None) -> list[dict]:
+    """Extract images from a PDF page with their positions.
+
+    Extracts all images from the page and optionally saves them to disk
+    or converts to base64 data URIs for embedding in Markdown.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page to extract images from
+    page_num : int
+        Page number for naming extracted images
+    options : PdfOptions or None, optional
+        PDF options containing image extraction settings
+
+    Returns
+    -------
+    list[dict]
+        List of dictionaries containing image info:
+        - 'bbox': Image bounding box
+        - 'path': Path to saved image or data URI
+        - 'caption': Detected caption text (if any)
+    """
+    if not options or not options.extract_images:
+        return []
+
+    images = []
+    image_list = page.get_images()
+
+    for img_idx, img in enumerate(image_list):
+        try:
+            # Get image data
+            xref = img[0]
+            pix = fitz.Pixmap(page.parent, xref)
+
+            # Convert to RGB if needed
+            if pix.n - pix.alpha < 4:  # GRAY or RGB
+                pix_rgb = pix
+            else:
+                pix_rgb = fitz.Pixmap(fitz.csRGB, pix)
+
+            # Get image position on page
+            img_rects = page.get_image_rects(xref)
+            if not img_rects:
+                continue
+
+            bbox = img_rects[0]  # Use first occurrence
+
+            # Save or convert image
+            if options.image_output_dir:
+                # Save to file
+                output_dir = Path(options.image_output_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+                img_filename = f"page_{page_num + 1}_img_{img_idx + 1}.png"
+                img_path = output_dir / img_filename
+
+                pix_rgb.save(str(img_path))
+                image_path = str(img_path)
+            else:
+                # Convert to base64 data URI
+                img_bytes = pix_rgb.tobytes("png")
+                img_base64 = base64.b64encode(img_bytes).decode()
+                image_path = f"data:image/png;base64,{img_base64}"
+
+            # Try to detect caption
+            caption = None
+            if options.include_image_captions:
+                caption = detect_image_caption(page, bbox)
+
+            images.append({
+                'bbox': bbox,
+                'path': image_path,
+                'caption': caption
+            })
+
+            # Clean up
+            if pix_rgb != pix:
+                pix_rgb = None
+            pix = None
+
+        except Exception:
+            # Skip problematic images
+            continue
+
+    return images
+
+
+def detect_image_caption(page: fitz.Page, image_bbox: fitz.Rect) -> str | None:
+    """Detect caption text near an image.
+
+    Looks for text blocks immediately below or above the image
+    that might be captions (e.g., starting with "Figure", "Fig.", etc.).
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page containing the image
+    image_bbox : fitz.Rect
+        Bounding box of the image
+
+    Returns
+    -------
+    str or None
+        Detected caption text or None if no caption found
+    """
+    # Define search region below and above image
+    caption_patterns = [
+        r'^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+\d+',
+        r'^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+[A-Z]\.',
+    ]
+
+    # Search below image
+    search_below = fitz.Rect(image_bbox.x0 - 20,
+                             image_bbox.y1,
+                             image_bbox.x1 + 20,
+                             image_bbox.y1 + 50)
+
+    # Search above image (less common)
+    search_above = fitz.Rect(image_bbox.x0 - 20,
+                             image_bbox.y0 - 50,
+                             image_bbox.x1 + 20,
+                             image_bbox.y0)
+
+    for search_rect in [search_below, search_above]:
+        text = page.get_textbox(search_rect)
+        if text:
+            text = text.strip()
+            # Check if text matches caption pattern
+            for pattern in caption_patterns:
+                if re.match(pattern, text, re.IGNORECASE):
+                    return text
+
+            # Also check for short text that might be a caption
+            if len(text) < 200 and text[0].isupper():
+                return text
+
+    return None
+
+
+def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> list[fitz.Rect]:
+    """Fallback table detection using ruling lines and text alignment.
+
+    Uses page drawing commands to detect horizontal and vertical lines
+    that form table structures, useful when PyMuPDF's table detection fails.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page to analyze for tables
+    threshold : float, default 0.5
+        Minimum line length ratio relative to page size for ruling lines
+
+    Returns
+    -------
+    list[fitz.Rect]
+        List of bounding boxes for detected tables
+    """
+    # Get page dimensions
+    page_rect = page.rect
+    min_hline_len = page_rect.width * threshold
+    min_vline_len = page_rect.height * threshold * 0.3  # Lower threshold for vertical lines
+
+    # Extract drawing commands to find lines
+    drawings = page.get_drawings()
+
+    h_lines = []
+    v_lines = []
+
+    for item in drawings:
+        if "items" not in item:
+            continue
+
+        for drawing in item["items"]:
+            if drawing[0] == "l":  # Line command
+                p1, p2 = drawing[1], drawing[2]
+
+                # Check if horizontal line
+                if abs(p1.y - p2.y) < 2:  # Nearly horizontal
+                    line_len = abs(p2.x - p1.x)
+                    if line_len >= min_hline_len:
+                        h_lines.append((min(p1.x, p2.x), p1.y, max(p1.x, p2.x), p2.y))
+
+                # Check if vertical line
+                elif abs(p1.x - p2.x) < 2:  # Nearly vertical
+                    line_len = abs(p2.y - p1.y)
+                    if line_len >= min_vline_len:
+                        v_lines.append((p1.x, min(p1.y, p2.y), p2.x, max(p1.y, p2.y)))
+
+    # Find table regions by grouping intersecting lines
+    table_rects: list[fitz.Rect] = []
+
+    # Group horizontal lines by proximity
+    h_lines.sort(key=lambda l: l[1])  # Sort by y-coordinate
+
+    if len(h_lines) >= 2 and len(v_lines) >= 2:
+        # Look for regions with multiple h_lines and v_lines
+        for i in range(len(h_lines) - 1):
+            for j in range(i + 1, min(i + 10, len(h_lines))):  # Check next few h_lines
+                y1 = h_lines[i][1]
+                y2 = h_lines[j][1]
+
+                # Find v_lines that span between these h_lines
+                spanning_vlines = [v for v in v_lines
+                                  if v[1] <= y1 + 5 and v[3] >= y2 - 5]
+
+                if len(spanning_vlines) >= 2:
+                    # Found a potential table
+                    x_min = min(min(h_lines[i][0], h_lines[j][0]),
+                               min(v[0] for v in spanning_vlines))
+                    x_max = max(max(h_lines[i][2], h_lines[j][2]),
+                               max(v[2] for v in spanning_vlines))
+
+                    table_rect = fitz.Rect(x_min, y1, x_max, y2)
+
+                    # Check for overlap with existing tables
+                    overlaps = False
+                    for existing in table_rects:
+                        if abs(existing & table_rect) > abs(table_rect) * 0.5:
+                            overlaps = True
+                            break
+
+                    if not overlaps and not table_rect.is_empty:
+                        table_rects.append(table_rect)
+
+    return table_rects
+
+
+def parse_page(page: fitz.Page, options: PdfOptions | None = None) -> list[tuple[str, fitz.Rect, int]]:
     """Parse a PDF page to identify text and table regions with their locations.
 
     Analyzes a PDF page to locate all tables and compute text regions that
@@ -638,13 +1103,25 @@ def pdf_to_markdown(
     # Get Markdown options (create default if not provided)
     md_options = options.markdown_options or MarkdownOptions()
 
-    hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else pages)
+    hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else pages, options=options)
     md_string = ""
 
     for pno in pages_to_use:
         page = doc[pno]
+
+        # Extract images if requested
+        page_images = []
+        if options.extract_images:
+            page_images = extract_page_images(page, pno, options)
+
         # 1. first locate all tables on page
         tabs = page.find_tables()
+
+        # Use fallback table detection if enabled and no tables found
+        if options.table_fallback_detection and not tabs.tables:
+            fallback_rects = detect_tables_by_ruling_lines(page, options.table_ruling_line_threshold)
+            # Note: We can't create actual table objects from fallback detection,
+            # but we can mark these regions for special processing
 
         # 2. make a list of table boundary boxes, sort by top-left corner.
         # Must include the header bbox, which may be external.
@@ -693,14 +1170,57 @@ def pdf_to_markdown(
                 if not tr.is_empty:
                     text_rects.append(("text", tr, 0))
 
+        # Add image placement markers if enabled
+        if page_images and options.image_placement_markers:
+            # Sort images by vertical position
+            page_images.sort(key=lambda img: img['bbox'].y0)
+
+            # Insert images at appropriate positions
+            combined_rects: list[tuple[str, fitz.Rect, Union[int, dict]]] = []
+            img_idx = 0
+
+            for rtype, r, idx in text_rects:
+                # Check if any images should be placed before this rect
+                while img_idx < len(page_images) and page_images[img_idx]['bbox'].y1 <= r.y0:
+                    img = page_images[img_idx]
+                    combined_rects.append(('image', img['bbox'], img))
+                    img_idx += 1
+
+                combined_rects.append((rtype, r, idx))
+
+            # Add remaining images
+            while img_idx < len(page_images):
+                img = page_images[img_idx]
+                combined_rects.append(('image', img['bbox'], img))
+                img_idx += 1
+
+            text_rects = combined_rects  # type: ignore[assignment]
+
         # we have all rectangles and can start outputting their contents
         for rtype, r, idx in text_rects:
             if rtype == "text":  # a text rectangle
-                md_string += page_to_markdown(page, r, hdr_prefix, md_options)  # write MD content
+                md_string += page_to_markdown(page, r, hdr_prefix, md_options, options)  # write MD content
                 md_string += "\n"
-            else:  # a table rect
+            elif rtype == "table":  # a table rect
                 md_string += tabs[idx].to_markdown(clean=False)
+            elif rtype == "image":  # an image
+                img_info = idx  # type: ignore[assignment]  # In this case, idx contains the image info dict
+                if isinstance(img_info, dict):  # Type guard
+                    if img_info['path'].startswith('data:'):
+                        # Embedded base64 image
+                        md_string += f"![{img_info.get('caption', 'Image')}]({img_info['path']})\n"
+                    else:
+                        # File path
+                        md_string += f"![{img_info.get('caption', 'Image')}]({img_info['path']})\n"
+                    if img_info.get('caption'):
+                        md_string += f"*{img_info['caption']}*\n"
+                md_string += "\n"
 
-        md_string += f"\n{md_options.page_separator}\n\n"
+        # Add customizable page separator
+        if md_options.include_page_numbers:
+            separator = md_options.page_separator_format.replace('{page_num}', str(pno + 1))
+            md_string += f"\n{separator}\n\n"
+        else:
+            md_string += f"\n{md_options.page_separator}\n\n"
 
     return md_string
