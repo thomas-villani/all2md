@@ -8,24 +8,24 @@
 
 ## Features
 
-### = **Bidirectional Conversion**
+### **Bidirectional Conversion**
 - **Format-to-Markdown**: Convert documents to clean, structured Markdown
 - **Markdown-to-Format**: Generate professional documents from Markdown
 
-### =Ä **Comprehensive Format Support**
+### **Comprehensive Format Support**
 - **Documents**: PDF, DOCX, PPTX, HTML, EML
 - **Spreadsheets**: XLSX, CSV, TSV
 - **Images**: PNG, JPEG, GIF (embedded as base64)
 - **Text Files**: 200+ formats including source code, configs, markup
 
-### >à **Intelligent Processing**
+### **Intelligent Processing**
 - Advanced PDF parsing with table detection using PyMuPDF
 - Word document processing with formatting preservation
 - PowerPoint slide-by-slide extraction
 - Email chain parsing with thread reconstruction
 - HTML processing with configurable conversion options
 
-### <¯ **Key Capabilities**
+### <ï¿½ **Key Capabilities**
 - Table structure preservation with Markdown table syntax
 - Image embedding as base64 data URIs
 - Text formatting preservation (bold, italic, lists, headers)
