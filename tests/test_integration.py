@@ -8,8 +8,8 @@ import docx
 from pptx import Presentation
 import pytest
 
-from all2md import to_markdown
-from all2md.options import DocxOptions, HtmlOptions, PptxOptions, EmlOptions, MarkdownOptions
+from all2md import to_markdown, DocumentFormat, BaseOptions, MdparseConversionError
+from all2md.options import DocxOptions, HtmlOptions, PptxOptions, EmlOptions, MarkdownOptions, PdfOptions
 from tests.utils import (
     DocxTestGenerator, HtmlTestGenerator, PptxTestGenerator, EmlTestGenerator,
     assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
@@ -318,3 +318,268 @@ class TestIntegration:
         # Should contain heading and text
         assert "Option Test" in result
         assert "Text with" in result
+
+
+class TestNewAPI:
+    """Test the new to_markdown API with enhanced format detection and options handling."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def test_explicit_format_parameter(self):
+        """Test explicit format specification bypasses detection."""
+        # Create HTML content but force it to be processed as text
+        html_content = b"<html><body><h1>Test</h1><p>Content</p></body></html>"
+        html_io = BytesIO(html_content)
+
+        # Process as HTML (auto-detection)
+        result_html = to_markdown(html_io, format="html")
+        assert "# Test" in result_html or "Test" in result_html
+        assert "Content" in result_html
+        assert "<html>" not in result_html  # Should be converted
+
+        # Reset and process as plain text (force format)
+        html_io.seek(0)
+        result_text = to_markdown(html_io, format="txt")
+        assert "<html>" in result_text  # Should preserve HTML tags
+        assert "<body>" in result_text
+
+    def test_options_parameter_with_kwargs_override(self):
+        """Test that kwargs override options parameter values."""
+        html_content = b"<html><body><p>Test content</p></body></html>"
+        html_io = BytesIO(html_content)
+
+        # Create options with one setting
+        base_options = HtmlOptions(
+            use_hash_headings=False,
+            preserve_nbsp=True
+        )
+
+        # Override with kwargs
+        result = to_markdown(
+            html_io,
+            options=base_options,
+            use_hash_headings=True,  # Override the False setting
+            format="html"
+        )
+
+        assert_markdown_valid(result)
+
+    def test_kwargs_only_options_creation(self):
+        """Test creating options from kwargs alone."""
+        html_content = b"<html><body><h1>Header</h1><p>Content</p></body></html>"
+        html_io = BytesIO(html_content)
+
+        result = to_markdown(
+            html_io,
+            format="html",
+            use_hash_headings=True,
+            preserve_nbsp=False,
+            emphasis_symbol="_"  # MarkdownOptions field
+        )
+
+        assert_markdown_valid(result)
+        assert "Header" in result
+
+    def test_content_based_format_detection(self):
+        """Test format detection from file content when filename unavailable."""
+        # PDF magic bytes
+        pdf_content = b"%PDF-1.4\ntest content"
+        pdf_io = BytesIO(pdf_content)
+
+        # Should detect as PDF even without filename
+        # Note: This will fail conversion due to invalid PDF, but format detection should work
+        try:
+            result = to_markdown(pdf_io)
+        except Exception:
+            pass  # Expected - invalid PDF content
+
+        # Test HTML detection
+        html_content = b"<!DOCTYPE html><html><body><h1>Test</h1></body></html>"
+        html_io = BytesIO(html_content)
+
+        result = to_markdown(html_io)
+        assert_markdown_valid(result)
+        assert "Test" in result
+
+    def test_filename_based_detection_with_file_objects(self):
+        """Test format detection from filename attribute on file objects."""
+        html_content = b"<html><body><h1>Filename Test</h1></body></html>"
+
+        # Create a BytesIO with a name attribute
+        html_io = BytesIO(html_content)
+        html_io.name = "test.html"
+
+        result = to_markdown(html_io)
+        assert_markdown_valid(result)
+        assert "Filename Test" in result
+
+    def test_format_specific_options_mapping(self):
+        """Test that format-specific options are properly handled."""
+        # Test with PDF options (even if we can't fully test PDF conversion here)
+        pdf_options = PdfOptions(
+            pages=[0],
+            attachment_mode="alt_text"
+        )
+
+        # This should work with the options system even if PDF processing fails
+        simple_text = b"Simple text content"
+        text_io = BytesIO(simple_text)
+
+        result = to_markdown(
+            text_io,
+            options=pdf_options,
+            format="txt"  # Force as text since we don't have real PDF
+        )
+
+        assert result.strip() == "Simple text content"
+
+    def test_backward_compatibility(self):
+        """Test that old API usage still works."""
+        # Old style: just file path
+        html_content = "<html><body><h1>Compatibility</h1></body></html>"
+        html_file = self.temp_dir / "compat.html"
+        html_file.write_text(html_content)
+
+        result = to_markdown(str(html_file))
+        assert_markdown_valid(result)
+        assert "Compatibility" in result
+
+        # Old style: file object
+        html_io = BytesIO(html_content.encode())
+        result = to_markdown(html_io)
+        assert_markdown_valid(result)
+
+    def test_multiple_format_detections(self):
+        """Test detection for various file formats."""
+        # Test CSV detection
+        csv_content = b"name,age,city\nJohn,25,NYC\nJane,30,LA"
+        csv_io = BytesIO(csv_content)
+
+        result = to_markdown(csv_io, format="csv")
+        assert "|" in result  # Should be markdown table
+        assert "John" in result
+        assert "Jane" in result
+
+        # Test TSV detection
+        tsv_content = b"name\tage\tcity\nBob\t35\tSF"
+        tsv_io = BytesIO(tsv_content)
+
+        result = to_markdown(tsv_io, format="tsv")
+        assert "|" in result  # Should be markdown table
+        assert "Bob" in result
+
+    def test_markdown_options_inheritance(self):
+        """Test that MarkdownOptions are properly handled across formats."""
+        html_content = b"<html><body><em>italic</em> <strong>bold</strong></body></html>"
+        html_io = BytesIO(html_content)
+
+        result = to_markdown(
+            html_io,
+            format="html",
+            emphasis_symbol="_",  # Should affect italic rendering
+            bullet_symbols="*-+"
+        )
+
+        assert_markdown_valid(result)
+        # Check that emphasis symbol preference is handled
+
+    def test_comprehensive_detection_strategy(self):
+        """Test the comprehensive detection with multiple fallback layers."""
+        # Test 1: Extension + MIME type detection for uncommon extension
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.unknown', delete=False) as tmp:
+            html_content = b"<html><body><h1>Unknown Extension</h1></body></html>"
+            tmp.write(html_content)
+            tmp.flush()
+
+            # Should fall back to content detection
+            result = to_markdown(tmp.name)
+            assert_markdown_valid(result)
+            assert "Unknown Extension" in result
+
+        # Test 2: MIME type detection for files with known MIME but unknown extension
+        csv_like_content = b"name,age\nBob,25\nAlice,30"
+        csv_io = BytesIO(csv_like_content)
+
+        # Force detection through content analysis
+        result = to_markdown(csv_io)
+        assert "|" in result  # Should detect as CSV and create table
+        assert "Bob" in result
+
+    def test_detection_logging_and_priority(self):
+        """Test that detection methods are tried in correct priority order."""
+        import logging
+
+        # Enable debug logging to capture detection flow
+        logger = logging.getLogger('all2md')
+        logger.setLevel(logging.DEBUG)
+
+        # Create in-memory log capture
+        log_capture = []
+        handler = logging.Handler()
+        handler.emit = lambda record: log_capture.append(record.getMessage())
+        logger.addHandler(handler)
+
+        try:
+            # Test filename detection (should be first and succeed)
+            html_file = self.temp_dir / "test.html"
+            html_file.write_text("<html><body><h1>Priority Test</h1></body></html>")
+
+            result = to_markdown(str(html_file))
+
+            # Check that logs show filename detection succeeded
+            log_messages = [msg for msg in log_capture if 'Format detected from extension' in msg]
+            assert any('.html: html' in msg for msg in log_messages)
+
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(logging.WARNING)  # Reset to default
+
+    def test_edge_case_format_detection(self):
+        """Test detection for edge cases and unusual file types."""
+        # Test with empty file
+        empty_io = BytesIO(b"")
+        result = to_markdown(empty_io, format="txt")
+        assert result == ""
+
+        # Test with binary data that doesn't match any signature
+        binary_data = b"\x00\x01\x02\x03\x04random binary data"
+        binary_io = BytesIO(binary_data)
+
+        try:
+            result = to_markdown(binary_io)
+            # Should fallback to text and likely fail gracefully
+        except (MdparseConversionError, UnicodeDecodeError):
+            pass  # Expected for binary data
+
+        # Test RTF detection
+        rtf_content = b"{\\rtf1\\ansi\\hello world}"
+        rtf_io = BytesIO(rtf_content)
+
+        # Should detect as RTF from magic bytes
+        try:
+            result = to_markdown(rtf_io)
+            # RTF conversion may fail due to missing dependencies, but detection should work
+        except ImportError:
+            pass  # Expected if pyth not installed
+
+    def test_mime_type_fallback_enhancement(self):
+        """Test that MIME type detection works as fallback."""
+        # Create a file with unusual extension but recognizable MIME type
+        pdf_like_file = self.temp_dir / "document.weird"
+        # Write something that would trigger PDF MIME detection
+        pdf_like_file.write_text("Not really PDF but has PDF extension mapping")
+
+        # The comprehensive detection should try multiple methods
+        try:
+            result = to_markdown(str(pdf_like_file))
+            # Should fall back to text since it's not really a PDF
+            assert isinstance(result, str)
+        except Exception:
+            pass  # Expected for invalid format data

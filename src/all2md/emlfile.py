@@ -49,16 +49,10 @@ Examples
 --------
 Parse a single email file:
 
-    >>> from emlfile import parse_email_chain
+    >>> from all2md.emlfile import parse_email_chain
     >>> with open('message.eml', 'r') as f:
-    ...     result = parse_email_chain(f, as_markdown=True)
+    ...     result = parse_email_chain(f)
     >>> print(result)
-
-Parse email chain with metadata:
-
-    >>> emails = parse_email_chain(file_obj, as_markdown=False)
-    >>> for email in emails:
-    ...     print(f"From: {email['from']}, Date: {email['date']}")
 
 Note
 ----

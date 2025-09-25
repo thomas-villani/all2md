@@ -48,16 +48,16 @@ import re
 from pathlib import Path
 from typing import IO, Any, Union
 
+# Conditional import for pyth
+# try:
+from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
+from pyth.plugins.rtf15.reader import Rtf15Reader
+
 from ._attachment_utils import process_attachment
 from ._input_utils import validate_and_convert_input
-from .constants import DEFAULT_LIST_INDENT_WIDTH
 from .exceptions import MdparseConversionError
 from .options import MarkdownOptions, RtfOptions
 
-# Conditional import for pyth
-# try:
-from pyth.document import Document, Image, Paragraph, Text
-from pyth.plugins.rtf15.reader import Rtf15Reader
 # except ImportError:
 #     Document = None
 #     Rtf15Reader = None
@@ -88,9 +88,10 @@ class RtfConverter:
         """Dispatch element processing to the appropriate method."""
         if isinstance(element, Paragraph):
             return self._process_paragraph(element)
-        # BUG: pyth3 does not appear to have a Table class
-        # if isinstance(element, Table):
-        #     return self._process_table(element)
+        elif isinstance(element, List):
+            return self._process_list(element)
+        elif isinstance(element, ListEntry):
+            return self._process_list_entry(element)
 
         # Other top-level elements can be added here
         return ""
@@ -153,9 +154,43 @@ class RtfConverter:
             self.list_stack = []
             return f"{full_text}\n\n"
 
+    def _process_list(self, list_elem: List) -> str:
+        """Convert a List object to Markdown."""
+        if not list_elem.content:
+            return ""
+
+        # Process each list entry
+        list_parts = []
+        for entry in list_elem.content:
+            if isinstance(entry, ListEntry):
+                list_parts.append(self._process_list_entry(entry))
+            else:
+                # Handle other potential content in lists
+                list_parts.append(self._process_element(entry))
+
+        return "".join(list_parts)
+
+    def _process_list_entry(self, entry: ListEntry) -> str:
+        """Convert a ListEntry object to Markdown."""
+        if not entry.content:
+            return "\n"
+
+        # Process the content of the list entry
+        entry_parts = []
+        for item in entry.content:
+            entry_parts.append(self._process_element(item))
+
+        entry_text = "".join(entry_parts).strip()
+        if not entry_text:
+            return "\n"
+
+        # Use bullet point format for list entries
+        return f"- {entry_text}\n"
+
     def _process_text(self, text: Text) -> str:
         """Convert a Text object to Markdown, applying formatting."""
-        content = text.content
+        # Text.content is a list of strings, so join them
+        content = "".join(text.content) if isinstance(text.content, list) else str(text.content)
         if not content.strip():
             return content  # Preserve whitespace
 
@@ -169,34 +204,6 @@ class RtfConverter:
             content = f"__{content}__"
 
         return content
-
-    # BUG: pyth3 does not appear to have a Table class
-    def _process_table(self, table) -> str:
-        """Convert a Table object to a Markdown table."""
-        self.list_stack = []  # Reset list context before a table
-        markdown_rows = []
-
-        if not table.content:
-            return ""
-
-        # Assume first row is the header
-        header_row = table.content[0]
-        header_cells = [
-            "".join(self._process_element(cell) for cell in row_cell.content).strip()
-            for row_cell in header_row.content
-        ]
-        markdown_rows.append("| " + " | ".join(header_cells) + " |")
-        markdown_rows.append("| " + " | ".join(["---"] * len(header_cells)) + " |")
-
-        # Process data rows
-        for row in table.content[1:]:
-            data_cells = [
-                "".join(self._process_element(cell) for cell in row_cell.content).strip()
-                for row_cell in row.content
-            ]
-            markdown_rows.append("| " + " | ".join(data_cells) + " |")
-
-        return "\n".join(markdown_rows) + "\n\n"
 
     def _process_image(self, image: Image) -> str:
         """Process an Image object using the unified attachment handler."""

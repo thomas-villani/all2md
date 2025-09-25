@@ -1,3 +1,18 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all copies or substantial
+#  portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Configuration options and settings for all2md conversion modules.
 
 This module provides dataclass-based configuration options for all conversion
@@ -19,22 +34,9 @@ Options Classes
 - Markdown2PdfOptions: Markdown-to-PDF conversion settings
 - Markdown2DocxOptions: Markdown-to-Word conversion settings
 """
+from __future__ import annotations
 
-#  Copyright (c) 2025 Tom Villani, Ph.D.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the "Software"), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all copies or substantial
-#  portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import abc
 
 from dataclasses import dataclass
 
@@ -146,7 +148,20 @@ class MarkdownOptions:
 
 
 @dataclass
-class PdfOptions:
+class BaseOptions(abc.ABC):
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
+    markdown_options: MarkdownOptions | None = None
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+
+
+@dataclass
+class PdfOptions(BaseOptions):
     """Configuration options for PDF-to-Markdown conversion.
 
     This dataclass contains settings specific to PDF document processing,
@@ -260,16 +275,9 @@ class PdfOptions:
     image_placement_markers: bool = DEFAULT_IMAGE_PLACEMENT_MARKERS
     include_image_captions: bool = DEFAULT_INCLUDE_IMAGE_CAPTIONS
 
-    # Unified attachment handling
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
-
-    markdown_options: MarkdownOptions | None = None
-
 
 @dataclass
-class DocxOptions:
+class DocxOptions(BaseOptions):
     """Configuration options for DOCX-to-Markdown conversion.
 
     This dataclass contains settings specific to Word document processing,
@@ -303,14 +311,10 @@ class DocxOptions:
     """
 
     preserve_tables: bool = True
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
-    markdown_options: MarkdownOptions | None = None
 
 
 @dataclass
-class HtmlOptions:
+class HtmlOptions(BaseOptions):
     """Configuration options for HTML-to-Markdown conversion.
 
     This dataclass contains settings specific to HTML document processing,
@@ -365,14 +369,10 @@ class HtmlOptions:
     strip_dangerous_elements: bool = DEFAULT_STRIP_DANGEROUS_ELEMENTS
     table_alignment_auto_detect: bool = DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT
     preserve_nested_structure: bool = DEFAULT_PRESERVE_NESTED_STRUCTURE
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
-    markdown_options: MarkdownOptions | None = None
 
 
 @dataclass
-class PptxOptions:
+class PptxOptions(BaseOptions):
     """Configuration options for PPTX-to-Markdown conversion.
 
     This dataclass contains settings specific to PowerPoint presentation
@@ -408,14 +408,10 @@ class PptxOptions:
 
     slide_numbers: bool = DEFAULT_SLIDE_NUMBERS
     include_notes: bool = True
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
-    markdown_options: MarkdownOptions | None = None
 
 
 @dataclass
-class EmlOptions:
+class EmlOptions(BaseOptions):
     """Configuration options for EML-to-Markdown conversion.
 
     This dataclass contains settings specific to email message processing,
@@ -476,9 +472,6 @@ class EmlOptions:
 
     include_headers: bool = True
     preserve_thread_structure: bool = True
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
     date_format_mode: DateFormatMode = DEFAULT_DATE_FORMAT_MODE
     date_strftime_pattern: str = DEFAULT_DATE_STRFTIME_PATTERN
     convert_html_to_markdown: bool = DEFAULT_CONVERT_HTML_TO_MARKDOWN
@@ -488,11 +481,10 @@ class EmlOptions:
     preserve_raw_headers: bool = DEFAULT_PRESERVE_RAW_HEADERS
     clean_wrapped_urls: bool = DEFAULT_CLEAN_WRAPPED_URLS
     url_wrappers: list[str] | None = None  # Will use DEFAULT_URL_WRAPPERS if None
-    markdown_options: MarkdownOptions | None = None
 
 
 @dataclass
-class RtfOptions:
+class RtfOptions(BaseOptions):
     """Configuration options for RTF-to-Markdown conversion.
 
     This dataclass contains settings specific to Rich Text Format processing,
@@ -513,7 +505,4 @@ class RtfOptions:
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
     """
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
-    markdown_options: MarkdownOptions | None = None
+    pass
