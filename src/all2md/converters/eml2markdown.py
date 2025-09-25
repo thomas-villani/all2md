@@ -91,7 +91,8 @@ from email import message_from_file, policy
 from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
-from typing import Any, Union
+from pathlib import Path
+from typing import Any, IO, Union
 
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.exceptions import InputError, MarkdownConversionError
@@ -898,7 +899,7 @@ def _clean_quoted_content(content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
-def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None = None) -> str:
+def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions | None = None) -> str:
     """Parse EML file containing email chain into Markdown format.
 
     Processes email files (.eml format) using enhanced parsing with robust
@@ -907,8 +908,8 @@ def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None
 
     Parameters
     ----------
-    input_data : str or StringIO
-        Path to the EML file as a string, or StringIO object containing
+    input_data : str, Path, or IO[bytes]
+        Path to the EML file as a string or Path object, or binary file object containing
         the email content to parse.
     options : EmlOptions | None, default None
         Configuration options for email parsing and processing. If None,
@@ -944,7 +945,7 @@ def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None
     - Enhanced date parsing with fallback hierarchy (Date -> Sent -> Received)
     - Configurable quote cleaning and URL unwrapping
     - Preserves message threading and reply relationships
-    - Supports both file paths and StringIO objects as input
+    - Supports file paths and binary file objects as input
     """
     # Initialize options with defaults
     if options is None:
@@ -952,14 +953,19 @@ def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None
 
     # Validate and process input with enhanced EmailMessage parsing
     try:
-        if isinstance(input_data, str):
+        if isinstance(input_data, (str, Path)):
             with open(input_data, encoding="utf-8") as f:
                 eml_msg = message_from_file(f, policy=policy.default)
         elif isinstance(input_data, StringIO):
             eml_msg = message_from_file(input_data, policy=policy.default)
+        elif hasattr(input_data, 'read'):
+            # Handle IO[bytes] - read, decode to text, and parse
+            input_data.seek(0)  # Ensure we're at the beginning
+            content = input_data.read().decode('utf-8', errors='replace')
+            eml_msg = message_from_file(StringIO(content), policy=policy.default)
         else:
             raise InputError(
-                f"Unsupported input type: {type(input_data).__name__}. Expected str (file path) or StringIO object",
+                f"Unsupported input type: {type(input_data).__name__}. Expected str, Path, or binary file object",
                 parameter_name="input_data",
                 parameter_value=input_data,
             )

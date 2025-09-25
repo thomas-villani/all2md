@@ -72,7 +72,7 @@ import re
 import string
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, IO, Union
 
 if TYPE_CHECKING:
     import fitz
@@ -1151,7 +1151,7 @@ def parse_page(page: "fitz.Page", options: PdfOptions | None = None) -> list[tup
     return text_rects
 
 
-def pdf_to_markdown(input_data: Union[str, BytesIO, "fitz.Document"], options: PdfOptions | None = None) -> str:
+def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], options: PdfOptions | None = None) -> str:
     """Convert PDF document to Markdown format.
 
     This function processes PDF documents and converts them to well-formatted
@@ -1160,10 +1160,10 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, "fitz.Document"], options: P
 
     Parameters
     ----------
-    input_data : str, BytesIO, or fitz.Document
+    input_data : str, Path, IO[bytes], or fitz.Document
         PDF document to convert. Can be:
-        - String path to PDF file
-        - BytesIO object containing PDF data
+        - String or Path to PDF file
+        - Binary file object containing PDF data
         - Already opened PyMuPDF Document object
     options : PdfOptions or None, default None
         Configuration options for PDF conversion. If None, uses default settings.
@@ -1201,7 +1201,7 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, "fitz.Document"], options: P
         >>> options = PdfOptions(pages=[0, 1, 2])
         >>> content = pdf_to_markdown("document.pdf", options=options)
 
-    Convert from BytesIO with password:
+    Convert from file object with password:
 
         >>> from io import BytesIO
         >>> with open("encrypted.pdf", "rb") as f:

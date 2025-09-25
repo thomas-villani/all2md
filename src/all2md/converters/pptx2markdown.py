@@ -88,7 +88,7 @@ The focus is on extracting textual and structural content.
 #
 import logging
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, IO, Union
 
 from pptx import Presentation
 from pptx.enum.chart import XL_CHART_TYPE
@@ -331,13 +331,13 @@ def _process_shape(
     return None
 
 
-def pptx_to_markdown(input_data: Union[str, Any], options: PptxOptions | None = None) -> str:
+def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptions | None = None) -> str:
     """Convert a PowerPoint presentation to Markdown format.
 
     Parameters
     ----------
-    input_data : str or file-like object
-        The PowerPoint file to convert
+    input_data : str, Path, or IO[bytes]
+        The PowerPoint file to convert as a file path or binary file object
     options : PptxOptions | None, default None
         The options for extraction.
 
