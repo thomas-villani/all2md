@@ -60,10 +60,10 @@ from typing import IO, Any, Union
 from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
 from pyth.plugins.rtf15.reader import Rtf15Reader
 
-from all2md.utils.attachments import generate_attachment_filename, process_attachment
-from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, RtfOptions
+from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.inputs import format_special_text, validate_and_convert_input
 
 # except ImportError:
 #     Document = None

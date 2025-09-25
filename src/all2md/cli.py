@@ -278,7 +278,8 @@ Examples:
     # Format override option
     parser.add_argument(
         "--format",
-        choices=["auto", "pdf", "docx", "pptx", "html", "mhtml", "eml", "epub", "rtf", "ipynb", "odt", "odp", "csv", "tsv", "xlsx", "image", "txt"],
+        choices=["auto", "pdf", "docx", "pptx", "html", "mhtml", "eml", "epub", "rtf", "ipynb", "odt", "odp", "csv",
+                 "tsv", "xlsx", "image", "txt"],
         default="auto",
         help="Force specific file format instead of auto-detection (default: auto)"
     )
@@ -347,7 +348,8 @@ def load_options_from_json(json_file_path: str) -> dict:
             options = json.load(f)
 
         if not isinstance(options, dict):
-            raise argparse.ArgumentTypeError(f"Options JSON file must contain a JSON object, got {type(options).__name__}")
+            raise argparse.ArgumentTypeError(
+                f"Options JSON file must contain a JSON object, got {type(options).__name__}")
 
         return options
 
@@ -417,7 +419,7 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict
         if arg_name.startswith('attachment_'):
             # Only include non-default values
             if (arg_name == 'attachment_mode' and arg_value != 'alt_text') or \
-               (arg_name != 'attachment_mode' and arg_value is not None):
+                    (arg_name != 'attachment_mode' and arg_value is not None):
                 options[arg_name] = arg_value
             continue
 
@@ -449,7 +451,8 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict
                         # Only set if False (True is default)
                         if not arg_value:
                             options['detect_columns'] = False
-                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure', 'odf_preserve_tables', 'epub_merge_chapters', 'epub_include_toc']:
+                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure',
+                                      'odf_preserve_tables', 'epub_merge_chapters', 'epub_include_toc']:
                         # Only set if False (True is default for these)
                         if not arg_value:
                             options[field_name] = False

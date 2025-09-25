@@ -93,10 +93,10 @@ from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
 from typing import Any, Union
 
-from all2md.utils.attachments import process_attachment
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.exceptions import MarkdownConversionError, InputError
 from all2md.options import EmlOptions
+from all2md.utils.attachments import process_attachment
 
 
 def _parse_date_with_fallback(msg: EmailMessage | Message, options: EmlOptions) -> datetime.datetime | None:

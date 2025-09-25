@@ -13,6 +13,7 @@ Exception Hierarchy
   - MarkdownConversionError (conversion process failures)
 """
 
+
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -114,7 +115,8 @@ class FormatError(All2MdError):
     """
 
     def __init__(
-        self, message: str | None = None, format_type: str | None = None, supported_formats: list[str] | None = None,
+            self, message: str | None = None, format_type: str | None = None,
+            supported_formats: list[str] | None = None,
             original_error: Exception | None = None
     ):
         if message is None:
@@ -159,12 +161,13 @@ class InputError(All2MdError):
         The value that caused the error
     """
 
-    def __init__(self,
-                 message: str,
-                 parameter_name: str | None = None,
-                 parameter_value=None,
-                 original_error: Exception | None = None
-                 ):
+    def __init__(
+            self,
+            message: str,
+            parameter_name: str | None = None,
+            parameter_value=None,
+            original_error: Exception | None = None
+            ):
         super().__init__(message, original_error=original_error)
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value

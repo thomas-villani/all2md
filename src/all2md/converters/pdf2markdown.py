@@ -1,4 +1,3 @@
-
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -77,8 +76,6 @@ from typing import Union
 
 import fitz
 
-from all2md.utils.attachments import generate_attachment_filename, process_attachment
-from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
@@ -86,6 +83,8 @@ from all2md.constants import (
 )
 from all2md.exceptions import MarkdownConversionError, InputError, PasswordProtectedError
 from all2md.options import MarkdownOptions, PdfOptions
+from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 
 
 def _check_pymupdf_version() -> None:
@@ -138,11 +137,11 @@ class IdentifyHeaders:
     """
 
     def __init__(
-        self,
-        doc: fitz.Document,
-        pages: list[int] | range | None = None,
-        body_limit: float | None = None,
-        options: PdfOptions | None = None,
+            self,
+            doc: fitz.Document,
+            pages: list[int] | range | None = None,
+            body_limit: float | None = None,
+            options: PdfOptions | None = None,
     ) -> None:
         """Initialize header identification by analyzing font sizes.
 
@@ -339,7 +338,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     column_boundaries = [sorted_x[0]]
 
     for i in range(1, len(sorted_x)):
-        gap = sorted_x[i] - sorted_x[i-1]
+        gap = sorted_x[i] - sorted_x[i - 1]
         if gap >= column_gap_threshold:
             column_boundaries.append(sorted_x[i])
 
@@ -501,7 +500,7 @@ def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
             text2_lower = text2.lower()
 
             common_compound_prefixes = {"well", "state", "high", "low", "self", "non", "pre", "post",
-                                      "anti", "multi", "semi", "over", "under", "out", "up"}
+                                        "anti", "multi", "semi", "over", "under", "out", "up"}
 
             # If first part is a common compound word prefix AND text2 starts lowercase, preserve hyphen
             if first_part_lower in common_compound_prefixes and text2[0].islower():
@@ -519,11 +518,12 @@ def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
             # 2. First part has typical word endings that suggest incomplete words
             # 3. Combined word looks more natural than hyphenated version
             should_merge = (
-                len(first_part) <= 4 or  # Short first part suggests word break
-                first_part_lower.endswith(("ing", "ed", "er", "est", "ly", "tion", "sion", "ment")) or  # Incomplete word endings
-                combined_word_lower in {"example", "unfortunately", "development", "information",
-                                      "hyphenation", "continuation", "implementation", "configuration",
-                                      "hyphenated", "cafeteria"}  # Common words that get split
+                    len(first_part) <= 4 or  # Short first part suggests word break
+                    first_part_lower.endswith(
+                        ("ing", "ed", "er", "est", "ly", "tion", "sion", "ment")) or  # Incomplete word endings
+                    combined_word_lower in {"example", "unfortunately", "development", "information",
+                                            "hyphenation", "continuation", "implementation", "configuration",
+                                            "hyphenated", "cafeteria"}  # Common words that get split
             )
 
             if should_merge:
@@ -632,11 +632,11 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
 
 
 def page_to_markdown(
-    page: fitz.Page,
-    clip: fitz.Rect | None,
-    hdr_prefix: IdentifyHeaders,
-    md_options: MarkdownOptions | None = None,
-    pdf_options: PdfOptions | None = None,
+        page: fitz.Page,
+        clip: fitz.Rect | None,
+        hdr_prefix: IdentifyHeaders,
+        md_options: MarkdownOptions | None = None,
+        pdf_options: PdfOptions | None = None,
 ) -> str:
     """Convert text from a page region to Markdown format.
 
@@ -740,7 +740,7 @@ def page_to_markdown(
             for i, s in enumerate(spans):  # iterate spans of the line
                 # Get text since last line for header detection
                 full_output = "".join(output_parts)
-                since_last_line = full_output[full_output.rindex("\n") + 1 :] if "\n" in full_output else full_output
+                since_last_line = full_output[full_output.rindex("\n") + 1:] if "\n" in full_output else full_output
                 # if since_last_line:
                 #     print(since_last_line)
                 # this line is not all-mono, so switch off "code" mode
@@ -802,7 +802,9 @@ def page_to_markdown(
     return "".join(output_parts).replace(" \n", "\n")
 
 
-def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | None = None, base_filename: str = "document") -> list[dict]:
+def extract_page_images(
+        page: fitz.Page, page_num: int, options: PdfOptions | None = None, base_filename: str = "document"
+        ) -> list[dict]:
     """Extract images from a PDF page with their positions.
 
     Extracts all images from the page and optionally saves them to disk
@@ -1189,7 +1191,7 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
             doc = fitz.open(stream=doc_input)
         elif input_type == "object":
             if isinstance(doc_input, fitz.Document) or (
-                hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
+                    hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
             ):
                 doc = doc_input
             else:

@@ -9,7 +9,6 @@ Constants are organized by category: formatting, conversion behavior,
 file handling, and Markdown flavor specifications.
 """
 
-
 from typing import Literal
 
 # =============================================================================
@@ -106,7 +105,6 @@ HTML_BULLET_SYMBOLS = "*-+"
 DEFAULT_CONVERT_NBSP = False
 HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handling
 
-
 # Content sanitization
 DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
 DANGEROUS_HTML_ELEMENTS = {"script", "style", "object", "embed", "form", "input", "iframe"}
@@ -166,7 +164,6 @@ PDF_PAGE_SIZES = {
 }
 
 PDF_DEFAULT_MARGINS = (50, 50, 50, 50)  # top, right, bottom, left
-
 
 # =============================================================================
 # Jupyter Notebook (IPYNB) Constants

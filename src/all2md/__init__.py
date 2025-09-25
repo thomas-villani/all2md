@@ -67,7 +67,6 @@ Basic usage for file conversion:
 #  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 #
 #
-import base64
 import logging
 import mimetypes
 import os
@@ -77,7 +76,6 @@ from pathlib import Path
 from typing import IO, Literal, Optional, Union
 
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
-
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from .exceptions import FormatError, InputError, MarkdownConversionError
 from .options import (
@@ -102,23 +100,23 @@ ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTE
 
 # Type definitions
 DocumentFormat = Literal[
-    "auto",      # Auto-detect from filename/content
-    "pdf",       # PDF documents
-    "docx",      # Word documents
-    "pptx",      # PowerPoint presentations
-    "html",      # HTML documents
-    "mhtml",     # MHTML single-file web archives
-    "rtf",       # Rich Text Format
-    "xlsx",      # Excel spreadsheets
-    "csv",       # CSV files
-    "tsv",       # TSV files
-    "txt",       # Plain text
-    "eml",       # Email messages
-    "image",     # Image files (PNG, JPEG, GIF)
-    "ipynb",     # Jupyter Notebooks
-    "odt",       # OpenDocument Text
-    "odp",       # OpenDocument Presentation
-    "epub"       # EPUB e-books
+    "auto",  # Auto-detect from filename/content
+    "pdf",  # PDF documents
+    "docx",  # Word documents
+    "pptx",  # PowerPoint presentations
+    "html",  # HTML documents
+    "mhtml",  # MHTML single-file web archives
+    "rtf",  # Rich Text Format
+    "xlsx",  # Excel spreadsheets
+    "csv",  # CSV files
+    "tsv",  # TSV files
+    "txt",  # Plain text
+    "eml",  # Email messages
+    "image",  # Image files (PNG, JPEG, GIF)
+    "ipynb",  # Jupyter Notebooks
+    "odt",  # OpenDocument Text
+    "odp",  # OpenDocument Presentation
+    "epub"  # EPUB e-books
 ]
 
 
@@ -177,21 +175,21 @@ def _detect_format_from_content(file_obj: IO[bytes]) -> DocumentFormat:
 
     # HTML files often start with <!DOCTYPE html> or <html
     if (magic_bytes.lstrip().startswith(b'<!DOCTYPE html') or
-        magic_bytes.lstrip().startswith(b'<html') or
-        magic_bytes.lstrip().startswith(b'<HTML')):
+            magic_bytes.lstrip().startswith(b'<html') or
+            magic_bytes.lstrip().startswith(b'<HTML')):
         return "html"
 
     # EML files typically start with header fields
     if (b'Return-Path:' in magic_bytes[:100] or
-        b'Received:' in magic_bytes[:100] or
-        b'From:' in magic_bytes[:100] or
-        b'To:' in magic_bytes[:100] or
-        b'Subject:' in magic_bytes[:100]):
+            b'Received:' in magic_bytes[:100] or
+            b'From:' in magic_bytes[:100] or
+            b'To:' in magic_bytes[:100] or
+            b'Subject:' in magic_bytes[:100]):
         return "eml"
 
     # MHTML files start with MIME-Version and have multipart/related Content-Type
     if (b'MIME-Version:' in magic_bytes[:50] and
-        b'multipart/related' in magic_bytes[:512]):
+            b'multipart/related' in magic_bytes[:512]):
         return "mhtml"
 
     # Image formats
@@ -467,7 +465,9 @@ def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions
     return options_class(**valid_kwargs)
 
 
-def _merge_options(base_options: BaseOptions | MarkdownOptions | None, format: DocumentFormat, **kwargs) -> BaseOptions | None:
+def _merge_options(
+        base_options: BaseOptions | MarkdownOptions | None, format: DocumentFormat, **kwargs
+        ) -> BaseOptions | None:
     """Merge base options with additional kwargs.
 
     Parameters
@@ -528,11 +528,11 @@ def _merge_options(base_options: BaseOptions | MarkdownOptions | None, format: D
 
 
 def to_markdown(
-    input: Union[str, Path, IO[bytes], bytes],
-    *,
-    options: Optional[BaseOptions | MarkdownOptions] = None,
-    format: DocumentFormat = "auto",
-    **kwargs
+        input: Union[str, Path, IO[bytes], bytes],
+        *,
+        options: Optional[BaseOptions | MarkdownOptions] = None,
+        format: DocumentFormat = "auto",
+        **kwargs
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
 
@@ -708,6 +708,7 @@ def to_markdown(
         except ImportError as e:
             raise ImportError("`pandas` is required to read xlsx files. Install with `pip install pandas`.") from e
 
+        file.seek(0)
         excel_file = pd.ExcelFile(file)
         content = ""
         for sheet_name in excel_file.sheet_names:

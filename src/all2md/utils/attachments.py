@@ -53,13 +53,13 @@ logger = logging.getLogger(__name__)
 
 
 def process_attachment(
-    attachment_data: bytes | None,
-    attachment_name: str,
-    alt_text: str = "",
-    attachment_mode: AttachmentMode = "alt_text",
-    attachment_output_dir: str | None = None,
-    attachment_base_url: str | None = None,
-    is_image: bool = True,
+        attachment_data: bytes | None,
+        attachment_name: str,
+        alt_text: str = "",
+        attachment_mode: AttachmentMode = "alt_text",
+        attachment_output_dir: str | None = None,
+        attachment_base_url: str | None = None,
+        is_image: bool = True,
 ) -> str:
     """Process an attachment according to the specified mode.
 
@@ -234,13 +234,13 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, s
 
 
 def generate_attachment_filename(
-    base_stem: str,
-    attachment_type: str = "img",
-    format_type: str = "general",
-    page_num: int | None = None,
-    slide_num: int | None = None,
-    sequence_num: int = 1,
-    extension: str = "png"
+        base_stem: str,
+        attachment_type: str = "img",
+        format_type: str = "general",
+        page_num: int | None = None,
+        slide_num: int | None = None,
+        sequence_num: int = 1,
+        extension: str = "png"
 ) -> str:
     """Generate standardized attachment filenames across all converters.
 

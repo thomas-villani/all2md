@@ -96,10 +96,10 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
 
-from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
-from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
+from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
+from all2md.utils.inputs import format_special_text, validate_and_convert_input
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,10 @@ def _process_table(table: Any, md_options=None) -> str:
     return "\n".join(markdown_rows)
 
 
-def _process_shape(shape: Any, options: PptxOptions, base_filename: str = "presentation", slide_num: int = 1, img_counter: dict | None = None) -> str | None:
+def _process_shape(
+        shape: Any, options: PptxOptions, base_filename: str = "presentation", slide_num: int = 1,
+        img_counter: dict | None = None
+        ) -> str | None:
     """Process a single shape and convert to markdown."""
     if img_counter is None:
         img_counter = {}

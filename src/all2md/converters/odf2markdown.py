@@ -62,7 +62,6 @@ Requires the odfpy package. Some advanced OpenDocument features may not have
 direct Markdown equivalents and will be approximated or omitted.
 """
 
-
 import logging
 import re
 from pathlib import Path
@@ -71,7 +70,7 @@ from typing import IO, Union
 from odf import draw, opendocument, table, text
 from odf.draw import DRAWNS
 from odf.element import Element
-from odf.style import TextProperties, STYLENS
+from odf.style import STYLENS
 from odf.table import TABLENS
 from odf.text import TEXTNS
 
@@ -277,7 +276,7 @@ class OdfConverter:
         if hasattr(auto_styles, 'childNodes'):
             for style in auto_styles.childNodes:
                 if (hasattr(style, 'getAttribute') and hasattr(style, 'qname') and
-                    style.qname == (TEXTNS, 'list-style')):
+                        style.qname == (TEXTNS, 'list-style')):
                     try:
                         if style.getAttribute('name') == style_name:
                             # Check the first level style to determine list type
@@ -292,6 +291,7 @@ class OdfConverter:
 
         # Fallback: assume unordered if we can't determine
         return False
+
 
 def odf_to_markdown(
         input_data: Union[str, Path, IO[bytes]], options: OdfOptions | None = None

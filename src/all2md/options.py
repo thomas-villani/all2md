@@ -431,7 +431,6 @@ class RtfOptions(BaseOptions):
     pass
 
 
-
 @dataclass
 class IpynbOptions(BaseOptions):
     """Configuration options for IPYNB-to-Markdown conversion.
@@ -452,7 +451,6 @@ class IpynbOptions(BaseOptions):
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
 
 
-
 @dataclass
 class OdfOptions(BaseOptions):
     """Configuration options for ODF-to-Markdown conversion.
@@ -467,6 +465,7 @@ class OdfOptions(BaseOptions):
     """
 
     preserve_tables: bool = True
+
 
 @dataclass
 class EpubOptions(BaseOptions):

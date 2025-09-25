@@ -98,7 +98,6 @@ Custom configuration with options:
     >>> markdown = html_to_markdown('document.html', options=options)
 """
 
-import base64
 import html
 import logging
 import os
@@ -110,8 +109,6 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup, NavigableString
 
-from all2md.utils.attachments import process_attachment
-from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
@@ -122,6 +119,8 @@ from all2md.constants import (
 )
 from all2md.exceptions import MarkdownConversionError, InputError
 from all2md.options import HtmlOptions, MarkdownOptions
+from all2md.utils.attachments import process_attachment
+from all2md.utils.inputs import is_path_like, validate_and_convert_input
 
 logger = logging.getLogger(__name__)
 
@@ -155,20 +154,20 @@ class HTMLToMarkdown:
     """
 
     def __init__(
-        self,
-        hash_headings: bool = True,
-        extract_title: bool = False,
-        emphasis_symbol: Literal["*", "_"] = "*",
-        bullet_symbols: str = "*-+",
-        convert_nbsp: bool = False,
-        strip_dangerous_elements: bool = False,
-        table_alignment_auto_detect: bool = True,
-        preserve_nested_structure: bool = True,
-        markdown_options: MarkdownOptions | None = None,
-        # New unified attachment handling parameters
-        attachment_mode: str = "alt_text",
-        attachment_output_dir: str | None = None,
-        attachment_base_url: str | None = None,
+            self,
+            hash_headings: bool = True,
+            extract_title: bool = False,
+            emphasis_symbol: Literal["*", "_"] = "*",
+            bullet_symbols: str = "*-+",
+            convert_nbsp: bool = False,
+            strip_dangerous_elements: bool = False,
+            table_alignment_auto_detect: bool = True,
+            preserve_nested_structure: bool = True,
+            markdown_options: MarkdownOptions | None = None,
+            # New unified attachment handling parameters
+            attachment_mode: str = "alt_text",
+            attachment_output_dir: str | None = None,
+            attachment_base_url: str | None = None,
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
@@ -391,7 +390,6 @@ class HTMLToMarkdown:
         except Exception as e:
             logger.debug(f"Failed to download image from {url}: {e}")
             raise Exception(f"Failed to download image from {url}: {e}") from e
-
 
     def _extract_language_from_attrs(self, node: Any) -> str:
         """Extract language identifier from various HTML attributes and patterns.
@@ -886,7 +884,6 @@ class HTMLToMarkdown:
                 # Fall back to alt_text mode if download fails (without mutating instance)
                 logger.info(f"Image download failed for {resolved_src}, falling back to alt_text mode: {e}")
                 current_attachment_mode = "alt_text"
-
 
         # Generate filename from URL or use generic name
         parsed_url = urlparse(resolved_src)

@@ -80,7 +80,7 @@ from all2md.utils.inputs import validate_and_convert_input
 
 
 def mhtml_to_markdown(
-    input_data: Union[str, Path, IO[bytes]], options: MhtmlOptions | None = None
+        input_data: Union[str, Path, IO[bytes]], options: MhtmlOptions | None = None
 ) -> str:
     """Convert an MHTML single-file web archive to Markdown format.
 
@@ -205,7 +205,8 @@ def mhtml_to_markdown(
         return '- '
 
     # Replace MS Word list conditional comments with proper list markers
-    processed_html = re.sub(r'<!--\[if !supportLists\]-->(.*?)<!--\[endif\]-->', replace_list_markers, processed_html, flags=re.DOTALL)
+    processed_html = re.sub(r'<!--\[if !supportLists\]-->(.*?)<!--\[endif\]-->', replace_list_markers, processed_html,
+                            flags=re.DOTALL)
 
     # Clean up remaining MS Word artifacts
     processed_html = re.sub(r'<!--\[if[^>]*\]-->.*?<!--\[endif\]-->', '', processed_html, flags=re.DOTALL)

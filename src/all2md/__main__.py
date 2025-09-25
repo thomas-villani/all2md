@@ -7,6 +7,7 @@ This allows the package to be executed as:
 """
 
 import sys
+
 from .cli import main
 
 if __name__ == "__main__":

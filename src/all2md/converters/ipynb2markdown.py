@@ -69,10 +69,10 @@ import logging
 from pathlib import Path
 from typing import IO, Any, Union
 
-from all2md.utils.attachments import process_attachment
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from all2md.exceptions import MarkdownConversionError, InputError
 from all2md.options import IpynbOptions, MarkdownOptions
+from all2md.utils.attachments import process_attachment
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ def _get_source(cell: dict[str, Any]) -> str:
 
 
 def ipynb_to_markdown(
-    input_data: Union[str, Path, IO[bytes], IO[str]], options: IpynbOptions | None = None
+        input_data: Union[str, Path, IO[bytes], IO[str]], options: IpynbOptions | None = None
 ) -> str:
     """Convert a Jupyter Notebook (.ipynb) to Markdown format.
 
@@ -200,7 +200,7 @@ def ipynb_to_markdown(
                             try:
                                 image_bytes = base64.b64decode(b64_data)
                                 ext = mime_type.split("/")[-1].split("+")[0]
-                                filename = f"cell_{i+1}_output_{j+1}.{ext}"
+                                filename = f"cell_{i + 1}_output_{j + 1}.{ext}"
                                 output_md = process_attachment(
                                     attachment_data=image_bytes,
                                     attachment_name=filename,
@@ -213,7 +213,7 @@ def ipynb_to_markdown(
                                 image_handled = True
                                 break
                             except (ValueError, TypeError) as e:
-                                logger.warning(f"Could not decode base64 image in cell {i+1}: {e}")
+                                logger.warning(f"Could not decode base64 image in cell {i + 1}: {e}")
                                 continue
 
                     if not image_handled and "text/plain" in data:

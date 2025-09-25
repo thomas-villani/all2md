@@ -65,11 +65,11 @@ from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 
-from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
-from all2md.utils.inputs import escape_markdown_special, format_special_text
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
+from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
+from all2md.utils.inputs import escape_markdown_special, format_special_text
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | 
         # Preserve whitespace
         content = text.strip()
         prefix = text[: len(text) - len(text.lstrip())]
-        suffix = text[len(text.rstrip()) :]
+        suffix = text[len(text.rstrip()):]
 
         # Apply escaping if enabled, but skip for already-formatted markdown images
         # Check if content is a markdown image: ![alt](url) or ![alt]
@@ -304,8 +304,8 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
 
             for run in paragraph.runs:
                 for pic in run._element.findall(
-                    ".//pic:pic",
-                    {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
+                        ".//pic:pic",
+                        {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
                 ):
                     has_image = True
 
@@ -313,7 +313,7 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
                     title = None
 
                     if (t := run._element.xpath(".//wp:docPr/@descr")) or (
-                        t := run._element.xpath(".//wp:docPr/@title")
+                            t := run._element.xpath(".//wp:docPr/@title")
                     ):
                         title = t[0]
 
@@ -383,7 +383,7 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
 
 
 def docx_to_markdown(
-    input_data: Union[str, Path, docx.document.Document, IO[bytes]], options: DocxOptions | None = None
+        input_data: Union[str, Path, docx.document.Document, IO[bytes]], options: DocxOptions | None = None
 ) -> str:
     """Convert Word document (DOCX) to Markdown format.
 
