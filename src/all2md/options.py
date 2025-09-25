@@ -175,8 +175,6 @@ class PdfOptions(BaseOptions):
     pages : list[int] or None, default None
         Specific page numbers to convert (0-based indexing).
         If None, converts all pages.
-    convert_images_to_base64 : bool, default False
-        Whether to embed images as base64-encoded data URLs.
     password : str or None, default None
         Password for encrypted PDF documents.
 
@@ -237,7 +235,7 @@ class PdfOptions(BaseOptions):
     Examples
     --------
     Convert only pages 1-3 with base64 images:
-        >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
+        >>> options = PdfOptions(pages=[0, 1, 2], attachment_mode="base64")
 
     Convert with custom Markdown formatting:
         >>> md_opts = MarkdownOptions(emphasis_symbol="_", page_separator="---")
@@ -252,7 +250,6 @@ class PdfOptions(BaseOptions):
     """
 
     pages: list[int] | None = None
-    convert_images_to_base64: bool = False
     password: str | None = None
 
     # Header detection parameters
@@ -306,7 +303,7 @@ class DocxOptions(BaseOptions):
     Examples
     --------
     Convert with base64 image embedding:
-        >>> options = DocxOptions(convert_images_to_base64=True)
+        >>> options = DocxOptions(attachment_mode="base64")
 
     Convert with custom bullet symbols:
         >>> md_opts = MarkdownOptions(bullet_symbols="•→◦")
@@ -403,7 +400,7 @@ class PptxOptions(BaseOptions):
     Examples
     --------
     Convert with slide numbers and base64 images:
-        >>> options = PptxOptions(slide_numbers=True, convert_images_to_base64=True)
+        >>> options = PptxOptions(slide_numbers=True, attachment_mode="base64")
 
     Convert slides only (no notes):
         >>> options = PptxOptions(include_notes=False)

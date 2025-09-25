@@ -33,7 +33,7 @@ Basic PDF conversion:
 Convert specific pages with options:
 
     >>> from all2md.options import PdfOptions
-    >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
+    >>> options = PdfOptions(pages=[0, 1, 2])
     >>> content = pdf_to_markdown("document.pdf", options=options)
 
 Convert from file-like object:
@@ -1103,7 +1103,7 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
     Convert specific pages with base64 images:
 
         >>> from all2md.options import PdfOptions
-        >>> options = PdfOptions(pages=[0, 1, 2], convert_images_to_base64=True)
+        >>> options = PdfOptions(pages=[0, 1, 2])
         >>> content = pdf_to_markdown("document.pdf", options=options)
 
     Convert from BytesIO with password:

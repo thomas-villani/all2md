@@ -292,22 +292,16 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
 
     return None
 
-    # except Exception as e:
-    #     logger.error(f"Error processing shape: {str(e)}")
-    #     return ''
-
 
 def pptx_to_markdown(input_data: Union[str, Any], options: PptxOptions | None = None) -> str:
     """Convert a PowerPoint presentation to Markdown format.
 
     Parameters
     ----------
-    pptx_file : str or file-like object
+    input_data : str or file-like object
         The PowerPoint file to convert
-    convert_images_to_base64 : bool, default=False
-        Whether to convert images to base64 data URLs
-    slide_numbers : bool, default=True
-        Whether to include slide numbers as headers
+    options : PptxOptions | None, default None
+        The options for extraction.
 
     Returns
     -------

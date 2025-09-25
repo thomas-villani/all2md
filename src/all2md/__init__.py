@@ -88,7 +88,7 @@ from .options import (
     IpynbOptions,
     MarkdownOptions,
     PdfOptions,
-    PptxOptions,
+    PptxOptions, RtfOptions,
 )
 
 logger = logging.getLogger(__name__)
@@ -396,7 +396,7 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "html": HtmlOptions,
         "eml": EmlOptions,
         "ipynb": IpynbOptions,
-        "rtf": BaseOptions,  # RTF uses base options only
+        "rtf": RtfOptions,
     }
     return format_to_class.get(format)
 

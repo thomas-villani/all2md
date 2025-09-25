@@ -32,7 +32,7 @@ Key Features
 - Formats code cells as fenced code blocks with language hints.
 - Handles various cell outputs:
   - `stream` and `execute_result` text outputs are formatted as code blocks.
-  - Image outputs are embedded as base64 or saved to files and linked.
+  - Image outputs can be embedded as base64 or saved to files and linked.
 - Option to collapse long text outputs to maintain readability.
 
 Dependencies
