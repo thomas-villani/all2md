@@ -20,12 +20,15 @@ Use underscore emphasis:
 """
 
 import argparse
+import logging
 import sys
+from dataclasses import fields
 from pathlib import Path
 from typing import Optional
 
 from . import to_markdown
 from .exceptions import MdparseConversionError, MdparseInputError
+from .options import DocxOptions, EmlOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -103,7 +106,7 @@ Examples:
     pdf_group.add_argument(
         "--pdf-detect-columns",
         action="store_true",
-        default=True,
+        dest="pdf_detect_columns",
         help="Enable multi-column layout detection (default: enabled)"
     )
     pdf_group.add_argument(
@@ -112,6 +115,7 @@ Examples:
         dest="pdf_detect_columns",
         help="Disable multi-column layout detection"
     )
+    parser.set_defaults(pdf_detect_columns=True)
 
     # HTML-specific options
     html_group = parser.add_argument_group("HTML options")
@@ -158,6 +162,22 @@ Examples:
         help="Don't maintain email thread/reply chain structure"
     )
 
+    # Format override option
+    parser.add_argument(
+        "--format",
+        choices=["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "csv", "tsv", "xlsx", "image", "txt"],
+        default="auto",
+        help="Force specific file format instead of auto-detection (default: auto)"
+    )
+
+    # Logging level option
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="WARNING",
+        help="Set logging level for debugging (default: WARNING)"
+    )
+
     return parser
 
 
@@ -169,10 +189,110 @@ def parse_pdf_pages(pages_str: str) -> list[int]:
         raise argparse.ArgumentTypeError(f"Invalid page numbers: {pages_str}") from e
 
 
+def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
+    """Map CLI argument names to dataclass field names.
+
+    This function handles the mapping between CLI argument names (like 'pdf_pages')
+    and the actual dataclass field names (like 'pages' in PdfOptions).
+
+    Parameters
+    ----------
+    parsed_args : argparse.Namespace
+        Parsed command line arguments
+
+    Returns
+    -------
+    dict
+        Mapped options dictionary ready for to_markdown()
+    """
+    options = {}
+    args_dict = vars(parsed_args)
+
+    # Get field names for each options class
+    markdown_fields = {field.name for field in fields(MarkdownOptions)}
+    pdf_fields = {field.name for field in fields(PdfOptions)}
+    html_fields = {field.name for field in fields(HtmlOptions)}
+    pptx_fields = {field.name for field in fields(PptxOptions)}
+    eml_fields = {field.name for field in fields(EmlOptions)}
+    docx_fields = {field.name for field in fields(DocxOptions)}
+
+    # Define format prefix mappings
+    format_mappings = {
+        'pdf_': pdf_fields,
+        'html_': html_fields,
+        'pptx_': pptx_fields,
+        'eml_': eml_fields,
+        'docx_': docx_fields,
+    }
+
+    # Process each argument
+    for arg_name, arg_value in args_dict.items():
+        # Skip None values and special arguments
+        if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level']:
+            continue
+
+        # Handle attachment options (no prefix mapping needed)
+        if arg_name.startswith('attachment_'):
+            # Only include non-default values
+            if (arg_name == 'attachment_mode' and arg_value != 'alt_text') or \
+               (arg_name != 'attachment_mode' and arg_value is not None):
+                options[arg_name] = arg_value
+            continue
+
+        # Handle markdown options (remove markdown_ prefix)
+        if arg_name.startswith('markdown_'):
+            field_name = arg_name[9:]  # Remove 'markdown_' prefix
+            if field_name in markdown_fields:
+                # Only include if different from default
+                defaults = {'emphasis_symbol': '*', 'bullet_symbols': '*-+', 'page_separator': '-----'}
+                if arg_value != defaults.get(field_name, arg_value):
+                    options[field_name] = arg_value
+            continue
+
+        # Handle format-specific options
+        mapped = False
+        for prefix, field_set in format_mappings.items():
+            if arg_name.startswith(prefix):
+                field_name = arg_name[len(prefix):]  # Remove prefix
+                if field_name in field_set:
+                    # Handle special cases
+                    if arg_name == 'pdf_pages' and arg_value:
+                        options['pages'] = parse_pdf_pages(arg_value)
+                    elif arg_name == 'pdf_detect_columns':
+                        # Only set if False (True is default)
+                        if not arg_value:
+                            options['detect_columns'] = False
+                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure']:
+                        # Only set if False (True is default for these)
+                        if not arg_value:
+                            options[field_name] = False
+                    elif arg_name in ['html_extract_title', 'html_strip_dangerous_elements', 'pptx_slide_numbers']:
+                        # Only set if True (False is default for these)
+                        if arg_value:
+                            options[field_name] = True
+                    else:
+                        # Set value if it's not default/falsy
+                        if arg_value:
+                            options[field_name] = arg_value
+                mapped = True
+                break
+
+        # Handle unmapped arguments
+        if not mapped and arg_value:
+            # Direct mapping for any remaining arguments
+            options[arg_name] = arg_value
+
+    return options
+
+
 def main(args: Optional[list[str]] = None) -> int:
     """Main CLI entry point."""
     parser = create_parser()
     parsed_args = parser.parse_args(args)
+
+    # Set up logging level
+    log_level = getattr(logging, parsed_args.log_level.upper())
+    logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
     # Check input file exists
     input_path = Path(parsed_args.input)
@@ -180,54 +300,18 @@ def main(args: Optional[list[str]] = None) -> int:
         print(f"Error: Input file does not exist: {input_path}", file=sys.stderr)
         return 1
 
-    # Build options dictionary from arguments
-    options = {}
+    # Validate attachment options
+    if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":
+        print("Warning: --attachment-output-dir specified but attachment mode is "
+              f"'{parsed_args.attachment_mode}' (not 'download')", file=sys.stderr)
 
-    # Attachment options
-    if parsed_args.attachment_mode != "alt_text":
-        options["attachment_mode"] = parsed_args.attachment_mode
-    if parsed_args.attachment_output_dir:
-        options["attachment_output_dir"] = parsed_args.attachment_output_dir
-    if parsed_args.attachment_base_url:
-        options["attachment_base_url"] = parsed_args.attachment_base_url
-
-    # Markdown formatting options
-    if parsed_args.markdown_emphasis_symbol != "*":
-        options["markdown_emphasis_symbol"] = parsed_args.markdown_emphasis_symbol
-    if parsed_args.markdown_bullet_symbols != "*-+":
-        options["markdown_bullet_symbols"] = parsed_args.markdown_bullet_symbols
-    if parsed_args.markdown_page_separator != "-----":
-        options["markdown_page_separator"] = parsed_args.markdown_page_separator
-
-    # PDF options
-    if parsed_args.pdf_pages:
-        options["pdf_pages"] = parse_pdf_pages(parsed_args.pdf_pages)
-    if parsed_args.pdf_password:
-        options["pdf_password"] = parsed_args.pdf_password
-    if not parsed_args.pdf_detect_columns:
-        options["pdf_detect_columns"] = False
-
-    # HTML options
-    if parsed_args.html_extract_title:
-        options["html_extract_title"] = True
-    if parsed_args.html_strip_dangerous_elements:
-        options["html_strip_dangerous_elements"] = True
-
-    # PowerPoint options
-    if parsed_args.pptx_slide_numbers:
-        options["pptx_slide_numbers"] = True
-    if not parsed_args.pptx_include_notes:
-        options["pptx_include_notes"] = False
-
-    # Email options
-    if not parsed_args.eml_include_headers:
-        options["eml_include_headers"] = False
-    if not parsed_args.eml_preserve_thread_structure:
-        options["eml_preserve_thread_structure"] = False
+    # Map CLI arguments to options using dynamic mapping
+    options = _map_cli_args_to_options(parsed_args)
 
     try:
-        # Convert the document
-        markdown_content = to_markdown(input_path, **options)
+        # Convert the document with format override if specified
+        format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
+        markdown_content = to_markdown(input_path, format=format_arg, **options)
 
         # Output the result
         if parsed_args.out:

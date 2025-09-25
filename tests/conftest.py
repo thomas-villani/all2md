@@ -18,6 +18,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "integration: Integration tests - component interaction tests")
     config.addinivalue_line("markers", "e2e: End-to-end tests - full pipeline tests")
     config.addinivalue_line("markers", "slow: Slow tests that may take several seconds")
+    config.addinivalue_line("markers", "cli: Tests related to command-line interface")
 
 
 @pytest.fixture

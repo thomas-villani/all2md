@@ -1,10 +1,10 @@
-# mdparse
+# all2md
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://mdparse.readthedocs.io/)
+[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://all2md.readthedocs.io/)
 
-**mdparse** is a comprehensive Python library for bidirectional document conversion between various file formats and Markdown. It provides intelligent content extraction and formatting preservation for PDF, Word, PowerPoint, HTML, email, Excel, images, and 200+ text file formats.
+**all2md** is a comprehensive Python library for bidirectional document conversion between various file formats and Markdown. It provides intelligent content extraction and formatting preservation for PDF, Word, PowerPoint, HTML, email, Excel, images, and 200+ text file formats.
 
 ## Features
 
@@ -45,7 +45,7 @@ pip install all2md
 
 ### Install for Development
 ```bash
-git clone https://github.com/username/mdparse.git
+git clone https://github.com/username/all2md.git
 cd all2md
 pip install -e .
 ```
@@ -242,7 +242,7 @@ images = pdf_to_images(
 
 ### Setup Development Environment
 ```bash
-git clone https://github.com/username/mdparse.git
+git clone https://github.com/username/all2md.git
 cd all2md
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -301,10 +301,10 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
 
 ## Support
 
-- **Documentation**: [Read the Docs](https://mdparse.readthedocs.io/)
-- **Issues**: [GitHub Issues](https://github.com/username/mdparse/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/username/mdparse/discussions)
+- **Documentation**: [Read the Docs](https://all2md.readthedocs.io/)
+- **Issues**: [GitHub Issues](https://github.com/username/all2md/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/username/all2md/discussions)
 
 ---
 
-**mdparse** - Making document conversion simple and reliable.
+**all2md** - Making document conversion simple and reliable.
