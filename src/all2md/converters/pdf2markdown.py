@@ -84,7 +84,7 @@ from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PX,
     PDF_MIN_PYMUPDF_VERSION,
 )
-from all2md.exceptions import MdparseConversionError, MdparseInputError, MdparsePasswordError
+from all2md.exceptions import MarkdownConversionError, InputError, PasswordProtectedError
 from all2md.options import MarkdownOptions, PdfOptions
 
 
@@ -93,12 +93,12 @@ def _check_pymupdf_version() -> None:
 
     Raises
     ------
-    MdparseConversionError
+    MarkdownConversionError
         If PyMuPDF version is too old
     """
     min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
     if fitz.pymupdf_version_tuple < min_version:
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
             f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
         )
@@ -402,11 +402,70 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     return columns
 
 
+def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -> str:
+    """Process rotated text blocks and convert to readable format.
+
+    Handles text that is rotated 90°, 180°, or 270° by extracting the text
+    and marking it appropriately for inclusion in the markdown output.
+
+    Parameters
+    ----------
+    line : dict
+        Line dictionary from PyMuPDF containing direction and span information
+    md_options : MarkdownOptions or None, optional
+        Markdown formatting options for escaping special characters
+
+    Returns
+    -------
+    str
+        Processed text from the rotated line, with rotation indicator
+    """
+    # Extract text from all spans in the rotated line
+    text_parts = []
+    for span in line.get("spans", []):
+        span_text = span.get("text", "").strip()
+        if span_text:
+            if md_options and md_options.escape_special:
+                span_text = escape_markdown_special(span_text)
+            text_parts.append(span_text)
+
+    if not text_parts:
+        return ""
+
+    combined_text = " ".join(text_parts)
+
+    # Determine rotation type based on direction vector
+    dir_x, dir_y = line.get("dir", (1, 0))
+
+    if abs(dir_x) < 0.1 and abs(dir_y) > 0.9:
+        # Vertical text (90° or 270°)
+        if dir_y > 0:
+            rotation_note = " *[rotated 90° clockwise]*"
+        else:
+            rotation_note = " *[rotated 90° counter-clockwise]*"
+    elif abs(dir_x) > 0.9 and abs(dir_y) < 0.1:
+        if dir_x < 0:
+            rotation_note = " *[rotated 180°]*"
+        else:
+            rotation_note = ""  # Normal horizontal text
+    else:
+        # Arbitrary angle rotation
+        rotation_note = " *[rotated text]*"
+
+    return combined_text + rotation_note if rotation_note else combined_text
+
+
 def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
     """Merge text with hyphenation at line break.
 
     Detects if text1 ends with a hyphen (word continuation) and merges
     with text2 appropriately, removing the hyphen if it's a word break.
+
+    Note: This function provides manual hyphenation handling but is currently
+    unused in favor of PyMuPDF's built-in TEXT_DEHYPHENATE flag. The flag
+    is more efficient as it handles dehyphenation during text extraction.
+    This function is kept for cases where manual control is needed or
+    when TEXT_DEHYPHENATE is insufficient for complex hyphenation patterns.
 
     Parameters
     ----------
@@ -609,7 +668,7 @@ def page_to_markdown(
     - Processes hyperlinks and converts them to Markdown link format
     - Detects code blocks using monospace font analysis
     """
-    out_string = ""
+    output_parts = []  # Performance optimization: use list instead of string concatenation
     code = False  # mode indicator: outputting code
 
     # extract URL type links on page
@@ -618,14 +677,31 @@ def page_to_markdown(
     blocks = page.get_text(
         "dict",
         clip=clip,
-        flags=fitz.TEXTFLAGS_TEXT | fitz.TEXT_DEHYPHENATE,
+        flags=fitz.TEXTFLAGS_TEXT | fitz.TEXT_DEHYPHENATE,  # Use PyMuPDF's built-in dehyphenation
         sort=False,
     )["blocks"]
 
-    for block in blocks:  # iterate textblocks
+    # Apply column detection if enabled
+    if pdf_options and pdf_options.detect_columns:
+        columns = detect_columns(blocks, pdf_options.column_gap_threshold)
+        # Process blocks column by column for proper reading order
+        blocks_to_process = []
+        for column in columns:
+            # Sort blocks within column by y-coordinate (top to bottom)
+            column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+            blocks_to_process.extend(column_sorted)
+    else:
+        blocks_to_process = blocks
+
+    for block in blocks_to_process:  # iterate textblocks
         previous_y = 0
         for line in block["lines"]:  # iterate lines in block
-            if line["dir"][1] != 0:  # only consider horizontal lines
+            # Handle rotated text if enabled, otherwise skip non-horizontal lines
+            if line["dir"][1] != 0:  # non-horizontal lines
+                if pdf_options and pdf_options.handle_rotated_text:
+                    rotated_text = handle_rotated_text(line, md_options)
+                    if rotated_text.strip():
+                        output_parts.append(rotated_text + "\n\n")
                 continue
             spans = list(line["spans"])
 
@@ -634,8 +710,8 @@ def page_to_markdown(
             # check for still being on same line
             same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
 
-            if same_line and out_string.endswith("\n"):
-                out_string = out_string[:-1]
+            if same_line and output_parts and output_parts[-1].endswith("\n"):
+                output_parts[-1] = output_parts[-1][:-1]
 
             # are all spans in line in a mono-spaced font?
             all_mono = all(s["flags"] & 8 for s in spans)
@@ -644,30 +720,32 @@ def page_to_markdown(
             text = "".join([s["text"] for s in spans])
             if not same_line:
                 previous_y = this_y
-                if not out_string.endswith("\n"):
-                    out_string += "\n"
+                if not (output_parts and output_parts[-1].endswith("\n")):
+                    output_parts.append("\n")
 
             if all_mono:
                 # compute approx. distance from left - assuming a width
                 # of 0.5*fontsize.
                 delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (spans[0]["size"] * 0.5))
                 if not code:  # if not already in code output  mode:
-                    out_string += "```"  # switch on "code" mode
+                    output_parts.append("```")  # switch on "code" mode
                     code = True
                 if not same_line:  # new code line with left indentation
-                    out_string += "\n" + " " * delta + text + " "
+                    output_parts.append("\n" + " " * delta + text + " ")
                     previous_y = this_y
                 else:  # same line, simply append
-                    out_string += text + " "
+                    output_parts.append(text + " ")
                 continue  # done with this line
 
             for i, s in enumerate(spans):  # iterate spans of the line
-                since_last_line = out_string[out_string.rindex("\n") + 1 :] if "\n" in out_string else ""
+                # Get text since last line for header detection
+                full_output = "".join(output_parts)
+                since_last_line = full_output[full_output.rindex("\n") + 1 :] if "\n" in full_output else full_output
                 # if since_last_line:
                 #     print(since_last_line)
                 # this line is not all-mono, so switch off "code" mode
                 if code:  # still in code output mode?
-                    out_string += "```\n"  # switch of code mode
+                    output_parts.append("```\n")  # switch of code mode
                     code = False
                 # decode font properties
                 mono = s["flags"] & 8
@@ -676,7 +754,7 @@ def page_to_markdown(
 
                 if mono:
                     # this is text in some monospaced font
-                    out_string += f"`{s['text'].strip()}` "
+                    output_parts.append(f"`{s['text'].strip()}` ")
                 else:  # not a mono text
                     # for first span, get header prefix string if present
                     hdr_string = hdr_prefix.get_header_id(s) if i == 0 else ""
@@ -711,17 +789,17 @@ def page_to_markdown(
                         .replace(chr(9679), "-")
                     )
 
-                    out_string += text
+                    output_parts.append(text)
             previous_y = this_y
             if not code:
-                out_string += "\n"
-        out_string += "\n"
+                output_parts.append("\n")
+        output_parts.append("\n")
     if code:
-        if not out_string.endswith("```"):
-            out_string += "```\n"  # switch of code mode
+        if not (output_parts and output_parts[-1].endswith("```")):
+            output_parts.append("```\n")  # switch of code mode
         code = False
 
-    return out_string.replace(" \n", "\n")
+    return "".join(output_parts).replace(" \n", "\n")
 
 
 def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | None = None, base_filename: str = "document") -> list[dict]:
@@ -1059,11 +1137,11 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If input type is not supported or page numbers are invalid
-    MdparsePasswordError
+    PasswordProtectedError
         If PDF is password-protected and no/incorrect password provided
-    MdparseConversionError
+    MarkdownConversionError
         If document cannot be processed or PyMuPDF version is too old
 
     Notes
@@ -1115,21 +1193,21 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
             ):
                 doc = doc_input
             else:
-                raise MdparseInputError(
+                raise InputError(
                     f"Expected fitz.Document object, got {type(doc_input).__name__}",
                     parameter_name="input_data",
                     parameter_value=doc_input,
                 )
         else:
-            raise MdparseInputError(
+            raise InputError(
                 f"Unsupported input type: {input_type}", parameter_name="input_data", parameter_value=doc_input
             )
     except Exception as e:
         if "password" in str(e).lower() or "encrypt" in str(e).lower():
             filename = str(input_data) if isinstance(input_data, (str, Path)) else None
-            raise MdparsePasswordError(filename=filename) from e
+            raise PasswordProtectedError(filename=filename) from e
         else:
-            raise MdparseConversionError(
+            raise MarkdownConversionError(
                 f"Failed to open PDF document: {str(e)}", conversion_stage="document_opening", original_error=e
             ) from e
 
@@ -1138,7 +1216,7 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
         validated_pages = validate_page_range(options.pages, doc.page_count)
         pages_to_use: range | list[int] = validated_pages if validated_pages else range(doc.page_count)
     except Exception as e:
-        raise MdparseInputError(
+        raise InputError(
             f"Invalid page range: {str(e)}", parameter_name="pages", parameter_value=options.pages
         ) from e
 

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import to_markdown
-from .exceptions import MdparseConversionError, MdparseInputError
+from .exceptions import MarkdownConversionError, InputError
 from .options import DocxOptions, EmlOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
 
 
@@ -324,7 +324,7 @@ def main(args: Optional[list[str]] = None) -> int:
 
         return 0
 
-    except (MdparseConversionError, MdparseInputError) as e:
+    except (MarkdownConversionError, InputError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     except ImportError as e:

@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from all2md.cli import main
-from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.exceptions import MarkdownConversionError, InputError
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 
@@ -223,7 +223,7 @@ class TestCLIIntegration:
         html_file.write_text("<p>Test</p>")
 
         with patch('all2md.to_markdown') as mock_to_markdown:
-            mock_to_markdown.side_effect = MdparseConversionError("Test conversion error")
+            mock_to_markdown.side_effect = MarkdownConversionError("Test conversion error")
 
             result = main([str(html_file)])
 

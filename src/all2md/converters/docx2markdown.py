@@ -88,7 +88,7 @@ from docx.text.paragraph import Paragraph
 from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import escape_markdown_special, format_special_text
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
-from all2md.exceptions import MdparseConversionError
+from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
@@ -428,9 +428,9 @@ def docx_to_markdown(
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If input type is not supported or document cannot be opened
-    MdparseConversionError
+    MarkdownConversionError
         If document processing fails
 
     Examples
@@ -473,7 +473,7 @@ def docx_to_markdown(
         else:
             doc = docx.Document(input_data)
     except Exception as e:
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             f"Failed to open DOCX document: {str(e)}", conversion_stage="document_opening", original_error=e
         ) from e
 

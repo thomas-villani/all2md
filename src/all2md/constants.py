@@ -37,7 +37,7 @@ DEFAULT_TABLE_ALIGNMENT = "left"
 # Emphasis and formatting symbols
 DEFAULT_EMPHASIS_SYMBOL = "*"
 DEFAULT_BULLET_SYMBOLS = "*-+"
-MARKDOWN_SPECIAL_CHARS = r"*_#[]()\\"
+MARKDOWN_SPECIAL_CHARS = "*_#[]()\\"
 
 # =============================================================================
 # Font and Layout Constants (PDF/DOCX)

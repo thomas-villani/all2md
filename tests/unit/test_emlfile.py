@@ -3,7 +3,7 @@ from io import StringIO
 
 import pytest
 
-from all2md import MdparseInputError
+from all2md import InputError
 from all2md.converters.eml2markdown import format_email_chain_as_markdown, eml_to_markdown
 
 
@@ -99,7 +99,7 @@ File content here
 
 @pytest.mark.unit
 def test_parse_email_chain_invalid_type():
-    with pytest.raises(MdparseInputError):
+    with pytest.raises(InputError):
         eml_to_markdown(123)
 
 

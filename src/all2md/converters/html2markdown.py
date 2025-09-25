@@ -120,7 +120,7 @@ from all2md.constants import (
     MIN_CODE_FENCE_LENGTH,
     TABLE_ALIGNMENT_MAPPING,
 )
-from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.exceptions import MarkdownConversionError, InputError
 from all2md.options import HtmlOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
@@ -260,10 +260,24 @@ class HTMLToMarkdown:
                 for attr_name, attr_value in element.attrs.items():
                     if attr_name in DANGEROUS_HTML_ATTRIBUTES:
                         return False
-                    if isinstance(attr_value, str) and any(
-                        danger in attr_value.lower() for danger in DANGEROUS_HTML_ATTRIBUTES
-                    ):
-                        return False
+
+                    # Enhanced URL scheme checking for href and src attributes
+                    if isinstance(attr_value, str):
+                        attr_value_lower = attr_value.lower().strip()
+
+                        # Check specific URL attributes for dangerous schemes
+                        if attr_name.lower() in ('href', 'src', 'action', 'formaction'):
+                            # Parse URL to check scheme precisely
+                            parsed = urlparse(attr_value_lower)
+                            if parsed.scheme in ('javascript', 'data', 'vbscript', 'about'):
+                                return False
+                            # Also check for scheme-less javascript: URLs
+                            if attr_value_lower.startswith(('javascript:', 'vbscript:', 'data:text/html')):
+                                return False
+
+                        # Generic dangerous content check for other attributes
+                        elif any(danger in attr_value_lower for danger in DANGEROUS_HTML_ATTRIBUTES):
+                            return False
 
         return True
 
@@ -827,6 +841,9 @@ class HTMLToMarkdown:
         content = "".join(self._process_node(child) for child in node.children)
         content = " ".join(content.split())
 
+        # Note: Link text content is already escaped by _process_node when escape_special=True
+        # No additional escaping needed here to avoid double-escaping
+
         # Resolve relative URLs
         if href:
             href = self._resolve_url(href)
@@ -953,9 +970,9 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If input type is not supported or file cannot be read
-    MdparseConversionError
+    MarkdownConversionError
         If HTML parsing or conversion fails
 
     Examples
@@ -1012,7 +1029,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
                 with open(str(input_data), "r", encoding="utf-8") as f:
                     html_content = f.read()
             except Exception as e:
-                raise MdparseConversionError(
+                raise MarkdownConversionError(
                     f"Failed to read HTML file: {str(e)}", conversion_stage="file_reading", original_error=e
                 ) from e
         else:
@@ -1035,16 +1052,16 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
                 if isinstance(html_content, bytes):
                     html_content = html_content.decode("utf-8")
             else:
-                raise MdparseInputError(
+                raise InputError(
                     f"Unsupported input type for HTML conversion: {type(input_data).__name__}",
                     parameter_name="input_data",
                     parameter_value=input_data,
                 )
         except Exception as e:
-            if isinstance(e, (MdparseInputError, MdparseConversionError)):
+            if isinstance(e, (InputError, MarkdownConversionError)):
                 raise
             else:
-                raise MdparseConversionError(
+                raise MarkdownConversionError(
                     f"Failed to process HTML input: {str(e)}", conversion_stage="input_processing", original_error=e
                 ) from e
 
@@ -1073,12 +1090,12 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
         converter = HTMLToMarkdown(**converter_kwargs)
         return converter.convert(html_content)
     except ImportError as e:
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             "BeautifulSoup4 library is required for HTML conversion. Install with: pip install beautifulsoup4",
             conversion_stage="dependency_check",
             original_error=e,
         ) from e
     except Exception as e:
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             f"Failed to convert HTML to Markdown: {str(e)}", conversion_stage="html_parsing", original_error=e
         ) from e

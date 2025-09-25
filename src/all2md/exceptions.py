@@ -6,11 +6,11 @@ exceptions provide more specific error information than generic built-ins.
 
 Exception Hierarchy
 -------------------
-- MdparseError (base exception)
-  - MdparsePasswordError (PDF password protection)
-  - MdparseFormatError (unsupported formats)
-  - MdparseInputError (invalid input types/values)
-  - MdparseConversionError (conversion process failures)
+- All2MdError (base exception)
+  - PasswordProtectedError (PDF password protection)
+  - FormatError (unsupported formats)
+  - InputError (invalid input types/values)
+  - MarkdownConversionError (conversion process failures)
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
@@ -30,7 +30,7 @@ Exception Hierarchy
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-class MdparseError(Exception):
+class All2MdError(Exception):
     """Base exception class for all all2md-specific errors.
 
     This serves as the root exception class for all custom exceptions
@@ -58,7 +58,7 @@ class MdparseError(Exception):
         self.original_error = original_error
 
 
-class MdparsePasswordError(MdparseError):
+class PasswordProtectedError(All2MdError):
     """Exception raised when a PDF file requires a password for access.
 
     This exception is raised specifically when attempting to process
@@ -89,7 +89,7 @@ class MdparsePasswordError(MdparseError):
         self.filename = filename
 
 
-class MdparseFormatError(MdparseError):
+class FormatError(All2MdError):
     """Exception raised when attempting to process an unsupported file format.
 
     This exception indicates that the requested file format or conversion
@@ -133,7 +133,7 @@ class MdparseFormatError(MdparseError):
         self.supported_formats = supported_formats
 
 
-class MdparseInputError(MdparseError):
+class InputError(All2MdError):
     """Exception raised for invalid input parameters or data.
 
     This exception covers various input validation errors such as:
@@ -170,7 +170,7 @@ class MdparseInputError(MdparseError):
         self.parameter_value = parameter_value
 
 
-class MdparseConversionError(MdparseError):
+class MarkdownConversionError(All2MdError):
     """Exception raised when document conversion fails.
 
     This exception is raised when the conversion process encounters

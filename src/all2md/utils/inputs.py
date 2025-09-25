@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Union
 
 from all2md.constants import MARKDOWN_SPECIAL_CHARS
-from all2md.exceptions import MdparseInputError
+from all2md.exceptions import InputError
 
 # Type aliases for clarity
 PathLike = Union[str, Path]
@@ -120,7 +120,7 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If page numbers are invalid or out of range
 
     Examples
@@ -130,13 +130,13 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
     >>> validate_page_range([-1], max_pages=5)
     Traceback (most recent call last):
     ...
-    all2md.exceptions.MdparseInputError: Invalid page number: -1. Pages must be 0-based.
+    all2md.exceptions.InputError: Invalid page number: -1. Pages must be 0-based.
     """
     if pages is None:
         return None
 
     if not isinstance(pages, list):
-        raise MdparseInputError(
+        raise InputError(
             f"Pages must be a list of integers, got {type(pages).__name__}",
             parameter_name="pages",
             parameter_value=pages,
@@ -144,21 +144,21 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
 
     for page_num in pages:
         if not isinstance(page_num, int):
-            raise MdparseInputError(
+            raise InputError(
                 f"Page numbers must be integers, got {type(page_num).__name__}: {page_num}",
                 parameter_name="pages",
                 parameter_value=pages,
             )
 
         if page_num < 0:
-            raise MdparseInputError(
+            raise InputError(
                 f"Invalid page number: {page_num}. Pages must be 0-based (>= 0).",
                 parameter_name="pages",
                 parameter_value=pages,
             )
 
         if max_pages is not None and page_num >= max_pages:
-            raise MdparseInputError(
+            raise InputError(
                 f"Page number {page_num} is out of range. Document has {max_pages} pages (0-{max_pages - 1}).",
                 parameter_name="pages",
                 parameter_value=pages,
@@ -193,7 +193,7 @@ def validate_and_convert_input(
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If the input type is not supported or if file operations fail
 
     Examples
@@ -216,12 +216,12 @@ def validate_and_convert_input(
     if is_path_like(input_data):
         path_str = str(input_data)
         if not os.path.exists(path_str):
-            raise MdparseInputError(
+            raise InputError(
                 f"File does not exist: {path_str}", parameter_name="input_data", parameter_value=input_data
             )
 
         if not os.path.isfile(path_str):
-            raise MdparseInputError(
+            raise InputError(
                 f"Path is not a file: {path_str}", parameter_name="input_data", parameter_value=input_data
             )
 
@@ -236,7 +236,7 @@ def validate_and_convert_input(
         # Check if it's the right mode (binary vs text)
         if require_binary and hasattr(input_data, "mode"):
             if "b" not in str(input_data.mode):
-                raise MdparseInputError(
+                raise InputError(
                     f"File must be opened in binary mode, got mode: {input_data.mode}",
                     parameter_name="input_data",
                     parameter_value=input_data,
@@ -267,7 +267,7 @@ def validate_and_convert_input(
         # Unsupported input type
         type_name = type(input_data).__name__
         supported_str = ", ".join(supported_types)
-        raise MdparseInputError(
+        raise InputError(
             f"Unsupported input type: {type_name}. Supported types: {supported_str}",
             parameter_name="input_data",
             parameter_value=input_data,
@@ -348,14 +348,14 @@ def format_special_text(text: str, format_type: str, mode: str = "html") -> str:
     }
 
     if mode not in format_map:
-        raise MdparseInputError(
+        raise InputError(
             f"Invalid mode: {mode}. Must be 'html', 'markdown', or 'ignore'",
             parameter_name="mode",
             parameter_value=mode,
         )
 
     if format_type not in format_map[mode]:
-        raise MdparseInputError(
+        raise InputError(
             f"Invalid format_type: {format_type}. Must be 'underline', 'superscript', or 'subscript'",
             parameter_name="format_type",
             parameter_value=format_type,

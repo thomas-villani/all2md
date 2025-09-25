@@ -62,7 +62,7 @@ from pyth.plugins.rtf15.reader import Rtf15Reader
 
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
-from all2md.exceptions import MdparseConversionError
+from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, RtfOptions
 
 # except ImportError:
@@ -266,13 +266,13 @@ def rtf_to_markdown(
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If input type is not supported or file cannot be read.
-    MdparseConversionError
+    MarkdownConversionError
         If the `pyth` library is not installed or if RTF parsing fails.
     """
     if Rtf15Reader is None:
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             "`pyth` library is required for RTF conversion. Install with: pip install pyth",
             conversion_stage="dependency_check",
         )
@@ -291,15 +291,15 @@ def rtf_to_markdown(
         elif hasattr(doc_input, "read"):
             # Ensure we have a binary stream
             if isinstance(doc_input, io.TextIOBase):
-                raise MdparseConversionError("RTF input stream must be binary, not text.")
+                raise MarkdownConversionError("RTF input stream must be binary, not text.")
             doc = Rtf15Reader.read(doc_input)
         else:
-            raise MdparseConversionError(f"Unsupported input type for RTF conversion: {type(doc_input)}")
+            raise MarkdownConversionError(f"Unsupported input type for RTF conversion: {type(doc_input)}")
 
     except Exception as e:
-        if isinstance(e, MdparseConversionError):
+        if isinstance(e, MarkdownConversionError):
             raise
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             f"Failed to read or parse RTF document: {e}",
             conversion_stage="document_parsing",
             original_error=e,

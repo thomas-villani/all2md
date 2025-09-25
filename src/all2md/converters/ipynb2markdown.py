@@ -71,7 +71,7 @@ from typing import IO, Any, Union
 
 from all2md.utils.attachments import process_attachment
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
-from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.exceptions import MarkdownConversionError, InputError
 from all2md.options import IpynbOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
@@ -120,9 +120,9 @@ def ipynb_to_markdown(
 
     Raises
     ------
-    MdparseInputError
+    InputError
         If the input data is not a valid notebook format.
-    MdparseConversionError
+    MarkdownConversionError
         If there is an error during the conversion process.
     """
     if options is None:
@@ -141,24 +141,24 @@ def ipynb_to_markdown(
                 content = content.decode("utf-8")
             notebook = json.loads(content)
         else:
-            raise MdparseInputError(f"Unsupported input type: {type(input_data).__name__}")
+            raise InputError(f"Unsupported input type: {type(input_data).__name__}")
 
     except json.JSONDecodeError as e:
-        raise MdparseInputError(
+        raise InputError(
             "Input is not a valid JSON file. Ensure it is a proper .ipynb notebook.",
             original_error=e,
         ) from e
     except Exception as e:
-        if isinstance(e, MdparseInputError):
+        if isinstance(e, InputError):
             raise
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             f"Failed to read or parse Jupyter Notebook: {e}",
             conversion_stage="input_processing",
             original_error=e,
         ) from e
 
     if "cells" not in notebook or not isinstance(notebook["cells"], list):
-        raise MdparseInputError("Invalid notebook format: 'cells' key is missing or not a list.")
+        raise InputError("Invalid notebook format: 'cells' key is missing or not a list.")
 
     output_parts = []
     language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")

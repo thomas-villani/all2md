@@ -363,3 +363,69 @@ planck = 6.626e-34
         assert "````" in md_backticks or "`````" in md_backticks  # Longer than content
         assert "`````" in md_four or "``````" in md_four  # Longer than content backticks
         assert md_many.count('`') > 12  # Should use even longer fences
+
+    def test_boundary_fence_lengths(self):
+        """Test fence length boundary conditions with 7-10 backticks in content."""
+        # Test 7 backticks in content
+        html_seven = '<pre><code>Code with ```````seven backticks```````</code></pre>'
+
+        # Test 8 backticks in content
+        html_eight = '<pre><code>Code with ````````eight backticks````````</code></pre>'
+
+        # Test 9 backticks in content
+        html_nine = '<pre><code>Code with `````````nine backticks`````````</code></pre>'
+
+        # Test 10 backticks in content (maximum fence length)
+        html_ten = '<pre><code>Code with ``````````ten backticks``````````</code></pre>'
+
+        # Test 11 backticks in content (exceeds maximum fence length)
+        html_eleven = '<pre><code>Code with ```````````eleven backticks```````````</code></pre>'
+
+        converter = HTMLToMarkdown()
+
+        md_seven = converter.convert(html_seven)
+        md_eight = converter.convert(html_eight)
+        md_nine = converter.convert(html_nine)
+        md_ten = converter.convert(html_ten)
+        md_eleven = converter.convert(html_eleven)
+
+        # Should use 8 backticks for fencing when content has 7
+        assert "````````" in md_seven
+        assert "```````seven backticks```````" in md_seven
+
+        # Should use 9 backticks for fencing when content has 8
+        assert "`````````" in md_eight
+        assert "````````eight backticks````````" in md_eight
+
+        # Should use 10 backticks for fencing when content has 9
+        assert "``````````" in md_nine
+        assert "`````````nine backticks`````````" in md_nine
+
+        # Should use 10 backticks (maximum) for fencing when content has 10
+        assert "``````````" in md_ten
+        assert "``````````ten backticks``````````" in md_ten
+
+        # Should use 10 backticks (maximum) even when content has 11
+        # This tests the MAX_CODE_FENCE_LENGTH boundary
+        assert "``````````" in md_eleven
+        assert "```````````eleven backticks```````````" in md_eleven
+
+    def test_mixed_backtick_sequences(self):
+        """Test code containing mixed sequences of different backtick lengths."""
+        html_mixed = '''<pre><code>Mixed backticks:
+`single`
+``double``
+```triple```
+````quad````
+`````five`````
+``````six``````
+```````seven```````
+````````eight````````</code></pre>'''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html_mixed)
+        assert_markdown_valid(markdown)
+
+        # Should use 9 backticks to fence content containing up to 8
+        assert "`````````" in markdown
+        assert "````````eight````````" in markdown

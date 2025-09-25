@@ -79,7 +79,7 @@ from typing import IO, Literal, Optional, Union
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
-from .exceptions import MdparseConversionError, MdparseInputError
+from .exceptions import MarkdownConversionError, InputError, FormatError
 from .options import (
     BaseOptions,
     DocxOptions,
@@ -504,7 +504,7 @@ def _merge_options(base_options: BaseOptions | MarkdownOptions | None, format: D
 
 
 def to_markdown(
-    input: Union[str, Path, IO[bytes]],
+    input: Union[str, Path, IO[bytes], bytes],
     *,
     options: Optional[BaseOptions | MarkdownOptions] = None,
     format: DocumentFormat = "auto",
@@ -525,7 +525,7 @@ def to_markdown(
     options : BaseOptions, optional
         Pre-configured options object for format-specific settings.
         If provided, individual kwargs will override these settings.
-    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "image", "ipynb"}, default "auto"
+    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "ipynb"}, default "auto"
         Document format specification:
         - "auto": Detect format automatically from filename and content
         - Other values: Force processing as the specified format
@@ -546,9 +546,9 @@ def to_markdown(
     ------
     ImportError
         If required dependencies for specific file formats are not installed
-    MdparseConversionError
+    MarkdownConversionError
         If file processing fails due to corruption, format issues, etc.
-    MdparseInputError
+    InputError
         If input parameters are invalid or file cannot be accessed
 
     Examples
@@ -594,6 +594,9 @@ def to_markdown(
         filename = str(input)
         with open(input, 'rb') as file:
             return to_markdown(file, options=options, format=format, _filename=filename, **kwargs)
+    elif isinstance(input, bytes):
+        file: IO[bytes] = BytesIO(input)
+        filename = "unknown"
     else:
         # File-like object case
         file: IO[bytes] = input  # type: ignore
@@ -717,32 +720,17 @@ def to_markdown(
                 "`pymupdf` version >1.24.0 is required to read PDF files. Install with `pip install pymupdf`"
             ) from e
 
-    elif actual_format == "image":
-        file.seek(0)
-        image_bytes = file.read()
-
-        # Detect specific image MIME type for proper data URL
-        if image_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
-            mime_type = "image/png"
-        elif image_bytes.startswith(b'\xff\xd8\xff'):
-            mime_type = "image/jpeg"
-        elif image_bytes.startswith(b'GIF87a') or image_bytes.startswith(b'GIF89a'):
-            mime_type = "image/gif"
-        else:
-            mime_type = "image/png"  # default fallback
-
-        b64_data = base64.b64encode(image_bytes).decode("utf-8")
-        content = f"data:{mime_type};base64,{b64_data}"
-
     elif actual_format == "eml":
         from all2md.converters.eml2markdown import eml_to_markdown
 
         file.seek(0)
+        raw_data = b""
         # Handle encoding issues gracefully
         try:
             raw_data = file.read()
             decoded_data = raw_data.decode("utf-8")
-        except UnicodeDecodeError:
+        except UnicodeDecodeError as e:
+            logger.debug(f"Unicode error decoding as UTF: {e!r}", exc_info=True)
             # Try with error handling for mixed encodings
             decoded_data = raw_data.decode("utf-8", errors="replace")
 
@@ -755,13 +743,15 @@ def to_markdown(
         file.seek(0)
         content = ipynb_to_markdown(file, options=final_options)
 
+    elif actual_format == "image":
+        raise FormatError("Invalid input type: `image` not supported.")
     else:  # actual_format == "txt" or any other format
         # Plain text handling
         file.seek(0)
         try:
             content = file.read().decode("utf-8", errors="replace")
         except Exception as e:
-            raise MdparseConversionError(f"Could not decode file as UTF-8: {filename}") from e
+            raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
 
     # Fix windows newlines and return
     return content.replace("\r\n", "\n")
@@ -784,6 +774,6 @@ __all__ = [
     "MarkdownOptions",
     "PdfOptions",
     "PptxOptions",
-    "MdparseConversionError",
-    "MdparseInputError",
+    "MarkdownConversionError",
+    "InputError",
 ]

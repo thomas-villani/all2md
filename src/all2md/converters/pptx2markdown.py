@@ -98,7 +98,7 @@ from pptx.util import Inches
 
 from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
-from all2md.exceptions import MdparseConversionError
+from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
 
 logger = logging.getLogger(__name__)
@@ -363,13 +363,13 @@ def pptx_to_markdown(input_data: Union[str, Any], options: PptxOptions | None = 
 
     except Exception as e:
         if "python-pptx" in str(e).lower() or "pptx" in str(e).lower():
-            raise MdparseConversionError(
+            raise MarkdownConversionError(
                 "python-pptx library is required for PPTX conversion. Install with: pip install python-pptx",
                 conversion_stage="dependency_check",
                 original_error=e,
             ) from e
         else:
-            raise MdparseConversionError(
+            raise MarkdownConversionError(
                 f"Failed to open PPTX presentation: {str(e)}", conversion_stage="document_opening", original_error=e
             ) from e
 

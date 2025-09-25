@@ -95,7 +95,7 @@ from typing import Any, Union
 
 from all2md.utils.attachments import process_attachment
 from all2md.constants import DEFAULT_URL_WRAPPERS
-from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.exceptions import MarkdownConversionError, InputError
 from all2md.options import EmlOptions
 
 
@@ -958,16 +958,16 @@ def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None
         elif isinstance(input_data, StringIO):
             eml_msg = message_from_file(input_data, policy=policy.default)
         else:
-            raise MdparseInputError(
+            raise InputError(
                 f"Unsupported input type: {type(input_data).__name__}. Expected str (file path) or StringIO object",
                 parameter_name="input_data",
                 parameter_value=input_data,
             )
     except Exception as e:
-        if isinstance(e, (MdparseInputError, MdparseConversionError)):
+        if isinstance(e, (InputError, MarkdownConversionError)):
             raise
         else:
-            raise MdparseConversionError(
+            raise MarkdownConversionError(
                 f"Failed to parse email data: {str(e)}",
                 conversion_stage="email_parsing",
                 original_error=e
@@ -1014,7 +1014,7 @@ def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None
         return format_email_chain_as_markdown(messages, options)
 
     except Exception as e:
-        raise MdparseConversionError(
+        raise MarkdownConversionError(
             f"Failed to process email content: {str(e)}",
             conversion_stage="content_processing",
             original_error=e

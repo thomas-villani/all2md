@@ -8,7 +8,7 @@ import docx
 import pytest
 from pptx import Presentation
 
-from all2md import MdparseConversionError, to_markdown
+from all2md import MarkdownConversionError, to_markdown
 from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions
 from tests.utils import (
     DocxTestGenerator,
@@ -227,9 +227,9 @@ class TestIntegration:
             # If it doesn't raise an error, result should be a string
             assert isinstance(result, str)
         except Exception as e:
-            # Should be a meaningful error (including custom MdparseConversionError)
-            from all2md.exceptions import MdparseConversionError
-            assert isinstance(e, (ValueError, IOError, OSError, MdparseConversionError))
+            # Should be a meaningful error (including custom MarkdownConversionError)
+            from all2md.exceptions import MarkdownConversionError
+            assert isinstance(e, (ValueError, IOError, OSError, MarkdownConversionError))
 
     def test_performance_with_large_documents(self):
         """Test performance and handling of large documents."""
@@ -559,7 +559,7 @@ class TestNewAPI:
         try:
             result = to_markdown(binary_io)
             # Should fallback to text and likely fail gracefully
-        except (MdparseConversionError, UnicodeDecodeError):
+        except (MarkdownConversionError, UnicodeDecodeError):
             pass  # Expected for binary data
 
         # Test RTF detection
