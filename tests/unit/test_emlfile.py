@@ -7,6 +7,7 @@ from all2md import MdparseInputError
 from all2md.emlfile import format_email_chain_as_markdown, parse_email_chain
 
 
+@pytest.mark.unit
 def test_format_email_chain_as_markdown_basic():
     items = [
         {
@@ -42,6 +43,7 @@ def test_format_email_chain_as_markdown_basic():
     assert format_email_chain_as_markdown(items) == expected
 
 
+@pytest.mark.unit
 def test_format_email_chain_as_markdown_no_cc():
     items = [
         {
@@ -56,6 +58,7 @@ def test_format_email_chain_as_markdown_no_cc():
     assert "cc:" not in result
 
 
+@pytest.mark.unit
 def test_parse_email_chain_stringio_simple():
     eml = """From: A <a@example.com>
 Sent: Mon, 1 Jan 2023 10:00:00 -0500
@@ -76,6 +79,7 @@ Hello world
     assert "Hello world" in md
 
 
+@pytest.mark.unit
 def test_parse_email_chain_file_path(tmp_path):
     eml = """From: C <c@example.com>
 Sent: Tue, 2 Jan 2023 15:30:00 +0000
@@ -93,11 +97,13 @@ File content here
     assert "File content here" in md
 
 
+@pytest.mark.unit
 def test_parse_email_chain_invalid_type():
     with pytest.raises(MdparseInputError):
         parse_email_chain(123)
 
 
+@pytest.mark.unit
 def test_parse_email_chain_html_only():
     eml = """From: HTML <html@example.com>
 To: Dest <dest@example.com>
@@ -136,6 +142,7 @@ Content-Type: text/html; charset="utf-8"
 #     assert m['date'] is None
 
 
+@pytest.mark.unit
 def test_parse_email_chain_chain_cleaning_and_sorting():
     eml = """From: Top <top@example.com>
 To: Bot <bot@example.com>
@@ -177,6 +184,7 @@ Original content line 2
     assert "cc: CC <cc@example.com>" in md
 
 
+@pytest.mark.unit
 def test_parse_email_chain_as_markdown_chain():
     eml = """From: Top <top@example.com>
 To: Bot <bot@example.com>

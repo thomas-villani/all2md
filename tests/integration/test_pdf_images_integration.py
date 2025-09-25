@@ -12,6 +12,7 @@ from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_tes
 from tests.fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes, create_temp_pdf_file
 
 
+@pytest.mark.integration
 class TestPdfImagesIntegration:
     """Test PDF image and figure handling with real generated PDFs."""
 

@@ -1,3 +1,5 @@
+import pytest
+
 import tempfile
 
 import fitz
@@ -26,6 +28,7 @@ class FakeDocIdent:
         return FakePageIdent()
 
 
+@pytest.mark.unit
 def test_identify_headers_empty_doc():
     class EmptyDoc:
         page_count = 0
@@ -39,6 +42,7 @@ def test_identify_headers_empty_doc():
     assert hdr.get_header_id({"size": 100}) == ""
 
 
+@pytest.mark.unit
 def test_identify_headers_mapping():
     doc = FakeDocIdent()
     hdr = mod.IdentifyHeaders(doc)
@@ -47,12 +51,14 @@ def test_identify_headers_mapping():
     assert hdr.get_header_id({"size": 12.0, "flags": 0, "text": "test"}) == ""
 
 
+@pytest.mark.unit
 def test_resolve_links_no_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": "X"}
     link = {"from": fitz.Rect(50, 50, 60, 60), "uri": "u"}  # Link is completely outside span
     assert mod.resolve_links([link], span) is None
 
 
+@pytest.mark.unit
 def test_resolve_links_partial_overlap():
     """Test link resolution with partial overlap."""
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for more info"}
@@ -62,6 +68,7 @@ def test_resolve_links_partial_overlap():
     assert "[Click here]" in result or "http://example.com" in result
 
 
+@pytest.mark.unit
 def test_resolve_links_multiple_links():
     """Test handling of multiple links in one span."""
     span = {"bbox": (0, 0, 200, 10), "text": "Link1 and Link2 here"}
@@ -76,6 +83,7 @@ def test_resolve_links_multiple_links():
     assert "link2.com" in result
 
 
+@pytest.mark.unit
 def test_header_detection_with_font_weight():
     """Test header detection using font weight."""
     doc = FakeDocIdent()
@@ -85,6 +93,7 @@ def test_header_detection_with_font_weight():
     assert hdr.header_id is not None
 
 
+@pytest.mark.unit
 def test_header_detection_with_percentile():
     """Test header detection using percentile threshold."""
     doc = FakeDocIdent()
@@ -96,6 +105,7 @@ def test_header_detection_with_percentile():
     assert hdr.header_id.get(20) == "# "  # Large font should be header
 
 
+@pytest.mark.unit
 def test_header_detection_with_allowlist():
     """Test header detection with font size allowlist."""
     doc = FakeDocIdent()
@@ -108,6 +118,7 @@ def test_header_detection_with_allowlist():
     assert hdr.header_id.get(14) is not None or hdr.header_id.get(16) is not None
 
 
+@pytest.mark.unit
 def test_header_detection_with_denylist():
     """Test header detection with font size denylist."""
     doc = FakeDocIdent()
@@ -120,6 +131,7 @@ def test_header_detection_with_denylist():
     assert hdr.header_id.get(20) is None or hdr.header_id.get(20) == ""
 
 
+@pytest.mark.unit
 def test_detect_columns():
     """Test multi-column layout detection."""
     # Create blocks simulating two columns
@@ -135,6 +147,7 @@ def test_detect_columns():
     assert len(columns[1]) == 2
 
 
+@pytest.mark.unit
 def test_detect_columns_single_column():
     """Test that single column layout is preserved."""
     blocks = [
@@ -145,6 +158,7 @@ def test_detect_columns_single_column():
     assert len(columns) == 1  # Should detect single column
 
 
+@pytest.mark.unit
 def test_merge_hyphenated_text():
     """Test hyphenation merging at line breaks."""
     # Test word continuation
@@ -163,6 +177,7 @@ def test_merge_hyphenated_text():
     assert merged is False
 
 
+@pytest.mark.unit
 def test_detect_tables_by_ruling_lines():
     """Test fallback table detection using ruling lines."""
 
@@ -178,6 +193,7 @@ def test_detect_tables_by_ruling_lines():
     assert tables == []  # No tables in empty page
 
 
+@pytest.mark.unit
 def test_page_separator_customization():
     """Test customizable page separators."""
     md_options = MarkdownOptions(page_separator_format="--- Page {page_num} ---", include_page_numbers=True)
@@ -185,6 +201,7 @@ def test_page_separator_customization():
     assert "{page_num}" in md_options.page_separator_format
 
 
+@pytest.mark.unit
 def test_image_extraction_options():
     """Test image extraction configuration."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -199,6 +216,7 @@ def test_image_extraction_options():
         assert options.image_placement_markers is True
 
 
+@pytest.mark.unit
 def test_resolve_links_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": " click "}
     link = {"from": fitz.Rect(0, 0, 10, 10), "uri": "http://test"}
@@ -206,6 +224,7 @@ def test_resolve_links_overlap():
     assert res == "[click](http://test)"
 
 
+@pytest.mark.unit
 def test_page_to_markdown_simple():
     span = {"bbox": (0, 0, 5, 10), "size": 12.0, "text": "hello", "flags": 0}
     line = {"bbox": (0, 0, 5, 10), "dir": (1, 0), "spans": [span]}
@@ -223,6 +242,7 @@ def test_page_to_markdown_simple():
     assert out == "\nhello\n\n"
 
 
+@pytest.mark.unit
 def test_parse_page_no_tables():
     class FakeTables:
         def __init__(self, tables):
@@ -241,6 +261,7 @@ def test_parse_page_no_tables():
     assert lst == [("text", fitz.Rect(0, 0, 10, 20), 0)]
 
 
+@pytest.mark.unit
 def test_parse_page_one_table():
     class FakeTable:
         def __init__(self, bbox, header_bbox):
@@ -272,6 +293,7 @@ def test_parse_page_one_table():
     assert lst[1][2] == 0
 
 
+@pytest.mark.unit
 def test_pdf_to_markdown_no_tables(monkeypatch):
     class DummyHdr:
         def __init__(self, doc, pages=None, body_limit=None, options=None):
@@ -307,6 +329,7 @@ def test_pdf_to_markdown_no_tables(monkeypatch):
     assert res == "A\n\n-----\n\n"
 
 
+@pytest.mark.unit
 def test_pdf_to_markdown_with_tables(monkeypatch):
     class DummyHdr:
         def __init__(self, doc, pages=None, body_limit=None, options=None):

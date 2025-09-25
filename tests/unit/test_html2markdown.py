@@ -1,7 +1,9 @@
+import pytest
 from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
 from all2md.options import HtmlOptions, MarkdownOptions
 
 
+@pytest.mark.unit
 def test_heading_hash_true():
     html = "<h1>Title</h1><h2>Sub</h2>"
     converter = HTMLToMarkdown(hash_headings=True)
@@ -9,6 +11,7 @@ def test_heading_hash_true():
     assert md == "# Title\n\n## Sub"
 
 
+@pytest.mark.unit
 def test_heading_hash_false():
     html = "<h1>Title</h1><h2>Sub</h2>"
     converter = HTMLToMarkdown(hash_headings=False)
@@ -16,6 +19,7 @@ def test_heading_hash_false():
     assert md == "Title\n=====\n\nSub\n---"
 
 
+@pytest.mark.unit
 def test_paragraph_and_inline_formatting():
     html = "<p>This is <strong>bold</strong>, <em>italic</em>, and <code>code</code>.</p>"
     converter = HTMLToMarkdown()
@@ -23,6 +27,7 @@ def test_paragraph_and_inline_formatting():
     assert md == "This is **bold**, *italic*, and `code`."
 
 
+@pytest.mark.unit
 def test_line_break_and_horizontal_rule():
     html = "Line1<br>Line2<hr>Line3"
     converter = HTMLToMarkdown()
@@ -30,6 +35,7 @@ def test_line_break_and_horizontal_rule():
     assert md == "Line1\nLine2\n\n---\n\nLine3"
 
 
+@pytest.mark.unit
 def test_unordered_list_simple():
     html = "<ul><li>One</li><li>Two</li></ul>"
     converter = HTMLToMarkdown()
@@ -37,6 +43,7 @@ def test_unordered_list_simple():
     assert md == "* One\n* Two"
 
 
+@pytest.mark.unit
 def test_ordered_list_simple():
     html = "<ol><li>First</li><li>Second</li></ol>"
     converter = HTMLToMarkdown()
@@ -44,6 +51,7 @@ def test_ordered_list_simple():
     assert md == "1. First\n2. Second"
 
 
+@pytest.mark.unit
 def test_unordered_list_nested():
     html = "<ul><li>Parent<ul><li>Child</li></ul></li></ul>"
     converter = HTMLToMarkdown()
@@ -51,6 +59,7 @@ def test_unordered_list_nested():
     assert md == "* Parent\n  - Child"
 
 
+@pytest.mark.unit
 def test_ordered_list_nested():
     html = "<ol><li>Parent<ol><li>Child</li></ol></li></ol>"
     converter = HTMLToMarkdown()
@@ -58,6 +67,7 @@ def test_ordered_list_nested():
     assert md == "1. Parent\n   1. Child"
 
 
+@pytest.mark.unit
 def test_mixed_list_symbols_and_depth():
     html = "<ul><li>A<ul><li>B<ol><li>C</li></ol></li></ul></li></ul>"
     converter = HTMLToMarkdown(bullet_symbols="*+")
@@ -66,6 +76,7 @@ def test_mixed_list_symbols_and_depth():
     assert md == expected
 
 
+@pytest.mark.unit
 def test_link_with_and_without_title():
     html_title = '<a href="http://example.com" title="T">link</a>'
     html_no_title = '<a href="http://example.com">link</a>'
@@ -76,6 +87,7 @@ def test_link_with_and_without_title():
     assert md2 == "[link](http://example.com)"
 
 
+@pytest.mark.unit
 def test_image_and_removal():
     html = '<img src="img.png" alt="Alt" title="T">'
     conv_keep = HTMLToMarkdown(attachment_mode="alt_text")
@@ -84,6 +96,7 @@ def test_image_and_removal():
     assert conv_remove.convert(html) == ""
 
 
+@pytest.mark.unit
 def test_code_block_language_class():
     html = '<pre class="python"><code>print("hi")</code></pre>'
     converter = HTMLToMarkdown()
@@ -91,6 +104,7 @@ def test_code_block_language_class():
     assert md == '```python\nprint("hi")\n```'
 
 
+@pytest.mark.unit
 def test_inline_code_and_special_characters():
     html = "<p>* _ ` # + - . ! [ ] ( ) { } \\</p>"
     # Default behavior now escapes special characters
@@ -106,6 +120,7 @@ def test_inline_code_and_special_characters():
     assert md_no_escape == "* _ ` # + - . ! [ ] ( ) { } \\"
 
 
+@pytest.mark.unit
 def test_blockquote_simple():
     html = "<blockquote>Quote</blockquote>"
     converter = HTMLToMarkdown()
@@ -113,6 +128,7 @@ def test_blockquote_simple():
     assert md == "> Quote"
 
 
+@pytest.mark.unit
 def test_table_with_header_and_rows():
     html = "<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>"
     converter = HTMLToMarkdown()
@@ -121,6 +137,7 @@ def test_table_with_header_and_rows():
     assert md == expected
 
 
+@pytest.mark.unit
 def test_mixed_content_div():
     html = "<div><p>X</p><ul><li><em>I</em></li></ul></div>"
     converter = HTMLToMarkdown()
@@ -128,12 +145,14 @@ def test_mixed_content_div():
     assert md == "X\n\n* *I*"
 
 
+@pytest.mark.unit
 def test_empty_elements():
     conv = HTMLToMarkdown()
     assert conv.convert("<p></p>") == ""
     assert conv.convert("<ul><li></li></ul>") == ""
 
 
+@pytest.mark.unit
 def test_custom_emphasis_symbol_and_bullets():
     html = "<p><em>italic</em> <strong>bold</strong></p><ul><li>One</li></ul>"
     converter = HTMLToMarkdown(emphasis_symbol="_", bullet_symbols="x")
@@ -141,6 +160,7 @@ def test_custom_emphasis_symbol_and_bullets():
     assert md == "_italic_ __bold__\n\nx One"
 
 
+@pytest.mark.unit
 def test_title_extraction_default_and_no_hash():
     html = "<html><head><title>My Title</title></head><body><p>Para</p></body></html>"
     md_default = html_to_markdown(html, options=HtmlOptions(extract_title=True, use_hash_headings=True))
@@ -149,6 +169,7 @@ def test_title_extraction_default_and_no_hash():
     assert md_no_hash == "My Title\n========\n\nPara"
 
 
+@pytest.mark.unit
 def test_html_to_markdown_alias():
     assert html_to_markdown("<p>Hi</p>") == "Hi"
 
@@ -156,6 +177,7 @@ def test_html_to_markdown_alias():
 # New tests for enhanced features
 
 
+@pytest.mark.unit
 def test_markdown_escaping_enabled():
     """Test that special Markdown characters are escaped when escape_special is True."""
     html = "<p>Text with * and _ and # characters</p>"
@@ -164,6 +186,7 @@ def test_markdown_escaping_enabled():
     assert "\\*" in result and "\\_" in result and "\\#" in result
 
 
+@pytest.mark.unit
 def test_markdown_escaping_disabled():
     """Test that special characters are not escaped when escape_special is False."""
     html = "<p>Text with * and _ and # characters</p>"
@@ -172,6 +195,7 @@ def test_markdown_escaping_disabled():
     assert "\\*" not in result and "\\_" not in result and "\\#" not in result
 
 
+@pytest.mark.unit
 def test_dynamic_code_fencing():
     """Test that code blocks use appropriate fence lengths based on content."""
     html_simple = "<pre><code>print('hello')</code></pre>"
@@ -185,6 +209,7 @@ def test_dynamic_code_fencing():
     assert "````" in result_backticks or "`````" in result_backticks
 
 
+@pytest.mark.unit
 def test_table_with_caption():
     """Test table processing with caption support."""
     html = """
@@ -199,6 +224,7 @@ def test_table_with_caption():
     assert "*Table Caption*" in result
 
 
+@pytest.mark.unit
 def test_table_alignment_detection():
     """Test table alignment detection from HTML attributes."""
     html = """
@@ -218,6 +244,7 @@ def test_table_alignment_detection():
     assert "---:" in result
 
 
+@pytest.mark.unit
 def test_html_entity_decoding():
     """Test HTML entity decoding functionality."""
     html = "<p>Text with &amp; and &lt; and &gt; entities</p>"
@@ -226,6 +253,7 @@ def test_html_entity_decoding():
     assert "&" in result and "<" in result and ">" in result
 
 
+@pytest.mark.unit
 def test_preserve_nbsp():
     """Test non-breaking space preservation."""
     html = "<p>Text&nbsp;with&nbsp;nbsp</p>"
@@ -240,6 +268,7 @@ def test_preserve_nbsp():
     assert "Text" in result_no_preserve and "with" in result_no_preserve
 
 
+@pytest.mark.unit
 def test_content_sanitization():
     """Test removal of dangerous HTML elements."""
     dangerous_html = """
@@ -260,6 +289,7 @@ def test_content_sanitization():
     assert "alert" not in result_no_sanitize and "display: none" not in result_no_sanitize
 
 
+@pytest.mark.unit
 def test_definition_lists():
     """Test definition list (dl/dt/dd) conversion."""
     html = """
@@ -276,6 +306,7 @@ def test_definition_lists():
     assert "**Term 2**" in result and ": Definition 2" in result
 
 
+@pytest.mark.unit
 def test_nested_blockquotes():
     """Test improved nested blockquote handling."""
     html = """
@@ -295,6 +326,7 @@ def test_nested_blockquotes():
     assert len(nested_quotes) > 0
 
 
+@pytest.mark.unit
 def test_base_url_resolution():
     """Test base URL resolution for relative links and images."""
     html = '<p><a href="/page">Link</a> <img src="/image.jpg" alt="Image"></p>'
@@ -304,6 +336,7 @@ def test_base_url_resolution():
     assert "https://example.com/image.jpg" in result
 
 
+@pytest.mark.unit
 def test_image_removal():
     """Test image removal functionality."""
     html = '<p>Text <img src="image.jpg" alt="Image"> more text</p>'
@@ -313,6 +346,7 @@ def test_image_removal():
     assert "Text" in result and "more text" in result
 
 
+@pytest.mark.unit
 def test_multiple_header_rows():
     """Test table with multiple header rows."""
     html = """
@@ -335,6 +369,7 @@ def test_multiple_header_rows():
     assert "Data 1" in result and "Data 2" in result
 
 
+@pytest.mark.unit
 def test_empty_elements_handling():
     """Test handling of empty HTML elements."""
     html = """
@@ -349,6 +384,7 @@ def test_empty_elements_handling():
     assert len(result) == 0 or result.count("\n") < 5
 
 
+@pytest.mark.unit
 def test_options_object_usage():
     """Test using HtmlOptions object with all new features."""
     html = """
@@ -381,6 +417,7 @@ def test_options_object_usage():
     assert "alert" not in result  # Sanitized dangerous content
 
 
+@pytest.mark.unit
 def test_code_fence_with_language():
     """Test code blocks with language specification."""
     html = '<pre class="python"><code>def hello():\n    print("world")</code></pre>'
@@ -390,6 +427,7 @@ def test_code_fence_with_language():
     assert "def hello():" in result
 
 
+@pytest.mark.unit
 def test_inline_code_with_backticks():
     """Test inline code containing backticks."""
     html = "<p>Use <code>`markdown`</code> syntax</p>"

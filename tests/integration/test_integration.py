@@ -16,6 +16,7 @@ from tests.utils import (
 )
 
 
+@pytest.mark.integration
 class TestIntegration:
     """Integration tests for full pipeline testing."""
 
@@ -320,6 +321,7 @@ class TestIntegration:
         assert "Text with" in result
 
 
+@pytest.mark.integration
 class TestNewAPI:
     """Test the new to_markdown API with enhanced format detection and options handling."""
 

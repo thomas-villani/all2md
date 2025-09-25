@@ -1,3 +1,5 @@
+import pytest
+
 import base64
 
 from pptx import Presentation
@@ -18,17 +20,20 @@ from all2md.pptx2markdown import (
 )
 
 
+@pytest.mark.unit
 def test_process_paragraph_format():
     DummyPara = type("DummyPara", (), {"level": 2})
     assert _process_paragraph_format(DummyPara) == [("  " * 2, "")]
 
 
+@pytest.mark.unit
 def test_process_run_format():
     font = type("Font", (), {"bold": True, "italic": False, "underline": True})()
     run = type("Run", (), {"font": font})()
     assert _process_run_format(run) == [("**", "**"), ("__", "__")]
 
 
+@pytest.mark.unit
 def test_process_text_frame_formatting():
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[-1])
@@ -45,6 +50,7 @@ def test_process_text_frame_formatting():
     assert result == "__***Hello***__"
 
 
+@pytest.mark.unit
 def test_process_table():
     prs = create_test_presentation()
     slide = prs.slides[2]
@@ -61,6 +67,7 @@ def test_process_table():
     assert md_table == expected
 
 
+@pytest.mark.unit
 def test_extract_image_data():
     png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="
     png_bytes = base64.b64decode(png_b64)
@@ -73,6 +80,7 @@ def test_extract_image_data():
     assert isinstance(data, bytes)
 
 
+@pytest.mark.unit
 def test_process_shape_picture():
     png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="
     png_bytes = base64.b64decode(png_b64)
@@ -91,6 +99,7 @@ def test_process_shape_picture():
     assert yes_md.startswith("![alt](data:image/") and yes_md.endswith(")")
 
 
+@pytest.mark.unit
 def test_process_shape_chart():
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[-1])
@@ -107,6 +116,7 @@ def test_process_shape_chart():
     assert md_chart == expected
 
 
+@pytest.mark.unit
 def test_pptx_to_markdown_default():
     prs = create_test_presentation()
     # tmpfile = NamedTemporaryFile("wb", suffix=".pptx", delete=False)
@@ -122,6 +132,7 @@ def test_pptx_to_markdown_default():
     assert output.strip().endswith("---")
 
 
+@pytest.mark.unit
 def test_pptx_to_markdown_no_slide_numbers():
     prs = create_test_presentation()
     from all2md.options import PptxOptions

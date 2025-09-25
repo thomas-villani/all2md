@@ -7,6 +7,7 @@ from all2md.options import HtmlOptions, MarkdownOptions
 from tests.utils import HtmlTestGenerator, assert_markdown_valid
 
 
+@pytest.mark.integration
 class TestHtmlTablesAdvanced:
     """Test complex table scenarios in HTML documents."""
 
