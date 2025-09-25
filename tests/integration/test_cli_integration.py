@@ -370,7 +370,7 @@ class TestCLIIntegration:
                 str(odt_file),
                 "--out", str(output_file),
                 "--attachment-mode", "base64",
-                "--markdown-emphasis-symbol", "*"
+                "--markdown-emphasis-symbol", "_"
             ])
 
             assert result == 0
@@ -382,8 +382,9 @@ class TestCLIIntegration:
 
             # preserve_tables should not be in kwargs when default True is specified
             assert 'preserve_tables' not in kwargs
+            print(kwargs)
             assert kwargs['attachment_mode'] == 'base64'
-            assert kwargs['emphasis_symbol'] == '*'
+            assert kwargs['emphasis_symbol'] == '_'
 
     def test_odp_conversion(self):
         """Test ODP presentation conversion via CLI."""

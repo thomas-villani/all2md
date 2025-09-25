@@ -378,7 +378,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     """
     try:
         from all2md.converters.html2markdown import html_to_markdown
-        from .options import HtmlOptions
+        from all2md.options import HtmlOptions
 
         # Create HTML options that match EML preferences
         html_options = HtmlOptions(

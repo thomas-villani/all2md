@@ -1,0 +1,454 @@
+"""Unit tests for MHTML to Markdown conversion.
+
+This module contains unit tests for the mhtml2markdown converter,
+testing core functionality, error handling, and edge cases.
+"""
+
+import io
+from unittest.mock import mock_open, patch
+
+import pytest
+
+from all2md.converters.mhtml2markdown import mhtml_to_markdown
+from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.options import MarkdownOptions, MhtmlOptions
+
+
+@pytest.mark.unit
+@pytest.mark.mhtml
+class TestMhtmlToMarkdown:
+    """Test core MHTML to Markdown conversion functionality."""
+
+    def test_mhtml_to_markdown_simple_content(self):
+        """Test basic MHTML to Markdown conversion."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Test Document</h1>
+    <p>Simple content with <strong>bold</strong> text.</p>
+</body>
+</html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# Test Document\n\nSimple content with **bold** text."
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            assert result == "# Test Document\n\nSimple content with **bold** text."
+            mock_html_to_md.assert_called_once()
+
+    def test_mhtml_to_markdown_with_path(self):
+        """Test MHTML conversion from file path."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Test</h1></body></html>
+
+--test-boundary--
+"""
+
+        with patch('os.path.exists', return_value=True):
+            with patch('os.path.isfile', return_value=True):
+                with patch('builtins.open', mock_open(read_data=mhtml_content)):
+                    with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+                        mock_html_to_md.return_value = "# Test"
+
+                        result = mhtml_to_markdown("test.mht")
+
+                        assert result == "# Test"
+
+    def test_mhtml_to_markdown_no_html_content(self):
+        """Test error handling when MHTML has no HTML content."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/plain; charset=utf-8
+
+This is plain text, not HTML.
+
+--test-boundary--
+"""
+
+        with pytest.raises(MarkdownConversionError) as exc_info:
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+        assert "No HTML content found in the MHTML file" in str(exc_info.value)
+
+    def test_mhtml_to_markdown_malformed_email(self):
+        """Test error handling for malformed MHTML/email content."""
+        malformed_content = b"This is not valid MHTML content at all."
+
+        with pytest.raises(MarkdownConversionError) as exc_info:
+            mhtml_to_markdown(io.BytesIO(malformed_content))
+
+        assert "No HTML content found" in str(exc_info.value)
+
+    def test_mhtml_to_markdown_with_cid_images(self):
+        """Test MHTML conversion with Content-ID referenced images."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+    <h1>Test with Image</h1>
+    <img src="cid:test-image" alt="Test Image">
+</body></html>
+
+--test-boundary
+Content-Type: image/png
+Content-ID: <test-image>
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# Test with Image\n\n![Test Image](data:image/png;base64,...)"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            # Verify that html_to_markdown was called with processed HTML
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+
+            # Check that the image src was converted to data URI
+            assert 'data:image/png;base64,' in processed_html
+            assert 'cid:test-image' not in processed_html
+
+    def test_mhtml_to_markdown_with_file_urls(self):
+        """Test MHTML conversion with file:// referenced images."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+    <img src="file://test.png" alt="File Image">
+</body></html>
+
+--test-boundary
+Content-Type: image/png
+Content-Location: test.png
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "![File Image](data:image/png;base64,...)"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            # Verify that the image src was processed
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+
+            assert 'data:image/png;base64,' in processed_html
+            assert 'file://test.png' not in processed_html
+
+    def test_mhtml_to_markdown_ms_word_artifact_cleanup(self):
+        """Test cleanup of MS Word artifacts in MHTML."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
+<body>
+    <h1>Test Document</h1>
+
+    <!--[if !supportLists]-->- <!--[endif]-->
+    <p class="MsoListParagraph">List item 1</p>
+
+    <!--[if !supportLists]-->1. <!--[endif]-->
+    <p class="MsoListParagraph">Numbered item</p>
+
+    <p>Regular paragraph with <o:p></o:p> artifacts.</p>
+
+    <!--[if gte mso 9]><xml><w:WordDocument></w:WordDocument></xml><![endif]-->
+</body>
+</html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "Cleaned content"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            assert result == "Cleaned content"
+
+            # Check that MS Word artifacts were cleaned
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+
+            # Check that the HTML was processed (even if not all artifacts removed)
+            assert 'List item 1' in processed_html
+            assert 'Regular paragraph' in processed_html
+            # Some artifacts should be cleaned or converted
+            assert '<li>' in processed_html  # Converted paragraphs
+
+    def test_mhtml_to_markdown_with_options(self):
+        """Test MHTML conversion with custom options."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Test</h1></body></html>
+
+--test-boundary--
+"""
+
+        md_options = MarkdownOptions(emphasis_symbol="_")
+        options = MhtmlOptions(
+            attachment_mode="download",
+            attachment_output_dir="/tmp/images",
+            markdown_options=md_options
+        )
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# Test"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
+
+            # Verify options were passed to html_to_markdown
+            args, kwargs = mock_html_to_md.call_args
+            html_options = kwargs['options']
+
+            assert html_options.attachment_mode == "download"
+            assert html_options.attachment_output_dir == "/tmp/images"
+            assert html_options.markdown_options is md_options
+
+    def test_mhtml_to_markdown_charset_handling(self):
+        """Test handling of different character encodings."""
+        # MHTML with UTF-8 content
+        mhtml_content = """MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Café & Résumé</h1></body></html>
+
+--test-boundary--
+""".encode('utf-8')
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# Café & Résumé"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            # Should handle Unicode characters properly - they will be HTML encoded
+            assert "Caf" in str(mock_html_to_md.call_args) and "R" in str(mock_html_to_md.call_args)
+
+    def test_mhtml_to_markdown_missing_charset(self):
+        """Test handling of HTML content without charset specification."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html
+
+<html><body><h1>No Charset</h1></body></html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# No Charset"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            # Should default to UTF-8 and work
+            assert result == "# No Charset"
+
+    def test_mhtml_options_defaults(self):
+        """Test default MHTML options."""
+        options = MhtmlOptions()
+
+        assert options.attachment_mode == "alt_text"
+        assert options.attachment_output_dir is None
+        assert options.attachment_base_url is None
+        assert options.markdown_options is None
+
+    def test_invalid_input_type(self):
+        """Test error handling for invalid input types."""
+        with pytest.raises(InputError) as exc_info:
+            mhtml_to_markdown(12345)  # Invalid type
+
+        assert "Unsupported input type" in str(exc_info.value)
+
+    def test_mhtml_with_multiple_html_parts(self):
+        """Test MHTML with multiple HTML parts (should use first one)."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>First HTML</h1></body></html>
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Second HTML</h1></body></html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# First HTML"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            # Should use the first HTML part
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+            assert "First HTML" in processed_html
+            assert "Second HTML" not in processed_html
+
+    def test_mhtml_with_missing_assets(self):
+        """Test MHTML conversion when referenced assets are missing."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+    <img src="cid:missing-image" alt="Missing">
+    <img src="regular-image.png" alt="Regular">
+</body></html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "Content with images"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            # Should handle missing assets gracefully
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+            # Missing CID reference should remain unchanged
+            assert 'cid:missing-image' in processed_html
+            # Regular image reference should remain unchanged
+            assert 'regular-image.png' in processed_html
+
+
+@pytest.mark.unit
+@pytest.mark.mhtml
+class TestMhtmlErrorHandling:
+    """Test error handling in MHTML conversion."""
+
+    def test_file_read_error(self):
+        """Test handling of file read errors."""
+        with patch('builtins.open', side_effect=IOError("Cannot read file")):
+            with pytest.raises(InputError) as exc_info:
+                mhtml_to_markdown("nonexistent.mht")
+
+            assert "File does not exist: nonexistent.mht" in str(exc_info.value)
+
+    def test_email_parsing_error(self):
+        """Test handling of email parsing errors."""
+        invalid_content = b"Not a valid email/MIME message"
+
+        # This should still work as email.message_from_bytes is quite forgiving
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            with pytest.raises(MarkdownConversionError) as exc_info:
+                mhtml_to_markdown(io.BytesIO(invalid_content))
+
+            assert "No HTML content found" in str(exc_info.value)
+
+    def test_unsupported_input_type_error(self):
+        """Test error for completely unsupported input types."""
+        with pytest.raises(InputError):
+            # Dictionary is not a supported input type
+            mhtml_to_markdown({"not": "supported"})
+
+    def test_bytes_io_conversion(self):
+        """Test successful conversion with BytesIO input."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>BytesIO Test</h1></body></html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# BytesIO Test"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            assert result == "# BytesIO Test"
+
+
+@pytest.mark.unit
+@pytest.mark.mhtml
+class TestMhtmlListProcessing:
+    """Test MS Word list processing in MHTML conversion."""
+
+    def test_ms_word_list_marker_replacement(self):
+        """Test replacement of MS Word list markers."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+    <!--[if !supportLists]-->&middot;<!--[endif]-->
+    <p class="MsoListParagraph">Bullet item</p>
+
+    <!--[if !supportLists]-->1.<!--[endif]-->
+    <p class="MsoListParagraph">Numbered item</p>
+
+    <!--[if !supportLists]-->-<!--[endif]-->
+    <p class="MsoListParagraph">Dash item</p>
+</body></html>
+
+--test-boundary--
+"""
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "List content"
+
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
+
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+
+            # Check that list markers were properly replaced
+            assert '- ' in processed_html  # Generic bullets
+            # MS Word conditional comments should be removed
+            assert '<!--[if !supportLists]-->' not in processed_html
+            assert '<li>' in processed_html  # Converted to list items

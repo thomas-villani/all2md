@@ -754,3 +754,335 @@ def example_function():
         if images_dir.exists():
             image_files = list(images_dir.glob("*.png"))
             assert len(image_files) >= 0  # May or may not have images depending on processing
+
+
+@pytest.mark.e2e
+@pytest.mark.epub
+class TestEpubCLIEndToEnd:
+    """End-to-end tests for EPUB CLI functionality."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def _run_cli(self, args: list[str]) -> subprocess.CompletedProcess:
+        """Run the CLI as a subprocess."""
+        cmd = [sys.executable, "-m", "all2md"] + args
+        cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
+        return subprocess.run(
+            cmd,
+            cwd=cli_path.parent.parent.parent,  # Run from project root
+            capture_output=True,
+            text=True
+        )
+
+    def test_epub_basic_conversion(self):
+        """Test basic EPUB conversion via CLI."""
+        # Skip if ebooklib not available
+        try:
+            import ebooklib
+        except ImportError:
+            pytest.skip("ebooklib not available for EPUB tests")
+
+        from tests.fixtures.generators.epub_fixtures import create_simple_epub
+
+        # Create test EPUB file
+        epub_content = create_simple_epub()
+        epub_file = self.temp_dir / "test_book.epub"
+        epub_file.write_bytes(epub_content)
+
+        # Run CLI conversion
+        result = self._run_cli([str(epub_file)])
+
+        # Check success
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Check output contains expected content
+        output = result.stdout
+        assert "Chapter 1: Introduction" in output
+        assert "Chapter 2: Content" in output
+        assert "**bold text**" in output
+        assert "*italic text*" in output
+        assert "[link](http://example.com)" in output
+
+    def test_epub_with_output_file(self):
+        """Test EPUB conversion to output file."""
+        try:
+            import ebooklib
+        except ImportError:
+            pytest.skip("ebooklib not available for EPUB tests")
+
+        from tests.fixtures.generators.epub_fixtures import create_simple_epub
+
+        epub_content = create_simple_epub()
+        epub_file = self.temp_dir / "test_book.epub"
+        epub_file.write_bytes(epub_content)
+
+        output_file = self.temp_dir / "output.md"
+
+        # Run CLI conversion with output file
+        result = self._run_cli([
+            str(epub_file),
+            "--out", str(output_file)
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert output_file.exists(), "Output file was not created"
+
+        # Check content
+        content = output_file.read_text(encoding="utf-8")
+        assert "Chapter 1: Introduction" in content
+        assert "Chapter 2: Content" in content
+
+    def test_epub_with_base64_images(self):
+        """Test EPUB conversion with base64 image embedding."""
+        try:
+            import ebooklib
+        except ImportError:
+            pytest.skip("ebooklib not available for EPUB tests")
+
+        from tests.fixtures.generators.epub_fixtures import create_epub_with_images
+
+        epub_content = create_epub_with_images()
+        epub_file = self.temp_dir / "test_with_images.epub"
+        epub_file.write_bytes(epub_content)
+
+        # Run CLI with base64 mode
+        result = self._run_cli([
+            str(epub_file),
+            "--attachment-mode", "base64"
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Check for base64 image data
+        output = result.stdout
+        assert "Chapter with Image" in output
+        assert "data:image/png;base64," in output or "![" in output
+
+    def test_epub_with_download_images(self):
+        """Test EPUB conversion with image download."""
+        try:
+            import ebooklib
+        except ImportError:
+            pytest.skip("ebooklib not available for EPUB tests")
+
+        from tests.fixtures.generators.epub_fixtures import create_epub_with_images
+
+        epub_content = create_epub_with_images()
+        epub_file = self.temp_dir / "test_with_images.epub"
+        epub_file.write_bytes(epub_content)
+
+        images_dir = self.temp_dir / "images"
+        output_file = self.temp_dir / "output.md"
+
+        # Run CLI with download mode
+        result = self._run_cli([
+            str(epub_file),
+            "--out", str(output_file),
+            "--attachment-mode", "download",
+            "--attachment-output-dir", str(images_dir)
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert output_file.exists()
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "Chapter with Image" in content
+
+    def test_epub_format_override(self):
+        """Test EPUB format override."""
+        try:
+            import ebooklib
+        except ImportError:
+            pytest.skip("ebooklib not available for EPUB tests")
+
+        from tests.fixtures.generators.epub_fixtures import create_simple_epub
+
+        epub_content = create_simple_epub()
+        epub_file = self.temp_dir / "test.epub"
+        epub_file.write_bytes(epub_content)
+
+        # Test with explicit format
+        result = self._run_cli([
+            str(epub_file),
+            "--format", "epub"
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert "Chapter 1: Introduction" in result.stdout
+
+    def test_epub_nonexistent_file_error(self):
+        """Test error handling for nonexistent EPUB file."""
+        nonexistent_file = self.temp_dir / "does_not_exist.epub"
+
+        result = self._run_cli([str(nonexistent_file)])
+
+        assert result.returncode == 1
+        assert "Error" in result.stderr
+
+
+@pytest.mark.e2e
+@pytest.mark.mhtml
+class TestMhtmlCLIEndToEnd:
+    """End-to-end tests for MHTML CLI functionality."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def _run_cli(self, args: list[str]) -> subprocess.CompletedProcess:
+        """Run the CLI as a subprocess."""
+        cmd = [sys.executable, "-m", "all2md"] + args
+        cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
+        return subprocess.run(
+            cmd,
+            cwd=cli_path.parent.parent.parent,  # Run from project root
+            capture_output=True,
+            text=True
+        )
+
+    def test_mhtml_basic_conversion(self):
+        """Test basic MHTML conversion via CLI."""
+        from tests.fixtures.generators.mhtml_fixtures import create_simple_mhtml
+
+        # Create test MHTML file
+        mhtml_content = create_simple_mhtml()
+        mhtml_file = self.temp_dir / "test_page.mht"
+        mhtml_file.write_bytes(mhtml_content)
+
+        # Run CLI conversion
+        result = self._run_cli([str(mhtml_file)])
+
+        # Check success
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Check output contains expected content
+        output = result.stdout
+        assert "Test MHTML Document" in output
+        assert "**bold**" in output or "<strong>" in output
+        assert "*italic*" in output or "<em>" in output
+        assert "example.com" in output
+
+    def test_mhtml_with_output_file(self):
+        """Test MHTML conversion to output file."""
+        from tests.fixtures.generators.mhtml_fixtures import create_simple_mhtml
+
+        mhtml_content = create_simple_mhtml()
+        mhtml_file = self.temp_dir / "test_page.mht"
+        mhtml_file.write_bytes(mhtml_content)
+
+        output_file = self.temp_dir / "output.md"
+
+        # Run CLI conversion with output file
+        result = self._run_cli([
+            str(mhtml_file),
+            "--out", str(output_file)
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert output_file.exists(), "Output file was not created"
+
+        # Check content
+        content = output_file.read_text(encoding="utf-8")
+        assert "Test MHTML Document" in content
+        assert len(content.strip()) > 0
+
+    def test_mhtml_with_images(self):
+        """Test MHTML conversion with embedded images."""
+        from tests.fixtures.generators.mhtml_fixtures import create_mhtml_with_image
+
+        mhtml_content = create_mhtml_with_image()
+        mhtml_file = self.temp_dir / "test_with_images.mht"
+        mhtml_file.write_bytes(mhtml_content)
+
+        # Run CLI with base64 mode
+        result = self._run_cli([
+            str(mhtml_file),
+            "--attachment-mode", "base64"
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Check for image processing
+        output = result.stdout
+        assert "Test MHTML with Image" in output
+        assert len(output.strip()) > 0
+
+    def test_mhtml_with_download_images(self):
+        """Test MHTML conversion with image download."""
+        from tests.fixtures.generators.mhtml_fixtures import create_mhtml_with_image
+
+        mhtml_content = create_mhtml_with_image()
+        mhtml_file = self.temp_dir / "test_with_images.mht"
+        mhtml_file.write_bytes(mhtml_content)
+
+        images_dir = self.temp_dir / "images"
+        output_file = self.temp_dir / "output.md"
+
+        # Run CLI with download mode
+        result = self._run_cli([
+            str(mhtml_file),
+            "--out", str(output_file),
+            "--attachment-mode", "download",
+            "--attachment-output-dir", str(images_dir)
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert output_file.exists()
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "Test MHTML with Image" in content
+
+    def test_mhtml_ms_word_artifacts(self):
+        """Test MHTML conversion with MS Word artifacts."""
+        from tests.fixtures.generators.mhtml_fixtures import create_mhtml_with_ms_word_artifacts
+
+        mhtml_content = create_mhtml_with_ms_word_artifacts()
+        mhtml_file = self.temp_dir / "test_word_artifacts.mht"
+        mhtml_file.write_bytes(mhtml_content)
+
+        # Run CLI conversion
+        result = self._run_cli([str(mhtml_file)])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Check output contains cleaned content
+        output = result.stdout
+        assert "MS Word MHTML Document" in output
+        assert "First list item" in output
+        assert "Second list item" in output
+
+    def test_mhtml_format_override(self):
+        """Test MHTML format override."""
+        from tests.fixtures.generators.mhtml_fixtures import create_simple_mhtml
+
+        mhtml_content = create_simple_mhtml()
+        mhtml_file = self.temp_dir / "test.mht"
+        mhtml_file.write_bytes(mhtml_content)
+
+        # Test with explicit format
+        result = self._run_cli([
+            str(mhtml_file),
+            "--format", "mhtml"
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert "Test MHTML Document" in result.stdout
+
+    def test_mhtml_nonexistent_file_error(self):
+        """Test error handling for nonexistent MHTML file."""
+        nonexistent_file = self.temp_dir / "does_not_exist.mht"
+
+        result = self._run_cli([str(nonexistent_file)])
+
+        assert result.returncode == 1
+        assert "Error" in result.stderr

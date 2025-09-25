@@ -325,16 +325,21 @@ class TestCLIParser:
         assert "Convert documents to Markdown format" in parser.description
 
     def test_parser_required_arguments(self):
-        """Test that required arguments are properly configured."""
+        """Test that input argument is optional at parser level but validated in main()."""
         parser = create_parser()
 
         # Should succeed with input file
         args = parser.parse_args(["test.pdf"])
         assert args.input == "test.pdf"
 
-        # Should fail without input file
-        with pytest.raises(SystemExit):
-            parser.parse_args([])
+        # Should succeed without input file at parser level (validation happens in main)
+        args = parser.parse_args([])
+        assert args.input is None
+
+        # Should succeed with --about flag and no input file
+        args = parser.parse_args(["--about"])
+        assert args.about is True
+        assert args.input is None
 
     def test_parser_format_choices(self):
         """Test format argument choices."""

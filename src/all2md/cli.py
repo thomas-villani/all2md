@@ -425,8 +425,15 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict
         if arg_name.startswith('markdown_'):
             field_name = arg_name[9:]  # Remove 'markdown_' prefix
             if field_name in markdown_fields and arg_value is not None:
-                # CLI arguments override JSON options when explicitly provided
-                options[field_name] = arg_value
+                # Only include non-default values
+                defaults = {
+                    'emphasis_symbol': '*',
+                    'bullet_symbols': '*-+',
+                    'page_separator': '-----'
+                }
+                if field_name not in defaults or arg_value != defaults[field_name]:
+                    # CLI arguments override JSON options when explicitly provided
+                    options[field_name] = arg_value
             continue
 
         # Handle format-specific options

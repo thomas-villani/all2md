@@ -127,6 +127,9 @@ def mhtml_to_markdown(
             raise InputError(f"Unsupported input type for MHTML conversion: {type(input_data).__name__}")
 
         msg = email.message_from_bytes(raw_data, policy=policy.default)
+    except InputError:
+        # Let InputError propagate directly
+        raise
     except Exception as e:
         raise MarkdownConversionError(
             f"Failed to read or parse MHTML file: {e}", conversion_stage="mhtml_parsing", original_error=e
@@ -145,7 +148,10 @@ def mhtml_to_markdown(
             break  # Assume the first HTML part is the main document
 
     if not html_string:
-        raise MarkdownConversionError("No HTML content found in the MHTML file.")
+        raise MarkdownConversionError(
+            "No HTML content found in the MHTML file.",
+            conversion_stage="mhtml_parsing"
+        )
 
     # Gather all assets
     for part in msg.walk():

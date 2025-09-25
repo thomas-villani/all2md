@@ -50,7 +50,9 @@ Dependencies
 """
 
 import logging
+import os
 import re
+import tempfile
 from collections import OrderedDict
 from pathlib import Path, PurePosixPath
 from typing import IO, Any, Union
@@ -225,14 +227,34 @@ def epub_to_markdown(
     if options is None:
         options = EpubOptions()
 
+    # Handle BytesIO objects by creating a temporary file
+    temp_file = None
     try:
-        book = epub.read_epub(input_data)
+        if hasattr(input_data, 'read') and hasattr(input_data, 'seek'):
+            # It's a file-like object (BytesIO)
+            input_data.seek(0)  # Ensure we're at the beginning
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+            temp_file.write(input_data.read())
+            temp_file.close()
+            epub_path = temp_file.name
+        else:
+            # It's a file path
+            epub_path = input_data
+
+        book = epub.read_epub(epub_path)
     except Exception as e:
         raise MarkdownConversionError(
             f"Failed to read or parse EPUB file: {e!r}",
             conversion_stage="document_opening",
             original_error=e,
         ) from e
+    finally:
+        # Clean up temporary file if created
+        if temp_file and os.path.exists(temp_file.name):
+            try:
+                os.unlink(temp_file.name)
+            except OSError:
+                pass  # Ignore cleanup errors
 
     md_options = options.markdown_options or MarkdownOptions()
     html_options = HtmlOptions(

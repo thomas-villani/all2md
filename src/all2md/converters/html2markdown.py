@@ -392,35 +392,6 @@ class HTMLToMarkdown:
             logger.debug(f"Failed to download image from {url}: {e}")
             raise Exception(f"Failed to download image from {url}: {e}") from e
 
-    def _download_image_as_data_uri(self, url: str) -> str:
-        """Download image and convert to data URI using secure httpx client.
-
-        Parameters
-        ----------
-        url : str
-            URL of image to download.
-
-        Returns
-        -------
-        str
-            Data URI representation of image, or original URL if download fails.
-        """
-        if not self._validate_url(url):
-            logger.info(f"Skipping unsafe URL: {url}")
-            return url
-
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url, follow_redirects=True)
-                response.raise_for_status()
-                content_type = response.headers.get("content-type", "image/png")
-                image_data = response.content
-                encoded_data = base64.b64encode(image_data).decode("utf-8")
-                return f"data:{content_type};base64,{encoded_data}"
-        except Exception as e:
-            logger.info(f"Image download failed for {url}, using original URL: {e}")
-            # Fallback to original URL if download fails
-            return url
 
     def _extract_language_from_attrs(self, node: Any) -> str:
         """Extract language identifier from various HTML attributes and patterns.

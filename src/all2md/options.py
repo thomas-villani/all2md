@@ -36,7 +36,6 @@ Options Classes
 """
 from __future__ import annotations
 
-import abc
 from dataclasses import dataclass, field
 
 from .constants import (
@@ -149,7 +148,7 @@ class MarkdownOptions:
 
 
 @dataclass
-class BaseOptions(abc.ABC):
+class BaseOptions:
     attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
     attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
     attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
