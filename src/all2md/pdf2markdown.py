@@ -106,8 +106,8 @@ from typing import Union
 
 import fitz
 
-from ._attachment_utils import generate_attachment_filename, process_attachment
-from ._input_utils import escape_markdown_special, validate_and_convert_input, validate_page_range
+from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from .constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,

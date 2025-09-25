@@ -53,8 +53,8 @@ from typing import IO, Any, Union
 from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
 from pyth.plugins.rtf15.reader import Rtf15Reader
 
-from ._attachment_utils import generate_attachment_filename, process_attachment
-from ._input_utils import format_special_text, validate_and_convert_input
+from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from .exceptions import MdparseConversionError
 from .options import MarkdownOptions, RtfOptions
 

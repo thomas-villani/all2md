@@ -62,7 +62,7 @@ import logging
 from pathlib import Path
 from typing import IO, Any, Union
 
-from ._attachment_utils import process_attachment
+from all2md.utils.attachments import process_attachment
 from .constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from .exceptions import MdparseConversionError, MdparseInputError
 from .options import IpynbOptions, MarkdownOptions

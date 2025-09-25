@@ -88,8 +88,8 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
 
-from ._attachment_utils import extract_pptx_image_data, generate_attachment_filename, process_attachment
-from ._input_utils import format_special_text, validate_and_convert_input
+from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
+from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from .exceptions import MdparseConversionError
 from .options import PptxOptions
 

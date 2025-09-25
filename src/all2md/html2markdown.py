@@ -103,8 +103,8 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup, NavigableString
 
-from ._attachment_utils import process_attachment
-from ._input_utils import is_path_like, validate_and_convert_input
+from all2md.utils.attachments import process_attachment
+from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from .constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,

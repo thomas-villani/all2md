@@ -85,7 +85,7 @@ from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
 from typing import Any, Union
 
-from ._attachment_utils import process_attachment
+from all2md.utils.attachments import process_attachment
 from .constants import DEFAULT_URL_WRAPPERS
 from .exceptions import MdparseConversionError, MdparseInputError
 from .options import EmlOptions

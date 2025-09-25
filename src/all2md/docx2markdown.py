@@ -77,8 +77,8 @@ from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 
-from ._attachment_utils import extract_docx_image_data, generate_attachment_filename, process_attachment
-from ._input_utils import format_special_text
+from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
+from all2md.utils.inputs import format_special_text
 from .constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from .exceptions import MdparseConversionError
 from .options import DocxOptions, MarkdownOptions
