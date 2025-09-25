@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import abc
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .constants import (
     DEFAULT_ATTACHMENT_BASE_URL,
@@ -89,6 +89,9 @@ from .constants import (
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
+
+    DEFAULT_TRUNCATE_OUTPUT_LINES,
+    DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
 )
 
 
@@ -480,7 +483,7 @@ class EmlOptions(BaseOptions):
     normalize_headers: bool = DEFAULT_NORMALIZE_HEADERS
     preserve_raw_headers: bool = DEFAULT_PRESERVE_RAW_HEADERS
     clean_wrapped_urls: bool = DEFAULT_CLEAN_WRAPPED_URLS
-    url_wrappers: list[str] | None = None  # Will use DEFAULT_URL_WRAPPERS if None
+    url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
 
 
 @dataclass
@@ -506,3 +509,36 @@ class RtfOptions(BaseOptions):
         Common Markdown formatting options. If None, uses defaults.
     """
     pass
+
+
+
+@dataclass
+class IpynbOptions(BaseOptions):
+    """Configuration options for IPYNB-to-Markdown conversion.
+
+    This dataclass contains settings specific to Jupyter Notebook processing,
+    including output handling and image conversion preferences.
+
+    Parameters
+    ----------
+    truncate_long_outputs : int or None, default DEFAULT_COLLAPSE_OUTPUT_LINES
+        Maximum number of lines for text outputs before collapsing.
+        If None, outputs are not collapsed.
+    truncate_output_message : str or None, default = DEFAULT_COLLAPSE_OUTPUT_MESSAGE
+        The message to place to indicate truncated message.
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "base64"
+        How to handle image outputs:
+        - "skip": Remove images completely.
+        - "alt_text": Use alt-text placeholders (e.g., "![cell output]").
+        - "download": Save to a folder and link to the files.
+        - "base64": Embed images as base64 data URIs (default for notebooks).
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
+    markdown_options : MarkdownOptions or None, default None
+        Common Markdown formatting options. If None, uses defaults.
+    """
+
+    truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
+    truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE

@@ -181,8 +181,24 @@ PDF_PAGE_SIZES = {
 
 PDF_DEFAULT_MARGINS = (50, 50, 50, 50)  # top, right, bottom, left
 
+
 # =============================================================================
-# File Extension Lists (from __init__.py)
+# Jupyter Notebook (IPYNB) Constants
+# =============================================================================
+
+DEFAULT_TRUNCATE_OUTPUT_LINES = None
+DEFAULT_TRUNCATE_OUTPUT_MESSAGE = "\n... (output truncated) ...\n"
+
+# MIME types to check for in notebook outputs, in order of preference
+IPYNB_SUPPORTED_IMAGE_MIMETYPES = [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+]
+
+# =============================================================================
+# File Extension Lists
 # =============================================================================
 
 PLAINTEXT_EXTENSIONS = [

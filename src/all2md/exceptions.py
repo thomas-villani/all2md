@@ -114,7 +114,8 @@ class MdparseFormatError(MdparseError):
     """
 
     def __init__(
-        self, message: str | None = None, format_type: str | None = None, supported_formats: list[str] | None = None
+        self, message: str | None = None, format_type: str | None = None, supported_formats: list[str] | None = None,
+            original_error: Exception | None = None
     ):
         if message is None:
             if format_type:
@@ -127,7 +128,7 @@ class MdparseFormatError(MdparseError):
             else:
                 message = "File format is not supported for conversion"
 
-        super().__init__(message)
+        super().__init__(message, original_error=original_error)
         self.format_type = format_type
         self.supported_formats = supported_formats
 
@@ -158,8 +159,13 @@ class MdparseInputError(MdparseError):
         The value that caused the error
     """
 
-    def __init__(self, message: str, parameter_name: str | None = None, parameter_value=None):
-        super().__init__(message)
+    def __init__(self,
+                 message: str,
+                 parameter_name: str | None = None,
+                 parameter_value=None,
+                 original_error: Exception | None = None
+                 ):
+        super().__init__(message, original_error=original_error)
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value
 

@@ -2,8 +2,8 @@
 
 all2md provides a comprehensive solution for converting between various file formats
 and Markdown. It supports PDF, Word (DOCX), PowerPoint (PPTX), HTML, email (EML),
-Excel (XLSX), images, and 200+ text file formats with intelligent content extraction
-and formatting preservation.
+Excel (XLSX), Jupyter Notebooks (IPYNB), images, and 200+ text file formats with
+intelligent content extraction and formatting preservation.
 
 The library uses a modular architecture where the main `parse_file()` function
 automatically detects file types and routes to appropriate specialized converters.
@@ -24,6 +24,7 @@ Key Features
 Supported Formats
 -----------------
 - **Documents**: PDF, DOCX, PPTX, HTML, EML
+- **Notebooks**: IPYNB (Jupyter Notebooks)
 - **Spreadsheets**: XLSX, CSV, TSV
 - **Images**: PNG, JPEG, GIF (embedded as base64)
 - **Text**: 200+ formats including code files, configs, markup
@@ -73,13 +74,22 @@ import os
 from dataclasses import fields
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Any, IO, Union, Optional, Literal
+from typing import IO, Any, Literal, Optional, Union
 
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from .exceptions import MdparseConversionError, MdparseInputError
-from .options import DocxOptions, EmlOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions, BaseOptions
+from .options import (
+    BaseOptions,
+    DocxOptions,
+    EmlOptions,
+    HtmlOptions,
+    IpynbOptions,
+    MarkdownOptions,
+    PdfOptions,
+    PptxOptions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +109,8 @@ DocumentFormat = Literal[
     "tsv",       # TSV files
     "txt",       # Plain text
     "eml",       # Email messages
-    "image"      # Image files (PNG, JPEG, GIF)
+    "image",     # Image files (PNG, JPEG, GIF)
+    "ipynb"      # Jupyter Notebooks
 ]
 
 
@@ -175,6 +186,23 @@ def _detect_format_from_content(file_obj: IO[bytes]) -> DocumentFormat:
     elif magic_bytes.startswith(b'GIF87a') or magic_bytes.startswith(b'GIF89a'):
         return "image"
 
+    # Check for Jupyter Notebook JSON structure
+    try:
+        text_content = magic_bytes.decode('utf-8', errors='ignore')
+        if text_content.strip().startswith('{'):
+            # Try to parse as JSON to check for notebook structure
+            import json
+            try:
+                data = json.loads(text_content[:1024])  # Parse first 1KB as JSON sample
+                if isinstance(data, dict) and 'cells' in data and isinstance(data.get('cells'), list):
+                    # Has the basic structure of a Jupyter notebook
+                    logger.debug("Jupyter notebook structure detected in JSON content")
+                    return "ipynb"
+            except (json.JSONDecodeError, ValueError):
+                pass  # Not valid JSON or not a notebook structure
+    except UnicodeDecodeError:
+        pass
+
     # Check if content looks like CSV/TSV (tabular data patterns)
     try:
         text_content = magic_bytes.decode('utf-8', errors='ignore')
@@ -226,6 +254,7 @@ def _get_format_from_filename(filename: str) -> DocumentFormat:
         '.csv': 'csv',
         '.tsv': 'tsv',
         '.eml': 'eml',
+        '.ipynb': 'ipynb',
         '.png': 'image',
         '.jpg': 'image',
         '.jpeg': 'image',
@@ -366,6 +395,7 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "pptx": PptxOptions,
         "html": HtmlOptions,
         "eml": EmlOptions,
+        "ipynb": IpynbOptions,
         "rtf": BaseOptions,  # RTF uses base options only
     }
     return format_to_class.get(format)
@@ -441,7 +471,7 @@ def _merge_options(base_options: BaseOptions | MarkdownOptions | None, format: D
             for field in fields(base_options):
                 setattr(options_instance.markdown_options, field.name, getattr(base_options, field.name))
         return options_instance
-    
+
     # Create a copy of the base options
     import copy
     merged_options = copy.deepcopy(base_options)
@@ -494,7 +524,7 @@ def to_markdown(
     options : BaseOptions, optional
         Pre-configured options object for format-specific settings.
         If provided, individual kwargs will override these settings.
-    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "image"}, default "auto"
+    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "image", "ipynb"}, default "auto"
         Document format specification:
         - "auto": Detect format automatically from filename and content
         - Other values: Force processing as the specified format
@@ -551,7 +581,8 @@ def to_markdown(
     Notes
     -----
     Supported formats include PDF, Word (DOCX), PowerPoint (PPTX), HTML,
-    email (EML), Excel (XLSX), RTF, images, CSV/TSV, and 200+ text file formats.
+    email (EML), Excel (XLSX), Jupyter Notebooks (IPYNB), RTF, images,
+    CSV/TSV, and 200+ text file formats.
 
     The function provides intelligent format detection using filename extensions,
     MIME types, and content analysis (magic bytes) for file objects without names.
@@ -717,6 +748,12 @@ def to_markdown(
         eml_stream: StringIO = StringIO(decoded_data)
         content = parse_email_chain(eml_stream, options=final_options)
 
+    elif actual_format == "ipynb":
+        from .ipynb2markdown import ipynb_to_markdown
+
+        file.seek(0)
+        content = ipynb_to_markdown(file, options=final_options)
+
     else:  # actual_format == "txt" or any other format
         # Plain text handling
         file.seek(0)
@@ -742,6 +779,7 @@ __all__ = [
     "DocxOptions",
     "EmlOptions",
     "HtmlOptions",
+    "IpynbOptions",
     "MarkdownOptions",
     "PdfOptions",
     "PptxOptions",
