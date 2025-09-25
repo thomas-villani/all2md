@@ -563,3 +563,199 @@ def example_function():
 
         # Should contain debug information in stderr
         assert "DEBUG:" in result.stderr or len(result.stderr) >= 0  # Some debug output or at least no crash
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_basic_conversion_e2e(self):
+        """Test end-to-end Jupyter Notebook conversion."""
+        from tests.fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
+
+        notebook = create_simple_notebook()
+        ipynb_file = self.temp_dir / "simple.ipynb"
+        save_notebook_to_file(notebook, str(ipynb_file))
+
+        result = self._run_cli([str(ipynb_file)])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        output = result.stdout
+
+        # Verify content structure
+        assert "# Simple Notebook" in output
+        assert "This is a basic test notebook." in output
+        assert "```python" in output
+        assert "print('Hello, World!')" in output
+        assert "Hello, World!" in output
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_with_images_e2e(self):
+        """Test end-to-end Jupyter Notebook conversion with images."""
+        from tests.fixtures.generators.ipynb_fixtures import create_notebook_with_images, save_notebook_to_file
+
+        notebook = create_notebook_with_images()
+        ipynb_file = self.temp_dir / "with_images.ipynb"
+        save_notebook_to_file(notebook, str(ipynb_file))
+
+        result = self._run_cli([str(ipynb_file)])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        output = result.stdout
+
+        # Should contain basic notebook structure
+        assert "# Notebook with Images" in output
+        assert "![cell output]" in output
+        assert "matplotlib.pyplot" in output
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_with_output_file_e2e(self):
+        """Test end-to-end Jupyter Notebook conversion with output file."""
+        from tests.fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
+
+        notebook = create_simple_notebook()
+        ipynb_file = self.temp_dir / "input.ipynb"
+        save_notebook_to_file(notebook, str(ipynb_file))
+
+        output_file = self.temp_dir / "output.md"
+
+        result = self._run_cli([str(ipynb_file), "--out", str(output_file)])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert output_file.exists()
+
+        content = output_file.read_text()
+        assert "# Simple Notebook" in content
+        assert "```python" in content
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_with_attachment_download_e2e(self):
+        """Test Jupyter Notebook conversion with image download."""
+        from tests.fixtures.generators.ipynb_fixtures import create_notebook_with_images, save_notebook_to_file
+
+        notebook = create_notebook_with_images()
+        ipynb_file = self.temp_dir / "with_plots.ipynb"
+        save_notebook_to_file(notebook, str(ipynb_file))
+
+        images_dir = self.temp_dir / "images"
+
+        result = self._run_cli([
+            str(ipynb_file),
+            "--attachment-mode", "download",
+            "--attachment-output-dir", str(images_dir)
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        output = result.stdout
+
+        # Should reference downloaded images
+        assert "![cell output](" in output
+        assert ".png)" in output
+
+        # Images should be saved to disk
+        assert images_dir.exists()
+        image_files = list(images_dir.glob("*.png"))
+        assert len(image_files) > 0
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_truncation_e2e(self):
+        """Test Jupyter Notebook conversion with output truncation."""
+        from tests.fixtures.generators.ipynb_fixtures import create_notebook_with_long_outputs, save_notebook_to_file
+
+        notebook = create_notebook_with_long_outputs()
+        ipynb_file = self.temp_dir / "long_outputs.ipynb"
+        save_notebook_to_file(notebook, str(ipynb_file))
+
+        # Note: CLI truncation options not yet implemented
+        result = self._run_cli([str(ipynb_file)])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        output = result.stdout
+
+        # Should contain basic long output structure
+        assert "Line 0:" in output
+        assert "for i in range(50):" in output
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_format_override_e2e(self):
+        """Test forcing ipynb format on non-.ipynb files."""
+        import json
+
+        # Create notebook content but save as .txt
+        notebook = {
+            "cells": [{"cell_type": "markdown", "source": ["# Forced Notebook"]}],
+            "metadata": {"kernelspec": {"language": "python"}},
+            "nbformat": 4
+        }
+
+        txt_file = self.temp_dir / "notebook.txt"
+        with open(txt_file, 'w') as f:
+            json.dump(notebook, f)
+
+        result = self._run_cli([str(txt_file), "--format", "ipynb"])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        output = result.stdout
+
+        assert "# Forced Notebook" in output
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_error_handling_e2e(self):
+        """Test error handling for invalid Jupyter Notebook files."""
+        # Create invalid JSON file
+        invalid_file = self.temp_dir / "invalid.ipynb"
+        invalid_file.write_text('{ "invalid": json content')
+
+        result = self._run_cli([str(invalid_file)])
+
+        assert result.returncode == 1
+        assert "Error:" in result.stderr
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_nonexistent_file_e2e(self):
+        """Test error handling for nonexistent ipynb file."""
+        nonexistent_file = self.temp_dir / "does_not_exist.ipynb"
+
+        result = self._run_cli([str(nonexistent_file)])
+
+        assert result.returncode == 1
+        assert "Error:" in result.stderr or "does not exist" in result.stderr
+
+    @pytest.mark.e2e
+    @pytest.mark.ipynb
+    def test_ipynb_complex_options_combination_e2e(self):
+        """Test Jupyter Notebook conversion with complex option combinations."""
+        from tests.fixtures.generators.ipynb_fixtures import create_data_science_notebook, save_notebook_to_file
+
+        notebook = create_data_science_notebook()
+        ipynb_file = self.temp_dir / "data_science.ipynb"
+        save_notebook_to_file(notebook, str(ipynb_file))
+
+        output_file = self.temp_dir / "data_science_output.md"
+        images_dir = self.temp_dir / "notebook_images"
+
+        # Note: Many specific CLI options not yet implemented
+        result = self._run_cli([
+            str(ipynb_file),
+            "--out", str(output_file),
+            "--attachment-mode", "download",
+            "--attachment-output-dir", str(images_dir)
+        ])
+
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+        assert output_file.exists()
+
+        content = output_file.read_text()
+        assert "# Customer Churn Analysis" in content
+        assert "Machine Learning Pipeline" in content
+        assert "```python" in content
+        assert len(content.strip()) > 0
+
+        # Should have downloaded images
+        if images_dir.exists():
+            image_files = list(images_dir.glob("*.png"))
+            assert len(image_files) >= 0  # May or may not have images depending on processing

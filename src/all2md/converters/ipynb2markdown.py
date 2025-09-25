@@ -229,6 +229,6 @@ def ipynb_to_markdown(
                     cell_content.append(output_md)
 
         if cell_content:
-            output_parts.append("\n".join(cell_content))
+            output_parts.append("\n\n".join(cell_content))
 
     return "\n\n".join(output_parts).strip()

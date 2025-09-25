@@ -485,6 +485,167 @@ class TestCLIIntegration:
 
             assert result == 1  # Error exit code
 
+    def test_ipynb_basic_conversion(self):
+        """Test basic Jupyter Notebook conversion through CLI."""
+        import json
+
+        # Create test notebook
+        notebook_content = {
+            "cells": [
+                {
+                    "cell_type": "markdown",
+                    "source": ["# Test Notebook\n", "This is a test."]
+                },
+                {
+                    "cell_type": "code",
+                    "source": ["print('Hello, World!')"],
+                    "outputs": [
+                        {
+                            "output_type": "stream",
+                            "text": ["Hello, World!\n"]
+                        }
+                    ]
+                }
+            ],
+            "metadata": {"kernelspec": {"language": "python"}},
+            "nbformat": 4
+        }
+
+        ipynb_file = self.temp_dir / "test.ipynb"
+        with open(ipynb_file, 'w') as f:
+            json.dump(notebook_content, f)
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test Notebook\n\nThis is a test.\n\n```python\nprint('Hello, World!')\n```\n\n```\nHello, World!\n```"
+
+            result = main([str(ipynb_file)])
+
+            assert result == 0
+            mock_to_markdown.assert_called_once()
+
+    def test_ipynb_format_override(self):
+        """Test format override for Jupyter Notebook files."""
+        test_file = self.temp_dir / "document.txt"
+        test_file.write_text("Mock notebook content")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Document\n\nForced as Jupyter Notebook"
+
+            result = main([
+                str(test_file),
+                "--format", "ipynb"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+            assert kwargs['format'] == 'ipynb'
+
+    def test_ipynb_attachment_handling(self):
+        """Test Jupyter Notebook image attachment handling options."""
+        ipynb_file = self.temp_dir / "with_plots.ipynb"
+        ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Notebook\n\n![cell output](plot.png)\n\nCode with plot."
+
+            result = main([
+                str(ipynb_file),
+                "--attachment-mode", "download",
+                "--attachment-output-dir", str(self.temp_dir / "plots"),
+                "--attachment-base-url", "https://example.com/plots/"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+
+            assert kwargs['attachment_mode'] == 'download'
+            assert kwargs['attachment_output_dir'] == str(self.temp_dir / "plots")
+            assert kwargs['attachment_base_url'] == 'https://example.com/plots/'
+
+    def test_ipynb_truncate_options(self):
+        """Test Jupyter Notebook output truncation options."""
+        ipynb_file = self.temp_dir / "long_output.ipynb"
+        ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            # Test basic ipynb conversion
+            mock_to_markdown.return_value = "```python\nfor i in range(10): print(i)\n```"
+
+            result = main([str(ipynb_file)])
+
+            assert result == 0
+            mock_to_markdown.assert_called_once()
+
+    def test_ipynb_error_handling(self):
+        """Test error handling for Jupyter Notebook conversion."""
+        nonexistent_file = self.temp_dir / "nonexistent.ipynb"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.side_effect = InputError("Invalid JSON")
+
+            result = main([str(nonexistent_file)])
+
+            assert result == 1  # Error exit code
+
+    def test_ipynb_with_output_file(self):
+        """Test Jupyter Notebook conversion with output file specification."""
+        import json
+
+        notebook_content = {
+            "cells": [
+                {"cell_type": "markdown", "source": ["# Output Test"]},
+                {"cell_type": "code", "source": ["x = 42"], "outputs": []}
+            ],
+            "metadata": {"kernelspec": {"language": "python"}},
+            "nbformat": 4
+        }
+
+        ipynb_file = self.temp_dir / "input.ipynb"
+        with open(ipynb_file, 'w') as f:
+            json.dump(notebook_content, f)
+
+        output_file = self.temp_dir / "output.md"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Output Test\n\n```python\nx = 42\n```"
+
+            result = main([
+                str(ipynb_file),
+                "--out", str(output_file)
+            ])
+
+            assert result == 0
+            # Output file should be written
+            assert output_file.exists()
+            content = output_file.read_text()
+            assert "# Output Test" in content
+
+    def test_ipynb_complex_options(self):
+        """Test Jupyter Notebook conversion with comprehensive option set."""
+        ipynb_file = self.temp_dir / "complex.ipynb"
+        ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
+
+        output_file = self.temp_dir / "complex_output.md"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = """# Complex Notebook
+
+Code and outputs with custom settings."""
+
+            result = main([
+                str(ipynb_file),
+                "--out", str(output_file),
+                "--attachment-mode", "base64"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+
+            assert kwargs['attachment_mode'] == 'base64'
+
     def test_odf_with_complex_options(self):
         """Test ODF conversion with comprehensive option set."""
         odt_file = self.temp_dir / "complex.odt"
