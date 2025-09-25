@@ -42,6 +42,49 @@ from .options import (
 )
 
 
+def _get_version() -> str:
+    """Get the version of all2md package."""
+    try:
+        from importlib.metadata import version
+        return version("all2md")
+    except Exception:
+        return "unknown"
+
+
+def _get_about_info() -> str:
+    """Get detailed information about all2md."""
+    version_str = _get_version()
+    return f"""all2md {version_str}
+
+A Python document conversion library for transformation
+between various file formats to Markdown.
+
+Supported formats:
+  • PDF documents
+  • Word documents (DOCX)
+  • PowerPoint presentations (PPTX)
+  • HTML documents
+  • Email messages (EML)
+  • Jupyter Notebooks (IPYNB)
+  • OpenDocument Text/Presentation (ODT/ODP)
+  • Rich Text Format (RTF)
+  • Excel spreadsheets (XLSX)
+  • CSV/TSV files
+  • 200+ text file formats
+
+Features:
+  • Advanced PDF parsing with table detection
+  • Intelligent format detection from content
+  • Configurable Markdown output options
+  • Attachment handling (download, embed, skip)
+  • Command-line interface with stdin support
+  • Python API for programmatic use
+
+Documentation: https://github.com/thomas.villani/all2md
+License: MIT License
+Author: Thomas Villani <thomas.villani@gmail.com>"""
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
@@ -62,6 +105,10 @@ Examples:
   all2md notebook.ipynb --ipynb-truncate-long-outputs 20
   all2md document.odt --odf-no-preserve-tables
 
+  # Reading from stdin
+  cat document.pdf | all2md -
+  curl -s https://example.com/doc.pdf | all2md - --out output.md
+
   # Image handling
   all2md document.html --attachment-mode download --attachment-output-dir ./images
 
@@ -71,10 +118,8 @@ Examples:
         """,
     )
 
-    # TODO: allow read from stdin?
-
-    # Input file (required)
-    parser.add_argument("input", help="Input file to convert")
+    # Input file or stdin (required, except for --about)
+    parser.add_argument("input", nargs="?", help="Input file to convert (use '-' to read from stdin)")
 
     # Output options
     parser.add_argument(
@@ -225,6 +270,18 @@ Examples:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default="WARNING",
         help="Set logging level for debugging (default: WARNING)"
+    )
+
+    # Version and about options
+    parser.add_argument(
+        "--version", "-v",
+        action="version",
+        version=f"all2md {_get_version()}"
+    )
+    parser.add_argument(
+        "--about", "-A",
+        action="store_true",
+        help="Show detailed information about all2md and exit"
     )
 
     return parser
@@ -387,15 +444,39 @@ def main(args: Optional[list[str]] = None) -> int:
     parser = create_parser()
     parsed_args = parser.parse_args(args)
 
+    # Handle --about flag
+    if parsed_args.about:
+        print(_get_about_info())
+        return 0
+
+    # Ensure input is provided when not using --about
+    if not parsed_args.input:
+        print("Error: Input file is required", file=sys.stderr)
+        return 1
+
     # Set up logging level
     log_level = getattr(logging, parsed_args.log_level.upper())
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
-    # Check input file exists
-    input_path = Path(parsed_args.input)
-    if not input_path.exists():
-        print(f"Error: Input file does not exist: {input_path}", file=sys.stderr)
-        return 1
+    # Handle stdin input or check input file exists
+    if parsed_args.input == '-':
+        # Read from stdin
+        try:
+            stdin_data = sys.stdin.buffer.read()
+            if not stdin_data:
+                print("Error: No data received from stdin", file=sys.stderr)
+                return 1
+        except Exception as e:
+            print(f"Error reading from stdin: {e}", file=sys.stderr)
+            return 1
+        input_source = stdin_data
+    else:
+        # Regular file input
+        input_path = Path(parsed_args.input)
+        if not input_path.exists():
+            print(f"Error: Input file does not exist: {input_path}", file=sys.stderr)
+            return 1
+        input_source = input_path
 
     # Validate attachment options
     if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":
@@ -417,14 +498,17 @@ def main(args: Optional[list[str]] = None) -> int:
     try:
         # Convert the document with format override if specified
         format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
-        markdown_content = to_markdown(input_path, format=cast(str, format_arg), **options)
+        markdown_content = to_markdown(input_source, format=cast(str, format_arg), **options)
 
         # Output the result
         if parsed_args.out:
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(markdown_content, encoding="utf-8")
-            print(f"Converted {input_path} -> {output_path}")
+            if parsed_args.input == '-':
+                print(f"Converted stdin -> {output_path}")
+            else:
+                print(f"Converted {input_source} -> {output_path}")
         else:
             print(markdown_content)
 
