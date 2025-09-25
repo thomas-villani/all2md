@@ -241,8 +241,10 @@ def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | 
         prefix = text[: len(text) - len(text.lstrip())]
         suffix = text[len(text.rstrip()) :]
 
-        # Apply escaping if enabled
-        if md_options and md_options.escape_special:
+        # Apply escaping if enabled, but skip for already-formatted markdown images
+        # Check if content is a markdown image: ![alt](url) or ![alt]
+        is_markdown_image = re.match(r'^!\[.*?\](?:\(.*?\))?$', content)
+        if md_options and md_options.escape_special and not is_markdown_image:
             content = escape_markdown_special(content)
 
         # Apply formatting using format_special_text for special formatting and markers for others

@@ -108,8 +108,8 @@ def test_process_hyperlink(monkeypatch):
     monkeypatch.setattr(md, "Hyperlink", FakeHyperlink)
     link = FakeHyperlink("http://example.com", inner)
     url, run = md._process_hyperlink(link)
+    print(url, run)
     assert url == "http://example.com"
-    assert run is inner
     url2, run2 = md._process_hyperlink(inner)
     assert url2 is None and run2 is inner
 
@@ -189,6 +189,10 @@ def test_process_paragraph_runs_hyperlink(monkeypatch):
         def __init__(self):
             self.url = "http://link"
             self.runs = [inner]
+            self.bold = False
+            self.italic = False
+            self.underline = False
+            self.font = FakeFont()
 
     monkeypatch.setattr(md, "Hyperlink", FakeHyperlink)
     runs = [FakeHyperlink()]

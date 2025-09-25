@@ -212,6 +212,31 @@ class HTMLToMarkdown:
             text = text.replace(char, f"\\{char}")
         return text
 
+    def _escape_markdown_link_text(self, text: str) -> str:
+        """Escape Markdown characters specifically for link text context.
+
+        In link text, we want to escape formatting characters but preserve
+        nested markdown syntax like images [alt](url) and links.
+
+        Parameters
+        ----------
+        text : str
+            Link text to escape.
+
+        Returns
+        -------
+        str
+            Text with selectively escaped Markdown characters.
+        """
+        if not self.markdown_options.escape_special or self._in_code_block:
+            return text
+
+        # Only escape formatting characters, not brackets/parentheses used for nested syntax
+        formatting_chars = "*_#\\"  # Exclude []() to allow nested markdown syntax
+        for char in formatting_chars:
+            text = text.replace(char, f"\\{char}")
+        return text
+
     def _decode_entities(self, text: str) -> str:
         """Decode HTML entities while handling non-breaking spaces as configured.
 
@@ -838,11 +863,21 @@ class HTMLToMarkdown:
         """Process hyperlinks with URL resolution."""
         href = node.get("href", "")
         title = node.get("title")
+
+        # Temporarily disable general escaping to handle link text specially
+        original_escape_setting = self.markdown_options.escape_special
+        self.markdown_options.escape_special = False
+
+        # Process the link content without escaping
         content = "".join(self._process_node(child) for child in node.children)
         content = " ".join(content.split())
 
-        # Note: Link text content is already escaped by _process_node when escape_special=True
-        # No additional escaping needed here to avoid double-escaping
+        # Restore original escaping setting
+        self.markdown_options.escape_special = original_escape_setting
+
+        # Apply link-specific escaping that preserves nested markdown syntax
+        if original_escape_setting:
+            content = self._escape_markdown_link_text(content)
 
         # Resolve relative URLs
         if href:

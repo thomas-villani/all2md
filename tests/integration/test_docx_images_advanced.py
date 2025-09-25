@@ -54,9 +54,8 @@ class TestDocxImagesAdvanced:
         options = DocxOptions(attachment_mode="alt_text")
         markdown = docx_to_markdown(str(temp_file), options=options)
         assert_markdown_valid(markdown)
-
         # Should contain image reference
-        assert "![image]" in markdown or "![" in markdown
+        assert "![image]" in markdown
 
     def test_embedded_vs_linked_images(self):
         """Test handling of embedded vs linked images."""
