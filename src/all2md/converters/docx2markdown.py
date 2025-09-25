@@ -57,15 +57,16 @@ direct Markdown equivalents and will be approximated or omitted.
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Union
 
-import docx
-import docx.document
-from docx.table import Table
-from docx.text.hyperlink import Hyperlink
-from docx.text.paragraph import Paragraph
+if TYPE_CHECKING:
+    import docx
+    import docx.document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
 from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
@@ -73,8 +74,29 @@ from all2md.utils.inputs import escape_markdown_special, format_special_text
 
 logger = logging.getLogger(__name__)
 
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="docx",
+    extensions=[".docx"],
+    mime_types=["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    magic_bytes=[
+        (b"PK\x03\x04", 0),  # ZIP signature (docx is ZIP-based)
+    ],
+    converter_module="all2md.converters.docx2markdown",
+    converter_function="docx_to_markdown",
+    required_packages=[("python-docx", "")],
+    optional_packages=[],
+    import_error_message=(
+        "DOCX conversion requires 'python-docx'. "
+        "Install with: pip install python-docx"
+    ),
+    options_class="DocxOptions",
+    description="Convert Microsoft Word DOCX documents to Markdown",
+    priority=8
+)
 
-def _detect_list_level(paragraph: Paragraph) -> tuple[str | None, int]:
+
+def _detect_list_level(paragraph: "Paragraph") -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth
@@ -146,6 +168,7 @@ def _detect_list_level(paragraph: Paragraph) -> tuple[str | None, int]:
 
 def _process_hyperlink(run: Any) -> tuple[str | None, Any]:
     """Extract hyperlink URL from a run."""
+    from docx.text.hyperlink import Hyperlink
     if isinstance(run, Hyperlink):
         return run.url, run
     return None, run
@@ -174,8 +197,10 @@ def _format_list_marker(list_type: str, number: int = 1, level: int = 1, bullet_
         return f"{number}. "
 
 
-def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | None = None) -> str:
+def _process_paragraph_runs(paragraph: "Paragraph", md_options: MarkdownOptions | None = None) -> str:
     """Process all runs in a paragraph, combining similarly formatted runs."""
+    from docx.text.hyperlink import Hyperlink
+
     grouped_runs: list[tuple[str, tuple[bool, bool, bool, bool, bool, bool, bool] | None, str | None]] = []
     current_text: list[str] = []
     current_format: tuple[bool, bool, bool, bool, bool, bool, bool] | None = None
@@ -257,7 +282,7 @@ def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | 
     return "".join(text_parts)
 
 
-def _convert_table_to_markdown(table: Table, md_options: MarkdownOptions | None = None) -> str:
+def _convert_table_to_markdown(table: "Table", md_options: MarkdownOptions | None = None) -> str:
     """Convert a docx table to markdown format."""
     markdown_rows = []
 
@@ -290,6 +315,10 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
     """
     Generate a sequence of Paragraph and Table elements in order, handling images.
     """
+    import docx.document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
     parent_elm = parent.element.body if isinstance(parent, docx.document.Document) else parent._element
 
     for child in parent_elm.iterchildren():
@@ -383,7 +412,7 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
 
 
 def docx_to_markdown(
-        input_data: Union[str, Path, docx.document.Document, IO[bytes]], options: DocxOptions | None = None
+        input_data: Union[str, Path, "docx.document.Document", IO[bytes]], options: DocxOptions | None = None
 ) -> str:
     """Convert Word document (DOCX) to Markdown format.
 
@@ -436,6 +465,19 @@ def docx_to_markdown(
     - Maintains document structure with appropriate heading levels
     """
     # Handle backward compatibility and merge options
+    try:
+        import docx
+        import docx.document
+        from docx.table import Table
+        from docx.text.hyperlink import Hyperlink  # noqa: F401
+        from docx.text.paragraph import Paragraph
+    except ImportError as e:
+        from all2md.exceptions import DependencyError
+        raise DependencyError(
+            converter_name="docx",
+            missing_packages=[("python-docx", "")],
+        ) from e
+
     if options is None:
         options = DocxOptions()
 

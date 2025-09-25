@@ -5,20 +5,16 @@ for testing various aspects of ODF-to-Markdown conversion.
 """
 
 import tempfile
-from io import BytesIO
 from pathlib import Path
-from typing import Optional
 
 try:
-    from odf.opendocument import OpenDocumentText, OpenDocumentPresentation
-    from odf.style import Style, TextProperties, ParagraphProperties, ListLevelProperties
-    from odf.text import (
-        H, P, List, ListItem, Span, A, Tab, S as Space,
-        ListStyle, ListLevelStyleBullet, ListLevelStyleNumber
-    )
-    from odf.table import Table, TableColumn, TableRow, TableCell
-    from odf.draw import Frame, TextBox, Image
     from odf import teletype
+    from odf.draw import Frame, Image, TextBox
+    from odf.opendocument import OpenDocumentPresentation, OpenDocumentText
+    from odf.style import ListLevelProperties, ParagraphProperties, Style, TextProperties
+    from odf.table import Table, TableCell, TableColumn, TableRow
+    from odf.text import A, H, List, ListItem, ListLevelStyleBullet, ListLevelStyleNumber, ListStyle, P, Span, Tab
+    from odf.text import S as Space
     HAS_ODFPY = True
 except ImportError:
     HAS_ODFPY = False
@@ -469,7 +465,7 @@ def create_odp_with_slides() -> 'OpenDocumentPresentation':
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
 
-    from odf.draw import Page, Frame, TextBox
+    from odf.draw import Frame, Page, TextBox
     from odf.style import MasterPage, PageLayout, PageLayoutProperties
 
     doc = OpenDocumentPresentation()

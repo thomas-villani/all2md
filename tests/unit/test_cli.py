@@ -10,7 +10,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from all2md.cli import _map_cli_args_to_options, create_parser, parse_pdf_pages
-from all2md.exceptions import MarkdownConversionError, InputError
 
 
 @pytest.mark.unit

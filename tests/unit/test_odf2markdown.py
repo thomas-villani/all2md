@@ -4,12 +4,13 @@ This module tests the ODF converter's internal methods using mock objects
 and controlled inputs to verify correct behavior in isolation.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
 
 from all2md.converters.odf2markdown import OdfConverter, odf_to_markdown
 from all2md.exceptions import MarkdownConversionError
-from all2md.options import OdfOptions, MarkdownOptions
+from all2md.options import MarkdownOptions, OdfOptions
 
 
 # Mock ODF element classes
@@ -350,7 +351,6 @@ class TestOdfConverter:
 
     def test_process_table_basic(self):
         """Test processing basic table."""
-        from all2md.converters.odf2markdown import TABLENS
 
         # Mock table cells
         header1 = Mock()

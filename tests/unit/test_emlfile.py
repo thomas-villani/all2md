@@ -4,7 +4,7 @@ from io import StringIO
 import pytest
 
 from all2md import InputError
-from all2md.converters.eml2markdown import format_email_chain_as_markdown, eml_to_markdown
+from all2md.converters.eml2markdown import eml_to_markdown, format_email_chain_as_markdown
 
 
 @pytest.mark.unit

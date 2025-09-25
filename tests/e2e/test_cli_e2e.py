@@ -332,9 +332,7 @@ def example_function():
 
     def test_odf_file_conversion_real(self):
         """Test converting a real ODT file to Markdown."""
-        from tests.fixtures.generators.odf_fixtures import (
-            create_odt_with_formatting, save_odt_to_file, HAS_ODFPY
-        )
+        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_formatting, save_odt_to_file
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODT generation")
@@ -369,7 +367,9 @@ def example_function():
     def test_odf_with_attachment_options(self):
         """Test ODT conversion with attachment handling."""
         from tests.fixtures.generators.odf_fixtures import (
-            create_comprehensive_odt_test_document, save_odt_to_file, HAS_ODFPY
+            HAS_ODFPY,
+            create_comprehensive_odt_test_document,
+            save_odt_to_file,
         )
 
         if not HAS_ODFPY:
@@ -405,9 +405,7 @@ def example_function():
 
     def test_odf_table_options(self):
         """Test ODT table handling options."""
-        from tests.fixtures.generators.odf_fixtures import (
-            create_odt_with_tables, save_odt_to_file, HAS_ODFPY
-        )
+        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_tables, save_odt_to_file
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODT generation")
@@ -438,9 +436,7 @@ def example_function():
 
     def test_odf_lists_conversion(self):
         """Test ODT list conversion."""
-        from tests.fixtures.generators.odf_fixtures import (
-            create_odt_with_lists, save_odt_to_file, HAS_ODFPY
-        )
+        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_lists, save_odt_to_file
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODT generation")
@@ -468,9 +464,7 @@ def example_function():
     @pytest.mark.odf
     def test_odp_presentation_conversion(self):
         """Test ODP presentation file conversion."""
-        from tests.fixtures.generators.odf_fixtures import (
-            create_odp_with_slides, HAS_ODFPY
-        )
+        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odp_with_slides
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODP generation")
@@ -526,7 +520,9 @@ def example_function():
     def test_odf_complex_options_combination(self):
         """Test ODT conversion with complex option combinations."""
         from tests.fixtures.generators.odf_fixtures import (
-            create_comprehensive_odt_test_document, save_odt_to_file, HAS_ODFPY
+            HAS_ODFPY,
+            create_comprehensive_odt_test_document,
+            save_odt_to_file,
         )
 
         if not HAS_ODFPY:

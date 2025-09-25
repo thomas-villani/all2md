@@ -286,7 +286,7 @@ class OdfConverter:
                                         return True  # It's a numbered list
                                     elif child.qname == (TEXTNS, 'list-level-style-bullet'):
                                         return False  # It's a bulleted list
-                    except:
+                    except Exception:
                         continue
 
         # Fallback: assume unordered if we can't determine

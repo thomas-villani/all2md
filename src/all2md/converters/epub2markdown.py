@@ -70,10 +70,10 @@ except ImportError as e:
     raise ImportError(
         "`beautifulsoup4` is required for EPUB conversion. Install with: `pip install beautifulsoup4`") from e
 
-from all2md.utils.attachments import process_attachment
-from all2md.exceptions import MarkdownConversionError
 from all2md.converters.html2markdown import html_to_markdown
+from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, HtmlOptions, MarkdownOptions
+from all2md.utils.attachments import process_attachment
 
 logger = logging.getLogger(__name__)
 

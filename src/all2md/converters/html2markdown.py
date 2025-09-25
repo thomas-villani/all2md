@@ -106,7 +106,6 @@ from pathlib import Path
 from typing import IO, Any, Literal, Union
 from urllib.parse import urljoin, urlparse
 
-
 from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
@@ -115,12 +114,37 @@ from all2md.constants import (
     MIN_CODE_FENCE_LENGTH,
     TABLE_ALIGNMENT_MAPPING,
 )
-from all2md.exceptions import MarkdownConversionError, InputError
+from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import HtmlOptions, MarkdownOptions
 from all2md.utils.attachments import process_attachment
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 
 logger = logging.getLogger(__name__)
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="html",
+    extensions=[".html", ".htm", ".xhtml"],
+    mime_types=["text/html", "application/xhtml+xml"],
+    magic_bytes=[
+        (b"<!DOCTYPE html", 0),
+        (b"<!doctype html", 0),
+        (b"<html", 0),
+        (b"<HTML", 0),
+    ],
+    converter_module="all2md.converters.html2markdown",
+    converter_function="html_to_markdown",
+    required_packages=[("beautifulsoup4", "")],
+    optional_packages=[],
+    import_error_message=(
+        "HTML conversion requires 'beautifulsoup4'. "
+        "Install with: pip install beautifulsoup4"
+    ),
+    options_class="HtmlOptions",
+    description="Convert HTML documents to Markdown",
+    priority=5
+)
 
 
 class HTMLToMarkdown:

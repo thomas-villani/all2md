@@ -8,8 +8,7 @@ configurations to test edge cases and real-world scenarios.
 """
 
 import json
-import base64
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict
 
 
 def create_simple_notebook() -> Dict[str, Any]:
@@ -798,7 +797,6 @@ def create_all_fixtures(output_dir: str = "test_notebooks") -> Dict[str, str]:
     dict
         Mapping of notebook names to their file paths.
     """
-    import os
     from pathlib import Path
 
     output_path = Path(output_dir)

@@ -5,13 +5,13 @@ the complete conversion pipeline from ODF files to Markdown output.
 """
 
 import tempfile
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
 from all2md.converters.odf2markdown import odf_to_markdown
-from all2md.options import OdfOptions, MarkdownOptions
+from all2md.options import MarkdownOptions, OdfOptions
 
 
 @pytest.mark.integration

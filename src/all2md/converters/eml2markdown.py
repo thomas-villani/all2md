@@ -94,7 +94,7 @@ from io import StringIO
 from typing import Any, Union
 
 from all2md.constants import DEFAULT_URL_WRAPPERS
-from all2md.exceptions import MarkdownConversionError, InputError
+from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import EmlOptions
 from all2md.utils.attachments import process_attachment
 

@@ -2,8 +2,8 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.options import PdfOptions
 from all2md.converters.pdf2markdown import IdentifyHeaders, page_to_markdown
+from all2md.options import PdfOptions
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 

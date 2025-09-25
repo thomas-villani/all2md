@@ -71,13 +71,17 @@ import logging
 import mimetypes
 import os
 from dataclasses import fields
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
 from typing import IO, Literal, Optional, Union
 
+# Import converters to trigger registration
+from . import converters  # noqa: F401
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+
 # Extensions lists moved to constants.py - keep references for backward compatibility
-from .exceptions import FormatError, InputError, MarkdownConversionError
+from .converter_registry import registry
+from .exceptions import DependencyError, FormatError, InputError, MarkdownConversionError
 from .options import (
     BaseOptions,
     DocxOptions,
@@ -628,8 +632,8 @@ def to_markdown(
 
     # Determine the actual format to use
     if format == "auto":
-        # Use comprehensive detection strategy
-        actual_format = _detect_format_comprehensive(file, filename)
+        # Use registry-based detection
+        actual_format = registry.detect_format(file, hint=None)
     else:
         # Use explicitly specified format
         actual_format = format
@@ -649,177 +653,73 @@ def to_markdown(
         # No options provided
         final_options = None
 
-    # Process file based on detected/specified format
-    if actual_format == "html":
-        from all2md.converters.html2markdown import html_to_markdown
+    # Process file based on detected/specified format using registry
+    try:
+        # Get converter function from registry
+        converter_func, options_class = registry.get_converter(actual_format)
 
-        file.seek(0)
-        html_content = file.read().decode("utf-8", errors="replace")
-        content = html_to_markdown(html_content, options=final_options)
-
-    elif actual_format == "mhtml":
-        from all2md.converters.mhtml2markdown import mhtml_to_markdown
-
-        file.seek(0)
-        content = mhtml_to_markdown(file, options=final_options)
-
-    elif actual_format == "rtf":
-        from all2md.converters.rtf2markdown import rtf_to_markdown
-
-        file.seek(0)
-        try:
-            content = rtf_to_markdown(file, options=final_options)
-        except ImportError as e:
-            raise ImportError(
-                "`pyth` is required to read RTF files. Install with `pip install pyth`."
-            ) from e
-
-    elif actual_format == "csv":
-        file.seek(0)
-        try:
-            import pandas as pd
-            df = pd.read_csv(file, delimiter=",", encoding="utf-8")
+        # Handle special cases for different input types
+        if actual_format == "html":
+            file.seek(0)
+            html_content = file.read().decode("utf-8", errors="replace")
+            content = converter_func(html_content, options=final_options)
+        elif actual_format in ("csv", "tsv"):
+            # Handle CSV/TSV with pandas fallback
+            file.seek(0)
             try:
-                content = df.to_markdown()
-            except ImportError:
-                # tabulate not available, create simple markdown table
-                logger.debug("tabulate not available, creating simple markdown table")
-                content = _dataframe_to_simple_markdown(df)
-        except ImportError:
-            content = file.read().decode("utf-8", errors="replace")
-
-    elif actual_format == "tsv":
-        file.seek(0)
-        try:
-            import pandas as pd
-            df = pd.read_csv(file, delimiter="\t", encoding="utf-8")
-            try:
-                content = df.to_markdown()
-            except ImportError:
-                # tabulate not available, create simple markdown table
-                logger.debug("tabulate not available, creating simple markdown table")
-                content = _dataframe_to_simple_markdown(df)
-        except ImportError:
-            content = file.read().decode("utf-8", errors="replace")
-
-    elif actual_format == "xlsx":
-        try:
-            import pandas as pd
-        except ImportError as e:
-            raise ImportError("`pandas` is required to read xlsx files. Install with `pip install pandas`.") from e
-
-        file.seek(0)
-        excel_file = pd.ExcelFile(file)
-        content = ""
-        for sheet_name in excel_file.sheet_names:
-            df = pd.read_excel(excel_file, sheet_name=sheet_name)
-            content += "## " + sheet_name + "\n"
-            content += df.to_markdown()
-            content += "\n\n---\n\n"
-
-    elif actual_format == "pptx":
-        from all2md.converters.pptx2markdown import pptx_to_markdown
-
-        file.seek(0)
-        try:
-            content = pptx_to_markdown(file, options=final_options)
-        except ImportError as e:
-            raise ImportError(
-                "`python-pptx` is required to read powerpoint files. Install with `pip install python-pptx`."
-            ) from e
-
-    elif actual_format == "docx":
-        from all2md.converters.docx2markdown import docx_to_markdown
-
-        file.seek(0)
-        try:
-            content = docx_to_markdown(file, options=final_options)
-        except ImportError as e:
-            raise ImportError(
-                "`python-docx` is required to read Word docx files. Install with `pip install python-docx`."
-            ) from e
-
-    elif actual_format == "pdf":
-        from all2md.converters.pdf2markdown import pdf_to_markdown
-
-        file.seek(0)
-        filestream = BytesIO(file.read())
-        try:
-            content = pdf_to_markdown(filestream, options=final_options)
-        except ImportError as e:
-            raise ImportError(
-                "`pymupdf` version >1.24.0 is required to read PDF files. Install with `pip install pymupdf`"
-            ) from e
-
-    elif actual_format == "eml":
-        from all2md.converters.eml2markdown import eml_to_markdown
-
-        file.seek(0)
-        raw_data = b""
-        # Handle encoding issues gracefully
-        try:
-            raw_data = file.read()
-            decoded_data = raw_data.decode("utf-8")
-        except UnicodeDecodeError as e:
-            logger.debug(f"Unicode error decoding as UTF: {e!r}", exc_info=True)
-            # Try with error handling for mixed encodings
-            decoded_data = raw_data.decode("utf-8", errors="replace")
-
-        eml_stream: StringIO = StringIO(decoded_data)
-        content = eml_to_markdown(eml_stream, options=final_options)
-
-    elif actual_format == "ipynb":
-        from all2md.converters.ipynb2markdown import ipynb_to_markdown
-
-        file.seek(0)
-        content = ipynb_to_markdown(file, options=final_options)
-
-    elif actual_format in ("odt", "odp"):
-        from all2md.converters.odf2markdown import odf_to_markdown
-
-        file.seek(0)
-        try:
-            content = odf_to_markdown(file, options=final_options)
-        except ImportError as e:
-            raise ImportError(
-                "`odfpy` is required to read OpenDocument files. Install with `pip install odfpy`."
-            ) from e
-
-    elif actual_format == "epub":
-        from all2md.converters.epub2markdown import epub_to_markdown
-
-        try:
-            # EPUB requires file path, not file object, due to ebooklib limitation
-            if filename == "unknown":
-                # For file objects without known path, we need to create a temporary file
-                import tempfile
-                file.seek(0)
-                with tempfile.NamedTemporaryFile(suffix='.epub', delete=False) as temp_file:
-                    temp_file.write(file.read())
-                    temp_path = temp_file.name
+                import pandas as pd
+                delimiter = "," if actual_format == "csv" else "\t"
+                df = pd.read_csv(file, delimiter=delimiter, encoding="utf-8")
                 try:
-                    content = epub_to_markdown(temp_path, options=final_options)
-                finally:
-                    # Clean up temporary file
-                    import os
-                    os.unlink(temp_path)
-            else:
-                # Use the original filename path
-                content = epub_to_markdown(filename, options=final_options)
-        except ImportError as e:
-            raise ImportError(
-                "`ebooklib` is required to read EPUB files. Install with `pip install ebooklib`."
-            ) from e
+                    content = df.to_markdown()
+                except ImportError:
+                    # tabulate not available, create simple markdown table
+                    logger.debug("tabulate not available, creating simple markdown table")
+                    content = _dataframe_to_simple_markdown(df)
+            except ImportError:
+                content = file.read().decode("utf-8", errors="replace")
+        elif actual_format == "xlsx":
+            # Handle Excel with pandas
+            try:
+                import pandas as pd
+            except ImportError as e:
+                raise DependencyError(
+                    converter_name="xlsx",
+                    missing_packages=[("pandas", "")],
+                ) from e
 
-    elif actual_format == "image":
-        raise FormatError("Invalid input type: `image` not supported.")
-    else:  # actual_format == "txt" or any other format
-        # Plain text handling
-        file.seek(0)
-        try:
-            content = file.read().decode("utf-8", errors="replace")
-        except Exception as e:
-            raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
+            file.seek(0)
+            excel_file = pd.ExcelFile(file)
+            content = ""
+            for sheet_name in excel_file.sheet_names:
+                df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                content += "## " + sheet_name + "\n"
+                content += df.to_markdown()
+                content += "\n\n---\n\n"
+        else:
+            # Standard converter call
+            file.seek(0)
+            content = converter_func(file, options=final_options)
+
+    except DependencyError:
+        # Re-raise dependency errors as-is
+        raise
+    except FormatError:
+        # Handle unknown formats by falling back to text
+        if actual_format not in ["txt", "image"]:
+            logger.warning(f"Unknown format '{actual_format}', falling back to text")
+            actual_format = "txt"
+
+        if actual_format == "image":
+            raise FormatError("Invalid input type: `image` not supported.") from None
+        else:
+            # Plain text handling
+            file.seek(0)
+            try:
+                content = file.read().decode("utf-8", errors="replace")
+            except Exception as e:
+                raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
+
 
     # Fix windows newlines and return
     return content.replace("\r\n", "\n")
@@ -831,6 +731,8 @@ __all__ = [
     "IMAGE_EXTENSIONS",
     "PLAINTEXT_EXTENSIONS",
     "to_markdown",
+    # Registry system
+    "registry",
     # Type definitions
     "DocumentFormat",
     # Re-exported classes and exceptions for public API
@@ -845,4 +747,5 @@ __all__ = [
     "PptxOptions",
     "MarkdownConversionError",
     "InputError",
+    "DependencyError",
 ]

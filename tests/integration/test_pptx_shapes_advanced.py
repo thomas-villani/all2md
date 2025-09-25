@@ -4,8 +4,8 @@
 from pptx import Presentation
 from pptx.util import Inches, Pt
 
-from all2md.options import PptxOptions
 from all2md.converters.pptx2markdown import _process_shape
+from all2md.options import PptxOptions
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 

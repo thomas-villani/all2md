@@ -70,8 +70,8 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
-from all2md.exceptions import MarkdownConversionError, InputError
-from all2md.options import IpynbOptions, MarkdownOptions
+from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.options import IpynbOptions
 from all2md.utils.attachments import process_attachment
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ def ipynb_to_markdown(
     if options is None:
         options = IpynbOptions()
 
-    md_options = options.markdown_options or MarkdownOptions()
+    # md_options = options.markdown_options or MarkdownOptions()  # TODO: Use for formatting
 
     try:
         # Since .ipynb is text-based (JSON), we can handle it as a string

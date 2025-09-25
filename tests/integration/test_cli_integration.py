@@ -4,16 +4,12 @@ This module tests end-to-end CLI functionality including file processing,
 option propagation, and error handling.
 """
 
-import subprocess
-import sys
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from all2md.cli import main
-from all2md.exceptions import MarkdownConversionError, InputError
+from all2md.exceptions import InputError, MarkdownConversionError
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 

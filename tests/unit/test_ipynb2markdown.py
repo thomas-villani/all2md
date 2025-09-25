@@ -1,17 +1,17 @@
-import base64
 import json
-from io import StringIO, BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import mock_open, patch
+
 import pytest
 
 from all2md.converters.ipynb2markdown import (
-    ipynb_to_markdown,
     _collapse_output,
     _get_source,
+    ipynb_to_markdown,
 )
-from all2md.exceptions import MarkdownConversionError, InputError
-from all2md.options import IpynbOptions, MarkdownOptions
+from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.options import IpynbOptions
 
 
 class TestCollapseOutput:

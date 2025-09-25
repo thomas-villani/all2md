@@ -72,19 +72,42 @@ import re
 import string
 from io import BytesIO
 from pathlib import Path
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
-import fitz
+if TYPE_CHECKING:
+    import fitz
 
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
     PDF_MIN_PYMUPDF_VERSION,
 )
-from all2md.exceptions import MarkdownConversionError, InputError, PasswordProtectedError
+from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import InputError, MarkdownConversionError, PasswordProtectedError
 from all2md.options import MarkdownOptions, PdfOptions
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="pdf",
+    extensions=[".pdf"],
+    mime_types=["application/pdf", "application/x-pdf"],
+    magic_bytes=[
+        (b"%PDF", 0),  # PDF signature
+    ],
+    converter_module="all2md.converters.pdf2markdown",
+    converter_function="pdf_to_markdown",
+    required_packages=[("pymupdf", ">=1.24.0")],
+    optional_packages=[],
+    import_error_message=(
+        "PDF conversion requires 'pymupdf' version 1.24.0 or later. "
+        "Install with: pip install 'pymupdf>=1.24.0'"
+    ),
+    options_class="PdfOptions",
+    description="Convert PDF documents to Markdown with advanced table detection",
+    priority=10
+)
 
 
 def _check_pymupdf_version() -> None:
@@ -95,12 +118,22 @@ def _check_pymupdf_version() -> None:
     MarkdownConversionError
         If PyMuPDF version is too old
     """
-    min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
-    if fitz.pymupdf_version_tuple < min_version:
-        raise ImportError(
-            f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
-            f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
-        )
+    try:
+        import fitz
+        min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
+        if fitz.pymupdf_version_tuple < min_version:
+            raise ImportError(
+                f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
+                f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
+            )
+    except ImportError as e:
+        if "fitz" in str(e) or "No module" in str(e):
+            from all2md.exceptions import DependencyError
+            raise DependencyError(
+                converter_name="pdf",
+                missing_packages=[("pymupdf", f">={PDF_MIN_PYMUPDF_VERSION}")],
+            ) from e
+        raise
 
 
 
@@ -137,7 +170,7 @@ class IdentifyHeaders:
 
     def __init__(
             self,
-            doc: fitz.Document,
+            doc,  # PyMuPDF Document object
             pages: list[int] | range | None = None,
             body_limit: float | None = None,
             options: PdfOptions | None = None,
@@ -179,6 +212,7 @@ class IdentifyHeaders:
         fontsizes: dict[int, int] = {}
         fontweight_sizes: dict[int, int] = {}  # Track bold font sizes
         allcaps_sizes: dict[int, int] = {}  # Track all-caps text sizes
+        import fitz
         for pno in pages_to_use:
             page = doc[pno]
             blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
@@ -557,6 +591,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     if not links or not span.get("text"):
         return None
 
+    import fitz
     bbox = fitz.Rect(span["bbox"])  # span bbox
     span_text = span["text"]
 
@@ -631,8 +666,8 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
 
 
 def page_to_markdown(
-        page: fitz.Page,
-        clip: fitz.Rect | None,
+        page: "fitz.Page",
+        clip: "fitz.Rect | None",
         hdr_prefix: IdentifyHeaders,
         md_options: MarkdownOptions | None = None,
         pdf_options: PdfOptions | None = None,
@@ -667,6 +702,8 @@ def page_to_markdown(
     - Processes hyperlinks and converts them to Markdown link format
     - Detects code blocks using monospace font analysis
     """
+    import fitz
+
     output_parts = []  # Performance optimization: use list instead of string concatenation
     code = False  # mode indicator: outputting code
 
@@ -682,7 +719,7 @@ def page_to_markdown(
 
     # Apply column detection if enabled
     if pdf_options and pdf_options.detect_columns:
-        columns = detect_columns(blocks, pdf_options.column_gap_threshold)
+        columns: list[list[dict]] = detect_columns(blocks, pdf_options.column_gap_threshold)
         # Process blocks column by column for proper reading order
         blocks_to_process = []
         for column in columns:
@@ -802,7 +839,7 @@ def page_to_markdown(
 
 
 def extract_page_images(
-        page: fitz.Page, page_num: int, options: PdfOptions | None = None, base_filename: str = "document"
+        page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document"
         ) -> list[dict]:
     """Extract images from a PDF page with their positions.
 
@@ -811,7 +848,7 @@ def extract_page_images(
 
     Parameters
     ----------
-    page : fitz.Page
+    page : PyMuPDF Page
         PDF page to extract images from
     page_num : int
         Page number for naming extracted images
@@ -896,7 +933,7 @@ def extract_page_images(
     return images
 
 
-def detect_image_caption(page: fitz.Page, image_bbox: fitz.Rect) -> str | None:
+def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | None:
     """Detect caption text near an image.
 
     Looks for text blocks immediately below or above the image
@@ -904,9 +941,9 @@ def detect_image_caption(page: fitz.Page, image_bbox: fitz.Rect) -> str | None:
 
     Parameters
     ----------
-    page : fitz.Page
+    page : PyMuPDF Page
         PDF page containing the image
-    image_bbox : fitz.Rect
+    image_bbox : PyMuPDF Rect
         Bounding box of the image
 
     Returns
@@ -942,7 +979,7 @@ def detect_image_caption(page: fitz.Page, image_bbox: fitz.Rect) -> str | None:
     return None
 
 
-def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> list[fitz.Rect]:
+def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> list["fitz.Rect"]:
     """Fallback table detection using ruling lines and text alignment.
 
     Uses page drawing commands to detect horizontal and vertical lines
@@ -950,14 +987,14 @@ def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> li
 
     Parameters
     ----------
-    page : fitz.Page
+    page : PyMuPDF Page
         PDF page to analyze for tables
     threshold : float, default 0.5
         Minimum line length ratio relative to page size for ruling lines
 
     Returns
     -------
-    list[fitz.Rect]
+    list[PyMuPDF Rect]
         List of bounding boxes for detected tables
     """
     # Get page dimensions
@@ -992,7 +1029,7 @@ def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> li
                         v_lines.append((p1.x, min(p1.y, p2.y), p2.x, max(p1.y, p2.y)))
 
     # Find table regions by grouping intersecting lines
-    table_rects: list[fitz.Rect] = []
+    table_rects: list["fitz.Rect"] = []
 
     # Group horizontal lines by proximity
     h_lines.sort(key=lambda line: line[1])  # Sort by y-coordinate
@@ -1027,7 +1064,7 @@ def detect_tables_by_ruling_lines(page: fitz.Page, threshold: float = 0.5) -> li
     return table_rects
 
 
-def parse_page(page: fitz.Page, options: PdfOptions | None = None) -> list[tuple[str, fitz.Rect, int]]:
+def parse_page(page: "fitz.Page", options: PdfOptions | None = None) -> list[tuple[str, "fitz.Rect", int]]:
     """Parse a PDF page to identify text and table regions with their locations.
 
     Analyzes a PDF page to locate all tables and compute text regions that
@@ -1042,15 +1079,15 @@ def parse_page(page: fitz.Page, options: PdfOptions | None = None) -> list[tuple
 
     Parameters
     ----------
-    page : fitz.Page
+    page : PyMuPDF Page
         PyMuPDF page object to parse for text and table regions.
 
     Returns
     -------
-    list[tuple[str, fitz.Rect, int]]
+    list[tuple[str, PyMuPDF Rect, int]]
         List of tuples containing:
         - str: region type ("text" or "table")
-        - fitz.Rect: bounding rectangle for the region
+        - PyMuPDF Rect: bounding rectangle for the region
         - int: table index (0 for text regions, table index for tables)
 
     Notes
@@ -1114,7 +1151,7 @@ def parse_page(page: fitz.Page, options: PdfOptions | None = None) -> list[tuple
     return text_rects
 
 
-def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: PdfOptions | None = None) -> str:
+def pdf_to_markdown(input_data: Union[str, BytesIO, "fitz.Document"], options: PdfOptions | None = None) -> str:
     """Convert PDF document to Markdown format.
 
     This function processes PDF documents and converts them to well-formatted
@@ -1173,6 +1210,8 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
         >>> content = pdf_to_markdown(data, options=options)
     """
     _check_pymupdf_version()
+
+    import fitz
 
     # Handle backward compatibility and merge options
     if options is None:

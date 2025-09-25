@@ -201,3 +201,62 @@ class MarkdownConversionError(All2MdError):
     def __init__(self, message: str, conversion_stage: str | None = None, original_error: Exception | None = None):
         super().__init__(message, original_error)
         self.conversion_stage = conversion_stage
+
+
+class DependencyError(All2MdError):
+    """Exception raised when required dependencies are not available.
+
+    This exception is raised when attempting to use a converter that
+    requires external packages that are not installed or don't meet
+    version requirements.
+
+    Parameters
+    ----------
+    converter_name : str
+        Name of the converter requiring dependencies
+    missing_packages : list[tuple[str, str]]
+        List of (package_name, version_spec) tuples for missing packages
+    install_command : str, optional
+        Suggested pip install command to resolve the issue
+    message : str, optional
+        Custom error message. If not provided, generates a helpful message
+
+    Attributes
+    ----------
+    converter_name : str
+        The converter that has missing dependencies
+    missing_packages : list[tuple[str, str]]
+        Packages that need to be installed
+    install_command : str
+        Command to install missing dependencies
+    """
+
+    def __init__(
+        self,
+        converter_name: str,
+        missing_packages: list[tuple[str, str]],
+        install_command: str = "",
+        message: str | None = None
+    ):
+        if message is None:
+            pkg_list = ", ".join(
+                f"'{name}{spec}'" if spec else f"'{name}'"
+                for name, spec in missing_packages
+            )
+            message = (
+                f"{converter_name.upper()} format requires the following packages: {pkg_list}\n"
+            )
+            if install_command:
+                message += f"Install with: {install_command}"
+            else:
+                # Generate install command if not provided
+                packages_str = " ".join(
+                    f'"{name}{spec}"' if spec else name
+                    for name, spec in missing_packages
+                )
+                message += f"Install with: pip install {packages_str}"
+
+        super().__init__(message)
+        self.converter_name = converter_name
+        self.missing_packages = missing_packages
+        self.install_command = install_command
