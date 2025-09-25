@@ -32,9 +32,11 @@ from .exceptions import InputError, MarkdownConversionError
 from .options import (
     DocxOptions,
     EmlOptions,
+    EpubOptions,
     HtmlOptions,
     IpynbOptions,
     MarkdownOptions,
+    MhtmlOptions,
     OdfOptions,
     PdfOptions,
     PptxOptions,
@@ -65,6 +67,7 @@ Supported formats:
   • PowerPoint presentations (PPTX)
   • HTML documents
   • Email messages (EML)
+  • EPUB e-books
   • Jupyter Notebooks (IPYNB)
   • OpenDocument Text/Presentation (ODT/ODP)
   • Rich Text Format (RTF)
@@ -93,8 +96,8 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Supported formats:
-  PDF, Word (DOCX), PowerPoint (PPTX), HTML, Email (EML), RTF,
-  Jupyter Notebook (IPYNB), OpenDocument (ODT, ODP), Excel (XLSX),
+  PDF, Word (DOCX), PowerPoint (PPTX), HTML, Email (EML), EPUB,
+  RTF, Jupyter Notebook (IPYNB), OpenDocument (ODT, ODP), Excel (XLSX),
   images (PNG, JPEG, GIF), and 200+ text formats
 
 Examples:
@@ -104,6 +107,7 @@ Examples:
   all2md presentation.pptx --markdown-emphasis-symbol "_"
   all2md notebook.ipynb --ipynb-truncate-long-outputs 20
   all2md document.odt --odf-no-preserve-tables
+  all2md book.epub --epub-no-merge-chapters
 
   # Reading from stdin
   cat document.pdf | all2md -
@@ -111,6 +115,10 @@ Examples:
 
   # Image handling
   all2md document.html --attachment-mode download --attachment-output-dir ./images
+  all2md book.epub --attachment-mode base64
+
+  # EPUB-specific options
+  all2md book.epub --epub-no-include-toc --attachment-mode download --attachment-output-dir ./epub-images
 
   # Using options from JSON file
   all2md document.pdf --options-json config.json
@@ -250,10 +258,27 @@ Examples:
         help="Message to display when truncating long outputs"
     )
 
+    # EPUB-specific options
+    epub_group = parser.add_argument_group("EPUB options")
+    epub_group.add_argument(
+        "--epub-no-merge-chapters",
+        action="store_false",
+        dest="epub_merge_chapters",
+        default=True,
+        help="Don't merge chapters into continuous document (add separators between chapters)"
+    )
+    epub_group.add_argument(
+        "--epub-no-include-toc",
+        action="store_false",
+        dest="epub_include_toc",
+        default=True,
+        help="Don't include a Table of Contents in the output"
+    )
+
     # Format override option
     parser.add_argument(
         "--format",
-        choices=["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "odt", "odp", "csv", "tsv", "xlsx", "image", "txt"],
+        choices=["auto", "pdf", "docx", "pptx", "html", "mhtml", "eml", "epub", "rtf", "ipynb", "odt", "odp", "csv", "tsv", "xlsx", "image", "txt"],
         default="auto",
         help="Force specific file format instead of auto-detection (default: auto)"
     )
@@ -359,9 +384,11 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict
     markdown_fields = {field.name for field in fields(MarkdownOptions)}
     pdf_fields = {field.name for field in fields(PdfOptions)}
     html_fields = {field.name for field in fields(HtmlOptions)}
+    mhtml_fields = {field.name for field in fields(MhtmlOptions)}
     pptx_fields = {field.name for field in fields(PptxOptions)}
     eml_fields = {field.name for field in fields(EmlOptions)}
     docx_fields = {field.name for field in fields(DocxOptions)}
+    epub_fields = {field.name for field in fields(EpubOptions)}
     odf_fields = {field.name for field in fields(OdfOptions)}
     ipynb_fields = {field.name for field in fields(IpynbOptions)}
     rtf_fields = {field.name for field in fields(RtfOptions)}
@@ -370,9 +397,11 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict
     format_mappings = {
         'pdf_': pdf_fields,
         'html_': html_fields,
+        'mhtml_': mhtml_fields,
         'pptx_': pptx_fields,
         'eml_': eml_fields,
         'docx_': docx_fields,
+        'epub_': epub_fields,
         'odf_': odf_fields,
         'ipynb_': ipynb_fields,
         'rtf_': rtf_fields,
@@ -413,7 +442,7 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict
                         # Only set if False (True is default)
                         if not arg_value:
                             options['detect_columns'] = False
-                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure', 'odf_preserve_tables']:
+                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure', 'odf_preserve_tables', 'epub_merge_chapters', 'epub_include_toc']:
                         # Only set if False (True is default for these)
                         if not arg_value:
                             options[field_name] = False

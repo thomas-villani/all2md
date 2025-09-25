@@ -402,6 +402,7 @@ PLAINTEXT_EXTENSIONS = [
     ".zsh",
 ]
 
-DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xlsx", ".docx", ".pptx", ".eml", ".rtf", ".ipynb", ".odt", ".odp"]
+DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xlsx", ".docx", ".pptx", ".eml", ".rtf", ".ipynb", ".odt", ".odp", ".epub",
+                       ".mht", ".mhtml"]
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]

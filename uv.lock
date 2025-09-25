@@ -27,14 +27,20 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-docx = [
-    { name = "python-docx" },
-]
-pdf = [
+all = [
+    { name = "beautifulsoup4" },
+    { name = "httpx" },
+    { name = "odfpy" },
+    { name = "pandas" },
     { name = "pymupdf" },
+    { name = "pyth3" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
+    { name = "standard-imghdr" },
 ]
-
-[package.dev-dependencies]
+csv = [
+    { name = "pandas" },
+]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -42,29 +48,63 @@ dev = [
     { name = "sphinx" },
     { name = "sphinx-rtd-theme" },
 ]
+docx = [
+    { name = "python-docx" },
+]
+epub = [
+    { name = "ebooklib" },
+]
+html = [
+    { name = "beautifulsoup4" },
+    { name = "httpx" },
+]
+odf = [
+    { name = "odfpy" },
+]
+pdf = [
+    { name = "pymupdf" },
+]
+pptx = [
+    { name = "python-pptx" },
+]
+rtf = [
+    { name = "pyth3" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.13.5" },
+    { name = "beautifulsoup4", marker = "extra == 'all'", specifier = ">=4.13.5" },
+    { name = "beautifulsoup4", marker = "extra == 'html'", specifier = ">=4.13.5" },
+    { name = "ebooklib", marker = "extra == 'epub'", specifier = ">=0.19" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.1" },
+    { name = "httpx", marker = "extra == 'html'", specifier = ">=0.28.1" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.2" },
     { name = "odfpy", specifier = ">=1.4.1" },
+    { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
+    { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "pandas", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "extra == 'all'", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "extra == 'csv'", specifier = ">=2.3.2" },
     { name = "pymupdf", specifier = ">=1.26.4" },
+    { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.4" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.26.4" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.2" },
     { name = "pyth3", specifier = ">=0.7" },
+    { name = "pyth3", marker = "extra == 'all'", specifier = ">=0.7" },
+    { name = "pyth3", marker = "extra == 'rtf'", specifier = ">=0.7" },
     { name = "python-docx", specifier = ">=1.2.0" },
+    { name = "python-docx", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "python-docx", marker = "extra == 'docx'", specifier = ">=1.2.0" },
     { name = "python-pptx", specifier = ">=1.0.2" },
+    { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
+    { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.1" },
+    { name = "sphinx", marker = "extra == 'dev'", specifier = ">=8.2.3" },
+    { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=3.0.2" },
     { name = "standard-imghdr", specifier = ">=3.13.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.18.2" },
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "ruff", specifier = ">=0.13.1" },
-    { name = "sphinx", specifier = ">=8.2.3" },
-    { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
+    { name = "standard-imghdr", marker = "extra == 'all'", specifier = ">=3.13.0" },
 ]
 
 [[package]]
@@ -179,6 +219,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ae/ed/aefcc8cd0ba62a0560c3c18c33925362d46c6075480bfa4df87b28e169a9/docutils-0.21.2.tar.gz", hash = "sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f", size = 2204444 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/d7/9322c609343d929e75e7e5e6255e614fcc67572cfd083959cdef3b7aad79/docutils-0.21.2-py3-none-any.whl", hash = "sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2", size = 587408 },
+]
+
+[[package]]
+name = "ebooklib"
+version = "0.19"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lxml" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/2a/0e7c1bdb83211043085f11c630ad7d7839dae56fd043188b59df7c1d0f69/ebooklib-0.19.tar.gz", hash = "sha256:07e9b4db0a30c73623b14e23b315634a450d2c13f23d1dba4b457a6ca16a58be", size = 116311 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/66/59/e63fd0b3410d2ab7a8971b070f40390f1fbeb3c7a85849718c8480313cbf/ebooklib-0.19-py3-none-any.whl", hash = "sha256:a790e280e1d5ef105e350e34cc88b83c9c987fa6bab8a63a7543410c313cfa31", size = 39214 },
 ]
 
 [[package]]

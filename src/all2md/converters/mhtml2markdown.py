@@ -1,0 +1,222 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all copies or substantial
+#  portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#
+# review/mhtml2markdown.py
+"""MHTML single-file web archive to Markdown conversion module.
+
+This module provides functionality to convert MHTML files (.mht, .mhtml)
+to Markdown. It parses the multipart MIME structure of the MHTML archive,
+extracts the main HTML document, and processes embedded assets like images.
+
+The converter works by locating the root HTML content and all related assets
+referenced via Content-ID (cid:) or Content-Location. It then pre-processes
+the HTML to inline these assets as base64 data URIs, creating a self-contained
+HTML document. This document is then passed to the existing html2markdown
+converter for the final transformation.
+
+Key Features
+------------
+- Parses MHTML/MHT single-file web archives.
+- Extracts the primary HTML content.
+- Handles embedded assets (images) referenced by 'cid:' or 'file://'.
+- Inlines assets as base64 data URIs for robust conversion.
+- Leverages the existing `html2markdown` module for final conversion.
+- Integrates with the unified attachment handling options.
+
+Dependencies
+------------
+- beautifulsoup4: For pre-processing the HTML content.
+- Standard library modules: email, base64, re.
+
+Examples
+--------
+Basic conversion from a file path:
+
+    >>> from all2md.converters.mhtml2markdown import mhtml_to_markdown
+    >>> markdown = mhtml_to_markdown('archive.mht')
+    >>> print(markdown)
+
+Convert with a file-like object:
+
+    >>> with open('archive.mhtml', 'rb') as f:
+    ...     markdown = mhtml_to_markdown(f)
+    >>> print(markdown)
+"""
+
+import base64
+import email
+import os
+import re
+from email import policy
+from pathlib import Path
+from typing import IO, Union
+
+from bs4 import BeautifulSoup
+
+from all2md.converters.html2markdown import html_to_markdown
+from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.options import HtmlOptions, MarkdownOptions, MhtmlOptions
+from all2md.utils.inputs import validate_and_convert_input
+
+
+def mhtml_to_markdown(
+    input_data: Union[str, Path, IO[bytes]], options: MhtmlOptions | None = None
+) -> str:
+    """Convert an MHTML single-file web archive to Markdown format.
+
+    Processes MHTML files (.mht, .mhtml) by parsing the multipart MIME
+    structure, extracting the main HTML document and its embedded assets
+    (like images). It then converts the HTML content to Markdown.
+
+    Parameters
+    ----------
+    input_data : str, os.PathLike, or file-like object
+        MHTML file to convert. Can be:
+        - String path to an MHTML file
+        - pathlib.Path object pointing to an MHTML file
+        - File-like object opened in binary mode (e.g., BytesIO)
+    options : MhtmlOptions or None, default None
+        Configuration options for MHTML conversion. If None, uses default settings.
+
+    Returns
+    -------
+    str
+        Markdown representation of the MHTML file's content.
+
+    Raises
+    ------
+    InputError
+        If input type is not supported or file cannot be read.
+    MarkdownConversionError
+        If the MHTML file is malformed or contains no HTML content.
+    """
+    if options is None:
+        options = MhtmlOptions()
+
+    try:
+        doc_input, input_type = validate_and_convert_input(
+            input_data, supported_types=["path-like", "file-like"], require_binary=True
+        )
+
+        if input_type == "path":
+            with open(doc_input, "rb") as f:
+                raw_data = f.read()
+        elif input_type in ("file", "bytes"):
+            raw_data = doc_input.read()
+        else:
+            raise InputError(f"Unsupported input type for MHTML conversion: {type(input_data).__name__}")
+
+        msg = email.message_from_bytes(raw_data, policy=policy.default)
+    except Exception as e:
+        raise MarkdownConversionError(
+            f"Failed to read or parse MHTML file: {e}", conversion_stage="mhtml_parsing", original_error=e
+        ) from e
+
+    # --- Extract HTML and assets ---
+    html_string = None
+    assets = {}  # Maps Content-ID and Content-Location to (data, filename, mime_type)
+
+    # Find the root HTML part
+    for part in msg.walk():
+        if part.get_content_type() == "text/html":
+            payload = part.get_payload(decode=True)
+            charset = part.get_content_charset() or "utf-8"
+            html_string = payload.decode(charset, errors="replace")
+            break  # Assume the first HTML part is the main document
+
+    if not html_string:
+        raise MarkdownConversionError("No HTML content found in the MHTML file.")
+
+    # Gather all assets
+    for part in msg.walk():
+        cid = part.get("Content-ID")
+        location = part.get("Content-Location")
+        filename = part.get_filename()
+
+        if cid or location:
+            asset_data = part.get_payload(decode=True)
+            asset_info = (asset_data, filename, part.get_content_type())
+            if cid:
+                assets[cid.strip().lstrip("<").rstrip(">")] = asset_info
+            if location:
+                assets[location.strip()] = asset_info
+
+    # --- Pre-process HTML to inline assets as data URIs and clean up MS Word artifacts ---
+    soup = BeautifulSoup(html_string, "html.parser")
+
+    # Handle asset inlining
+    for tag in soup.find_all(src=re.compile(r"^(cid:|file://)")):
+        src = tag["src"]
+        asset_id = None
+
+        if src.startswith("cid:"):
+            asset_id = src[4:]
+        elif src.startswith("file://"):
+            # Some browsers save MHTML with file:// based locations
+            asset_id = os.path.basename(src)
+
+        if asset_id and asset_id in assets:
+            data, _, mime_type = assets[asset_id]
+            if data and mime_type and mime_type.startswith("image/"):
+                b64_data = base64.b64encode(data).decode("utf-8")
+                tag["src"] = f"data:{mime_type};base64,{b64_data}"
+
+    processed_html = str(soup)
+
+    # Clean up Microsoft Word conditional comments and formatting artifacts while preserving list structure
+
+    # Extract and replace list markers before removing conditional comments
+    def replace_list_markers(match):
+        content = match.group(0)
+        # Look for bullet patterns: -, ·, o, ▪, etc.
+        if re.search(r'[-·o▪•]', content):
+            return '- '
+        # Look for numbered patterns: 1., 2., etc.
+        number_match = re.search(r'(\d+)\.', content)
+        if number_match:
+            return f"{number_match.group(1)}. "
+        # Fallback to generic bullet
+        return '- '
+
+    # Replace MS Word list conditional comments with proper list markers
+    processed_html = re.sub(r'<!--\[if !supportLists\]-->(.*?)<!--\[endif\]-->', replace_list_markers, processed_html, flags=re.DOTALL)
+
+    # Clean up remaining MS Word artifacts
+    processed_html = re.sub(r'<!--\[if[^>]*\]-->.*?<!--\[endif\]-->', '', processed_html, flags=re.DOTALL)
+    processed_html = re.sub(r'<o:p[^>]*>.*?</o:p>', '', processed_html, flags=re.DOTALL)
+    processed_html = re.sub(r'<v:[^>]*>.*?</v:[^>]*>', '', processed_html, flags=re.DOTALL)
+    processed_html = re.sub(r'<w:[^>]*>.*?</w:[^>]*>', '', processed_html, flags=re.DOTALL)
+
+    # Convert MS Word list paragraph classes to proper HTML list structure
+    processed_html = re.sub(r'<p class="MsoListParagraph[^"]*"[^>]*>', '<li>', processed_html)
+    processed_html = re.sub(r'<p[^>]*class="MsoListParagraph[^"]*"[^>]*>', '<li>', processed_html)
+
+    # --- Convert the processed HTML to Markdown ---
+    html_options = HtmlOptions(
+        attachment_mode=options.attachment_mode,
+        attachment_output_dir=options.attachment_output_dir,
+        attachment_base_url=options.attachment_base_url,
+        markdown_options=options.markdown_options or MarkdownOptions(),
+    )
+
+    return html_to_markdown(processed_html, options=html_options)

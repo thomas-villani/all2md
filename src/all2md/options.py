@@ -215,21 +215,6 @@ class PdfOptions(BaseOptions):
     include_image_captions : bool, default True
         Try to extract image captions.
 
-    # Unified attachment handling
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text or filename references
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
-
     Examples
     --------
     Convert only pages 1-3 with base64 images:
@@ -285,18 +270,6 @@ class DocxOptions(BaseOptions):
     ----------
     preserve_tables : bool, default True
         Whether to preserve table formatting in Markdown.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text or filename references
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
 
     Examples
     --------
@@ -333,18 +306,6 @@ class HtmlOptions(BaseOptions):
         Whether to automatically detect table column alignment from CSS/attributes.
     preserve_nested_structure : bool, default True
         Whether to maintain proper nesting for blockquotes and other elements.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text or filename references
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
 
     Examples
     --------
@@ -382,18 +343,6 @@ class PptxOptions(BaseOptions):
         Whether to include slide numbers in the output.
     include_notes : bool, default True
         Whether to include speaker notes in the conversion.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text or filename references
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
 
     Examples
     --------
@@ -421,16 +370,6 @@ class EmlOptions(BaseOptions):
         Whether to include email headers (From, To, Subject, Date) in output.
     preserve_thread_structure : bool, default True
         Whether to maintain email thread/reply chain structure.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images and files):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text for images, filename for files
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs (images only)
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
     date_format_mode : {"iso8601", "locale", "strftime"}, default "strftime"
         How to format dates in output:
         - "iso8601": Use ISO 8601 format (2023-01-01T10:00:00Z)
@@ -453,8 +392,6 @@ class EmlOptions(BaseOptions):
         Whether to clean URL defense/safety wrappers from links.
     url_wrappers : list[str], default from constants
         List of URL wrapper domains to clean (urldefense.com, safelinks, etc.).
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
 
     Examples
     --------
@@ -490,18 +427,7 @@ class RtfOptions(BaseOptions):
 
     Parameters
     ----------
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text or filename references
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
+    Inherited from `BaseOptions`
     """
     pass
 
@@ -521,18 +447,6 @@ class IpynbOptions(BaseOptions):
         If None, outputs are not collapsed.
     truncate_output_message : str or None, default = DEFAULT_COLLAPSE_OUTPUT_MESSAGE
         The message to place to indicate truncated message.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle image outputs:
-        - "skip": Remove images completely.
-        - "alt_text": Use alt-text placeholders (e.g., "![cell output]").
-        - "download": Save to a folder and link to the files.
-        - "base64": Embed images as base64 data URIs (default for notebooks).
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
     """
 
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
@@ -551,18 +465,39 @@ class OdfOptions(BaseOptions):
     ----------
     preserve_tables : bool, default True
         Whether to preserve table formatting in Markdown.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
-        How to handle attachments (images):
-        - "skip": Remove attachments completely
-        - "alt_text": Use alt-text or filename references
-        - "download": Save to folder and reference with links
-        - "base64": Embed as base64 data URIs
-    attachment_output_dir : str | None, default None
-        Directory to save attachments when using "download" mode.
-    attachment_base_url : str | None, default None
-        Base URL for resolving relative attachment URLs.
-    markdown_options : MarkdownOptions or None, default None
-        Common Markdown formatting options. If None, uses defaults.
     """
 
     preserve_tables: bool = True
+
+@dataclass
+class EpubOptions(BaseOptions):
+    """Configuration options for EPUB-to-Markdown conversion.
+
+    This dataclass contains settings specific to EPUB document processing,
+    including chapter handling, table of contents generation, and image handling.
+
+    Parameters
+    ----------
+    merge_chapters : bool, default True
+        Whether to merge chapters into a single continuous document. If False,
+        a separator is placed between chapters.
+    include_toc : bool, default True
+        Whether to generate and prepend a Markdown Table of Contents.
+    """
+
+    merge_chapters: bool = True
+    include_toc: bool = True
+
+
+@dataclass
+class MhtmlOptions(BaseOptions):
+    """Configuration options for MHTML-to-Markdown conversion.
+
+    This dataclass contains settings specific to MHTML file processing,
+    primarily for handling embedded assets like images.
+
+    Parameters
+    ----------
+    Inherited from BaseOptions
+    """
+    pass

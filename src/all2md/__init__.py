@@ -2,7 +2,7 @@
 
 all2md provides a comprehensive solution for converting between various file formats
 and Markdown. It supports PDF, Word (DOCX), PowerPoint (PPTX), HTML, email (EML),
-Excel (XLSX), Jupyter Notebooks (IPYNB), images, and 200+ text file formats with
+Excel (XLSX), Jupyter Notebooks (IPYNB), EPUB e-books, images, and 200+ text file formats with
 intelligent content extraction and formatting preservation.
 
 The library uses a modular architecture where the main `parse_file()` function
@@ -23,7 +23,7 @@ Key Features
 
 Supported Formats
 -----------------
-- **Documents**: PDF, DOCX, PPTX, HTML, EML
+- **Documents**: PDF, DOCX, PPTX, HTML, EML, EPUB
 - **Notebooks**: IPYNB (Jupyter Notebooks)
 - **Spreadsheets**: XLSX, CSV, TSV
 - **Images**: PNG, JPEG, GIF (embedded as base64)
@@ -79,14 +79,16 @@ from typing import IO, Literal, Optional, Union
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
-from .exceptions import MarkdownConversionError, InputError, FormatError
+from .exceptions import FormatError, InputError, MarkdownConversionError
 from .options import (
     BaseOptions,
     DocxOptions,
     EmlOptions,
+    EpubOptions,
     HtmlOptions,
     IpynbOptions,
     MarkdownOptions,
+    MhtmlOptions,
     OdfOptions,
     PdfOptions,
     PptxOptions,
@@ -105,6 +107,7 @@ DocumentFormat = Literal[
     "docx",      # Word documents
     "pptx",      # PowerPoint presentations
     "html",      # HTML documents
+    "mhtml",     # MHTML single-file web archives
     "rtf",       # Rich Text Format
     "xlsx",      # Excel spreadsheets
     "csv",       # CSV files
@@ -114,7 +117,8 @@ DocumentFormat = Literal[
     "image",     # Image files (PNG, JPEG, GIF)
     "ipynb",     # Jupyter Notebooks
     "odt",       # OpenDocument Text
-    "odp"        # OpenDocument Presentation
+    "odp",       # OpenDocument Presentation
+    "epub"       # EPUB e-books
 ]
 
 
@@ -146,7 +150,7 @@ def _detect_format_from_content(file_obj: IO[bytes]) -> DocumentFormat:
     if magic_bytes.startswith(b'%PDF'):
         return "pdf"
 
-    # ZIP-based files (DOCX, PPTX, XLSX) start with ZIP signature
+    # ZIP-based files (DOCX, PPTX, XLSX, EPUB) start with ZIP signature
     if magic_bytes.startswith(b'PK\x03\x04'):
         # Read more content to distinguish between ZIP-based formats
         file_obj.seek(0)
@@ -159,6 +163,9 @@ def _detect_format_from_content(file_obj: IO[bytes]) -> DocumentFormat:
             return "pptx"
         elif b'xl/' in zip_content:
             return "xlsx"
+        elif b'META-INF/container.xml' in zip_content or b'mimetype' in zip_content:
+            # EPUB files contain META-INF/container.xml and/or mimetype file
+            return "epub"
         else:
             logger.debug("Could not determine specific ZIP format, defaulting to txt")
             # Generic ZIP file, can't determine specific format
@@ -181,6 +188,11 @@ def _detect_format_from_content(file_obj: IO[bytes]) -> DocumentFormat:
         b'To:' in magic_bytes[:100] or
         b'Subject:' in magic_bytes[:100]):
         return "eml"
+
+    # MHTML files start with MIME-Version and have multipart/related Content-Type
+    if (b'MIME-Version:' in magic_bytes[:50] and
+        b'multipart/related' in magic_bytes[:512]):
+        return "mhtml"
 
     # Image formats
     if magic_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
@@ -254,6 +266,8 @@ def _get_format_from_filename(filename: str) -> DocumentFormat:
         '.xlsx': 'xlsx',
         '.html': 'html',
         '.htm': 'html',
+        '.mhtml': 'mhtml',
+        '.mht': 'mhtml',
         '.rtf': 'rtf',
         '.csv': 'csv',
         '.tsv': 'tsv',
@@ -261,6 +275,7 @@ def _get_format_from_filename(filename: str) -> DocumentFormat:
         '.ipynb': 'ipynb',
         '.odt': 'odt',
         '.odp': 'odp',
+        '.epub': 'epub',
         '.png': 'image',
         '.jpg': 'image',
         '.jpeg': 'image',
@@ -400,11 +415,13 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "docx": DocxOptions,
         "pptx": PptxOptions,
         "html": HtmlOptions,
+        "mhtml": MhtmlOptions,
         "eml": EmlOptions,
         "ipynb": IpynbOptions,
         "rtf": RtfOptions,
         "odt": OdfOptions,
         "odp": OdfOptions,
+        "epub": EpubOptions
     }
     return format_to_class.get(format)
 
@@ -532,7 +549,7 @@ def to_markdown(
     options : BaseOptions, optional
         Pre-configured options object for format-specific settings.
         If provided, individual kwargs will override these settings.
-    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "ipynb"}, default "auto"
+    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "ipynb", "epub"}, default "auto"
         Document format specification:
         - "auto": Detect format automatically from filename and content
         - Other values: Force processing as the specified format
@@ -589,7 +606,7 @@ def to_markdown(
     Notes
     -----
     Supported formats include PDF, Word (DOCX), PowerPoint (PPTX), HTML,
-    email (EML), Excel (XLSX), Jupyter Notebooks (IPYNB), RTF, images,
+    email (EML), Excel (XLSX), Jupyter Notebooks (IPYNB), EPUB e-books, RTF, images,
     CSV/TSV, and 200+ text file formats.
 
     The function provides intelligent format detection using filename extensions,
@@ -639,6 +656,12 @@ def to_markdown(
         file.seek(0)
         html_content = file.read().decode("utf-8", errors="replace")
         content = html_to_markdown(html_content, options=final_options)
+
+    elif actual_format == "mhtml":
+        from all2md.converters.mhtml2markdown import mhtml_to_markdown
+
+        file.seek(0)
+        content = mhtml_to_markdown(file, options=final_options)
 
     elif actual_format == "rtf":
         from all2md.converters.rtf2markdown import rtf_to_markdown
@@ -759,6 +782,32 @@ def to_markdown(
         except ImportError as e:
             raise ImportError(
                 "`odfpy` is required to read OpenDocument files. Install with `pip install odfpy`."
+            ) from e
+
+    elif actual_format == "epub":
+        from all2md.converters.epub2markdown import epub_to_markdown
+
+        try:
+            # EPUB requires file path, not file object, due to ebooklib limitation
+            if filename == "unknown":
+                # For file objects without known path, we need to create a temporary file
+                import tempfile
+                file.seek(0)
+                with tempfile.NamedTemporaryFile(suffix='.epub', delete=False) as temp_file:
+                    temp_file.write(file.read())
+                    temp_path = temp_file.name
+                try:
+                    content = epub_to_markdown(temp_path, options=final_options)
+                finally:
+                    # Clean up temporary file
+                    import os
+                    os.unlink(temp_path)
+            else:
+                # Use the original filename path
+                content = epub_to_markdown(filename, options=final_options)
+        except ImportError as e:
+            raise ImportError(
+                "`ebooklib` is required to read EPUB files. Install with `pip install ebooklib`."
             ) from e
 
     elif actual_format == "image":
