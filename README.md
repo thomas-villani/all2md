@@ -1,310 +1,251 @@
 # all2md
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://all2md.readthedocs.io/)
+[![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/all2md.svg)](https://badge.fury.io/py/all2md)
 
-**all2md** is a comprehensive Python library for bidirectional document conversion between various file formats and Markdown. It provides intelligent content extraction and formatting preservation for PDF, Word, PowerPoint, HTML, email, Excel, images, and 200+ text file formats.
+A Python document conversion library for rapid, lightweight transformation of various document formats to Markdown. Designed specifically for LLMs and document processing pipelines.
 
 ## Features
 
-### **Bidirectional Conversion**
-- **Format-to-Markdown**: Convert documents to clean, structured Markdown
-- **Markdown-to-Format**: Generate professional documents from Markdown
+=€ **Rapid Conversion** - Lightweight and fast document processing
+= **Smart Detection** - Automatic format detection from content and filenames
+=Ä **Multiple Formats** - Support for 15+ document formats plus 200+ text formats
+™ **Highly Configurable** - Extensive options for customizing Markdown output
+=¼ **Image Handling** - Download, embed as base64, or skip images entirely
+=» **CLI & API** - Use from command line or integrate into Python applications
+=' **Modular Design** - Optional dependencies per format to keep installs lightweight
 
-### **Comprehensive Format Support**
-- **Documents**: PDF, DOCX, PPTX, HTML, EML
-- **Spreadsheets**: XLSX, CSV, TSV
-- **Images**: PNG, JPEG, GIF (embedded as base64)
-- **Text Files**: 200+ formats including source code, configs, markup
+## Supported Formats
 
-### **Intelligent Processing**
-- Advanced PDF parsing with table detection using PyMuPDF
-- Word document processing with formatting preservation
-- PowerPoint slide-by-slide extraction
-- Email chain parsing with thread reconstruction
-- HTML processing with configurable conversion options
+### Documents
+- **PDF** - Advanced parsing with table detection using PyMuPDF
+- **Word (DOCX)** - Full formatting preservation including tables and images
+- **PowerPoint (PPTX)** - Slide-by-slide extraction with notes and content
+- **HTML/MHTML** - Web content with configurable element handling
+- **Email (EML)** - Email parsing with attachment support and chain detection
+- **EPUB** - E-book chapter extraction with metadata
+- **RTF** - Rich Text Format with styling preservation
+- **OpenDocument (ODT/ODP)** - LibreOffice/OpenOffice documents
 
-### <ï¿½ **Key Capabilities**
-- Table structure preservation with Markdown table syntax
-- Image embedding as base64 data URIs
-- Text formatting preservation (bold, italic, lists, headers)
-- Automatic file type detection and routing
-- Robust error handling for malformed content
-
-## Installation
-
-### Requirements
-- **Python 3.12+**
-- Optional dependencies are installed automatically per format
-
-### Install from PyPI
-```bash
-pip install all2md
-```
-
-### Install for Development
-```bash
-git clone https://github.com/username/all2md.git
-cd all2md
-pip install -e .
-```
+### Data & Other
+- **Excel (XLSX)** - Spreadsheets converted to Markdown tables
+- **CSV/TSV** - Tabular data with proper table formatting
+- **Jupyter Notebooks (IPYNB)** - Code cells, outputs, and markdown cells
+- **Images (PNG/JPEG/GIF)** - Embedded as base64 or downloaded
+- **200+ text formats** - Source code, configs, markup files, and more
 
 ## Quick Start
 
-### Basic Usage
+### Installation
 
-```python
-from all2md import parse_file
+```bash
+# Basic installation
+pip install all2md
 
-# Convert any supported file to Markdown
-with open('document.pdf', 'rb') as f:
-    markdown_content = parse_file(f, 'document.pdf')
-    print(markdown_content)
+# Install with all format support
+pip install all2md[all]
+
+# Install specific formats only
+pip install all2md[pdf,docx,html]
 ```
 
-### With MIME Type Detection
+### Command Line Usage
 
-```python
-content, mimetype = parse_file(file_obj, filename, return_mimetype=True)
-print(f"Detected type: {mimetype}")
-print(content)
+```bash
+# Convert any document to markdown
+all2md document.pdf
+
+# Save output to file
+all2md document.docx --out output.md
+
+# Download images to a directory
+all2md document.html --attachment-mode download --attachment-output-dir ./images
+
+# Convert with custom formatting
+all2md document.pdf --emphasis-symbol "_" --bullet-symbols "",æ,ª"
 ```
 
-### Format-Specific Examples
-
-#### PDF to Markdown
+### Python API
 
 ```python
-from all2md.converters.pdf2markdown import pdf_to_markdown
-from io import BytesIO
+from all2md import to_markdown
 
-with open('report.pdf', 'rb') as f:
-    filestream = BytesIO(f.read())
-    markdown = pdf_to_markdown(filestream)
-    print(markdown)
-```
+# Simple conversion
+markdown = to_markdown('document.pdf')
+print(markdown)
 
-#### Word Document to Markdown
+# With options
+from all2md import to_markdown, PdfOptions
 
-```python
-from all2md.converters.docx2markdown import docx_to_markdown
+options = PdfOptions(
+    pages=[0, 1, 2],  # First 3 pages only
+    attachment_mode='download',
+    attachment_output_dir='./images'
+)
+markdown = to_markdown('document.pdf', options=options)
 
+# From file object
 with open('document.docx', 'rb') as f:
-    markdown = docx_to_markdown(f, convert_images_to_base64=True)
-    print(markdown)
+    markdown = to_markdown(f, format='docx')
 ```
 
-#### Email Chain Processing
+## Documentation
 
-```python
-from all2md.converters.eml2markdown import eml_to_markdown
+=Ö **[Full Documentation](https://all2md.readthedocs.io/)** - Complete guide and API reference
+=€ **[Quick Start Guide](https://all2md.readthedocs.io/en/latest/quickstart.html)** - Get up and running in 5 minutes
+™ **[Configuration Options](https://all2md.readthedocs.io/en/latest/options.html)** - Detailed options for each format
+= **[Troubleshooting](https://all2md.readthedocs.io/en/latest/troubleshooting.html)** - Common issues and solutions
 
-# Get structured data
-messages = eml_to_markdown('conversation.eml')
-for msg in messages:
-    print(f"From: {msg['from']}")
-    print(f"Subject: {msg['subject']}")
-    print(f"Date: {msg['date']}")
+## Installation Options
 
-# Get Markdown format
-markdown = eml_to_markdown('conversation.eml', as_markdown=True)
-print(markdown)
-```
-
-#### PowerPoint to Markdown
-
-```python
-from all2md.converters.pptx2markdown import pptx_to_markdown
-
-with open('presentation.pptx', 'rb') as f:
-    markdown = pptx_to_markdown(f)
-    print(markdown)
-```
-
-#### HTML to Markdown
-
-```python
-from all2md.converters.html2markdown import HTMLToMarkdown
-
-converter = HTMLToMarkdown(
-    hash_headings=True,
-    emphasis_symbol="*",
-    bullet_symbols="*-+"
-)
-
-html = '<h1>Title</h1><p>Content with <strong>bold</strong> text.</p>'
-markdown = converter.convert(html)
-print(markdown)
-```
-
-### Reverse Conversion (Markdown to Format)
-
-#### Markdown to Word Document
-
-```python
-from all2md.markdown2docx import markdown_to_docx
-
-markdown_text = """
-# My Document
-
-This is **bold** text with a [link](https://example.com).
-
-## Table Example
-
-| Name | Value |
-|------|-------|
-| Item | 123   |
-"""
-
-doc = markdown_to_docx(markdown_text)
-doc.save('output.docx')
-```
-
-#### PDF to Images
-
-```python
-from all2md.pdf2image import pdf_to_images
-
-# Convert to image list
-images = pdf_to_images('document.pdf', fmt='png', zoom=2.0)
-
-# Get base64 encoded for web use
-images_b64 = pdf_to_images('document.pdf', as_base64=True)
-```
-
-## Supported File Types
-
-| Category | Formats | Extensions |
-|----------|---------|------------|
-| **Documents** | PDF, Word, PowerPoint, HTML, Email | `.pdf`, `.docx`, `.pptx`, `.html`, `.eml` |
-| **Spreadsheets** | Excel, CSV, TSV | `.xlsx`, `.csv`, `.tsv` |
-| **Images** | PNG, JPEG, GIF | `.png`, `.jpg`, `.jpeg`, `.gif` |
-| **Text** | 200+ formats | `.txt`, `.md`, `.json`, `.xml`, `.py`, `.js`, etc. |
-
-### Programming Languages Supported
-Python, JavaScript, Java, C/C++, C#, Go, Rust, Ruby, PHP, Swift, Kotlin, TypeScript, and many more.
-
-## API Reference
-
-### Core Functions
-
-#### `parse_file(file, filename, return_mimetype=False)`
-Main entry point for file conversion.
-
-**Parameters:**
-- `file` (IO): File-like object to parse
-- `filename` (str): Filename for MIME type detection
-- `return_mimetype` (bool): Return MIME type with content
-
-**Returns:**
-- `str`: Markdown content, or `tuple[str, str]` if `return_mimetype=True`
-
-### Module-Specific Functions
-
-- **`pdf2markdown.pdf_to_markdown(doc, pages=None)`** - Advanced PDF conversion
-- **`docx2markdown.docx_to_markdown(docx_file, convert_images_to_base64=False)`** - Word conversion
-- **`pptx2markdown.pptx_to_markdown(pptx_file)`** - PowerPoint conversion
-- **`emlfile.parse_email_chain(eml_file, as_markdown=False)`** - Email processing
-- **`html2markdown.HTMLToMarkdown.convert(html)`** - HTML conversion
-- **`pdf2image.pdf_to_images(pdf_file, **options)`** - PDF to image conversion
-
-## Configuration
-
-### HTML Converter Options
-```python
-converter = HTMLToMarkdown(
-    hash_headings=True,        # Use # headers vs underline style
-    extract_title=False,       # Extract <title> from HTML
-    emphasis_symbol="*",       # * or _ for emphasis
-    bullet_symbols="*-+",      # Bullet characters to cycle
-    remove_images=False        # Strip images from output
-)
-```
-
-### PDF Processing Options
-```python
-# Page range selection
-markdown = pdf_to_markdown(doc, pages=[0, 1, 2])  # First 3 pages
-
-# Image conversion options
-images = pdf_to_images(
-    pdf_file,
-    zoom=2.0,              # Resolution multiplier
-    fmt='jpeg',            # 'jpeg' or 'png'
-    first_page=1,          # Start page (1-indexed)
-    last_page=5,           # End page
-    as_base64=True         # Return base64 strings
-)
-```
-
-## Development
-
-### Setup Development Environment
+### Basic Installation
 ```bash
-git clone https://github.com/username/all2md.git
+pip install all2md
+```
+Includes support for: HTML, CSV/TSV, text files, images
+
+### Format-Specific Installation
+```bash
+# PDF support
+pip install all2md[pdf]
+
+# Word documents
+pip install all2md[docx]
+
+# PowerPoint presentations
+pip install all2md[pptx]
+
+# Email files
+pip install all2md[eml]
+
+# EPUB e-books
+pip install all2md[epub]
+
+# OpenDocument formats
+pip install all2md[odf]
+
+# RTF documents
+pip install all2md[rtf]
+
+# All formats
+pip install all2md[all]
+```
+
+### Development Installation
+```bash
+git clone https://github.com/thomas.villani/all2md.git
 cd all2md
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .[dev]
+pip install -e .[dev,all]
 ```
 
-### Code Quality Tools
-```bash
-# Linting and formatting
-ruff check src/
-ruff format src/
+## Examples
 
-# Type checking
-mypy src/
+### PDF Processing with Table Detection
+```python
+from all2md import to_markdown, PdfOptions
 
-# Using virtual environment commands
-.venv/Scripts/python.exe -m ruff check
-.venv/Scripts/python.exe -m mypy src/
+# Advanced PDF processing
+options = PdfOptions(
+    pages=[0, 1, 2],  # Process first 3 pages
+    table_detection=True,  # Enable table detection
+    include_page_numbers=True,  # Add page numbers
+    attachment_mode='base64'  # Embed images as base64
+)
+
+markdown = to_markdown('report.pdf', options=options)
 ```
 
-### Running Tests
-```bash
-pytest tests/
+### Word Document with Custom Formatting
+```python
+from all2md import to_markdown, DocxOptions, MarkdownOptions
+
+# Custom markdown formatting
+md_options = MarkdownOptions(
+    emphasis_symbol='_',  # Use underscores for emphasis
+    bullet_symbols=['"', 'æ', 'ª'],  # Custom bullet points
+    use_hash_headings=True  # Use # headings instead of underlines
+)
+
+options = DocxOptions(
+    markdown_options=md_options,
+    attachment_mode='download',
+    attachment_output_dir='./doc_images'
+)
+
+markdown = to_markdown('document.docx', options=options)
 ```
 
-## Dependencies
+### Batch Processing
+```python
+import os
+from all2md import to_markdown
 
-### Core Dependencies
-- **PyMuPDF (e1.26.4)** - PDF processing and table detection
-- **python-docx (e1.2.0)** - Word document handling
-- **python-pptx (e1.0.2)** - PowerPoint processing
-- **beautifulsoup4 (e4.13.5)** - HTML parsing
-- **pandas (e2.3.2)** - Spreadsheet processing
+# Process all PDFs in a directory
+pdf_dir = './documents'
+output_dir = './markdown_output'
 
-### Optional Dependencies
-Dependencies are automatically installed when needed for specific formats.
+for filename in os.listdir(pdf_dir):
+    if filename.endswith('.pdf'):
+        input_path = os.path.join(pdf_dir, filename)
+        output_path = os.path.join(output_dir, f"{filename}.md")
+
+        markdown = to_markdown(input_path)
+
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(markdown)
+
+        print(f"Converted {filename} -> {output_path}")
+```
+
+## Requirements
+
+- **Python 3.12+**
+- Format-specific dependencies are installed automatically with optional extras
+- See [Installation Guide](https://all2md.readthedocs.io/en/latest/installation.html) for details
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
 
-### Areas for Contribution
-- Additional file format support
-- Performance optimizations
-- Test coverage improvements
-- Documentation enhancements
-- Bug fixes and feature requests
+- Setting up the development environment
+- Running tests and quality checks
+- Submitting pull requests
+- Reporting issues
+
+### Development Setup
+```bash
+# Clone repository
+git clone https://github.com/thomas.villani/all2md.git
+cd all2md
+
+# Install in development mode
+pip install -e .[dev,all]
+
+# Run tests
+pytest
+
+# Run linting and type checking
+ruff check src/
+mypy src/
+```
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Changelog
+## Author
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+**Thomas Villani, Ph.D.**
+- Email: thomas.villani@gmail.com
+- GitHub: [@thomas.villani](https://github.com/thomas.villani)
 
-## Support
+## Acknowledgments
 
-- **Documentation**: [Read the Docs](https://all2md.readthedocs.io/)
-- **Issues**: [GitHub Issues](https://github.com/username/all2md/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/username/all2md/discussions)
+- Built on top of excellent libraries like PyMuPDF, python-docx, BeautifulSoup4, and many others
+- Inspired by the need for fast, reliable document conversion for LLM workflows
+- Thanks to the Python community for the fantastic ecosystem of document processing tools
 
 ---
 
-**all2md** - Making document conversion simple and reliable.
+**all2md** - Making document conversion simple, fast, and reliable for modern workflows.
