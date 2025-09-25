@@ -86,7 +86,7 @@ from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 
 from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
-from all2md.utils.inputs import format_special_text
+from all2md.utils.inputs import escape_markdown_special, format_special_text
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.exceptions import MdparseConversionError
 from all2md.options import DocxOptions, MarkdownOptions
@@ -167,7 +167,7 @@ def _detect_list_level(paragraph: Paragraph) -> tuple[str | None, int]:
 def _process_hyperlink(run: Any) -> tuple[str | None, Any]:
     """Extract hyperlink URL from a run."""
     if isinstance(run, Hyperlink):
-        return run.url, run.runs[0]
+        return run.url, run
     return None, run
 
 
@@ -216,7 +216,13 @@ def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | 
             current_format = format_key
             current_url = url
 
-        current_text.append(run_to_parse.text)
+        # Handle hyperlink text extraction - concatenate all runs in hyperlink
+        if isinstance(run_to_parse, Hyperlink):
+            # Extract text from all runs in the hyperlink
+            hyperlink_text = "".join(run.text for run in run_to_parse.runs)
+            current_text.append(hyperlink_text)
+        else:
+            current_text.append(run_to_parse.text)
 
     # Add final group
     if current_text:
@@ -234,6 +240,10 @@ def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | 
         content = text.strip()
         prefix = text[: len(text) - len(text.lstrip())]
         suffix = text[len(text.rstrip()) :]
+
+        # Apply escaping if enabled
+        if md_options and md_options.escape_special:
+            content = escape_markdown_special(content)
 
         # Apply formatting using format_special_text for special formatting and markers for others
         if format_key:
@@ -544,8 +554,18 @@ def docx_to_markdown(
             if markdown_lines and markdown_lines[-1]:
                 markdown_lines.append("")
 
-            # Convert and add table
-            markdown_lines.append(_convert_table_to_markdown(block, md_options))
+            # Check if tables should be preserved
+            if options.preserve_tables:
+                # Convert and add table
+                markdown_lines.append(_convert_table_to_markdown(block, md_options))
+            else:
+                # Flatten table to paragraphs
+                for row in block.rows:
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            text = _process_paragraph_runs(paragraph, md_options)
+                            if text.strip():
+                                markdown_lines.append(text)
 
             # Add spacing after table
             markdown_lines.append("")

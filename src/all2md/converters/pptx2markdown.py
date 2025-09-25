@@ -91,6 +91,7 @@ from pathlib import Path
 from typing import Any, Union
 
 from pptx import Presentation
+from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
@@ -247,7 +248,7 @@ def _process_shape(shape: Any, options: PptxOptions, base_filename: str = "prese
         # Check if this is a scatter plot (XY chart)
         try:
             chart_type = chart.chart_type
-            is_scatter = hasattr(chart_type, 'XY_SCATTER') and chart_type == chart_type.XY_SCATTER
+            is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER
         except Exception:
             is_scatter = False
 

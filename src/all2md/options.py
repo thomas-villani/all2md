@@ -521,7 +521,7 @@ class IpynbOptions(BaseOptions):
         If None, outputs are not collapsed.
     truncate_output_message : str or None, default = DEFAULT_COLLAPSE_OUTPUT_MESSAGE
         The message to place to indicate truncated message.
-    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "base64"
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
         How to handle image outputs:
         - "skip": Remove images completely.
         - "alt_text": Use alt-text placeholders (e.g., "![cell output]").
