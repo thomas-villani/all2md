@@ -100,7 +100,6 @@ License GNU Affero GPL 3.0
 
 import re
 import string
-from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
 from typing import Union

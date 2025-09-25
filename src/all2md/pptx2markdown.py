@@ -229,7 +229,6 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
 
                     # Try to extract X and Y values from series XML
                     if hasattr(series, '_element'):
-                        import xml.etree.ElementTree as ET
                         element = series._element
                         ns = {'c': 'http://schemas.openxmlformats.org/drawingml/2006/chart'}
 

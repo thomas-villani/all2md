@@ -37,15 +37,10 @@ Examples
 --------
 Basic usage for file conversion:
 
-    >>> from all2md import parse_file
-    >>> with open('document.pdf', 'rb') as f:
-    ...     markdown_content = parse_file(f, 'document.pdf')
+    >>> from all2md import to_markdown
+    >>> markdown_content = to_markdown('document.pdf')
     >>> print(markdown_content)
 
-With MIME type detection:
-
-    >>> content, mimetype = parse_file(file_obj, filename, return_mimetype=True)
-    >>> print(f"Detected type: {mimetype}")
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
@@ -75,49 +70,107 @@ import base64
 import mimetypes
 import os
 from io import BytesIO, StringIO
-from typing import IO, Union
+from pathlib import Path
+from typing import Any, IO, Union
 
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from .exceptions import MdparseConversionError, MdparseInputError
-from .options import DocxOptions, EmlOptions, HtmlOptions, PdfOptions, PptxOptions
+from .options import DocxOptions, EmlOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
 
 # Re-export for backward compatibility - all extension lists are now in constants.py
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
 
-# Main parse function starts here
+# Options handling helpers
+
+def _create_format_options(file_mimetype: str, **options) -> Union[PdfOptions, DocxOptions, HtmlOptions, PptxOptions, EmlOptions, None]:
+    """Create format-specific options object from flat options."""
+    # Extract common MarkdownOptions
+    markdown_opts = {}
+    if 'markdown_emphasis_symbol' in options:
+        markdown_opts['emphasis_symbol'] = options.pop('markdown_emphasis_symbol')
+    if 'markdown_bullet_symbols' in options:
+        markdown_opts['bullet_symbols'] = options.pop('markdown_bullet_symbols')
+    if 'markdown_page_separator' in options:
+        markdown_opts['page_separator'] = options.pop('markdown_page_separator')
+    if 'markdown_list_indent_width' in options:
+        markdown_opts['list_indent_width'] = options.pop('markdown_list_indent_width')
+
+    # Create MarkdownOptions instance if we have any options
+    md_options_instance = MarkdownOptions(**markdown_opts) if markdown_opts else None
+
+    # Common attachment options
+    attachment_opts = {}
+    if 'attachment_mode' in options:
+        attachment_opts['attachment_mode'] = options.pop('attachment_mode')
+    if 'attachment_output_dir' in options:
+        attachment_opts['attachment_output_dir'] = options.pop('attachment_output_dir')
+    if 'attachment_base_url' in options:
+        attachment_opts['attachment_base_url'] = options.pop('attachment_base_url')
+
+    # Add markdown_options to attachment opts if we have it
+    if md_options_instance:
+        attachment_opts['markdown_options'] = md_options_instance
+
+    # Create format-specific options based on MIME type
+    if file_mimetype == "application/pdf":
+        # PDF-specific options
+        pdf_opts = {k.replace('pdf_', ''): v for k, v in options.items() if k.startswith('pdf_')}
+        return PdfOptions(**{**attachment_opts, **pdf_opts})
+    elif file_mimetype == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        # DOCX-specific options
+        docx_opts = {k.replace('docx_', ''): v for k, v in options.items() if k.startswith('docx_')}
+        return DocxOptions(**{**attachment_opts, **docx_opts})
+    elif file_mimetype == "text/html":
+        # HTML-specific options
+        html_opts = {k.replace('html_', ''): v for k, v in options.items() if k.startswith('html_')}
+        return HtmlOptions(**{**attachment_opts, **html_opts})
+    elif file_mimetype == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+        # PPTX-specific options
+        pptx_opts = {k.replace('pptx_', ''): v for k, v in options.items() if k.startswith('pptx_')}
+        return PptxOptions(**{**attachment_opts, **pptx_opts})
+    elif file_mimetype == "message/rfc822":
+        # EML-specific options
+        eml_opts = {k.replace('eml_', ''): v for k, v in options.items() if k.startswith('eml_')}
+        return EmlOptions(**{**attachment_opts, **eml_opts})
+    else:
+        # Return None for formats that don't use options
+        return None
 
 
-def parse_file(
-    file: IO,
-    filename: str,
-    return_mimetype: bool = False,
-    options: dict | None = None,  # Reserved for future per-format options
-) -> Union[str, None, tuple[Union[str, None], Union[str, None]]]:
-    """Parse file and return content as Markdown format.
+# Main conversion function starts here
+
+
+def to_markdown(
+    input: Union[str, Path, IO[bytes]],
+    **options
+) -> str:
+    """Convert document to Markdown format with automatic format detection.
 
     This is the main entry point for the all2md library. It automatically
-    detects file type based on filename and MIME type, then routes to the
-    appropriate specialized converter for processing.
+    detects file type based on file path extension and MIME type, then routes
+    to the appropriate specialized converter for processing.
 
     Parameters
     ----------
-    file : IO
-        A file-like object containing the document data
-    filename : str
-        Filename used for MIME type detection and format determination
-    return_mimetype : bool, default False
-        If True, returns tuple of (content, mimetype) instead of just content
-    options : dict or None, optional
-        Reserved for future per-format conversion options
+    input : str, Path, or IO[bytes]
+        Input can be:
+        - File path (str or Path): Opens and processes the file
+        - File-like object (IO[bytes]): Processes the data directly
+    **options : keyword arguments
+        Conversion options passed to format-specific converters:
+        - attachment_mode : {"skip", "alt_text", "download", "base64"}
+        - attachment_output_dir : str
+        - attachment_base_url : str
+        - markdown_emphasis_symbol : {"*", "_"}
+        - And format-specific options (see individual converter docs)
 
     Returns
     -------
-    str or None or tuple
-        - If return_mimetype=False: Markdown content as string, or None if unsupported
-        - If return_mimetype=True: tuple of (content, mimetype) where either may be None
+    str
+        Document content converted to Markdown format
 
     Raises
     ------
@@ -126,23 +179,27 @@ def parse_file(
     MdparseConversionError
         If file processing fails due to corruption, format issues, etc.
     MdparseInputError
-        If file or filename parameters are invalid
+        If input parameters are invalid or file cannot be accessed
 
     Examples
     --------
-    Basic usage:
+    Convert from file path:
 
-        >>> with open('document.pdf', 'rb') as f:
-        ...     content = parse_file(f, 'document.pdf')
+        >>> content = to_markdown('document.pdf')
         >>> print(type(content))
         <class 'str'>
 
-    With MIME type detection:
+    Convert with options:
 
-        >>> with open('document.docx', 'rb') as f:
-        ...     content, mimetype = parse_file(f, 'document.docx', return_mimetype=True)
-        >>> print(mimetype)
-        application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        >>> content = to_markdown('document.docx',
+        ...                       attachment_mode='download',
+        ...                       attachment_output_dir='./attachments',
+        ...                       markdown_emphasis_symbol='_')
+
+    Convert from file object:
+
+        >>> with open('document.pdf', 'rb') as f:
+        ...     content = to_markdown(f)
 
     Notes
     -----
@@ -150,6 +207,17 @@ def parse_file(
     email (EML), Excel (XLSX), images, and 200+ text file formats.
     """
 
+    # Handle input parameter - convert to file object and filename
+    if isinstance(input, (str, Path)):
+        filename = str(input)
+        with open(input, 'rb') as file:
+            return to_markdown(file, **options, _filename=filename)
+    else:
+        # File-like object case
+        file: IO[bytes] = input  # type: ignore
+        filename = getattr(file, 'name', options.pop('_filename', 'unknown'))
+
+    # Extract file extension and detect type
     _, extension = os.path.splitext(filename)
     is_dot_file = False
     # For dot-files
@@ -165,13 +233,16 @@ def parse_file(
         if is_dot_file:
             file_mimetype = "text/plain"
 
+    # Create format-specific options
+    format_options = _create_format_options(file_mimetype or "unknown", **options)
+
     # HTML file
     if file_mimetype == "text/html" or extension in (".html", ".htm"):
         from .html2markdown import html_to_markdown
 
         file.seek(0)
         html_content = file.read().decode("utf-8", errors="replace")
-        content = html_to_markdown(html_content)
+        content = html_to_markdown(html_content, options=format_options)
     # Plain text
     elif (file_mimetype and file_mimetype.startswith("text/")) or extension in PLAINTEXT_EXTENSIONS:
         file.seek(0)
@@ -206,7 +277,7 @@ def parse_file(
 
         file.seek(0)
         try:
-            content = pptx_to_markdown(file)
+            content = pptx_to_markdown(file, options=format_options)
         except ImportError as e:
             raise ImportError(
                 "`python-pptx` is required to read powerpoint files. Install with `pip install python-pptx`."
@@ -217,7 +288,7 @@ def parse_file(
 
         file.seek(0)
         try:
-            content = docx_to_markdown(file)
+            content = docx_to_markdown(file, options=format_options)
         except ImportError as e:
             raise ImportError(
                 "`python-docx` is required to read Word docx files. Install with `pip install python-docx`."
@@ -229,7 +300,7 @@ def parse_file(
         file.seek(0)
         filestream = BytesIO(file.read())
         try:
-            content = pdf_to_markdown(filestream)
+            content = pdf_to_markdown(filestream, options=format_options)
         except ImportError as e:
             raise ImportError(
                 "`pymupdf` version >1.24.0 is required to read PDF files. Install with `pip install pymupdf`"
@@ -253,7 +324,9 @@ def parse_file(
             decoded_data = raw_data.decode("utf-8", errors="replace")
 
         eml_stream: StringIO = StringIO(decoded_data)
-        content = parse_email_chain(eml_stream)
+        result = parse_email_chain(eml_stream, options=format_options)
+        # parse_email_chain can return str or list, ensure we get a string
+        content = result if isinstance(result, str) else str(result)
     # Others
     else:  # elif file.content_type == "application/octet-stream":
         # guess = mimetypes.guess_type(file.filename)[0]
@@ -261,15 +334,11 @@ def parse_file(
         file.seek(0)
         try:
             content = file.read().decode("utf-8")
-        except UnicodeDecodeError:
-            if return_mimetype:
-                return (None, None)
-            return None
+        except UnicodeDecodeError as e:
+            raise MdparseConversionError(f"Could not decode file as UTF-8: {filename}") from e
 
-    content = content.replace("\r\n", "\n")  # Fix windows newlines
-    if return_mimetype:
-        return content, file_mimetype
-    return content
+    # Fix windows newlines and return
+    return content.replace("\r\n", "\n")
 
 
 __all__ = [
@@ -277,11 +346,12 @@ __all__ = [
     "DOCUMENT_EXTENSIONS",
     "IMAGE_EXTENSIONS",
     "PLAINTEXT_EXTENSIONS",
-    "parse_file",
+    "to_markdown",
     # Re-exported classes and exceptions for public API
     "DocxOptions",
     "EmlOptions",
     "HtmlOptions",
+    "MarkdownOptions",
     "PdfOptions",
     "PptxOptions",
     "MdparseConversionError",
