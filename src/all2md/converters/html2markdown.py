@@ -430,7 +430,6 @@ class HTMLToMarkdown:
         - data-lang attributes
         - child code elements' classes
         """
-        import re
 
         language = ""
 
@@ -669,7 +668,6 @@ class HTMLToMarkdown:
 
     def _process_code_block(self, node: Any) -> str:
         """Process code blocks with dynamic fence selection."""
-        import html
 
         self._in_code_block = True
         code = node.get_text()
@@ -918,9 +916,8 @@ class HTMLToMarkdown:
                 logger.info(f"Image download failed for {resolved_src}, falling back to alt_text mode: {e}")
                 current_attachment_mode = "alt_text"
 
-        # Generate filename from URL or use generic name
-        from urllib.parse import urlparse
 
+        # Generate filename from URL or use generic name
         parsed_url = urlparse(resolved_src)
         filename = os.path.basename(parsed_url.path) or "image.png"
 
@@ -1124,12 +1121,6 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
 
         converter = HTMLToMarkdown(**converter_kwargs)
         return converter.convert(html_content)
-    except ImportError as e:
-        raise MarkdownConversionError(
-            "BeautifulSoup4 library is required for HTML conversion. Install with: pip install beautifulsoup4",
-            conversion_stage="dependency_check",
-            original_error=e,
-        ) from e
     except Exception as e:
         raise MarkdownConversionError(
             f"Failed to convert HTML to Markdown: {str(e)}", conversion_stage="html_parsing", original_error=e

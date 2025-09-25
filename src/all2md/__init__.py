@@ -87,6 +87,7 @@ from .options import (
     HtmlOptions,
     IpynbOptions,
     MarkdownOptions,
+    OdfOptions,
     PdfOptions,
     PptxOptions,
     RtfOptions,
@@ -111,7 +112,9 @@ DocumentFormat = Literal[
     "txt",       # Plain text
     "eml",       # Email messages
     "image",     # Image files (PNG, JPEG, GIF)
-    "ipynb"      # Jupyter Notebooks
+    "ipynb",     # Jupyter Notebooks
+    "odt",       # OpenDocument Text
+    "odp"        # OpenDocument Presentation
 ]
 
 
@@ -256,6 +259,8 @@ def _get_format_from_filename(filename: str) -> DocumentFormat:
         '.tsv': 'tsv',
         '.eml': 'eml',
         '.ipynb': 'ipynb',
+        '.odt': 'odt',
+        '.odp': 'odp',
         '.png': 'image',
         '.jpg': 'image',
         '.jpeg': 'image',
@@ -398,6 +403,8 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "eml": EmlOptions,
         "ipynb": IpynbOptions,
         "rtf": RtfOptions,
+        "odt": OdfOptions,
+        "odp": OdfOptions,
     }
     return format_to_class.get(format)
 
@@ -743,6 +750,17 @@ def to_markdown(
         file.seek(0)
         content = ipynb_to_markdown(file, options=final_options)
 
+    elif actual_format in ("odt", "odp"):
+        from all2md.converters.odf2markdown import odf_to_markdown
+
+        file.seek(0)
+        try:
+            content = odf_to_markdown(file, options=final_options)
+        except ImportError as e:
+            raise ImportError(
+                "`odfpy` is required to read OpenDocument files. Install with `pip install odfpy`."
+            ) from e
+
     elif actual_format == "image":
         raise FormatError("Invalid input type: `image` not supported.")
     else:  # actual_format == "txt" or any other format
@@ -772,6 +790,7 @@ __all__ = [
     "HtmlOptions",
     "IpynbOptions",
     "MarkdownOptions",
+    "OdfOptions",
     "PdfOptions",
     "PptxOptions",
     "MarkdownConversionError",

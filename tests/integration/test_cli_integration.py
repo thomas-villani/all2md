@@ -341,3 +341,190 @@ class TestCLIIntegration:
             assert kwargs['attachment_output_dir'] == 'images'
             assert kwargs['emphasis_symbol'] == '_'
             assert kwargs['bullet_symbols'] == '•→◦'
+
+    def test_odf_conversion_basic(self):
+        """Test basic ODF file conversion via CLI."""
+        # Create a mock ODT file
+        odt_file = self.temp_dir / "test.odt"
+        odt_file.write_text("Mock ODT content")  # Not a real ODT, but CLI should detect format
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test Document\n\nThis is converted from ODT."
+
+            result = main([str(odt_file)])
+
+            assert result == 0
+            mock_to_markdown.assert_called_once()
+
+    def test_odf_conversion_with_options(self):
+        """Test ODF conversion with CLI options."""
+        odt_file = self.temp_dir / "test.odt"
+        odt_file.write_text("Mock ODT content")
+
+        output_file = self.temp_dir / "output.md"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# ODT Document\n\nContent with table:\n\n| Col1 | Col2 |\n| --- | --- |\n| A | B |"
+
+            result = main([
+                str(odt_file),
+                "--out", str(output_file),
+                "--odf-preserve-tables",
+                "--attachment-mode", "base64",
+                "--markdown-emphasis-symbol", "*"
+            ])
+
+            assert result == 0
+            assert output_file.exists()
+
+            # Verify ODF-specific options were passed
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+
+            assert kwargs['preserve_tables'] is True
+            assert kwargs['attachment_mode'] == 'base64'
+            assert kwargs['emphasis_symbol'] == '*'
+
+    def test_odp_conversion(self):
+        """Test ODP presentation conversion via CLI."""
+        odp_file = self.temp_dir / "presentation.odp"
+        odp_file.write_text("Mock ODP content")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Slide 1\n\nPresentation content\n\n# Slide 2\n\nMore content"
+
+            result = main([str(odp_file)])
+
+            assert result == 0
+            mock_to_markdown.assert_called_once()
+
+    def test_odf_format_override(self):
+        """Test format override for ODF files."""
+        # Test forcing ODT format on a file with different extension
+        test_file = self.temp_dir / "document.txt"
+        test_file.write_text("Mock content")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Document\n\nForced as ODT"
+
+            result = main([
+                str(test_file),
+                "--format", "odt"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+            assert kwargs['format'] == 'odt'
+
+    def test_odf_attachment_handling(self):
+        """Test ODF attachment handling options."""
+        odt_file = self.temp_dir / "with_images.odt"
+        odt_file.write_text("Mock ODT with images")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Document\n\n![Image](image.png)\n\nText with image."
+
+            result = main([
+                str(odt_file),
+                "--attachment-mode", "download",
+                "--attachment-output-dir", str(self.temp_dir / "images"),
+                "--attachment-base-url", "https://example.com/images/"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+
+            assert kwargs['attachment_mode'] == 'download'
+            assert kwargs['attachment_output_dir'] == str(self.temp_dir / "images")
+            assert kwargs['attachment_base_url'] == 'https://example.com/images/'
+
+    def test_odf_table_handling(self):
+        """Test ODF table preservation options."""
+        odt_file = self.temp_dir / "with_tables.odt"
+        odt_file.write_text("Mock ODT with tables")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            # Test with tables enabled
+            mock_to_markdown.return_value = "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
+
+            result = main([
+                str(odt_file),
+                "--odf-preserve-tables"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+            assert kwargs['preserve_tables'] is True
+
+            # Test with tables disabled
+            mock_to_markdown.reset_mock()
+            mock_to_markdown.return_value = "# Document\n\nTable content as text"
+
+            result = main([
+                str(odt_file),
+                "--odf-no-preserve-tables"
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+            assert kwargs['preserve_tables'] is False
+
+    def test_odf_error_handling(self):
+        """Test error handling for ODF conversion."""
+        nonexistent_file = self.temp_dir / "nonexistent.odt"
+
+        # Should fail gracefully for nonexistent file
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.side_effect = InputError("File not found", input_type="file")
+
+            result = main([str(nonexistent_file)])
+
+            assert result == 1  # Error exit code
+
+    def test_odf_with_complex_options(self):
+        """Test ODF conversion with comprehensive option set."""
+        odt_file = self.temp_dir / "complex.odt"
+        odt_file.write_text("Mock complex ODT")
+
+        output_file = self.temp_dir / "complex_output.md"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = """# Complex Document
+
+This is a complex document with:
+
+* _Italic text_
+* **Bold text**
+* [Links](https://example.com)
+
+| Table | Data |
+|-------|------|
+| Row1  | Val1 |
+
+![Image alt text](data:image/png;base64,iVBORw...)"""
+
+            result = main([
+                str(odt_file),
+                "--out", str(output_file),
+                "--odf-preserve-tables",
+                "--attachment-mode", "base64",
+                "--markdown-emphasis-symbol", "_",
+                "--markdown-bullet-symbols", "*",
+                "--log-level", "DEBUG"
+            ])
+
+            assert result == 0
+            assert output_file.exists()
+
+            # Verify all options were passed
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+
+            assert kwargs['preserve_tables'] is True
+            assert kwargs['attachment_mode'] == 'base64'
+            assert kwargs['emphasis_symbol'] == '_'
+            assert kwargs['bullet_symbols'] == '*'
