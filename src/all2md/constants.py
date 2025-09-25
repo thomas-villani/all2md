@@ -143,6 +143,29 @@ TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "
 
 EMAIL_DATE_FORMATS = ["%a, %d %b %Y %H:%M:%S %z", "%d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S", "%d %b %Y %H:%M:%S"]
 
+# Email date handling defaults
+DateFormatMode = Literal["iso8601", "locale", "strftime"]
+DEFAULT_DATE_FORMAT_MODE: DateFormatMode = "strftime"
+DEFAULT_DATE_STRFTIME_PATTERN = "%m/%d/%y %H:%M"
+DEFAULT_CONVERT_HTML_TO_MARKDOWN = False
+
+# Quote processing defaults
+DEFAULT_CLEAN_QUOTES = True
+DEFAULT_DETECT_REPLY_SEPARATORS = True
+DEFAULT_NORMALIZE_HEADERS = True
+
+# URL cleaning defaults
+DEFAULT_CLEAN_WRAPPED_URLS = True
+DEFAULT_URL_WRAPPERS = [
+    "urldefense.com",
+    "safelinks.protection.outlook.com",
+    "urldefense.proofpoint.com",
+    "protect-links.mimecast.com"
+]
+
+# Header processing defaults
+DEFAULT_PRESERVE_RAW_HEADERS = False
+
 # =============================================================================
 # PDF to Markdown Constants
 # =============================================================================

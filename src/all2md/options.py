@@ -71,7 +71,18 @@ from .constants import (
     DEFAULT_TABLE_FALLBACK_DETECTION,
     DEFAULT_TABLE_RULING_LINE_THRESHOLD,
     DEFAULT_USE_HASH_HEADINGS,
+    # Email-specific constants
+    DEFAULT_CLEAN_QUOTES,
+    DEFAULT_CLEAN_WRAPPED_URLS,
+    DEFAULT_CONVERT_HTML_TO_MARKDOWN,
+    DEFAULT_DATE_FORMAT_MODE,
+    DEFAULT_DATE_STRFTIME_PATTERN,
+    DEFAULT_DETECT_REPLY_SEPARATORS,
+    DEFAULT_NORMALIZE_HEADERS,
+    DEFAULT_PRESERVE_RAW_HEADERS,
+    DEFAULT_URL_WRAPPERS,
     AttachmentMode,
+    DateFormatMode,
     EmphasisSymbol,
     SubscriptMode,
     SuperscriptMode,
@@ -408,7 +419,7 @@ class EmlOptions:
     """Configuration options for EML-to-Markdown conversion.
 
     This dataclass contains settings specific to email message processing,
-    including thread handling and header extraction.
+    including robust parsing, date handling, quote processing, and URL cleaning.
 
     Parameters
     ----------
@@ -426,16 +437,41 @@ class EmlOptions:
         Directory to save attachments when using "download" mode.
     attachment_base_url : str | None, default None
         Base URL for resolving relative attachment URLs.
+    date_format_mode : {"iso8601", "locale", "strftime"}, default "strftime"
+        How to format dates in output:
+        - "iso8601": Use ISO 8601 format (2023-01-01T10:00:00Z)
+        - "locale": Use system locale-aware formatting
+        - "strftime": Use custom strftime pattern
+    date_strftime_pattern : str, default "%m/%d/%y %H:%M"
+        Custom strftime pattern when date_format_mode is "strftime".
+    convert_html_to_markdown : bool, default False
+        Whether to convert HTML content to Markdown using html2markdown.
+        When True, HTML parts are converted to Markdown; when False, HTML is preserved as-is.
+    clean_quotes : bool, default True
+        Whether to clean and normalize quoted content ("> " prefixes, etc.).
+    detect_reply_separators : bool, default True
+        Whether to detect common reply separators like "On <date>, <name> wrote:".
+    normalize_headers : bool, default True
+        Whether to normalize header casing and whitespace.
+    preserve_raw_headers : bool, default False
+        Whether to preserve both raw and decoded header values.
+    clean_wrapped_urls : bool, default True
+        Whether to clean URL defense/safety wrappers from links.
+    url_wrappers : list[str], default from constants
+        List of URL wrapper domains to clean (urldefense.com, safelinks, etc.).
     markdown_options : MarkdownOptions or None, default None
         Common Markdown formatting options. If None, uses defaults.
 
     Examples
     --------
-    Convert email with minimal headers:
-        >>> options = EmlOptions(include_headers=True, include_attachments_info=False)
+    Convert email with ISO 8601 date formatting:
+        >>> options = EmlOptions(date_format_mode="iso8601")
 
-    Convert as flat list (no thread structure):
-        >>> options = EmlOptions(preserve_thread_structure=False)
+    Convert with HTML-to-Markdown conversion enabled:
+        >>> options = EmlOptions(convert_html_to_markdown=True)
+
+    Disable quote cleaning and URL unwrapping:
+        >>> options = EmlOptions(clean_quotes=False, clean_wrapped_urls=False)
     """
 
     include_headers: bool = True
@@ -443,4 +479,13 @@ class EmlOptions:
     attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
     attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
     attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
+    date_format_mode: DateFormatMode = DEFAULT_DATE_FORMAT_MODE
+    date_strftime_pattern: str = DEFAULT_DATE_STRFTIME_PATTERN
+    convert_html_to_markdown: bool = DEFAULT_CONVERT_HTML_TO_MARKDOWN
+    clean_quotes: bool = DEFAULT_CLEAN_QUOTES
+    detect_reply_separators: bool = DEFAULT_DETECT_REPLY_SEPARATORS
+    normalize_headers: bool = DEFAULT_NORMALIZE_HEADERS
+    preserve_raw_headers: bool = DEFAULT_PRESERVE_RAW_HEADERS
+    clean_wrapped_urls: bool = DEFAULT_CLEAN_WRAPPED_URLS
+    url_wrappers: list[str] | None = None  # Will use DEFAULT_URL_WRAPPERS if None
     markdown_options: MarkdownOptions | None = None

@@ -324,9 +324,7 @@ def to_markdown(
             decoded_data = raw_data.decode("utf-8", errors="replace")
 
         eml_stream: StringIO = StringIO(decoded_data)
-        result = parse_email_chain(eml_stream, options=format_options)
-        # parse_email_chain can return str or list, ensure we get a string
-        content = result if isinstance(result, str) else str(result)
+        content = parse_email_chain(eml_stream, options=format_options)
     # Others
     else:  # elif file.content_type == "application/octet-stream":
         # guess = mimetypes.guess_type(file.filename)[0]
