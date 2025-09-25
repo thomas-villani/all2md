@@ -243,6 +243,16 @@ def to_markdown(
         file.seek(0)
         html_content = file.read().decode("utf-8", errors="replace")
         content = html_to_markdown(html_content, options=format_options)
+    elif file_mimetype in ("application/rtf", "text/rtf") or extension == ".rtf":
+        from .rtf2markdown import rtf_to_markdown
+
+        file.seek(0)
+        try:
+            content = rtf_to_markdown(file)
+        except ImportError as e:
+            raise ImportError(
+                "`pyth` is required to read RTF files. Install with `pip install pyth`."
+            ) from e
     # Plain text
     elif (file_mimetype and file_mimetype.startswith("text/")) or extension in PLAINTEXT_EXTENSIONS:
         file.seek(0)

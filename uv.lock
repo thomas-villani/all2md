@@ -11,6 +11,51 @@ wheels = [
 ]
 
 [[package]]
+name = "all2md"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "markdown-it-py" },
+    { name = "pandas" },
+    { name = "pymupdf" },
+    { name = "pyth3" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
+    { name = "standard-imghdr" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "sphinx" },
+    { name = "sphinx-rtd-theme" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "beautifulsoup4", specifier = ">=4.13.5" },
+    { name = "markdown-it-py", specifier = ">=4.0.0" },
+    { name = "pandas", specifier = ">=2.3.2" },
+    { name = "pymupdf", specifier = ">=1.26.4" },
+    { name = "pyth3", specifier = ">=0.7" },
+    { name = "python-docx", specifier = ">=1.2.0" },
+    { name = "python-pptx", specifier = ">=1.0.2" },
+    { name = "standard-imghdr", specifier = ">=3.13.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.18.2" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "ruff", specifier = ">=0.13.1" },
+    { name = "sphinx", specifier = ">=8.2.3" },
+    { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
+]
+
+[[package]]
 name = "babel"
 version = "2.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -268,49 +313,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/80/0985960e4b89922cb5a0bac0ed39c5b96cbc1a536a99f30e8c220a996ed9/MarkupSafe-3.0.2-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:131a3c7689c85f5ad20f9f6fb1b866f402c445b220c19fe4308c0b147ccd2ad9", size = 24098 },
     { url = "https://files.pythonhosted.org/packages/82/78/fedb03c7d5380df2427038ec8d973587e90561b2d90cd472ce9254cf348b/MarkupSafe-3.0.2-cp313-cp313t-win32.whl", hash = "sha256:ba8062ed2cf21c07a9e295d5b8a2a5ce678b913b45fdf68c32d95d6c1291e0b6", size = 15208 },
     { url = "https://files.pythonhosted.org/packages/4f/65/6079a46068dfceaeabb5dcad6d674f5f5c61a6fa5673746f42a9f4c233b3/MarkupSafe-3.0.2-cp313-cp313t-win_amd64.whl", hash = "sha256:e444a31f8db13eb18ada366ab3cf45fd4b31e4db1236a4448f68778c1d1a5a2f", size = 15739 },
-]
-
-[[package]]
-name = "mdparse"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "beautifulsoup4" },
-    { name = "markdown-it-py" },
-    { name = "pandas" },
-    { name = "pymupdf" },
-    { name = "python-docx" },
-    { name = "python-pptx" },
-    { name = "standard-imghdr" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "sphinx" },
-    { name = "sphinx-rtd-theme" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.13.5" },
-    { name = "markdown-it-py", specifier = ">=4.0.0" },
-    { name = "pandas", specifier = ">=2.3.2" },
-    { name = "pymupdf", specifier = ">=1.26.4" },
-    { name = "python-docx", specifier = ">=1.2.0" },
-    { name = "python-pptx", specifier = ">=1.0.2" },
-    { name = "standard-imghdr", specifier = ">=3.13.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.18.2" },
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "ruff", specifier = ">=0.13.1" },
-    { name = "sphinx", specifier = ">=8.2.3" },
-    { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
 ]
 
 [[package]]
@@ -591,6 +593,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl", hash = "sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79", size = 365750 },
+]
+
+[[package]]
+name = "pyth3"
+version = "0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/71/98eef62a0f69b3926811ee90e72c1df90147f3da455f7a9d24571e7c84f8/pyth3-0.7.tar.gz", hash = "sha256:9ba128299dae9018e7672110ec0082d68eaad89358054e33a49c70681d565f05", size = 29035 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/33/4578daf6629eae25e7bb0b42f916a8253636e4bbe179dd5f25b0207c3bad/pyth3-0.7-py3-none-any.whl", hash = "sha256:5e9105c5acbfc3fd5b3e1aaad9ab6ebf715b89b5285c409a46b6a704a544a4b0", size = 29080 },
 ]
 
 [[package]]

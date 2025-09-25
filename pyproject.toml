@@ -1,5 +1,5 @@
 [project]
-name = "mdparse"
+name = "all2md"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -12,6 +12,7 @@ dependencies = [
     "markdown-it-py>=4.0.0",
     "pandas>=2.3.2",
     "pymupdf>=1.26.4",
+    "pyth3>=0.7",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "standard-imghdr>=3.13.0",

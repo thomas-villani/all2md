@@ -2,13 +2,13 @@
 
 import tempfile
 from pathlib import Path
-from io import StringIO
+from io import StringIO, BytesIO
 
 import docx
 from pptx import Presentation
 import pytest
 
-from all2md import parse_file
+from all2md import to_markdown
 from all2md.options import DocxOptions, HtmlOptions, PptxOptions, EmlOptions, MarkdownOptions
 from tests.utils import (
     DocxTestGenerator, HtmlTestGenerator, PptxTestGenerator, EmlTestGenerator,
@@ -56,14 +56,10 @@ class TestIntegration:
         eml_file.write_text(eml_content)
 
         # Test parsing each format
-        with open(docx_file, 'rb') as f:
-            docx_result = parse_file(f, str(docx_file))
-        with open(html_file, 'rb') as f:
-            html_result = parse_file(f, str(html_file))
-        with open(pptx_file, 'rb') as f:
-            pptx_result = parse_file(f, str(pptx_file))
-        with open(eml_file, 'rb') as f:
-            eml_result = parse_file(f, str(eml_file))
+        docx_result = to_markdown(str(docx_file))
+        html_result = to_markdown(str(html_file))
+        pptx_result = to_markdown(str(pptx_file))
+        eml_result = to_markdown(str(eml_file))
 
         # All should produce valid markdown
         assert_markdown_valid(docx_result)
@@ -85,12 +81,10 @@ class TestIntegration:
         doc.save(str(docx_file))
 
         # Test with different options (note: parse_file doesn't currently support format-specific options)
-        with open(docx_file, 'rb') as f:
-            result1 = parse_file(f, str(docx_file))
+        result1 = to_markdown(str(docx_file))
         assert_markdown_valid(result1)
 
-        with open(docx_file, 'rb') as f:
-            result2 = parse_file(f, str(docx_file))
+        result2 = to_markdown(str(docx_file))
         assert_markdown_valid(result2)
 
         # Both should contain list content
@@ -105,8 +99,7 @@ class TestIntegration:
         html_file.write_text(html_content)
 
         # Test basic parsing (options not yet supported in parse_file)
-        with open(html_file, 'rb') as f:
-            html_result = parse_file(f, str(html_file))
+        html_result = to_markdown(str(html_file))
 
         # Should contain the text content
         assert "Text with" in html_result
@@ -133,10 +126,8 @@ class TestIntegration:
         html_file.write_text(html_content)
 
         # Test basic parsing (format-specific options not yet supported in parse_file)
-        with open(docx_file, 'rb') as f:
-            docx_result = parse_file(f, str(docx_file))
-        with open(html_file, 'rb') as f:
-            html_result = parse_file(f, str(html_file))
+        docx_result = to_markdown(str(docx_file))
+        html_result = to_markdown(str(html_file))
 
         assert_markdown_valid(docx_result)
         assert_markdown_valid(html_result)
@@ -192,12 +183,10 @@ class TestIntegration:
             markdown_options=MarkdownOptions(escape_special=True)
         )
         # parse_file doesn't currently support format-specific options
-        with open(docx_file, 'rb') as f:
-            result1 = parse_file(f, str(docx_file))
+        result1 = to_markdown(str(docx_file))
         assert_markdown_valid(result1)
 
-        with open(docx_file, 'rb') as f:
-            result2 = parse_file(f, str(docx_file))
+        result2 = to_markdown(str(docx_file))
         assert_markdown_valid(result2)
 
         # Both should contain all elements
@@ -214,14 +203,13 @@ class TestIntegration:
         # Test with non-existent file
         with pytest.raises(FileNotFoundError):
             with open("/non/existent/file.docx", 'rb') as f:
-                parse_file(f, "/non/existent/file.docx")
+                to_markdown(f)
 
         # Test with unsupported file type - should fall back to text parsing
         unsupported_file = self.temp_dir / "test.xyz"
         unsupported_file.write_text("Unsupported content")
 
-        with open(unsupported_file, 'rb') as f:
-            result = parse_file(f, str(unsupported_file))
+        result = to_markdown(str(unsupported_file))
         # Should fall back to treating as plain text
         assert result == "Unsupported content"
 
@@ -231,8 +219,7 @@ class TestIntegration:
 
         # Should handle gracefully or raise appropriate error
         try:
-            with open(corrupted_file, 'rb') as f:
-                result = parse_file(f, str(corrupted_file))
+            result = to_markdown(str(corrupted_file))
             # If it doesn't raise an error, result should be a string
             assert isinstance(result, str)
         except Exception as e:
@@ -264,8 +251,7 @@ class TestIntegration:
         doc.save(str(large_file))
 
         # Should handle large document without issues
-        with open(large_file, 'rb') as f:
-            result = parse_file(f, str(large_file))
+        result = to_markdown(str(large_file))
         assert_markdown_valid(result)
 
         # Should contain first and last content
@@ -278,13 +264,13 @@ class TestIntegration:
     def test_file_like_object_support(self):
         """Test support for file-like objects."""
         # Test with StringIO for HTML
-        html_content = "<html><body><h1>StringIO Test</h1><p>Content from StringIO</p></body></html>"
-        html_io = StringIO(html_content)
+        html_content = b"<html><body><h1>StringIO Test</h1><p>Content from StringIO</p></body></html>"
+        html_io = BytesIO(html_content)
 
         # parse_file requires both file object and filename
         # StringIO doesn't have a name, so we simulate it
         try:
-            result = parse_file(html_io, "test.html")
+            result = to_markdown(html_io)
             assert_markdown_valid(result)
             assert "StringIO Test" in result
         except (TypeError, AttributeError):
@@ -302,8 +288,7 @@ class TestIntegration:
             html_file = self.temp_dir / f"doc{i+1}.html"
             html_file.write_text(html_content)
 
-            with open(html_file, 'rb') as f:
-                result = parse_file(f, str(html_file))
+            result = to_markdown(str(html_file))
             files_and_results.append((str(html_file), result))
 
         # All should be processed successfully
@@ -327,8 +312,7 @@ class TestIntegration:
         html_file.write_text(html_content)
 
         # Test basic HTML parsing (format-specific options not yet supported in parse_file)
-        with open(html_file, 'rb') as f:
-            result = parse_file(f, str(html_file))
+        result = to_markdown(str(html_file))
         assert_markdown_valid(result)
 
         # Should contain heading and text

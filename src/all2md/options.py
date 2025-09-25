@@ -489,3 +489,31 @@ class EmlOptions:
     clean_wrapped_urls: bool = DEFAULT_CLEAN_WRAPPED_URLS
     url_wrappers: list[str] | None = None  # Will use DEFAULT_URL_WRAPPERS if None
     markdown_options: MarkdownOptions | None = None
+
+
+@dataclass
+class RtfOptions:
+    """Configuration options for RTF-to-Markdown conversion.
+
+    This dataclass contains settings specific to Rich Text Format processing,
+    primarily for handling embedded images and other attachments.
+
+    Parameters
+    ----------
+    attachment_mode : {"skip", "alt_text", "download", "base64"}, default "alt_text"
+        How to handle attachments (images):
+        - "skip": Remove attachments completely
+        - "alt_text": Use alt-text or filename references
+        - "download": Save to folder and reference with links
+        - "base64": Embed as base64 data URIs
+    attachment_output_dir : str | None, default None
+        Directory to save attachments when using "download" mode.
+    attachment_base_url : str | None, default None
+        Base URL for resolving relative attachment URLs.
+    markdown_options : MarkdownOptions or None, default None
+        Common Markdown formatting options. If None, uses defaults.
+    """
+    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
+    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
+    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
+    markdown_options: MarkdownOptions | None = None
