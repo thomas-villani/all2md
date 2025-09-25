@@ -1,9 +1,7 @@
 """Advanced tests for HTML code block handling edge cases."""
 
-import pytest
 
-from all2md.html2markdown import html_to_markdown, HTMLToMarkdown
-from all2md.options import HtmlOptions, MarkdownOptions
+from all2md.html2markdown import HTMLToMarkdown
 from tests.utils import assert_markdown_valid
 
 
@@ -156,7 +154,7 @@ print("Multiple lines")
         """Test code blocks containing various special characters."""
         html = '''
         <pre><code>// Special characters test
-const regex = /[.*+?^${}()|[\]\\]/g;
+const regex = /[.*+?^${}()|[\\]\\]/g;
 const template = `Template with ${variable}`;
 const symbols = "!@#$%^&*()_+-=[]{}|;':\",./<>?";
 const unicode = "émojis: 🚀 🎉 ✨";</code></pre>

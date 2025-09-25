@@ -1,4 +1,5 @@
 import pytest
+
 from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
 from all2md.options import HtmlOptions, MarkdownOptions
 
@@ -254,11 +255,11 @@ def test_html_entity_decoding():
 
 
 @pytest.mark.unit
-def test_preserve_nbsp():
+def test_convert_nbsp():
     """Test non-breaking space preservation."""
     html = "<p>Text&nbsp;with&nbsp;nbsp</p>"
-    converter_preserve = HTMLToMarkdown(preserve_nbsp=True)
-    converter_no_preserve = HTMLToMarkdown(preserve_nbsp=False)
+    converter_preserve = HTMLToMarkdown(convert_nbsp=True)
+    converter_no_preserve = HTMLToMarkdown(convert_nbsp=False)
 
     result_preserve = converter_preserve.convert(html)
     result_no_preserve = converter_no_preserve.convert(html)
@@ -404,7 +405,7 @@ def test_options_object_usage():
         extract_title=False,
         strip_dangerous_elements=True,
         table_alignment_auto_detect=True,
-        preserve_nbsp=True,
+        convert_nbsp=True,
         markdown_options=MarkdownOptions(escape_special=True),
     )
 

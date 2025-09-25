@@ -1,9 +1,8 @@
 """Advanced tests for HTML entity handling edge cases."""
 
-import pytest
 
-from all2md.html2markdown import html_to_markdown, HTMLToMarkdown
-from all2md.options import HtmlOptions, MarkdownOptions
+from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
+from all2md.options import HtmlOptions
 from tests.utils import assert_markdown_valid
 
 
@@ -61,8 +60,8 @@ class TestHtmlEntities:
         <p>Zero&zwnj;width&zwj;joiners</p>
         '''
 
-        options_preserve = HtmlOptions(preserve_nbsp=True)
-        options_no_preserve = HtmlOptions(preserve_nbsp=False)
+        options_preserve = HtmlOptions(convert_nbsp=True)
+        options_no_preserve = HtmlOptions(convert_nbsp=False)
 
         md_preserve = html_to_markdown(html, options=options_preserve)
         md_no_preserve = html_to_markdown(html, options=options_no_preserve)

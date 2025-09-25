@@ -1,18 +1,14 @@
 """Advanced tests for PPTX chart handling edge cases."""
 
-import tempfile
-from pathlib import Path
 
 from pptx import Presentation
 from pptx.chart.data import ChartData
 from pptx.enum.chart import XL_CHART_TYPE
-from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.util import Inches
-import pytest
 
-from all2md.pptx2markdown import pptx_to_markdown, _process_shape
 from all2md.options import PptxOptions
-from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+from all2md.pptx2markdown import _process_shape
+from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPptxChartsAdvanced:

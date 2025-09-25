@@ -37,7 +37,6 @@ Options Classes
 from __future__ import annotations
 
 import abc
-
 from dataclasses import dataclass, field
 
 from .constants import (
@@ -46,9 +45,16 @@ from .constants import (
     DEFAULT_ATTACHMENT_OUTPUT_DIR,
     # HTML-specific constants
     DEFAULT_BULLET_SYMBOLS,
+    # Email-specific constants
+    DEFAULT_CLEAN_QUOTES,
+    DEFAULT_CLEAN_WRAPPED_URLS,
     DEFAULT_COLUMN_GAP_THRESHOLD,
+    DEFAULT_CONVERT_HTML_TO_MARKDOWN,
+    DEFAULT_DATE_FORMAT_MODE,
+    DEFAULT_DATE_STRFTIME_PATTERN,
     DEFAULT_DETECT_COLUMNS,
     DEFAULT_DETECT_MERGED_CELLS,
+    DEFAULT_DETECT_REPLY_SEPARATORS,
     DEFAULT_EMPHASIS_SYMBOL,
     DEFAULT_ESCAPE_SPECIAL,
     DEFAULT_EXTRACT_TITLE,
@@ -63,35 +69,27 @@ from .constants import (
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LIST_INDENT_WIDTH,
     DEFAULT_MERGE_HYPHENATED_WORDS,
+    DEFAULT_NORMALIZE_HEADERS,
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_PAGE_SEPARATOR_FORMAT,
-    DEFAULT_PRESERVE_NBSP,
+    DEFAULT_CONVERT_NBSP,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
+    DEFAULT_PRESERVE_RAW_HEADERS,
     DEFAULT_SLIDE_NUMBERS,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
     DEFAULT_TABLE_FALLBACK_DETECTION,
     DEFAULT_TABLE_RULING_LINE_THRESHOLD,
-    DEFAULT_USE_HASH_HEADINGS,
-    # Email-specific constants
-    DEFAULT_CLEAN_QUOTES,
-    DEFAULT_CLEAN_WRAPPED_URLS,
-    DEFAULT_CONVERT_HTML_TO_MARKDOWN,
-    DEFAULT_DATE_FORMAT_MODE,
-    DEFAULT_DATE_STRFTIME_PATTERN,
-    DEFAULT_DETECT_REPLY_SEPARATORS,
-    DEFAULT_NORMALIZE_HEADERS,
-    DEFAULT_PRESERVE_RAW_HEADERS,
+    DEFAULT_TRUNCATE_OUTPUT_LINES,
+    DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
     DEFAULT_URL_WRAPPERS,
+    DEFAULT_USE_HASH_HEADINGS,
     AttachmentMode,
     DateFormatMode,
     EmphasisSymbol,
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
-
-    DEFAULT_TRUNCATE_OUTPUT_LINES,
-    DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
 )
 
 
@@ -327,8 +325,8 @@ class HtmlOptions(BaseOptions):
         Whether to use # syntax for headings instead of underline style.
     extract_title : bool, default False
         Whether to extract and use the HTML <title> element.
-    preserve_nbsp : bool, default False
-        Whether to preserve non-breaking spaces (&nbsp;) in the output.
+    convert_nbsp : bool, default False
+        Whether to convert non-breaking spaces (&nbsp;) to regular spaces in the output.
     strip_dangerous_elements : bool, default False
         Whether to remove potentially dangerous HTML elements (script, style, etc.).
     table_alignment_auto_detect : bool, default True
@@ -360,12 +358,12 @@ class HtmlOptions(BaseOptions):
         >>> options = HtmlOptions(base_url="https://example.com", download_images=True)
 
     Convert with content sanitization:
-        >>> options = HtmlOptions(strip_dangerous_elements=True, preserve_nbsp=True)
+        >>> options = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=True)
     """
 
     use_hash_headings: bool = DEFAULT_USE_HASH_HEADINGS
     extract_title: bool = DEFAULT_EXTRACT_TITLE
-    preserve_nbsp: bool = DEFAULT_PRESERVE_NBSP
+    convert_nbsp: bool = DEFAULT_CONVERT_NBSP
     strip_dangerous_elements: bool = DEFAULT_STRIP_DANGEROUS_ELEMENTS
     table_alignment_auto_detect: bool = DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT
     preserve_nested_structure: bool = DEFAULT_PRESERVE_NESTED_STRUCTURE

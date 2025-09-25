@@ -34,12 +34,15 @@ Functions
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import base64
+import logging
 import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
 from .constants import AttachmentMode
+
+logger = logging.getLogger(__name__)
 
 
 def process_attachment(
@@ -76,6 +79,7 @@ def process_attachment(
         Markdown representation of the attachment
     """
     if attachment_mode == "skip":
+        logger.debug(f"Skipping attachment: {attachment_name}")
         return ""
 
     if attachment_mode == "alt_text":
@@ -84,22 +88,25 @@ def process_attachment(
         else:
             return f"[{attachment_name}]"
 
-    if attachment_mode == "base64" and is_image and attachment_data:
-        # Determine MIME type from file extension
-        ext = Path(attachment_name).suffix.lower()
-        mime_types = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif": "image/gif",
-            ".webp": "image/webp",
-            ".svg": "image/svg+xml",
-        }
-        mime_type = mime_types.get(ext, "image/png")
+    if attachment_mode == "base64" and is_image:
+        if not attachment_data:
+            logger.info(f"No attachment data available for base64 mode: {attachment_name}")
+        else:
+            # Determine MIME type from file extension
+            ext = Path(attachment_name).suffix.lower()
+            mime_types = {
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".gif": "image/gif",
+                ".webp": "image/webp",
+                ".svg": "image/svg+xml",
+            }
+            mime_type = mime_types.get(ext, "image/png")
 
-        b64_data = base64.b64encode(attachment_data).decode("utf-8")
-        data_uri = f"data:{mime_type};base64,{b64_data}"
-        return f"![{alt_text or attachment_name}]({data_uri})"
+            b64_data = base64.b64encode(attachment_data).decode("utf-8")
+            data_uri = f"data:{mime_type};base64,{b64_data}"
+            return f"![{alt_text or attachment_name}]({data_uri})"
 
     if attachment_mode == "download":
         if not attachment_output_dir:
@@ -131,7 +138,9 @@ def process_attachment(
         else:
             return f"[{attachment_name}]({url})"
 
-    # Fallback to alt_text mode
+    # Fallback to alt_text mode if attachment data is missing or mode is unsupported
+    logger.info(f"Falling back to alt_text mode for attachment: {attachment_name} "
+                f"(mode: {attachment_mode}, has_data: {attachment_data is not None})")
     if is_image:
         return f"![{alt_text or attachment_name}]"
     else:
@@ -159,8 +168,8 @@ def extract_pptx_image_data(shape: Any) -> bytes | None:
         return None
 
 
-def extract_docx_image_data(parent: Any, blip_rId: str) -> bytes | None:
-    """Extract image data from Word document relationships.
+def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, str | None]:
+    """Extract image data and format information from Word document relationships.
 
     Parameters
     ----------
@@ -171,8 +180,8 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> bytes | None:
 
     Returns
     -------
-    bytes | None
-        Raw image bytes, or None if extraction fails
+    tuple[bytes | None, str | None]
+        Tuple of (raw image bytes, file extension), or (None, None) if extraction fails
     """
     try:
         # Get the relationship target
@@ -181,7 +190,157 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> bytes | None:
         # Get image bytes
         image_bytes = image_part.blob
 
-        # Return raw image bytes - let attachment processing handle the format
-        return image_bytes
+        # Detect format from content type or part name
+        extension = "png"  # default fallback
+
+        # Try to get extension from content type
+        if hasattr(image_part, 'content_type') and image_part.content_type:
+            content_type = image_part.content_type.lower()
+            if 'jpeg' in content_type or 'jpg' in content_type:
+                extension = "jpg"
+            elif 'gif' in content_type:
+                extension = "gif"
+            elif 'png' in content_type:
+                extension = "png"
+            elif 'bmp' in content_type:
+                extension = "bmp"
+            elif 'tiff' in content_type:
+                extension = "tiff"
+
+        # Try to get extension from part name if content type didn't work
+        elif hasattr(image_part, 'partname') and image_part.partname:
+            part_name = str(image_part.partname).lower()
+            if '.jpg' in part_name or '.jpeg' in part_name:
+                extension = "jpg"
+            elif '.gif' in part_name:
+                extension = "gif"
+            elif '.png' in part_name:
+                extension = "png"
+            elif '.bmp' in part_name:
+                extension = "bmp"
+            elif '.tiff' in part_name or '.tif' in part_name:
+                extension = "tiff"
+
+        return image_bytes, extension
     except Exception:
-        return None
+        return None, None
+
+
+def generate_attachment_filename(
+    base_stem: str,
+    attachment_type: str = "img",
+    format_type: str = "general",
+    page_num: int | None = None,
+    slide_num: int | None = None,
+    sequence_num: int = 1,
+    extension: str = "png"
+) -> str:
+    """Generate standardized attachment filenames across all converters.
+
+    Parameters
+    ----------
+    base_stem : str
+        Base filename stem (without extension) from the source document
+    attachment_type : str, default "img"
+        Type of attachment (e.g., "img", "file")
+    format_type : str, default "general"
+        Format context - one of:
+        - "pdf": For PDF pages - generates {stem}_p{page}_img{n}.{ext}
+        - "pptx": For PowerPoint slides - generates {stem}_slide{n}_img{m}.{ext}
+        - "general": For other formats - generates {stem}_img{n}.{ext}
+    page_num : int | None, default None
+        Page number (1-based) for PDF format
+    slide_num : int | None, default None
+        Slide number (1-based) for PPTX format
+    sequence_num : int, default 1
+        Sequence number for multiple attachments
+    extension : str, default "png"
+        File extension without dot
+
+    Returns
+    -------
+    str
+        Standardized filename
+
+    Examples
+    --------
+    >>> generate_attachment_filename("document", format_type="pdf", page_num=1, sequence_num=2)
+    'document_p1_img2.png'
+    >>> generate_attachment_filename("presentation", format_type="pptx", slide_num=3, sequence_num=1)
+    'presentation_slide3_img1.png'
+    >>> generate_attachment_filename("article", format_type="general", sequence_num=5)
+    'article_img5.png'
+    """
+    if format_type == "pdf":
+        if page_num is None:
+            raise ValueError("page_num is required for PDF format")
+        return f"{base_stem}_p{page_num}_{attachment_type}{sequence_num}.{extension}"
+    elif format_type == "pptx":
+        if slide_num is None:
+            raise ValueError("slide_num is required for PPTX format")
+        return f"{base_stem}_slide{slide_num}_{attachment_type}{sequence_num}.{extension}"
+    else:  # general format for DOCX, HTML, RTF, IPYNB, EML
+        return f"{base_stem}_{attachment_type}{sequence_num}.{extension}"
+
+
+def create_attachment_sequencer():
+    """Create a closure that tracks attachment sequence numbers to prevent duplicates.
+
+    Returns
+    -------
+    callable
+        Function that generates sequential attachment filenames and tracks usage
+
+    Examples
+    --------
+    >>> sequencer = create_attachment_sequencer()
+    >>> sequencer("doc", "pdf", page_num=1)  # Returns: ('doc_p1_img1.png', 1)
+    >>> sequencer("doc", "pdf", page_num=1)  # Returns: ('doc_p1_img2.png', 2)
+    >>> sequencer("doc", "pdf", page_num=2)  # Returns: ('doc_p2_img1.png', 1)
+    """
+    used_filenames = set()
+    sequence_counters = {}
+
+    def get_next_filename(base_stem: str, format_type: str = "general", **kwargs) -> tuple[str, int]:
+        """Generate next available filename with sequence number.
+
+        Returns
+        -------
+        tuple[str, int]
+            Tuple of (filename, sequence_number)
+        """
+        # Create a key for this specific context
+        if format_type == "pdf":
+            key = f"{base_stem}_p{kwargs.get('page_num', 1)}"
+        elif format_type == "pptx":
+            key = f"{base_stem}_slide{kwargs.get('slide_num', 1)}"
+        else:
+            key = base_stem
+
+        # Get next sequence number for this key
+        sequence_num = sequence_counters.get(key, 0) + 1
+        sequence_counters[key] = sequence_num
+
+        # Generate filename
+        filename = generate_attachment_filename(
+            base_stem=base_stem,
+            format_type=format_type,
+            sequence_num=sequence_num,
+            **kwargs
+        )
+
+        # Ensure uniqueness (failsafe)
+        while filename in used_filenames:
+            sequence_num += 1
+            sequence_counters[key] = sequence_num
+            filename = generate_attachment_filename(
+                base_stem=base_stem,
+                format_type=format_type,
+                sequence_num=sequence_num,
+                **kwargs
+            )
+
+        used_filenames.add(filename)
+        return filename, sequence_num
+
+    return get_next_filename

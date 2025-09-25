@@ -1,10 +1,9 @@
 """Advanced tests for HTML nested element handling edge cases."""
 
-import pytest
 
-from all2md.html2markdown import html_to_markdown, HTMLToMarkdown
-from all2md.options import HtmlOptions, MarkdownOptions
-from tests.utils import HtmlTestGenerator, assert_markdown_valid
+from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
+from all2md.options import HtmlOptions
+from tests.utils import assert_markdown_valid
 
 
 class TestHtmlNestedElements:

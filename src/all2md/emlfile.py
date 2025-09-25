@@ -376,7 +376,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         html_options = HtmlOptions(
             use_hash_headings=True,
             extract_title=False,
-            preserve_nbsp=False,
+            convert_nbsp=False,
             strip_dangerous_elements=True,
             attachment_mode=options.attachment_mode,
             attachment_output_dir=options.attachment_output_dir,

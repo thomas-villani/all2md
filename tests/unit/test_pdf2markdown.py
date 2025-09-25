@@ -1,8 +1,7 @@
-import pytest
-
 import tempfile
 
 import fitz
+import pytest
 
 from all2md import pdf2markdown as mod
 from all2md.options import MarkdownOptions, PdfOptions
@@ -319,6 +318,9 @@ def test_pdf_to_markdown_no_tables(monkeypatch):
         def get_drawings(self):
             return []  # No drawings for test
 
+        def get_images(self):
+            return []  # No images for test
+
     class FakeDoc:
         page_count = 1
 
@@ -368,6 +370,9 @@ def test_pdf_to_markdown_with_tables(monkeypatch):
 
         def get_drawings(self):
             return []  # No drawings for test
+
+        def get_images(self):
+            return []  # No images for test
 
     class FakeDoc:
         page_count = 1

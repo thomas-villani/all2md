@@ -1,19 +1,10 @@
 """Advanced tests for PDF formatting and emphasis handling."""
 
-import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-import fitz
-import pytest
-
-from all2md.pdf2markdown import (
-    IdentifyHeaders,
-    page_to_markdown,
-    pdf_to_markdown
-)
-from all2md.options import PdfOptions, MarkdownOptions
-from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+from all2md.options import PdfOptions
+from all2md.pdf2markdown import IdentifyHeaders, page_to_markdown
+from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPdfFormatting:

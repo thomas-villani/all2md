@@ -4,14 +4,12 @@ This module provides shared fixtures, test configuration, and utilities
 that are used across the entire test suite.
 """
 
-import tempfile
-import shutil
 from pathlib import Path
 from typing import Generator
 
 import pytest
 
-from tests.utils import create_test_temp_dir, cleanup_test_dir
+from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 
 def pytest_configure(config):

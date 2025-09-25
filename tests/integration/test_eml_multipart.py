@@ -1,18 +1,15 @@
 """Advanced tests for EML multipart message handling."""
 
-import datetime
 import email
+from email.mime.application import MIMEApplication
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from email.mime.application import MIMEApplication
 from io import StringIO
-
-import pytest
 
 from all2md.emlfile import parse_email_chain
 from all2md.options import EmlOptions
-from tests.utils import assert_markdown_valid, MINIMAL_PNG_BYTES
+from tests.utils import MINIMAL_PNG_BYTES, assert_markdown_valid
 
 
 class TestEmlMultipart:

@@ -6,13 +6,8 @@ using real PDF fixtures to test font flag interpretation and emphasis mapping.
 
 import pytest
 
-from all2md.pdf2markdown import IdentifyHeaders, pdf_to_markdown
-from all2md.options import PdfOptions, MarkdownOptions
-from tests.fixtures.generators.pdf_test_fixtures import (
-    create_pdf_with_figures,
-    create_pdf_with_tables
-)
-from tests.utils import assert_markdown_valid
+from all2md.pdf2markdown import IdentifyHeaders
+from tests.fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
 
 @pytest.mark.unit

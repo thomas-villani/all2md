@@ -5,17 +5,15 @@ for testing various aspects of PPTX-to-Markdown conversion.
 """
 
 import tempfile
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
 from typing import Optional
 
 from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.enum.text import PP_ALIGN
 from pptx.chart.data import ChartData
 from pptx.enum.chart import XL_CHART_TYPE
-from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches, Pt
 
 
 def create_pptx_with_basic_slides() -> Presentation:

@@ -88,7 +88,8 @@ from .options import (
     IpynbOptions,
     MarkdownOptions,
     PdfOptions,
-    PptxOptions, RtfOptions,
+    PptxOptions,
+    RtfOptions,
 )
 
 logger = logging.getLogger(__name__)

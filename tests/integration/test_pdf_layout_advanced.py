@@ -1,21 +1,10 @@
 """Advanced tests for PDF layout handling edge cases."""
 
-import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-import fitz
-import pytest
-
-from all2md.pdf2markdown import (
-    detect_columns,
-    merge_hyphenated_text,
-    pdf_to_markdown,
-    IdentifyHeaders,
-    page_to_markdown
-)
-from all2md.options import PdfOptions, MarkdownOptions
-from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+from all2md.options import PdfOptions
+from all2md.pdf2markdown import IdentifyHeaders, detect_columns, merge_hyphenated_text, page_to_markdown
+from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 
 class TestPdfLayoutAdvanced:

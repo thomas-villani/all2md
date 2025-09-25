@@ -53,8 +53,8 @@ from typing import IO, Any, Union
 from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
 from pyth.plugins.rtf15.reader import Rtf15Reader
 
-from ._attachment_utils import process_attachment
-from ._input_utils import validate_and_convert_input
+from ._attachment_utils import generate_attachment_filename, process_attachment
+from ._input_utils import format_special_text, validate_and_convert_input
 from .exceptions import MdparseConversionError
 from .options import MarkdownOptions, RtfOptions
 
@@ -200,15 +200,26 @@ class RtfConverter:
         if props.get("italic"):
             content = f"*{content}*"
         if props.get("underline"):
-            # Using non-standard but common double underscore for underline
-            content = f"__{content}__"
+            # Use format_special_text to respect underline_mode setting
+            underline_mode = self.md_options.underline_mode if self.md_options else "html"
+            content = format_special_text(content, "underline", underline_mode)
 
         return content
 
     def _process_image(self, image: Image) -> str:
         """Process an Image object using the unified attachment handler."""
         image_data = image.data
-        filename = image.filename or "image.png"
+        # Generate standardized image filename
+        if not hasattr(self, '_img_counter'):
+            self._img_counter = 0
+        self._img_counter += 1
+
+        filename = generate_attachment_filename(
+            base_stem=getattr(self, '_base_filename', 'document'),
+            format_type="general",
+            sequence_num=self._img_counter,
+            extension="png"
+        )
         alt_text = Path(filename).stem
 
         return process_attachment(
@@ -287,5 +298,12 @@ def rtf_to_markdown(
             original_error=e,
         ) from e
 
+    # Extract base filename for standardized attachment naming
+    if isinstance(doc_input, (str, Path)):
+        base_filename = Path(doc_input).stem
+    else:
+        base_filename = "document"
+
     converter = RtfConverter(options)
+    converter._base_filename = base_filename  # Pass base filename to converter
     return converter.convert(doc)

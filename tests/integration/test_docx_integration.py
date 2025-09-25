@@ -1,6 +1,7 @@
 """Integration tests for DOCX to Markdown conversion."""
 
 import base64
+
 import docx
 import pytest
 

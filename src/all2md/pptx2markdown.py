@@ -80,6 +80,7 @@ The focus is on extracting textual and structural content.
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import logging
+from pathlib import Path
 from typing import Any, Union
 
 from pptx import Presentation
@@ -87,8 +88,8 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
 
-from ._attachment_utils import extract_pptx_image_data, process_attachment
-from ._input_utils import validate_and_convert_input
+from ._attachment_utils import extract_pptx_image_data, generate_attachment_filename, process_attachment
+from ._input_utils import format_special_text, validate_and_convert_input
 from .exceptions import MdparseConversionError
 from .options import PptxOptions
 
@@ -103,19 +104,25 @@ def _process_paragraph_format(paragraph: Any) -> list[tuple[str, str]]:
     return formats
 
 
-def _process_run_format(run: Any) -> list[tuple[str, str]]:
-    """Get formatting markers for text run."""
-    formats = []
+def _process_run_format(run: Any, text: str = "", md_options=None) -> str:
+    """Apply formatting to text run based on font properties."""
+    content = text
+
+    # Apply bold and italic formatting with standard markdown
     if run.font.bold:
-        formats.append(("**", "**"))
+        content = f"**{content}**"
     if run.font.italic:
-        formats.append(("*", "*"))
+        content = f"*{content}*"
+
+    # Apply underline formatting using format_special_text
     if run.font.underline:
-        formats.append(("__", "__"))
-    return formats
+        underline_mode = md_options.underline_mode if md_options else "html"
+        content = format_special_text(content, "underline", underline_mode)
+
+    return content
 
 
-def _process_text_frame(frame: Any) -> str:
+def _process_text_frame(frame: Any, md_options=None) -> str:
     """Convert a text frame to markdown, preserving formatting."""
     lines = []
 
@@ -131,10 +138,8 @@ def _process_text_frame(frame: Any) -> str:
             if not text:
                 continue
 
-            # Apply run-level formatting
-            for start, end in _process_run_format(run):
-                text = f"{start}{text}{end}"
-
+            # Apply run-level formatting using the updated function
+            text = _process_run_format(run, text, md_options)
             text_parts.append(text)
 
         # Combine runs and apply paragraph-level formatting
@@ -147,7 +152,7 @@ def _process_text_frame(frame: Any) -> str:
     return "\n".join(lines)
 
 
-def _process_table(table: Any) -> str:
+def _process_table(table: Any, md_options=None) -> str:
     """Convert a table shape to markdown format."""
     markdown_rows = []
 
@@ -155,7 +160,7 @@ def _process_table(table: Any) -> str:
     if table.rows:
         header_cells = []
         for cell in table.rows[0].cells:
-            cell_text = _process_text_frame(cell.text_frame)
+            cell_text = _process_text_frame(cell.text_frame, md_options)
             header_cells.append(cell_text.replace("\n", " "))
 
         markdown_rows.append("| " + " | ".join(header_cells) + " |")
@@ -169,32 +174,51 @@ def _process_table(table: Any) -> str:
                 continue
             row_cells = []
             for cell in row.cells:
-                cell_text = _process_text_frame(cell.text_frame)
+                cell_text = _process_text_frame(cell.text_frame, md_options)
                 row_cells.append(cell_text.replace("\n", " "))
             markdown_rows.append("| " + " | ".join(row_cells) + " |")
 
     return "\n".join(markdown_rows)
 
 
-def _process_shape(shape: Any, options: PptxOptions) -> str | None:
+def _process_shape(shape: Any, options: PptxOptions, base_filename: str = "presentation", slide_num: int = 1, img_counter: dict | None = None) -> str | None:
     """Process a single shape and convert to markdown."""
-    # try:
+    if img_counter is None:
+        img_counter = {}
+
     # Handle text boxes and other shapes with text
     if shape.has_text_frame:
-        return _process_text_frame(shape.text_frame)
+        md_options = options.markdown_options if options else None
+        return _process_text_frame(shape.text_frame, md_options)
 
     # Handle tables
     elif shape.shape_type == MSO_SHAPE_TYPE.TABLE:
-        return _process_table(shape.table)
+        md_options = options.markdown_options if options else None
+        return _process_table(shape.table, md_options)
 
     # Handle pictures
     elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
         # Extract image data if needed
-        image_data = extract_pptx_image_data(shape) if options.attachment_mode != "skip" else None
+        if options.attachment_mode != "skip":
+            image_data = extract_pptx_image_data(shape)
+        else:
+            logger.info(f"Skipping image in slide {slide_num} (attachment_mode=skip): {shape.alt_text or 'image'}")
+            image_data = None
         if image_data and not isinstance(image_data, bytes):
             image_data = None
         alt_text = shape.alt_text or "image"
-        image_filename = f"slide_image_{id(shape)}.png"
+        # Get next sequence number for this slide
+        slide_key = f"slide_{slide_num}"
+        img_counter[slide_key] = img_counter.get(slide_key, 0) + 1
+        sequence_num = img_counter[slide_key]
+
+        image_filename = generate_attachment_filename(
+            base_stem=base_filename,
+            format_type="pptx",
+            slide_num=slide_num,
+            sequence_num=sequence_num,
+            extension="png"
+        )
 
         # Process image using unified attachment handling
         return process_attachment(
@@ -290,6 +314,9 @@ def _process_shape(shape: Any, options: PptxOptions) -> str | None:
 
         return "\n".join(data_rows) if data_rows else f"Chart: {getattr(chart, 'chart_title', 'Untitled Chart')}"
 
+    # Log unsupported shape types
+    shape_type_name = getattr(shape.shape_type, 'name', 'UNKNOWN') if hasattr(shape, 'shape_type') else 'UNKNOWN'
+    logger.debug(f"Unsupported shape type skipped: {shape_type_name}")
     return None
 
 
@@ -338,17 +365,25 @@ def pptx_to_markdown(input_data: Union[str, Any], options: PptxOptions | None = 
                 f"Failed to open PPTX presentation: {str(e)}", conversion_stage="document_opening", original_error=e
             ) from e
 
+    # Extract base filename for standardized attachment naming
+    if input_type == "path" and isinstance(doc_input, (str, Path)):
+        base_filename = Path(doc_input).stem
+    else:
+        # For non-file inputs, use a default name
+        base_filename = "presentation"
+
     # Get Markdown options (create default if not provided) - currently not used in processing
     # md_options = options.markdown_options or MarkdownOptions()
 
     markdown_content = []
+    img_counter = {}  # Track image sequences across slides
 
     for i, slide in enumerate(prs.slides, 1):
         slide_content = []
 
         # Process slide title if present
         if slide.shapes.title:
-            title_text = _process_text_frame(slide.shapes.title.text_frame)
+            title_text = _process_text_frame(slide.shapes.title.text_frame, options.markdown_options)
             if options.slide_numbers:
                 slide_content.append(f"# Slide {i}: {title_text.strip()}\n")
             else:
@@ -356,7 +391,7 @@ def pptx_to_markdown(input_data: Union[str, Any], options: PptxOptions | None = 
 
         # Process all shapes in the slide
         for shape in slide.shapes:
-            shape_content = _process_shape(shape, options)
+            shape_content = _process_shape(shape, options, base_filename, i, img_counter)
             if shape_content:
                 slide_content.append(shape_content + "\n")
 

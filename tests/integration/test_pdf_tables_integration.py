@@ -1,15 +1,11 @@
 """Integration tests for PDF table detection using real generated PDFs."""
 
-import tempfile
-from pathlib import Path
-import fitz
 import pytest
-import re
 
-from all2md.pdf2markdown import pdf_to_markdown
 from all2md.options import PdfOptions
-from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
-from tests.fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes, create_temp_pdf_file
+from all2md.pdf2markdown import pdf_to_markdown
+from tests.fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
+from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration

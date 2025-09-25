@@ -106,7 +106,7 @@ from typing import Union
 
 import fitz
 
-from ._attachment_utils import process_attachment
+from ._attachment_utils import generate_attachment_filename, process_attachment
 from ._input_utils import escape_markdown_special, validate_and_convert_input, validate_page_range
 from .constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
@@ -753,7 +753,7 @@ def page_to_markdown(
     return out_string.replace(" \n", "\n")
 
 
-def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | None = None) -> list[dict]:
+def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | None = None, base_filename: str = "document") -> list[dict]:
     """Extract images from a PDF page with their positions.
 
     Extracts all images from the page and optionally saves them to disk
@@ -767,6 +767,8 @@ def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | No
         Page number for naming extracted images
     options : PdfOptions or None, optional
         PDF options containing image extraction settings
+    base_filename : str, default "document"
+        Base filename stem for generating standardized image names
 
     Returns
     -------
@@ -807,7 +809,13 @@ def extract_page_images(page: fitz.Page, page_num: int, options: PdfOptions | No
 
             # Process image using unified attachment handling
             img_bytes = pix_rgb.tobytes("png")
-            img_filename = f"page_{page_num + 1}_img_{img_idx + 1}.png"
+            img_filename = generate_attachment_filename(
+                base_stem=base_filename,
+                format_type="pdf",
+                page_num=page_num + 1,  # Convert to 1-based
+                sequence_num=img_idx + 1,
+                extension="png"
+            )
 
             image_path = process_attachment(
                 attachment_data=img_bytes,
@@ -1163,6 +1171,13 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
             f"Invalid page range: {str(e)}", parameter_name="pages", parameter_value=options.pages
         ) from e
 
+    # Extract base filename for standardized attachment naming
+    if input_type == "path" and isinstance(doc_input, (str, Path)):
+        base_filename = Path(doc_input).stem
+    else:
+        # For non-file inputs, use a default name
+        base_filename = "document"
+
     # Get Markdown options (create default if not provided)
     md_options = options.markdown_options or MarkdownOptions()
 
@@ -1172,10 +1187,10 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
     for pno in pages_to_use:
         page = doc[pno]
 
-        # Extract images if requested
+        # Extract images for all attachment modes except "skip"
         page_images = []
-        if options.attachment_mode == "download":
-            page_images = extract_page_images(page, pno, options)
+        if options.attachment_mode != "skip":
+            page_images = extract_page_images(page, pno, options, base_filename)
 
         # 1. first locate all tables on page
         tabs = page.find_tables()

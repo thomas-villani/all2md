@@ -5,24 +5,16 @@ testing the integration of all components including format detection, parsing,
 and conversion across different document types.
 """
 
-import tempfile
-from pathlib import Path
 from io import BytesIO
 
 import pytest
 
 from all2md import to_markdown
-from all2md.options import DocxOptions, HtmlOptions, PdfOptions, PptxOptions, MarkdownOptions
-from tests.fixtures.generators.docx_fixtures import (
-    create_docx_with_formatting,
-    save_docx_to_bytes
-)
+from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
+from tests.fixtures.generators.docx_fixtures import create_docx_with_formatting, save_docx_to_bytes
 from tests.fixtures.generators.html_fixtures import create_html_with_tables
-from tests.fixtures.generators.pptx_fixtures import (
-    create_pptx_with_basic_slides,
-    save_pptx_to_bytes
-)
 from tests.fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
+from tests.fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, save_pptx_to_bytes
 from tests.utils import assert_markdown_valid
 
 
@@ -248,7 +240,7 @@ class TestFullConversionPipeline:
         # Test with basic HTML options - the key is that options are accepted and processed
         options_test = HtmlOptions(
             strip_dangerous_elements=True,
-            preserve_nbsp=False
+            convert_nbsp=False
         )
 
         result = to_markdown(
@@ -266,7 +258,7 @@ class TestFullConversionPipeline:
         # Test that different options produce output (may be the same, but should not crash)
         options_test2 = HtmlOptions(
             strip_dangerous_elements=False,
-            preserve_nbsp=True
+            convert_nbsp=True
         )
 
         result2 = to_markdown(
@@ -283,7 +275,6 @@ class TestFullConversionPipeline:
         """Test conversion of documents with mixed content types."""
         # Create a complex DOCX with tables, images, and various formatting
         import docx
-        from docx.shared import Inches
 
         doc = docx.Document()
 

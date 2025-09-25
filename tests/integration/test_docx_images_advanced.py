@@ -1,16 +1,12 @@
 """Advanced tests for DOCX image handling edge cases."""
 
-import base64
-import tempfile
-from pathlib import Path
 
 import docx
 from docx.shared import Inches
-import pytest
 
 from all2md.docx2markdown import docx_to_markdown
 from all2md.options import DocxOptions
-from tests.utils import DocxTestGenerator, assert_markdown_valid, create_test_temp_dir, cleanup_test_dir, MINIMAL_PNG_BYTES
+from tests.utils import MINIMAL_PNG_BYTES, assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxImagesAdvanced:

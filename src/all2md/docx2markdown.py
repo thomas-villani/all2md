@@ -77,7 +77,8 @@ from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 
-from ._attachment_utils import extract_docx_image_data, process_attachment
+from ._attachment_utils import extract_docx_image_data, generate_attachment_filename, process_attachment
+from ._input_utils import format_special_text
 from .constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from .exceptions import MdparseConversionError
 from .options import DocxOptions, MarkdownOptions
@@ -221,29 +222,31 @@ def _process_paragraph_runs(paragraph: Paragraph, md_options: MarkdownOptions | 
             text_parts.append(text)
             continue
 
-        markers = []
-        if format_key:
-            if format_key[0]:  # bold
-                markers.append(("**", "**"))
-            if format_key[1]:  # italic
-                markers.append(("*", "*"))
-            if format_key[2]:  # underline
-                markers.append(("__", "__"))
-            if format_key[3]:  # strike
-                markers.append(("~~", "~~"))
-            if format_key[4]:  # subscript
-                markers.append(("~", "~"))
-            if format_key[5]:  # superscript
-                markers.append(("^", "^"))
-
         # Preserve whitespace
         content = text.strip()
         prefix = text[: len(text) - len(text.lstrip())]
         suffix = text[len(text.rstrip()) :]
 
-        if markers:
-            for start, end in markers:
-                content = f"{start}{content}{end}"
+        # Apply formatting using format_special_text for special formatting and markers for others
+        if format_key:
+            # Handle special formatting types that require format_special_text
+            if format_key[2]:  # underline
+                underline_mode = md_options.underline_mode if md_options else "html"
+                content = format_special_text(content, "underline", underline_mode)
+            if format_key[4]:  # subscript
+                subscript_mode = md_options.subscript_mode if md_options else "html"
+                content = format_special_text(content, "subscript", subscript_mode)
+            if format_key[5]:  # superscript
+                superscript_mode = md_options.superscript_mode if md_options else "html"
+                content = format_special_text(content, "superscript", superscript_mode)
+
+            # Handle standard markdown formatting
+            if format_key[0]:  # bold
+                content = f"**{content}**"
+            if format_key[1]:  # italic
+                content = f"*{content}*"
+            if format_key[3]:  # strike
+                content = f"~~{content}~~"
 
         # Add hyperlink if present
         if url:
@@ -283,7 +286,7 @@ def _convert_table_to_markdown(table: Table, md_options: MarkdownOptions | None 
     return "\n".join(markdown_rows)
 
 
-def _iter_block_items(parent: Any, options: DocxOptions) -> Any:
+def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "document") -> Any:
     """
     Generate a sequence of Paragraph and Table elements in order, handling images.
     """
@@ -314,10 +317,10 @@ def _iter_block_items(parent: Any, options: DocxOptions) -> Any:
                     ):
                         title = t[0]
 
-                    # Get image data
+                    # Get image data and detected format
                     blip = pic.xpath(".//a:blip")[0]
                     blip_rId = blip.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
-                    raw_image_data = extract_docx_image_data(parent, blip_rId)
+                    raw_image_data, detected_extension = extract_docx_image_data(parent, blip_rId)
 
                     # Handle pre-formatted data URIs (for backward compatibility with tests)
                     if isinstance(raw_image_data, str):
@@ -326,10 +329,25 @@ def _iter_block_items(parent: Any, options: DocxOptions) -> Any:
                         img_data.append((title or "image", processed_image))
                         continue
                     elif not isinstance(raw_image_data, (bytes, type(None))):
+                        logger.warning(f"Invalid image data type for image '{title or 'unnamed'}', skipping")
                         raw_image_data = None
 
+                    # Use detected extension or fallback to png
+                    extension = detected_extension or "png"
+
+                    # Log format detection result
+                    if detected_extension:
+                        logger.debug(f"Detected image format: {detected_extension}")
+                    else:
+                        logger.debug("No image format detected, using PNG as fallback")
+
                     # Process image using unified attachment handling
-                    image_filename = f"image_{len(img_data) + 1}.png"
+                    image_filename = generate_attachment_filename(
+                        base_stem=base_filename,
+                        format_type="general",
+                        sequence_num=len(img_data) + 1,
+                        extension=extension
+                    )
                     processed_image = process_attachment(
                         attachment_data=raw_image_data,
                         attachment_name=image_filename,
@@ -421,6 +439,13 @@ def docx_to_markdown(
     if options is None:
         options = DocxOptions()
 
+    # Extract base filename for standardized attachment naming
+    if isinstance(input_data, (str, Path)):
+        base_filename = Path(input_data).stem
+    else:
+        # For non-file inputs, use a default name
+        base_filename = "document"
+
     # Validate and convert input - for now use simplified approach
     try:
         if isinstance(input_data, docx.document.Document):
@@ -440,7 +465,7 @@ def docx_to_markdown(
     markdown_lines = []
     list_stack: list[tuple[str, int, int]] = []  # Track nested lists: (type, level, current_number)
 
-    for block in _iter_block_items(doc, options=options):
+    for block in _iter_block_items(doc, options=options, base_filename=base_filename):
         if isinstance(block, Paragraph):
             text = ""
 

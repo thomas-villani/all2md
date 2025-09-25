@@ -4,13 +4,14 @@ These tests verify that our new test structure and fixtures work correctly
 before attempting to run the full test suite.
 """
 
-import pytest
 from pathlib import Path
 
-from tests.fixtures.generators.html_fixtures import create_minimal_html
+import pytest
+
 from tests.fixtures.generators.docx_fixtures import create_minimal_docx, save_docx_to_bytes
-from tests.fixtures.generators.pptx_fixtures import create_minimal_pptx, save_pptx_to_bytes
+from tests.fixtures.generators.html_fixtures import create_minimal_html
 from tests.fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
+from tests.fixtures.generators.pptx_fixtures import create_minimal_pptx, save_pptx_to_bytes
 
 
 @pytest.mark.unit

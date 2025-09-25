@@ -1,7 +1,6 @@
-import pytest
-
 import base64
 
+import pytest
 from pptx import Presentation
 from pptx.chart.data import ChartData
 from pptx.enum.chart import XL_CHART_TYPE
@@ -30,7 +29,10 @@ def test_process_paragraph_format():
 def test_process_run_format():
     font = type("Font", (), {"bold": True, "italic": False, "underline": True})()
     run = type("Run", (), {"font": font})()
-    assert _process_run_format(run) == [("**", "**"), ("__", "__")]
+    # Test with empty text to see formatting structure
+    result = _process_run_format(run, "test")
+    assert "**test**" in result  # bold formatting
+    assert "<u>" in result and "</u>" in result  # underline formatting (HTML mode default)
 
 
 @pytest.mark.unit
@@ -47,7 +49,10 @@ def test_process_text_frame_formatting():
     run.font.italic = True
     run.font.underline = True
     result = _process_text_frame(tf)
-    assert result == "__***Hello***__"
+    # With new formatting, underline uses HTML tags by default
+    expected_patterns = ["***Hello***", "<u>", "</u>"]  # bold+italic wrapped in underline HTML
+    for pattern in expected_patterns:
+        assert pattern in result
 
 
 @pytest.mark.unit

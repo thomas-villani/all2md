@@ -1,18 +1,21 @@
 """Integration tests for all2md converters."""
 
 import tempfile
+from io import BytesIO
 from pathlib import Path
-from io import StringIO, BytesIO
 
 import docx
-from pptx import Presentation
 import pytest
+from pptx import Presentation
 
-from all2md import to_markdown, DocumentFormat, BaseOptions, MdparseConversionError
-from all2md.options import DocxOptions, HtmlOptions, PptxOptions, EmlOptions, MarkdownOptions, PdfOptions
+from all2md import MdparseConversionError, to_markdown
+from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions
 from tests.utils import (
-    DocxTestGenerator, HtmlTestGenerator, PptxTestGenerator, EmlTestGenerator,
-    assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+    DocxTestGenerator,
+    EmlTestGenerator,
+    assert_markdown_valid,
+    cleanup_test_dir,
+    create_test_temp_dir,
 )
 
 
@@ -359,7 +362,7 @@ class TestNewAPI:
         # Create options with one setting
         base_options = HtmlOptions(
             use_hash_headings=False,
-            preserve_nbsp=True
+            convert_nbsp=True
         )
 
         # Override with kwargs
@@ -381,7 +384,7 @@ class TestNewAPI:
             html_io,
             format="html",
             use_hash_headings=True,
-            preserve_nbsp=False,
+            convert_nbsp=False,
             emphasis_symbol="_"  # MarkdownOptions field
         )
 
@@ -494,7 +497,6 @@ class TestNewAPI:
     def test_comprehensive_detection_strategy(self):
         """Test the comprehensive detection with multiple fallback layers."""
         # Test 1: Extension + MIME type detection for uncommon extension
-        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.unknown', delete=False) as tmp:
             html_content = b"<html><body><h1>Unknown Extension</h1></body></html>"
             tmp.write(html_content)

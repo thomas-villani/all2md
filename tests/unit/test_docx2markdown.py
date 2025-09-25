@@ -1,6 +1,4 @@
-import base64
 
-import docx
 import pytest
 
 from all2md import docx2markdown as md
@@ -149,7 +147,8 @@ def test_process_paragraph_runs_italic():
 def test_process_paragraph_runs_underline():
     runs = [FakeRun("Under", underline=True)]
     para = RunParagraph(runs)
-    assert md._process_paragraph_runs(para) == "__Under__"
+    # Now uses HTML formatting by default for underline
+    assert md._process_paragraph_runs(para) == "<u>Under</u>"
 
 
 @pytest.mark.unit
@@ -163,14 +162,16 @@ def test_process_paragraph_runs_strike():
 def test_process_paragraph_runs_subscript():
     runs = [FakeRun("Sub", subscript=True)]
     para = RunParagraph(runs)
-    assert md._process_paragraph_runs(para) == "~Sub~"
+    # Now uses HTML formatting by default for subscript
+    assert md._process_paragraph_runs(para) == "<sub>Sub</sub>"
 
 
 @pytest.mark.unit
 def test_process_paragraph_runs_superscript():
     runs = [FakeRun("Sup", superscript=True)]
     para = RunParagraph(runs)
-    assert md._process_paragraph_runs(para) == "^Sup^"
+    # Now uses HTML formatting by default for superscript
+    assert md._process_paragraph_runs(para) == "<sup>Sup</sup>"
 
 
 @pytest.mark.unit

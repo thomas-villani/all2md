@@ -5,26 +5,21 @@ Markdown output, and other common testing functions.
 """
 
 import base64
-import tempfile
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-import docx
-from docx.shared import Inches, Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_ALIGN_VERTICAL
-from pptx import Presentation
-from pptx.util import Inches as PptxInches
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.chart.data import ChartData
-from pptx.enum.chart import XL_CHART_TYPE
+import datetime
 import email
+import tempfile
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from io import StringIO
-import datetime
+from pathlib import Path
 
+import docx
+from docx.enum.table import WD_ALIGN_VERTICAL
+from docx.shared import Inches
+from pptx import Presentation
+from pptx.chart.data import ChartData
+from pptx.enum.chart import XL_CHART_TYPE
+from pptx.util import Inches as PptxInches
 
 # Base64 encoded 1x1 pixel PNG for testing
 MINIMAL_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9FpQHLwAAAAASUVORK5CYII="
@@ -543,7 +538,7 @@ Special characters: café résumé naïve
                 in_reply_to = ""
                 references = ""
             else:
-                subject = f"Re: Original Message"
+                subject = "Re: Original Message"
                 in_reply_to = f"In-Reply-To: <msg{i-1}@example.com>"
                 references = f"References: {' '.join([f'<msg{j}@example.com>' for j in range(i)])}"
 

@@ -93,13 +93,14 @@ Custom configuration with options:
 
 import base64
 import html
+import logging
 import os
 import re
 from pathlib import Path
 from typing import IO, Any, Literal, Union
 from urllib.parse import urljoin, urlparse
-from urllib.request import urlopen
 
+import httpx
 from bs4 import BeautifulSoup, NavigableString
 
 from ._attachment_utils import process_attachment
@@ -114,6 +115,8 @@ from .constants import (
 )
 from .exceptions import MdparseConversionError, MdparseInputError
 from .options import HtmlOptions, MarkdownOptions
+
+logger = logging.getLogger(__name__)
 
 
 class HTMLToMarkdown:
@@ -132,8 +135,8 @@ class HTMLToMarkdown:
         Symbol to use for emphasis formatting.
     bullet_symbols : str, default = "*-+"
         Characters to cycle through for nested bullet lists.
-    preserve_nbsp : bool, default = False
-        Preserve non-breaking spaces in output.
+    convert_nbsp : bool, default = False
+        Convert non-breaking spaces to regular spaces in output.
     strip_dangerous_elements : bool, default = False
         Remove potentially dangerous HTML elements.
     table_alignment_auto_detect : bool, default = True
@@ -150,7 +153,7 @@ class HTMLToMarkdown:
         extract_title: bool = False,
         emphasis_symbol: Literal["*", "_"] = "*",
         bullet_symbols: str = "*-+",
-        preserve_nbsp: bool = False,
+        convert_nbsp: bool = False,
         strip_dangerous_elements: bool = False,
         table_alignment_auto_detect: bool = True,
         preserve_nested_structure: bool = True,
@@ -164,7 +167,7 @@ class HTMLToMarkdown:
         self.extract_title = extract_title
         self.emphasis_symbol = emphasis_symbol
         self.bullet_symbols = bullet_symbols
-        self.preserve_nbsp = preserve_nbsp
+        self.convert_nbsp = convert_nbsp
 
         # Set attachment handling options
         self.attachment_mode = attachment_mode
@@ -203,7 +206,7 @@ class HTMLToMarkdown:
         return text
 
     def _decode_entities(self, text: str) -> str:
-        """Decode HTML entities while preserving special ones if configured.
+        """Decode HTML entities while handling non-breaking spaces as configured.
 
         Parameters
         ----------
@@ -218,8 +221,8 @@ class HTMLToMarkdown:
         # First decode all entities
         decoded = html.unescape(text)
 
-        # If preserve_nbsp is True, convert back to explicit space
-        if self.preserve_nbsp and "&nbsp;" in text:
+        # If convert_nbsp is True, convert non-breaking spaces to regular spaces
+        if self.convert_nbsp:
             decoded = decoded.replace("\u00a0", " ")  # Non-breaking space to regular space
 
         return decoded
@@ -274,16 +277,77 @@ class HTMLToMarkdown:
             return url
         return urljoin(self.attachment_base_url, url)
 
-    def _download_image_data(self, url: str) -> bytes:
-        """Download image data from URL."""
+    def _validate_url(self, url: str) -> bool:
+        """Validate URL to prevent SSRF attacks.
+
+        Parameters
+        ----------
+        url : str
+            URL to validate
+
+        Returns
+        -------
+        bool
+            True if URL is safe, False otherwise
+        """
         try:
-            with urlopen(url) as response:
-                return response.read()
+            parsed = urlparse(url)
+            # Only allow http and https schemes
+            if parsed.scheme not in ('http', 'https'):
+                logger.warning(f"Blocked non-HTTP(S) URL: {url}")
+                return False
+
+            # Block local/private addresses
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+
+            # Block localhost and local IPs
+            if hostname.lower() in ('localhost', '127.0.0.1', '::1'):
+                logger.warning(f"Blocked localhost URL: {url}")
+                return False
+
+            # Block private IP ranges (basic check)
+            if hostname.startswith(('192.168.', '10.', '172.')):
+                logger.warning(f"Blocked private IP URL: {url}")
+                return False
+
+            return True
+        except Exception:
+            return False
+
+    def _download_image_data(self, url: str) -> bytes:
+        """Download image data from URL using secure httpx client.
+
+        Parameters
+        ----------
+        url : str
+            URL to download from
+
+        Returns
+        -------
+        bytes
+            Raw image data
+
+        Raises
+        ------
+        Exception
+            If download fails or URL is invalid
+        """
+        if not self._validate_url(url):
+            raise Exception(f"Invalid or unsafe URL: {url}")
+
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(url, follow_redirects=True)
+                response.raise_for_status()
+                return response.content
         except Exception as e:
+            logger.debug(f"Failed to download image from {url}: {e}")
             raise Exception(f"Failed to download image from {url}: {e}") from e
 
     def _download_image_as_data_uri(self, url: str) -> str:
-        """Download image and convert to data URI.
+        """Download image and convert to data URI using secure httpx client.
 
         Parameters
         ----------
@@ -295,13 +359,20 @@ class HTMLToMarkdown:
         str
             Data URI representation of image, or original URL if download fails.
         """
+        if not self._validate_url(url):
+            logger.info(f"Skipping unsafe URL: {url}")
+            return url
+
         try:
-            with urlopen(url) as response:
-                content_type = response.headers.get("Content-Type", "image/png")
-                image_data = response.read()
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(url, follow_redirects=True)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "image/png")
+                image_data = response.content
                 encoded_data = base64.b64encode(image_data).decode("utf-8")
                 return f"data:{content_type};base64,{encoded_data}"
-        except Exception:
+        except Exception as e:
+            logger.info(f"Image download failed for {url}, using original URL: {e}")
             # Fallback to original URL if download fails
             return url
 
@@ -760,6 +831,9 @@ class HTMLToMarkdown:
     def _process_image(self, node: Any) -> str:
         """Process images with enhanced handling options."""
         if self.attachment_mode == "skip":
+            src = node.get("src", "")
+            alt = node.get("alt", "image")
+            logger.info(f"Skipping image (attachment_mode=skip): {src} (alt: {alt})")
             return ""
 
         src = node.get("src", "")
@@ -772,14 +846,18 @@ class HTMLToMarkdown:
         # Resolve relative URLs
         resolved_src = self._resolve_url(src)
 
+        # Use local variable to avoid mutating instance state
+        current_attachment_mode = self.attachment_mode
+
         # Download image data if needed for base64 or download modes
         image_data = None
-        if self.attachment_mode in ["base64", "download"]:
+        if current_attachment_mode in ["base64", "download"]:
             try:
                 image_data = self._download_image_data(resolved_src)
-            except Exception:
-                # Fall back to alt_text mode if download fails
-                self.attachment_mode = "alt_text"
+            except Exception as e:
+                # Fall back to alt_text mode if download fails (without mutating instance)
+                logger.info(f"Image download failed for {resolved_src}, falling back to alt_text mode: {e}")
+                current_attachment_mode = "alt_text"
 
         # Generate filename from URL or use generic name
         from urllib.parse import urlparse
@@ -788,7 +866,7 @@ class HTMLToMarkdown:
         filename = os.path.basename(parsed_url.path) or "image.png"
 
         # For HTML, if we have a resolved URL and alt_text mode, preserve the URL
-        if self.attachment_mode == "alt_text" and resolved_src and resolved_src != src:
+        if current_attachment_mode == "alt_text" and resolved_src and resolved_src != src:
             # URL was resolved, preserve it
             title_attr = f' "{title}"' if title else ""
             return f"![{alt or filename}]({resolved_src}{title_attr})"
@@ -798,7 +876,7 @@ class HTMLToMarkdown:
             attachment_data=image_data,
             attachment_name=filename,
             alt_text=alt or title or filename,
-            attachment_mode=self.attachment_mode,
+            attachment_mode=current_attachment_mode,
             attachment_output_dir=self.attachment_output_dir,
             attachment_base_url=self.attachment_base_url,
             is_image=True,
@@ -968,7 +1046,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
         converter_kwargs = {
             "hash_headings": options.use_hash_headings,
             "extract_title": options.extract_title,
-            "preserve_nbsp": options.preserve_nbsp,
+            "convert_nbsp": options.convert_nbsp,
             "strip_dangerous_elements": options.strip_dangerous_elements,
             "table_alignment_auto_detect": options.table_alignment_auto_detect,
             "preserve_nested_structure": options.preserve_nested_structure,

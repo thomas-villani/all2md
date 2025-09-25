@@ -6,8 +6,8 @@ for testing various aspects of PDF-to-Markdown conversion.
 
 import tempfile
 from pathlib import Path
+
 import fitz
-from io import BytesIO
 
 
 def create_pdf_with_figures() -> fitz.Document:

@@ -6,8 +6,7 @@ for testing various aspects of HTML-to-Markdown conversion.
 
 import tempfile
 from pathlib import Path
-from io import StringIO
-from typing import Optional, List, Dict
+from typing import Optional
 
 
 def create_html_with_formatting() -> str:

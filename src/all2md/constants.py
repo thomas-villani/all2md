@@ -117,7 +117,7 @@ HTML_EMPHASIS_SYMBOLS = ["*", "_"]
 HTML_BULLET_SYMBOLS = "*-+"
 
 # HTML entity handling
-DEFAULT_PRESERVE_NBSP = False
+DEFAULT_CONVERT_NBSP = False
 HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handling
 
 

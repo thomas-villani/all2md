@@ -1,17 +1,12 @@
 """Advanced tests for DOCX table handling edge cases."""
 
-import tempfile
-from pathlib import Path
 
 import docx
-from docx.shared import Inches
-from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-import pytest
 
 from all2md.docx2markdown import docx_to_markdown
-from all2md.options import DocxOptions
-from tests.utils import DocxTestGenerator, assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxTablesAdvanced:

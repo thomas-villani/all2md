@@ -1,15 +1,10 @@
 """Advanced tests for DOCX hyperlink handling edge cases."""
 
-import tempfile
-from pathlib import Path
 
 import docx
-from docx.shared import Inches
-import pytest
 
 from all2md.docx2markdown import docx_to_markdown
-from all2md.options import DocxOptions
-from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
+from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxLinksAdvanced:
