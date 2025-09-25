@@ -106,8 +106,6 @@ from pathlib import Path
 from typing import IO, Any, Literal, Union
 from urllib.parse import urljoin, urlparse
 
-import httpx
-from bs4 import BeautifulSoup, NavigableString
 
 from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
@@ -382,6 +380,8 @@ class HTMLToMarkdown:
         if not self._validate_url(url):
             raise Exception(f"Invalid or unsafe URL: {url}")
 
+        import httpx
+
         try:
             with httpx.Client(timeout=10.0) as client:
                 response = client.get(url, follow_redirects=True)
@@ -473,6 +473,8 @@ class HTMLToMarkdown:
 
     def convert(self, html: str) -> str:
         """Convert HTML string to Markdown."""
+        from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(html, "html.parser")
 
         # Reset output parts for this conversion
@@ -512,6 +514,7 @@ class HTMLToMarkdown:
 
     def _process_node(self, node: Any) -> str:
         """Process a BeautifulSoup node and its children recursively."""
+        from bs4.element import NavigableString
         if isinstance(node, NavigableString):
             text = self._decode_entities(str(node))
             return self._escape_markdown(text) if not self._in_code_block else text
@@ -584,6 +587,8 @@ class HTMLToMarkdown:
 
     def _process_list(self, node: Any, parent_is_ordered: bool = False) -> str:
         """Process ordered and unordered lists."""
+        from bs4.element import NavigableString
+
         self._list_depth += 1
         output = ""  # '\n' if self.list_depth == 1 and node.find_previous_sibling() else ''
 

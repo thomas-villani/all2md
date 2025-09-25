@@ -97,13 +97,12 @@ def _check_pymupdf_version() -> None:
     """
     min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
     if fitz.pymupdf_version_tuple < min_version:
-        raise MarkdownConversionError(
+        raise ImportError(
             f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
             f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
         )
 
 
-_check_pymupdf_version()
 
 SPACES = set(string.whitespace)  # used to check relevance of text pieces
 paragraph_fixer = re.compile(r"(?<!\n)\n(?!\n)")
@@ -1173,6 +1172,7 @@ def pdf_to_markdown(input_data: Union[str, BytesIO, fitz.Document], options: Pdf
         >>> options = PdfOptions(password="secret123")
         >>> content = pdf_to_markdown(data, options=options)
     """
+    _check_pymupdf_version()
 
     # Handle backward compatibility and merge options
     if options is None:
