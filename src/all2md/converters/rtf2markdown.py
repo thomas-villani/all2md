@@ -13,7 +13,14 @@
 #  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-# src/all2md/rtf2markdown.py
+
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#
 """Rich Text Format (RTF) to Markdown conversion module.
 
 This module provides functionality to convert Rich Text Format (RTF) documents
@@ -55,8 +62,8 @@ from pyth.plugins.rtf15.reader import Rtf15Reader
 
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
-from .exceptions import MdparseConversionError
-from .options import MarkdownOptions, RtfOptions
+from all2md.exceptions import MdparseConversionError
+from all2md.options import MarkdownOptions, RtfOptions
 
 # except ImportError:
 #     Document = None

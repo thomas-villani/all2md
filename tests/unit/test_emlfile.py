@@ -4,7 +4,7 @@ from io import StringIO
 import pytest
 
 from all2md import MdparseInputError
-from all2md.emlfile import format_email_chain_as_markdown, parse_email_chain
+from all2md.converters.eml2markdown import format_email_chain_as_markdown, eml_to_markdown
 
 
 @pytest.mark.unit
@@ -71,7 +71,7 @@ References: <ref1@example.com>
 Hello world
 """
     f = StringIO(eml)
-    md = parse_email_chain(f)
+    md = eml_to_markdown(f)
     assert isinstance(md, str)
     assert "From: A <a@example.com>" in md
     assert "To: B <b@example.com>" in md
@@ -91,7 +91,7 @@ File content here
 """
     p = tmp_path / "test.eml"
     p.write_text(eml, encoding="utf-8")
-    md = parse_email_chain(str(p))
+    md = eml_to_markdown(str(p))
     assert isinstance(md, str)
     assert "Subject: File Path Test" in md
     assert "File content here" in md
@@ -100,7 +100,7 @@ File content here
 @pytest.mark.unit
 def test_parse_email_chain_invalid_type():
     with pytest.raises(MdparseInputError):
-        parse_email_chain(123)
+        eml_to_markdown(123)
 
 
 @pytest.mark.unit
@@ -119,7 +119,7 @@ Content-Type: text/html; charset="utf-8"
 </html>
 """
     f = StringIO(eml)
-    md = parse_email_chain(f)
+    md = eml_to_markdown(f)
     assert isinstance(md, str)
     assert "Subject: HTML Only" in md
     assert "<p>This is <b>HTML</b> content.</p>" in md
@@ -168,7 +168,7 @@ Original content line 2
 <https://urldefense.com/remove>This link
 """
     f = StringIO(eml)
-    md = parse_email_chain(f)
+    md = eml_to_markdown(f)
     assert isinstance(md, str)
     # Should contain both messages in chronological order (older first)
     assert "From: Original <orig@example.com>" in md
@@ -202,7 +202,7 @@ Subject: Re: Chain Example
 Quoted content
 """
     f = StringIO(eml)
-    md = parse_email_chain(f)
+    md = eml_to_markdown(f)
     # Older message first
     assert md.startswith("From: Original <orig@example.com>")
     # cc line only in first block

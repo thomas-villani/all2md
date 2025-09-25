@@ -1,3 +1,27 @@
+
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all copies or substantial
+#  portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# src/all2md/converters/pdf2markdown.py
 """PDF to Markdown conversion module.
 
 This module provides advanced PDF parsing with table detection using PyMuPDF.
@@ -27,7 +51,7 @@ Examples
 --------
 Basic PDF conversion:
 
-    >>> from all2md.pdf2markdown import pdf_to_markdown
+    >>> from all2md.converters.pdf2markdown import pdf_to_markdown
     >>> markdown_content = pdf_to_markdown("document.pdf")
 
 Convert specific pages with options:
@@ -43,60 +67,7 @@ Convert from file-like object:
     ...     content = pdf_to_markdown(BytesIO(f.read()))
 
 Original from pdf4llm package, modified by Tom Villani to improve table processing.
-
----
-
-This script accepts a PDF document filename and converts it to a text file
-in Markdown format, compatible with the GitHub standard.
-
-It must be invoked with the filename like this:
-
-python pymupdf_rag.py input.pdf [-pages PAGES]
-
-The "PAGES" parameter is a string (containing no spaces) of comma-separated
-page numbers to consider. Each item is either a single page number or a
-number range "m-n". Use "N" to address the document's last page number.
-Example: "-pages 2-15,40,43-N"
-
-It will produce a markdown text file called "input.md".
-
-Text will be sorted in Western reading order. Any table will be included in
-the text in markdwn format as well.
-
-Use in some other script
--------------------------
-import fitz
-from to_markdown import to_markdown
-
-doc = fitz.open("input.pdf")
-page_list = [ list of 0-based page numbers ]
-md_text = to_markdown(doc, pages=page_list)
-
-Dependencies
--------------
-PyMuPDF v1.24.0 or later
-
-Copyright and License
-----------------------
-Copyright 2024 Artifex Software, Inc.
-License GNU Affero GPL 3.0
 """
-
-#  Copyright (c) 2025 Tom Villani, Ph.D.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all copies or substantial
-#  portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import re
 import string
@@ -108,13 +79,13 @@ import fitz
 
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
-from .constants import (
+from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
     PDF_MIN_PYMUPDF_VERSION,
 )
-from .exceptions import MdparseConversionError, MdparseInputError, MdparsePasswordError
-from .options import MarkdownOptions, PdfOptions
+from all2md.exceptions import MdparseConversionError, MdparseInputError, MdparsePasswordError
+from all2md.options import MarkdownOptions, PdfOptions
 
 
 def _check_pymupdf_version() -> None:

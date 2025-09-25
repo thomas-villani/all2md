@@ -76,7 +76,7 @@ print(content)
 #### PDF to Markdown
 
 ```python
-from all2md.pdf2markdown import pdf_to_markdown
+from all2md.converters.pdf2markdown import pdf_to_markdown
 from io import BytesIO
 
 with open('report.pdf', 'rb') as f:
@@ -88,7 +88,7 @@ with open('report.pdf', 'rb') as f:
 #### Word Document to Markdown
 
 ```python
-from all2md.docx2markdown import docx_to_markdown
+from all2md.converters.docx2markdown import docx_to_markdown
 
 with open('document.docx', 'rb') as f:
     markdown = docx_to_markdown(f, convert_images_to_base64=True)
@@ -98,24 +98,24 @@ with open('document.docx', 'rb') as f:
 #### Email Chain Processing
 
 ```python
-from all2md.emlfile import parse_email_chain
+from all2md.converters.eml2markdown import eml_to_markdown
 
 # Get structured data
-messages = parse_email_chain('conversation.eml')
+messages = eml_to_markdown('conversation.eml')
 for msg in messages:
     print(f"From: {msg['from']}")
     print(f"Subject: {msg['subject']}")
     print(f"Date: {msg['date']}")
 
 # Get Markdown format
-markdown = parse_email_chain('conversation.eml', as_markdown=True)
+markdown = eml_to_markdown('conversation.eml', as_markdown=True)
 print(markdown)
 ```
 
 #### PowerPoint to Markdown
 
 ```python
-from all2md.pptx2markdown import pptx_to_markdown
+from all2md.converters.pptx2markdown import pptx_to_markdown
 
 with open('presentation.pptx', 'rb') as f:
     markdown = pptx_to_markdown(f)
@@ -125,7 +125,7 @@ with open('presentation.pptx', 'rb') as f:
 #### HTML to Markdown
 
 ```python
-from all2md.html2markdown import HTMLToMarkdown
+from all2md.converters.html2markdown import HTMLToMarkdown
 
 converter = HTMLToMarkdown(
     hash_headings=True,

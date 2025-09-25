@@ -1,7 +1,7 @@
 """Advanced tests for HTML code block handling edge cases."""
 
 
-from all2md.html2markdown import HTMLToMarkdown
+from all2md.converters.html2markdown import HTMLToMarkdown
 from tests.utils import assert_markdown_valid
 
 

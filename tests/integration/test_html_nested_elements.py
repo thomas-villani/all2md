@@ -1,7 +1,7 @@
 """Advanced tests for HTML nested element handling edge cases."""
 
 
-from all2md.html2markdown import HTMLToMarkdown, html_to_markdown
+from all2md.converters.html2markdown import HTMLToMarkdown, html_to_markdown
 from all2md.options import HtmlOptions
 from tests.utils import assert_markdown_valid
 

@@ -3,7 +3,7 @@
 import pytest
 
 from all2md.options import PdfOptions
-from all2md.pdf2markdown import pdf_to_markdown
+from all2md.converters.pdf2markdown import pdf_to_markdown
 from tests.fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 

@@ -1,7 +1,7 @@
 
 import pytest
 
-from all2md import docx2markdown as md
+from all2md.converters import docx2markdown as md
 
 
 class FakeIndent:

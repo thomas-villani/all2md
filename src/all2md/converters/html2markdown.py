@@ -1,3 +1,26 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all copies or substantial
+#  portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# src/all2md/converters/html2markdown.py
 """HTML to Markdown conversion module.
 
 This module provides comprehensive HTML to Markdown conversion capabilities with
@@ -48,7 +71,7 @@ Examples
 --------
 Basic HTML string conversion:
 
-    >>> from all2md.html2markdown import html_to_markdown
+    >>> from all2md.converters.html2markdown import html_to_markdown
     >>> html = '<h1>Title</h1><p>Content with <strong>bold</strong> text.</p>'
     >>> markdown = html_to_markdown(html)
     >>> print(markdown)
@@ -75,22 +98,6 @@ Custom configuration with options:
     >>> markdown = html_to_markdown('document.html', options=options)
 """
 
-#  Copyright (c) 2023-2025 Tom Villani, Ph.D.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all copies or substantial
-#  portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 import base64
 import html
 import logging
@@ -105,7 +112,7 @@ from bs4 import BeautifulSoup, NavigableString
 
 from all2md.utils.attachments import process_attachment
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
-from .constants import (
+from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
     MARKDOWN_SPECIAL_CHARS,
@@ -113,8 +120,8 @@ from .constants import (
     MIN_CODE_FENCE_LENGTH,
     TABLE_ALIGNMENT_MAPPING,
 )
-from .exceptions import MdparseConversionError, MdparseInputError
-from .options import HtmlOptions, MarkdownOptions
+from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.options import HtmlOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
 

@@ -1,20 +1,27 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
 #  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
 #  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 #
 #  The above copyright notice and this permission notice shall be included in all copies or substantial
 #  portions of the Software.
 #
-#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
 #  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 #  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# src/all2md/ipynb2markdown.py
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#
+# src/all2md/converters/ipynb2markdown.py
 
 """Jupyter Notebook to Markdown conversion module.
 
@@ -44,7 +51,7 @@ Examples
 --------
 Basic conversion from a file path:
 
-    >>> from all2md.ipynb2markdown import ipynb_to_markdown
+    >>> from all2md.converters.ipynb2markdown import ipynb_to_markdown
     >>> markdown = ipynb_to_markdown('notebook.ipynb')
     >>> print(markdown)
 
@@ -63,9 +70,9 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.utils.attachments import process_attachment
-from .constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
-from .exceptions import MdparseConversionError, MdparseInputError
-from .options import IpynbOptions, MarkdownOptions
+from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
+from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.options import IpynbOptions, MarkdownOptions
 
 logger = logging.getLogger(__name__)
 

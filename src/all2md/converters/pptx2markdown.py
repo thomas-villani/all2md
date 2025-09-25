@@ -51,7 +51,7 @@ Examples
 --------
 Basic presentation conversion:
 
-    >>> from all2md.pptx2markdown import pptx_to_markdown
+    >>> from all2md.converters.pptx2markdown import pptx_to_markdown
     >>> with open('presentation.pptx', 'rb') as f:
     ...     markdown = pptx_to_markdown(f)
     >>> print(markdown)
@@ -63,7 +63,7 @@ advanced PowerPoint features will be omitted in the conversion process.
 The focus is on extracting textual and structural content.
 """
 
-#  Copyright (c) 2023-2025 Tom Villani, Ph.D.
+#  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 #  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -79,6 +79,13 @@ The focus is on extracting textual and structural content.
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#
 import logging
 from pathlib import Path
 from typing import Any, Union
@@ -90,8 +97,8 @@ from pptx.util import Inches
 
 from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
-from .exceptions import MdparseConversionError
-from .options import PptxOptions
+from all2md.exceptions import MdparseConversionError
+from all2md.options import PptxOptions
 
 logger = logging.getLogger(__name__)
 

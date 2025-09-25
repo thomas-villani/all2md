@@ -1,3 +1,27 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all copies or substantial
+#  portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# src/all2md/converters/eml2markdown.py
+
 """Email file (EML) parsing and conversion module.
 
 This module provides comprehensive email parsing capabilities for EML files,
@@ -49,9 +73,9 @@ Examples
 --------
 Parse a single email file:
 
-    >>> from all2md.emlfile import parse_email_chain
+    >>> from all2md.converters.eml2markdown import eml_to_markdown
     >>> with open('message.eml', 'r') as f:
-    ...     result = parse_email_chain(f)
+    ...     result = eml_to_markdown(f)
     >>> print(result)
 
 Note
@@ -60,22 +84,6 @@ Email parsing relies on proper EML format compliance. Malformed emails
 may result in partial parsing or missing information. The module attempts
 to handle common encoding issues and format variations gracefully.
 """
-
-#  Copyright (c) 2023-2025 Tom Villani, Ph.D.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all copies or substantial
-#  portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import datetime
 import re
@@ -86,9 +94,9 @@ from io import StringIO
 from typing import Any, Union
 
 from all2md.utils.attachments import process_attachment
-from .constants import DEFAULT_URL_WRAPPERS
-from .exceptions import MdparseConversionError, MdparseInputError
-from .options import EmlOptions
+from all2md.constants import DEFAULT_URL_WRAPPERS
+from all2md.exceptions import MdparseConversionError, MdparseInputError
+from all2md.options import EmlOptions
 
 
 def _parse_date_with_fallback(msg: EmailMessage | Message, options: EmlOptions) -> datetime.datetime | None:
@@ -369,7 +377,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         Converted Markdown content.
     """
     try:
-        from .html2markdown import html_to_markdown
+        from all2md.converters.html2markdown import html_to_markdown
         from .options import HtmlOptions
 
         # Create HTML options that match EML preferences
@@ -890,7 +898,7 @@ def _clean_quoted_content(content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
-def parse_email_chain(input_data: Union[str, StringIO], options: EmlOptions | None = None) -> str:
+def eml_to_markdown(input_data: Union[str, StringIO], options: EmlOptions | None = None) -> str:
     """Parse EML file containing email chain into Markdown format.
 
     Processes email files (.eml format) using enhanced parsing with robust
@@ -916,7 +924,7 @@ def parse_email_chain(input_data: Union[str, StringIO], options: EmlOptions | No
     --------
     Parse email with default settings:
 
-        >>> markdown = parse_email_chain('conversation.eml')
+        >>> markdown = eml_to_markdown('conversation.eml')
         >>> print(markdown)
 
     Parse with custom options:
@@ -926,7 +934,7 @@ def parse_email_chain(input_data: Union[str, StringIO], options: EmlOptions | No
         ...     convert_html_to_markdown=True,
         ...     clean_quotes=True
         ... )
-        >>> markdown = parse_email_chain('conversation.eml', options=opts)
+        >>> markdown = eml_to_markdown('conversation.eml', options=opts)
 
     Notes
     -----

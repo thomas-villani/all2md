@@ -3,7 +3,7 @@
 from unittest.mock import Mock, patch
 
 from all2md.options import PdfOptions
-from all2md.pdf2markdown import IdentifyHeaders, detect_columns, merge_hyphenated_text, page_to_markdown
+from all2md.converters.pdf2markdown import IdentifyHeaders, detect_columns, merge_hyphenated_text, page_to_markdown
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 

@@ -74,7 +74,7 @@ import os
 from dataclasses import fields
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import IO, Any, Literal, Optional, Union
+from typing import IO, Literal, Optional, Union
 
 from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
@@ -624,14 +624,14 @@ def to_markdown(
 
     # Process file based on detected/specified format
     if actual_format == "html":
-        from .html2markdown import html_to_markdown
+        from all2md.converters.html2markdown import html_to_markdown
 
         file.seek(0)
         html_content = file.read().decode("utf-8", errors="replace")
         content = html_to_markdown(html_content, options=final_options)
 
     elif actual_format == "rtf":
-        from .rtf2markdown import rtf_to_markdown
+        from all2md.converters.rtf2markdown import rtf_to_markdown
 
         file.seek(0)
         try:
@@ -684,7 +684,7 @@ def to_markdown(
             content += "\n\n---\n\n"
 
     elif actual_format == "pptx":
-        from .pptx2markdown import pptx_to_markdown
+        from all2md.converters.pptx2markdown import pptx_to_markdown
 
         file.seek(0)
         try:
@@ -695,7 +695,7 @@ def to_markdown(
             ) from e
 
     elif actual_format == "docx":
-        from .docx2markdown import docx_to_markdown
+        from all2md.converters.docx2markdown import docx_to_markdown
 
         file.seek(0)
         try:
@@ -706,7 +706,7 @@ def to_markdown(
             ) from e
 
     elif actual_format == "pdf":
-        from .pdf2markdown import pdf_to_markdown
+        from all2md.converters.pdf2markdown import pdf_to_markdown
 
         file.seek(0)
         filestream = BytesIO(file.read())
@@ -735,7 +735,7 @@ def to_markdown(
         content = f"data:{mime_type};base64,{b64_data}"
 
     elif actual_format == "eml":
-        from .emlfile import parse_email_chain
+        from all2md.converters.eml2markdown import eml_to_markdown
 
         file.seek(0)
         # Handle encoding issues gracefully
@@ -747,10 +747,10 @@ def to_markdown(
             decoded_data = raw_data.decode("utf-8", errors="replace")
 
         eml_stream: StringIO = StringIO(decoded_data)
-        content = parse_email_chain(eml_stream, options=final_options)
+        content = eml_to_markdown(eml_stream, options=final_options)
 
     elif actual_format == "ipynb":
-        from .ipynb2markdown import ipynb_to_markdown
+        from all2md.converters.ipynb2markdown import ipynb_to_markdown
 
         file.seek(0)
         content = ipynb_to_markdown(file, options=final_options)
