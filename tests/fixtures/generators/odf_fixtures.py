@@ -13,7 +13,8 @@ try:
     from odf.opendocument import OpenDocumentText, OpenDocumentPresentation
     from odf.style import Style, TextProperties, ParagraphProperties, ListLevelProperties
     from odf.text import (
-        H, P, List, ListItem, Span, A, Tab, S as Space
+        H, P, List, ListItem, Span, A, Tab, S as Space,
+        ListStyle, ListLevelStyleBullet, ListLevelStyleNumber
     )
     from odf.table import Table, TableColumn, TableRow, TableCell
     from odf.draw import Frame, TextBox, Image
@@ -118,9 +119,6 @@ def create_odt_with_lists() -> 'OpenDocumentText':
         raise ImportError("odfpy library required for ODF fixture generation")
 
     doc = OpenDocumentText()
-
-    # Define list styles
-    from odf.style import ListStyle, ListLevelStyleBullet, ListLevelStyleNumber
 
     # Bullet list style
     bullet_list_style = ListStyle(name="BulletListStyle")
@@ -400,7 +398,7 @@ def create_odt_with_spaces_and_formatting() -> 'OpenDocumentText':
     doc.text.addElement(p4)
 
     # Smart quotes and special characters
-    p5 = P(text="Smart quotes: "Hello" and 'world'. En dash – and em dash —.")
+    p5 = P(text="Smart quotes: \"Hello\" and 'world'. En dash – and em dash —.")
     doc.text.addElement(p5)
 
     return doc
@@ -528,8 +526,6 @@ def create_odp_with_slides() -> 'OpenDocumentPresentation':
     bullet_box = TextBox()
 
     # Add some bullet points
-    from odf.style import ListStyle, ListLevelStyleBullet
-
     bullet_style = ListStyle(name="SlideBulletStyle")
     bullet_level = ListLevelStyleBullet(level=1, bulletchar="•")
     bullet_style.addElement(bullet_level)
@@ -590,8 +586,6 @@ def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
     doc.styles.addElement(bold_italic_style)
 
     # List styles
-    from odf.style import ListStyle, ListLevelStyleBullet, ListLevelStyleNumber
-
     bullet_list_style = ListStyle(name="BulletListStyle")
     bullet_level = ListLevelStyleBullet(level=1, bulletchar="•")
     bullet_list_style.addElement(bullet_level)
@@ -706,7 +700,7 @@ def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
     special_h = H(outlinelevel=2, text="Special Characters")
     doc.text.addElement(special_h)
 
-    special_p = P(text="Unicode: café, naïve, résumé. Quotes: "Hello" and 'world'. Dashes: en–dash and em—dash.")
+    special_p = P(text="Unicode: café, naïve, résumé. Quotes: \"Hello\" and 'world'. Dashes: en–dash and em—dash.")
     doc.text.addElement(special_p)
 
     return doc

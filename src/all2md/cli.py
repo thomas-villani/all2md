@@ -20,15 +20,26 @@ Use underscore emphasis:
 """
 
 import argparse
+import json
 import logging
 import sys
 from dataclasses import fields
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from . import to_markdown
-from .exceptions import MarkdownConversionError, InputError
-from .options import DocxOptions, EmlOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
+from .exceptions import InputError, MarkdownConversionError
+from .options import (
+    DocxOptions,
+    EmlOptions,
+    HtmlOptions,
+    IpynbOptions,
+    MarkdownOptions,
+    OdfOptions,
+    PdfOptions,
+    PptxOptions,
+    RtfOptions,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -39,16 +50,28 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Supported formats:
-  PDF, Word (DOCX), PowerPoint (PPTX), HTML, Email (EML),
-  Excel (XLSX), images (PNG, JPEG, GIF), and 200+ text formats
+  PDF, Word (DOCX), PowerPoint (PPTX), HTML, Email (EML), RTF,
+  Jupyter Notebook (IPYNB), OpenDocument (ODT, ODP), Excel (XLSX),
+  images (PNG, JPEG, GIF), and 200+ text formats
 
 Examples:
+  # Basic conversions
   all2md document.pdf
   all2md document.docx --out output.md
-  all2md document.html --attachment-mode download --attachment-output-dir ./images
   all2md presentation.pptx --markdown-emphasis-symbol "_"
+  all2md notebook.ipynb --ipynb-truncate-long-outputs 20
+  all2md document.odt --odf-no-preserve-tables
+
+  # Image handling
+  all2md document.html --attachment-mode download --attachment-output-dir ./images
+
+  # Using options from JSON file
+  all2md document.pdf --options-json config.json
+  all2md document.docx --options-json config.json --out custom.md
         """,
     )
+
+    # TODO: allow read from stdin?
 
     # Input file (required)
     parser.add_argument("input", help="Input file to convert")
@@ -79,17 +102,14 @@ Examples:
     parser.add_argument(
         "--markdown-emphasis-symbol",
         choices=["*", "_"],
-        default="*",
         help="Symbol to use for emphasis/italic text (default: *)"
     )
     parser.add_argument(
         "--markdown-bullet-symbols",
-        default="*-+",
         help="Characters to cycle through for bullet lists (default: *-+)"
     )
     parser.add_argument(
         "--markdown-page-separator",
-        default="-----",
         help="Text used to separate pages (default: -----)"
     )
 
@@ -162,12 +182,41 @@ Examples:
         help="Don't maintain email thread/reply chain structure"
     )
 
+    # ODF-specific options
+    odf_group = parser.add_argument_group("OpenDocument options")
+    odf_group.add_argument(
+        "--odf-no-preserve-tables",
+        action="store_false",
+        dest="odf_preserve_tables",
+        default=True,
+        help="Don't preserve table formatting in Markdown"
+    )
+
+    # Jupyter Notebook-specific options
+    ipynb_group = parser.add_argument_group("Jupyter Notebook options")
+    ipynb_group.add_argument(
+        "--ipynb-truncate-long-outputs",
+        type=int,
+        help="Truncate cell outputs longer than specified number of lines"
+    )
+    ipynb_group.add_argument(
+        "--ipynb-truncate-output-message",
+        default="\n... (output truncated) ...\n",
+        help="Message to display when truncating long outputs"
+    )
+
     # Format override option
     parser.add_argument(
         "--format",
-        choices=["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "csv", "tsv", "xlsx", "image", "txt"],
+        choices=["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "odt", "odp", "csv", "tsv", "xlsx", "image", "txt"],
         default="auto",
         help="Force specific file format instead of auto-detection (default: auto)"
+    )
+
+    # Options JSON file
+    parser.add_argument(
+        "--options-json",
+        help="Path to JSON file containing conversion options"
     )
 
     # Logging level option
@@ -189,23 +238,64 @@ def parse_pdf_pages(pages_str: str) -> list[int]:
         raise argparse.ArgumentTypeError(f"Invalid page numbers: {pages_str}") from e
 
 
-def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
+def load_options_from_json(json_file_path: str) -> dict:
+    """Load options from a JSON file.
+
+    Parameters
+    ----------
+    json_file_path : str
+        Path to the JSON file containing options
+
+    Returns
+    -------
+    dict
+        Dictionary of options loaded from the JSON file
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If the JSON file cannot be read or parsed
+    """
+    try:
+        json_path = Path(json_file_path)
+        if not json_path.exists():
+            raise argparse.ArgumentTypeError(f"Options JSON file does not exist: {json_file_path}")
+
+        with open(json_path, 'r', encoding='utf-8') as f:
+            options = json.load(f)
+
+        if not isinstance(options, dict):
+            raise argparse.ArgumentTypeError(f"Options JSON file must contain a JSON object, got {type(options).__name__}")
+
+        return options
+
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid JSON in options file {json_file_path}: {e}") from e
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
+
+
+def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict | None = None) -> dict:
     """Map CLI argument names to dataclass field names.
 
     This function handles the mapping between CLI argument names (like 'pdf_pages')
     and the actual dataclass field names (like 'pages' in PdfOptions).
+    JSON options are applied first, then CLI arguments override them.
 
     Parameters
     ----------
     parsed_args : argparse.Namespace
         Parsed command line arguments
+    json_options : dict or None, default None
+        Options loaded from JSON file
 
     Returns
     -------
     dict
         Mapped options dictionary ready for to_markdown()
     """
-    options = {}
+    # Start with JSON options if provided
+    options = json_options.copy() if json_options else {}
     args_dict = vars(parsed_args)
 
     # Get field names for each options class
@@ -215,6 +305,9 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
     pptx_fields = {field.name for field in fields(PptxOptions)}
     eml_fields = {field.name for field in fields(EmlOptions)}
     docx_fields = {field.name for field in fields(DocxOptions)}
+    odf_fields = {field.name for field in fields(OdfOptions)}
+    ipynb_fields = {field.name for field in fields(IpynbOptions)}
+    rtf_fields = {field.name for field in fields(RtfOptions)}
 
     # Define format prefix mappings
     format_mappings = {
@@ -223,12 +316,15 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
         'pptx_': pptx_fields,
         'eml_': eml_fields,
         'docx_': docx_fields,
+        'odf_': odf_fields,
+        'ipynb_': ipynb_fields,
+        'rtf_': rtf_fields,
     }
 
     # Process each argument
     for arg_name, arg_value in args_dict.items():
         # Skip None values and special arguments
-        if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level']:
+        if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level', 'options_json']:
             continue
 
         # Handle attachment options (no prefix mapping needed)
@@ -242,11 +338,9 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
         # Handle markdown options (remove markdown_ prefix)
         if arg_name.startswith('markdown_'):
             field_name = arg_name[9:]  # Remove 'markdown_' prefix
-            if field_name in markdown_fields:
-                # Only include if different from default
-                defaults = {'emphasis_symbol': '*', 'bullet_symbols': '*-+', 'page_separator': '-----'}
-                if arg_value != defaults.get(field_name, arg_value):
-                    options[field_name] = arg_value
+            if field_name in markdown_fields and arg_value is not None:
+                # CLI arguments override JSON options when explicitly provided
+                options[field_name] = arg_value
             continue
 
         # Handle format-specific options
@@ -262,7 +356,7 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
                         # Only set if False (True is default)
                         if not arg_value:
                             options['detect_columns'] = False
-                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure']:
+                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure', 'odf_preserve_tables']:
                         # Only set if False (True is default for these)
                         if not arg_value:
                             options[field_name] = False
@@ -270,6 +364,9 @@ def _map_cli_args_to_options(parsed_args: argparse.Namespace) -> dict:
                         # Only set if True (False is default for these)
                         if arg_value:
                             options[field_name] = True
+                    elif arg_name.startswith('ipynb_') and arg_value is not None:
+                        # Handle ipynb options
+                        options[field_name] = arg_value
                     else:
                         # Set value if it's not default/falsy
                         if arg_value:
@@ -305,13 +402,22 @@ def main(args: Optional[list[str]] = None) -> int:
         print("Warning: --attachment-output-dir specified but attachment mode is "
               f"'{parsed_args.attachment_mode}' (not 'download')", file=sys.stderr)
 
+    # Load options from JSON file if specified
+    json_options = None
+    if parsed_args.options_json:
+        try:
+            json_options = load_options_from_json(parsed_args.options_json)
+        except argparse.ArgumentTypeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
     # Map CLI arguments to options using dynamic mapping
-    options = _map_cli_args_to_options(parsed_args)
+    options = _map_cli_args_to_options(parsed_args, json_options)
 
     try:
         # Convert the document with format override if specified
         format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
-        markdown_content = to_markdown(input_path, format=format_arg, **options)
+        markdown_content = to_markdown(input_path, format=cast(str, format_arg), **options)
 
         # Output the result
         if parsed_args.out:

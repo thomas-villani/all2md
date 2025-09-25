@@ -115,8 +115,7 @@ class TestOdfIntegration:
 
         md_options = MarkdownOptions(
             emphasis_symbol="_",
-            bullet_symbols=["•"],
-            table_style="github"
+            bullet_symbols="•+-",
         )
         options = OdfOptions(markdown_options=md_options)
 

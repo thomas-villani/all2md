@@ -41,7 +41,7 @@ class TestCLIEndToEnd:
         subprocess.CompletedProcess
             Result of the subprocess execution
         """
-        cmd = [sys.executable, "-m", "all2md.cli"] + args
+        cmd = [sys.executable, "-m", "all2md"] + args
         return subprocess.run(
             cmd,
             cwd=self.cli_path.parent.parent.parent,  # Run from project root
@@ -353,7 +353,6 @@ def example_function():
         result = self._run_cli([
             str(odt_file),
             "--out", str(output_file),
-            "--odf-preserve-tables"
         ])
 
         # Check process succeeded
@@ -390,7 +389,6 @@ def example_function():
         result = self._run_cli([
             str(odt_file),
             "--out", str(output_file),
-            "--odf-preserve-tables",
             "--attachment-mode", "download",
             "--attachment-output-dir", str(images_dir),
             "--markdown-emphasis-symbol", "_"
@@ -424,7 +422,6 @@ def example_function():
         # Test with tables preserved
         result_with_tables = self._run_cli([
             str(odt_file),
-            "--odf-preserve-tables"
         ])
 
         assert result_with_tables.returncode == 0
@@ -547,7 +544,6 @@ def example_function():
         result = self._run_cli([
             str(odt_file),
             "--out", str(output_file),
-            "--odf-preserve-tables",
             "--attachment-mode", "base64",
             "--markdown-emphasis-symbol", "_",
             "--markdown-bullet-symbols", "•→◦",
@@ -738,7 +734,6 @@ def example_function():
         output_file = self.temp_dir / "data_science_output.md"
         images_dir = self.temp_dir / "notebook_images"
 
-        # Note: Many specific CLI options not yet implemented
         result = self._run_cli([
             str(ipynb_file),
             "--out", str(output_file),
@@ -751,7 +746,7 @@ def example_function():
 
         content = output_file.read_text()
         assert "# Customer Churn Analysis" in content
-        assert "Machine Learning Pipeline" in content
+        assert "## Exploratory Data Analysis" in content
         assert "```python" in content
         assert len(content.strip()) > 0
 

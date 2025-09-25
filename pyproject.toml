@@ -10,7 +10,6 @@ requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.13.5",
     "httpx>=0.28.1",
-    "markdown-it-py>=4.0.0",
     "odfpy>=1.4.1",
     "pandas>=2.3.2",
     "pymupdf>=1.26.4",
@@ -20,14 +19,40 @@ dependencies = [
     "standard-imghdr>=3.13.0",
 ]
 
-[project.scripts]
-all2md = "all2md.cli:main"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[dependency-groups]
+[project.optional-dependencies]
+odf = [
+    "odfpy>=1.4.1",
+]
+csv = [
+    "pandas>=2.3.2",
+]
+pdf = [
+    "pymupdf>=1.26.4"
+]
+docx = [
+    "python-docx>=1.2.0"
+]
+pptx = [
+    "python-pptx>=1.0.2",
+]
+rtf = [
+    "pyth3>=0.7",
+]
+html = [
+    "beautifulsoup4>=4.13.5",
+    "httpx>=0.28.1",
+]
+all = [
+    "beautifulsoup4>=4.13.5",
+    "httpx>=0.28.1",
+    "odfpy>=1.4.1",
+    "pandas>=2.3.2",
+    "pymupdf>=1.26.4",
+    "pyth3>=0.7",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
+    "standard-imghdr>=3.13.0",
+]
 dev = [
     "mypy>=1.18.2",
     "pytest>=8.4.2",
@@ -35,6 +60,15 @@ dev = [
     "sphinx>=8.2.3",
     "sphinx-rtd-theme>=3.0.2",
 ]
+
+
+[project.scripts]
+all2md = "all2md.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 
 [tool.ruff]
 # Target Python version

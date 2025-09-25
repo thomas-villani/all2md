@@ -369,7 +369,6 @@ class TestCLIIntegration:
             result = main([
                 str(odt_file),
                 "--out", str(output_file),
-                "--odf-preserve-tables",
                 "--attachment-mode", "base64",
                 "--markdown-emphasis-symbol", "*"
             ])
@@ -377,11 +376,12 @@ class TestCLIIntegration:
             assert result == 0
             assert output_file.exists()
 
-            # Verify ODF-specific options were passed
+            # Verify options were passed correctly
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['preserve_tables'] is True
+            # preserve_tables should not be in kwargs when default True is specified
+            assert 'preserve_tables' not in kwargs
             assert kwargs['attachment_mode'] == 'base64'
             assert kwargs['emphasis_symbol'] == '*'
 
@@ -450,14 +450,14 @@ class TestCLIIntegration:
             mock_to_markdown.return_value = "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
 
             result = main([
-                str(odt_file),
-                "--odf-preserve-tables"
+                str(odt_file)
+                # No flag needed - tables are preserved by default
             ])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs['preserve_tables'] is True
+            assert 'preserve_tables' not in kwargs  # Default True, shouldn't be in kwargs
 
             # Test with tables disabled
             mock_to_markdown.reset_mock()
@@ -479,7 +479,7 @@ class TestCLIIntegration:
 
         # Should fail gracefully for nonexistent file
         with patch('all2md.to_markdown') as mock_to_markdown:
-            mock_to_markdown.side_effect = InputError("File not found", input_type="file")
+            mock_to_markdown.side_effect = InputError("File not found")
 
             result = main([str(nonexistent_file)])
 
@@ -671,7 +671,6 @@ This is a complex document with:
             result = main([
                 str(odt_file),
                 "--out", str(output_file),
-                "--odf-preserve-tables",
                 "--attachment-mode", "base64",
                 "--markdown-emphasis-symbol", "_",
                 "--markdown-bullet-symbols", "*",
@@ -685,7 +684,7 @@ This is a complex document with:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['preserve_tables'] is True
+            assert 'preserve_tables' not in kwargs  # Default True, shouldn't be in kwargs
             assert kwargs['attachment_mode'] == 'base64'
             assert kwargs['emphasis_symbol'] == '_'
             assert kwargs['bullet_symbols'] == '*'
