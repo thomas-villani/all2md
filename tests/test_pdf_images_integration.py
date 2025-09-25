@@ -9,7 +9,7 @@ import re
 from all2md.pdf2markdown import pdf_to_markdown
 from all2md.options import PdfOptions
 from tests.utils import assert_markdown_valid, create_test_temp_dir, cleanup_test_dir
-from tests.pdf_test_fixtures import create_test_pdf_bytes, create_temp_pdf_file
+from tests.fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes, create_temp_pdf_file
 
 
 class TestPdfImagesIntegration:

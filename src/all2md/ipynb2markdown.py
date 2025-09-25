@@ -178,7 +178,9 @@ def ipynb_to_markdown(
                     text = "".join(output.get("text", []))
                     if text.strip():
                         collapsed_text = _collapse_output(
-                            text, options.truncate_long_outputs, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
+                            text,
+                            options.truncate_long_outputs,
+                            options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE
                         )
                         output_md = f"```\n{collapsed_text.strip()}\n```"
 
@@ -211,7 +213,8 @@ def ipynb_to_markdown(
                         text = "".join(data["text/plain"])
                         if text.strip():
                             collapsed_text = _collapse_output(
-                                text, options.truncate_long_outputs, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
+                                text, options.truncate_long_outputs,
+                                options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE
                             )
                             output_md = f"```\n{collapsed_text.strip()}\n```"
 

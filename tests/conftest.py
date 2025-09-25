@@ -1,0 +1,103 @@
+"""Pytest configuration and shared fixtures for all2md test suite.
+
+This module provides shared fixtures, test configuration, and utilities
+that are used across the entire test suite.
+"""
+
+import tempfile
+import shutil
+from pathlib import Path
+from typing import Generator
+
+import pytest
+
+from tests.utils import create_test_temp_dir, cleanup_test_dir
+
+
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
+    config.addinivalue_line("markers", "unit: Unit tests - fast, isolated component tests")
+    config.addinivalue_line("markers", "integration: Integration tests - component interaction tests")
+    config.addinivalue_line("markers", "e2e: End-to-end tests - full pipeline tests")
+    config.addinivalue_line("markers", "slow: Slow tests that may take several seconds")
+
+
+@pytest.fixture
+def temp_dir() -> Generator[Path, None, None]:
+    """Provide a temporary directory for test files.
+
+    Yields
+    ------
+    Path
+        Temporary directory path that will be cleaned up after test.
+    """
+    temp_path = create_test_temp_dir()
+    try:
+        yield temp_path
+    finally:
+        cleanup_test_dir(temp_path)
+
+
+@pytest.fixture
+def sample_text() -> str:
+    """Provide sample text content for testing.
+
+    Returns
+    -------
+    str
+        Standard sample text used across multiple tests.
+    """
+    return """# Sample Document
+
+This is a **sample document** with _italic text_ and some `inline code`.
+
+## Section 2
+
+Here is a list:
+- Item 1
+- Item 2
+- Item 3
+
+And a numbered list:
+1. First item
+2. Second item
+3. Third item
+
+### Code Block
+
+```python
+def hello_world():
+    print("Hello, World!")
+```
+
+#### Table Example
+
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Row 1    | Data 1   | Value 1  |
+| Row 2    | Data 2   | Value 2  |
+"""
+
+
+@pytest.fixture
+def minimal_document_content() -> dict:
+    """Provide minimal document content for testing.
+
+    Returns
+    -------
+    dict
+        Dictionary with content for different document elements.
+    """
+    return {
+        "title": "Test Document",
+        "heading": "Main Section",
+        "paragraph": "This is a test paragraph with some content.",
+        "bold_text": "Bold text example",
+        "italic_text": "Italic text example",
+        "list_items": ["First item", "Second item", "Third item"],
+        "table_headers": ["Column 1", "Column 2", "Column 3"],
+        "table_rows": [
+            ["Row 1 Col 1", "Row 1 Col 2", "Row 1 Col 3"],
+            ["Row 2 Col 1", "Row 2 Col 2", "Row 2 Col 3"]
+        ]
+    }
