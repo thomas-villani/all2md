@@ -96,7 +96,6 @@ User Guide
    overview
    formats
    cli
-   options
    plugins
    troubleshooting
 

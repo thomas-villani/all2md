@@ -383,7 +383,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         from all2md.converters.html2markdown import html_to_markdown
         from all2md.options import HtmlOptions
 
-        # Create HTML options that match EML preferences
+        # Create HTML options that match EML preferences and security settings
         html_options = HtmlOptions(
             use_hash_headings=True,
             extract_title=False,
@@ -393,6 +393,12 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
             attachment_output_dir=options.attachment_output_dir,
             attachment_base_url=options.attachment_base_url,
             markdown_options=options.markdown_options,
+            # Network security settings from EML options
+            allow_remote_fetch=options.allow_remote_fetch,
+            allowed_hosts=options.allowed_hosts,
+            require_https=options.require_https,
+            network_timeout=options.network_timeout,
+            max_image_size_bytes=options.max_image_size_bytes,
         )
 
         # Convert HTML to Markdown

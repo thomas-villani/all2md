@@ -129,6 +129,14 @@ TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "
 DEFAULT_ALLOW_LOCAL_FILES = False
 DEFAULT_ALLOW_CWD_FILES = True
 
+# Network security (SSRF protection)
+DEFAULT_ALLOW_REMOTE_FETCH = False
+DEFAULT_ALLOWED_HOSTS = None
+DEFAULT_REQUIRE_HTTPS = False
+DEFAULT_NETWORK_TIMEOUT = 10.0
+DEFAULT_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024  # 20MB
+DEFAULT_MAX_REDIRECTS = 5
+
 # ZIP archive security
 DEFAULT_MAX_COMPRESSION_RATIO = 100.0  # Maximum compression ratio (uncompressed/compressed)
 DEFAULT_MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024  # 1GB maximum uncompressed size

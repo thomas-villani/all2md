@@ -42,6 +42,8 @@ from typing import Any, Optional, Self, Union
 from .constants import (
     DEFAULT_ALLOW_CWD_FILES,
     DEFAULT_ALLOW_LOCAL_FILES,
+    DEFAULT_ALLOW_REMOTE_FETCH,
+    DEFAULT_ALLOWED_HOSTS,
     DEFAULT_ALT_TEXT_MODE,
     DEFAULT_ATTACHMENT_BASE_URL,
     DEFAULT_ATTACHMENT_MODE,
@@ -73,12 +75,15 @@ from .constants import (
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LIST_INDENT_WIDTH,
+    DEFAULT_MAX_IMAGE_SIZE_BYTES,
     DEFAULT_MERGE_HYPHENATED_WORDS,
+    DEFAULT_NETWORK_TIMEOUT,
     DEFAULT_NORMALIZE_HEADERS,
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_PAGE_SEPARATOR_FORMAT,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_PRESERVE_RAW_HEADERS,
+    DEFAULT_REQUIRE_HTTPS,
     DEFAULT_SLIDE_NUMBERS,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
@@ -532,6 +537,40 @@ class HtmlOptions(BaseOptions):
             "cli_name": "no-table-alignment-auto-detect"  # default=True, use --no-*
         }
     )
+
+    # Network security options
+    allow_remote_fetch: bool = field(
+        default=DEFAULT_ALLOW_REMOTE_FETCH,
+        metadata={
+            "help": "Allow fetching remote URLs for images (base64/download modes). "
+                   "When False, prevents SSRF attacks by blocking all network requests."
+        }
+    )
+    allowed_hosts: list[str] | None = field(
+        default=DEFAULT_ALLOWED_HOSTS,
+        metadata={
+            "help": "List of allowed hostnames or CIDR blocks for remote fetching. "
+                   "If specified, only URLs from these hosts will be fetched."
+        }
+    )
+    require_https: bool = field(
+        default=DEFAULT_REQUIRE_HTTPS,
+        metadata={"help": "Require HTTPS for all remote URL fetching"}
+    )
+    network_timeout: float = field(
+        default=DEFAULT_NETWORK_TIMEOUT,
+        metadata={
+            "help": "Timeout in seconds for remote URL fetching",
+            "type": float
+        }
+    )
+    max_image_size_bytes: int = field(
+        default=DEFAULT_MAX_IMAGE_SIZE_BYTES,
+        metadata={
+            "help": "Maximum allowed size in bytes for downloaded images",
+            "type": int
+        }
+    )
     preserve_nested_structure: bool = field(
         default=DEFAULT_PRESERVE_NESTED_STRUCTURE,
         metadata={
@@ -697,6 +736,39 @@ class EmlOptions(BaseOptions):
         metadata={"help": "Clean URL defense/safety wrappers from links"}
     )
     url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
+
+    # Network security options (inherited by HTML conversion when enabled)
+    allow_remote_fetch: bool = field(
+        default=DEFAULT_ALLOW_REMOTE_FETCH,
+        metadata={
+            "help": "Allow fetching remote URLs when converting HTML parts to Markdown. "
+                   "Only applies when convert_html_to_markdown=True."
+        }
+    )
+    allowed_hosts: list[str] | None = field(
+        default=DEFAULT_ALLOWED_HOSTS,
+        metadata={
+            "help": "List of allowed hostnames or CIDR blocks for remote fetching in HTML parts."
+        }
+    )
+    require_https: bool = field(
+        default=DEFAULT_REQUIRE_HTTPS,
+        metadata={"help": "Require HTTPS for remote URL fetching in HTML parts"}
+    )
+    network_timeout: float = field(
+        default=DEFAULT_NETWORK_TIMEOUT,
+        metadata={
+            "help": "Timeout in seconds for remote URL fetching in HTML parts",
+            "type": float
+        }
+    )
+    max_image_size_bytes: int = field(
+        default=DEFAULT_MAX_IMAGE_SIZE_BYTES,
+        metadata={
+            "help": "Maximum allowed size in bytes for downloaded images in HTML parts",
+            "type": int
+        }
+    )
 
 
 @dataclass(frozen=True)

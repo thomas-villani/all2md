@@ -9,12 +9,8 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.13.5",
-    "httpx>=0.28.1",
-    "odfpy>=1.4.1",
     "pymupdf>=1.26.4",
-    "pyth3>=0.7",
     "python-docx>=1.2.0",
-    "python-pptx>=1.0.2",
     "standard-imghdr>=3.13.0",
 ]
 
@@ -27,7 +23,6 @@ include = [
 odf = [
     "odfpy>=1.4.1",
 ]
-csv = []
 pdf = [
     "pymupdf>=1.26.4"
 ]
@@ -64,12 +59,6 @@ dev = [
 ]
 epub = [
     "ebooklib>=0.19",
-]
-rich = [
-    "rich>=14.1.0",
-]
-progress = [
-    "tqdm>=4.66.0",
 ]
 cli_extras = [
     "rich>=14.1.0",

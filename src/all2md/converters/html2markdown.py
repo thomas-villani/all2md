@@ -191,6 +191,12 @@ class HTMLToMarkdown:
             attachment_mode: str = "alt_text",
             attachment_output_dir: str | None = None,
             attachment_base_url: str | None = None,
+            # Network security parameters
+            allow_remote_fetch: bool = False,
+            allowed_hosts: list[str] | None = None,
+            require_https: bool = False,
+            network_timeout: float = 10.0,
+            max_image_size_bytes: int = 20 * 1024 * 1024,
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
@@ -206,6 +212,13 @@ class HTMLToMarkdown:
         self.table_alignment_auto_detect = table_alignment_auto_detect
         self.preserve_nested_structure = preserve_nested_structure
         self.markdown_options = markdown_options or MarkdownOptions()
+
+        # Set network security options
+        self.allow_remote_fetch = allow_remote_fetch
+        self.allowed_hosts = allowed_hosts
+        self.require_https = require_https
+        self.network_timeout = network_timeout
+        self.max_image_size_bytes = max_image_size_bytes
 
         # Internal state
         self._list_depth = 0
@@ -345,47 +358,8 @@ class HTMLToMarkdown:
             return url
         return urljoin(self.attachment_base_url, url)
 
-    def _validate_url(self, url: str) -> bool:
-        """Validate URL to prevent SSRF attacks.
-
-        Parameters
-        ----------
-        url : str
-            URL to validate
-
-        Returns
-        -------
-        bool
-            True if URL is safe, False otherwise
-        """
-        try:
-            parsed = urlparse(url)
-            # Only allow http and https schemes
-            if parsed.scheme not in ('http', 'https'):
-                logger.warning(f"Blocked non-HTTP(S) URL: {url}")
-                return False
-
-            # Block local/private addresses
-            hostname = parsed.hostname
-            if not hostname:
-                return False
-
-            # Block localhost and local IPs
-            if hostname.lower() in ('localhost', '127.0.0.1', '::1'):
-                logger.warning(f"Blocked localhost URL: {url}")
-                return False
-
-            # Block private IP ranges (basic check)
-            if hostname.startswith(('192.168.', '10.', '172.')):
-                logger.warning(f"Blocked private IP URL: {url}")
-                return False
-
-            return True
-        except Exception:
-            return False
-
     def _download_image_data(self, url: str) -> bytes:
-        """Download image data from URL using secure httpx client.
+        """Download image data from URL using secure network client.
 
         Parameters
         ----------
@@ -400,18 +374,32 @@ class HTMLToMarkdown:
         Raises
         ------
         Exception
-            If download fails or URL is invalid
+            If download fails, URL is invalid, or security validation fails
         """
-        if not self._validate_url(url):
-            raise Exception(f"Invalid or unsafe URL: {url}")
+        from all2md.utils.network_security import NetworkSecurityError, fetch_image_securely, is_network_disabled
 
-        import httpx
+        # Check global network disable flag
+        if is_network_disabled():
+            raise Exception("Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable")
+
+        # Check if remote fetching is allowed
+        if not self.allow_remote_fetch:
+            raise Exception(
+                "Remote URL fetching is disabled. Set allow_remote_fetch=True in HtmlOptions to enable. "
+                "Warning: This may expose your application to SSRF attacks if used with untrusted input."
+            )
 
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url, follow_redirects=True)
-                response.raise_for_status()
-                return response.content
+            return fetch_image_securely(
+                url=url,
+                allowed_hosts=self.allowed_hosts,
+                require_https=self.require_https,
+                max_size_bytes=self.max_image_size_bytes,
+                timeout=self.network_timeout
+            )
+        except NetworkSecurityError as e:
+            logger.warning(f"Network security validation failed for {url}: {e}")
+            raise Exception(f"Network security validation failed: {e}") from e
         except Exception as e:
             logger.debug(f"Failed to download image from {url}: {e}")
             raise Exception(f"Failed to download image from {url}: {e}") from e
@@ -938,7 +926,7 @@ class HTMLToMarkdown:
             attachment_output_dir=self.attachment_output_dir,
             attachment_base_url=self.attachment_base_url,
             is_image=True,
-            alt_text_mode=self.alt_text_mode,
+            alt_text_mode="default",
         )
 
         return processed_image
@@ -1231,6 +1219,12 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             "attachment_mode": options.attachment_mode,
             "attachment_output_dir": options.attachment_output_dir,
             "attachment_base_url": options.attachment_base_url,
+            # Network security options
+            "allow_remote_fetch": options.allow_remote_fetch,
+            "allowed_hosts": options.allowed_hosts,
+            "require_https": options.require_https,
+            "network_timeout": options.network_timeout,
+            "max_image_size_bytes": options.max_image_size_bytes,
         }
 
         # Only add emphasis_symbol and bullet_symbols if markdown_options exists
