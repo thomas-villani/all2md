@@ -11,6 +11,8 @@ import subprocess
 import sys
 from typing import Dict, List, Optional, Tuple
 
+from all2md.converter_registry import registry
+
 
 def check_package_installed(package_name: str) -> bool:
     """Check if a package is installed and importable.
@@ -99,28 +101,21 @@ def check_version_requirement(
 
 
 def get_all_dependencies() -> Dict[str, List[Tuple[str, str]]]:
-    """Get all dependencies for all converters.
+    """Get all dependencies for all converters from the registry.
 
     Returns
     -------
     dict
         Mapping of format names to required packages
     """
-    dependencies = {
-        "pdf": [("pymupdf", ">=1.24.0")],
-        "docx": [("python-docx", "")],
-        "pptx": [("python-pptx", "")],
-        "html": [("beautifulsoup4", "")],
-        "mhtml": [("beautifulsoup4", "")],
-        "epub": [("ebooklib", ""), ("beautifulsoup4", "")],
-        "odf": [("odfpy", "")],
-        "rtf": [("pyth", "")],
-        "eml": [],  # Uses standard library
-        "ipynb": [],  # Uses standard library json
-        "xlsx": [("pandas", ""), ("openpyxl", "")],
-        "csv": [("pandas", "")],  # Optional, falls back to basic parsing
-        "tsv": [("pandas", "")],  # Optional, falls back to basic parsing
-    }
+    dependencies = {}
+    for format_name in registry.list_formats():
+        metadata = registry.get_format_info(format_name)
+        if metadata and metadata.required_packages:
+            dependencies[format_name] = metadata.required_packages
+        else:
+            dependencies[format_name] = []  # No dependencies required
+
     return dependencies
 
 
@@ -161,12 +156,13 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
     list
         List of (package_name, version_spec) tuples for missing packages
     """
-    all_deps = get_all_dependencies()
-    if format_name not in all_deps:
+    # Get metadata for the specific format
+    metadata = registry.get_format_info(format_name)
+    if not metadata or not metadata.required_packages:
         return []
 
     missing = []
-    for package_name, version_spec in all_deps[format_name]:
+    for package_name, version_spec in metadata.required_packages:
         if version_spec:
             meets, _ = check_version_requirement(package_name, version_spec)
             if not meets:
@@ -289,13 +285,17 @@ def suggest_minimal_install() -> str:
     str
         Pip install command for common formats
     """
-    common_packages = [
-        ("pymupdf", ">=1.24.0"),
-        ("python-docx", ""),
-        ("beautifulsoup4", ""),
-    ]
+    # Common formats that most users need
+    common_formats = ["pdf", "docx", "html"]
+    common_packages = set()
 
-    return generate_install_command(common_packages)
+    for format_name in common_formats:
+        metadata = registry.get_format_info(format_name)
+        if metadata and metadata.required_packages:
+            for package in metadata.required_packages:
+                common_packages.add(package)
+
+    return generate_install_command(sorted(common_packages))
 
 
 def suggest_full_install() -> str:
