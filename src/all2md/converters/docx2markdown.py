@@ -65,6 +65,12 @@ if TYPE_CHECKING:
     from docx.table import Table
     from docx.text.paragraph import Paragraph
 
+# Make Hyperlink available for testing while maintaining lazy loading
+try:
+    from docx.text.hyperlink import Hyperlink
+except ImportError:
+    Hyperlink = None  # type: ignore
+
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
@@ -168,8 +174,7 @@ def _detect_list_level(paragraph: "Paragraph") -> tuple[str | None, int]:
 
 def _process_hyperlink(run: Any) -> tuple[str | None, Any]:
     """Extract hyperlink URL from a run."""
-    from docx.text.hyperlink import Hyperlink
-    if isinstance(run, Hyperlink):
+    if Hyperlink is not None and isinstance(run, Hyperlink):
         return run.url, run
     return None, run
 
@@ -199,7 +204,6 @@ def _format_list_marker(list_type: str, number: int = 1, level: int = 1, bullet_
 
 def _process_paragraph_runs(paragraph: "Paragraph", md_options: MarkdownOptions | None = None) -> str:
     """Process all runs in a paragraph, combining similarly formatted runs."""
-    from docx.text.hyperlink import Hyperlink
 
     grouped_runs: list[tuple[str, tuple[bool, bool, bool, bool, bool, bool, bool] | None, str | None]] = []
     current_text: list[str] = []
@@ -222,7 +226,7 @@ def _process_paragraph_runs(paragraph: "Paragraph", md_options: MarkdownOptions 
             current_url = url
 
         # Handle hyperlink text extraction - concatenate all runs in hyperlink
-        if isinstance(run_to_parse, Hyperlink):
+        if Hyperlink is not None and isinstance(run_to_parse, Hyperlink):
             # Extract text from all runs in the hyperlink
             hyperlink_text = "".join(run.text for run in run_to_parse.runs)
             current_text.append(hyperlink_text)

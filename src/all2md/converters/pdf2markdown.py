@@ -1099,6 +1099,7 @@ def parse_page(page: "fitz.Page", options: PdfOptions | None = None) -> list[tup
     - Handles pages with no tables by returning single text region
     - Table headers are included in table boundary calculations
     """
+    import fitz
     # 1. first locate all tables on page
     tabs = page.find_tables()
     # 2. make a list of table boundary boxes, sort by top-left corner.

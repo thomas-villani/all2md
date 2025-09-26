@@ -12,6 +12,21 @@ import pytest
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 
+def _setup_test_imports():
+    """Setup imports needed for testing while maintaining lazy loading in production."""
+    # Make fitz available for PDF tests that need to mock it
+    try:
+        import fitz
+        import all2md.converters.pdf2markdown
+        all2md.converters.pdf2markdown.fitz = fitz
+    except ImportError:
+        # If fitz isn't available, that's ok - tests that need it will skip
+        pass
+
+    # Make Hyperlink available for DOCX tests (already handled in the module)
+    # No additional setup needed since we fixed the module-level approach
+
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "unit: Unit tests - fast, isolated component tests")
@@ -19,6 +34,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "e2e: End-to-end tests - full pipeline tests")
     config.addinivalue_line("markers", "slow: Slow tests that may take several seconds")
     config.addinivalue_line("markers", "cli: Tests related to command-line interface")
+
+    # Make lazy imports available for testing
+    _setup_test_imports()
 
 
 @pytest.fixture
