@@ -27,18 +27,41 @@ def check_package_installed(package_name: str) -> bool:
     bool
         True if package is installed and importable
     """
-    try:
-        # Handle package names with hyphens (e.g., python-docx)
-        import_name = package_name.replace("-", "_")
-        importlib.import_module(import_name)
-        return True
-    except ImportError:
-        # Try the original name as well
+    # Mapping from package names to their actual import names
+    # Many packages have different install names vs import names
+    package_import_map = {
+        'python-docx': 'docx',
+        'beautifulsoup4': 'bs4',
+        'python-pptx': 'pptx',
+        'odfpy': 'odf',
+        'pillow': 'PIL',
+        'pyyaml': 'yaml',
+        # Add more mappings as needed
+    }
+
+    # Determine the correct import name
+    import_names_to_try = []
+
+    # First try the mapped name if it exists
+    if package_name.lower() in package_import_map:
+        import_names_to_try.append(package_import_map[package_name.lower()])
+
+    # Then try replacing hyphens with underscores
+    if '-' in package_name:
+        import_names_to_try.append(package_name.replace("-", "_"))
+
+    # Finally try the original package name
+    import_names_to_try.append(package_name)
+
+    # Try each possible import name
+    for import_name in import_names_to_try:
         try:
-            importlib.import_module(package_name)
+            importlib.import_module(import_name)
             return True
         except ImportError:
-            return False
+            continue
+
+    return False
 
 
 def get_package_version(package_name: str) -> Optional[str]:
@@ -54,6 +77,8 @@ def get_package_version(package_name: str) -> Optional[str]:
     str or None
         Version string if package installed, None otherwise
     """
+    # For version checking, we need to use the pip package name, not import name
+    # Most tools use the actual package name for version info
     try:
         import pkg_resources
         return pkg_resources.get_distribution(package_name).version
@@ -257,15 +282,15 @@ def print_dependency_report() -> str:
 
     for format_name, packages in sorted(status.items()):
         if not packages:
-            lines.append(f"\n{format_name.upper()}: ✓ No dependencies required")
+            lines.append(f"\n{format_name.upper()}: [OK] No dependencies required")
             continue
 
         all_installed = all(packages.values())
-        status_icon = "✓" if all_installed else "✗"
+        status_icon = "[OK]" if all_installed else "[MISSING]"
         lines.append(f"\n{format_name.upper()}: {status_icon}")
 
         for package_name, is_installed in sorted(packages.items()):
-            icon = "✓" if is_installed else "✗"
+            icon = "[OK]" if is_installed else "[MISSING]"
             lines.append(f"  {icon} {package_name}")
 
         if not all_installed:
@@ -314,3 +339,112 @@ def suggest_full_install() -> str:
             all_packages.add(package)
 
     return generate_install_command(sorted(all_packages))
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Main entry point for dependency management CLI.
+
+    Parameters
+    ----------
+    argv : List[str], optional
+        Command line arguments
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for failure)
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="all2md-deps",
+        description="Check and manage all2md dependencies"
+    )
+
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+
+    # check command
+    check_parser = subparsers.add_parser('check', help='Check dependency status')
+    check_parser.add_argument(
+        '--format',
+        help='Check dependencies for specific format only'
+    )
+
+    # install command
+    install_parser = subparsers.add_parser('install', help='Install missing dependencies')
+    install_parser.add_argument(
+        'format',
+        nargs='?',
+        help='Install dependencies for specific format (or all if not specified)'
+    )
+    install_parser.add_argument(
+        '--upgrade',
+        action='store_true',
+        help='Upgrade existing packages'
+    )
+
+    args = parser.parse_args(argv)
+
+    if args.command == 'check':
+        if args.format:
+            # Check specific format
+            missing = get_missing_dependencies(args.format)
+            if missing:
+                print(f"Missing dependencies for {args.format}:")
+                for package, version in missing:
+                    version_str = version if version else ""
+                    print(f"  - {package}{version_str}")
+                cmd = generate_install_command(missing)
+                print(f"\nInstall with: {cmd}")
+                return 1
+            else:
+                print(f"All dependencies for {args.format} are installed.")
+                return 0
+        else:
+            # Check all dependencies
+            print(print_dependency_report())
+            status = check_all_dependencies()
+            # Return 1 if any format has missing dependencies
+            for format_status in status.values():
+                if format_status and not all(format_status.values()):
+                    return 1
+            return 0
+
+    elif args.command == 'install':
+        if args.format:
+            # Install for specific format
+            missing = get_missing_dependencies(args.format)
+            if not missing:
+                print(f"All dependencies for {args.format} are already installed.")
+                return 0
+
+            print(f"Installing dependencies for {args.format}...")
+            success, message = install_dependencies(missing, args.upgrade)
+            print(message)
+            return 0 if success else 1
+        else:
+            # Install all missing dependencies
+            all_deps = get_all_dependencies()
+            all_missing = set()
+
+            for format_name in all_deps:
+                missing = get_missing_dependencies(format_name)
+                for package_tuple in missing:
+                    all_missing.add(package_tuple)
+
+            if not all_missing:
+                print("All dependencies are already installed.")
+                return 0
+
+            all_missing_list = sorted(all_missing)
+            print(f"Installing {len(all_missing_list)} missing packages...")
+            success, message = install_dependencies(all_missing_list, args.upgrade)
+            print(message)
+            return 0 if success else 1
+    else:
+        parser.print_help()
+        return 1
+
+
+if __name__ == "__main__":
+    exit(main())

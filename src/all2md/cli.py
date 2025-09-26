@@ -43,7 +43,7 @@ import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import to_markdown
 from .cli_builder import DynamicCLIBuilder
@@ -227,6 +227,25 @@ def create_parser() -> argparse.ArgumentParser:
         help='Disable summary output after processing multiple files'
     )
 
+    parser.add_argument(
+        '--save-config',
+        type=str,
+        help='Save current CLI arguments to a JSON configuration file'
+    )
+
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be converted without actually processing files'
+    )
+
+    parser.add_argument(
+        '--exclude',
+        action='append',
+        metavar='PATTERN',
+        help='Exclude files matching this glob pattern (can be specified multiple times)'
+    )
+
     # Apply environment variables as defaults
     apply_env_vars_to_parser(parser)
 
@@ -248,8 +267,8 @@ def positive_int(value: str) -> int:
         if ivalue <= 0:
             raise argparse.ArgumentTypeError(f"{value} is not a positive integer")
         return ivalue
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"{value} is not a valid integer")
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"{value} is not a valid integer") from e
 
 
 def load_options_from_json(json_file_path: str) -> dict:
@@ -290,10 +309,63 @@ def load_options_from_json(json_file_path: str) -> dict:
         raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
 
 
+def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
+    """Save CLI arguments to a JSON configuration file.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command line arguments
+    config_path : str
+        Path to save the configuration file
+
+    Raises
+    ------
+    Exception
+        If the configuration file cannot be written
+    """
+    # Exclude special arguments that shouldn't be saved
+    exclude_args = {
+        'input', 'out', 'save_config', 'about', 'version', 'dry_run', 'format'
+    }
+    # Note: 'exclude' is intentionally NOT excluded so it can be saved in config
+
+    # Convert namespace to dict and filter
+    args_dict = vars(args)
+    config = {}
+
+    for key, value in args_dict.items():
+        if key not in exclude_args and value is not None:
+            # Skip empty lists
+            if isinstance(value, list) and not value:
+                continue
+            # Skip argparse sentinel values that aren't JSON serializable
+            if hasattr(value, '__class__') and value.__class__.__name__ == '_MISSING_TYPE':
+                continue
+            # For boolean values, only include if they are explicitly False (user set a no- flag)
+            # or True and not a default True value
+            if isinstance(value, bool):
+                # We need to check if this was explicitly set vs a default
+                # For now, include False values (from --no- flags) and True values
+                config[key] = value
+            else:
+                config[key] = value
+
+    # Write to file
+    config_path_obj = Path(config_path)
+    config_path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(config_path_obj, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+    print(f"Configuration saved to {config_path}")
+
+
 def collect_input_files(
     input_paths: List[str],
     recursive: bool = False,
-    extensions: Optional[List[str]] = None
+    extensions: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[str]] = None
 ) -> List[Path]:
     """Collect all input files from provided paths.
 
@@ -305,6 +377,8 @@ def collect_input_files(
         Whether to process directories recursively
     extensions : List[str], optional
         File extensions to filter (e.g., ['.pdf', '.docx'])
+    exclude_patterns : List[str], optional
+        Glob patterns to exclude from processing
 
     Returns
     -------
@@ -315,7 +389,7 @@ def collect_input_files(
 
     ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
-    files = []
+    files: List[Path] = []
 
     # Default to all allowed extensions if not specified
     if extensions is None:
@@ -344,6 +418,33 @@ def collect_input_files(
 
     # Remove duplicates and sort
     files = sorted(set(files))
+
+    # Apply exclusion patterns
+    if exclude_patterns:
+        import fnmatch
+        filtered_files = []
+        for file in files:
+            exclude_file = False
+            for pattern in exclude_patterns:
+                # Check against filename and absolute path
+                if (fnmatch.fnmatch(str(file), pattern) or
+                    fnmatch.fnmatch(file.name, pattern)):
+                    exclude_file = True
+                    break
+
+                # Try relative path if file is in current working directory
+                try:
+                    relative_path = file.relative_to(Path.cwd())
+                    if fnmatch.fnmatch(str(relative_path), pattern):
+                        exclude_file = True
+                        break
+                except ValueError:
+                    # File is not in current working directory, skip relative path check
+                    pass
+            if not exclude_file:
+                filtered_files.append(file)
+        files = filtered_files
+
     return files
 
 
@@ -351,7 +452,8 @@ def generate_output_path(
     input_file: Path,
     output_dir: Optional[Path] = None,
     preserve_structure: bool = False,
-    base_input_dir: Optional[Path] = None
+    base_input_dir: Optional[Path] = None,
+    dry_run: bool = False
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -383,8 +485,9 @@ def generate_output_path(
             # Flat output directory
             output_path = output_dir / output_name
 
-        # Ensure output directory exists
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Ensure output directory exists (unless dry run)
+        if not dry_run:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
     else:
         # Output in same directory as input
         output_path = input_file.parent / output_name
@@ -421,7 +524,7 @@ def convert_single_file(
     """
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, format=cast(str, format_arg), **options)
+        markdown_content = to_markdown(input_path, format=format_arg, **options)
 
         # Output the result
         if output_path:
@@ -465,7 +568,7 @@ def convert_single_file_for_collation(
     """
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, format=cast(str, format_arg), **options)
+        markdown_content = to_markdown(input_path, format=format_arg, **options)
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"
@@ -897,8 +1000,190 @@ def process_files_collated(
     return 0 if len(failed) == 0 else 1
 
 
+def process_dry_run(
+    files: List[Path],
+    args: argparse.Namespace,
+    format_arg: str
+) -> int:
+    """Process files in dry run mode - show what would be done without doing it.
+
+    Parameters
+    ----------
+    files : List[Path]
+        List of files to process
+    args : argparse.Namespace
+        Command-line arguments
+    format_arg : str
+        Format specification
+
+    Returns
+    -------
+    int
+        Exit code (always 0 for dry run)
+    """
+    # Determine base input directory for structure preservation
+    base_input_dir = None
+    if args.preserve_structure and len(files) > 0:
+        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
+
+    print("DRY RUN MODE - Showing what would be processed")
+    print(f"Found {len(files)} file(s) to convert")
+    print()
+
+    if args.rich:
+        try:
+            from rich.console import Console
+            from rich.table import Table
+
+            console = Console()
+            table = Table(title="Dry Run - Planned Conversions")
+            table.add_column("Input File", style="cyan", no_wrap=False)
+            table.add_column("Output", style="green", no_wrap=False)
+            table.add_column("Format", style="yellow")
+
+            for file in files:
+                if args.collate:
+                    # For collation, all files go to one output
+                    if args.out:
+                        output_str = str(Path(args.out))
+                    else:
+                        output_str = "stdout (collated)"
+                else:
+                    # Individual file processing
+                    if len(files) == 1 and args.out and not args.output_dir:
+                        output_path = Path(args.out)
+                    else:
+                        output_path = generate_output_path(
+                            file,
+                            Path(args.output_dir) if args.output_dir else None,
+                            args.preserve_structure,
+                            base_input_dir,
+                            dry_run=True
+                        )
+                    output_str = str(output_path)
+
+                table.add_row(
+                    str(file),
+                    output_str,
+                    format_arg if format_arg != "auto" else "auto-detect"
+                )
+
+            console.print(table)
+
+        except ImportError:
+            # Fallback to simple output
+            args.rich = False
+
+    if not args.rich:
+        # Simple text output
+        for i, file in enumerate(files, 1):
+            if args.collate:
+                if args.out:
+                    output_str = f" -> {args.out} (collated)"
+                else:
+                    output_str = " -> stdout (collated)"
+            else:
+                if len(files) == 1 and args.out and not args.output_dir:
+                    output_path = Path(args.out)
+                else:
+                    output_path = generate_output_path(
+                        file,
+                        Path(args.output_dir) if args.output_dir else None,
+                        args.preserve_structure,
+                        base_input_dir,
+                        dry_run=True
+                    )
+                output_str = f" -> {output_path}"
+
+            print(f"{i:3d}. {file}{output_str}")
+
+    print()
+    print("Options that would be used:")
+    if args.format != "auto":
+        print(f"  Format: {args.format}")
+    if args.recursive:
+        print("  Recursive directory processing: enabled")
+    if args.parallel and args.parallel != 1:
+        print(f"  Parallel processing: {args.parallel} workers")
+    if args.preserve_structure:
+        print("  Preserve directory structure: enabled")
+    if args.collate:
+        print("  Collate multiple files: enabled")
+    if args.exclude:
+        print(f"  Exclusion patterns: {', '.join(args.exclude)}")
+
+    print()
+    print("No files were actually converted (dry run mode).")
+    return 0
+
+
+def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int]:
+    """Handle dependency management commands.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments
+
+    Returns
+    -------
+    int or None
+        Exit code if dependency command was handled, None otherwise
+    """
+    if not args:
+        args = sys.argv[1:]
+
+    if not args:
+        return None
+
+    # Check for dependency management commands
+    if args[0] == 'check-deps':
+        from .dependencies import main as deps_main
+        # Convert to standard deps CLI format
+        deps_args = ['check']
+
+        # Check for help flags first
+        if len(args) > 1 and args[1] in ('--help', '-h'):
+            deps_args.append('--help')
+        elif len(args) > 1 and args[1] not in ('--help', '-h'):
+            # Only add format if it's not a help flag
+            deps_args.extend(['--format', args[1]])
+            # Check for help flags after format
+            if len(args) > 2 and args[2] in ('--help', '-h'):
+                deps_args.append('--help')
+
+        return deps_main(deps_args)
+
+    elif args[0] == 'install-deps':
+        from .dependencies import main as deps_main
+        # Convert to standard deps CLI format
+        deps_args = ['install']
+
+        # Check for help flags first
+        if len(args) > 1 and args[1] in ('--help', '-h'):
+            deps_args.append('--help')
+        elif len(args) > 1 and args[1] not in ('--help', '-h'):
+            # Only add format if it's not a help flag
+            deps_args.append(args[1])  # format argument
+            # Check for additional flags
+            for arg in args[2:]:
+                if arg == '--upgrade':
+                    deps_args.append('--upgrade')
+                elif arg in ('--help', '-h'):
+                    deps_args.append('--help')
+
+        return deps_main(deps_args)
+
+    return None
+
+
 def main(args: Optional[list[str]] = None) -> int:
     """Main CLI entry point."""
+    # Check for dependency management commands first
+    deps_result = handle_dependency_commands(args)
+    if deps_result is not None:
+        return deps_result
+
     parser = create_parser()
     parsed_args = parser.parse_args(args)
 
@@ -907,7 +1192,16 @@ def main(args: Optional[list[str]] = None) -> int:
         print(_get_about_info())
         return 0
 
-    # Ensure input is provided when not using --about
+    # Handle --save-config
+    if parsed_args.save_config:
+        try:
+            save_config_to_file(parsed_args, parsed_args.save_config)
+            return 0
+        except Exception as e:
+            print(f"Error saving configuration: {e}", file=sys.stderr)
+            return 1
+
+    # Ensure input is provided when not using special flags
     if not parsed_args.input:
         print("Error: Input file is required", file=sys.stderr)
         return 1
@@ -952,7 +1246,7 @@ def main(args: Optional[list[str]] = None) -> int:
         try:
             # Convert the document
             format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
-            markdown_content = to_markdown(input_source, format=cast(str, format_arg), **options)
+            markdown_content = to_markdown(input_source, format=format_arg, **options)
 
             # Output the result
             if parsed_args.out:
@@ -977,10 +1271,17 @@ def main(args: Optional[list[str]] = None) -> int:
             return 1
 
     # Multi-file/directory processing
-    files = collect_input_files(parsed_args.input, parsed_args.recursive)
+    files = collect_input_files(
+        parsed_args.input,
+        parsed_args.recursive,
+        exclude_patterns=parsed_args.exclude
+    )
 
     if not files:
-        print("Error: No valid input files found", file=sys.stderr)
+        if parsed_args.exclude:
+            print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
+        else:
+            print("Error: No valid input files found", file=sys.stderr)
         return 1
 
     # Validate output directory if specified
@@ -1008,23 +1309,43 @@ def main(args: Optional[list[str]] = None) -> int:
             print(f"Error: {e}", file=sys.stderr)
             return 1
 
+        # Merge exclusion patterns from JSON if not specified via CLI
+        if 'exclude' in json_options and parsed_args.exclude is None:
+            parsed_args.exclude = json_options['exclude']
+            # Re-collect files with the updated exclusion patterns
+            files = collect_input_files(
+                parsed_args.input,
+                parsed_args.recursive,
+                exclude_patterns=parsed_args.exclude
+            )
+
+            if not files:
+                if parsed_args.exclude:
+                    print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
+                else:
+                    print("Error: No valid input files found", file=sys.stderr)
+                return 1
+
     # Map CLI arguments to options
     builder = DynamicCLIBuilder()
     options = builder.map_args_to_options(parsed_args, json_options)
     format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
+
+    # Handle dry run mode
+    if parsed_args.dry_run:
+        return process_dry_run(files, parsed_args, format_arg)
 
     # Process single file
     if len(files) == 1 and not parsed_args.rich and not parsed_args.progress:
         file = files[0]
 
         # Determine output path
+        output_path: Optional[Path] = None
         if parsed_args.out:
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
         elif parsed_args.output_dir:
             output_path = generate_output_path(file, Path(parsed_args.output_dir), False, None)
-        else:
-            output_path = None
 
         success, file_str, error = convert_single_file(file, output_path, options, format_arg, False)
 

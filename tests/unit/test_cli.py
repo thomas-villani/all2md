@@ -646,3 +646,388 @@ class TestNewCLIFeatures:
         assert "parallel" in help_text.lower()
         assert "recursive" in help_text.lower()
         assert "collate" in help_text.lower() or "combine" in help_text.lower()
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestNewEnhancedCLIFeatures:
+    """Test newly added CLI enhancement features."""
+
+    def test_dependency_commands_parsing(self):
+        """Test parsing of dependency management commands."""
+        from all2md.cli import handle_dependency_commands
+
+        # Test check-deps command
+        result = handle_dependency_commands(['check-deps'])
+        assert result is not None  # Should return exit code
+
+        # Test check-deps with format
+        result = handle_dependency_commands(['check-deps', 'pdf'])
+        assert result is not None
+
+        # Test install-deps command
+        result = handle_dependency_commands(['install-deps'])
+        assert result is not None
+
+        # Test install-deps with format
+        result = handle_dependency_commands(['install-deps', 'pdf'])
+        assert result is not None
+
+        # Test non-dependency command
+        result = handle_dependency_commands(['test.pdf'])
+        assert result is None
+
+    def test_save_config_flag_parsing(self):
+        """Test --save-config argument parsing."""
+        parser = create_parser()
+
+        # Test default (None)
+        args = parser.parse_args(["test.pdf"])
+        assert args.save_config is None
+
+        # Test with save config path
+        args = parser.parse_args(["test.pdf", "--save-config", "config.json"])
+        assert args.save_config == "config.json"
+
+    def test_dry_run_flag_parsing(self):
+        """Test --dry-run flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.dry_run is False
+
+        # Test with --dry-run flag
+        args = parser.parse_args(["test.pdf", "--dry-run"])
+        assert args.dry_run is True
+
+    def test_exclude_patterns_parsing(self):
+        """Test --exclude argument parsing."""
+        parser = create_parser()
+
+        # Test default (None)
+        args = parser.parse_args(["test.pdf"])
+        assert args.exclude is None
+
+        # Test single exclude pattern
+        args = parser.parse_args(["test.pdf", "--exclude", "*.tmp"])
+        assert args.exclude == ["*.tmp"]
+
+        # Test multiple exclude patterns
+        args = parser.parse_args([
+            "test.pdf",
+            "--exclude", "*.tmp",
+            "--exclude", "**/.git/*",
+            "--exclude", "backup_*"
+        ])
+        assert args.exclude == ["*.tmp", "**/.git/*", "backup_*"]
+
+    def test_save_config_functionality(self):
+        """Test configuration saving functionality."""
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import Mock
+
+        from all2md.cli import save_config_to_file
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "test_config.json"
+
+            # Create mock args
+            args = Mock()
+            args.input = ["test.pdf"]
+            args.out = "output.md"
+            args.save_config = str(config_path)
+            args.dry_run = True
+            args.about = False
+            args.version = False
+            args.pdf_pages = "1,2,3"
+            args.markdown_emphasis_symbol = "_"
+            args.rich = True
+            args.exclude = ["*.tmp", "backup_*"]
+
+            # Mock vars() to return args dict
+            with patch('builtins.vars', return_value={
+                'input': ['test.pdf'],
+                'out': 'output.md',
+                'save_config': str(config_path),
+                'dry_run': True,
+                'about': False,
+                'version': False,
+                'pdf_pages': '1,2,3',
+                'markdown_emphasis_symbol': '_',
+                'rich': True,
+                'exclude': ['*.tmp', 'backup_*']
+            }):
+                save_config_to_file(args, str(config_path))
+
+            # Verify config file was created
+            assert config_path.exists()
+
+            # Load and verify content
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+
+            # Should include relevant options but exclude special ones
+            assert 'pdf_pages' in config
+            assert config['pdf_pages'] == '1,2,3'
+            assert 'markdown_emphasis_symbol' in config
+            assert config['markdown_emphasis_symbol'] == '_'
+            assert 'rich' in config
+            assert config['rich'] is True
+            assert 'exclude' in config
+            assert config['exclude'] == ['*.tmp', 'backup_*']
+
+            # Should exclude special arguments
+            assert 'input' not in config
+            assert 'out' not in config
+            assert 'save_config' not in config
+            assert 'dry_run' not in config
+            assert 'about' not in config
+            assert 'version' not in config
+
+    def test_collect_input_files_with_exclusions(self):
+        """Test file collection with exclusion patterns."""
+        import tempfile
+        from pathlib import Path
+
+        from all2md.cli import collect_input_files
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test files
+            (temp_path / "file1.pdf").write_text("test")
+            (temp_path / "file2.docx").write_text("test")
+            (temp_path / "backup_file.pdf").write_text("test")
+            (temp_path / "temp.tmp").write_text("test")
+            (temp_path / "subdir").mkdir()
+            (temp_path / "subdir" / "nested.pdf").write_text("test")
+            (temp_path / "subdir" / "backup_nested.pdf").write_text("test")
+
+            # Test without exclusions
+            files = collect_input_files([str(temp_path)], recursive=True)
+            original_count = len(files)
+            assert original_count >= 5  # At least the files we created (may be fewer due to extension filtering)
+
+            # Test with exclusion patterns
+            files = collect_input_files(
+                [str(temp_path)],
+                recursive=True,
+                exclude_patterns=["*.tmp", "backup_*"]
+            )
+            filtered_count = len(files)
+
+            # Should have fewer files after exclusion
+            assert filtered_count < original_count
+
+            # Verify specific exclusions
+            file_names = [f.name for f in files]
+            assert "temp.tmp" not in file_names
+            assert "backup_file.pdf" not in file_names
+            assert "backup_nested.pdf" not in file_names
+
+            # Should still include non-excluded files
+            assert "file1.pdf" in file_names
+            assert "file2.docx" in file_names
+            assert "nested.pdf" in file_names
+
+    def test_dry_run_processing(self):
+        """Test dry run mode processing."""
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import Mock
+        from io import StringIO
+        import sys
+
+        from all2md.cli import process_dry_run
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test files
+            (temp_path / "file1.pdf").write_text("test")
+            (temp_path / "file2.docx").write_text("test")
+
+            files = [temp_path / "file1.pdf", temp_path / "file2.docx"]
+
+            # Create mock args
+            args = Mock()
+            args.rich = False
+            args.collate = False
+            args.out = None
+            args.output_dir = None
+            args.preserve_structure = False
+            args.format = "auto"
+            args.recursive = False
+            args.parallel = 1
+            args.exclude = None
+
+            # Capture output
+            captured_output = StringIO()
+            sys.stdout = captured_output
+
+            try:
+                result = process_dry_run(files, args, "auto")
+                output = captured_output.getvalue()
+
+                # Should return 0 (success)
+                assert result == 0
+
+                # Should mention dry run mode
+                assert "DRY RUN MODE" in output
+                assert "Found 2 file(s)" in output
+
+                # Should list files
+                assert "file1.pdf" in output
+                assert "file2.docx" in output
+
+                # Should not actually convert
+                assert "No files were actually converted" in output
+
+            finally:
+                sys.stdout = sys.__stdout__
+
+    def test_dry_run_with_rich_output(self):
+        """Test dry run mode with rich output (if available)."""
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import Mock, patch
+
+        from all2md.cli import process_dry_run
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            (temp_path / "test.pdf").write_text("test")
+            files = [temp_path / "test.pdf"]
+
+            args = Mock()
+            args.rich = True
+            args.collate = False
+            args.out = None
+            args.output_dir = None
+            args.preserve_structure = False
+            args.format = "auto"
+            args.recursive = False
+            args.parallel = 1
+            args.exclude = None
+
+            # Test with rich available
+            with patch('rich.console.Console') as mock_console:
+                with patch('rich.table.Table') as mock_table:
+                    result = process_dry_run(files, args, "auto")
+                    assert result == 0
+
+            # Test with rich disabled (fallback path)
+            args.rich = False  # Test fallback without rich
+            result = process_dry_run(files, args, "auto")
+            assert result == 0  # Should work with simple text output
+
+    def test_enhanced_cli_help_includes_new_features(self):
+        """Test that help text includes all new enhanced features."""
+        parser = create_parser()
+        help_text = parser.format_help()
+
+        # Check dependency management is mentioned in docstring/help
+        assert "--save-config" in help_text
+        assert "--dry-run" in help_text
+        assert "--exclude" in help_text
+
+        # Check help descriptions
+        assert "save" in help_text.lower() and "config" in help_text.lower()
+        assert "dry" in help_text.lower() and "run" in help_text.lower()
+        assert "exclude" in help_text.lower()
+
+    def test_complex_new_features_combination(self):
+        """Test complex combination of new enhanced features."""
+        parser = create_parser()
+
+        args = parser.parse_args([
+            "file1.pdf", "file2.docx",
+            "--dry-run",
+            "--exclude", "*.tmp",
+            "--exclude", "backup_*",
+            "--save-config", "my_config.json",
+            "--rich",
+            "--output-dir", "./output"
+        ])
+
+        assert args.input == ["file1.pdf", "file2.docx"]
+        assert args.dry_run is True
+        assert args.exclude == ["*.tmp", "backup_*"]
+        assert args.save_config == "my_config.json"
+        assert args.rich is True
+        assert args.output_dir == "./output"
+
+    def test_exclusion_pattern_edge_cases(self):
+        """Test edge cases for exclusion patterns."""
+        import tempfile
+        from pathlib import Path
+
+        from all2md.cli import collect_input_files
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test files with various names
+            test_files = [
+                "normal.pdf",
+                "file.with.dots.pdf",
+                "UPPERCASE.PDF",
+                "file-with-dashes.pdf",
+                "file_with_underscores.pdf",
+                "123numbers.pdf",
+                "special@chars.pdf"
+            ]
+
+            for filename in test_files:
+                (temp_path / filename).write_text("test")
+
+            # Test empty exclusion list
+            files = collect_input_files([str(temp_path)], exclude_patterns=[])
+            assert len(files) == len(test_files)
+
+            # Test exclusion with wildcards
+            files = collect_input_files([str(temp_path)], exclude_patterns=["*.with.*"])
+            excluded_files = [f.name for f in files]
+            assert "file.with.dots.pdf" not in excluded_files
+            assert "file-with-dashes.pdf" in excluded_files  # Dash doesn't match dot
+
+            # Test case-sensitive exclusion
+            files = collect_input_files([str(temp_path)], exclude_patterns=["UPPER*"])
+            excluded_files = [f.name for f in files]
+            assert "UPPERCASE.PDF" not in excluded_files
+            assert "normal.pdf" in excluded_files
+
+    def test_backward_compatibility_with_new_features(self):
+        """Test that new features don't break existing functionality."""
+        parser = create_parser()
+
+        # Existing command patterns should still work with new features available
+        test_cases = [
+            # Basic usage should still work
+            (["document.pdf"], {"dry_run": False, "exclude": None, "save_config": None}),
+
+            # Format-specific options should still work
+            (["document.pdf", "--pdf-pages", "1,2"], {"dry_run": False}),
+
+            # Output options should still work
+            (["document.pdf", "--out", "output.md"], {"save_config": None}),
+
+            # Multiple format options should still work
+            (["document.html", "--html-extract-title", "--markdown-emphasis-symbol", "_"],
+             {"dry_run": False, "exclude": None}),
+        ]
+
+        for args_list, expected_attrs in test_cases:
+            args = parser.parse_args(args_list)
+
+            # Check that new attributes exist with defaults
+            assert hasattr(args, 'dry_run')
+            assert hasattr(args, 'exclude')
+            assert hasattr(args, 'save_config')
+
+            # Check expected values
+            for attr, expected_value in expected_attrs.items():
+                assert getattr(args, attr) == expected_value

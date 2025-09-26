@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.converters.pdf2markdown import IdentifyHeaders, detect_columns, merge_hyphenated_text, page_to_markdown
+from all2md.converters.pdf2markdown import IdentifyHeaders, detect_columns, page_to_markdown
 from all2md.options import PdfOptions
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
@@ -95,60 +95,7 @@ class TestPdfLayoutAdvanced:
         assert len(columns) == 1
         assert len(columns[0]) == len(blocks)
 
-    def test_merge_hyphenated_text_word_continuation(self):
-        """Test merging hyphenated words at line breaks."""
-        # Test successful word continuation
-        text1, merged = merge_hyphenated_text("exam-", "ple")
-        assert text1 == "example"
-        assert merged is True
 
-        # Test successful word continuation with different case
-        text2, merged = merge_hyphenated_text("Hyphen-", "ated")
-        assert text2 == "Hyphenated"
-        assert merged is True
-
-        # Test with longer words
-        text3, merged = merge_hyphenated_text("unfor-", "tunately")
-        assert text3 == "unfortunately"
-        assert merged is True
-
-    def test_merge_hyphenated_text_non_continuation(self):
-        """Test cases where hyphen is not word continuation."""
-        # Test hyphen with capital letter (likely proper noun or new sentence) - should NOT merge
-        text1, merged = merge_hyphenated_text("test-", "Case")
-        assert text1 == "test- Case"
-        assert merged is False
-
-        # Test compound word (should preserve the hyphen as it's a real compound word)
-        text2, merged = merge_hyphenated_text("well-", "known")
-        assert text2 == "well-known"
-        assert merged is False
-
-        # Test non-word ending - should not merge
-        text3, merged = merge_hyphenated_text("hello", "world")
-        assert text3 == "hello world"
-        assert merged is False
-
-    def test_merge_hyphenated_text_edge_cases(self):
-        """Test edge cases in hyphenation merging."""
-        # Empty strings
-        text1, merged = merge_hyphenated_text("", "word")
-        assert text1 == " word"
-        assert merged is False
-
-        text2, merged = merge_hyphenated_text("word-", "")
-        assert text2 == "word- "
-        assert merged is False
-
-        # Single characters
-        text3, merged = merge_hyphenated_text("a-", "b")
-        assert text3 == "ab"
-        assert merged is True
-
-        # Numbers and hyphen
-        text4, merged = merge_hyphenated_text("page-", "1")
-        assert text4 == "page- 1"
-        assert merged is False
 
     @patch('all2md.converters.pdf2markdown.fitz.open')
     def test_rotated_text_handling(self, mock_fitz_open):
@@ -334,19 +281,3 @@ class TestPdfLayoutAdvanced:
         total_blocks = sum(len(column) for column in columns)
         assert total_blocks == len(blocks)
 
-    def test_hyphenation_with_special_characters(self):
-        """Test hyphenation handling with special characters."""
-        # Test hyphenation with accented characters
-        text1, merged = merge_hyphenated_text("café-", "teria")
-        assert text1 == "caféteria"  # Should preserve accented character
-        assert merged is True
-
-        # Test with apostrophes
-        text2, merged = merge_hyphenated_text("don't-", "know")
-        assert text2 == "don't- know"  # Apostrophe suggests it's not simple hyphenation
-        assert merged is False
-
-        # Test with numbers in continuation
-        text3, merged = merge_hyphenated_text("IPv4-", "6")
-        assert text3 == "IPv4- 6"  # Technical terms might not follow simple rules
-        assert merged is False

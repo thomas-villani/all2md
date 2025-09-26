@@ -137,7 +137,6 @@ def _check_pymupdf_version() -> None:
 
 
 SPACES = set(string.whitespace)  # used to check relevance of text pieces
-paragraph_fixer = re.compile(r"(?<!\n)\n(?!\n)")
 
 
 class IdentifyHeaders:
@@ -485,86 +484,6 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
 
     return combined_text + rotation_note if rotation_note else combined_text
 
-
-def merge_hyphenated_text(text1: str, text2: str) -> tuple[str, bool]:
-    """Merge text with hyphenation at line break.
-
-    Detects if text1 ends with a hyphen (word continuation) and merges
-    with text2 appropriately, removing the hyphen if it's a word break.
-
-    Note: This function provides manual hyphenation handling but is currently
-    unused in favor of PyMuPDF's built-in TEXT_DEHYPHENATE flag. The flag
-    is more efficient as it handles dehyphenation during text extraction.
-    This function is kept for cases where manual control is needed or
-    when TEXT_DEHYPHENATE is insufficient for complex hyphenation patterns.
-
-    Parameters
-    ----------
-    text1 : str
-        Text from end of first line
-    text2 : str
-        Text from beginning of second line
-
-    Returns
-    -------
-    tuple[str, bool]
-        Merged text and boolean indicating if merge was performed
-    """
-    # Handle empty strings
-    if not text1 and not text2:
-        return "", False
-    elif not text1:
-        return " " + text2, False
-    elif not text2:
-        return text1 + " ", False
-
-    # Check if first text ends with hyphen (word continuation)
-    if text1.endswith("-") and len(text1) > 1:
-        # Get the character before the hyphen
-        pre_hyphen_char = text1[-2] if len(text1) >= 2 else ""
-
-        # Check if it's likely a word continuation
-        if pre_hyphen_char.isalpha() and text2 and text2[0].isalpha():
-            # More conservative: only merge if the first part doesn't look like a complete word
-            # Avoid merging common compound words like "well-known", "state-of-the-art", etc.
-            first_part = text1[:-1]
-            first_part_lower = first_part.lower()
-            text2_lower = text2.lower()
-
-            common_compound_prefixes = {"well", "state", "high", "low", "self", "non", "pre", "post",
-                                        "anti", "multi", "semi", "over", "under", "out", "up"}
-
-            # If first part is a common compound word prefix AND text2 starts lowercase, preserve hyphen
-            if first_part_lower in common_compound_prefixes and text2[0].islower():
-                return text1 + text2, False
-
-            # Check for capital letter continuation (likely new sentence) - don't merge
-            if text2[0].isupper() and first_part_lower not in {"hyphen"}:
-                return text1 + " " + text2, False
-
-            # Check if it's likely a line-break hyphenation
-            combined_word_lower = first_part_lower + text2_lower
-
-            # Check if it's likely a line-break hyphenation:
-            # 1. First part is short (likely partial word)
-            # 2. First part has typical word endings that suggest incomplete words
-            # 3. Combined word looks more natural than hyphenated version
-            should_merge = (
-                    len(first_part) <= 4 or  # Short first part suggests word break
-                    first_part_lower.endswith(
-                        ("ing", "ed", "er", "est", "ly", "tion", "sion", "ment")) or  # Incomplete word endings
-                    combined_word_lower in {"example", "unfortunately", "development", "information",
-                                            "hyphenation", "continuation", "implementation", "configuration",
-                                            "hyphenated", "cafeteria"}  # Common words that get split
-            )
-
-            if should_merge:
-                # Remove hyphen and join without space, preserving original case
-                merged = first_part + text2
-                return merged, True
-
-    # Default: add space between text segments
-    return text1 + " " + text2, False
 
 
 def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None) -> str | None:
@@ -1061,94 +980,6 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
                         table_rects.append(table_rect)
 
     return table_rects
-
-
-def parse_page(page: "fitz.Page", options: PdfOptions | None = None) -> list[tuple[str, "fitz.Rect", int]]:
-    """Parse a PDF page to identify text and table regions with their locations.
-
-    Analyzes a PDF page to locate all tables and compute text regions that
-    exist outside of table boundaries. Returns a list of rectangular regions
-    with type identifiers and indices for processing in reading order.
-
-    The function processes the page by:
-    1. Finding all tables using PyMuPDF's table detection
-    2. Computing table boundary boxes including headers
-    3. Identifying text regions between and around tables
-    4. Returning regions sorted in reading order (top to bottom)
-
-    Parameters
-    ----------
-    page : PyMuPDF Page
-        PyMuPDF page object to parse for text and table regions.
-
-    Returns
-    -------
-    list[tuple[str, PyMuPDF Rect, int]]
-        List of tuples containing:
-        - str: region type ("text" or "table")
-        - PyMuPDF Rect: bounding rectangle for the region
-        - int: table index (0 for text regions, table index for tables)
-
-    Notes
-    -----
-    - Tables are detected using PyMuPDF's find_tables() method
-    - Text regions are computed as areas not covered by tables
-    - Regions are ordered by vertical position (y-coordinate)
-    - Empty regions are automatically filtered out
-    - Handles pages with no tables by returning single text region
-    - Table headers are included in table boundary calculations
-    """
-    import fitz
-    # 1. first locate all tables on page
-    tabs = page.find_tables()
-    # 2. make a list of table boundary boxes, sort by top-left corner.
-    # Must include the header bbox, which may be external.
-    tab_rects = sorted(
-        [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i) for i, t in enumerate(tabs.tables)],
-        key=lambda r: (r[0].y0, r[0].x0),
-    )
-
-    # 3. final list of all text and table rectangles
-    text_rects = []
-    # compute rectangles outside tables and fill final rect list
-    for i, (r, idx) in enumerate(tab_rects):
-        if i == 0:  # compute rect above all tables
-            tr = page.rect
-            tr.y1 = r.y0
-            if not tr.is_empty:
-                text_rects.append(("text", tr, 0))
-            text_rects.append(("table", r, idx))
-            continue
-        # read previous rectangle in final list: always a table!
-        _, r0, idx0 = text_rects[-1]
-
-        # check if a non-empty text rect is fitting in between tables
-        tr = page.rect
-        tr.y0 = r0.y1
-        tr.y1 = r.y0
-        if not tr.is_empty:  # empty if two tables overlap vertically!
-            text_rects.append(("text", tr, 0))
-
-        text_rects.append(("table", r, idx))
-
-        # there may also be text below all tables
-        if i == len(tab_rects) - 1:
-            tr = page.rect
-            tr.y0 = r.y1
-            if not tr.is_empty:
-                text_rects.append(("text", tr, 0))
-
-    if not text_rects:  # this will happen for table-free pages
-        text_rects.append(("text", page.rect, 0))
-    else:
-        rtype, r, idx = text_rects[-1]
-        if rtype == "table":
-            tr = page.rect
-            tr.y0 = r.y1
-            if not tr.is_empty:
-                text_rects.append(("text", tr, 0))
-
-    return text_rects
 
 
 def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], options: PdfOptions | None = None) -> str:

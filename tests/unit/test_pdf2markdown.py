@@ -157,24 +157,6 @@ def test_detect_columns_single_column():
     assert len(columns) == 1  # Should detect single column
 
 
-@pytest.mark.unit
-def test_merge_hyphenated_text():
-    """Test hyphenation merging at line breaks."""
-    # Test word continuation
-    text1, merged = mod.merge_hyphenated_text("exam-", "ple")
-    assert text1 == "example"
-    assert merged is True
-
-    # Test regular dash (not word continuation)
-    text2, merged = mod.merge_hyphenated_text("test-", "Case")
-    assert text2 == "test- Case"
-    assert merged is False
-
-    # Test no hyphen
-    text3, merged = mod.merge_hyphenated_text("hello", "world")
-    assert text3 == "hello world"
-    assert merged is False
-
 
 @pytest.mark.unit
 def test_detect_tables_by_ruling_lines():
@@ -239,57 +221,6 @@ def test_page_to_markdown_simple():
     hdr_prefix = mod.IdentifyHeaders(type("D", (), {"page_count": 0, "__getitem__": lambda *a: None})())
     out = mod.page_to_markdown(FakePage(), clip=None, hdr_prefix=hdr_prefix)
     assert out == "\nhello\n\n"
-
-
-@pytest.mark.unit
-def test_parse_page_no_tables():
-    class FakeTables:
-        def __init__(self, tables):
-            self.tables = tables
-
-    class FakePage:
-        rect = fitz.Rect(0, 0, 10, 20)
-
-        def find_tables(self):
-            return FakeTables([])
-
-        def get_drawings(self):
-            return []  # No drawings for test
-
-    lst = mod.parse_page(FakePage())
-    assert lst == [("text", fitz.Rect(0, 0, 10, 20), 0)]
-
-
-@pytest.mark.unit
-def test_parse_page_one_table():
-    class FakeTable:
-        def __init__(self, bbox, header_bbox):
-            self.bbox = bbox
-            self.header = type("H", (), {"bbox": header_bbox})
-
-    class FakeTables:
-        def __init__(self, tables):
-            self.tables = tables
-
-    page_rect = fitz.Rect(0, 0, 100, 200)
-
-    class FakePage:
-        def __init__(self):
-            self.rect = page_rect
-
-        def find_tables(self):
-            tbl = FakeTable((10, 10, 30, 30), (10, 10, 30, 30))
-            return FakeTables([tbl])
-
-        def get_drawings(self):
-            return []  # No drawings for test
-
-    lst = mod.parse_page(FakePage())
-    assert lst[0][0] == "text"
-    assert lst[1][0] == "table"
-    rect = lst[1][1]
-    assert rect == fitz.Rect(10, 10, 30, 30)
-    assert lst[1][2] == 0
 
 
 @pytest.mark.unit

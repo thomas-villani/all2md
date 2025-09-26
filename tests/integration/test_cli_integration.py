@@ -1119,3 +1119,464 @@ class TestAdvancedCLIIntegration:
                 assert result == 0
                 captured = capsys.readouterr()
                 assert "# Stdin Test" in captured.out
+
+
+@pytest.mark.integration
+@pytest.mark.cli
+class TestEnhancedCLIIntegration:
+    """Integration tests for the new enhanced CLI features."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def test_dependency_check_integration(self):
+        """Test dependency check command integration."""
+        # Test check-deps command
+        result = main(['check-deps'])
+        assert result in [0, 1]  # Should either succeed or indicate missing deps
+
+        # Test check-deps with specific format
+        result = main(['check-deps', 'pdf'])
+        assert result in [0, 1]  # Should either succeed or indicate missing deps
+
+    def test_dependency_install_integration(self):
+        """Test dependency install command integration."""
+        # Note: We don't actually install packages in tests, but we test the CLI path
+        with patch('all2md.dependencies.get_missing_dependencies') as mock_missing:
+            with patch('all2md.dependencies.install_dependencies') as mock_install:
+                # Mock that there are missing dependencies
+                mock_missing.return_value = [('test-package', '>=1.0')]
+                mock_install.return_value = (True, "Mock installation successful")
+
+                result = main(['install-deps', 'pdf'])
+                assert result == 0
+                mock_install.assert_called_once()
+
+    def test_save_config_integration(self):
+        """Test configuration saving integration."""
+        config_file = self.temp_dir / "test_config.json"
+
+        # Test saving configuration
+        result = main([
+            "test.pdf",
+            "--pdf-pages", "1,2,3",
+            "--markdown-emphasis-symbol", "_",
+            "--rich",
+            "--save-config", str(config_file)
+        ])
+
+        assert result == 0
+        assert config_file.exists()
+
+        # Verify config content
+        import json
+        with open(config_file) as f:
+            config = json.load(f)
+
+        assert 'pdf_pages' in config
+        assert config['pdf_pages'] == '1,2,3'
+        assert 'markdown_emphasis_symbol' in config
+        assert config['markdown_emphasis_symbol'] == '_'
+        assert 'rich' in config
+        assert config['rich'] is True
+
+        # Should not include input or save_config
+        assert 'input' not in config
+        assert 'save_config' not in config
+
+    def test_dry_run_integration(self):
+        """Test dry run mode integration."""
+        # Create test files
+        test_files = []
+        for i in range(3):
+            test_file = self.temp_dir / f"test_{i}.html"
+            test_file.write_text(f"<h1>Test {i}</h1><p>Content {i}</p>")
+            test_files.append(str(test_file))
+
+        # Test dry run mode
+        result = main([
+            *test_files,
+            "--dry-run",
+            "--output-dir", str(self.temp_dir / "output"),
+            "--rich"
+        ])
+
+        assert result == 0
+        # No files should actually be created
+        output_dir = self.temp_dir / "output"
+        assert not output_dir.exists()
+
+    def test_dry_run_with_collation(self, capsys):
+        """Test dry run mode with collation."""
+        # Create test files
+        files = []
+        for i in range(2):
+            test_file = self.temp_dir / f"section_{i}.html"
+            test_file.write_text(f"<h1>Section {i}</h1>")
+            files.append(str(test_file))
+
+        result = main([
+            *files,
+            "--dry-run",
+            "--collate",
+            "--out", str(self.temp_dir / "combined.md")
+        ])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "DRY RUN MODE" in captured.out
+        assert "collated" in captured.out.lower()
+
+        # Output file should not be created
+        assert not (self.temp_dir / "combined.md").exists()
+
+    def test_exclusion_patterns_integration(self):
+        """Test file exclusion patterns integration."""
+        # Create test files and directories
+        (self.temp_dir / "subdir").mkdir()
+        test_files = [
+            self.temp_dir / "keep.html",
+            self.temp_dir / "exclude.tmp",
+            self.temp_dir / "backup_file.html",
+            self.temp_dir / "subdir" / "nested.html",
+            self.temp_dir / "subdir" / "backup_nested.html"
+        ]
+
+        for file_path in test_files:
+            file_path.write_text("<h1>Test</h1>")
+
+        output_dir = self.temp_dir / "output"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\nContent"
+
+            result = main([
+                str(self.temp_dir),
+                "--recursive",
+                "--exclude", "*.tmp",
+                "--exclude", "backup_*",
+                "--output-dir", str(output_dir),
+                "--no-summary"
+            ])
+
+            assert result == 0
+            # Should have processed some files but not excluded ones
+            assert mock_to_markdown.call_count >= 2
+
+            # Check which files were processed
+            processed_files = []
+            for call in mock_to_markdown.call_args_list:
+                input_path = str(call[0][0])
+                processed_files.append(input_path)
+
+            # Should include non-excluded files
+            assert any("keep.html" in f for f in processed_files)
+            assert any("nested.html" in f for f in processed_files)
+
+            # Should exclude pattern-matched files
+            assert not any("exclude.tmp" in f for f in processed_files)
+            assert not any("backup_file.html" in f for f in processed_files)
+            assert not any("backup_nested.html" in f for f in processed_files)
+
+    def test_exclusion_with_glob_patterns(self):
+        """Test exclusion with various glob patterns."""
+        # Create test files with different patterns
+        test_files = [
+            self.temp_dir / "document.pdf",
+            self.temp_dir / "temp_file.pdf",
+            self.temp_dir / "file.temp.pdf",
+            self.temp_dir / "backup_doc.pdf",
+            self.temp_dir / "normal.pdf"
+        ]
+
+        for file_path in test_files:
+            file_path.write_text("test content")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\nContent"
+
+            result = main([
+                str(self.temp_dir),
+                "--exclude", "temp_*",
+                "--exclude", "*.temp.*",
+                "--exclude", "backup_*",
+                "--no-summary"
+            ])
+
+            assert result == 0
+
+            # Check which files were processed
+            processed_files = []
+            for call in mock_to_markdown.call_args_list:
+                input_path = str(call[0][0])
+                processed_files.append(input_path)
+
+            # Should include files that don't match exclusion patterns
+            assert any("document.pdf" in f for f in processed_files)
+            assert any("normal.pdf" in f for f in processed_files)
+
+            # Should exclude files matching patterns
+            assert not any("temp_file.pdf" in f for f in processed_files)
+            assert not any("file.temp.pdf" in f for f in processed_files)
+            assert not any("backup_doc.pdf" in f for f in processed_files)
+
+    def test_save_config_with_complex_options(self):
+        """Test saving configuration with complex option combinations."""
+        config_file = self.temp_dir / "complex_config.json"
+
+        result = main([
+            "test.pdf",
+            "--pdf-pages", "1,3,5",
+            "--pdf-password", "secret123",
+            "--pdf-no-detect-columns",
+            "--markdown-emphasis-symbol", "_",
+            "--markdown-bullet-symbols", "*-+",
+            "--attachment-mode", "download",
+            "--attachment-output-dir", "./images",
+            "--rich",
+            "--exclude", "*.tmp",
+            "--exclude", "backup_*",
+            "--save-config", str(config_file)
+        ])
+
+        assert result == 0
+        assert config_file.exists()
+
+        # Load and verify comprehensive config
+        import json
+        with open(config_file) as f:
+            config = json.load(f)
+
+        # Should include all relevant options
+        assert config['pdf_pages'] == '1,3,5'
+        assert config['pdf_password'] == 'secret123'
+        assert config['pdf_detect_columns'] is False
+        assert config['markdown_emphasis_symbol'] == '_'
+        assert config['markdown_bullet_symbols'] == '*-+'
+        assert config['attachment_mode'] == 'download'
+        assert config['attachment_output_dir'] == './images'
+        assert config['rich'] is True
+        assert config['exclude'] == ['*.tmp', 'backup_*']
+
+    def test_config_load_and_use(self):
+        """Test loading and using saved configuration."""
+        # First, save a config
+        config_file = self.temp_dir / "saved_config.json"
+        result = main([
+            "test.pdf",
+            "--markdown-emphasis-symbol", "_",
+            "--rich",
+            "--save-config", str(config_file)
+        ])
+        assert result == 0
+
+        # Create a test file to convert
+        test_file = self.temp_dir / "test.html"
+        test_file.write_text("<h1>Test</h1><p><em>Italic</em></p>")
+
+        # Use the saved config
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\n_Italic_"
+
+            result = main([
+                str(test_file),
+                "--options-json", str(config_file)
+            ])
+
+            assert result == 0
+            call_args = mock_to_markdown.call_args
+            kwargs = call_args[1]
+
+            # Should have loaded options from config
+            assert kwargs['markdown_emphasis_symbol'] == '_'
+
+    def test_combined_new_features_integration(self):
+        """Test all new features working together."""
+        # Create multiple test files with some to exclude
+        files_to_create = [
+            "document1.html",
+            "document2.html",
+            "temp_file.html",
+            "backup_doc.html"
+        ]
+
+        test_files = []
+        for filename in files_to_create:
+            file_path = self.temp_dir / filename
+            file_path.write_text(f"<h1>{filename}</h1><p>Content</p>")
+            test_files.append(file_path)
+
+        config_file = self.temp_dir / "combined_config.json"
+        output_dir = self.temp_dir / "output"
+
+        # First, test dry run with all features
+        result = main([
+            str(self.temp_dir),
+            "--dry-run",
+            "--exclude", "temp_*",
+            "--exclude", "backup_*",
+            "--output-dir", str(output_dir),
+            "--rich",
+            "--parallel", "2",
+            "--preserve-structure",
+            "--save-config", str(config_file)
+        ])
+
+        assert result == 0
+        # Config should be saved even in dry run
+        assert config_file.exists()
+        # But no output files should be created
+        assert not output_dir.exists()
+
+        # Now test actual conversion using the config
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Document\n\nContent"
+
+            result = main([
+                str(self.temp_dir),
+                "--options-json", str(config_file),
+                "--no-summary"
+            ])
+
+            assert result == 0
+
+            # Should have processed only non-excluded files
+            processed_files = []
+            for call in mock_to_markdown.call_args_list:
+                input_path = str(call[0][0])
+                processed_files.append(input_path)
+
+            # Should include regular documents
+            assert any("document1.html" in f for f in processed_files)
+            assert any("document2.html" in f for f in processed_files)
+
+            # Should exclude pattern-matched files
+            assert not any("temp_file.html" in f for f in processed_files)
+            assert not any("backup_doc.html" in f for f in processed_files)
+
+    def test_dependency_commands_with_rich_output(self, capsys):
+        """Test dependency commands with rich output (if available)."""
+        # Test dependency check with rich output
+        with patch('all2md.dependencies.print_dependency_report') as mock_report:
+            mock_report.return_value = "All2MD Dependency Status\n===================\nPDF: ✓"
+
+            result = main(['check-deps'])
+            assert result in [0, 1]
+
+            captured = capsys.readouterr()
+            # Should show dependency information
+            assert len(captured.out) > 0 or mock_report.called
+
+    def test_exclusion_error_handling(self):
+        """Test error handling with exclusion patterns."""
+        # Test with invalid glob patterns (should handle gracefully)
+        test_file = self.temp_dir / "test.html"
+        test_file.write_text("<h1>Test</h1>")
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\nContent"
+
+            # Test with complex exclusion patterns that don't match our file
+            result = main([
+                str(test_file),
+                "--exclude", "**/somethingelse/**",
+                "--exclude", "[0-9]*backup*",
+                "--no-summary"
+            ])
+
+            # Should handle without crashing (patterns don't match our test file)
+            assert result == 0
+
+    def test_dry_run_with_stdin(self, capsys):
+        """Test dry run mode with stdin input."""
+        test_content = "<h1>Stdin Test</h1>"
+
+        with patch('sys.stdin') as mock_stdin:
+            mock_stdin.buffer.read.return_value = test_content.encode()
+
+            # Dry run with stdin should show what would be processed
+            result = main(["-", "--dry-run"])
+
+            # Dry run doesn't apply to stdin (single input), should process normally
+            # But this tests that dry run doesn't break stdin handling
+            assert result in [0, 1]  # May succeed or fail depending on mocking
+
+    def test_config_with_environment_variables(self):
+        """Test configuration saving and loading with environment variables."""
+        import os
+
+        config_file = self.temp_dir / "env_config.json"
+
+        # Set environment variables
+        os.environ['ALL2MD_RICH'] = 'true'
+        os.environ['ALL2MD_NO_SUMMARY'] = 'true'
+
+        try:
+            # Save config with environment variables active
+            result = main([
+                "test.pdf",
+                "--markdown-emphasis-symbol", "_",
+                "--save-config", str(config_file)
+            ])
+
+            assert result == 0
+            assert config_file.exists()
+
+            # Load config and verify
+            import json
+            with open(config_file) as f:
+                config = json.load(f)
+
+            # Environment variables should be reflected in saved config
+            assert 'rich' in config
+            assert config['rich'] is True
+            assert 'no_summary' in config
+            assert config['no_summary'] is True
+            assert 'markdown_emphasis_symbol' in config
+            assert config['markdown_emphasis_symbol'] == '_'
+
+        finally:
+            # Clean up environment
+            os.environ.pop('ALL2MD_RICH', None)
+            os.environ.pop('ALL2MD_NO_SUMMARY', None)
+
+    def test_backward_compatibility_with_new_features(self):
+        """Test that new features don't break existing CLI workflows."""
+        # Create test file
+        test_file = self.temp_dir / "test.html"
+        test_file.write_text("<h1>Test</h1><p>Content</p>")
+
+        output_file = self.temp_dir / "output.md"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\nContent"
+
+            # Test that all existing patterns still work
+            test_patterns = [
+                # Basic usage
+                [str(test_file)],
+
+                # With output
+                [str(test_file), "--out", str(output_file)],
+
+                # With format
+                [str(test_file), "--format", "html"],
+
+                # With format-specific options
+                [str(test_file), "--html-extract-title", "--markdown-emphasis-symbol", "_"],
+
+                # With attachment options
+                [str(test_file), "--attachment-mode", "base64"],
+            ]
+
+            for pattern in test_patterns:
+                result = main(pattern)
+                assert result == 0
+
+            # Should have processed all test patterns
+            assert mock_to_markdown.call_count == len(test_patterns)

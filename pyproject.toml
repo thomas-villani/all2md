@@ -11,7 +11,6 @@ dependencies = [
     "beautifulsoup4>=4.13.5",
     "httpx>=0.28.1",
     "odfpy>=1.4.1",
-    "pandas>=2.3.2",
     "pymupdf>=1.26.4",
     "pyth3>=0.7",
     "python-docx>=1.2.0",
@@ -28,9 +27,7 @@ include = [
 odf = [
     "odfpy>=1.4.1",
 ]
-csv = [
-    "pandas>=2.3.2",
-]
+csv = []
 pdf = [
     "pymupdf>=1.26.4"
 ]
@@ -51,7 +48,7 @@ all = [
     "beautifulsoup4>=4.13.5",
     "httpx>=0.28.1",
     "odfpy>=1.4.1",
-    "pandas>=2.3.2",
+    "openpyxl>=3.1.5",
     "pymupdf>=1.26.4",
     "pyth3>=0.7",
     "python-docx>=1.2.0",
@@ -77,6 +74,9 @@ progress = [
 cli_extras = [
     "rich>=14.1.0",
     "tqdm>=4.66.0",
+]
+spreadsheet = [
+    "openpyxl>=3.1.5",
 ]
 
 
