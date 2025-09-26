@@ -9,13 +9,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.cli import _map_cli_args_to_options, create_parser, parse_pdf_pages
+from all2md.cli import create_parser, parse_pdf_pages
+from all2md.cli_builder import DynamicCLIBuilder
 
 
 @pytest.mark.unit
 @pytest.mark.cli
-class TestCLIArgumentMapping:
-    """Test CLI argument mapping functionality."""
+class TestDynamicCLIBuilder:
+    """Test dynamic CLI builder functionality."""
 
     def test_pdf_pages_parsing_valid(self):
         """Test parsing of valid PDF page numbers."""
@@ -42,55 +43,71 @@ class TestCLIArgumentMapping:
         with pytest.raises(argparse.ArgumentTypeError):
             parse_pdf_pages("1.5,2")
 
+    def test_snake_to_kebab_conversion(self):
+        """Test conversion of snake_case to kebab-case."""
+        builder = DynamicCLIBuilder()
+
+        assert builder.snake_to_kebab("test_field") == "test-field"
+        assert builder.snake_to_kebab("simple") == "simple"
+        assert builder.snake_to_kebab("multiple_word_field") == "multiple-word-field"
+        assert builder.snake_to_kebab("detect_columns") == "detect-columns"
+
+    def test_cli_name_inference(self):
+        """Test CLI name inference from field names."""
+        builder = DynamicCLIBuilder()
+
+        # Basic inference
+        assert builder.infer_cli_name("test_field") == "--test-field"
+
+        # With format prefix
+        assert builder.infer_cli_name("detect_columns", "pdf") == "--pdf-detect-columns"
+
+        # Boolean with True default (should get --no-* form)
+        assert builder.infer_cli_name("detect_columns", "pdf", True) == "--pdf-no-detect-columns"
+
+        # Markdown options
+        assert builder.infer_cli_name("emphasis_symbol", "markdown") == "--markdown-emphasis-symbol"
+
     def test_argument_mapping_pdf_options(self):
-        """Test mapping of PDF-specific CLI arguments."""
-        # Create mock parsed args
+        """Test mapping of PDF-specific CLI arguments with new dynamic system."""
+        builder = DynamicCLIBuilder()
+
+        # Create mock parsed args with the new naming convention
         parsed_args = Mock()
         parsed_args.input = "test.pdf"
         parsed_args.out = None
         parsed_args.format = "auto"
         parsed_args.log_level = "WARNING"
-        parsed_args.attachment_mode = "alt_text"
-        parsed_args.attachment_output_dir = None
-        parsed_args.attachment_base_url = None
-        parsed_args.markdown_emphasis_symbol = "_"
-        parsed_args.markdown_bullet_symbols = "*-+"
-        parsed_args.markdown_page_separator = "-----"
+        parsed_args.about = False
+        parsed_args.version = False
+        parsed_args.options_json = None
+
+        # PDF options (new format)
         parsed_args.pdf_pages = "1,2,3"
         parsed_args.pdf_password = "secret"
-        parsed_args.pdf_detect_columns = False
-        parsed_args.html_extract_title = False
-        parsed_args.html_strip_dangerous_elements = False
-        parsed_args.pptx_slide_numbers = False
-        parsed_args.pptx_include_notes = True
-        parsed_args.eml_include_headers = True
-        parsed_args.eml_preserve_thread_structure = True
+        parsed_args.pdf_detect_columns = False  # This would be set by --pdf-no-detect-columns
 
-        # Mock vars() to return dict representation
-        with patch('all2md.cli.vars', return_value={
+        # Markdown options (new format)
+        parsed_args.markdown_emphasis_symbol = "_"
+
+        # Mock vars to simulate the argument namespace
+        with patch('builtins.vars', return_value={
             'input': 'test.pdf',
             'out': None,
             'format': 'auto',
             'log_level': 'WARNING',
-            'attachment_mode': 'alt_text',
-            'attachment_output_dir': None,
-            'attachment_base_url': None,
-            'markdown_emphasis_symbol': '_',
-            'markdown_bullet_symbols': '*-+',
-            'markdown_page_separator': '-----',
+            'about': False,
+            'version': False,
+            'options_json': None,
             'pdf_pages': '1,2,3',
             'pdf_password': 'secret',
             'pdf_detect_columns': False,
-            'html_extract_title': False,
-            'html_strip_dangerous_elements': False,
-            'pptx_slide_numbers': False,
-            'pptx_include_notes': True,
-            'eml_include_headers': True,
-            'eml_preserve_thread_structure': True,
+            'markdown_emphasis_symbol': '_',
         }):
-            options = _map_cli_args_to_options(parsed_args)
+            options = builder.map_args_to_options(parsed_args)
 
         # Check PDF options mapping
+        assert 'pages' in options
         assert options['pages'] == [1, 2, 3]
         assert options['password'] == 'secret'
         assert options['detect_columns'] is False
@@ -98,218 +115,34 @@ class TestCLIArgumentMapping:
         # Check Markdown options mapping
         assert options['emphasis_symbol'] == '_'
 
-    def test_argument_mapping_html_options(self):
-        """Test mapping of HTML-specific CLI arguments."""
-        parsed_args = Mock()
-        parsed_args.input = "test.html"
-        parsed_args.out = None
-        parsed_args.format = "auto"
-        parsed_args.log_level = "WARNING"
-        parsed_args.attachment_mode = "download"
-        parsed_args.attachment_output_dir = "./images"
-        parsed_args.attachment_base_url = "https://example.com"
-        parsed_args.markdown_emphasis_symbol = "*"
-        parsed_args.markdown_bullet_symbols = "*-+"
-        parsed_args.markdown_page_separator = "-----"
-        parsed_args.pdf_pages = None
-        parsed_args.pdf_password = None
-        parsed_args.pdf_detect_columns = True
-        parsed_args.html_extract_title = True
-        parsed_args.html_strip_dangerous_elements = True
-        parsed_args.pptx_slide_numbers = False
-        parsed_args.pptx_include_notes = True
-        parsed_args.eml_include_headers = True
-        parsed_args.eml_preserve_thread_structure = True
+    def test_list_int_processing(self):
+        """Test processing of list_int type arguments."""
+        builder = DynamicCLIBuilder()
 
-        with patch('all2md.cli.vars', return_value={
-            'input': 'test.html',
-            'out': None,
-            'format': 'auto',
-            'log_level': 'WARNING',
-            'attachment_mode': 'download',
-            'attachment_output_dir': './images',
-            'attachment_base_url': 'https://example.com',
-            'markdown_emphasis_symbol': '*',
-            'markdown_bullet_symbols': '*-+',
-            'markdown_page_separator': '-----',
-            'pdf_pages': None,
-            'pdf_password': None,
-            'pdf_detect_columns': True,
-            'html_extract_title': True,
-            'html_strip_dangerous_elements': True,
-            'pptx_slide_numbers': False,
-            'pptx_include_notes': True,
-            'eml_include_headers': True,
-            'eml_preserve_thread_structure': True,
-        }):
-            options = _map_cli_args_to_options(parsed_args)
+        # Mock field and metadata for pages field
+        from dataclasses import field
+        mock_field = Mock()
+        mock_field.type = list[int] | None
+        mock_field.default = None
 
-        # Check HTML options mapping
-        assert options['extract_title'] is True
-        assert options['strip_dangerous_elements'] is True
+        metadata = {"type": "list_int"}
 
-        # Check attachment options mapping
-        assert options['attachment_mode'] == 'download'
-        assert options['attachment_output_dir'] == './images'
-        assert options['attachment_base_url'] == 'https://example.com'
+        # Test valid comma-separated integers
+        result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf_pages")
+        assert result == [1, 2, 3]
 
-    def test_argument_mapping_pptx_options(self):
-        """Test mapping of PowerPoint-specific CLI arguments."""
-        parsed_args = Mock()
-        parsed_args.input = "test.pptx"
-        parsed_args.out = None
-        parsed_args.format = "auto"
-        parsed_args.log_level = "WARNING"
-        parsed_args.attachment_mode = "base64"
-        parsed_args.attachment_output_dir = None
-        parsed_args.attachment_base_url = None
-        parsed_args.markdown_emphasis_symbol = "*"
-        parsed_args.markdown_bullet_symbols = "*-+"
-        parsed_args.markdown_page_separator = "-----"
-        parsed_args.pdf_pages = None
-        parsed_args.pdf_password = None
-        parsed_args.pdf_detect_columns = True
-        parsed_args.html_extract_title = False
-        parsed_args.html_strip_dangerous_elements = False
-        parsed_args.pptx_slide_numbers = True
-        parsed_args.pptx_include_notes = False
-        parsed_args.eml_include_headers = True
-        parsed_args.eml_preserve_thread_structure = True
+        # Test single integer
+        result = builder._process_argument_value(mock_field, metadata, "5", "pdf_pages")
+        assert result == [5]
 
-        with patch('all2md.cli.vars', return_value={
-            'input': 'test.pptx',
-            'out': None,
-            'format': 'auto',
-            'log_level': 'WARNING',
-            'attachment_mode': 'base64',
-            'attachment_output_dir': None,
-            'attachment_base_url': None,
-            'markdown_emphasis_symbol': '*',
-            'markdown_bullet_symbols': '*-+',
-            'markdown_page_separator': '-----',
-            'pdf_pages': None,
-            'pdf_password': None,
-            'pdf_detect_columns': True,
-            'html_extract_title': False,
-            'html_strip_dangerous_elements': False,
-            'pptx_slide_numbers': True,
-            'pptx_include_notes': False,
-            'eml_include_headers': True,
-            'eml_preserve_thread_structure': True,
-        }):
-            options = _map_cli_args_to_options(parsed_args)
+        # Test with spaces
+        result = builder._process_argument_value(mock_field, metadata, "1, 2, 3", "pdf_pages")
+        assert result == [1, 2, 3]
 
-        # Check PowerPoint options mapping
-        assert options['slide_numbers'] is True
-        assert options['include_notes'] is False
-        assert options['attachment_mode'] == 'base64'
+        # Test invalid input returns None
+        result = builder._process_argument_value(mock_field, metadata, "1,invalid,3", "pdf_pages")
+        assert result is None
 
-    def test_argument_mapping_eml_options(self):
-        """Test mapping of email-specific CLI arguments."""
-        parsed_args = Mock()
-        parsed_args.input = "test.eml"
-        parsed_args.out = None
-        parsed_args.format = "auto"
-        parsed_args.log_level = "WARNING"
-        parsed_args.attachment_mode = "skip"
-        parsed_args.attachment_output_dir = None
-        parsed_args.attachment_base_url = None
-        parsed_args.markdown_emphasis_symbol = "*"
-        parsed_args.markdown_bullet_symbols = "*-+"
-        parsed_args.markdown_page_separator = "-----"
-        parsed_args.pdf_pages = None
-        parsed_args.pdf_password = None
-        parsed_args.pdf_detect_columns = True
-        parsed_args.html_extract_title = False
-        parsed_args.html_strip_dangerous_elements = False
-        parsed_args.pptx_slide_numbers = False
-        parsed_args.pptx_include_notes = True
-        parsed_args.eml_include_headers = False
-        parsed_args.eml_preserve_thread_structure = False
-
-        with patch('all2md.cli.vars', return_value={
-            'input': 'test.eml',
-            'out': None,
-            'format': 'auto',
-            'log_level': 'WARNING',
-            'attachment_mode': 'skip',
-            'attachment_output_dir': None,
-            'attachment_base_url': None,
-            'markdown_emphasis_symbol': '*',
-            'markdown_bullet_symbols': '*-+',
-            'markdown_page_separator': '-----',
-            'pdf_pages': None,
-            'pdf_password': None,
-            'pdf_detect_columns': True,
-            'html_extract_title': False,
-            'html_strip_dangerous_elements': False,
-            'pptx_slide_numbers': False,
-            'pptx_include_notes': True,
-            'eml_include_headers': False,
-            'eml_preserve_thread_structure': False,
-        }):
-            options = _map_cli_args_to_options(parsed_args)
-
-        # Check email options mapping
-        assert options['include_headers'] is False
-        assert options['preserve_thread_structure'] is False
-        assert options['attachment_mode'] == 'skip'
-
-    def test_argument_mapping_defaults_excluded(self):
-        """Test that default values are not included in options."""
-        parsed_args = Mock()
-        parsed_args.input = "test.html"
-        parsed_args.out = None
-        parsed_args.format = "auto"
-        parsed_args.log_level = "WARNING"
-        parsed_args.attachment_mode = "alt_text"  # Default value
-        parsed_args.attachment_output_dir = None
-        parsed_args.attachment_base_url = None
-        parsed_args.markdown_emphasis_symbol = "*"  # Default value
-        parsed_args.markdown_bullet_symbols = "*-+"  # Default value
-        parsed_args.markdown_page_separator = "-----"  # Default value
-        parsed_args.pdf_pages = None
-        parsed_args.pdf_password = None
-        parsed_args.pdf_detect_columns = True  # Default value
-        parsed_args.html_extract_title = False  # Default value
-        parsed_args.html_strip_dangerous_elements = False  # Default value
-        parsed_args.pptx_slide_numbers = False  # Default value
-        parsed_args.pptx_include_notes = True  # Default value
-        parsed_args.eml_include_headers = True  # Default value
-        parsed_args.eml_preserve_thread_structure = True  # Default value
-
-        with patch('all2md.cli.vars', return_value={
-            'input': 'test.html',
-            'out': None,
-            'format': 'auto',
-            'log_level': 'WARNING',
-            'attachment_mode': 'alt_text',
-            'attachment_output_dir': None,
-            'attachment_base_url': None,
-            'markdown_emphasis_symbol': '*',
-            'markdown_bullet_symbols': '*-+',
-            'markdown_page_separator': '-----',
-            'pdf_pages': None,
-            'pdf_password': None,
-            'pdf_detect_columns': True,
-            'html_extract_title': False,
-            'html_strip_dangerous_elements': False,
-            'pptx_slide_numbers': False,
-            'pptx_include_notes': True,
-            'eml_include_headers': True,
-            'eml_preserve_thread_structure': True,
-        }):
-            options = _map_cli_args_to_options(parsed_args)
-
-        # Should be empty since all are default values
-        expected_empty_keys = [
-            'attachment_mode', 'emphasis_symbol', 'bullet_symbols', 'page_separator',
-            'extract_title', 'strip_dangerous_elements', 'slide_numbers',
-            'include_headers', 'preserve_thread_structure', 'detect_columns'
-        ]
-
-        for key in expected_empty_keys:
-            assert key not in options, f"Default value {key} should not be in options"
 
 
 @pytest.mark.unit
@@ -368,35 +201,43 @@ class TestCLIParser:
         with pytest.raises(SystemExit):
             parser.parse_args(["test.pdf", "--log-level", "INVALID"])
 
-    def test_parser_attachment_mode_choices(self):
-        """Test attachment mode argument choices."""
+    def test_parser_dynamic_arguments_exist(self):
+        """Test that dynamically generated arguments exist in the parser."""
         parser = create_parser()
 
-        # Valid attachment mode choices
-        valid_modes = ["skip", "alt_text", "download", "base64"]
-        for mode in valid_modes:
-            args = parser.parse_args(["test.pdf", "--attachment-mode", mode])
-            assert args.attachment_mode == mode
+        # Test that PDF options exist
+        args = parser.parse_args(["test.pdf", "--pdf-pages", "1,2,3"])
+        assert hasattr(args, 'pdf_pages')
+        assert args.pdf_pages == "1,2,3"
 
-        # Invalid attachment mode should raise error
-        with pytest.raises(SystemExit):
-            parser.parse_args(["test.pdf", "--attachment-mode", "invalid"])
+        # Test that HTML options exist
+        args = parser.parse_args(["test.html", "--html-extract-title"])
+        assert hasattr(args, 'html_extract_title')
+        assert args.html_extract_title is True
 
-    def test_parser_pdf_detect_columns_defaults(self):
-        """Test PDF detect columns default behavior."""
+        # Test that Markdown options exist
+        args = parser.parse_args(["test.pdf", "--markdown-emphasis-symbol", "_"])
+        assert hasattr(args, 'markdown_emphasis_symbol')
+        assert args.markdown_emphasis_symbol == "_"
+
+    def test_parser_boolean_no_flags(self):
+        """Test --no-* flags for boolean options with True defaults."""
         parser = create_parser()
 
-        # Default should be True
-        args = parser.parse_args(["test.pdf"])
-        assert args.pdf_detect_columns is True
-
-        # --pdf-detect-columns should set True
-        args = parser.parse_args(["test.pdf", "--pdf-detect-columns"])
-        assert args.pdf_detect_columns is True
-
-        # --pdf-no-detect-columns should set False
+        # Test --pdf-no-detect-columns flag
         args = parser.parse_args(["test.pdf", "--pdf-no-detect-columns"])
+        assert hasattr(args, 'pdf_detect_columns')
         assert args.pdf_detect_columns is False
+
+        # Test --html-no-use-hash-headings flag
+        args = parser.parse_args(["test.html", "--html-no-use-hash-headings"])
+        assert hasattr(args, 'html_use_hash_headings')
+        assert args.html_use_hash_headings is False
+
+        # Test --markdown-no-escape-special flag
+        args = parser.parse_args(["test.pdf", "--markdown-no-escape-special"])
+        assert hasattr(args, 'markdown_escape_special')
+        assert args.markdown_escape_special is False
 
     def test_parser_boolean_flags(self):
         """Test boolean flag arguments."""

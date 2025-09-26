@@ -23,25 +23,14 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import fields
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Optional, cast
 
 from . import to_markdown
+from .cli_builder import DynamicCLIBuilder
 from .exceptions import InputError, MarkdownConversionError
-from .options import (
-    DocxOptions,
-    EmlOptions,
-    EpubOptions,
-    HtmlOptions,
-    IpynbOptions,
-    MarkdownOptions,
-    MhtmlOptions,
-    OdfOptions,
-    PdfOptions,
-    PptxOptions,
-    RtfOptions,
-)
+from .converter_registry import registry
 
 
 def _get_version() -> str:
@@ -89,226 +78,15 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser."""
-    parser = argparse.ArgumentParser(
-        prog="all2md",
-        description="Convert documents to Markdown format",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Supported formats:
-  PDF, Word (DOCX), PowerPoint (PPTX), HTML, Email (EML), EPUB,
-  RTF, Jupyter Notebook (IPYNB), OpenDocument (ODT, ODP), Excel (XLSX),
-  images (PNG, JPEG, GIF), and 200+ text formats
+    """Create and configure the argument parser using dynamic generation."""
+    builder = DynamicCLIBuilder()
+    parser = builder.build_parser()
 
-Examples:
-  # Basic conversions
-  all2md document.pdf
-  all2md document.docx --out output.md
-  all2md presentation.pptx --markdown-emphasis-symbol "_"
-  all2md notebook.ipynb --ipynb-truncate-long-outputs 20
-  all2md document.odt --odf-no-preserve-tables
-  all2md book.epub --epub-no-merge-chapters
-
-  # Reading from stdin
-  cat document.pdf | all2md -
-  curl -s https://example.com/doc.pdf | all2md - --out output.md
-
-  # Image handling
-  all2md document.html --attachment-mode download --attachment-output-dir ./images
-  all2md book.epub --attachment-mode base64
-
-  # EPUB-specific options
-  all2md book.epub --epub-no-include-toc --attachment-mode download --attachment-output-dir ./epub-images
-
-  # Using options from JSON file
-  all2md document.pdf --options-json config.json
-  all2md document.docx --options-json config.json --out custom.md
-        """,
-    )
-
-    # Input file or stdin (required, except for --about)
-    parser.add_argument("input", nargs="?", help="Input file to convert (use '-' to read from stdin)")
-
-    # Output options
-    parser.add_argument(
-        "--out", "-o",
-        help="Output file path (default: print to stdout)"
-    )
-
-    # Common attachment options
-    parser.add_argument(
-        "--attachment-mode",
-        choices=["skip", "alt_text", "download", "base64"],
-        default="alt_text",
-        help="How to handle attachments/images (default: alt_text)"
-    )
-    parser.add_argument(
-        "--attachment-output-dir",
-        help="Directory to save attachments when using download mode"
-    )
-    parser.add_argument(
-        "--attachment-base-url",
-        help="Base URL for resolving attachment references"
-    )
-
-    # Common Markdown formatting options
-    parser.add_argument(
-        "--markdown-emphasis-symbol",
-        choices=["*", "_"],
-        help="Symbol to use for emphasis/italic text (default: *)"
-    )
-    parser.add_argument(
-        "--markdown-bullet-symbols",
-        help="Characters to cycle through for bullet lists (default: *-+)"
-    )
-    parser.add_argument(
-        "--markdown-page-separator",
-        help="Text used to separate pages (default: -----)"
-    )
-
-    # PDF-specific options
-    pdf_group = parser.add_argument_group("PDF options")
-    pdf_group.add_argument(
-        "--pdf-pages",
-        help="Specific pages to convert (comma-separated, 0-based indexing)"
-    )
-    pdf_group.add_argument(
-        "--pdf-password",
-        help="Password for encrypted PDF documents"
-    )
-    pdf_group.add_argument(
-        "--pdf-detect-columns",
-        action="store_true",
-        dest="pdf_detect_columns",
-        help="Enable multi-column layout detection (default: enabled)"
-    )
-    pdf_group.add_argument(
-        "--pdf-no-detect-columns",
-        action="store_false",
-        dest="pdf_detect_columns",
-        help="Disable multi-column layout detection"
-    )
-    parser.set_defaults(pdf_detect_columns=True)
-
-    # HTML-specific options
-    html_group = parser.add_argument_group("HTML options")
-    html_group.add_argument(
-        "--html-extract-title",
-        action="store_true",
-        help="Extract and use HTML <title> element as main heading"
-    )
-    html_group.add_argument(
-        "--html-strip-dangerous-elements",
-        action="store_true",
-        help="Remove potentially dangerous HTML elements (script, style, etc.)"
-    )
-
-    # PowerPoint-specific options
-    pptx_group = parser.add_argument_group("PowerPoint options")
-    pptx_group.add_argument(
-        "--pptx-slide-numbers",
-        action="store_true",
-        help="Include slide numbers in output"
-    )
-    pptx_group.add_argument(
-        "--pptx-no-include-notes",
-        action="store_false",
-        dest="pptx_include_notes",
-        default=True,
-        help="Exclude speaker notes from conversion"
-    )
-
-    # Email-specific options
-    eml_group = parser.add_argument_group("Email options")
-    eml_group.add_argument(
-        "--eml-no-include-headers",
-        action="store_false",
-        dest="eml_include_headers",
-        default=True,
-        help="Exclude email headers from output"
-    )
-    eml_group.add_argument(
-        "--eml-no-preserve-thread-structure",
-        action="store_false",
-        dest="eml_preserve_thread_structure",
-        default=True,
-        help="Don't maintain email thread/reply chain structure"
-    )
-
-    # ODF-specific options
-    odf_group = parser.add_argument_group("OpenDocument options")
-    odf_group.add_argument(
-        "--odf-no-preserve-tables",
-        action="store_false",
-        dest="odf_preserve_tables",
-        default=True,
-        help="Don't preserve table formatting in Markdown"
-    )
-
-    # Jupyter Notebook-specific options
-    ipynb_group = parser.add_argument_group("Jupyter Notebook options")
-    ipynb_group.add_argument(
-        "--ipynb-truncate-long-outputs",
-        type=int,
-        help="Truncate cell outputs longer than specified number of lines"
-    )
-    ipynb_group.add_argument(
-        "--ipynb-truncate-output-message",
-        default="\n... (output truncated) ...\n",
-        help="Message to display when truncating long outputs"
-    )
-
-    # EPUB-specific options
-    epub_group = parser.add_argument_group("EPUB options")
-    epub_group.add_argument(
-        "--epub-no-merge-chapters",
-        action="store_false",
-        dest="epub_merge_chapters",
-        default=True,
-        help="Don't merge chapters into continuous document (add separators between chapters)"
-    )
-    epub_group.add_argument(
-        "--epub-no-include-toc",
-        action="store_false",
-        dest="epub_include_toc",
-        default=True,
-        help="Don't include a Table of Contents in the output"
-    )
-
-    # Format override option
-    parser.add_argument(
-        "--format",
-        choices=["auto", "pdf", "docx", "pptx", "html", "mhtml", "eml", "epub", "rtf", "ipynb", "odt", "odp", "csv",
-                 "tsv", "xlsx", "image", "txt"],
-        default="auto",
-        help="Force specific file format instead of auto-detection (default: auto)"
-    )
-
-    # Options JSON file
-    parser.add_argument(
-        "--options-json",
-        help="Path to JSON file containing conversion options"
-    )
-
-    # Logging level option
-    parser.add_argument(
-        "--log-level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default="WARNING",
-        help="Set logging level for debugging (default: WARNING)"
-    )
-
-    # Version and about options
-    parser.add_argument(
-        "--version", "-v",
-        action="version",
-        version=f"all2md {_get_version()}"
-    )
-    parser.add_argument(
-        "--about", "-A",
-        action="store_true",
-        help="Show detailed information about all2md and exit"
-    )
+    # Update version to show actual version
+    for action in parser._actions:
+        if action.dest == 'version':
+            action.version = f"all2md {_get_version()}"
+            break
 
     return parser
 
@@ -359,123 +137,6 @@ def load_options_from_json(json_file_path: str) -> dict:
         raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
 
 
-def _map_cli_args_to_options(parsed_args: argparse.Namespace, json_options: dict | None = None) -> dict:
-    """Map CLI argument names to dataclass field names.
-
-    This function handles the mapping between CLI argument names (like 'pdf_pages')
-    and the actual dataclass field names (like 'pages' in PdfOptions).
-    JSON options are applied first, then CLI arguments override them.
-
-    Parameters
-    ----------
-    parsed_args : argparse.Namespace
-        Parsed command line arguments
-    json_options : dict or None, default None
-        Options loaded from JSON file
-
-    Returns
-    -------
-    dict
-        Mapped options dictionary ready for to_markdown()
-    """
-    # Start with JSON options if provided
-    options = json_options.copy() if json_options else {}
-    args_dict = vars(parsed_args)
-
-    # Get field names for each options class
-    markdown_fields = {field.name for field in fields(MarkdownOptions)}
-    pdf_fields = {field.name for field in fields(PdfOptions)}
-    html_fields = {field.name for field in fields(HtmlOptions)}
-    mhtml_fields = {field.name for field in fields(MhtmlOptions)}
-    pptx_fields = {field.name for field in fields(PptxOptions)}
-    eml_fields = {field.name for field in fields(EmlOptions)}
-    docx_fields = {field.name for field in fields(DocxOptions)}
-    epub_fields = {field.name for field in fields(EpubOptions)}
-    odf_fields = {field.name for field in fields(OdfOptions)}
-    ipynb_fields = {field.name for field in fields(IpynbOptions)}
-    rtf_fields = {field.name for field in fields(RtfOptions)}
-
-    # Define format prefix mappings
-    format_mappings = {
-        'pdf_': pdf_fields,
-        'html_': html_fields,
-        'mhtml_': mhtml_fields,
-        'pptx_': pptx_fields,
-        'eml_': eml_fields,
-        'docx_': docx_fields,
-        'epub_': epub_fields,
-        'odf_': odf_fields,
-        'ipynb_': ipynb_fields,
-        'rtf_': rtf_fields,
-    }
-
-    # Process each argument
-    for arg_name, arg_value in args_dict.items():
-        # Skip None values and special arguments
-        if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level', 'options_json']:
-            continue
-
-        # Handle attachment options (no prefix mapping needed)
-        if arg_name.startswith('attachment_'):
-            # Only include non-default values
-            if (arg_name == 'attachment_mode' and arg_value != 'alt_text') or \
-                    (arg_name != 'attachment_mode' and arg_value is not None):
-                options[arg_name] = arg_value
-            continue
-
-        # Handle markdown options (remove markdown_ prefix)
-        if arg_name.startswith('markdown_'):
-            field_name = arg_name[9:]  # Remove 'markdown_' prefix
-            if field_name in markdown_fields and arg_value is not None:
-                # Only include non-default values
-                defaults = {
-                    'emphasis_symbol': '*',
-                    'bullet_symbols': '*-+',
-                    'page_separator': '-----'
-                }
-                if field_name not in defaults or arg_value != defaults[field_name]:
-                    # CLI arguments override JSON options when explicitly provided
-                    options[field_name] = arg_value
-            continue
-
-        # Handle format-specific options
-        mapped = False
-        for prefix, field_set in format_mappings.items():
-            if arg_name.startswith(prefix):
-                field_name = arg_name[len(prefix):]  # Remove prefix
-                if field_name in field_set:
-                    # Handle special cases
-                    if arg_name == 'pdf_pages' and arg_value:
-                        options['pages'] = parse_pdf_pages(arg_value)
-                    elif arg_name == 'pdf_detect_columns':
-                        # Only set if False (True is default)
-                        if not arg_value:
-                            options['detect_columns'] = False
-                    elif arg_name in ['pptx_include_notes', 'eml_include_headers', 'eml_preserve_thread_structure',
-                                      'odf_preserve_tables', 'epub_merge_chapters', 'epub_include_toc']:
-                        # Only set if False (True is default for these)
-                        if not arg_value:
-                            options[field_name] = False
-                    elif arg_name in ['html_extract_title', 'html_strip_dangerous_elements', 'pptx_slide_numbers']:
-                        # Only set if True (False is default for these)
-                        if arg_value:
-                            options[field_name] = True
-                    elif arg_name.startswith('ipynb_') and arg_value is not None:
-                        # Handle ipynb options
-                        options[field_name] = arg_value
-                    else:
-                        # Set value if it's not default/falsy
-                        if arg_value:
-                            options[field_name] = arg_value
-                mapped = True
-                break
-
-        # Handle unmapped arguments
-        if not mapped and arg_value:
-            # Direct mapping for any remaining arguments
-            options[arg_name] = arg_value
-
-    return options
 
 
 def main(args: Optional[list[str]] = None) -> int:
@@ -532,7 +193,8 @@ def main(args: Optional[list[str]] = None) -> int:
             return 1
 
     # Map CLI arguments to options using dynamic mapping
-    options = _map_cli_args_to_options(parsed_args, json_options)
+    builder = DynamicCLIBuilder()
+    options = builder.map_args_to_options(parsed_args, json_options)
 
     try:
         # Convert the document with format override if specified

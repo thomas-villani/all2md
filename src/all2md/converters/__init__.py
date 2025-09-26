@@ -179,7 +179,7 @@ registry.register(ConverterMetadata(
 
 # ODF converter
 registry.register(ConverterMetadata(
-    format_name="odt",
+    format_name="odf",
     extensions=[".odt", ".odp"],
     mime_types=["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.presentation"],
     magic_bytes=[

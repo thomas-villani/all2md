@@ -135,24 +135,87 @@ class MarkdownOptions:
         - "ignore": Strip subscript formatting
     """
 
-    escape_special: bool = DEFAULT_ESCAPE_SPECIAL
-    emphasis_symbol: EmphasisSymbol = DEFAULT_EMPHASIS_SYMBOL
-    bullet_symbols: str = DEFAULT_BULLET_SYMBOLS
-    page_separator: str = DEFAULT_PAGE_SEPARATOR
-    page_separator_format: str = DEFAULT_PAGE_SEPARATOR_FORMAT
-    include_page_numbers: bool = DEFAULT_INCLUDE_PAGE_NUMBERS
-    list_indent_width: int = DEFAULT_LIST_INDENT_WIDTH
-    underline_mode: UnderlineMode = "html"
-    superscript_mode: SuperscriptMode = "html"
-    subscript_mode: SubscriptMode = "html"
+    escape_special: bool = field(
+        default=DEFAULT_ESCAPE_SPECIAL,
+        metadata={
+            "help": "Escape special Markdown characters in text content",
+            "cli_name": "no-escape-special"  # Since default=True, use --no-* flag
+        }
+    )
+    emphasis_symbol: EmphasisSymbol = field(
+        default=DEFAULT_EMPHASIS_SYMBOL,
+        metadata={
+            "help": "Symbol to use for emphasis/italic formatting",
+            "choices": ["*", "_"]
+        }
+    )
+    bullet_symbols: str = field(
+        default=DEFAULT_BULLET_SYMBOLS,
+        metadata={"help": "Characters to cycle through for nested bullet lists"}
+    )
+    page_separator: str = field(
+        default=DEFAULT_PAGE_SEPARATOR,
+        metadata={"help": "Text used to separate pages or sections in output"}
+    )
+    page_separator_format: str = field(
+        default=DEFAULT_PAGE_SEPARATOR_FORMAT,
+        metadata={"help": "Format string for page separators (can include {page_num})"}
+    )
+    include_page_numbers: bool = field(
+        default=DEFAULT_INCLUDE_PAGE_NUMBERS,
+        metadata={"help": "Include page numbers in page separators"}
+    )
+    list_indent_width: int = field(
+        default=DEFAULT_LIST_INDENT_WIDTH,
+        metadata={
+            "help": "Number of spaces to use for each level of list indentation",
+            "type": int
+        }
+    )
+    underline_mode: UnderlineMode = field(
+        default="html",
+        metadata={
+            "help": "How to handle underlined text",
+            "choices": ["html", "markdown", "ignore"]
+        }
+    )
+    superscript_mode: SuperscriptMode = field(
+        default="html",
+        metadata={
+            "help": "How to handle superscript text",
+            "choices": ["html", "markdown", "ignore"]
+        }
+    )
+    subscript_mode: SubscriptMode = field(
+        default="html",
+        metadata={
+            "help": "How to handle subscript text",
+            "choices": ["html", "markdown", "ignore"]
+        }
+    )
 
 
 @dataclass
 class BaseOptions:
-    attachment_mode: AttachmentMode = DEFAULT_ATTACHMENT_MODE
-    attachment_output_dir: str | None = DEFAULT_ATTACHMENT_OUTPUT_DIR
-    attachment_base_url: str | None = DEFAULT_ATTACHMENT_BASE_URL
-    markdown_options: MarkdownOptions | None = None
+    attachment_mode: AttachmentMode = field(
+        default=DEFAULT_ATTACHMENT_MODE,
+        metadata={
+            "help": "How to handle attachments/images",
+            "choices": ["skip", "alt_text", "download", "base64"]
+        }
+    )
+    attachment_output_dir: str | None = field(
+        default=DEFAULT_ATTACHMENT_OUTPUT_DIR,
+        metadata={"help": "Directory to save attachments when using download mode"}
+    )
+    attachment_base_url: str | None = field(
+        default=DEFAULT_ATTACHMENT_BASE_URL,
+        metadata={"help": "Base URL for resolving attachment references"}
+    )
+    markdown_options: MarkdownOptions | None = field(
+        default=None,
+        metadata={"exclude_from_cli": True}  # Special field, handled separately
+    )
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -231,31 +294,130 @@ class PdfOptions(BaseOptions):
         ... )
     """
 
-    pages: list[int] | None = None
-    password: str | None = None
+    pages: list[int] | None = field(
+        default=None,
+        metadata={
+            "help": "Specific pages to convert (comma-separated, 0-based indexing)",
+            "type": "list_int"
+        }
+    )
+    password: str | None = field(
+        default=None,
+        metadata={"help": "Password for encrypted PDF documents"}
+    )
 
     # Header detection parameters
-    header_sample_pages: int | list[int] | None = None
-    header_percentile_threshold: float = DEFAULT_HEADER_PERCENTILE_THRESHOLD
-    header_min_occurrences: int = DEFAULT_HEADER_MIN_OCCURRENCES
-    header_size_allowlist: list[float] | None = None
-    header_size_denylist: list[float] | None = None
-    header_use_font_weight: bool = DEFAULT_HEADER_USE_FONT_WEIGHT
-    header_use_all_caps: bool = DEFAULT_HEADER_USE_ALL_CAPS
+    header_sample_pages: int | list[int] | None = field(
+        default=None,
+        metadata={
+            "help": "Pages to sample for header detection",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    header_percentile_threshold: float = field(
+        default=DEFAULT_HEADER_PERCENTILE_THRESHOLD,
+        metadata={
+            "help": "Percentile threshold for header detection",
+            "type": float
+        }
+    )
+    header_min_occurrences: int = field(
+        default=DEFAULT_HEADER_MIN_OCCURRENCES,
+        metadata={
+            "help": "Minimum occurrences of a font size to consider for headers",
+            "type": int
+        }
+    )
+    header_size_allowlist: list[float] | None = field(
+        default=None,
+        metadata={"exclude_from_cli": True}  # Complex type, exclude for now
+    )
+    header_size_denylist: list[float] | None = field(
+        default=None,
+        metadata={"exclude_from_cli": True}  # Complex type, exclude for now
+    )
+    header_use_font_weight: bool = field(
+        default=DEFAULT_HEADER_USE_FONT_WEIGHT,
+        metadata={
+            "help": "Consider bold/font weight when detecting headers",
+            "cli_name": "no-header-use-font-weight"  # default=True, use --no-*
+        }
+    )
+    header_use_all_caps: bool = field(
+        default=DEFAULT_HEADER_USE_ALL_CAPS,
+        metadata={
+            "help": "Consider all-caps text as potential headers",
+            "cli_name": "no-header-use-all-caps"  # default=True, use --no-*
+        }
+    )
 
     # Reading order and layout parameters
-    detect_columns: bool = DEFAULT_DETECT_COLUMNS
-    merge_hyphenated_words: bool = DEFAULT_MERGE_HYPHENATED_WORDS
-    handle_rotated_text: bool = DEFAULT_HANDLE_ROTATED_TEXT
-    column_gap_threshold: float = DEFAULT_COLUMN_GAP_THRESHOLD
+    detect_columns: bool = field(
+        default=DEFAULT_DETECT_COLUMNS,
+        metadata={
+            "help": "Enable multi-column layout detection",
+            "cli_name": "no-detect-columns"  # default=True, use --no-*
+        }
+    )
+    merge_hyphenated_words: bool = field(
+        default=DEFAULT_MERGE_HYPHENATED_WORDS,
+        metadata={
+            "help": "Merge words split by hyphens at line breaks",
+            "cli_name": "no-merge-hyphenated-words"  # default=True, use --no-*
+        }
+    )
+    handle_rotated_text: bool = field(
+        default=DEFAULT_HANDLE_ROTATED_TEXT,
+        metadata={
+            "help": "Process rotated text blocks",
+            "cli_name": "no-handle-rotated-text"  # default=True, use --no-*
+        }
+    )
+    column_gap_threshold: float = field(
+        default=DEFAULT_COLUMN_GAP_THRESHOLD,
+        metadata={
+            "help": "Minimum gap between columns in points",
+            "type": float
+        }
+    )
 
     # Table detection parameters
-    table_fallback_detection: bool = DEFAULT_TABLE_FALLBACK_DETECTION
-    detect_merged_cells: bool = DEFAULT_DETECT_MERGED_CELLS
-    table_ruling_line_threshold: float = DEFAULT_TABLE_RULING_LINE_THRESHOLD
+    table_fallback_detection: bool = field(
+        default=DEFAULT_TABLE_FALLBACK_DETECTION,
+        metadata={
+            "help": "Use heuristic fallback if PyMuPDF table detection fails",
+            "cli_name": "no-table-fallback-detection"  # default=True, use --no-*
+        }
+    )
+    detect_merged_cells: bool = field(
+        default=DEFAULT_DETECT_MERGED_CELLS,
+        metadata={
+            "help": "Attempt to identify merged cells in tables",
+            "cli_name": "no-detect-merged-cells"  # default=True, use --no-*
+        }
+    )
+    table_ruling_line_threshold: float = field(
+        default=DEFAULT_TABLE_RULING_LINE_THRESHOLD,
+        metadata={
+            "help": "Threshold for detecting table ruling lines",
+            "type": float
+        }
+    )
 
-    image_placement_markers: bool = DEFAULT_IMAGE_PLACEMENT_MARKERS
-    include_image_captions: bool = DEFAULT_INCLUDE_IMAGE_CAPTIONS
+    image_placement_markers: bool = field(
+        default=DEFAULT_IMAGE_PLACEMENT_MARKERS,
+        metadata={
+            "help": "Add markers showing image positions",
+            "cli_name": "no-image-placement-markers"  # default=True, use --no-*
+        }
+    )
+    include_image_captions: bool = field(
+        default=DEFAULT_INCLUDE_IMAGE_CAPTIONS,
+        metadata={
+            "help": "Try to extract image captions",
+            "cli_name": "no-include-image-captions"  # default=True, use --no-*
+        }
+    )
 
 
 @dataclass
@@ -280,7 +442,13 @@ class DocxOptions(BaseOptions):
         >>> options = DocxOptions(markdown_options=md_opts)
     """
 
-    preserve_tables: bool = True
+    preserve_tables: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve table formatting in Markdown",
+            "cli_name": "no-preserve-tables"
+        }
+    )
 
 
 @dataclass
@@ -321,12 +489,39 @@ class HtmlOptions(BaseOptions):
         >>> options = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=True)
     """
 
-    use_hash_headings: bool = DEFAULT_USE_HASH_HEADINGS
-    extract_title: bool = DEFAULT_EXTRACT_TITLE
-    convert_nbsp: bool = DEFAULT_CONVERT_NBSP
-    strip_dangerous_elements: bool = DEFAULT_STRIP_DANGEROUS_ELEMENTS
-    table_alignment_auto_detect: bool = DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT
-    preserve_nested_structure: bool = DEFAULT_PRESERVE_NESTED_STRUCTURE
+    use_hash_headings: bool = field(
+        default=DEFAULT_USE_HASH_HEADINGS,
+        metadata={
+            "help": "Use # syntax for headings instead of underline style",
+            "cli_name": "no-use-hash-headings"  # default=True, use --no-*
+        }
+    )
+    extract_title: bool = field(
+        default=DEFAULT_EXTRACT_TITLE,
+        metadata={"help": "Extract and use HTML <title> element as main heading"}
+    )
+    convert_nbsp: bool = field(
+        default=DEFAULT_CONVERT_NBSP,
+        metadata={"help": "Convert non-breaking spaces (&nbsp;) to regular spaces"}
+    )
+    strip_dangerous_elements: bool = field(
+        default=DEFAULT_STRIP_DANGEROUS_ELEMENTS,
+        metadata={"help": "Remove potentially dangerous HTML elements (script, style, etc.)"}
+    )
+    table_alignment_auto_detect: bool = field(
+        default=DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
+        metadata={
+            "help": "Automatically detect table column alignment from CSS/attributes",
+            "cli_name": "no-table-alignment-auto-detect"  # default=True, use --no-*
+        }
+    )
+    preserve_nested_structure: bool = field(
+        default=DEFAULT_PRESERVE_NESTED_STRUCTURE,
+        metadata={
+            "help": "Maintain proper nesting for blockquotes and other elements",
+            "cli_name": "no-preserve-nested-structure"  # default=True, use --no-*
+        }
+    )
 
 
 @dataclass
@@ -352,8 +547,17 @@ class PptxOptions(BaseOptions):
         >>> options = PptxOptions(include_notes=False)
     """
 
-    slide_numbers: bool = DEFAULT_SLIDE_NUMBERS
-    include_notes: bool = True
+    slide_numbers: bool = field(
+        default=DEFAULT_SLIDE_NUMBERS,
+        metadata={"help": "Include slide numbers in output"}
+    )
+    include_notes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include speaker notes from slides",
+            "cli_name": "no-include-notes"
+        }
+    )
 
 
 @dataclass
@@ -404,16 +608,52 @@ class EmlOptions(BaseOptions):
         >>> options = EmlOptions(clean_quotes=False, clean_wrapped_urls=False)
     """
 
-    include_headers: bool = True
-    preserve_thread_structure: bool = True
-    date_format_mode: DateFormatMode = DEFAULT_DATE_FORMAT_MODE
-    date_strftime_pattern: str = DEFAULT_DATE_STRFTIME_PATTERN
-    convert_html_to_markdown: bool = DEFAULT_CONVERT_HTML_TO_MARKDOWN
-    clean_quotes: bool = DEFAULT_CLEAN_QUOTES
-    detect_reply_separators: bool = DEFAULT_DETECT_REPLY_SEPARATORS
-    normalize_headers: bool = DEFAULT_NORMALIZE_HEADERS
-    preserve_raw_headers: bool = DEFAULT_PRESERVE_RAW_HEADERS
-    clean_wrapped_urls: bool = DEFAULT_CLEAN_WRAPPED_URLS
+    include_headers: bool = field(
+        default=True,
+        metadata={
+            "help": "Include email headers (From, To, Subject, Date) in output",
+            "cli_name": "no-include-headers"
+        }
+    )
+    preserve_thread_structure: bool = field(
+        default=True,
+        metadata={
+            "help": "Maintain email thread/reply chain structure",
+            "cli_name": "no-preserve-thread-structure"
+        }
+    )
+    date_format_mode: DateFormatMode = field(
+        default=DEFAULT_DATE_FORMAT_MODE,
+        metadata={"help": "Date formatting mode: iso8601, locale, or strftime"}
+    )
+    date_strftime_pattern: str = field(
+        default=DEFAULT_DATE_STRFTIME_PATTERN,
+        metadata={"help": "Custom strftime pattern for date formatting"}
+    )
+    convert_html_to_markdown: bool = field(
+        default=DEFAULT_CONVERT_HTML_TO_MARKDOWN,
+        metadata={"help": "Convert HTML content to Markdown"}
+    )
+    clean_quotes: bool = field(
+        default=DEFAULT_CLEAN_QUOTES,
+        metadata={"help": "Clean and normalize quoted content"}
+    )
+    detect_reply_separators: bool = field(
+        default=DEFAULT_DETECT_REPLY_SEPARATORS,
+        metadata={"help": "Detect common reply separators"}
+    )
+    normalize_headers: bool = field(
+        default=DEFAULT_NORMALIZE_HEADERS,
+        metadata={"help": "Normalize header casing and whitespace"}
+    )
+    preserve_raw_headers: bool = field(
+        default=DEFAULT_PRESERVE_RAW_HEADERS,
+        metadata={"help": "Preserve both raw and decoded header values"}
+    )
+    clean_wrapped_urls: bool = field(
+        default=DEFAULT_CLEAN_WRAPPED_URLS,
+        metadata={"help": "Clean URL defense/safety wrappers from links"}
+    )
     url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
 
 
@@ -464,7 +704,13 @@ class OdfOptions(BaseOptions):
         Whether to preserve table formatting in Markdown.
     """
 
-    preserve_tables: bool = True
+    preserve_tables: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve table formatting in Markdown",
+            "cli_name": "no-preserve-tables"
+        }
+    )
 
 
 @dataclass
@@ -483,8 +729,20 @@ class EpubOptions(BaseOptions):
         Whether to generate and prepend a Markdown Table of Contents.
     """
 
-    merge_chapters: bool = True
-    include_toc: bool = True
+    merge_chapters: bool = field(
+        default=True,
+        metadata={
+            "help": "Merge chapters into a single continuous document",
+            "cli_name": "no-merge-chapters"
+        }
+    )
+    include_toc: bool = field(
+        default=True,
+        metadata={
+            "help": "Generate and prepend a Markdown Table of Contents",
+            "cli_name": "no-include-toc"
+        }
+    )
 
 
 @dataclass

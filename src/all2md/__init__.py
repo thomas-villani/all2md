@@ -275,8 +275,8 @@ def _get_format_from_filename(filename: str) -> DocumentFormat:
         '.tsv': 'tsv',
         '.eml': 'eml',
         '.ipynb': 'ipynb',
-        '.odt': 'odt',
-        '.odp': 'odp',
+        '.odt': 'odf',
+        '.odp': 'odf',
         '.epub': 'epub',
         '.png': 'image',
         '.jpg': 'image',
@@ -421,8 +421,7 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "eml": EmlOptions,
         "ipynb": IpynbOptions,
         "rtf": RtfOptions,
-        "odt": OdfOptions,
-        "odp": OdfOptions,
+        "odf": OdfOptions,
         "epub": EpubOptions
     }
     return format_to_class.get(format)
@@ -653,72 +652,74 @@ def to_markdown(
         # No options provided
         final_options = None
 
-    # Process file based on detected/specified format using registry
-    try:
-        # Get converter function from registry
-        converter_func, options_class = registry.get_converter(actual_format)
-
-        # Handle special cases for different input types
-        if actual_format == "html":
-            file.seek(0)
-            html_content = file.read().decode("utf-8", errors="replace")
-            content = converter_func(html_content, options=final_options)
-        elif actual_format in ("csv", "tsv"):
-            # Handle CSV/TSV with pandas fallback
-            file.seek(0)
+    # Handle special cases before registry lookup
+    if actual_format in ("csv", "tsv"):
+        # Handle CSV/TSV with pandas fallback
+        file.seek(0)
+        try:
+            import pandas as pd
+            delimiter = "," if actual_format == "csv" else "\t"
+            df = pd.read_csv(file, delimiter=delimiter, encoding="utf-8")
             try:
-                import pandas as pd
-                delimiter = "," if actual_format == "csv" else "\t"
-                df = pd.read_csv(file, delimiter=delimiter, encoding="utf-8")
-                try:
-                    content = df.to_markdown()
-                except ImportError:
-                    # tabulate not available, create simple markdown table
-                    logger.debug("tabulate not available, creating simple markdown table")
-                    content = _dataframe_to_simple_markdown(df)
+                content = df.to_markdown()
             except ImportError:
-                content = file.read().decode("utf-8", errors="replace")
-        elif actual_format == "xlsx":
-            # Handle Excel with pandas
-            try:
-                import pandas as pd
-            except ImportError as e:
-                raise DependencyError(
-                    converter_name="xlsx",
-                    missing_packages=[("pandas", "")],
-                ) from e
+                # tabulate not available, create simple markdown table
+                logger.debug("tabulate not available, creating simple markdown table")
+                content = _dataframe_to_simple_markdown(df)
+        except ImportError:
+            content = file.read().decode("utf-8", errors="replace")
+    elif actual_format == "xlsx":
+        # Handle Excel with pandas
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="xlsx",
+                missing_packages=[("pandas", "")],
+            ) from e
 
-            file.seek(0)
-            excel_file = pd.ExcelFile(file)
-            content = ""
-            for sheet_name in excel_file.sheet_names:
-                df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                content += "## " + sheet_name + "\n"
-                content += df.to_markdown()
-                content += "\n\n---\n\n"
-        else:
-            # Standard converter call
-            file.seek(0)
-            content = converter_func(file, options=final_options)
+        file.seek(0)
+        excel_file = pd.ExcelFile(file)
+        content = ""
+        for sheet_name in excel_file.sheet_names:
+            df = pd.read_excel(excel_file, sheet_name=sheet_name)
+            content += "## " + sheet_name + "\n"
+            content += df.to_markdown()
+            content += "\n\n---\n\n"
+    # Process file based on detected/specified format using registry
+    else:
+        try:
+            # Get converter function from registry
+            converter_func, options_class = registry.get_converter(actual_format)
 
-    except DependencyError:
-        # Re-raise dependency errors as-is
-        raise
-    except FormatError:
-        # Handle unknown formats by falling back to text
-        if actual_format not in ["txt", "image"]:
-            logger.warning(f"Unknown format '{actual_format}', falling back to text")
-            actual_format = "txt"
+            # Handle special cases for different input types
+            if actual_format == "html":
+                file.seek(0)
+                html_content = file.read().decode("utf-8", errors="replace")
+                content = converter_func(html_content, options=final_options)
+            else:
+                # Standard converter call
+                file.seek(0)
+                content = converter_func(file, options=final_options)
 
-        if actual_format == "image":
-            raise FormatError("Invalid input type: `image` not supported.") from None
-        else:
-            # Plain text handling
-            file.seek(0)
-            try:
-                content = file.read().decode("utf-8", errors="replace")
-            except Exception as e:
-                raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
+        except DependencyError:
+            # Re-raise dependency errors as-is
+            raise
+        except FormatError:
+            # Handle unknown formats by falling back to text
+            if actual_format not in ["txt", "image"]:
+                logger.warning(f"Unknown format '{actual_format}', falling back to text")
+                actual_format = "txt"
+
+            if actual_format == "image":
+                raise FormatError("Invalid input type: `image` not supported.") from None
+            else:
+                # Plain text handling
+                file.seek(0)
+                try:
+                    content = file.read().decode("utf-8", errors="replace")
+                except Exception as e:
+                    raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
 
 
     # Fix windows newlines and return

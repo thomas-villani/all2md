@@ -406,13 +406,13 @@ class TestCLIIntegration:
 
             result = main([
                 str(test_file),
-                "--format", "odt"
+                "--format", "odf"
             ])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs['format'] == 'odt'
+            assert kwargs['format'] == 'odf'
 
     def test_odf_attachment_handling(self):
         """Test ODF attachment handling options."""
