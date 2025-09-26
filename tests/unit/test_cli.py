@@ -256,3 +256,385 @@ class TestCLIParser:
         args = parser.parse_args(["test.eml", "--eml-no-include-headers", "--eml-no-preserve-thread-structure"])
         assert args.eml_include_headers is False
         assert args.eml_preserve_thread_structure is False
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestNewCLIFeatures:
+    """Test new CLI features added for enhanced functionality."""
+
+    def test_rich_flag_parsing(self):
+        """Test --rich flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.rich is False
+
+        # Test with --rich flag
+        args = parser.parse_args(["test.pdf", "--rich"])
+        assert args.rich is True
+
+    def test_progress_flag_parsing(self):
+        """Test --progress flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.progress is False
+
+        # Test with --progress flag
+        args = parser.parse_args(["test.pdf", "--progress"])
+        assert args.progress is True
+
+    def test_output_dir_parsing(self):
+        """Test --output-dir argument parsing."""
+        parser = create_parser()
+
+        # Test default (None)
+        args = parser.parse_args(["test.pdf"])
+        assert args.output_dir is None
+
+        # Test with output directory
+        args = parser.parse_args(["test.pdf", "--output-dir", "./converted"])
+        assert args.output_dir == "./converted"
+
+    def test_recursive_flag_parsing(self):
+        """Test --recursive/-r flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.recursive is False
+
+        # Test with --recursive
+        args = parser.parse_args(["test.pdf", "--recursive"])
+        assert args.recursive is True
+
+        # Test with -r shorthand
+        args = parser.parse_args(["test.pdf", "-r"])
+        assert args.recursive is True
+
+    def test_parallel_flag_parsing(self):
+        """Test --parallel/-p flag parsing with optional worker count."""
+        parser = create_parser()
+
+        # Test default (1)
+        args = parser.parse_args(["test.pdf"])
+        assert args.parallel == 1
+
+        # Test with --parallel (no value, should use const=None)
+        args = parser.parse_args(["test.pdf", "--parallel"])
+        assert args.parallel is None
+
+        # Test with specific worker count
+        args = parser.parse_args(["test.pdf", "--parallel", "4"])
+        assert args.parallel == 4
+
+        # Test with -p shorthand
+        args = parser.parse_args(["test.pdf", "-p", "2"])
+        assert args.parallel == 2
+
+    def test_skip_errors_flag_parsing(self):
+        """Test --skip-errors flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.skip_errors is False
+
+        # Test with --skip-errors
+        args = parser.parse_args(["test.pdf", "--skip-errors"])
+        assert args.skip_errors is True
+
+    def test_preserve_structure_flag_parsing(self):
+        """Test --preserve-structure flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.preserve_structure is False
+
+        # Test with --preserve-structure
+        args = parser.parse_args(["test.pdf", "--preserve-structure"])
+        assert args.preserve_structure is True
+
+    def test_collate_flag_parsing(self):
+        """Test --collate flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.collate is False
+
+        # Test with --collate
+        args = parser.parse_args(["test.pdf", "--collate"])
+        assert args.collate is True
+
+    def test_no_summary_flag_parsing(self):
+        """Test --no-summary flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["test.pdf"])
+        assert args.no_summary is False
+
+        # Test with --no-summary
+        args = parser.parse_args(["test.pdf", "--no-summary"])
+        assert args.no_summary is True
+
+    def test_multiple_input_files_parsing(self):
+        """Test parsing of multiple input files."""
+        parser = create_parser()
+
+        # Test single file
+        args = parser.parse_args(["test.pdf"])
+        assert args.input == ["test.pdf"]
+
+        # Test multiple files
+        args = parser.parse_args(["file1.pdf", "file2.docx", "file3.html"])
+        assert args.input == ["file1.pdf", "file2.docx", "file3.html"]
+
+        # Test no input files (should be empty list)
+        args = parser.parse_args([])
+        assert args.input == []
+
+    def test_complex_multi_file_options_combination(self):
+        """Test complex combination of multi-file options."""
+        parser = create_parser()
+
+        args = parser.parse_args([
+            "file1.pdf", "file2.docx",
+            "--output-dir", "./converted",
+            "--recursive",
+            "--parallel", "4",
+            "--skip-errors",
+            "--preserve-structure",
+            "--collate",
+            "--rich",
+            "--no-summary"
+        ])
+
+        assert args.input == ["file1.pdf", "file2.docx"]
+        assert args.output_dir == "./converted"
+        assert args.recursive is True
+        assert args.parallel == 4
+        assert args.skip_errors is True
+        assert args.preserve_structure is True
+        assert args.collate is True
+        assert args.rich is True
+        assert args.no_summary is True
+
+    def test_environment_variable_support_unit(self):
+        """Test environment variable parsing logic."""
+        from all2md.cli import get_env_var_value
+        import os
+
+        # Test getting environment variable
+        os.environ['ALL2MD_RICH'] = 'true'
+        os.environ['ALL2MD_OUTPUT_DIR'] = '/tmp/test'
+        os.environ['ALL2MD_PARALLEL'] = '4'
+
+        try:
+            assert get_env_var_value('rich') == 'true'
+            assert get_env_var_value('output_dir') == '/tmp/test'
+            assert get_env_var_value('parallel') == '4'
+            assert get_env_var_value('nonexistent') is None
+        finally:
+            # Clean up
+            os.environ.pop('ALL2MD_RICH', None)
+            os.environ.pop('ALL2MD_OUTPUT_DIR', None)
+            os.environ.pop('ALL2MD_PARALLEL', None)
+
+    def test_environment_variable_type_conversion(self):
+        """Test environment variable type conversion for different argument types."""
+        from all2md.cli import apply_env_vars_to_parser
+        import os
+
+        parser = create_parser()
+
+        # Set environment variables
+        os.environ['ALL2MD_RICH'] = 'true'
+        os.environ['ALL2MD_NO_SUMMARY'] = 'false'
+        os.environ['ALL2MD_PARALLEL'] = '4'
+        os.environ['ALL2MD_OUTPUT_DIR'] = '/tmp/test'
+
+        try:
+            # Apply environment variables
+            apply_env_vars_to_parser(parser)
+
+            # Test that defaults were set from environment
+            args = parser.parse_args(["test.pdf"])
+            assert args.rich is True  # Boolean conversion
+            assert args.no_summary is False  # Boolean false conversion
+            assert args.parallel == 4  # Integer conversion
+            assert args.output_dir == '/tmp/test'  # String value
+
+        finally:
+            # Clean up
+            os.environ.pop('ALL2MD_RICH', None)
+            os.environ.pop('ALL2MD_NO_SUMMARY', None)
+            os.environ.pop('ALL2MD_PARALLEL', None)
+            os.environ.pop('ALL2MD_OUTPUT_DIR', None)
+
+    def test_environment_variable_precedence(self):
+        """Test that CLI arguments take precedence over environment variables."""
+        from all2md.cli import apply_env_vars_to_parser
+        import os
+
+        parser = create_parser()
+
+        # Set environment variable
+        os.environ['ALL2MD_RICH'] = 'true'
+
+        try:
+            apply_env_vars_to_parser(parser)
+
+            # CLI arg should override env var
+            args = parser.parse_args(["test.pdf"])
+            assert args.rich is True  # From env var
+
+            # No way to test override in unit test since argparse sets defaults
+            # This will be tested in integration tests
+
+        finally:
+            os.environ.pop('ALL2MD_RICH', None)
+
+    def test_invalid_parallel_worker_count(self):
+        """Test error handling for invalid parallel worker counts."""
+        parser = create_parser()
+
+        # Test with invalid (negative) worker count
+        # Note: argparse may not validate negative integers by default
+        # This test verifies the parser accepts the argument but logic validation
+        # should happen in main() function
+        args = parser.parse_args(["test.pdf", "--parallel", "-1"])
+        assert args.parallel == -1  # Parser accepts it, main() should validate
+
+    def test_conflicting_options_validation(self):
+        """Test validation of conflicting options."""
+        parser = create_parser()
+
+        # These should parse successfully but might conflict logically
+        # The CLI should handle conflicts gracefully in main()
+        args = parser.parse_args([
+            "test.pdf",
+            "--collate",
+            "--output-dir", "./individual"  # Conflict: collate typically goes to single output
+        ])
+
+        assert args.collate is True
+        assert args.output_dir == "./individual"
+        # Logic validation happens in main(), not parser
+
+    def test_backward_compatibility_preserved(self):
+        """Test that new features don't break existing CLI usage."""
+        parser = create_parser()
+
+        # All existing usage patterns should still work
+        test_cases = [
+            ["document.pdf"],
+            ["document.pdf", "--out", "output.md"],
+            ["document.pdf", "--format", "pdf"],
+            ["document.html", "--html-extract-title"],
+            ["document.pdf", "--pdf-pages", "1,2,3"],
+            ["document.pdf", "--attachment-mode", "download"],
+        ]
+
+        for args_list in test_cases:
+            args = parser.parse_args(args_list)
+            # Should parse successfully and have expected format
+            assert hasattr(args, 'input')
+            assert hasattr(args, 'format')
+            # New attributes should exist with defaults
+            assert hasattr(args, 'rich')
+            assert hasattr(args, 'progress')
+            assert hasattr(args, 'collate')
+
+    def test_file_collection_logic_unit(self):
+        """Test file collection logic with various patterns."""
+        from all2md.cli import collect_input_files
+        from pathlib import Path
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test files
+            (temp_path / "file1.pdf").write_text("test")
+            (temp_path / "file2.docx").write_text("test")
+            (temp_path / "file3.txt").write_text("test")
+            (temp_path / "subdir").mkdir()
+            (temp_path / "subdir" / "nested.pdf").write_text("test")
+
+            # Test single file
+            files = collect_input_files([str(temp_path / "file1.pdf")])
+            assert len(files) == 1
+            assert files[0].name == "file1.pdf"
+
+            # Test directory (non-recursive)
+            files = collect_input_files([str(temp_path)], recursive=False)
+            assert len(files) >= 3  # At least the files we created
+
+            # Test directory (recursive)
+            files = collect_input_files([str(temp_path)], recursive=True)
+            assert len(files) >= 4  # Including nested file
+
+            # Test specific extensions
+            files = collect_input_files([str(temp_path)], extensions=['.pdf'])
+            pdf_files = [f for f in files if f.suffix == '.pdf']
+            assert len(pdf_files) >= 1
+
+    def test_output_path_generation(self):
+        """Test output path generation logic."""
+        from all2md.cli import generate_output_path
+        from pathlib import Path
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            input_file = temp_path / "test.pdf"
+
+            # Test basic output path generation
+            output_path = generate_output_path(input_file)
+            assert output_path.name == "test.md"
+            assert output_path.parent == temp_path
+
+            # Test with output directory
+            output_dir = temp_path / "output"
+            output_path = generate_output_path(input_file, output_dir)
+            assert output_path.name == "test.md"
+            assert output_path.parent == output_dir
+
+            # Test with structure preservation
+            base_dir = temp_path / "base"
+            nested_input = base_dir / "sub" / "nested.pdf"
+            output_path = generate_output_path(
+                nested_input, output_dir, preserve_structure=True, base_input_dir=base_dir
+            )
+            assert output_path.name == "nested.md"
+            assert "sub" in str(output_path)
+
+    def test_cli_help_contains_new_options(self):
+        """Test that help text includes all new options."""
+        parser = create_parser()
+        help_text = parser.format_help()
+
+        # Check that new options appear in help
+        assert "--rich" in help_text
+        assert "--progress" in help_text
+        assert "--output-dir" in help_text
+        assert "--recursive" in help_text
+        assert "--parallel" in help_text
+        assert "--skip-errors" in help_text
+        assert "--preserve-structure" in help_text
+        assert "--collate" in help_text
+        assert "--no-summary" in help_text
+
+        # Check help descriptions are meaningful
+        assert "rich terminal output" in help_text.lower()
+        assert "progress bar" in help_text.lower()
+        assert "parallel" in help_text.lower()
+        assert "recursive" in help_text.lower()
+        assert "collate" in help_text.lower() or "combine" in help_text.lower()

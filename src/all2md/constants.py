@@ -191,7 +191,7 @@ else:
     # Fallback to most common
     PLAINTEXT_EXTENSIONS = common_file_extensions = [
         ".js", ".json", ".html", ".css", ".py", ".java", ".cpp", ".c", ".h", ".ts", ".md", ".xml", ".sh", ".rb",
-        ".go", ".php", ".swift", ".rs", ".yaml", ".yml", ".txt"
+        ".go", ".php", ".swift", ".rs", ".yaml", ".yml", ".txt",
         ".jsx", ".tsx", ".json5", ".m", ".pl", ".bat", ".ps1", ".lua", ".coffee", ".dart", ".scss", ".sass", ".less",
         ".vue", ".graphql", ".gradle", ".toml", ".ini", ".conf", ".dockerfile"
     ]

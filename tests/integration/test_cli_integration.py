@@ -685,3 +685,438 @@ This is a complex document with:
             assert kwargs['attachment_mode'] == 'base64'
             assert kwargs['emphasis_symbol'] == '_'
             assert kwargs['bullet_symbols'] == '*'
+
+
+@pytest.mark.integration
+@pytest.mark.cli
+class TestAdvancedCLIIntegration:
+    """Integration tests for advanced CLI features."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def test_rich_output_integration(self, capsys):
+        """Test rich output integration with fallback behavior."""
+        # Create test HTML files
+        files = []
+        for i in range(3):
+            html_file = self.temp_dir / f"test_{i}.html"
+            html_file.write_text(f"<h1>Test Document {i}</h1><p>Content {i}</p>")
+            files.append(html_file)
+
+        output_dir = self.temp_dir / "output"
+
+        # Test rich output (may fallback if rich not installed)
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = f"# Test Document\n\nContent"
+
+            result = main([
+                str(files[0]), str(files[1]),
+                "--rich",
+                "--output-dir", str(output_dir),
+                "--no-summary"  # Disable summary to test just rich processing
+            ])
+
+            assert result == 0
+            # Should process without crashing regardless of rich availability
+
+    def test_progress_bar_integration(self, capsys):
+        """Test progress bar integration with fallback behavior."""
+        # Create multiple test files
+        files = []
+        for i in range(5):
+            html_file = self.temp_dir / f"doc_{i}.html"
+            html_file.write_text(f"<h1>Document {i}</h1><p>Test content {i}</p>")
+            files.append(str(html_file))
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Document\n\nTest content"
+
+            result = main([
+                *files,
+                "--progress",
+                "--no-summary"
+            ])
+
+            assert result == 0
+            # Should handle progress bar gracefully (with or without tqdm)
+
+    def test_multi_file_processing_integration(self):
+        """Test multi-file processing with various options."""
+        # Create test files with different formats
+        html_file = self.temp_dir / "test.html"
+        html_file.write_text("<h1>HTML Test</h1><p>HTML content</p>")
+
+        markdown_file = self.temp_dir / "test.md"
+        markdown_file.write_text("# Markdown Test\n\nMarkdown content")
+
+        output_dir = self.temp_dir / "converted"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            def mock_conversion(input_path, **kwargs):
+                if "html" in str(input_path):
+                    return "# HTML Test\n\nHTML content"
+                else:
+                    return "# Markdown Test\n\nMarkdown content"
+
+            mock_to_markdown.side_effect = mock_conversion
+
+            result = main([
+                str(html_file),
+                str(markdown_file),
+                "--output-dir", str(output_dir),
+                "--skip-errors",
+                "--no-summary"
+            ])
+
+            assert result == 0
+            assert output_dir.exists()
+
+            # Check that files were created
+            converted_files = list(output_dir.glob("*.md"))
+            assert len(converted_files) >= 2
+
+    def test_collation_integration(self):
+        """Test file collation integration."""
+        # Create multiple test files
+        files = []
+        for i in range(3):
+            test_file = self.temp_dir / f"section_{i}.html"
+            test_file.write_text(f"<h1>Section {i}</h1><p>Content for section {i}</p>")
+            files.append(str(test_file))
+
+        output_file = self.temp_dir / "combined.md"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            def mock_conversion(input_path, **kwargs):
+                # Extract number from filename
+                filename = str(input_path)
+                if "section_0" in filename:
+                    return "# Section 0\n\nContent for section 0"
+                elif "section_1" in filename:
+                    return "# Section 1\n\nContent for section 1"
+                else:
+                    return "# Section 2\n\nContent for section 2"
+
+            mock_to_markdown.side_effect = mock_conversion
+
+            result = main([
+                *files,
+                "--collate",
+                "--out", str(output_file),
+                "--no-summary"
+            ])
+
+            assert result == 0
+            assert output_file.exists()
+
+            content = output_file.read_text()
+            # Should contain all sections with separators
+            assert "# File: section_0.html" in content
+            assert "# File: section_1.html" in content
+            assert "# File: section_2.html" in content
+            assert "Section 0" in content
+            assert "Section 1" in content
+            assert "Section 2" in content
+            assert "---" in content  # File separator
+
+    def test_recursive_directory_processing(self):
+        """Test recursive directory processing."""
+        # Create nested directory structure
+        (self.temp_dir / "subdir1").mkdir()
+        (self.temp_dir / "subdir2").mkdir()
+        (self.temp_dir / "subdir1" / "nested").mkdir()
+
+        # Create test files at different levels
+        files_created = [
+            self.temp_dir / "root.html",
+            self.temp_dir / "subdir1" / "level1.html",
+            self.temp_dir / "subdir2" / "another.html",
+            self.temp_dir / "subdir1" / "nested" / "deep.html"
+        ]
+
+        for i, file_path in enumerate(files_created):
+            file_path.write_text(f"<h1>Test {i}</h1><p>Content {i}</p>")
+
+        output_dir = self.temp_dir / "output"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\nContent"
+
+            result = main([
+                str(self.temp_dir),
+                "--recursive",
+                "--output-dir", str(output_dir),
+                "--preserve-structure",
+                "--no-summary"
+            ])
+
+            assert result == 0
+            assert output_dir.exists()
+
+            # Should have processed files from all directories
+            output_files = list(output_dir.rglob("*.md"))
+            assert len(output_files) >= 4  # At least our test files
+
+    def test_environment_variable_integration(self):
+        """Test environment variable integration with CLI precedence."""
+        import os
+
+        html_file = self.temp_dir / "test.html"
+        html_file.write_text("<h1>Test</h1>")
+
+        # Set environment variables
+        os.environ['ALL2MD_NO_SUMMARY'] = 'true'
+        os.environ['ALL2MD_OUTPUT_DIR'] = str(self.temp_dir / "env_output")
+
+        try:
+            with patch('all2md.to_markdown') as mock_to_markdown:
+                mock_to_markdown.return_value = "# Test\n\nContent"
+
+                # Test using environment variables
+                result = main([str(html_file)])
+
+                assert result == 0
+                # Should use env var for output dir (if not overridden)
+
+            # Test CLI override of environment variables
+            with patch('all2md.to_markdown') as mock_to_markdown:
+                mock_to_markdown.return_value = "# Test\n\nContent"
+
+                cli_output_dir = self.temp_dir / "cli_output"
+                result = main([
+                    str(html_file),
+                    "--output-dir", str(cli_output_dir)  # Should override env var
+                ])
+
+                assert result == 0
+
+        finally:
+            # Clean up environment
+            os.environ.pop('ALL2MD_NO_SUMMARY', None)
+            os.environ.pop('ALL2MD_OUTPUT_DIR', None)
+
+    def test_parallel_processing_integration(self):
+        """Test parallel processing integration."""
+        # Create multiple test files
+        files = []
+        for i in range(4):
+            test_file = self.temp_dir / f"parallel_{i}.html"
+            test_file.write_text(f"<h1>Parallel Test {i}</h1><p>Content {i}</p>")
+            files.append(str(test_file))
+
+        output_dir = self.temp_dir / "parallel_output"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            def slow_conversion(input_path, **kwargs):
+                import time
+                time.sleep(0.1)  # Simulate processing time
+                return f"# Converted {input_path.name}\n\nContent"
+
+            mock_to_markdown.side_effect = slow_conversion
+
+            # Test parallel processing
+            result = main([
+                *files,
+                "--parallel", "2",
+                "--output-dir", str(output_dir),
+                "--no-summary"
+            ])
+
+            assert result == 0
+            assert output_dir.exists()
+
+            # All files should be processed
+            output_files = list(output_dir.glob("*.md"))
+            assert len(output_files) == 4
+
+    def test_error_handling_with_skip_errors(self, capsys):
+        """Test error handling with --skip-errors flag."""
+        # Create test files, one that will cause an error
+        good_file = self.temp_dir / "good.html"
+        good_file.write_text("<h1>Good File</h1>")
+
+        bad_file = self.temp_dir / "bad.html"
+        bad_file.write_text("<h1>Bad File</h1>")
+
+        output_dir = self.temp_dir / "error_output"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            def selective_error(input_path, **kwargs):
+                if "bad" in str(input_path):
+                    raise Exception("Simulated conversion error")
+                return "# Good File\n\nContent"
+
+            mock_to_markdown.side_effect = selective_error
+
+            # Test with skip-errors
+            result = main([
+                str(good_file),
+                str(bad_file),
+                "--skip-errors",
+                "--output-dir", str(output_dir),
+                "--no-summary"
+            ])
+
+            assert result == 1  # Should return error code but continue processing
+
+            # Good file should be processed
+            good_output = output_dir / "good.md"
+            assert good_output.exists()
+
+            # Error should be logged
+            captured = capsys.readouterr()
+            assert "Error:" in captured.stderr or "failed" in captured.stderr.lower()
+
+    def test_complex_option_combinations(self):
+        """Test complex combinations of new CLI options."""
+        # Create test files
+        files = []
+        for i in range(3):
+            test_file = self.temp_dir / f"complex_{i}.html"
+            test_file.write_text(f"<h1>Complex {i}</h1><p>Test {i}</p>")
+            files.append(str(test_file))
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Complex\n\nTest content"
+
+            # Test combination of many new features
+            result = main([
+                *files,
+                "--rich",           # Rich output
+                "--progress",       # Progress bar
+                "--parallel", "2",  # Parallel processing
+                "--skip-errors",    # Error handling
+                "--collate",        # File collation
+                "--no-summary"      # No summary
+            ])
+
+            # Should handle all options gracefully
+            assert result == 0
+
+    def test_attachment_handling_with_multi_file(self):
+        """Test attachment handling across multiple files."""
+        # Create HTML files with images
+        html1 = self.temp_dir / "doc1.html"
+        html1.write_text('<h1>Doc 1</h1><img src="image1.png" alt="Image 1">')
+
+        html2 = self.temp_dir / "doc2.html"
+        html2.write_text('<h1>Doc 2</h1><img src="image2.png" alt="Image 2">')
+
+        output_dir = self.temp_dir / "multi_output"
+        images_dir = self.temp_dir / "images"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            def mock_with_images(input_path, **kwargs):
+                if "doc1" in str(input_path):
+                    return "# Doc 1\n\n![Image 1](images/image1.png)"
+                else:
+                    return "# Doc 2\n\n![Image 2](images/image2.png)"
+
+            mock_to_markdown.side_effect = mock_with_images
+
+            result = main([
+                str(html1),
+                str(html2),
+                "--output-dir", str(output_dir),
+                "--attachment-mode", "download",
+                "--attachment-output-dir", str(images_dir),
+                "--no-summary"
+            ])
+
+            assert result == 0
+
+            # Verify attachment options were passed to converter
+            assert mock_to_markdown.call_count == 2
+            for call in mock_to_markdown.call_args_list:
+                kwargs = call[1]
+                assert kwargs['attachment_mode'] == 'download'
+                assert str(images_dir) in kwargs['attachment_output_dir']
+
+    def test_markdown_options_with_multi_file(self):
+        """Test Markdown formatting options across multiple files."""
+        files = [
+            self.temp_dir / "test1.html",
+            self.temp_dir / "test2.html"
+        ]
+
+        for i, file_path in enumerate(files):
+            file_path.write_text(f"<h1>Test {i}</h1><p><em>Italic</em> and <strong>bold</strong></p>")
+
+        output_dir = self.temp_dir / "formatted_output"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Test\n\n_Italic_ and **bold**"
+
+            result = main([
+                str(files[0]),
+                str(files[1]),
+                "--output-dir", str(output_dir),
+                "--markdown-emphasis-symbol", "_",
+                "--markdown-bullet-symbols", "•",
+                "--no-summary"
+            ])
+
+            assert result == 0
+
+            # Verify markdown options were passed
+            for call in mock_to_markdown.call_args_list:
+                kwargs = call[1]
+                assert kwargs['emphasis_symbol'] == '_'
+                assert kwargs['bullet_symbols'] == '•'
+
+    def test_format_detection_with_multi_file(self):
+        """Test format detection across multiple file types."""
+        # Create files with different extensions
+        files = {
+            'test.html': '<h1>HTML</h1><p>HTML content</p>',
+            'test.pdf': 'Mock PDF content',  # Will be mocked
+            'test.docx': 'Mock DOCX content',  # Will be mocked
+        }
+
+        file_paths = []
+        for filename, content in files.items():
+            file_path = self.temp_dir / filename
+            file_path.write_text(content)
+            file_paths.append(str(file_path))
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            def format_specific_mock(input_path, **kwargs):
+                path_str = str(input_path)
+                if 'html' in path_str:
+                    return "# HTML Document\n\nHTML content"
+                elif 'pdf' in path_str:
+                    return "# PDF Document\n\nPDF content"
+                else:
+                    return "# DOCX Document\n\nDOCX content"
+
+            mock_to_markdown.side_effect = format_specific_mock
+
+            result = main([
+                *file_paths,
+                "--no-summary"
+            ])
+
+            assert result == 0
+            assert mock_to_markdown.call_count == 3
+
+    def test_stdin_compatibility_preserved(self, capsys):
+        """Test that stdin processing still works with new features."""
+        test_content = "<h1>Stdin Test</h1><p>Content from stdin</p>"
+
+        with patch('all2md.to_markdown') as mock_to_markdown:
+            mock_to_markdown.return_value = "# Stdin Test\n\nContent from stdin"
+
+            with patch('sys.stdin') as mock_stdin:
+                mock_stdin.buffer.read.return_value = test_content.encode()
+
+                result = main(["-"])  # stdin
+
+                assert result == 0
+                captured = capsys.readouterr()
+                assert "# Stdin Test" in captured.out

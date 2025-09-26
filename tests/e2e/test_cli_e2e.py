@@ -4,6 +4,7 @@ This module tests the CLI as a subprocess, simulating real-world usage patterns
 and testing the complete pipeline from command-line to file output.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -159,7 +160,7 @@ def example_function():
         result = self._run_cli([str(nonexistent_file)])
 
         assert result.returncode == 1
-        assert "Error: Input file does not exist" in result.stderr
+        assert "WARNING: Path does not exist" in result.stderr
 
     def test_invalid_format_error(self):
         """Test error handling for invalid format."""
@@ -1082,3 +1083,511 @@ class TestMhtmlCLIEndToEnd:
 
         assert result.returncode == 1
         assert "Error" in result.stderr
+
+
+@pytest.mark.e2e
+@pytest.mark.cli
+class TestAdvancedCLIFeaturesE2E:
+    """End-to-end tests for advanced CLI features."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        cleanup_test_dir(self.temp_dir)
+
+    def _run_cli(self, args: list[str]) -> subprocess.CompletedProcess:
+        """Run the CLI as a subprocess."""
+        cmd = [sys.executable, "-m", "all2md"] + args
+        cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
+        return subprocess.run(
+            cmd,
+            cwd=cli_path.parent.parent.parent,  # Run from project root
+            capture_output=True,
+            text=True
+        )
+
+    def test_rich_output_e2e(self):
+        """Test rich output end-to-end."""
+        # Create test HTML files
+        html_file1 = self.temp_dir / "test1.html"
+        html_file1.write_text("<h1>Test Document 1</h1><p>Content 1</p>")
+
+        html_file2 = self.temp_dir / "test2.html"
+        html_file2.write_text("<h1>Test Document 2</h1><p>Content 2</p>")
+
+        output_dir = self.temp_dir / "rich_output"
+
+        # Run with rich flag
+        result = self._run_cli([
+            str(html_file1),
+            str(html_file2),
+            "--rich",
+            "--output-dir", str(output_dir)
+        ])
+
+        # Should work regardless of rich availability
+        assert result.returncode == 0
+        assert output_dir.exists()
+
+        # Check output files were created
+        output_files = list(output_dir.glob("*.md"))
+        assert len(output_files) == 2
+
+    def test_progress_bar_e2e(self):
+        """Test progress bar end-to-end."""
+        # Create multiple test files
+        files = []
+        for i in range(4):
+            html_file = self.temp_dir / f"progress_{i}.html"
+            html_file.write_text(f"<h1>Document {i}</h1><p>Content {i}</p>")
+            files.append(str(html_file))
+
+        # Run with progress flag
+        result = self._run_cli([
+            *files,
+            "--progress"
+        ])
+
+        assert result.returncode == 0
+        # Should handle gracefully whether tqdm is available or not
+
+    def test_multi_file_processing_e2e(self):
+        """Test multi-file processing end-to-end."""
+        # Create test files of different types
+        html_file = self.temp_dir / "test.html"
+        html_file.write_text("<h1>HTML Document</h1><p>HTML content</p>")
+
+        # Create another HTML file (we can't easily create real PDF/DOCX in tests)
+        html_file2 = self.temp_dir / "test2.html"
+        html_file2.write_text("<h2>Second Document</h2><p>More content</p>")
+
+        output_dir = self.temp_dir / "multi_output"
+
+        result = self._run_cli([
+            str(html_file),
+            str(html_file2),
+            "--output-dir", str(output_dir),
+            "--no-summary"
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_dir.exists()
+
+        # Check output files
+        output_files = list(output_dir.glob("*.md"))
+        assert len(output_files) == 2
+
+        # Verify content
+        for output_file in output_files:
+            content = output_file.read_text()
+            assert len(content.strip()) > 0
+
+    def test_collation_e2e(self):
+        """Test file collation end-to-end."""
+        # Create multiple HTML files
+        files = []
+        for i in range(3):
+            html_file = self.temp_dir / f"section_{i}.html"
+            html_file.write_text(f"<h1>Section {i}</h1><p>Content for section {i}</p>")
+            files.append(str(html_file))
+
+        output_file = self.temp_dir / "collated.md"
+
+        result = self._run_cli([
+            *files,
+            "--collate",
+            "--out", str(output_file)
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_file.exists()
+
+        content = output_file.read_text()
+        # Should contain file headers and separators
+        assert "# File: section_0.html" in content
+        assert "# File: section_1.html" in content
+        assert "# File: section_2.html" in content
+        assert "---" in content  # File separator
+
+        # Should contain actual converted content
+        assert "Section 0" in content
+        assert "Section 1" in content
+        assert "Section 2" in content
+
+    def test_recursive_directory_processing_e2e(self):
+        """Test recursive directory processing end-to-end."""
+        # Create nested directory structure
+        (self.temp_dir / "subdir1").mkdir()
+        (self.temp_dir / "subdir1" / "nested").mkdir()
+        (self.temp_dir / "subdir2").mkdir()
+
+        # Create HTML files at different levels
+        files_to_create = [
+            self.temp_dir / "root.html",
+            self.temp_dir / "subdir1" / "level1.html",
+            self.temp_dir / "subdir1" / "nested" / "deep.html",
+            self.temp_dir / "subdir2" / "another.html"
+        ]
+
+        for i, file_path in enumerate(files_to_create):
+            file_path.write_text(f"<h1>Document {i}</h1><p>Content at {file_path.name}</p>")
+
+        output_dir = self.temp_dir / "recursive_output"
+
+        result = self._run_cli([
+            str(self.temp_dir),
+            "--recursive",
+            "--output-dir", str(output_dir),
+            "--preserve-structure",
+            "--no-summary"
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_dir.exists()
+
+        # Should have processed files from all directories
+        output_files = list(output_dir.rglob("*.md"))
+        assert len(output_files) >= 4
+
+        # Check that structure is preserved
+        assert (output_dir / "root.md").exists()
+        assert (output_dir / "subdir1" / "level1.md").exists()
+        assert (output_dir / "subdir1" / "nested" / "deep.md").exists()
+        assert (output_dir / "subdir2" / "another.md").exists()
+
+    def test_environment_variables_e2e(self):
+        """Test environment variable support end-to-end."""
+        html_file = self.temp_dir / "env_test.html"
+        html_file.write_text("<h1>Environment Test</h1><p>Testing env vars</p>")
+
+        output_dir = self.temp_dir / "env_output"
+
+        # Run CLI with environment variables set
+        env = {
+            **os.environ,
+            'ALL2MD_OUTPUT_DIR': str(output_dir),
+            'ALL2MD_NO_SUMMARY': 'true'
+        }
+
+        cmd = [sys.executable, "-m", "all2md", str(html_file)]
+        cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
+        result = subprocess.run(
+            cmd,
+            cwd=cli_path.parent.parent.parent,
+            capture_output=True,
+            text=True,
+            env=env
+        )
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        # Should use environment variable for output directory
+        # (Note: exact behavior depends on implementation)
+
+    def test_parallel_processing_e2e(self):
+        """Test parallel processing end-to-end."""
+        # Create multiple HTML files
+        files = []
+        for i in range(6):
+            html_file = self.temp_dir / f"parallel_{i}.html"
+            html_file.write_text(f"<h1>Parallel Document {i}</h1><p>Processing content {i}</p>")
+            files.append(str(html_file))
+
+        output_dir = self.temp_dir / "parallel_output"
+
+        result = self._run_cli([
+            *files,
+            "--parallel", "3",
+            "--output-dir", str(output_dir),
+            "--no-summary"
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_dir.exists()
+
+        # All files should be processed
+        output_files = list(output_dir.glob("*.md"))
+        assert len(output_files) == 6
+
+        # Verify each file has content
+        for output_file in output_files:
+            content = output_file.read_text()
+            assert "Parallel Document" in content
+
+    def test_skip_errors_e2e(self):
+        """Test skip errors functionality end-to-end."""
+        # Create good HTML file
+        good_file = self.temp_dir / "good.html"
+        good_file.write_text("<h1>Good File</h1><p>This should convert fine</p>")
+
+        # Create a problematic file (empty or malformed)
+        bad_file = self.temp_dir / "bad.html"
+        bad_file.write_text("")  # Empty file might cause issues
+
+        output_dir = self.temp_dir / "error_test_output"
+
+        result = self._run_cli([
+            str(good_file),
+            str(bad_file),
+            "--skip-errors",
+            "--output-dir", str(output_dir),
+            "--no-summary"
+        ])
+
+        # Should continue processing even if one file fails
+        assert result.returncode in [0, 1]  # May return 1 for partial failure
+        assert output_dir.exists()
+
+        # Good file should be processed
+        good_output = output_dir / "good.md"
+        assert good_output.exists()
+
+    def test_complex_feature_combination_e2e(self):
+        """Test complex combination of features end-to-end."""
+        # Create multiple HTML files
+        files = []
+        for i in range(4):
+            html_file = self.temp_dir / f"complex_{i}.html"
+            html_file.write_text(f"<h1>Complex Document {i}</h1><p>Content for testing {i}</p>")
+            files.append(str(html_file))
+
+        # Use many features together
+        result = self._run_cli([
+            *files,
+            "--rich",              # Rich output
+            "--progress",          # Progress bar
+            "--parallel", "2",     # Parallel processing
+            "--skip-errors",       # Error handling
+            "--collate",           # File collation
+            "--no-summary"         # No summary
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+
+        # Should output collated content to stdout
+        assert "# File: complex_0.html" in result.stdout
+        assert "Complex Document 0" in result.stdout
+
+    @pytest.mark.slow
+    def test_large_multi_file_processing_e2e(self):
+        """Test processing many files for performance."""
+        # Create many HTML files
+        files = []
+        for i in range(20):
+            html_file = self.temp_dir / f"large_{i:03d}.html"
+            content = f"""
+            <html>
+            <head><title>Document {i}</title></head>
+            <body>
+                <h1>Large Document {i}</h1>
+                <p>This is document number {i} for testing large batch processing.</p>
+                <ul>
+                    <li>Item 1 in document {i}</li>
+                    <li>Item 2 in document {i}</li>
+                </ul>
+                <p>More content to make the document substantial.</p>
+            </body>
+            </html>
+            """
+            html_file.write_text(content)
+            files.append(str(html_file))
+
+        output_dir = self.temp_dir / "large_output"
+
+        result = self._run_cli([
+            *files,
+            "--output-dir", str(output_dir),
+            "--parallel", "4",
+            "--progress",
+            "--no-summary"
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_dir.exists()
+
+        # All files should be processed
+        output_files = list(output_dir.glob("*.md"))
+        assert len(output_files) == 20
+
+        # Spot check a few files
+        for i in [0, 9, 19]:
+            output_file = output_dir / f"large_{i:03d}.md"
+            assert output_file.exists()
+            content = output_file.read_text()
+            assert f"Large Document {i}" in content
+
+    def test_attachment_handling_multi_file_e2e(self):
+        """Test attachment handling across multiple files end-to-end."""
+        # Create HTML files with image references
+        html1 = self.temp_dir / "with_image1.html"
+        html1.write_text('''
+        <html>
+        <head><title>Document with Image 1</title></head>
+        <body>
+            <h1>Document 1</h1>
+            <p>This document has an image:</p>
+            <img src="image1.png" alt="Test Image 1">
+        </body>
+        </html>
+        ''')
+
+        html2 = self.temp_dir / "with_image2.html"
+        html2.write_text('''
+        <html>
+        <head><title>Document with Image 2</title></head>
+        <body>
+            <h1>Document 2</h1>
+            <p>This document also has an image:</p>
+            <img src="image2.png" alt="Test Image 2">
+        </body>
+        </html>
+        ''')
+
+        output_dir = self.temp_dir / "attachment_output"
+        images_dir = self.temp_dir / "images"
+
+        result = self._run_cli([
+            str(html1),
+            str(html2),
+            "--output-dir", str(output_dir),
+            "--attachment-mode", "alt_text",  # Use alt_text to avoid download complexity
+            "--no-summary"
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_dir.exists()
+
+        output_files = list(output_dir.glob("*.md"))
+        assert len(output_files) == 2
+
+        # Check that images were handled (as alt text)
+        for output_file in output_files:
+            content = output_file.read_text()
+            assert "Test Image" in content
+
+    def test_markdown_formatting_options_e2e(self):
+        """Test Markdown formatting options across multiple files."""
+        # Create HTML files with various formatting
+        html1 = self.temp_dir / "formatting1.html"
+        html1.write_text('''
+        <html>
+        <body>
+            <h1>Formatting Test 1</h1>
+            <p>Text with <em>emphasis</em> and <strong>strong</strong></p>
+            <ul>
+                <li>First item</li>
+                <li>Second item</li>
+            </ul>
+        </body>
+        </html>
+        ''')
+
+        html2 = self.temp_dir / "formatting2.html"
+        html2.write_text('''
+        <html>
+        <body>
+            <h1>Formatting Test 2</h1>
+            <p>More <em>italic</em> and <strong>bold</strong> text</p>
+            <ul>
+                <li>Another item</li>
+                <li>Yet another item</li>
+            </ul>
+        </body>
+        </html>
+        ''')
+
+        output_dir = self.temp_dir / "formatting_output"
+
+        result = self._run_cli([
+            str(html1),
+            str(html2),
+            "--output-dir", str(output_dir),
+            "--markdown-emphasis-symbol", "_",
+            "--markdown-bullet-symbols", "•",
+            "--no-summary"
+        ])
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        assert output_dir.exists()
+
+        output_files = list(output_dir.glob("*.md"))
+        assert len(output_files) == 2
+
+        # Check formatting was applied consistently
+        for output_file in output_files:
+            content = output_file.read_text()
+            # Should use underscore emphasis (if supported by converter)
+            # Note: Actual formatting depends on HTML converter implementation
+            assert "Formatting Test" in content
+
+    def test_backward_compatibility_e2e(self):
+        """Test that new features don't break existing usage patterns."""
+        html_file = self.temp_dir / "backward_compat.html"
+        html_file.write_text("<h1>Backward Compatibility Test</h1><p>Existing usage should work</p>")
+
+        # Test all existing usage patterns still work
+        test_cases = [
+            # Basic usage
+            [str(html_file)],
+
+            # With output file
+            [str(html_file), "--out", str(self.temp_dir / "output1.md")],
+
+            # With format override
+            [str(html_file), "--format", "html"],
+
+            # With HTML options
+            [str(html_file), "--html-extract-title"],
+
+            # With attachment options
+            [str(html_file), "--attachment-mode", "alt_text"],
+        ]
+
+        for i, args in enumerate(test_cases):
+            result = self._run_cli(args)
+            assert result.returncode == 0, f"Test case {i} failed: {result.stderr}"
+
+    def test_help_includes_new_features_e2e(self):
+        """Test that help output includes all new features."""
+        result = self._run_cli(["--help"])
+
+        assert result.returncode == 0
+        help_text = result.stdout
+
+        # Check that all new options appear in help
+        new_options = [
+            "--rich",
+            "--progress",
+            "--output-dir",
+            "--recursive",
+            "--parallel",
+            "--skip-errors",
+            "--preserve-structure",
+            "--collate",
+            "--no-summary"
+        ]
+
+        for option in new_options:
+            assert option in help_text, f"Option {option} not found in help"
+
+        # Check for meaningful descriptions
+        assert "progress bar" in help_text.lower()
+        assert "parallel" in help_text.lower()
+        assert "recursive" in help_text.lower()
+
+    def test_error_messages_improved_e2e(self):
+        """Test that error messages are helpful for new features."""
+        # Test invalid parallel count
+        result = self._run_cli([
+            "test.html",
+            "--parallel", "-1"
+        ])
+        assert result.returncode != 0
+
+        # Test conflicting options (if any validation exists)
+        nonexistent_file = self.temp_dir / "nonexistent.html"
+        result = self._run_cli([str(nonexistent_file)])
+        assert result.returncode == 1
+        assert "Error" in result.stderr or "does not exist" in result.stderr

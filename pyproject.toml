@@ -71,6 +71,13 @@ epub = [
 rich = [
     "rich>=14.1.0",
 ]
+progress = [
+    "tqdm>=4.66.0",
+]
+cli_extras = [
+    "rich>=14.1.0",
+    "tqdm>=4.66.0",
+]
 
 
 [project.scripts]

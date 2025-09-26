@@ -5,14 +5,13 @@ and Markdown. It supports PDF, Word (DOCX), PowerPoint (PPTX), HTML, email (EML)
 Excel (XLSX), Jupyter Notebooks (IPYNB), EPUB e-books, images, and 200+ text file formats with
 intelligent content extraction and formatting preservation.
 
-The library uses a modular architecture where the main `parse_file()` function
+The library uses a modular architecture where the main `to_markdown()` function
 automatically detects file types and routes to appropriate specialized converters.
 Each converter module handles specific format requirements while maintaining
 consistent Markdown output with support for tables, images, and complex formatting.
 
 Key Features
 ------------
-- Bidirectional conversion (format-to-Markdown and Markdown-to-format)
 - Advanced PDF parsing with table detection using PyMuPDF
 - Word document processing with formatting preservation
 - PowerPoint slide-by-slide extraction
@@ -525,12 +524,95 @@ def to_markdown(
         - "auto": Detect format automatically from filename and content
         - Other values: Force processing as the specified format
     **kwargs : keyword arguments
-        Individual conversion options that override or supplement the options parameter:
+        Individual conversion options that override or supplement the options parameter.
+
+        Common options for all formats:
         - attachment_mode : {"skip", "alt_text", "download", "base64"}
         - attachment_output_dir : str
         - attachment_base_url : str
-        - Common MarkdownOptions fields (emphasis_symbol, bullet_symbols, etc.)
-        - Format-specific options (see individual converter documentation)
+
+        See format-specific options below for additional kwargs.
+
+    Format-Specific Options
+    -----------------------
+    **PDF Options** (see :class:`~all2md.options.PdfOptions`):
+        - pages : list[int], optional - Specific pages to convert
+        - detect_headers : bool = True - Auto-detect headers
+        - header_min_occurrences : int = 3 - Minimum header occurrences
+        - header_percentile_threshold : float = 0.85 - Header size threshold
+        - header_use_font_weight : bool = True - Use font weight for headers
+        - header_use_all_caps : bool = True - Use all caps for headers
+        - detect_columns : bool = True - Detect multi-column layouts
+        - column_gap_threshold : float = 20.0 - Column gap detection
+        - handle_rotated_text : bool = True - Handle rotated text
+        - normalize_headers : bool = True - Normalize header levels
+        - image_placement_markers : bool = True - Add image markers
+        - include_image_captions : bool = True - Include captions
+        - truncate_output_lines : int | None - Line limit
+        - detect_merged_cells : bool = True - Detect merged table cells
+        - table_ruling_line_threshold : float = 5.0 - Table line detection
+        - table_fallback_detection : bool = True - Fallback table detection
+        - table_alignment_auto_detect : bool = True - Auto-detect alignment
+        - page_separator : str = "---" - Page separator
+        - page_separator_format : str = "{separator}\\n\\n" - Separator format
+        - include_page_numbers : bool = False - Include page numbers
+        - merge_hyphenated_words : bool = True - Merge hyphenated words
+
+    **DOCX Options** (see :class:`~all2md.options.DocxOptions`):
+        - preserve_nested_structure : bool = True - Preserve nesting
+        - extract_title : bool = True - Extract document title
+
+    **HTML Options** (see :class:`~all2md.options.HtmlOptions`):
+        - use_hash_headings : bool = True - Use hash headings (#)
+        - strip_dangerous_elements : bool = True - Remove scripts/styles
+        - list_indent_width : int = 2 - List indentation width
+        - underline_mode : UnderlineMode = "simple" - Underline handling
+        - subscript_mode : SubscriptMode = "caret" - Subscript notation
+        - superscript_mode : SuperscriptMode = "parens" - Superscript notation
+        - convert_nbsp : bool = False - Convert non-breaking spaces
+        - escape_special : bool = True - Escape special chars
+        - url_wrappers : str = "<>" - Wrap URLs with these chars
+
+    **PPTX Options** (see :class:`~all2md.options.PptxOptions`):
+        - include_slide_numbers : bool = True - Include slide numbers
+        - include_speaker_notes : bool = True - Include speaker notes
+        - slide_separator : str = "---" - Slide separator
+
+    **EML Options** (see :class:`~all2md.options.EmlOptions`):
+        - convert_html_to_markdown : bool = True - Convert HTML bodies
+        - preserve_raw_headers : bool = False - Keep raw headers
+        - date_format_mode : DateFormatMode = "iso" - Date format
+        - date_strftime_pattern : str | None - Custom date format
+        - clean_quotes : bool = True - Clean email quotes
+        - detect_reply_separators : bool = True - Detect replies
+        - clean_wrapped_urls : bool = True - Fix wrapped URLs
+        - truncate_output_message : str = "...\\n[Content truncated]"
+
+    **EPUB Options** (see :class:`~all2md.options.EpubOptions`):
+        - include_chapter_numbers : bool = True - Include chapter numbers
+        - chapter_separator : str = "---" - Chapter separator
+
+    **IPYNB Options** (see :class:`~all2md.options.IpynbOptions`):
+        - include_cell_numbers : bool = True - Include cell numbers
+        - include_outputs : bool = True - Include cell outputs
+        - output_format : str = "text" - Output format
+        - cell_separator : str = "---" - Cell separator
+
+    **RTF Options** (see :class:`~all2md.options.RtfOptions`):
+        - preserve_formatting : bool = True - Preserve formatting
+
+    **ODF Options** (see :class:`~all2md.options.OdfOptions`):
+        - preserve_formatting : bool = True - Preserve formatting
+        - extract_metadata : bool = False - Extract document metadata
+
+    **Markdown Formatting Options** (see :class:`~all2md.options.MarkdownOptions`):
+        - emphasis_symbol : EmphasisSymbol = "*" - Bold/italic symbol
+        - bullet_symbols : list[str] = ["-", "*", "+"] - Bullet point symbols
+        - wrap_text : bool = False - Wrap text at column width
+        - max_line_length : int = 80 - Maximum line length
+        - preserve_whitespace : bool = False - Preserve whitespace
+        - code_block_fence : str = "```" - Code block fence
+        - heading_style : str = "atx" - Heading style (atx=#, setext=underline)
 
     Returns
     -------
@@ -554,12 +636,26 @@ def to_markdown(
         >>> print(type(content))
         <class 'str'>
 
-    Convert with explicit format and options:
+    Convert PDF with specific pages:
+
+        >>> content = to_markdown('document.pdf',
+        ...                       pages=[0, 1, 2],
+        ...                       detect_headers=True,
+        ...                       include_page_numbers=True)
+
+    Convert DOCX with attachment handling:
 
         >>> content = to_markdown('document.docx',
         ...                       format='docx',
         ...                       attachment_mode='download',
         ...                       attachment_output_dir='./attachments',
+        ...                       preserve_nested_structure=True)
+
+    Convert HTML with custom formatting:
+
+        >>> content = to_markdown('page.html',
+        ...                       use_hash_headings=True,
+        ...                       list_indent_width=4,
         ...                       emphasis_symbol='_')
 
     Convert from file object with pre-configured options:
@@ -582,6 +678,9 @@ def to_markdown(
 
     The function provides intelligent format detection using filename extensions,
     MIME types, and content analysis (magic bytes) for file objects without names.
+
+    For complete documentation of all available options, see the options classes
+    in the :mod:`all2md.options` module.
     """
 
     # Handle input parameter - convert to file object and get filename

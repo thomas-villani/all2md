@@ -38,6 +38,10 @@ all = [
     { name = "python-pptx" },
     { name = "standard-imghdr" },
 ]
+cli-extras = [
+    { name = "rich" },
+    { name = "tqdm" },
+]
 csv = [
     { name = "pandas" },
 ]
@@ -66,6 +70,9 @@ pdf = [
 ]
 pptx = [
     { name = "python-pptx" },
+]
+progress = [
+    { name = "tqdm" },
 ]
 rich = [
     { name = "rich" },
@@ -103,12 +110,15 @@ requires-dist = [
     { name = "python-pptx", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
+    { name = "rich", marker = "extra == 'cli-extras'", specifier = ">=14.1.0" },
     { name = "rich", marker = "extra == 'rich'", specifier = ">=14.1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.1" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=8.2.3" },
     { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=3.0.2" },
     { name = "standard-imghdr", specifier = ">=3.13.0" },
     { name = "standard-imghdr", marker = "extra == 'all'", specifier = ">=3.13.0" },
+    { name = "tqdm", marker = "extra == 'cli-extras'", specifier = ">=4.66.0" },
+    { name = "tqdm", marker = "extra == 'progress'", specifier = ">=4.66.0" },
 ]
 
 [[package]]
@@ -1005,6 +1015,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1a/8d/ab2620fbe2e348483c9cb776c3b7b3cc407899291a041d7fa026469b7cd1/standard_imghdr-3.13.0.tar.gz", hash = "sha256:8d9c68058d882f6fc3542a8d39ef9ff94d2187dc90bd0c851e0902776b7b7a42", size = 5511 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/cb/e1da7e340586a078404c7e4328bfefc930867ace8a9a55916fd220cf9547/standard_imghdr-3.13.0-py3-none-any.whl", hash = "sha256:30a1bff5465605bb496f842a6ac3cc1f2131bf3025b0da28d4877d6d4b7cc8e9", size = 4639 },
+]
+
+[[package]]
+name = "tqdm"
+version = "4.67.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540 },
 ]
 
 [[package]]
