@@ -45,9 +45,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import to_markdown
-from .cli_builder import DynamicCLIBuilder
-from .exceptions import InputError, MarkdownConversionError
+from all2md import to_markdown
+from all2md.cli.builder import DynamicCLIBuilder
+from all2md.exceptions import InputError, MarkdownConversionError
 
 
 def _get_version() -> str:
@@ -98,7 +98,7 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
-    from .cli_actions import PositiveIntAction
+    from all2md.cli.actions import PositiveIntAction
 
     builder = DynamicCLIBuilder()
     parser = builder.build_parser()
@@ -323,7 +323,7 @@ def collect_input_files(
     List[Path]
         List of file paths to process
     """
-    from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+    from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
     ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
@@ -1076,7 +1076,7 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
 
     # Check for dependency management commands
     if args[0] == 'check-deps':
-        from .dependencies import main as deps_main
+        from all2md.dependencies import main as deps_main
         # Convert to standard deps CLI format
         deps_args = ['check']
 
@@ -1093,7 +1093,7 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
         return deps_main(deps_args)
 
     elif args[0] == 'install-deps':
-        from .dependencies import main as deps_main
+        from all2md.dependencies import main as deps_main
         # Convert to standard deps CLI format
         deps_args = ['install']
 
@@ -1117,7 +1117,7 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
 
 def main(args: Optional[list[str]] = None) -> int:
     """Main CLI entry point with focused delegation to specialized processors."""
-    from .cli_processors import (
+    from all2md.cli.processors import (
         load_options_from_json,
         merge_exclusion_patterns_from_json,
         process_multi_file,

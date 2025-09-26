@@ -4,15 +4,17 @@ This module contains focused processing functions extracted from the main()
 function to improve maintainability and testability.
 """
 
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+
 import argparse
 import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import to_markdown
-from .cli_builder import DynamicCLIBuilder
-from .exceptions import InputError, MarkdownConversionError
+from all2md import to_markdown
+from all2md.cli.builder import DynamicCLIBuilder
+from all2md.exceptions import InputError, MarkdownConversionError
 
 
 def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], str]:
@@ -164,7 +166,7 @@ def process_multi_file(files: List[Path], parsed_args: argparse.Namespace,
         Exit code (0 for success, 1 for failure)
     """
     # Import processing functions
-    from .cli import (
+    from all2md.cli import (
         convert_single_file,
         generate_output_path,
         process_dry_run,

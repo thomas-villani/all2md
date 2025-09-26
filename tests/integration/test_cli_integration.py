@@ -1108,7 +1108,7 @@ class TestAdvancedCLIIntegration:
         """Test that stdin processing still works with new features."""
         test_content = "<h1>Stdin Test</h1><p>Content from stdin</p>"
 
-        with patch('all2md.cli_processors.to_markdown') as mock_to_markdown:
+        with patch('all2md.cli.processors.to_markdown') as mock_to_markdown:
             mock_to_markdown.return_value = "# Stdin Test\n\nContent from stdin"
 
             with patch('sys.stdin') as mock_stdin:

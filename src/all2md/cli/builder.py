@@ -4,6 +4,8 @@ This module provides a system for automatically generating CLI arguments
 from dataclass options using field metadata.
 """
 
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+
 import argparse
 from dataclasses import fields, is_dataclass
 from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
@@ -342,7 +344,7 @@ class DynamicCLIBuilder:
             return
 
         # Get BaseOptions fields to exclude
-        from .options import BaseOptions
+        from all2md.options import BaseOptions
         base_field_names = {f.name for f in fields(BaseOptions)}
 
         # Create argument group if requested
@@ -466,7 +468,7 @@ Examples:
         )
 
         # Version and about options
-        from .cli_actions import DynamicVersionAction
+        from all2md.cli.actions import DynamicVersionAction
 
         def get_version() -> str:
             """Get the version of all2md package."""
@@ -482,7 +484,7 @@ Examples:
                           help="Show detailed information about all2md and exit")
 
         # Add BaseOptions as universal options (no prefix)
-        from .options import BaseOptions
+        from all2md.options import BaseOptions
         self.add_options_class_arguments(
             parser,
             BaseOptions,
@@ -550,7 +552,7 @@ Examples:
         options_classes = {}
 
         # Add BaseOptions (universal options with no prefix)
-        from .options import BaseOptions
+        from all2md.options import BaseOptions
         options_classes['base'] = BaseOptions
 
         # Add MarkdownOptions (handled specially with markdown prefix)

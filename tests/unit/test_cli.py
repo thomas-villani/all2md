@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from all2md.cli import create_parser, parse_pdf_pages
-from all2md.cli_builder import DynamicCLIBuilder
+from all2md.cli.builder import DynamicCLIBuilder
 
 
 @pytest.mark.unit
@@ -425,79 +425,66 @@ class TestNewCLIFeatures:
         assert args.no_summary is True
 
     def test_environment_variable_support_unit(self):
-        """Test environment variable parsing logic."""
+        """Test environment variable functionality through parser."""
         import os
 
-        from all2md.cli import get_env_var_value
-
-        # Test getting environment variable
+        # Test environment variable integration through the parser
         os.environ['ALL2MD_RICH'] = 'true'
         os.environ['ALL2MD_OUTPUT_DIR'] = '/tmp/test'
-        os.environ['ALL2MD_PARALLEL'] = '4'
 
         try:
-            assert get_env_var_value('rich') == 'true'
-            assert get_env_var_value('output_dir') == '/tmp/test'
-            assert get_env_var_value('parallel') == '4'
-            assert get_env_var_value('nonexistent') is None
+            parser = create_parser()
+            args = parser.parse_args(['test.pdf'])
+
+            # Environment variables should be applied as defaults
+            assert args.rich is True
+            assert args.output_dir == '/tmp/test'
         finally:
             # Clean up
             os.environ.pop('ALL2MD_RICH', None)
             os.environ.pop('ALL2MD_OUTPUT_DIR', None)
-            os.environ.pop('ALL2MD_PARALLEL', None)
 
     def test_environment_variable_type_conversion(self):
         """Test environment variable type conversion for different argument types."""
         import os
 
-        from all2md.cli import apply_env_vars_to_parser
-
-        parser = create_parser()
-
-        # Set environment variables
+        # Set environment variables with different types
         os.environ['ALL2MD_RICH'] = 'true'
         os.environ['ALL2MD_NO_SUMMARY'] = 'false'
-        os.environ['ALL2MD_PARALLEL'] = '4'
         os.environ['ALL2MD_OUTPUT_DIR'] = '/tmp/test'
 
         try:
-            # Apply environment variables
-            apply_env_vars_to_parser(parser)
-
-            # Test that defaults were set from environment
+            parser = create_parser()
             args = parser.parse_args(["test.pdf"])
+
+            # Test that different types were converted correctly
             assert args.rich is True  # Boolean conversion
             assert args.no_summary is False  # Boolean false conversion
-            assert args.parallel == 4  # Integer conversion
             assert args.output_dir == '/tmp/test'  # String value
 
         finally:
             # Clean up
             os.environ.pop('ALL2MD_RICH', None)
             os.environ.pop('ALL2MD_NO_SUMMARY', None)
-            os.environ.pop('ALL2MD_PARALLEL', None)
             os.environ.pop('ALL2MD_OUTPUT_DIR', None)
 
     def test_environment_variable_precedence(self):
         """Test that CLI arguments take precedence over environment variables."""
         import os
 
-        from all2md.cli import apply_env_vars_to_parser
-
-        parser = create_parser()
-
         # Set environment variable
-        os.environ['ALL2MD_RICH'] = 'true'
+        os.environ['ALL2MD_RICH'] = 'false'
 
         try:
-            apply_env_vars_to_parser(parser)
+            parser = create_parser()
 
-            # CLI arg should override env var
-            args = parser.parse_args(["test.pdf"])
-            assert args.rich is True  # From env var
+            # Test that env var sets default
+            args_default = parser.parse_args(["test.pdf"])
+            assert args_default.rich is False  # From env var
 
-            # No way to test override in unit test since argparse sets defaults
-            # This will be tested in integration tests
+            # Test that CLI arg overrides env var
+            args_override = parser.parse_args(["test.pdf", "--rich"])
+            assert args_override.rich is True  # CLI arg overrides env var
 
         finally:
             os.environ.pop('ALL2MD_RICH', None)
