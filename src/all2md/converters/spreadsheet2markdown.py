@@ -48,6 +48,41 @@ from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 logger = logging.getLogger(__name__)
 
 
+class SpreadsheetConverterMetadata(ConverterMetadata):
+    """Specialized metadata for spreadsheet converter with smart dependency checking."""
+
+    def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str]]:
+        """Get required packages based on detected spreadsheet format.
+
+        For XLSX files, openpyxl is required. For CSV/TSV files, no additional
+        packages are needed beyond the standard library.
+
+        Parameters
+        ----------
+        content : bytes, optional
+            File content to analyze for format detection
+
+        Returns
+        -------
+        list[tuple[str, str]]
+            Required packages for the detected format
+        """
+        if content is None:
+            # If no content provided, assume worst case (XLSX)
+            return self.required_packages
+
+        # Check if it's XLSX by magic bytes (ZIP signature)
+        if content.startswith(b'PK\x03\x04'):
+            return [("openpyxl", "")]
+
+        # Check if it's CSV/TSV via content detection
+        if _detect_csv_tsv_content(content):
+            return []  # CSV/TSV don't need additional packages
+
+        # If we can't determine, assume XLSX for safety
+        return self.required_packages
+
+
 def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None) -> str:
     """Convert any cell value to a safe Markdown table string."""
     if text is None:
@@ -510,6 +545,43 @@ def tsv_to_markdown(
     )
 
 
+def _detect_csv_tsv_content(content: bytes) -> bool:
+    """Content-based detector for CSV/TSV formats.
+
+    This function is used by the registry to detect CSV/TSV files
+    based on content patterns when file extensions are not available.
+
+    Parameters
+    ----------
+    content : bytes
+        File content to analyze
+
+    Returns
+    -------
+    bool
+        True if content appears to be CSV or TSV
+    """
+    try:
+        content_str = content.decode('utf-8', errors='ignore')
+        non_empty_lines = [line.strip() for line in content_str.split('\n') if line.strip()]
+
+        if len(non_empty_lines) >= 2:  # Need at least 2 lines (header + data)
+            comma_count = sum(line.count(',') for line in non_empty_lines)
+            tab_count = sum(line.count('\t') for line in non_empty_lines)
+
+            # More relaxed CSV/TSV detection
+            if comma_count >= len(non_empty_lines):  # At least one comma per line
+                logger.debug(f"CSV pattern detected: {comma_count} commas in {len(non_empty_lines)} lines")
+                return True
+            elif tab_count >= len(non_empty_lines):  # At least one tab per line
+                logger.debug(f"TSV pattern detected: {tab_count} tabs in {len(non_empty_lines)} lines")
+                return True
+    except UnicodeDecodeError:
+        pass
+
+    return False
+
+
 def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]]) -> str:
     """Detect spreadsheet format from input data.
 
@@ -640,7 +712,7 @@ def spreadsheet_to_markdown(
         return csv_to_markdown(input_data, options)
 
 
-CONVERTER_METADATA = ConverterMetadata(
+CONVERTER_METADATA = SpreadsheetConverterMetadata(
     format_name="spreadsheet",
     extensions=[".xlsx", ".csv", ".tsv"],
     mime_types=[
@@ -652,6 +724,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature for XLSX
     ],
+    content_detector=_detect_csv_tsv_content,
     converter_module="all2md.converters.spreadsheet2markdown",
     converter_function="spreadsheet_to_markdown",
     required_packages=[("openpyxl", "")],  # Only required for XLSX, handled in xlsx_to_markdown

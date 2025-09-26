@@ -298,28 +298,16 @@ class ConverterRegistry:
             reverse=True
         )
 
+        # Check magic bytes first
         for format_name, metadata in sorted_converters:
             if metadata.matches_magic_bytes(content):
                 return format_name
 
-        # Fallback to CSV/TSV detection for special handling
-        try:
-            content_str = content.decode('utf-8', errors='ignore')
-            non_empty_lines = [line.strip() for line in content_str.split('\n') if line.strip()]
-
-            if len(non_empty_lines) >= 2:  # Need at least 2 lines (header + data)
-                comma_count = sum(line.count(',') for line in non_empty_lines)
-                tab_count = sum(line.count('\t') for line in non_empty_lines)
-
-                # More relaxed CSV/TSV detection - return spreadsheet for unified converter
-                if comma_count >= len(non_empty_lines):  # At least one comma per line
-                    logger.debug(f"CSV pattern detected: {comma_count} commas in {len(non_empty_lines)} lines")
-                    return "spreadsheet"
-                elif tab_count >= len(non_empty_lines):  # At least one tab per line
-                    logger.debug(f"TSV pattern detected: {tab_count} tabs in {len(non_empty_lines)} lines")
-                    return "spreadsheet"
-        except UnicodeDecodeError:
-            pass
+        # Check custom content detectors
+        for format_name, metadata in sorted_converters:
+            if metadata.content_detector and metadata.content_detector(content):
+                logger.debug(f"Format detected via content detector: {format_name}")
+                return format_name
 
         return None
 
@@ -348,13 +336,15 @@ class ConverterRegistry:
         """
         return self._converters.get(format_name)
 
-    def check_dependencies(self, format_name: Optional[str] = None) -> Dict[str, List[str]]:
+    def check_dependencies(self, format_name: Optional[str] = None, input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 
         Parameters
         ----------
         format_name : str, optional
             Check specific format, or all if None
+        input_data : various types, optional
+            Input data to use for context-aware dependency checking
 
         Returns
         -------
@@ -368,6 +358,26 @@ class ConverterRegistry:
             else self._converters.keys()
         )
 
+        # Get content for context-aware dependency checking
+        content = None
+        if input_data:
+            if isinstance(input_data, bytes):
+                content = input_data
+            elif isinstance(input_data, (str, Path)):
+                try:
+                    with open(input_data, 'rb') as f:
+                        content = f.read(1024)  # Read first 1KB for analysis
+                except Exception:
+                    pass
+            elif isinstance(input_data, io.IOBase):
+                try:
+                    pos = input_data.tell()
+                    input_data.seek(0)
+                    content = input_data.read(1024)
+                    input_data.seek(pos)
+                except Exception:
+                    pass
+
         for fmt in formats_to_check:
             if fmt not in self._converters:
                 continue
@@ -375,7 +385,10 @@ class ConverterRegistry:
             metadata = self._converters[fmt]
             format_missing = []
 
-            for pkg_name, _ in metadata.required_packages:
+            # Use context-aware dependency checking if available
+            required_packages = metadata.get_required_packages_for_content(content)
+
+            for pkg_name, _ in required_packages:
                 try:
                     # Try importing the package
                     importlib.import_module(pkg_name.replace("-", "_"))

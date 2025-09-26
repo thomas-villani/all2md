@@ -7,7 +7,7 @@ requirements, and registration information for the plugin registry system.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional
 
 
 @dataclass
@@ -29,6 +29,9 @@ class ConverterMetadata:
     magic_bytes : list[tuple[bytes, int]]
         Magic byte patterns and their offset for content detection.
         Each tuple is (pattern, offset) where offset is position in file
+    content_detector : Callable[[bytes], bool], optional
+        Custom content-based detection function that receives file content bytes
+        and returns True if this converter should handle the content
     converter_module : str
         Full module path (e.g., "all2md.converters.pdf2markdown")
     converter_function : str
@@ -52,6 +55,7 @@ class ConverterMetadata:
     extensions: list[str] = field(default_factory=list)
     mime_types: list[str] = field(default_factory=list)
     magic_bytes: list[tuple[bytes, int]] = field(default_factory=list)
+    content_detector: Optional[Callable[[bytes], bool]] = None
     converter_module: str = ""
     converter_function: str = ""
     required_packages: list[tuple[str, str]] = field(default_factory=list)
@@ -146,6 +150,27 @@ class ConverterMetadata:
                     return True
 
         return False
+
+    def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str]]:
+        """Get required packages for specific content, allowing context-aware dependency checking.
+
+        Some converters may have different dependency requirements based on the actual
+        content they're processing. This method allows converters to specify
+        context-specific dependencies.
+
+        Parameters
+        ----------
+        content : bytes, optional
+            File content to analyze for dependency requirements
+
+        Returns
+        -------
+        list[tuple[str, str]]
+            Required packages as (package_name, version_spec) tuples for this content
+        """
+        # Default implementation returns all required packages
+        # Subclasses or specific converters can override this logic
+        return self.required_packages
 
 
 @dataclass
