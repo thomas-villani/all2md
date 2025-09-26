@@ -19,6 +19,11 @@ dependencies = [
     "standard-imghdr>=3.13.0",
 ]
 
+[tool.hatch.metadata]
+include = [
+    "src/all2md/_plaintext-exts.json",
+]
+
 [project.optional-dependencies]
 odf = [
     "odfpy>=1.4.1",
