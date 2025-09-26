@@ -8,13 +8,14 @@ A Python document conversion library for rapid, lightweight transformation of va
 
 ## Features
 
-=€ **Rapid Conversion** - Lightweight and fast document processing
-= **Smart Detection** - Automatic format detection from content and filenames
-=Ä **Multiple Formats** - Support for 15+ document formats plus 200+ text formats
-™ **Highly Configurable** - Extensive options for customizing Markdown output
-=¼ **Image Handling** - Download, embed as base64, or skip images entirely
-=» **CLI & API** - Use from command line or integrate into Python applications
-=' **Modular Design** - Optional dependencies per format to keep installs lightweight
+ **Rapid Conversion** - Lightweight and fast document processing
+
+- **Smart Detection** - Automatic format detection from content and filenames
+- **Multiple Formats** - Support for 15+ document formats plus 200+ text formats
+- **Highly Configurable** - Extensive options for customizing Markdown output
+- **Image Handling** - Download, embed as base64, or skip images entirely
+- **CLI & API** - Use from command line or integrate into Python applications
+- **Modular Design** - Optional dependencies per format to keep installs lightweight
 
 ## Supported Formats
 
@@ -63,7 +64,7 @@ all2md document.docx --out output.md
 all2md document.html --attachment-mode download --attachment-output-dir ./images
 
 # Convert with custom formatting
-all2md document.pdf --emphasis-symbol "_" --bullet-symbols "",æ,ª"
+all2md document.pdf --emphasis-symbol "_" --bullet-symbols "",,"
 ```
 
 ### Python API
@@ -92,9 +93,9 @@ with open('document.docx', 'rb') as f:
 
 ## Documentation
 
-=Ö **[Full Documentation](https://all2md.readthedocs.io/)** - Complete guide and API reference
-=€ **[Quick Start Guide](https://all2md.readthedocs.io/en/latest/quickstart.html)** - Get up and running in 5 minutes
-™ **[Configuration Options](https://all2md.readthedocs.io/en/latest/options.html)** - Detailed options for each format
+= **[Full Documentation](https://all2md.readthedocs.io/)** - Complete guide and API reference
+= **[Quick Start Guide](https://all2md.readthedocs.io/en/latest/quickstart.html)** - Get up and running in 5 minutes
+ **[Configuration Options](https://all2md.readthedocs.io/en/latest/options.html)** - Detailed options for each format
 = **[Troubleshooting](https://all2md.readthedocs.io/en/latest/troubleshooting.html)** - Common issues and solutions
 
 ## Installation Options
@@ -163,7 +164,7 @@ from all2md import to_markdown, DocxOptions, MarkdownOptions
 # Custom markdown formatting
 md_options = MarkdownOptions(
     emphasis_symbol='_',  # Use underscores for emphasis
-    bullet_symbols=['"', 'æ', 'ª'],  # Custom bullet points
+    bullet_symbols=['"', '', ''],  # Custom bullet points
     use_hash_headings=True  # Use # headings instead of underlines
 )
 

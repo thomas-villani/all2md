@@ -68,6 +68,9 @@ dev = [
 epub = [
     "ebooklib>=0.19",
 ]
+rich = [
+    "rich>=14.1.0",
+]
 
 
 [project.scripts]
