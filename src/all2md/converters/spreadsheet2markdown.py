@@ -43,6 +43,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, SpreadsheetOptions
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,78 @@ def _map_merged_cells(sheet: Any) -> dict[str, str]:
     except Exception as e:
         logger.debug(f"Unable to compute merged cell map: {e!r}")
     return merged_map
+
+
+def extract_xlsx_metadata(workbook: Any) -> DocumentMetadata:
+    """Extract metadata from XLSX workbook.
+
+    Parameters
+    ----------
+    workbook : openpyxl.Workbook
+        The workbook object from openpyxl
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Access workbook properties
+    if hasattr(workbook, 'properties'):
+        props = workbook.properties
+
+        # Standard document properties
+        if hasattr(props, 'title') and props.title:
+            metadata.title = props.title
+        if hasattr(props, 'creator') and props.creator:
+            metadata.author = props.creator
+        if hasattr(props, 'subject') and props.subject:
+            metadata.subject = props.subject
+        if hasattr(props, 'description') and props.description:
+            if not metadata.subject:  # Use description if no subject
+                metadata.subject = props.description
+        if hasattr(props, 'keywords') and props.keywords:
+            # Split keywords by comma or semicolon
+            if isinstance(props.keywords, str):
+                import re
+                metadata.keywords = [k.strip() for k in re.split('[,;]', props.keywords) if k.strip()]
+            else:
+                metadata.keywords = props.keywords
+        if hasattr(props, 'language') and props.language:
+            metadata.language = props.language
+        if hasattr(props, 'category') and props.category:
+            metadata.category = props.category
+
+        # Dates
+        if hasattr(props, 'created') and props.created:
+            metadata.creation_date = props.created
+        if hasattr(props, 'modified') and props.modified:
+            metadata.modification_date = props.modified
+
+        # Additional XLSX-specific metadata
+        if hasattr(props, 'lastModifiedBy') and props.lastModifiedBy:
+            metadata.custom['last_modified_by'] = props.lastModifiedBy
+        if hasattr(props, 'revision') and props.revision:
+            metadata.custom['revision'] = props.revision
+        if hasattr(props, 'version') and props.version:
+            metadata.custom['version'] = props.version
+        if hasattr(props, 'company') and props.company:
+            metadata.custom['company'] = props.company
+        if hasattr(props, 'manager') and props.manager:
+            metadata.custom['manager'] = props.manager
+
+    # Workbook-specific metadata
+    if hasattr(workbook, 'sheetnames'):
+        metadata.custom['sheet_count'] = len(workbook.sheetnames)
+        metadata.custom['sheet_names'] = workbook.sheetnames
+
+    # Application info
+    if hasattr(workbook, 'properties') and hasattr(workbook.properties, 'application'):
+        if workbook.properties.application:
+            metadata.creator = workbook.properties.application
+
+    return metadata
 
 
 def _xlsx_to_markdown(workbook: Any, options: SpreadsheetOptions) -> str:
@@ -252,7 +325,17 @@ def xlsx_to_markdown(
         else:
             wb = openpyxl.load_workbook(doc_input, data_only=options.render_formulas)
 
-        return _xlsx_to_markdown(wb, options)
+        # Extract metadata if requested
+        metadata = None
+        if options.extract_metadata:
+            metadata = extract_xlsx_metadata(wb)
+
+        result = _xlsx_to_markdown(wb, options)
+
+        # Prepend metadata if enabled
+        result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+
+        return result
 
     except InputError:
         raise

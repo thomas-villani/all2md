@@ -8,9 +8,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.converters.odf2markdown import OdfConverter, odf_to_markdown
+from all2md.converters.odf2markdown import OdfConverter, extract_odf_metadata, odf_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, OdfOptions
+from all2md.utils.metadata import DocumentMetadata
 
 
 # Mock ODF element classes
@@ -563,3 +564,193 @@ class TestOdfToMarkdownFunction:
 
             assert isinstance(result, str)
             mock_load.assert_called_once_with(path_obj)
+
+
+@pytest.mark.unit
+@pytest.mark.odf
+class TestOdfMetadataExtraction:
+    """Test ODF metadata extraction functionality."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.mock_doc = Mock()
+
+    def test_extract_odf_metadata_basic(self):
+        """Test basic metadata extraction from ODF document."""
+        # Mock meta elements
+        mock_title = Mock()
+        mock_title.__str__ = Mock(return_value="Test Document")
+
+        mock_creator = Mock()
+        mock_creator.__str__ = Mock(return_value="Test Author")
+
+        mock_description = Mock()
+        mock_description.__str__ = Mock(return_value="Test Description")
+
+        # Mock meta object with getElementsByType
+        mock_meta = Mock()
+
+        # Import the actual ODF classes for proper matching
+        from odf.dc import Title, Creator, Description
+
+        mock_meta.getElementsByType = lambda elem_type: {
+            Title: [mock_title],
+            Creator: [mock_creator],
+            Description: [mock_description]
+        }.get(elem_type, [])
+
+        self.mock_doc.meta = mock_meta
+        # Mock the hasattr and mimetype to avoid errors
+        self.mock_doc.mimetype = "application/vnd.oasis.opendocument.text"
+        self.mock_doc.body = None
+
+        metadata = extract_odf_metadata(self.mock_doc)
+        assert isinstance(metadata, DocumentMetadata)
+        assert metadata.title == "Test Document"
+        assert metadata.author == "Test Author"
+        assert metadata.subject == "Test Description"
+
+    def test_extract_odf_metadata_keywords(self):
+        """Test keyword extraction from ODF document."""
+        mock_keyword1 = Mock()
+        mock_keyword1.__str__ = Mock(return_value="python, conversion")
+
+        mock_keyword2 = Mock()
+        mock_keyword2.__str__ = Mock(return_value="odf; markdown")
+
+        mock_meta = Mock()
+
+        # Import the actual ODF classes
+        from odf.meta import Keyword
+
+        mock_meta.getElementsByType = lambda elem_type: {
+            Keyword: [mock_keyword1, mock_keyword2]
+        }.get(elem_type, [])
+
+        self.mock_doc.meta = mock_meta
+        self.mock_doc.mimetype = "application/vnd.oasis.opendocument.text"
+        self.mock_doc.body = None
+
+        metadata = extract_odf_metadata(self.mock_doc)
+
+        assert metadata.keywords == ["python", "conversion", "odf", "markdown"]
+
+    def test_extract_odf_metadata_creation_date(self):
+        """Test creation date extraction from ODF document."""
+        mock_date = Mock()
+        mock_date.__str__ = Mock(return_value="2025-09-26T10:00:00Z")
+
+        mock_meta = Mock()
+
+        # Import the actual ODF classes
+        from odf.meta import CreationDate
+
+        mock_meta.getElementsByType = lambda elem_type: {
+            CreationDate: [mock_date]
+        }.get(elem_type, [])
+
+        self.mock_doc.meta = mock_meta
+        self.mock_doc.mimetype = "application/vnd.oasis.opendocument.text"
+        self.mock_doc.body = None
+
+        metadata = extract_odf_metadata(self.mock_doc)
+
+        assert metadata.creation_date == "2025-09-26T10:00:00Z"
+
+    def test_extract_odf_metadata_no_meta(self):
+        """Test metadata extraction when no meta section exists."""
+        self.mock_doc.meta = None
+
+        with patch('all2md.converters.odf2markdown.hasattr', return_value=False):
+            metadata = extract_odf_metadata(self.mock_doc)
+
+        assert isinstance(metadata, DocumentMetadata)
+        assert metadata.title is None
+        assert metadata.author is None
+
+    def test_extract_odf_metadata_document_statistics(self):
+        """Test document statistics extraction."""
+        # Mock document body with various elements
+        mock_pages = [Mock(), Mock(), Mock()]  # 3 pages
+        mock_paragraphs = [Mock(), Mock()]  # 2 paragraphs
+        mock_tables = [Mock()]  # 1 table
+
+        mock_body = Mock()
+        mock_body.getElementsByType = Mock(side_effect=lambda elem_type: {
+            'Page': mock_pages,
+            'P': mock_paragraphs,
+            'Table': mock_tables
+        }.get(elem_type.__name__, []))
+
+        self.mock_doc.body = mock_body
+        self.mock_doc.meta = None
+
+        with patch('all2md.converters.odf2markdown.hasattr', side_effect=lambda obj, attr: attr in ['body']):
+            metadata = extract_odf_metadata(self.mock_doc)
+
+        assert metadata.custom['page_count'] == 3
+        assert metadata.custom['paragraph_count'] == 2
+        assert metadata.custom['table_count'] == 1
+
+    def test_extract_odf_metadata_presentation_type(self):
+        """Test document type detection for presentations."""
+        self.mock_doc.mimetype = "application/vnd.oasis.opendocument.presentation"
+        self.mock_doc.meta = None
+        self.mock_doc.body = None
+
+        with patch('all2md.converters.odf2markdown.hasattr', side_effect=lambda obj, attr: attr == 'mimetype'):
+            metadata = extract_odf_metadata(self.mock_doc)
+
+        assert metadata.custom['document_type'] == 'presentation'
+
+    def test_extract_odf_metadata_text_type(self):
+        """Test document type detection for text documents."""
+        self.mock_doc.mimetype = "application/vnd.oasis.opendocument.text"
+        self.mock_doc.meta = None
+        self.mock_doc.body = None
+
+        with patch('all2md.converters.odf2markdown.hasattr', side_effect=lambda obj, attr: attr == 'mimetype'):
+            metadata = extract_odf_metadata(self.mock_doc)
+
+        assert metadata.custom['document_type'] == 'text'
+
+    def test_odf_to_markdown_with_metadata_extraction(self):
+        """Test odf_to_markdown with metadata extraction enabled."""
+        options = OdfOptions(extract_metadata=True)
+
+        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+            mock_doc = MockDocument()
+            mock_doc.text.childNodes = []
+            mock_doc.meta = Mock()
+            mock_doc.meta.getElementsByType = Mock(return_value=[])
+            mock_load.return_value = mock_doc
+
+            with patch('all2md.converters.odf2markdown.extract_odf_metadata') as mock_extract:
+                mock_metadata = DocumentMetadata()
+                mock_metadata.title = "Test Document"
+                mock_extract.return_value = mock_metadata
+
+                with patch('all2md.converters.odf2markdown.prepend_metadata_if_enabled') as mock_prepend:
+                    mock_prepend.return_value = "---\ntitle: Test Document\n---\n\nContent"
+
+                    result = odf_to_markdown("test.odt", options)
+
+                    mock_extract.assert_called_once_with(mock_doc)
+                    mock_prepend.assert_called_once()
+                    assert "---" in result
+                    assert "title: Test Document" in result
+
+    def test_odf_to_markdown_without_metadata_extraction(self):
+        """Test odf_to_markdown with metadata extraction disabled."""
+        options = OdfOptions(extract_metadata=False)
+
+        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+            mock_doc = MockDocument()
+            mock_doc.text.childNodes = []
+            mock_load.return_value = mock_doc
+
+            with patch('all2md.converters.odf2markdown.extract_odf_metadata') as mock_extract:
+                result = odf_to_markdown("test.odt", options)
+
+                mock_extract.assert_not_called()
+                assert not result.startswith("---")

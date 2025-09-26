@@ -37,7 +37,7 @@ Options Classes
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Optional, Union, Self
+from typing import Any, Optional, Self, Union
 
 from .constants import (
     DEFAULT_ALLOW_CWD_FILES,
@@ -60,6 +60,7 @@ from .constants import (
     DEFAULT_DETECT_REPLY_SEPARATORS,
     DEFAULT_EMPHASIS_SYMBOL,
     DEFAULT_ESCAPE_SPECIAL,
+    DEFAULT_EXTRACT_METADATA,
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_HANDLE_ROTATED_TEXT,
     # PDF-specific constants
@@ -219,6 +220,10 @@ class BaseOptions(_CloneMixin):
     attachment_base_url: str | None = field(
         default=DEFAULT_ATTACHMENT_BASE_URL,
         metadata={"help": "Base URL for resolving attachment references"}
+    )
+    extract_metadata: bool = field(
+        default=DEFAULT_EXTRACT_METADATA,
+        metadata={"help": "Extract document metadata as YAML front matter"}
     )
     markdown_options: MarkdownOptions | None = field(
         default=None,

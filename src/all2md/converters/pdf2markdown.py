@@ -86,6 +86,7 @@ from all2md.exceptions import InputError, MarkdownConversionError, PasswordProte
 from all2md.options import MarkdownOptions, PdfOptions
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
@@ -982,6 +983,107 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
     return table_rects
 
 
+def extract_pdf_metadata(doc: "fitz.Document") -> DocumentMetadata:
+    """Extract metadata from PDF document.
+
+    Parameters
+    ----------
+    doc : fitz.Document
+        PyMuPDF document object
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # PyMuPDF provides metadata as a dictionary
+    pdf_meta = doc.metadata if hasattr(doc, 'metadata') else {}
+
+    # Map PDF metadata fields to our standard fields
+    if pdf_meta:
+        # Helper to get non-empty string values
+        def get_non_empty(key1, key2=None):
+            val = pdf_meta.get(key1, '')
+            if val and val.strip():
+                return val.strip()
+            if key2:
+                val = pdf_meta.get(key2, '')
+                if val and val.strip():
+                    return val.strip()
+            return None
+
+        metadata.title = get_non_empty('title', 'Title')
+        metadata.author = get_non_empty('author', 'Author')
+        metadata.subject = get_non_empty('subject', 'Subject')
+        metadata.creator = get_non_empty('creator', 'Creator')
+        metadata.producer = get_non_empty('producer', 'Producer')
+
+        # Handle keywords - may be a string that needs splitting
+        keywords = get_non_empty('keywords', 'Keywords')
+        if keywords:
+            if isinstance(keywords, str):
+                # Split by common delimiters
+                import re
+                metadata.keywords = [k.strip() for k in re.split('[,;]', keywords) if k.strip()]
+            elif isinstance(keywords, list):
+                metadata.keywords = keywords
+
+        # Handle dates
+        creation_date = get_non_empty('creationDate', 'CreationDate')
+        if creation_date:
+            # PyMuPDF returns dates as strings like "D:20210315120000Z"
+            if isinstance(creation_date, str) and creation_date.startswith('D:'):
+                # Parse PDF date format
+                try:
+                    from datetime import datetime
+                    # Remove D: prefix and parse
+                    date_str = creation_date[2:]
+                    if 'Z' in date_str:
+                        date_str = date_str.replace('Z', '+0000')
+                    # Basic parsing - format is YYYYMMDDHHmmSS
+                    if len(date_str) >= 8:
+                        year = int(date_str[0:4])
+                        month = int(date_str[4:6])
+                        day = int(date_str[6:8])
+                        metadata.creation_date = datetime(year, month, day)
+                except (ValueError, IndexError):
+                    metadata.creation_date = creation_date
+            else:
+                metadata.creation_date = creation_date
+
+        mod_date = get_non_empty('modDate', 'ModDate')
+        if mod_date:
+            # Same parsing as creation date
+            if isinstance(mod_date, str) and mod_date.startswith('D:'):
+                try:
+                    from datetime import datetime
+                    date_str = mod_date[2:]
+                    if 'Z' in date_str:
+                        date_str = date_str.replace('Z', '+0000')
+                    if len(date_str) >= 8:
+                        year = int(date_str[0:4])
+                        month = int(date_str[4:6])
+                        day = int(date_str[6:8])
+                        metadata.modification_date = datetime(year, month, day)
+                except (ValueError, IndexError):
+                    metadata.modification_date = mod_date
+            else:
+                metadata.modification_date = mod_date
+
+        # Store any additional PDF-specific metadata
+        for key, value in pdf_meta.items():
+            if key not in ['title', 'Title', 'author', 'Author', 'subject', 'Subject',
+                           'creator', 'Creator', 'producer', 'Producer', 'keywords', 'Keywords',
+                           'creationDate', 'CreationDate', 'modDate', 'ModDate', 'format',
+                           'trapped', 'encryption']:  # Skip internal PDF fields
+                if value and str(value).strip():  # Only include non-empty values
+                    metadata.custom[key] = value
+
+    return metadata
+
+
 def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], options: PdfOptions | None = None) -> str:
     """Convert PDF document to Markdown format.
 
@@ -1098,6 +1200,11 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
     else:
         # For non-file inputs, use a default name
         base_filename = "document"
+
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_pdf_metadata(doc)
 
     # Get Markdown options (create default if not provided)
     md_options = options.markdown_options or MarkdownOptions()
@@ -1221,5 +1328,8 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
             md_string += f"\n{separator}\n\n"
         else:
             md_string += f"\n{md_options.page_separator}\n\n"
+
+    # Prepend metadata if enabled
+    md_string = prepend_metadata_if_enabled(md_string, metadata, options.extract_metadata)
 
     return md_string

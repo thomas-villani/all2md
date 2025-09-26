@@ -75,6 +75,7 @@ from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, HtmlOptions, MarkdownOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
@@ -195,6 +196,89 @@ def _preprocess_html(
     return str(soup), list(footnotes.values())
 
 
+def extract_epub_metadata(book: epub.EpubBook) -> DocumentMetadata:
+    """Extract metadata from EPUB book.
+
+    Parameters
+    ----------
+    book : epub.EpubBook
+        EPUB book object from ebooklib
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Extract Dublin Core metadata
+    dc_metadata = book.get_metadata('DC', '')
+
+    # Process each metadata item
+    for _namespace, name, value, attrs in dc_metadata:
+        if name == 'title':
+            metadata.title = value
+        elif name == 'creator':
+            # EPUB can have multiple creators
+            if not metadata.author:
+                metadata.author = value
+            else:
+                # Add to custom if there are multiple authors
+                if 'authors' not in metadata.custom:
+                    metadata.custom['authors'] = [metadata.author]
+                metadata.custom['authors'].append(value)
+        elif name == 'description':
+            metadata.subject = value
+        elif name == 'subject':
+            # Subjects as keywords
+            if not metadata.keywords:
+                metadata.keywords = []
+            metadata.keywords.append(value)
+        elif name == 'date':
+            metadata.creation_date = value
+        elif name == 'language':
+            metadata.language = value
+        elif name == 'publisher':
+            metadata.custom['publisher'] = value
+        elif name == 'rights':
+            metadata.custom['rights'] = value
+        elif name == 'identifier':
+            # Handle different identifier schemes
+            scheme = attrs.get('scheme', 'unknown') if attrs else 'unknown'
+            if scheme.lower() == 'isbn':
+                metadata.custom['isbn'] = value
+            elif scheme.lower() == 'uuid':
+                metadata.custom['uuid'] = value
+            else:
+                metadata.custom[f'identifier_{scheme}'] = value
+
+    # Extract additional metadata
+    opf_metadata = book.get_metadata('OPF', '')
+    for _namespace, name, _value, attrs in opf_metadata:
+        if name == 'meta':
+            # Handle OPF meta elements
+            if attrs and 'name' in attrs:
+                meta_name = attrs['name']
+                if meta_name == 'cover' and 'content' in attrs:
+                    metadata.custom['cover_id'] = attrs['content']
+
+    # Get chapter/document count
+    documents = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
+    if documents:
+        metadata.custom['chapter_count'] = len(documents)
+
+    # Check for images
+    images = list(book.get_items_of_type(ebooklib.ITEM_IMAGE))
+    if images:
+        metadata.custom['image_count'] = len(images)
+
+    # EPUB version
+    if hasattr(book, 'version'):
+        metadata.custom['epub_version'] = book.version
+
+    return metadata
+
+
 def epub_to_markdown(
         input_data: Union[str, Path, IO[bytes]], options: EpubOptions | None = None
 ) -> str:
@@ -255,6 +339,7 @@ def epub_to_markdown(
                 ) from e
 
         book = epub.read_epub(epub_path)
+
     except Exception as e:
         raise MarkdownConversionError(
             f"Failed to read or parse EPUB file: {e!r}",
@@ -268,6 +353,11 @@ def epub_to_markdown(
                 os.unlink(temp_file.name)
             except OSError:
                 pass  # Ignore cleanup errors
+
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_epub_metadata(book)
 
     md_options = options.markdown_options or MarkdownOptions()
     html_options = HtmlOptions(
@@ -325,7 +415,12 @@ def epub_to_markdown(
     separator = "\n\n-----\n\n" if not options.merge_chapters and len(all_md_parts) > 1 else "\n\n"
     final_content = separator.join(part.strip() for part in all_md_parts if part.strip())
 
-    return (md_toc + final_content).strip()
+    result = (md_toc + final_content).strip()
+
+    # Prepend metadata if enabled
+    result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+
+    return result
 
 
 # Converter metadata for registration

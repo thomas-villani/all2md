@@ -101,6 +101,7 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
 from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
@@ -333,6 +334,63 @@ def _process_shape(
     return None
 
 
+def extract_pptx_metadata(prs: Presentation) -> DocumentMetadata:
+    """Extract metadata from PPTX presentation.
+
+    Parameters
+    ----------
+    prs : Presentation
+        python-pptx Presentation object
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Access core properties
+    if hasattr(prs, 'core_properties'):
+        props = prs.core_properties
+
+        # Extract standard properties
+        metadata.title = props.title if hasattr(props, 'title') and props.title else None
+        metadata.author = props.author if hasattr(props, 'author') and props.author else None
+        metadata.subject = props.subject if hasattr(props, 'subject') and props.subject else None
+        metadata.category = props.category if hasattr(props, 'category') and props.category else None
+        metadata.language = props.language if hasattr(props, 'language') and props.language else None
+
+        # Handle keywords
+        if hasattr(props, 'keywords') and props.keywords:
+            if isinstance(props.keywords, str):
+                import re
+                metadata.keywords = [k.strip() for k in re.split('[,;]', props.keywords) if k.strip()]
+            elif isinstance(props.keywords, list):
+                metadata.keywords = props.keywords
+
+        # Handle dates
+        if hasattr(props, 'created') and props.created:
+            metadata.creation_date = props.created
+        if hasattr(props, 'modified') and props.modified:
+            metadata.modification_date = props.modified
+
+        # Additional PPTX-specific metadata
+        if hasattr(props, 'last_modified_by') and props.last_modified_by:
+            metadata.custom['last_modified_by'] = props.last_modified_by
+        if hasattr(props, 'revision') and props.revision:
+            metadata.custom['revision'] = props.revision
+        if hasattr(props, 'comments') and props.comments:
+            metadata.custom['comments'] = props.comments
+
+        # Add slide count as custom metadata
+        try:
+            metadata.custom['slide_count'] = len(prs.slides)
+        except Exception:
+            pass
+
+    return metadata
+
+
 def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptions | None = None) -> str:
     """Convert a PowerPoint presentation to Markdown format.
 
@@ -396,6 +454,11 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
         # For non-file inputs, use a default name
         base_filename = "presentation"
 
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_pptx_metadata(prs)
+
     # Get Markdown options (create default if not provided) - currently not used in processing
     # md_options = options.markdown_options or MarkdownOptions()
 
@@ -424,7 +487,12 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
             markdown_content.extend(slide_content)
             markdown_content.append("\n---\n")  # Add separator between slides
 
-    return "\n".join(markdown_content).strip()
+    result = "\n".join(markdown_content).strip()
+
+    # Prepend metadata if enabled
+    result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+
+    return result
 
 
 # Converter metadata for registration

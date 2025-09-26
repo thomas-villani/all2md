@@ -51,6 +51,7 @@ DEFAULT_ESCAPE_SPECIAL = True
 DEFAULT_USE_HASH_HEADINGS = True
 DEFAULT_EXTRACT_TITLE = False
 DEFAULT_SLIDE_NUMBERS = False
+DEFAULT_EXTRACT_METADATA = False
 
 # =============================================================================
 # Supported Format Types

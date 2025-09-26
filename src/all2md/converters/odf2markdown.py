@@ -78,6 +78,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, OdfOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
@@ -295,6 +296,120 @@ class OdfConverter:
         return False
 
 
+def extract_odf_metadata(doc: opendocument.OpenDocument) -> DocumentMetadata:
+    """Extract metadata from ODF document.
+
+    Parameters
+    ----------
+    doc : opendocument.OpenDocument
+        ODF document object from odfpy
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Access document metadata
+    if hasattr(doc, 'meta'):
+        meta = doc.meta
+
+        # Extract Dublin Core metadata
+        if hasattr(meta, 'getElementsByType'):
+            from odf.dc import Creator, Description, Language, Subject, Title
+            from odf.meta import CreationDate, Generator, InitialCreator, Keyword
+
+            # Title
+            titles = meta.getElementsByType(Title)
+            if titles:
+                metadata.title = str(titles[0]).strip()
+
+            # Creator/Author
+            creators = meta.getElementsByType(Creator)
+            if creators:
+                metadata.author = str(creators[0]).strip()
+            else:
+                # Try initial creator
+                initial_creators = meta.getElementsByType(InitialCreator)
+                if initial_creators:
+                    metadata.author = str(initial_creators[0]).strip()
+
+            # Description/Subject
+            descriptions = meta.getElementsByType(Description)
+            if descriptions:
+                metadata.subject = str(descriptions[0]).strip()
+            else:
+                subjects = meta.getElementsByType(Subject)
+                if subjects:
+                    metadata.subject = str(subjects[0]).strip()
+
+            # Keywords
+            keywords = meta.getElementsByType(Keyword)
+            if keywords:
+                # ODF can have multiple keyword elements
+                keyword_list = []
+                for kw in keywords:
+                    kw_text = str(kw).strip()
+                    if kw_text:
+                        # Split by common delimiters
+                        import re
+                        parts = [k.strip() for k in re.split('[,;]', kw_text) if k.strip()]
+                        keyword_list.extend(parts)
+                if keyword_list:
+                    metadata.keywords = keyword_list
+
+            # Creation date
+            creation_dates = meta.getElementsByType(CreationDate)
+            if creation_dates:
+                metadata.creation_date = str(creation_dates[0]).strip()
+
+            # Generator (application)
+            generators = meta.getElementsByType(Generator)
+            if generators:
+                metadata.creator = str(generators[0]).strip()
+
+            # Language
+            languages = meta.getElementsByType(Language)
+            if languages:
+                metadata.language = str(languages[0]).strip()
+
+    # Document type and statistics
+    if hasattr(doc, 'mimetype'):
+        doc_type = 'presentation' if 'presentation' in doc.mimetype else 'text'
+        metadata.custom['document_type'] = doc_type
+
+    # Count pages/slides if it's a presentation
+    if hasattr(doc, 'body'):
+        try:
+            from odf.draw import Page
+            pages = doc.body.getElementsByType(Page)
+            if pages:
+                metadata.custom['page_count'] = len(pages)
+        except Exception:
+            pass
+
+        # Count paragraphs for text documents
+        try:
+            from odf.text import P
+            paragraphs = doc.body.getElementsByType(P)
+            if paragraphs:
+                metadata.custom['paragraph_count'] = len(paragraphs)
+        except Exception:
+            pass
+
+        # Count tables
+        try:
+            from odf.table import Table
+            tables = doc.body.getElementsByType(Table)
+            if tables:
+                metadata.custom['table_count'] = len(tables)
+        except Exception:
+            pass
+
+    return metadata
+
+
 def odf_to_markdown(
         input_data: Union[str, Path, IO[bytes]], options: OdfOptions | None = None
 ) -> str:
@@ -350,8 +465,18 @@ def odf_to_markdown(
             f"Failed to open ODF document: {str(e)}", conversion_stage="document_opening", original_error=e
         ) from e
 
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_odf_metadata(doc)
+
     converter = OdfConverter(doc, options)
-    return converter.convert()
+    markdown_content = converter.convert()
+
+    # Prepend metadata if enabled
+    result = prepend_metadata_if_enabled(markdown_content, metadata, options.extract_metadata)
+
+    return result
 
 
 # Converter metadata for registration

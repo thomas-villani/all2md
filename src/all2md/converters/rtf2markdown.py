@@ -65,12 +65,111 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, RtfOptions
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 # except ImportError:
 #     Document = None
 #     Rtf15Reader = None
 
 logger = logging.getLogger(__name__)
+
+
+def extract_rtf_metadata(doc: Document) -> DocumentMetadata:
+    """Extract metadata from RTF document.
+
+    Parameters
+    ----------
+    doc : Document
+        Parsed RTF document from pyth
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # RTF documents parsed by pyth have limited metadata access
+    # Most RTF metadata is not easily accessible through the pyth library
+    # We can extract some basic document statistics and content analysis
+
+    if not doc or not doc.content:
+        return metadata
+
+    # Count different element types
+    paragraph_count = 0
+    list_count = 0
+    image_count = 0
+    text_content = []
+
+    def analyze_element(element: Any) -> None:
+        nonlocal paragraph_count, list_count, image_count
+
+        if isinstance(element, Paragraph):
+            paragraph_count += 1
+            # Extract text content for analysis
+            for item in element.content or []:
+                if isinstance(item, Text):
+                    if isinstance(item.content, list):
+                        text_content.extend(item.content)
+                    else:
+                        text_content.append(str(item.content))
+                elif isinstance(item, Image):
+                    image_count += 1
+        elif isinstance(element, List):
+            list_count += 1
+            # Recursively analyze list content
+            for entry in element.content or []:
+                analyze_element(entry)
+        elif isinstance(element, ListEntry):
+            # Analyze list entry content
+            for item in element.content or []:
+                analyze_element(item)
+
+    # Analyze all document content
+    for element in doc.content:
+        analyze_element(element)
+
+    # Set document statistics
+    if paragraph_count > 0:
+        metadata.custom['paragraph_count'] = paragraph_count
+
+    if list_count > 0:
+        metadata.custom['list_count'] = list_count
+
+    if image_count > 0:
+        metadata.custom['image_count'] = image_count
+
+    # Analyze text content
+    if text_content:
+        full_text = ' '.join(str(t) for t in text_content if t)
+
+        # Word count
+        words = full_text.split()
+        if words:
+            metadata.custom['word_count'] = len(words)
+
+        # Character count
+        if full_text.strip():
+            metadata.custom['character_count'] = len(full_text.strip())
+
+        # Try to extract title from first significant text
+        # Look for title-like content (short first line or heading)
+        text_lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+        if text_lines:
+            first_line = text_lines[0]
+            # If the first line is reasonably short and looks like a title
+            if len(first_line) < 100 and not first_line.endswith('.'):
+                # Check if it's likely a title (short, no sentence ending)
+                words_in_first = first_line.split()
+                if 1 <= len(words_in_first) <= 15:  # Reasonable title length
+                    metadata.title = first_line
+
+    # RTF document type
+    metadata.custom['document_type'] = 'rtf'
+    metadata.custom['format'] = 'Rich Text Format'
+
+    return metadata
 
 
 class RtfConverter:
@@ -306,6 +405,11 @@ def rtf_to_markdown(
             original_error=e,
         ) from e
 
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_rtf_metadata(doc)
+
     # Extract base filename for standardized attachment naming
     if isinstance(doc_input, (str, Path)):
         base_filename = Path(doc_input).stem
@@ -314,7 +418,12 @@ def rtf_to_markdown(
 
     converter = RtfConverter(options)
     converter._base_filename = base_filename  # Pass base filename to converter
-    return converter.convert(doc)
+    markdown_content = converter.convert(doc)
+
+    # Prepend metadata if enabled
+    result = prepend_metadata_if_enabled(markdown_content, metadata, options.extract_metadata)
+
+    return result
 
 
 # Converter metadata for registration

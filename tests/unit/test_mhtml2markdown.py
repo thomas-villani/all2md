@@ -9,9 +9,10 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from all2md.converters.mhtml2markdown import mhtml_to_markdown
+from all2md.converters.mhtml2markdown import extract_mhtml_metadata, mhtml_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, MhtmlOptions
+from all2md.utils.metadata import DocumentMetadata
 
 
 @pytest.mark.unit
@@ -452,3 +453,233 @@ Content-Type: text/html; charset=utf-8
             # MS Word conditional comments should be removed
             assert '<!--[if !supportLists]-->' not in processed_html
             assert '<li>' in processed_html  # Converted to list items
+
+
+@pytest.mark.unit
+@pytest.mark.mhtml
+class TestMhtmlMetadataExtraction:
+    """Test MHTML metadata extraction functionality."""
+
+    def test_extract_mhtml_metadata_email_headers(self):
+        """Test metadata extraction from email headers."""
+        import email
+        from email import policy
+
+        # Create mock email message
+        email_content = """From: test@example.com
+To: recipient@example.com
+Subject: Test MHTML Document
+Date: Fri, 26 Sep 2025 10:00:00 +0000
+Message-ID: <test-123@example.com>
+X-Mailer: Test Mailer
+
+<html><body><h1>Test</h1></body></html>
+"""
+        msg = email.message_from_string(email_content, policy=policy.default)
+        html_content = "<html><body><h1>Test</h1></body></html>"
+
+        metadata = extract_mhtml_metadata(msg, html_content)
+
+        assert isinstance(metadata, DocumentMetadata)
+        assert metadata.title == "Test MHTML Document"
+        assert metadata.author == "test@example.com"
+        assert metadata.creation_date == "Fri, 26 Sep 2025 10:00:00 +0000"
+        assert metadata.creator == "Test Mailer"
+        assert metadata.custom['to'] == "recipient@example.com"
+        assert metadata.custom['message_id'] == "<test-123@example.com>"
+
+    def test_extract_mhtml_metadata_html_meta_tags(self):
+        """Test metadata extraction from HTML meta tags."""
+        import email
+        from email import policy
+
+        email_content = "Subject: Email Subject\n\n"
+        msg = email.message_from_string(email_content, policy=policy.default)
+
+        html_content = """
+        <html>
+        <head>
+            <title>HTML Title</title>
+            <meta name="author" content="HTML Author">
+            <meta name="description" content="HTML Description">
+            <meta name="keywords" content="html,mhtml,test">
+            <meta name="generator" content="HTML Generator">
+            <meta property="og:title" content="OG Title">
+            <meta property="og:description" content="OG Description">
+        </head>
+        <body><h1>Content</h1></body>
+        </html>
+        """
+
+        metadata = extract_mhtml_metadata(msg, html_content)
+
+        # Email header takes precedence for title
+        assert metadata.title == "Email Subject"
+        # HTML meta takes precedence when email header not set
+        assert metadata.subject == "HTML Description"
+        assert metadata.keywords == ["html", "mhtml", "test"]
+        assert metadata.creator == "HTML Generator"
+
+    def test_extract_mhtml_metadata_open_graph(self):
+        """Test Open Graph metadata extraction."""
+        import email
+        from email import policy
+
+        email_content = "\n\n"  # No email headers
+        msg = email.message_from_string(email_content, policy=policy.default)
+
+        html_content = """
+        <html>
+        <head>
+            <meta property="og:title" content="OG Title">
+            <meta property="og:description" content="OG Description">
+            <meta property="og:type" content="article">
+            <meta property="og:url" content="https://example.com">
+            <meta property="og:site_name" content="Example Site">
+        </head>
+        <body><h1>Content</h1></body>
+        </html>
+        """
+
+        metadata = extract_mhtml_metadata(msg, html_content)
+
+        assert metadata.title == "OG Title"
+        assert metadata.subject == "OG Description"
+        assert metadata.custom['og_type'] == "article"
+        assert metadata.custom['og_url'] == "https://example.com"
+        assert metadata.custom['site_name'] == "Example Site"
+
+    def test_extract_mhtml_metadata_document_statistics(self):
+        """Test document statistics extraction from HTML."""
+        import email
+        from email import policy
+
+        email_content = "\n\n"
+        msg = email.message_from_string(email_content, policy=policy.default)
+
+        html_content = """
+        <html>
+        <body>
+            <h1>Title</h1>
+            <p>This is a test document with multiple words.</p>
+            <img src="image1.png" alt="Image 1">
+            <img src="image2.png" alt="Image 2">
+            <a href="https://example.com">Link 1</a>
+            <a href="https://test.com">Link 2</a>
+            <a href="https://demo.com">Link 3</a>
+        </body>
+        </html>
+        """
+
+        metadata = extract_mhtml_metadata(msg, html_content)
+
+        assert metadata.custom['image_count'] == 2
+        assert metadata.custom['link_count'] == 3
+        assert metadata.custom['word_count'] > 0  # Should count words in text content
+
+    def test_extract_mhtml_metadata_html_parsing_error(self):
+        """Test metadata extraction when HTML parsing fails."""
+        import email
+        from email import policy
+
+        email_content = "Subject: Test Subject\n\n"
+        msg = email.message_from_string(email_content, policy=policy.default)
+
+        # Malformed HTML that might cause parsing issues
+        html_content = "<html><head><title>Test</title>"  # Missing closing tags
+
+        metadata = extract_mhtml_metadata(msg, html_content)
+
+        # Should still extract email metadata even if HTML parsing fails
+        assert metadata.title == "Test Subject"
+
+    def test_extract_mhtml_metadata_precedence(self):
+        """Test metadata precedence (email headers over HTML)."""
+        import email
+        from email import policy
+
+        email_content = """From: email@example.com
+Subject: Email Title
+Date: 2025-09-26
+
+"""
+        msg = email.message_from_string(email_content, policy=policy.default)
+
+        html_content = """
+        <html>
+        <head>
+            <title>HTML Title</title>
+            <meta name="author" content="HTML Author">
+        </head>
+        <body><h1>Content</h1></body>
+        </html>
+        """
+
+        metadata = extract_mhtml_metadata(msg, html_content)
+
+        # Email headers should take precedence
+        assert metadata.title == "Email Title"
+        assert metadata.author == "email@example.com"
+        assert metadata.creation_date == "2025-09-26"
+
+    def test_mhtml_to_markdown_with_metadata_extraction(self):
+        """Test MHTML to Markdown conversion with metadata extraction enabled."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+Subject: Test MHTML Document
+From: test@example.com
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html>
+<head>
+    <title>HTML Title</title>
+    <meta name="description" content="Test Description">
+</head>
+<body>
+    <h1>Test Content</h1>
+</body>
+</html>
+
+--test-boundary--
+"""
+
+        options = MhtmlOptions(extract_metadata=True)
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# Test Content"
+
+            with patch('all2md.converters.mhtml2markdown.prepend_metadata_if_enabled') as mock_prepend:
+                mock_prepend.return_value = "---\ntitle: Test MHTML Document\n---\n\n# Test Content"
+
+                result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
+
+                mock_prepend.assert_called_once()
+                assert "---" in result
+                assert "title: Test MHTML Document" in result
+
+    def test_mhtml_to_markdown_without_metadata_extraction(self):
+        """Test MHTML to Markdown conversion with metadata extraction disabled."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+Subject: Test Document
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Test</h1></body></html>
+
+--test-boundary--
+"""
+
+        options = MhtmlOptions(extract_metadata=False)
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "# Test"
+
+            with patch('all2md.converters.mhtml2markdown.extract_mhtml_metadata') as mock_extract:
+                result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
+
+                mock_extract.assert_not_called()
+                assert not result.startswith("---")

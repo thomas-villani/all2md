@@ -77,6 +77,7 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
 from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import escape_markdown_special, format_special_text
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
@@ -416,6 +417,59 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
                 yield paragraph
 
 
+def extract_docx_metadata(doc: "docx.document.Document") -> DocumentMetadata:
+    """Extract metadata from DOCX document.
+
+    Parameters
+    ----------
+    doc : docx.document.Document
+        python-docx Document object
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Access core properties
+    if hasattr(doc, 'core_properties'):
+        props = doc.core_properties
+
+        # Extract standard properties
+        metadata.title = props.title if hasattr(props, 'title') and props.title else None
+        metadata.author = props.author if hasattr(props, 'author') and props.author else None
+        metadata.subject = props.subject if hasattr(props, 'subject') and props.subject else None
+        metadata.category = props.category if hasattr(props, 'category') and props.category else None
+        metadata.language = props.language if hasattr(props, 'language') and props.language else None
+
+        # Handle keywords
+        if hasattr(props, 'keywords') and props.keywords:
+            if isinstance(props.keywords, str):
+                import re
+                metadata.keywords = [k.strip() for k in re.split('[,;]', props.keywords) if k.strip()]
+            elif isinstance(props.keywords, list):
+                metadata.keywords = props.keywords
+
+        # Handle dates
+        if hasattr(props, 'created') and props.created:
+            metadata.creation_date = props.created
+        if hasattr(props, 'modified') and props.modified:
+            metadata.modification_date = props.modified
+
+        # Additional DOCX-specific metadata
+        if hasattr(props, 'last_modified_by') and props.last_modified_by:
+            metadata.custom['last_modified_by'] = props.last_modified_by
+        if hasattr(props, 'revision') and props.revision:
+            metadata.custom['revision'] = props.revision
+        if hasattr(props, 'version') and props.version:
+            metadata.custom['version'] = props.version
+        if hasattr(props, 'comments') and props.comments:
+            metadata.custom['comments'] = props.comments
+
+    return metadata
+
+
 def docx_to_markdown(
         input_data: Union[str, Path, "docx.document.Document", IO[bytes]], options: DocxOptions | None = None
 ) -> str:
@@ -517,6 +571,11 @@ def docx_to_markdown(
             f"Failed to open DOCX document: {str(e)}", conversion_stage="document_opening", original_error=e
         ) from e
 
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_docx_metadata(doc)
+
     # Get Markdown options (create default if not provided)
     md_options = options.markdown_options or MarkdownOptions()
 
@@ -614,4 +673,7 @@ def docx_to_markdown(
     markdown = "\n\n".join(markdown_lines)
     markdown = re.sub(r"\n{3,}", "\n\n", markdown)
 
-    return markdown.strip()
+    # Prepend metadata if enabled
+    markdown = prepend_metadata_if_enabled(markdown.strip(), metadata, options.extract_metadata)
+
+    return markdown

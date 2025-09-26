@@ -78,7 +78,148 @@ from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import HtmlOptions, MarkdownOptions, MhtmlOptions
 from all2md.utils.inputs import validate_and_convert_input
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_local_file_access
+
+
+def extract_mhtml_metadata(msg: email.message.EmailMessage, html_content: str) -> DocumentMetadata:
+    """Extract metadata from MHTML file.
+
+    Parameters
+    ----------
+    msg : email.message.EmailMessage
+        Parsed MHTML message
+    html_content : str
+        HTML content from the MHTML file
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Extract metadata from email headers
+    subject = msg.get('Subject')
+    if subject:
+        metadata.title = str(subject).strip()
+
+    from_header = msg.get('From')
+    if from_header:
+        metadata.author = str(from_header).strip()
+
+    date_header = msg.get('Date')
+    if date_header:
+        metadata.creation_date = str(date_header).strip()
+
+    # Extract additional email headers
+    to_header = msg.get('To')
+    if to_header:
+        metadata.custom['to'] = str(to_header).strip()
+
+    cc_header = msg.get('CC')
+    if cc_header:
+        metadata.custom['cc'] = str(cc_header).strip()
+
+    message_id = msg.get('Message-ID')
+    if message_id:
+        metadata.custom['message_id'] = str(message_id).strip()
+
+    x_mailer = msg.get('X-Mailer')
+    if x_mailer:
+        metadata.creator = str(x_mailer).strip()
+    else:
+        user_agent = msg.get('User-Agent')
+        if user_agent:
+            metadata.creator = str(user_agent).strip()
+
+    # Extract metadata from HTML content using BeautifulSoup
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Get title from HTML if not already set
+        if not metadata.title:
+            title_tag = soup.find('title')
+            if title_tag and title_tag.string:
+                metadata.title = title_tag.string.strip()
+
+        # Extract meta tags
+        meta_tags = soup.find_all('meta')
+        keywords_list = []
+
+        for meta in meta_tags:
+            name_attr = meta.get('name')
+            property_attr = meta.get('property')
+            content_attr = meta.get('content')
+
+            name = str(name_attr).lower() if name_attr else ''
+            property_name = str(property_attr).lower() if property_attr else ''
+            content = str(content_attr) if content_attr else ''
+
+            if not content:
+                continue
+
+            # Standard meta tags
+            if name == 'author' and not metadata.author:
+                metadata.author = content.strip()
+            elif name == 'description':
+                metadata.subject = content.strip()
+            elif name == 'keywords':
+                # Split keywords by comma and add to list
+                keywords_list.extend([k.strip() for k in content.split(',') if k.strip()])
+            elif name == 'generator' and not metadata.creator:
+                metadata.creator = content.strip()
+            elif name == 'language':
+                metadata.language = content.strip()
+            elif name == 'created' or name == 'date-created':
+                if not metadata.creation_date:
+                    metadata.creation_date = content.strip()
+
+            # Open Graph meta tags
+            elif property_name == 'og:title' and not metadata.title:
+                metadata.title = content.strip()
+            elif property_name == 'og:description' and not metadata.subject:
+                metadata.subject = content.strip()
+            elif property_name == 'og:type':
+                metadata.custom['og_type'] = content.strip()
+            elif property_name == 'og:url':
+                metadata.custom['og_url'] = content.strip()
+            elif property_name == 'og:site_name':
+                metadata.custom['site_name'] = content.strip()
+
+            # Additional meta tags
+            elif name == 'viewport':
+                metadata.custom['viewport'] = content.strip()
+            elif name == 'robots':
+                metadata.custom['robots'] = content.strip()
+            elif name == 'canonical':
+                metadata.custom['canonical_url'] = content.strip()
+
+        # Set keywords if any were found
+        if keywords_list:
+            metadata.keywords = keywords_list
+
+        # Count assets and get basic document statistics
+        images = soup.find_all('img')
+        if images:
+            metadata.custom['image_count'] = len(images)
+
+        links = soup.find_all('a', href=True)
+        if links:
+            metadata.custom['link_count'] = len(links)
+
+        # Get text content length (approximate)
+        text_content = soup.get_text()
+        if text_content:
+            word_count = len(text_content.split())
+            if word_count > 0:
+                metadata.custom['word_count'] = word_count
+
+    except Exception:
+        # If HTML parsing fails, continue with email-only metadata
+        pass
+
+    return metadata
 
 
 def mhtml_to_markdown(
@@ -155,6 +296,11 @@ def mhtml_to_markdown(
             conversion_stage="mhtml_parsing"
         )
 
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_mhtml_metadata(msg, html_string)
+
     # Gather all assets
     for part in msg.walk():
         cid = part.get("Content-ID")
@@ -174,7 +320,11 @@ def mhtml_to_markdown(
 
     # Handle asset inlining
     for tag in soup.find_all(src=re.compile(r"^(cid:|file://)")):
-        src = tag["src"]
+        src_attr = tag.get("src")
+        if not src_attr:
+            continue
+
+        src = str(src_attr)
         asset_id = None
 
         if src.startswith("cid:"):
@@ -198,15 +348,16 @@ def mhtml_to_markdown(
         if asset_id and asset_id in assets:
             data, _, mime_type = assets[asset_id]
             if data and mime_type and mime_type.startswith("image/"):
-                b64_data = base64.b64encode(data).decode("utf-8")
-                tag["src"] = f"data:{mime_type};base64,{b64_data}"
+                if isinstance(data, bytes):
+                    b64_data = base64.b64encode(data).decode("utf-8")
+                    tag["src"] = f"data:{mime_type};base64,{b64_data}"
 
     processed_html = str(soup)
 
     # Clean up Microsoft Word conditional comments and formatting artifacts while preserving list structure
 
     # Extract and replace list markers before removing conditional comments
-    def replace_list_markers(match):
+    def replace_list_markers(match: re.Match[str]) -> str:
         content = match.group(0)
         # Look for bullet patterns: -, ·, o, ▪, etc.
         if re.search(r'[-·o▪•]', content):
@@ -240,7 +391,12 @@ def mhtml_to_markdown(
         markdown_options=options.markdown_options or MarkdownOptions(),
     )
 
-    return html_to_markdown(processed_html, options=html_options)
+    markdown_content = html_to_markdown(processed_html, options=html_options)
+
+    # Prepend metadata if enabled
+    result = prepend_metadata_if_enabled(markdown_content, metadata, options.extract_metadata)
+
+    return result
 
 
 # Converter metadata for registration

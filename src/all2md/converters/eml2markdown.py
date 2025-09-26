@@ -99,6 +99,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import EmlOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 
 def _parse_date_with_fallback(msg: EmailMessage | Message, options: EmlOptions) -> datetime.datetime | None:
@@ -900,6 +901,96 @@ def _clean_quoted_content(content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
+def extract_eml_metadata(msg: EmailMessage | Message, options: EmlOptions) -> DocumentMetadata:
+    """Extract metadata from email message.
+
+    Parameters
+    ----------
+    msg : EmailMessage | Message
+        Email message object
+    options : EmlOptions
+        Email conversion options
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    # Extract subject as title
+    subject = msg.get('Subject', '')
+    if subject:
+        metadata.title = subject.strip()
+
+    # Extract from address as author
+    from_header = msg.get('From', '')
+    if from_header:
+        # Parse email addresses
+        from_list = getaddresses([from_header])
+        if from_list:
+            name, email = from_list[0]
+            metadata.author = name if name else email
+
+    # Extract date
+    date_obj = _parse_date_with_fallback(msg, options)
+    if date_obj:
+        metadata.creation_date = date_obj
+
+    # Extract additional email-specific metadata
+    to_header = msg.get('To', '')
+    if to_header:
+        to_list = getaddresses([to_header])
+        metadata.custom['to'] = [f"{name} <{email}>" if name else email for name, email in to_list]
+
+    cc_header = msg.get('Cc', '')
+    if cc_header:
+        cc_list = getaddresses([cc_header])
+        metadata.custom['cc'] = [f"{name} <{email}>" if name else email for name, email in cc_list]
+
+    # Message ID
+    message_id = msg.get('Message-ID', '')
+    if message_id:
+        metadata.custom['message_id'] = message_id.strip()
+
+    # Reply-To
+    reply_to = msg.get('Reply-To', '')
+    if reply_to:
+        metadata.custom['reply_to'] = reply_to.strip()
+
+    # In-Reply-To (for threading)
+    in_reply_to = msg.get('In-Reply-To', '')
+    if in_reply_to:
+        metadata.custom['in_reply_to'] = in_reply_to.strip()
+
+    # References (for threading)
+    references = msg.get('References', '')
+    if references:
+        metadata.custom['references'] = references.strip()
+
+    # X-Mailer or User-Agent
+    mailer = msg.get('X-Mailer', '') or msg.get('User-Agent', '')
+    if mailer:
+        metadata.creator = mailer.strip()
+
+    # Priority/Importance
+    priority = msg.get('X-Priority', '') or msg.get('Importance', '')
+    if priority:
+        metadata.custom['priority'] = priority.strip()
+
+    # Content type
+    content_type = msg.get_content_type()
+    if content_type:
+        metadata.custom['content_type'] = content_type
+
+    # Organization
+    org = msg.get('Organization', '')
+    if org:
+        metadata.custom['organization'] = org.strip()
+
+    return metadata
+
+
 def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions | None = None) -> str:
     """Parse EML file containing email chain into Markdown format.
 
@@ -980,6 +1071,11 @@ def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions
                 original_error=e
             ) from e
 
+    # Extract metadata if requested
+    metadata = None
+    if options.extract_metadata:
+        metadata = extract_eml_metadata(eml_msg, options)
+
     messages = []
 
     try:
@@ -1018,7 +1114,12 @@ def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions
         messages.sort(key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc))
 
         # Convert to Markdown format
-        return format_email_chain_as_markdown(messages, options)
+        result = format_email_chain_as_markdown(messages, options)
+
+        # Prepend metadata if enabled
+        result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+
+        return result
 
     except Exception as e:
         raise MarkdownConversionError(
