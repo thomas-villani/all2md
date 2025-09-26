@@ -6,7 +6,7 @@ from dataclass options using field metadata.
 
 import argparse
 from dataclasses import fields, is_dataclass
-from typing import Any, Dict, Optional, Type, Union, get_args
+from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
 
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
@@ -24,6 +24,135 @@ class DynamicCLIBuilder:
     def __init__(self) -> None:
         """Initialize the CLI builder."""
         self.parser: Optional[argparse.ArgumentParser] = None
+
+    def _resolve_field_type(self, field: Any, options_class: Type) -> Type:
+        """Resolve field type using typing.get_type_hints for robust type handling.
+
+        This method replaces brittle string matching with proper type resolution
+        that works with 'from __future__ import annotations'.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field to resolve type for
+        options_class : Type
+            The dataclass containing the field
+
+        Returns
+        -------
+        Type
+            Resolved field type
+        """
+        try:
+            # Use get_type_hints to resolve string annotations
+            type_hints = get_type_hints(options_class)
+            if field.name in type_hints:
+                return type_hints[field.name]
+        except (NameError, AttributeError):
+            # Fallback if type hints can't be resolved
+            pass
+
+        # Fallback to the raw field.type
+        return field.type
+
+    def _handle_optional_type(self, field_type: Type) -> tuple[Type, bool]:
+        """Handle Optional/Union types to extract the underlying type.
+
+        Parameters
+        ----------
+        field_type : Type
+            Type annotation to analyze
+
+        Returns
+        -------
+        tuple[Type, bool]
+            Tuple of (underlying_type, is_optional)
+        """
+        # Handle Union types (including Optional which is Union[T, None])
+        if hasattr(field_type, '__origin__') and field_type.__origin__ is Union:
+            args = field_type.__args__
+            if len(args) == 2 and type(None) in args:
+                # This is Optional[SomeType] (Union[SomeType, None])
+                underlying_type = args[0] if args[1] is type(None) else args[1]
+                return underlying_type, True
+            else:
+                # Non-Optional Union - return as-is
+                return field_type, False
+
+        # Handle other generic types with __origin__ (like list[int])
+        if hasattr(field_type, '__origin__'):
+            return field_type, False
+
+        # Regular type
+        return field_type, False
+
+    def _infer_argument_type_and_action(self, field: Any, resolved_type: Type,
+                                      is_optional: bool, metadata: Dict[str, Any],
+                                      cli_name: str) -> Dict[str, Any]:
+        """Infer argparse type and action from resolved field type.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field
+        resolved_type : Type
+            Resolved field type
+        is_optional : bool
+            Whether the type is Optional
+        metadata : dict
+            Field metadata
+        cli_name : str
+            CLI argument name
+
+        Returns
+        -------
+        dict
+            Argparse kwargs for type and action
+        """
+        kwargs = {}
+
+        # Handle boolean fields
+        if resolved_type is bool:
+            default_value = field.default
+            if default_value is True and '-no-' in cli_name:
+                # For --no-* flags (True defaults), use store_false
+                kwargs['action'] = 'store_false'
+            elif default_value is False:
+                # For regular boolean flags (False defaults), use store_true
+                kwargs['action'] = 'store_true'
+            else:
+                # For other boolean fields, use type conversion
+                kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
+
+        # Handle choices from metadata
+        elif 'choices' in metadata:
+            kwargs['choices'] = metadata['choices']
+
+        # Handle list types
+        elif hasattr(resolved_type, '__origin__') and resolved_type.__origin__ is list:
+            # Get the list item type if available
+            if hasattr(resolved_type, '__args__') and resolved_type.__args__:
+                item_type = resolved_type.__args__[0]
+                if item_type is int:
+                    kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
+                    # Will be handled by custom action or type function
+                else:
+                    kwargs['help'] = kwargs.get('help', '') + ' (comma-separated)'
+            else:
+                kwargs['help'] = kwargs.get('help', '') + ' (comma-separated)'
+
+        # Handle special metadata types
+        elif metadata.get('type') == 'list_int':
+            kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
+
+        # Handle basic types
+        elif resolved_type in (int, float):
+            kwargs['type'] = resolved_type
+        elif resolved_type is str:
+            # str is default, don't specify unless needed
+            pass
+
+        return kwargs
 
     def snake_to_kebab(self, name: str) -> str:
         """Convert snake_case to kebab-case.
@@ -78,8 +207,12 @@ class DynamicCLIBuilder:
 
         return f"--{kebab_name}"
 
-    def get_argument_kwargs(self, field: Any, metadata: Dict[str, Any], cli_name: str) -> Dict[str, Any]:
-        """Build argparse kwargs from field metadata.
+    def get_argument_kwargs(self, field: Any, metadata: Dict[str, Any], cli_name: str,
+                          options_class: Type) -> Dict[str, Any]:
+        """Build argparse kwargs from field metadata using robust type resolution.
+
+        This method replaces brittle string matching with proper type introspection
+        using typing.get_type_hints and helper methods.
 
         Parameters
         ----------
@@ -89,6 +222,8 @@ class DynamicCLIBuilder:
             Field metadata
         cli_name : str
             CLI argument name
+        options_class : Type
+            The dataclass containing the field
 
         Returns
         -------
@@ -100,59 +235,19 @@ class DynamicCLIBuilder:
         # Help text is required
         kwargs['help'] = metadata.get('help', f'Configure {field.name}')
 
-        # Handle different field types
-        field_type = field.type
+        # Resolve field type using robust type resolution
+        resolved_type = self._resolve_field_type(field, options_class)
+        underlying_type, is_optional = self._handle_optional_type(resolved_type)
 
-        # Handle string type annotations (from __future__ import annotations)
-        if isinstance(field_type, str):
-            # Map common string type annotations to actual types
-            type_mapping = {
-                'bool': bool,
-                'int': int,
-                'float': float,
-                'str': str,
-                'list[int] | None': 'list_int_optional',
-                'str | None': 'str_optional',
-                'bool | None': 'bool_optional',
-                'int | None': 'int_optional',
-                'float | None': 'float_optional'
-            }
-            field_type = type_mapping.get(field_type, field_type)
+        # Get type-based kwargs
+        type_kwargs = self._infer_argument_type_and_action(
+            field, underlying_type, is_optional, metadata, cli_name
+        )
+        kwargs.update(type_kwargs)
 
-        # Handle Optional types (Union[SomeType, None])
-        elif hasattr(field_type, '__origin__') and field_type.__origin__ is Union:
-            args = field_type.__args__
-            if len(args) == 2 and type(None) in args:
-                # This is Optional[SomeType]
-                field_type = args[0] if args[1] is type(None) else args[1]
-
-        # Handle boolean fields
-        if field_type is bool:
-            default_value = field.default
-            if default_value is True and '-no-' in cli_name:
-                # For --no-* flags (True defaults), use store_false
-                kwargs['action'] = 'store_false'
-            elif default_value is False:
-                # For regular boolean flags (False defaults), use store_true
-                kwargs['action'] = 'store_true'
-            else:
-                # For other boolean fields, use default type handling
-                kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
-
-        # Handle choices
-        elif 'choices' in metadata:
-            kwargs['choices'] = metadata['choices']
-
-        # Handle special types
-        elif metadata.get('type') == 'list_int':
-            kwargs['help'] += ' (comma-separated)'
-
-        elif metadata.get('type') in (int, float):
+        # Handle metadata-specified types that override type inference
+        if metadata.get('type') in (int, float):
             kwargs['type'] = metadata['type']
-
-        elif field_type in (int, float, str):
-            if field_type is not str:  # str is default, don't specify
-                kwargs['type'] = field_type
 
         # Set default if field has one and it's not None
         if field.default is not None and not kwargs.get('action'):
@@ -210,7 +305,7 @@ class DynamicCLIBuilder:
                 cli_name = self.infer_cli_name(field.name, format_prefix, is_bool_true_default)
 
             # Build argument kwargs
-            kwargs = self.get_argument_kwargs(field, metadata, cli_name)
+            kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
             # Set dest for boolean flags that need special handling
             if 'action' in kwargs and kwargs['action'] in ['store_true', 'store_false']:
@@ -285,7 +380,7 @@ class DynamicCLIBuilder:
                 cli_name = self.infer_cli_name(field.name, format_prefix, is_bool_true_default)
 
             # Build argument kwargs
-            kwargs = self.get_argument_kwargs(field, metadata, cli_name)
+            kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
             # Set dest for boolean flags that need special handling
             if 'action' in kwargs and kwargs['action'] in ['store_true', 'store_false']:
@@ -371,8 +466,20 @@ Examples:
         )
 
         # Version and about options
-        parser.add_argument("--version", "-v", action="version", version="all2md (dynamic)")
-        parser.add_argument("--about", "-A", action="store_true", help="Show detailed information about all2md and exit")
+        from .cli_actions import DynamicVersionAction
+
+        def get_version() -> str:
+            """Get the version of all2md package."""
+            try:
+                from importlib.metadata import version
+                return version("all2md")
+            except Exception:
+                return "unknown"
+
+        parser.add_argument("--version", "-v", action=DynamicVersionAction,
+                          version_callback=lambda: f"all2md {get_version()}")
+        parser.add_argument("--about", "-A", action="store_true",
+                          help="Show detailed information about all2md and exit")
 
         # Add BaseOptions as universal options (no prefix)
         from .options import BaseOptions

@@ -50,68 +50,6 @@ from .cli_builder import DynamicCLIBuilder
 from .exceptions import InputError, MarkdownConversionError
 
 
-def get_env_var_value(key: str) -> Optional[str]:
-    """Get environment variable with ALL2MD_ prefix.
-
-    Parameters
-    ----------
-    key : str
-        The parameter name (e.g., 'rich', 'output_dir')
-
-    Returns
-    -------
-    Optional[str]
-        Environment variable value or None if not set
-    """
-    env_key = f"ALL2MD_{key.upper().replace('-', '_')}"
-    return os.environ.get(env_key)
-
-
-def apply_env_vars_to_parser(parser: argparse.ArgumentParser) -> None:
-    """Apply environment variables as defaults to parser arguments.
-
-    This sets environment variable values as defaults for argparse arguments.
-    CLI arguments will still take precedence over environment variables.
-
-    Parameters
-    ----------
-    parser : argparse.ArgumentParser
-        The argument parser to modify
-    """
-    for action in parser._actions:
-        if action.dest and action.dest != 'help':
-            # Convert argument dest to environment variable format
-            env_value = get_env_var_value(action.dest)
-
-            if env_value is not None:
-                # Handle different argument types
-                if action.type is int:
-                    try:
-                        action.default = int(env_value)
-                    except ValueError:
-                        logging.warning(f"Invalid integer value for ALL2MD_{action.dest.upper()}: {env_value}")
-                elif action.type is float:
-                    try:
-                        action.default = float(env_value)
-                    except ValueError:
-                        logging.warning(f"Invalid float value for ALL2MD_{action.dest.upper()}: {env_value}")
-                elif hasattr(action, 'choices') and action.choices:
-                    # Handle choice arguments
-                    if env_value in action.choices:
-                        action.default = env_value
-                    else:
-                        logging.warning(f"Invalid choice for ALL2MD_{action.dest.upper()}: {env_value}. Choices: {list(action.choices)}")
-                elif hasattr(action, '__class__') and action.__class__.__name__ == '_StoreTrueAction':
-                    # Handle boolean flags
-                    action.default = env_value.lower() in ('true', '1', 'yes', 'on')
-                elif hasattr(action, '__class__') and action.__class__.__name__ == '_StoreFalseAction':
-                    # Handle negative boolean flags
-                    action.default = env_value.lower() not in ('true', '1', 'yes', 'on')
-                else:
-                    # Handle string arguments
-                    action.default = env_value
-
-
 def _get_version() -> str:
     """Get the version of all2md package."""
     try:
@@ -160,14 +98,10 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
+    from .cli_actions import PositiveIntAction
+
     builder = DynamicCLIBuilder()
     parser = builder.build_parser()
-
-    # Update version to show actual version
-    for action in parser._actions:
-        if action.dest == 'version':
-            action.version = f"all2md {_get_version()}"
-            break
 
     # Add new CLI options for enhanced features
     parser.add_argument(
@@ -196,7 +130,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         '--parallel', '-p',
-        type=positive_int,
+        action=PositiveIntAction,
         nargs='?',
         const=None,
         default=1,
@@ -246,10 +180,50 @@ def create_parser() -> argparse.ArgumentParser:
         help='Exclude files matching this glob pattern (can be specified multiple times)'
     )
 
-    # Apply environment variables as defaults
-    apply_env_vars_to_parser(parser)
+    # Apply environment variable defaults using a cleaner approach
+    _apply_env_defaults_to_parser(parser)
 
     return parser
+
+
+def _apply_env_defaults_to_parser(parser: argparse.ArgumentParser) -> None:
+    """Apply environment variables as defaults using a clean action-agnostic approach."""
+    import os
+
+    def get_env_var_value(dest: str) -> Optional[str]:
+        """Get environment variable with ALL2MD_ prefix."""
+        env_key = f"ALL2MD_{dest.upper().replace('-', '_')}"
+        return os.environ.get(env_key)
+
+    # Get argument actions after parser creation but before use
+    for action in parser._actions:
+        if action.dest and action.dest not in ('help', 'version'):
+            env_value = get_env_var_value(action.dest)
+
+            if env_value is not None:
+                # Apply environment value as default based on action type
+                if isinstance(action, argparse._StoreTrueAction):
+                    action.default = env_value.lower() in ('true', '1', 'yes', 'on')
+                elif isinstance(action, argparse._StoreFalseAction):
+                    action.default = env_value.lower() not in ('true', '1', 'yes', 'on')
+                elif action.type is int:
+                    try:
+                        action.default = int(env_value)
+                    except ValueError:
+                        logging.warning(f"Invalid integer value for ALL2MD_{action.dest.upper()}: {env_value}")
+                elif action.type is float:
+                    try:
+                        action.default = float(env_value)
+                    except ValueError:
+                        logging.warning(f"Invalid float value for ALL2MD_{action.dest.upper()}: {env_value}")
+                elif hasattr(action, 'choices') and action.choices:
+                    if env_value in action.choices:
+                        action.default = env_value
+                    else:
+                        logging.warning(f"Invalid choice for ALL2MD_{action.dest.upper()}: {env_value}. Choices: {list(action.choices)}")
+                else:
+                    # Default to string
+                    action.default = env_value
 
 
 def parse_pdf_pages(pages_str: str) -> list[int]:
@@ -271,42 +245,6 @@ def positive_int(value: str) -> int:
         raise argparse.ArgumentTypeError(f"{value} is not a valid integer") from e
 
 
-def load_options_from_json(json_file_path: str) -> dict:
-    """Load options from a JSON file.
-
-    Parameters
-    ----------
-    json_file_path : str
-        Path to the JSON file containing options
-
-    Returns
-    -------
-    dict
-        Dictionary of options loaded from the JSON file
-
-    Raises
-    ------
-    argparse.ArgumentTypeError
-        If the JSON file cannot be read or parsed
-    """
-    try:
-        json_path = Path(json_file_path)
-        if not json_path.exists():
-            raise argparse.ArgumentTypeError(f"Options JSON file does not exist: {json_file_path}")
-
-        with open(json_path, 'r', encoding='utf-8') as f:
-            options = json.load(f)
-
-        if not isinstance(options, dict):
-            raise argparse.ArgumentTypeError(
-                f"Options JSON file must contain a JSON object, got {type(options).__name__}")
-
-        return options
-
-    except json.JSONDecodeError as e:
-        raise argparse.ArgumentTypeError(f"Invalid JSON in options file {json_file_path}: {e}") from e
-    except Exception as e:
-        raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
 
 
 def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
@@ -1178,7 +1116,16 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
 
 
 def main(args: Optional[list[str]] = None) -> int:
-    """Main CLI entry point."""
+    """Main CLI entry point with focused delegation to specialized processors."""
+    from .cli_processors import (
+        load_options_from_json,
+        merge_exclusion_patterns_from_json,
+        process_multi_file,
+        process_stdin,
+        setup_and_validate_options,
+        validate_arguments,
+    )
+
     # Check for dependency management commands first
     deps_result = handle_dependency_commands(args)
     if deps_result is not None:
@@ -1212,63 +1159,18 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Handle stdin input
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
-        # Read from stdin (single file mode)
+        # Set up options and validate
         try:
-            stdin_data = sys.stdin.buffer.read()
-            if not stdin_data:
-                print("Error: No data received from stdin", file=sys.stderr)
-                return 1
-        except Exception as e:
-            print(f"Error reading from stdin: {e}", file=sys.stderr)
-            return 1
-
-        # Process stdin data
-        input_source = stdin_data
-
-        # Validate attachment options
-        if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":
-            print("Warning: --attachment-output-dir specified but attachment mode is "
-                  f"'{parsed_args.attachment_mode}' (not 'download')", file=sys.stderr)
-
-        # Load options from JSON file if specified
-        json_options = None
-        if parsed_args.options_json:
-            try:
-                json_options = load_options_from_json(parsed_args.options_json)
-            except argparse.ArgumentTypeError as e:
-                print(f"Error: {e}", file=sys.stderr)
-                return 1
-
-        # Map CLI arguments to options
-        builder = DynamicCLIBuilder()
-        options = builder.map_args_to_options(parsed_args, json_options)
-
-        try:
-            # Convert the document
-            format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
-            markdown_content = to_markdown(input_source, format=format_arg, **options)
-
-            # Output the result
-            if parsed_args.out:
-                output_path = Path(parsed_args.out)
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(markdown_content, encoding="utf-8")
-                print(f"Converted stdin -> {output_path}")
-            else:
-                print(markdown_content)
-
-            return 0
-
-        except (MarkdownConversionError, InputError) as e:
+            options, format_arg = setup_and_validate_options(parsed_args)
+        except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)
             return 1
-        except ImportError as e:
-            print(f"Missing dependency: {e}", file=sys.stderr)
-            print("Install required dependencies with: pip install all2md[full]", file=sys.stderr)
+
+        # Validate arguments
+        if not validate_arguments(parsed_args):
             return 1
-        except Exception as e:
-            print(f"Unexpected error: {e}", file=sys.stderr)
-            return 1
+
+        return process_stdin(parsed_args, options, format_arg)
 
     # Multi-file/directory processing
     files = collect_input_files(
@@ -1284,88 +1186,44 @@ def main(args: Optional[list[str]] = None) -> int:
             print("Error: No valid input files found", file=sys.stderr)
         return 1
 
-    # Validate output directory if specified
-    if parsed_args.output_dir:
-        output_dir_path = Path(parsed_args.output_dir)
-        if output_dir_path.exists() and not output_dir_path.is_dir():
-            print(f"Error: --output-dir must be a directory, not a file: {parsed_args.output_dir}", file=sys.stderr)
-            return 1
-
-    # Validate options
-    if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":
-        print("Warning: --attachment-output-dir specified but attachment mode is "
-              f"'{parsed_args.attachment_mode}' (not 'download')", file=sys.stderr)
-
-    # For multi-file, --out becomes --output-dir
-    if len(files) > 1 and parsed_args.out and not parsed_args.output_dir:
-        print("Warning: --out is ignored for multiple files. Use --output-dir instead.", file=sys.stderr)
-
-    # Load options
-    json_options = None
+    # Handle exclusion patterns from JSON
     if parsed_args.options_json:
         try:
             json_options = load_options_from_json(parsed_args.options_json)
+            updated_patterns = merge_exclusion_patterns_from_json(parsed_args, json_options)
+
+            if updated_patterns:
+                parsed_args.exclude = updated_patterns
+                # Re-collect files with updated exclusion patterns
+                files = collect_input_files(
+                    parsed_args.input,
+                    parsed_args.recursive,
+                    exclude_patterns=parsed_args.exclude
+                )
+
+                if not files:
+                    if parsed_args.exclude:
+                        print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
+                    else:
+                        print("Error: No valid input files found", file=sys.stderr)
+                    return 1
         except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)
             return 1
 
-        # Merge exclusion patterns from JSON if not specified via CLI
-        if 'exclude' in json_options and parsed_args.exclude is None:
-            parsed_args.exclude = json_options['exclude']
-            # Re-collect files with the updated exclusion patterns
-            files = collect_input_files(
-                parsed_args.input,
-                parsed_args.recursive,
-                exclude_patterns=parsed_args.exclude
-            )
+    # Validate arguments
+    if not validate_arguments(parsed_args, files):
+        return 1
 
-            if not files:
-                if parsed_args.exclude:
-                    print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
-                else:
-                    print("Error: No valid input files found", file=sys.stderr)
-                return 1
+    # Set up options
+    try:
+        options, format_arg = setup_and_validate_options(parsed_args)
+    except argparse.ArgumentTypeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
-    # Map CLI arguments to options
-    builder = DynamicCLIBuilder()
-    options = builder.map_args_to_options(parsed_args, json_options)
-    format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
-
-    # Handle dry run mode
-    if parsed_args.dry_run:
-        return process_dry_run(files, parsed_args, format_arg)
-
-    # Process single file
-    if len(files) == 1 and not parsed_args.rich and not parsed_args.progress:
-        file = files[0]
-
-        # Determine output path
-        output_path: Optional[Path] = None
-        if parsed_args.out:
-            output_path = Path(parsed_args.out)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-        elif parsed_args.output_dir:
-            output_path = generate_output_path(file, Path(parsed_args.output_dir), False, None)
-
-        success, file_str, error = convert_single_file(file, output_path, options, format_arg, False)
-
-        if success:
-            if output_path:
-                print(f"Converted {file} -> {output_path}")
-            return 0
-        else:
-            print(f"Error: {error}", file=sys.stderr)
-            return 1
-
-    # Process multiple files or with special output
-    if parsed_args.collate:
-        return process_files_collated(files, parsed_args, options, format_arg)
-    elif parsed_args.rich:
-        return process_with_rich_output(files, parsed_args, options, format_arg)
-    elif parsed_args.progress or len(files) > 1:
-        return process_with_progress_bar(files, parsed_args, options, format_arg)
-    else:
-        return process_files_simple(files, parsed_args, options, format_arg)
+    # Delegate to multi-file processor
+    return process_multi_file(files, parsed_args, options, format_arg)
 
 
 if __name__ == "__main__":
