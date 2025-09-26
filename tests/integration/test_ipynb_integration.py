@@ -562,6 +562,7 @@ def test_notebook_real_world_structure():
 @pytest.mark.ipynb
 def test_concurrent_notebook_processing():
     """Test concurrent processing of multiple notebooks."""
+
     def create_test_notebook(cell_content):
         return {
             "cells": [

@@ -1,17 +1,14 @@
 """Integration tests for metadata extraction across all converters."""
 
 import json
-import tempfile
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
 from all2md import to_markdown
 from all2md.options import (
-    DocxOptions, EmlOptions, EpubOptions, HtmlOptions, IpynbOptions,
-    MhtmlOptions, OdfOptions, PdfOptions, PptxOptions, RtfOptions,
-    SpreadsheetOptions
+    EmlOptions, HtmlOptions, IpynbOptions,
+    MhtmlOptions
 )
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 

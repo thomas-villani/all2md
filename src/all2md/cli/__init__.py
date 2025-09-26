@@ -220,7 +220,8 @@ def _apply_env_defaults_to_parser(parser: argparse.ArgumentParser) -> None:
                     if env_value in action.choices:
                         action.default = env_value
                     else:
-                        logging.warning(f"Invalid choice for ALL2MD_{action.dest.upper()}: {env_value}. Choices: {list(action.choices)}")
+                        logging.warning(
+                            f"Invalid choice for ALL2MD_{action.dest.upper()}: {env_value}. Choices: {list(action.choices)}")
                 else:
                     # Default to string
                     action.default = env_value
@@ -243,8 +244,6 @@ def positive_int(value: str) -> int:
         return ivalue
     except ValueError as e:
         raise argparse.ArgumentTypeError(f"{value} is not a valid integer") from e
-
-
 
 
 def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
@@ -300,10 +299,10 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
 
 
 def collect_input_files(
-    input_paths: List[str],
-    recursive: bool = False,
-    extensions: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None
+        input_paths: List[str],
+        recursive: bool = False,
+        extensions: Optional[List[str]] = None,
+        exclude_patterns: Optional[List[str]] = None
 ) -> List[Path]:
     """Collect all input files from provided paths.
 
@@ -366,7 +365,7 @@ def collect_input_files(
             for pattern in exclude_patterns:
                 # Check against filename and absolute path
                 if (fnmatch.fnmatch(str(file), pattern) or
-                    fnmatch.fnmatch(file.name, pattern)):
+                        fnmatch.fnmatch(file.name, pattern)):
                     exclude_file = True
                     break
 
@@ -387,11 +386,11 @@ def collect_input_files(
 
 
 def generate_output_path(
-    input_file: Path,
-    output_dir: Optional[Path] = None,
-    preserve_structure: bool = False,
-    base_input_dir: Optional[Path] = None,
-    dry_run: bool = False
+        input_file: Path,
+        output_dir: Optional[Path] = None,
+        preserve_structure: bool = False,
+        base_input_dir: Optional[Path] = None,
+        dry_run: bool = False
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -434,11 +433,11 @@ def generate_output_path(
 
 
 def convert_single_file(
-    input_path: Path,
-    output_path: Optional[Path],
-    options: Dict[str, Any],
-    format_arg: str,
-    show_progress: bool = False
+        input_path: Path,
+        output_path: Optional[Path],
+        options: Dict[str, Any],
+        format_arg: str,
+        show_progress: bool = False
 ) -> Tuple[bool, str, Optional[str]]:
     """Convert a single file to markdown.
 
@@ -481,10 +480,10 @@ def convert_single_file(
 
 
 def convert_single_file_for_collation(
-    input_path: Path,
-    options: Dict[str, Any],
-    format_arg: str,
-    file_separator: str = "\n\n---\n\n"
+        input_path: Path,
+        options: Dict[str, Any],
+        format_arg: str,
+        file_separator: str = "\n\n---\n\n"
 ) -> Tuple[bool, str, Optional[str]]:
     """Convert a single file to markdown for collation.
 
@@ -523,10 +522,10 @@ def convert_single_file_for_collation(
 
 
 def process_with_rich_output(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str
 ) -> int:
     """Process files with rich terminal output.
 
@@ -574,11 +573,11 @@ def process_with_rich_output(
     failed = []
 
     with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        console=console
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console
     ) as progress:
 
         if args.parallel and args.parallel != 1:
@@ -667,10 +666,10 @@ def process_with_rich_output(
 
 
 def process_with_progress_bar(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str
 ) -> int:
     """Process files with tqdm progress bar.
 
@@ -740,10 +739,10 @@ def process_with_progress_bar(
 
 
 def process_files_simple(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str
 ) -> int:
     """Process files without progress indicators.
 
@@ -798,10 +797,10 @@ def process_files_simple(
 
 
 def process_files_collated(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str
 ) -> int:
     """Process files and collate them into a single output.
 
@@ -855,11 +854,11 @@ def process_files_collated(
 
             console = Console()
             with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    console=console
             ) as progress:
                 task_id = progress.add_task("[cyan]Converting and collating files...", total=len(files))
 
@@ -939,9 +938,9 @@ def process_files_collated(
 
 
 def process_dry_run(
-    files: List[Path],
-    args: argparse.Namespace,
-    format_arg: str
+        files: List[Path],
+        args: argparse.Namespace,
+        format_arg: str
 ) -> int:
     """Process files in dry run mode - show what would be done without doing it.
 

@@ -88,9 +88,11 @@ class DynamicCLIBuilder:
         # Regular type
         return field_type, False
 
-    def _infer_argument_type_and_action(self, field: Any, resolved_type: Type,
-                                      is_optional: bool, metadata: Dict[str, Any],
-                                      cli_name: str) -> Dict[str, Any]:
+    def _infer_argument_type_and_action(
+            self, field: Any, resolved_type: Type,
+            is_optional: bool, metadata: Dict[str, Any],
+            cli_name: str
+            ) -> Dict[str, Any]:
         """Infer argparse type and action from resolved field type.
 
         Parameters
@@ -171,8 +173,10 @@ class DynamicCLIBuilder:
         """
         return name.replace('_', '-')
 
-    def infer_cli_name(self, field_name: str, format_prefix: Optional[str] = None,
-                      is_boolean_with_true_default: bool = False) -> str:
+    def infer_cli_name(
+            self, field_name: str, format_prefix: Optional[str] = None,
+            is_boolean_with_true_default: bool = False
+            ) -> str:
         """Infer CLI argument name from field name.
 
         Parameters
@@ -209,8 +213,10 @@ class DynamicCLIBuilder:
 
         return f"--{kebab_name}"
 
-    def get_argument_kwargs(self, field: Any, metadata: Dict[str, Any], cli_name: str,
-                          options_class: Type) -> Dict[str, Any]:
+    def get_argument_kwargs(
+            self, field: Any, metadata: Dict[str, Any], cli_name: str,
+            options_class: Type
+            ) -> Dict[str, Any]:
         """Build argparse kwargs from field metadata using robust type resolution.
 
         This method replaces brittle string matching with proper type introspection
@@ -257,9 +263,11 @@ class DynamicCLIBuilder:
 
         return kwargs
 
-    def add_options_class_arguments(self, parser: argparse.ArgumentParser,
-                                  options_class: Type, format_prefix: Optional[str] = None,
-                                  group_name: Optional[str] = None) -> None:
+    def add_options_class_arguments(
+            self, parser: argparse.ArgumentParser,
+            options_class: Type, format_prefix: Optional[str] = None,
+            group_name: Optional[str] = None
+            ) -> None:
         """Add arguments for an options dataclass.
 
         Parameters
@@ -324,9 +332,11 @@ class DynamicCLIBuilder:
             except Exception as e:
                 print(f"Warning: Could not add argument {cli_name}: {e}")
 
-    def add_format_specific_options(self, parser: argparse.ArgumentParser,
-                                  options_class: Type, format_prefix: Optional[str] = None,
-                                  group_name: Optional[str] = None) -> None:
+    def add_format_specific_options(
+            self, parser: argparse.ArgumentParser,
+            options_class: Type, format_prefix: Optional[str] = None,
+            group_name: Optional[str] = None
+            ) -> None:
         """Add arguments for format-specific options, excluding BaseOptions fields.
 
         Parameters
@@ -479,9 +489,9 @@ Examples:
                 return "unknown"
 
         parser.add_argument("--version", "-v", action=DynamicVersionAction,
-                          version_callback=lambda: f"all2md {get_version()}")
+                            version_callback=lambda: f"all2md {get_version()}")
         parser.add_argument("--about", "-A", action="store_true",
-                          help="Show detailed information about all2md and exit")
+                            help="Show detailed information about all2md and exit")
 
         # Add BaseOptions as universal options (no prefix)
         from all2md.options import BaseOptions
@@ -570,7 +580,8 @@ Examples:
         # Process each argument
         for arg_name, arg_value in args_dict.items():
             # Skip None values and special arguments
-            if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level', 'options_json', 'about', 'version']:
+            if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level', 'options_json', 'about',
+                                                 'version']:
                 continue
 
             # Handle different argument patterns
@@ -594,7 +605,8 @@ Examples:
                     markdown_options = options_classes['markdown']
                     for field in fields(markdown_options):
                         if field.name == field_name:
-                            processed_value = self._process_argument_value(field, field.metadata or {}, arg_value, arg_name)
+                            processed_value = self._process_argument_value(field, field.metadata or {}, arg_value,
+                                                                           arg_name)
                             if processed_value is not None:
                                 options[field.name] = processed_value
                             mapped = True
@@ -609,7 +621,8 @@ Examples:
                         format_options = options_classes[format_prefix]
                         for field in fields(format_options):
                             if field.name == field_name:
-                                processed_value = self._process_argument_value(field, field.metadata or {}, arg_value, arg_name)
+                                processed_value = self._process_argument_value(field, field.metadata or {}, arg_value,
+                                                                               arg_name)
                                 if processed_value is not None:
                                     options[field.name] = processed_value
                                 mapped = True
@@ -654,9 +667,9 @@ Examples:
 
             # For --no-* flags with True defaults, arg_value is False when flag is used
             if (default_value is True and
-                'cli_name' in metadata and
-                metadata['cli_name'].startswith('no-') and
-                arg_value is False):
+                    'cli_name' in metadata and
+                    metadata['cli_name'].startswith('no-') and
+                    arg_value is False):
                 return False
 
             # For regular boolean flags with False defaults, arg_value is True when flag is used

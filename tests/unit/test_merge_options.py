@@ -99,9 +99,9 @@ class TestMergeOptions:
         result = _merge_options(
             base_options,
             "pdf",
-            emphasis_symbol="*",     # markdown field
-            pages=[4, 5, 6],         # non-markdown field
-            attachment_mode="base64" # non-markdown field
+            emphasis_symbol="*",  # markdown field
+            pages=[4, 5, 6],  # non-markdown field
+            attachment_mode="base64"  # non-markdown field
         )
 
         # Check markdown options
@@ -186,10 +186,10 @@ class TestMergeOptions:
         result = _merge_options(
             base_options,
             "pdf",
-            emphasis_symbol="*",         # string field
-            bullet_symbols="•→",         # string field
-            extract_metadata=True,       # boolean field
-            attachment_mode="base64"     # enum field
+            emphasis_symbol="*",  # string field
+            bullet_symbols="•→",  # string field
+            extract_metadata=True,  # boolean field
+            attachment_mode="base64"  # enum field
         )
 
         # Check markdown field updates

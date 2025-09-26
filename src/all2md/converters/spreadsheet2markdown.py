@@ -297,8 +297,8 @@ def _xlsx_to_markdown(workbook: Any, options: SpreadsheetOptions) -> str:
 
 
 def xlsx_to_markdown(
-    input_data: Union[str, Path, IO[bytes], IO[Any]],
-    options: SpreadsheetOptions | None = None
+        input_data: Union[str, Path, IO[bytes], IO[Any]],
+        options: SpreadsheetOptions | None = None
 ) -> str:
     """Convert XLSX workbook to Markdown tables."""
     if options is None:
@@ -385,10 +385,10 @@ def _read_text_stream_for_csv(input_data: Any) -> io.StringIO:
 
 
 def _csv_or_tsv_to_markdown(
-    input_data: Union[str, Path, IO[bytes], IO[str]],
-    options: SpreadsheetOptions | None = None,
-    delimiter: str | None = None,
-    force_delimiter: bool = False
+        input_data: Union[str, Path, IO[bytes], IO[str]],
+        options: SpreadsheetOptions | None = None,
+        delimiter: str | None = None,
+        force_delimiter: bool = False
 ) -> str:
     """Common CSV/TSV conversion using csv module."""
     if options is None:
@@ -481,8 +481,8 @@ def _csv_or_tsv_to_markdown(
 
 
 def csv_to_markdown(
-    input_data: Union[str, Path, IO[bytes], IO[str]],
-    options: SpreadsheetOptions | None = None
+        input_data: Union[str, Path, IO[bytes], IO[str]],
+        options: SpreadsheetOptions | None = None
 ) -> str:
     """Convert CSV to Markdown table."""
     return _csv_or_tsv_to_markdown(
@@ -494,8 +494,8 @@ def csv_to_markdown(
 
 
 def tsv_to_markdown(
-    input_data: Union[str, Path, IO[bytes], IO[str]],
-    options: SpreadsheetOptions | None = None
+        input_data: Union[str, Path, IO[bytes], IO[str]],
+        options: SpreadsheetOptions | None = None
 ) -> str:
     """Convert TSV to Markdown table."""
     # For TSV, default to tab delimiter and force it unless user enabled dialect detection explicitly
@@ -591,8 +591,8 @@ def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]])
 
 
 def spreadsheet_to_markdown(
-    input_data: Union[str, Path, IO[bytes], IO[str]],
-    options: SpreadsheetOptions | None = None
+        input_data: Union[str, Path, IO[bytes], IO[str]],
+        options: SpreadsheetOptions | None = None
 ) -> str:
     """Convert spreadsheet (XLSX/CSV/TSV) to Markdown table.
 
@@ -638,6 +638,7 @@ def spreadsheet_to_markdown(
         # Fallback to CSV if detection fails
         logger.warning(f"Unknown format '{detected_format}', falling back to CSV")
         return csv_to_markdown(input_data, options)
+
 
 CONVERTER_METADATA = ConverterMetadata(
     format_name="spreadsheet",

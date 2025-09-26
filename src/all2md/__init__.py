@@ -43,7 +43,6 @@ Basic usage for file conversion:
 
 """
 import copy
-
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -75,10 +74,8 @@ from pathlib import Path
 from typing import IO, Optional, Union
 
 from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DocumentFormat
-
 # Import converters to trigger registration
 from . import converters  # noqa: F401
-
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from .converter_registry import registry
 from .exceptions import DependencyError, FormatError, InputError, MarkdownConversionError
@@ -102,7 +99,6 @@ logger = logging.getLogger(__name__)
 
 # Re-export for backward compatibility - all extension lists are now in constants.py
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
-
 
 
 # Content-based format detection
@@ -303,7 +299,6 @@ def _get_format_from_filename(filename: str) -> DocumentFormat:
     return "txt"
 
 
-
 def _detect_format_comprehensive(file_obj: IO[bytes], filename: str) -> DocumentFormat:
     """Comprehensive format detection using multiple strategies.
 
@@ -419,7 +414,7 @@ def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions
 
 def _merge_options(
         base_options: BaseOptions | MarkdownOptions | None, format: DocumentFormat, **kwargs
-        ) -> BaseOptions | None:
+) -> BaseOptions | None:
     """Merge base options with additional kwargs.
 
     Parameters
@@ -733,7 +728,6 @@ def to_markdown(
                 content = file.read().decode("utf-8", errors="replace")
             except Exception as e:
                 raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
-
 
     # Fix windows newlines and return
     return content.replace("\r\n", "\n")

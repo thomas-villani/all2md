@@ -1,6 +1,5 @@
 """Advanced tests for PPTX shape handling edge cases."""
 
-
 from pptx import Presentation
 from pptx.util import Inches, Pt
 

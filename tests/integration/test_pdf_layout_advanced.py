@@ -22,11 +22,11 @@ class TestPdfLayoutAdvanced:
         """Test detection of two-column layout."""
         # Mock blocks representing two-column layout
         blocks = [
-            {"bbox": [50, 100, 250, 200]},   # Left column, top
+            {"bbox": [50, 100, 250, 200]},  # Left column, top
             {"bbox": [300, 100, 500, 200]},  # Right column, top
-            {"bbox": [50, 250, 250, 350]},   # Left column, middle
+            {"bbox": [50, 250, 250, 350]},  # Left column, middle
             {"bbox": [300, 250, 500, 350]},  # Right column, middle
-            {"bbox": [50, 400, 250, 500]},   # Left column, bottom
+            {"bbox": [50, 400, 250, 500]},  # Left column, bottom
             {"bbox": [300, 400, 500, 500]},  # Right column, bottom
         ]
 
@@ -48,10 +48,10 @@ class TestPdfLayoutAdvanced:
     def test_detect_columns_three_column_layout(self):
         """Test detection of three-column layout."""
         blocks = [
-            {"bbox": [50, 100, 150, 200]},   # Left column
+            {"bbox": [50, 100, 150, 200]},  # Left column
             {"bbox": [200, 100, 300, 200]},  # Middle column
             {"bbox": [350, 100, 450, 200]},  # Right column
-            {"bbox": [50, 250, 150, 350]},   # Left column
+            {"bbox": [50, 250, 150, 350]},  # Left column
             {"bbox": [200, 250, 300, 350]},  # Middle column
             {"bbox": [350, 250, 450, 350]},  # Right column
         ]
@@ -67,8 +67,8 @@ class TestPdfLayoutAdvanced:
     def test_detect_columns_irregular_layout(self):
         """Test column detection with irregular block positioning."""
         blocks = [
-            {"bbox": [50, 100, 200, 150]},   # Wide block spanning multiple columns
-            {"bbox": [50, 200, 150, 250]},   # Left column
+            {"bbox": [50, 100, 200, 150]},  # Wide block spanning multiple columns
+            {"bbox": [50, 200, 150, 250]},  # Left column
             {"bbox": [200, 200, 350, 250]},  # Right column
             {"bbox": [100, 300, 400, 350]},  # Another wide block
         ]
@@ -86,7 +86,7 @@ class TestPdfLayoutAdvanced:
         blocks = [
             {"bbox": [100, 100, 400, 150]},  # Wide block
             {"bbox": [150, 200, 350, 250]},  # Centered block
-            {"bbox": [75, 300, 425, 350]},   # Another wide block
+            {"bbox": [75, 300, 425, 350]},  # Another wide block
         ]
 
         columns = detect_columns(blocks, column_gap_threshold=30)
@@ -94,8 +94,6 @@ class TestPdfLayoutAdvanced:
         # Should fall back to single column
         assert len(columns) == 1
         assert len(columns[0]) == len(blocks)
-
-
 
     @patch('all2md.converters.pdf2markdown.fitz.open')
     def test_rotated_text_handling(self, mock_fitz_open):
@@ -182,7 +180,7 @@ class TestPdfLayoutAdvanced:
     def test_complex_column_gaps(self):
         """Test column detection with varying gaps."""
         blocks = [
-            {"bbox": [50, 100, 150, 200]},   # Column 1
+            {"bbox": [50, 100, 150, 200]},  # Column 1
             {"bbox": [180, 100, 280, 200]},  # Column 2 (small gap)
             {"bbox": [350, 100, 450, 200]},  # Column 3 (large gap)
         ]
@@ -280,4 +278,3 @@ class TestPdfLayoutAdvanced:
         # All blocks should be processed
         total_blocks = sum(len(column) for column in columns)
         assert total_blocks == len(blocks)
-

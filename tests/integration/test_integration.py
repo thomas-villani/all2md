@@ -239,7 +239,7 @@ class TestIntegration:
 
         # Add many paragraphs
         for i in range(100):
-            doc.add_paragraph(f"This is paragraph {i+1} with some content to make it longer.")
+            doc.add_paragraph(f"This is paragraph {i + 1} with some content to make it longer.")
 
         # Add large table
         table = doc.add_table(rows=20, cols=5)
@@ -249,7 +249,7 @@ class TestIntegration:
 
         # Add many list items
         for i in range(50):
-            doc.add_paragraph(f"List item {i+1}", style="List Bullet")
+            doc.add_paragraph(f"List item {i + 1}", style="List Bullet")
 
         large_file = self.temp_dir / "large.docx"
         doc.save(str(large_file))
@@ -288,8 +288,8 @@ class TestIntegration:
         # Create multiple test files
         for i in range(5):
             # HTML files
-            html_content = f"<html><body><h1>Document {i+1}</h1><p>Content {i+1}</p></body></html>"
-            html_file = self.temp_dir / f"doc{i+1}.html"
+            html_content = f"<html><body><h1>Document {i + 1}</h1><p>Content {i + 1}</p></body></html>"
+            html_file = self.temp_dir / f"doc{i + 1}.html"
             html_file.write_text(html_content)
 
             result = to_markdown(str(html_file))

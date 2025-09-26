@@ -1,6 +1,5 @@
 """Tests for DOCX Markdown character escaping edge cases."""
 
-
 import docx
 
 from all2md.converters.docx2markdown import docx_to_markdown
@@ -98,8 +97,8 @@ class TestDocxEscaping:
 
         # Should preserve formatting while handling special characters
         assert "**" in markdown  # Bold formatting
-        assert "*" in markdown   # Italic formatting
-        assert "\\*" in markdown # escaped
+        assert "*" in markdown  # Italic formatting
+        assert "\\*" in markdown  # escaped
         assert "function\\(\\)" in markdown
 
         # Test with escaping disabled

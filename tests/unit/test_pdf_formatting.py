@@ -66,7 +66,7 @@ class TestPdfFormatting:
         # Test flag detection
         assert italic_span["flags"] & 2  # Italic flag set
         assert bold_italic_span["flags"] & 16  # Bold flag set
-        assert bold_italic_span["flags"] & 2   # Italic flag set
+        assert bold_italic_span["flags"] & 2  # Italic flag set
 
     @patch('all2md.converters.pdf2markdown.fitz.open')
     def test_emphasis_mapping_to_markdown(self, mock_fitz_open):
@@ -94,7 +94,7 @@ class TestPdfFormatting:
                 "text": "Italic text",
                 "bbox": (100, 160, 180, 180),
                 "size": 12.0,
-                "flags": 2,   # Italic
+                "flags": 2,  # Italic
                 "dir": (1, 0)
             },
             {
@@ -206,8 +206,8 @@ class TestPdfFormatting:
         }
 
         # Test flag detection
-        assert underline_span["flags"] & 1    # Underline flag
-        assert strikethrough_span["flags"] & 8 # Strikethrough flag
+        assert underline_span["flags"] & 1  # Underline flag
+        assert strikethrough_span["flags"] & 8  # Strikethrough flag
 
     def test_superscript_subscript_flags(self):
         """Test detection of superscript and subscript formatting."""
@@ -289,7 +289,7 @@ class TestPdfFormatting:
                 "text": "italic",
                 "bbox": (200, 100, 240, 120),
                 "size": 12.0,
-                "flags": 2,   # Italic
+                "flags": 2,  # Italic
                 "dir": (1, 0)
             },
             {
@@ -403,8 +403,8 @@ class TestPdfFormatting:
         """Test consistency of formatting interpretation across document."""
         # Mock document with consistent formatting patterns
         header_pattern = {"size": 16.0, "flags": 16}  # Large + Bold
-        body_pattern = {"size": 12.0, "flags": 0}     # Normal
-        emphasis_pattern = {"size": 12.0, "flags": 2} # Italic
+        body_pattern = {"size": 12.0, "flags": 0}  # Normal
+        emphasis_pattern = {"size": 12.0, "flags": 2}  # Italic
 
         # Should consistently identify similar patterns
         # This would be tested in full document processing

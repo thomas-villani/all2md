@@ -1,6 +1,5 @@
 """Advanced tests for DOCX image handling edge cases."""
 
-
 import docx
 from docx.shared import Inches
 

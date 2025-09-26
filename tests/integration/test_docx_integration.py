@@ -57,6 +57,7 @@ def test_docx_to_markdown_table(tmp_path):
 @pytest.mark.integration
 def test_docx_to_markdown_images(tmp_path, monkeypatch):
     """Test DOCX image handling."""
+
     def mock_base64_encode(image_data):
         return "mock_base64_data"
 

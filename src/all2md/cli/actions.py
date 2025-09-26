@@ -4,6 +4,8 @@ This module provides specialized argparse Action classes that handle complex
 argument processing without requiring post-creation parser modification.
 """
 
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+
 import argparse
 import logging
 import os
@@ -22,8 +24,10 @@ class EnvironmentVariableAction(argparse.Action):
         super().__init__(*args, **kwargs)
         self._env_applied = False
 
-    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
-                 values: Union[str, Sequence[Any], None], option_string: Optional[str] = None):
+    def __call__(
+            self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
+            values: Union[str, Sequence[Any], None], option_string: Optional[str] = None
+            ):
         """Apply environment variable if no explicit value provided."""
         # Apply environment variable as default if not already done
         if not self._env_applied:

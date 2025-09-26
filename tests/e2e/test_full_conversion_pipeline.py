@@ -198,7 +198,7 @@ class TestFullConversionPipeline:
 
         # Add many paragraphs
         for i in range(100):
-            p = doc.add_paragraph(f"This is paragraph {i+1} with some content.")
+            p = doc.add_paragraph(f"This is paragraph {i + 1} with some content.")
             if i % 10 == 0:
                 p.runs[0].bold = True
 
@@ -206,7 +206,7 @@ class TestFullConversionPipeline:
         table = doc.add_table(rows=20, cols=5)
         for i, row in enumerate(table.rows):
             for j, cell in enumerate(row.cells):
-                cell.text = f"Row {i+1}, Col {j+1}"
+                cell.text = f"Row {i + 1}, Col {j + 1}"
 
         docx_bytes = save_docx_to_bytes(doc)
 
@@ -250,10 +250,10 @@ class TestFullConversionPipeline:
         )
 
         # Verify the conversion worked with options
-        assert "Main Title" in result     # Should contain content
-        assert "Header" in result         # Should contain table content
-        assert "|" in result              # Should have table formatting
-        assert_markdown_valid(result)     # Should produce valid markdown
+        assert "Main Title" in result  # Should contain content
+        assert "Header" in result  # Should contain table content
+        assert "|" in result  # Should have table formatting
+        assert_markdown_valid(result)  # Should produce valid markdown
 
         # Test that different options produce output (may be the same, but should not crash)
         options_test2 = HtmlOptions(
@@ -290,12 +290,12 @@ class TestFullConversionPipeline:
         for i, row in enumerate(table.rows):
             for j, cell in enumerate(row.cells):
                 if i == 0:
-                    cell.text = f"Header {j+1}"
+                    cell.text = f"Header {j + 1}"
                     for paragraph in cell.paragraphs:
                         for run in paragraph.runs:
                             run.bold = True
                 else:
-                    cell.text = f"Data {i}-{j+1}"
+                    cell.text = f"Data {i}-{j + 1}"
 
         # More content
         doc.add_heading("Section 2", level=2)
@@ -365,8 +365,8 @@ class TestFullConversionPipeline:
 
         # Verify different content in each result
         assert "Formatting Test Document" in results[0]  # DOCX
-        assert "Table Test Document" in results[1]       # HTML
-        assert "Test Presentation" in results[2]         # PPTX
+        assert "Table Test Document" in results[1]  # HTML
+        assert "Test Presentation" in results[2]  # PPTX
 
         # All should be valid markdown
         for result in results:

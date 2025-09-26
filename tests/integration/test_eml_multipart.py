@@ -140,7 +140,8 @@ class TestEmlMultipart:
         inner_alternative.attach(plain_part)
 
         # HTML version
-        html_part = MIMEText('<html><body><p>This is the <strong>HTML version</strong> of nested content.</p></body></html>', 'html')
+        html_part = MIMEText(
+            '<html><body><p>This is the <strong>HTML version</strong> of nested content.</p></body></html>', 'html')
         inner_alternative.attach(html_part)
 
         # Attach inner alternative to outer

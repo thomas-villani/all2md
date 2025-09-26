@@ -129,7 +129,6 @@ def _check_pymupdf_version() -> None:
         raise
 
 
-
 SPACES = set(string.whitespace)  # used to check relevance of text pieces
 
 
@@ -479,7 +478,6 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
     return combined_text + rotation_note if rotation_note else combined_text
 
 
-
 def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
@@ -752,7 +750,7 @@ def page_to_markdown(
 
 def extract_page_images(
         page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document"
-        ) -> list[dict]:
+) -> list[dict]:
     """Extract images from a PDF page with their positions.
 
     Extracts all images from the page and optionally saves them to disk

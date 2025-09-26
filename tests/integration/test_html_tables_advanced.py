@@ -141,7 +141,7 @@ class TestHtmlTablesAdvanced:
         # Should detect and apply alignment
         assert "|:---|" in markdown or "| --- |" in markdown  # Left alignment
         assert "|:---:|" in markdown  # Center alignment
-        assert "|---:|" in markdown   # Right alignment
+        assert "|---:|" in markdown  # Right alignment
 
         # Should contain content
         assert "Left Column" in markdown

@@ -11,10 +11,7 @@ Test Coverage:
 """
 
 import os
-from io import StringIO
 from unittest.mock import patch
-
-import pytest
 
 from all2md.converters.html2markdown import html_to_markdown
 from all2md.options import EmlOptions, HtmlOptions

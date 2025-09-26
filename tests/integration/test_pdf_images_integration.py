@@ -38,9 +38,9 @@ class TestPdfImagesIntegration:
         # Should contain image references - the exact format depends on implementation
         # but there should be some indication of images
         has_image_refs = (
-            "![" in result or  # Standard markdown images
-            "[image]" in result.lower() or  # Alt text references
-            "figure" in result.lower()  # Figure captions
+                "![" in result or  # Standard markdown images
+                "[image]" in result.lower() or  # Alt text references
+                "figure" in result.lower()  # Figure captions
         )
         assert has_image_refs, f"No image references found in result: {result}"
 

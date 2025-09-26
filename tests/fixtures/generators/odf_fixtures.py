@@ -15,6 +15,7 @@ try:
     from odf.table import Table, TableCell, TableColumn, TableRow
     from odf.text import A, H, List, ListItem, ListLevelStyleBullet, ListLevelStyleNumber, ListStyle, P, Span, Tab
     from odf.text import S as Space
+
     HAS_ODFPY = True
 except ImportError:
     HAS_ODFPY = False

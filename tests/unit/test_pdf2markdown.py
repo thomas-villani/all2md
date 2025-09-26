@@ -157,7 +157,6 @@ def test_detect_columns_single_column():
     assert len(columns) == 1  # Should detect single column
 
 
-
 @pytest.mark.unit
 def test_detect_tables_by_ruling_lines():
     """Test fallback table detection using ruling lines."""

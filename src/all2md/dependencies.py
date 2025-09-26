@@ -92,8 +92,8 @@ def get_package_version(package_name: str) -> Optional[str]:
 
 
 def check_version_requirement(
-    package_name: str,
-    version_spec: str
+        package_name: str,
+        version_spec: str
 ) -> Tuple[bool, Optional[str]]:
     """Check if installed package meets version requirement.
 
@@ -225,8 +225,8 @@ def generate_install_command(packages: List[Tuple[str, str]]) -> str:
 
 
 def install_dependencies(
-    packages: List[Tuple[str, str]],
-    upgrade: bool = False
+        packages: List[Tuple[str, str]],
+        upgrade: bool = False
 ) -> Tuple[bool, str]:
     """Attempt to install missing dependencies.
 

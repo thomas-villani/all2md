@@ -111,16 +111,16 @@ def example_function():
         # Check content
         content = output_file.read_text(encoding="utf-8")
         assert "# Test Document" in content  # Title extracted
-        assert "## Main Title" in content    # Main heading
-        assert "### Subtitle" in content     # Subheading
-        assert "**bold text**" in content    # Bold formatting
-        assert "*italic text*" in content    # Italic formatting
+        assert "## Main Title" in content  # Main heading
+        assert "### Subtitle" in content  # Subheading
+        assert "**bold text**" in content  # Bold formatting
+        assert "*italic text*" in content  # Italic formatting
         assert "* Unordered item 1" in content  # List items
-        assert "1. Ordered item 1" in content   # Numbered list
-        assert "`inline code`" in content    # Inline code
+        assert "1. Ordered item 1" in content  # Numbered list
+        assert "`inline code`" in content  # Inline code
         assert "[link](https://example.com)" in content  # Link
-        assert "```" in content              # Code block
-        assert ">" in content                # Blockquote
+        assert "```" in content  # Code block
+        assert ">" in content  # Blockquote
 
     def test_cli_help_output(self):
         """Test that CLI help displays correctly."""
@@ -268,11 +268,11 @@ def example_function():
 
         content = output_file.read_text()
         assert "# Complex Document" in content  # Title extracted
-        assert "## Main Heading" in content     # Heading converted
-        assert "_emphasis_" in content          # Underscore emphasis
-        assert "List item 1" in content         # List content present
+        assert "## Main Heading" in content  # Heading converted
+        assert "_emphasis_" in content  # Underscore emphasis
+        assert "List item 1" in content  # List content present
         assert content.count("List item") >= 2  # Both list items present
-        assert "alert" not in content           # Dangerous content stripped
+        assert "alert" not in content  # Dangerous content stripped
 
     def test_stdout_vs_file_output(self):
         """Test difference between stdout and file output."""
@@ -1356,12 +1356,12 @@ class TestAdvancedCLIFeaturesE2E:
         # Use many features together
         result = self._run_cli([
             *files,
-            "--rich",              # Rich output
-            "--progress",          # Progress bar
-            "--parallel", "2",     # Parallel processing
-            "--skip-errors",       # Error handling
-            "--collate",           # File collation
-            "--no-summary"         # No summary
+            "--rich",  # Rich output
+            "--progress",  # Progress bar
+            "--parallel", "2",  # Parallel processing
+            "--skip-errors",  # Error handling
+            "--collate",  # File collation
+            "--no-summary"  # No summary
         ])
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"

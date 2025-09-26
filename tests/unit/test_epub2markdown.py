@@ -23,6 +23,7 @@ pytest_plugins = []
 try:
     import ebooklib
     from ebooklib import epub
+
     EBOOKLIB_AVAILABLE = True
 except ImportError:
     EBOOKLIB_AVAILABLE = False

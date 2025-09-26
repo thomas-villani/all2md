@@ -34,11 +34,11 @@ from all2md.exceptions import InputError
 
 
 def validate_local_file_access(
-    file_url: str,
-    allow_local_files: bool = False,
-    local_file_allowlist: list[str] | None = None,
-    local_file_denylist: list[str] | None = None,
-    allow_cwd_files: bool = True
+        file_url: str,
+        allow_local_files: bool = False,
+        local_file_allowlist: list[str] | None = None,
+        local_file_denylist: list[str] | None = None,
+        allow_cwd_files: bool = True
 ) -> bool:
     """Validate if access to a local file URL is allowed based on security settings.
 
@@ -126,10 +126,10 @@ def validate_local_file_access(
 
 
 def validate_zip_archive(
-    file_path: Union[str, Path],
-    max_compression_ratio: float = 100.0,
-    max_uncompressed_size: int = 1024 * 1024 * 1024,  # 1GB
-    max_entries: int = 10000
+        file_path: Union[str, Path],
+        max_compression_ratio: float = 100.0,
+        max_uncompressed_size: int = 1024 * 1024 * 1024,  # 1GB
+        max_entries: int = 10000
 ) -> None:
     """Validate a ZIP archive for security threats before processing.
 
@@ -189,8 +189,8 @@ def validate_zip_archive(
                 if total_uncompressed > max_uncompressed_size:
                     raise InputError(
                         f"ZIP archive uncompressed size too large: "
-                        f"{total_uncompressed / (1024*1024):.1f}MB > "
-                        f"{max_uncompressed_size / (1024*1024):.1f}MB"
+                        f"{total_uncompressed / (1024 * 1024):.1f}MB > "
+                        f"{max_uncompressed_size / (1024 * 1024):.1f}MB"
                     )
 
             # Check compression ratio

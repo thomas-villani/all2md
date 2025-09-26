@@ -7,7 +7,6 @@ the expected markdown output.
 
 import pytest
 
-from all2md.constants import AltTextMode
 from all2md.utils.attachments import process_attachment
 
 

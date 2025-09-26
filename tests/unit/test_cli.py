@@ -143,7 +143,6 @@ class TestDynamicCLIBuilder:
         assert result is None
 
 
-
 @pytest.mark.unit
 @pytest.mark.cli
 class TestCLIParser:

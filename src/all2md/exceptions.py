@@ -167,7 +167,7 @@ class InputError(All2MdError):
             parameter_name: str | None = None,
             parameter_value=None,
             original_error: Exception | None = None
-            ):
+    ):
         super().__init__(message, original_error=original_error)
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value
@@ -232,11 +232,11 @@ class DependencyError(All2MdError):
     """
 
     def __init__(
-        self,
-        converter_name: str,
-        missing_packages: list[tuple[str, str]],
-        install_command: str = "",
-        message: str | None = None
+            self,
+            converter_name: str,
+            missing_packages: list[tuple[str, str]],
+            install_command: str = "",
+            message: str | None = None
     ):
         if message is None:
             pkg_list = ", ".join(

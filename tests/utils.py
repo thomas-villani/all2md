@@ -47,7 +47,7 @@ class DocxTestGenerator:
 
         # Large indent levels (5 levels deep)
         for i in range(5):
-            p = doc.add_paragraph(f"Level {i+1} item", style="List Bullet")
+            p = doc.add_paragraph(f"Level {i + 1} item", style="List Bullet")
             p.paragraph_format.left_indent = Inches(0.5 * (i + 1))
 
         # Paragraph with both text and inline image
@@ -539,18 +539,18 @@ Special characters: café résumé naïve
                 references = ""
             else:
                 subject = "Re: Original Message"
-                in_reply_to = f"In-Reply-To: <msg{i-1}@example.com>"
+                in_reply_to = f"In-Reply-To: <msg{i - 1}@example.com>"
                 references = f"References: {' '.join([f'<msg{j}@example.com>' for j in range(i)])}"
 
             message = f"""From: User{i} <user{i}@example.com>
-To: User{i+1} <user{i+1}@example.com>
+To: User{i + 1} <user{i + 1}@example.com>
 Date: {formatted_date}
 Subject: {subject}
 Message-ID: <msg{i}@example.com>
 {in_reply_to}
 {references}
 
-Message {i+1} content.
+Message {i + 1} content.
 This is a longer message with multiple lines
 to test email chain processing.
 
@@ -593,7 +593,7 @@ def assert_markdown_valid(markdown: str) -> None:
     for i, line in enumerate(lines):
         # Check for unescaped special characters at start of line
         if line.startswith(('#', '*', '-', '+')) and i > 0:
-            if not lines[i-1].strip() == '':  # Should have empty line before headers/lists
+            if not lines[i - 1].strip() == '':  # Should have empty line before headers/lists
                 pass  # Could add warnings for style issues
 
         # Check for proper link formatting

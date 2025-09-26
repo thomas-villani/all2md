@@ -37,8 +37,8 @@ class TestPdfTablesIntegration:
 
         # Should have table separators or structure
         has_table_structure = (
-            "|" in result or  # Pipe tables
-            "Name" in result and "Age" in result  # At minimum the headers
+                "|" in result or  # Pipe tables
+                "Name" in result and "Age" in result  # At minimum the headers
         )
         assert has_table_structure
 

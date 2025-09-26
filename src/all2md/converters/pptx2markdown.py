@@ -195,7 +195,7 @@ def _process_table(table: Any, md_options=None) -> str:
 def _process_shape(
         shape: Any, options: PptxOptions, base_filename: str = "presentation", slide_num: int = 1,
         img_counter: dict | None = None
-        ) -> str | None:
+) -> str | None:
     """Process a single shape and convert to markdown."""
     if img_counter is None:
         img_counter = {}

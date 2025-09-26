@@ -95,8 +95,8 @@ class ConverterRegistry:
         return False
 
     def get_converter(
-        self,
-        format_name: str
+            self,
+            format_name: str
     ) -> Tuple[Callable, Optional[type]]:
         """Get converter function and options class for a format.
 
@@ -167,9 +167,9 @@ class ConverterRegistry:
             ) from e
 
     def detect_format(
-        self,
-        input_data: Union[str, Path, IO[bytes], bytes],
-        hint: Optional[str] = None
+            self,
+            input_data: Union[str, Path, IO[bytes], bytes],
+            hint: Optional[str] = None
     ) -> str:
         """Detect format from input data.
 

@@ -68,6 +68,7 @@ class TestPdfFormattingDetection:
 
     def test_emphasis_detection_logic(self):
         """Test the logic for detecting emphasis from font flags."""
+
         # This tests the logic without mocking by checking flag interpretation
 
         def detect_emphasis(flags):
@@ -78,11 +79,11 @@ class TestPdfFormattingDetection:
             if bold and italic:
                 return "***text***"  # Bold italic
             elif bold:
-                return "**text**"    # Bold only
+                return "**text**"  # Bold only
             elif italic:
-                return "*text*"      # Italic only
+                return "*text*"  # Italic only
             else:
-                return "text"        # No emphasis
+                return "text"  # No emphasis
 
         # Test different flag combinations
         assert detect_emphasis(0) == "text"
@@ -120,6 +121,7 @@ class TestPdfFormattingDetection:
 
     def test_span_text_processing_logic(self):
         """Test text processing and cleanup logic for PDF spans."""
+
         # Test text normalization logic
         def normalize_span_text(text):
             """Simulate text normalization from PDF spans."""
@@ -132,7 +134,7 @@ class TestPdfFormattingDetection:
             # Handle special characters
             normalized = normalized.replace('\u00a0', ' ')  # Non-breaking space
             normalized = normalized.replace('\u2013', '-')  # En dash
-            normalized = normalized.replace('\u2014', '--') # Em dash
+            normalized = normalized.replace('\u2014', '--')  # Em dash
 
             return normalized
 
@@ -145,6 +147,7 @@ class TestPdfFormattingDetection:
 
     def test_bounding_box_analysis_logic(self):
         """Test logic for analyzing text positioning using bounding boxes."""
+
         # Test bounding box overlap and positioning logic
         def boxes_overlap_vertically(box1, box2, tolerance=2):
             """Check if two bounding boxes overlap vertically."""
@@ -168,6 +171,7 @@ class TestPdfFormattingDetection:
 
     def test_text_direction_handling(self):
         """Test handling of text direction for proper text assembly."""
+
         # Test text direction logic
         def get_text_direction(dir_vector):
             """Determine text direction from PyMuPDF direction vector."""
@@ -231,7 +235,7 @@ class TestPdfTextAssembly:
                 # Apply formatting
                 if flags & 16:  # Bold
                     text = f"**{text}**"
-                if flags & 2:   # Italic
+                if flags & 2:  # Italic
                     text = f"*{text}*"
 
                 line_parts.append(text)
@@ -243,6 +247,7 @@ class TestPdfTextAssembly:
 
     def test_paragraph_detection_logic(self):
         """Test logic for detecting paragraph breaks in PDF text."""
+
         # Test paragraph break detection
         def is_paragraph_break(current_line, next_line, threshold=5):
             """Determine if there should be a paragraph break."""
@@ -250,7 +255,7 @@ class TestPdfTextAssembly:
                 return False
 
             current_y = current_line["bbox"][3]  # Bottom y coordinate
-            next_y = next_line["bbox"][1]        # Top y coordinate
+            next_y = next_line["bbox"][1]  # Top y coordinate
 
             gap = next_y - current_y
             return gap > threshold
@@ -258,13 +263,14 @@ class TestPdfTextAssembly:
         # Test line data
         line1 = {"bbox": (100, 100, 400, 120), "text": "First line."}
         line2 = {"bbox": (100, 125, 400, 145), "text": "Second line."}  # Small gap
-        line3 = {"bbox": (100, 155, 400, 175), "text": "Third line."}   # Large gap
+        line3 = {"bbox": (100, 155, 400, 175), "text": "Third line."}  # Large gap
 
         assert not is_paragraph_break(line1, line2)  # Small gap, same paragraph
-        assert is_paragraph_break(line2, line3)      # Large gap, new paragraph
+        assert is_paragraph_break(line2, line3)  # Large gap, new paragraph
 
     def test_whitespace_normalization_logic(self):
         """Test whitespace normalization for PDF text extraction."""
+
         def normalize_whitespace(text):
             """Normalize whitespace in extracted text."""
             if not text:

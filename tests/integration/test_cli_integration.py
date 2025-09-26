@@ -987,12 +987,12 @@ class TestAdvancedCLIIntegration:
             # Test combination of many new features
             result = main([
                 *files,
-                "--rich",           # Rich output
-                "--progress",       # Progress bar
+                "--rich",  # Rich output
+                "--progress",  # Progress bar
                 "--parallel", "2",  # Parallel processing
-                "--skip-errors",    # Error handling
-                "--collate",        # File collation
-                "--no-summary"      # No summary
+                "--skip-errors",  # Error handling
+                "--collate",  # File collation
+                "--no-summary"  # No summary
             ])
 
             # Should handle all options gracefully

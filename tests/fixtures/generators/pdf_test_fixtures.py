@@ -142,7 +142,7 @@ def create_pdf_with_formatting() -> fitz.Document:
     page.insert_text((50, 230), "Medium Subheader", fontsize=14, color=(0, 0, 0))
 
     page.insert_text((50, 260), "Regular paragraph text continues here with normal formatting",
-                    fontsize=12, color=(0, 0, 0))
+                     fontsize=12, color=(0, 0, 0))
 
     # Mixed formatting in same line (requires multiple text insertions)
     page.insert_text((50, 320), "This line has ", fontsize=12, color=(0, 0, 0))

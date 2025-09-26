@@ -144,7 +144,8 @@ def format_yaml_value(value: Any) -> str:
         for item in value:
             if isinstance(item, str):
                 # Quote if contains special YAML chars
-                if any(c in str(item) for c in [':', '#', '"', "'", '|', '>', '\n', '[', ']', '{', '}', ',', '&', '*', '!', '%', '@', '`']):
+                if any(c in str(item) for c in
+                       [':', '#', '"', "'", '|', '>', '\n', '[', ']', '{', '}', ',', '&', '*', '!', '%', '@', '`']):
                     escaped = str(item).replace('\\', '\\\\').replace('"', '\\"')
                     items.append(f'"{escaped}"')
                 else:
@@ -164,16 +165,16 @@ def format_yaml_value(value: Any) -> str:
     elif isinstance(value, str):
         # Check if string needs quoting
         needs_quote = (
-            ':' in value or
-            '#' in value or
-            '"' in value or
-            "'" in value or
-            '\n' in value or
-            value.startswith((' ', '\t')) or
-            value.endswith((' ', '\t')) or
-            value in ['true', 'false', 'null', 'yes', 'no', 'on', 'off'] or
-            value.startswith(('|', '>', '-', '*', '&', '!', '%', '@', '`')) or
-            (value and value[0].isdigit() and '.' in value)  # Might be confused with number
+                ':' in value or
+                '#' in value or
+                '"' in value or
+                "'" in value or
+                '\n' in value or
+                value.startswith((' ', '\t')) or
+                value.endswith((' ', '\t')) or
+                value in ['true', 'false', 'null', 'yes', 'no', 'on', 'off'] or
+                value.startswith(('|', '>', '-', '*', '&', '!', '%', '@', '`')) or
+                (value and value[0].isdigit() and '.' in value)  # Might be confused with number
         )
 
         if needs_quote:

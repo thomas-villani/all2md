@@ -1,6 +1,5 @@
 """Advanced tests for HTML nested element handling edge cases."""
 
-
 from all2md.converters.html2markdown import HTMLToMarkdown, html_to_markdown
 from all2md.options import HtmlOptions
 from tests.utils import assert_markdown_valid
@@ -23,8 +22,8 @@ class TestHtmlNestedElements:
 
         # Should handle nested formatting appropriately
         assert "**" in markdown  # Bold formatting
-        assert "*" in markdown   # Italic formatting
-        assert "`" in markdown   # Code formatting
+        assert "*" in markdown  # Italic formatting
+        assert "`" in markdown  # Code formatting
         assert "[link]" in markdown  # Link formatting
 
         # Check specific nesting patterns
@@ -101,9 +100,9 @@ class TestHtmlNestedElements:
         # Should handle deep nesting
         lines = markdown.split('\n')
         list_lines = [line for line in lines if line.strip() and (
-            line.strip().startswith('*') or
-            line.strip().startswith('-') or
-            line.strip().startswith('1.')
+                line.strip().startswith('*') or
+                line.strip().startswith('-') or
+                line.strip().startswith('1.')
         )]
 
         assert len(list_lines) >= 5  # Should have all levels

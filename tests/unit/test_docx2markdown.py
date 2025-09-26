@@ -1,4 +1,3 @@
-
 import pytest
 
 from all2md.converters import docx2markdown as md
@@ -80,7 +79,7 @@ class FakeFont:
 
 class FakeRun:
     def __init__(
-        self, text, bold=False, italic=False, underline=False, strike=False, subscript=False, superscript=False
+            self, text, bold=False, italic=False, underline=False, strike=False, subscript=False, superscript=False
     ):
         self.text = text
         self.bold = bold

@@ -105,7 +105,7 @@ from .constants import (
 
 class _CloneMixin:
     def create_updated(self, **kwargs) -> Self:
-        return replace(self, **kwargs)   # type: ignore
+        return replace(self, **kwargs)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -543,14 +543,14 @@ class HtmlOptions(BaseOptions):
         default=DEFAULT_ALLOW_REMOTE_FETCH,
         metadata={
             "help": "Allow fetching remote URLs for images (base64/download modes). "
-                   "When False, prevents SSRF attacks by blocking all network requests."
+                    "When False, prevents SSRF attacks by blocking all network requests."
         }
     )
     allowed_hosts: list[str] | None = field(
         default=DEFAULT_ALLOWED_HOSTS,
         metadata={
             "help": "List of allowed hostnames or CIDR blocks for remote fetching. "
-                   "If specified, only URLs from these hosts will be fetched."
+                    "If specified, only URLs from these hosts will be fetched."
         }
     )
     require_https: bool = field(
@@ -742,7 +742,7 @@ class EmlOptions(BaseOptions):
         default=DEFAULT_ALLOW_REMOTE_FETCH,
         metadata={
             "help": "Allow fetching remote URLs when converting HTML parts to Markdown. "
-                   "Only applies when convert_html_to_markdown=True."
+                    "Only applies when convert_html_to_markdown=True."
         }
     )
     allowed_hosts: list[str] | None = field(
@@ -907,6 +907,7 @@ class MhtmlOptions(BaseOptions):
             "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
         }
     )
+
 
 @dataclass(frozen=True)
 class SpreadsheetOptions(BaseOptions):

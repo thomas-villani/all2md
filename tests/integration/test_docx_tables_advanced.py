@@ -1,6 +1,5 @@
 """Advanced tests for DOCX table handling edge cases."""
 
-
 import docx
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -292,8 +291,8 @@ class TestDocxTablesAdvanced:
 
         # Create wide table
         for col in range(cols):
-            table.rows[0].cells[col].text = f"H{col+1}"
-            table.rows[1].cells[col].text = f"D{col+1}"
+            table.rows[0].cells[col].text = f"H{col + 1}"
+            table.rows[1].cells[col].text = f"D{col + 1}"
 
         temp_file = self.temp_dir / "wide_table.docx"
         doc.save(str(temp_file))
