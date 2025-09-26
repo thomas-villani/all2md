@@ -37,6 +37,7 @@ Options Classes
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Union, Optional
 
 from .constants import (
     DEFAULT_ATTACHMENT_BASE_URL,
@@ -757,3 +758,47 @@ class MhtmlOptions(BaseOptions):
     Inherited from BaseOptions
     """
     pass
+
+@dataclass
+class SpreadsheetOptions(BaseOptions):
+    """Configuration options for Spreadsheet (XLSX/CSV/TSV) to Markdown conversion.
+
+    Parameters
+    ----------
+    sheets : list[str] | str | None, default None
+        For XLSX: list of exact sheet names to include or a regex pattern.
+        If None, includes all sheets.
+    include_sheet_titles : bool, default True
+        Prepend each sheet with a '## {sheet_name}' heading.
+    render_formulas : bool, default True
+        For XLSX: when True, uses stored values (data_only=True). When False, shows formulas.
+    max_rows : int | None, default None
+        Maximum number of data rows per table (excluding header). None = unlimited.
+    max_cols : int | None, default None
+        Maximum number of columns per table. None = unlimited.
+    truncation_indicator : str, default "..."
+        Appended note when rows/columns are truncated.
+    detect_csv_dialect : bool, default True
+        For CSV/TSV: enable csv.Sniffer-based dialect detection (ignored if force delimiter).
+    markdown_options : MarkdownOptions | None, default None
+        Shared markdown formatting options.
+    attachment_mode : AttachmentMode, default "alt_text"
+        Reserved for future XLSX-embedded images (not currently extracted).
+    attachment_output_dir : str | None, default None
+        Directory for download mode (future use).
+    attachment_base_url : str | None, default None
+        Base URL for download mode (future use).
+    """
+    sheets: Union[list[str], str, None] = None
+    include_sheet_titles: bool = True
+
+    # XLSX-specific
+    render_formulas: bool = True
+
+    # Truncation
+    max_rows: Optional[int] = None
+    max_cols: Optional[int] = None
+    truncation_indicator: str = "..."
+
+    # CSV/TSV parsing
+    detect_csv_dialect: bool = True

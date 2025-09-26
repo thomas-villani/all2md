@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.metadata
+import io
 import logging
 import mimetypes
 from pathlib import Path
@@ -223,7 +224,7 @@ class ConverterRegistry:
                     content = f.read(1024)
             except Exception:
                 pass
-        elif isinstance(input_data, IO):
+        elif isinstance(input_data, io.IOBase):
             # Save position and read sample
             try:
                 pos = input_data.tell()
@@ -310,13 +311,13 @@ class ConverterRegistry:
                 comma_count = sum(line.count(',') for line in non_empty_lines)
                 tab_count = sum(line.count('\t') for line in non_empty_lines)
 
-                # More relaxed CSV detection
+                # More relaxed CSV/TSV detection - return spreadsheet for unified converter
                 if comma_count >= len(non_empty_lines):  # At least one comma per line
                     logger.debug(f"CSV pattern detected: {comma_count} commas in {len(non_empty_lines)} lines")
-                    return "csv"
+                    return "spreadsheet"
                 elif tab_count >= len(non_empty_lines):  # At least one tab per line
                     logger.debug(f"TSV pattern detected: {tab_count} tabs in {len(non_empty_lines)} lines")
-                    return "tsv"
+                    return "spreadsheet"
         except UnicodeDecodeError:
             pass
 

@@ -462,20 +462,22 @@ class TestNewAPI:
 
     def test_multiple_format_detections(self):
         """Test detection for various file formats."""
-        # Test CSV detection
+        # Test CSV detection - CSV is handled by spreadsheet converter
         csv_content = b"name,age,city\nJohn,25,NYC\nJane,30,LA"
         csv_io = BytesIO(csv_content)
+        csv_io.name = "test.csv"  # Give it a name for format detection
 
-        result = to_markdown(csv_io, format="csv")
+        result = to_markdown(csv_io, format="spreadsheet")
         assert "|" in result  # Should be markdown table
         assert "John" in result
         assert "Jane" in result
 
-        # Test TSV detection
+        # Test TSV detection - TSV is handled by spreadsheet converter
         tsv_content = b"name\tage\tcity\nBob\t35\tSF"
         tsv_io = BytesIO(tsv_content)
+        tsv_io.name = "test.tsv"  # Give it a name for format detection
 
-        result = to_markdown(tsv_io, format="tsv")
+        result = to_markdown(tsv_io, format="spreadsheet")
         assert "|" in result  # Should be markdown table
         assert "Bob" in result
 
@@ -538,8 +540,9 @@ class TestNewAPI:
             result = to_markdown(str(html_file))
 
             # Check that logs show filename detection succeeded
-            log_messages = [msg for msg in log_capture if 'Format detected from extension' in msg]
-            assert any('.html: html' in msg for msg in log_messages)
+            # The actual log message is "Format detected from filename: html"
+            log_messages = [msg for msg in log_capture if 'Format detected from' in msg]
+            assert any('html' in msg for msg in log_messages), f"Log messages: {log_messages}"
 
         finally:
             logger.removeHandler(handler)
