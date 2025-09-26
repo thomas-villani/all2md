@@ -68,6 +68,11 @@ epub = [
 [project.scripts]
 all2md = "all2md.cli:main"
 
+[project.entry-points."all2md.converters"]
+# Entry points for third-party converter plugins
+# Example for a hypothetical third-party plugin:
+# visio = "all2md_visio.converter:CONVERTER_METADATA"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

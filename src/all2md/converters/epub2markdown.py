@@ -70,6 +70,7 @@ except ImportError as e:
     raise ImportError(
         "`beautifulsoup4` is required for EPUB conversion. Install with: `pip install beautifulsoup4`") from e
 
+from all2md.converter_metadata import ConverterMetadata
 from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, HtmlOptions, MarkdownOptions
@@ -313,3 +314,21 @@ def epub_to_markdown(
     final_content = separator.join(part.strip() for part in all_md_parts if part.strip())
 
     return (md_toc + final_content).strip()
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="epub",
+    extensions=[".epub"],
+    mime_types=["application/epub+zip"],
+    magic_bytes=[
+        (b"PK\x03\x04", 0),  # ZIP signature
+    ],
+    converter_module="all2md.converters.epub2markdown",
+    converter_function="epub_to_markdown",
+    required_packages=[("ebooklib", ""), ("beautifulsoup4", "")],
+    import_error_message="EPUB conversion requires 'ebooklib' and 'beautifulsoup4'. Install with: pip install ebooklib beautifulsoup4",
+    options_class="EpubOptions",
+    description="Convert EPUB e-books to Markdown",
+    priority=6
+)

@@ -97,6 +97,7 @@ User Guide
    formats
    cli
    options
+   plugins
    troubleshooting
 
 API Reference

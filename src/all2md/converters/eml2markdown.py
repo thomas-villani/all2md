@@ -95,6 +95,7 @@ from pathlib import Path
 from typing import Any, IO, Union
 
 from all2md.constants import DEFAULT_URL_WRAPPERS
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import EmlOptions
 from all2md.utils.attachments import process_attachment
@@ -1025,3 +1026,24 @@ def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions
             conversion_stage="content_processing",
             original_error=e
         ) from e
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="eml",
+    extensions=[".eml", ".msg"],
+    mime_types=["message/rfc822"],
+    magic_bytes=[
+        (b"Return-Path:", 0),
+        (b"Received:", 0),
+        (b"From:", 0),
+        (b"To:", 0),
+        (b"Subject:", 0),
+    ],
+    converter_module="all2md.converters.eml2markdown",
+    converter_function="eml_to_markdown",
+    required_packages=[],
+    options_class="EmlOptions",
+    description="Convert email messages to Markdown",
+    priority=6
+)

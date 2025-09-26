@@ -10,6 +10,7 @@ This module implements a registry pattern for converters, enabling:
 from __future__ import annotations
 
 import importlib
+import importlib.metadata
 import logging
 import mimetypes
 from pathlib import Path
@@ -386,44 +387,121 @@ class ConverterRegistry:
         return missing
 
     def auto_discover(self) -> None:
-        """Auto-discover and register converters from the converters package.
+        """Auto-discover and register converters from multiple sources.
 
-        This method is called automatically on first use but can be
-        called manually to refresh the registry.
+        This method:
+        1. Scans the converters directory for Python modules with CONVERTER_METADATA
+        2. Discovers plugins via entry points from installed packages
+
+        This enables a true plug-and-play system for both internal and external converters.
         """
         if self._initialized:
             return
 
-        # Import all converter modules to trigger their registration
-        converter_modules = [
-            "pdf2markdown",
-            "docx2markdown",
-            "pptx2markdown",
-            "html2markdown",
-            "eml2markdown",
-            "ipynb2markdown",
-            "epub2markdown",
-            "mhtml2markdown",
-            "odf2markdown",
-            "rtf2markdown",
-        ]
+        # Discover internal converter modules by scanning the converters package
+        converter_modules = self._discover_converter_modules()
 
         for module_name in converter_modules:
             try:
-                # This will trigger the module's registration code
+                # Import the module
                 module_path = f"all2md.converters.{module_name}"
                 module = importlib.import_module(module_path)
 
                 # Look for CONVERTER_METADATA in the module
                 if hasattr(module, "CONVERTER_METADATA"):
                     self.register(module.CONVERTER_METADATA)
+                    logger.debug(f"Auto-registered internal converter: {module_name}")
             except ImportError as e:
                 # Module has unmet dependencies, skip it
                 logger.debug(f"Could not load {module_name}: {e}")
             except Exception as e:
                 logger.warning(f"Error loading {module_name}: {e}")
 
+        # Discover external plugins via entry points
+        self._discover_plugins()
+
         self._initialized = True
+
+    def _discover_converter_modules(self) -> List[str]:
+        """Discover converter modules by scanning the converters package directory.
+
+        Returns
+        -------
+        List[str]
+            List of module names found in the converters package
+        """
+        converter_modules = []
+
+        try:
+            # Import the converters package to get its path
+            import all2md.converters as converters_package
+            converters_path = Path(converters_package.__file__).parent
+
+            # Scan for Python files in the converters directory
+            for file_path in converters_path.glob("*.py"):
+                module_name = file_path.stem
+
+                # Skip __init__.py and any private modules
+                if module_name != "__init__" and not module_name.startswith("_"):
+                    converter_modules.append(module_name)
+
+            logger.debug(f"Discovered converter modules: {converter_modules}")
+
+        except Exception as e:
+            logger.warning(f"Failed to discover converter modules: {e}")
+            # Fallback to empty list - no converters will be registered
+
+        return converter_modules
+
+    def _discover_plugins(self) -> None:
+        """Discover and register third-party converter plugins via entry points.
+
+        This method scans for installed packages that define converters
+        via the 'all2md.converters' entry point group.
+        """
+        try:
+            # Discover entry points for the all2md.converters group
+            entry_points = importlib.metadata.entry_points(group="all2md.converters")
+
+            for entry_point in entry_points:
+                try:
+                    # Load the converter metadata from the entry point
+                    converter_metadata = entry_point.load()
+
+                    # Validate that it's actually a ConverterMetadata instance
+                    if isinstance(converter_metadata, ConverterMetadata):
+                        # Check if we already have a converter with this format name
+                        if converter_metadata.format_name in self._converters:
+                            dist_name = entry_point.dist.name if entry_point.dist else "unknown"
+                            logger.warning(
+                                f"Plugin '{entry_point.name}' from '{dist_name}' "
+                                f"conflicts with existing converter for format '{converter_metadata.format_name}'. "
+                                f"Skipping plugin."
+                            )
+                            continue
+
+                        self.register(converter_metadata)
+                        dist_name = entry_point.dist.name if entry_point.dist else "unknown"
+                        logger.info(
+                            f"Registered plugin converter: {converter_metadata.format_name} "
+                            f"from package '{dist_name}'"
+                        )
+                    else:
+                        dist_name = entry_point.dist.name if entry_point.dist else "unknown"
+                        logger.warning(
+                            f"Entry point '{entry_point.name}' from '{dist_name}' "
+                            f"did not return a ConverterMetadata instance"
+                        )
+
+                except Exception as e:
+                    dist_name = entry_point.dist.name if entry_point.dist else "unknown"
+                    logger.warning(
+                        f"Failed to load plugin '{entry_point.name}' from "
+                        f"'{dist_name}': {e}"
+                    )
+
+        except Exception as e:
+            logger.debug(f"No plugins found or error discovering plugins: {e}")
 
 
 # Global registry instance

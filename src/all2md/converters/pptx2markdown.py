@@ -96,6 +96,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.util import Inches
 
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
 from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
@@ -412,6 +413,24 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
             markdown_content.append("\n---\n")  # Add separator between slides
 
     return "\n".join(markdown_content).strip()
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="pptx",
+    extensions=[".pptx"],
+    mime_types=["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+    magic_bytes=[
+        (b"PK\x03\x04", 0),  # ZIP signature
+    ],
+    converter_module="all2md.converters.pptx2markdown",
+    converter_function="pptx_to_markdown",
+    required_packages=[("python-pptx", "")],
+    import_error_message="PPTX conversion requires 'python-pptx'. Install with: pip install python-pptx",
+    options_class="PptxOptions",
+    description="Convert PowerPoint presentations to Markdown",
+    priority=7
+)
 
 
 def create_test_presentation() -> Any:

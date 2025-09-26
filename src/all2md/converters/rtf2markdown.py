@@ -60,6 +60,7 @@ from typing import IO, Any, Union
 from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
 from pyth.plugins.rtf15.reader import Rtf15Reader
 
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, RtfOptions
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
@@ -314,3 +315,21 @@ def rtf_to_markdown(
     converter = RtfConverter(options)
     converter._base_filename = base_filename  # Pass base filename to converter
     return converter.convert(doc)
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="rtf",
+    extensions=[".rtf"],
+    mime_types=["application/rtf", "text/rtf"],
+    magic_bytes=[
+        (b"{\\rtf", 0),
+    ],
+    converter_module="all2md.converters.rtf2markdown",
+    converter_function="rtf_to_markdown",
+    required_packages=[("pyth", "")],
+    import_error_message="RTF conversion requires 'pyth'. Install with: pip install pyth",
+    options_class="RtfOptions",
+    description="Convert Rich Text Format documents to Markdown",
+    priority=4
+)

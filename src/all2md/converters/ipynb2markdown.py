@@ -70,6 +70,7 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import IpynbOptions
 from all2md.utils.attachments import process_attachment
@@ -232,3 +233,21 @@ def ipynb_to_markdown(
             output_parts.append("\n\n".join(cell_content))
 
     return "\n\n".join(output_parts).strip()
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="ipynb",
+    extensions=[".ipynb"],
+    mime_types=["application/json"],
+    magic_bytes=[
+        (b'{"cells":', 0),
+        (b'{ "cells":', 0),
+    ],
+    converter_module="all2md.converters.ipynb2markdown",
+    converter_function="ipynb_to_markdown",
+    required_packages=[],
+    options_class="IpynbOptions",
+    description="Convert Jupyter Notebooks to Markdown",
+    priority=7
+)

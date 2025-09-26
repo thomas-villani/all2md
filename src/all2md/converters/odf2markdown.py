@@ -74,6 +74,7 @@ from odf.style import STYLENS
 from odf.table import TABLENS
 from odf.text import TEXTNS
 
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, OdfOptions
 from all2md.utils.attachments import process_attachment
@@ -339,3 +340,21 @@ def odf_to_markdown(
 
     converter = OdfConverter(doc, options)
     return converter.convert()
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="odf",
+    extensions=[".odt", ".odp"],
+    mime_types=["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.presentation"],
+    magic_bytes=[
+        (b"PK\x03\x04", 0),  # ZIP signature
+    ],
+    converter_module="all2md.converters.odf2markdown",
+    converter_function="odf_to_markdown",
+    required_packages=[("odfpy", "")],
+    import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",
+    options_class="OdfOptions",
+    description="Convert OpenDocument files to Markdown",
+    priority=4
+)

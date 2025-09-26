@@ -73,6 +73,7 @@ from typing import IO, Union
 
 from bs4 import BeautifulSoup
 
+from all2md.converter_metadata import ConverterMetadata
 from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import HtmlOptions, MarkdownOptions, MhtmlOptions
@@ -227,3 +228,21 @@ def mhtml_to_markdown(
     )
 
     return html_to_markdown(processed_html, options=html_options)
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="mhtml",
+    extensions=[".mhtml", ".mht"],
+    mime_types=["multipart/related", "message/rfc822"],
+    magic_bytes=[
+        (b"MIME-Version:", 0),
+    ],
+    converter_module="all2md.converters.mhtml2markdown",
+    converter_function="mhtml_to_markdown",
+    required_packages=[("beautifulsoup4", "")],
+    import_error_message="MHTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4",
+    options_class="MhtmlOptions",
+    description="Convert MHTML web archives to Markdown",
+    priority=5
+)
