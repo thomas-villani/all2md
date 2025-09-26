@@ -42,6 +42,7 @@ from typing import Any, Optional, Self, Union
 from .constants import (
     DEFAULT_ALLOW_CWD_FILES,
     DEFAULT_ALLOW_LOCAL_FILES,
+    DEFAULT_ALT_TEXT_MODE,
     DEFAULT_ATTACHMENT_BASE_URL,
     DEFAULT_ATTACHMENT_MODE,
     DEFAULT_ATTACHMENT_OUTPUT_DIR,
@@ -87,6 +88,7 @@ from .constants import (
     DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
     DEFAULT_URL_WRAPPERS,
     DEFAULT_USE_HASH_HEADINGS,
+    AltTextMode,
     AttachmentMode,
     DateFormatMode,
     EmphasisSymbol,
@@ -211,6 +213,13 @@ class BaseOptions(_CloneMixin):
         metadata={
             "help": "How to handle attachments/images",
             "choices": ["skip", "alt_text", "download", "base64"]
+        }
+    )
+    alt_text_mode: AltTextMode = field(
+        default=DEFAULT_ALT_TEXT_MODE,
+        metadata={
+            "help": "How to render alt-text content when using alt_text attachment mode",
+            "choices": ["default", "plain_filename", "strict_markdown", "footnote"]
         }
     )
     attachment_output_dir: str | None = field(

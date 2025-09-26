@@ -74,9 +74,10 @@ from io import BytesIO
 from pathlib import Path
 from typing import IO, Optional, Union
 
+from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DocumentFormat
+
 # Import converters to trigger registration
 from . import converters  # noqa: F401
-from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from .converter_registry import registry
@@ -459,27 +460,17 @@ def _merge_options(
     markdown_kwargs = {k: v for k, v in kwargs.items() if k in markdown_fields}
     other_kwargs = {k: v for k, v in kwargs.items() if k not in markdown_fields}
 
-    # Handle MarkdownOptions merging
+    # Handle MarkdownOptions merging with field-wise preservation
     if markdown_kwargs:
-        new_markdown_options = MarkdownOptions(**markdown_kwargs)
-        merged_options = merged_options.create_updated(markdown_options=new_markdown_options)
-
-        # if merged_options.markdown_options is None:
-        #     new_markdown_options = MarkdownOptions(**markdown_kwargs)
-        #     merged_options = merged_options.create_updated(markdown_options=new_markdown_options)
-        #     merged_options.markdown_options = MarkdownOptions(**markdown_kwargs)
-        # else:
-        #     Update existing MarkdownOptions
-            # for k, v in markdown_kwargs.items():
-            #     setattr(merged_options.markdown_options, k, v)
+        # Start with existing markdown_options or create default
+        new_md = merged_options.markdown_options or MarkdownOptions()
+        # Apply only the kwargs fields that are present, preserving existing fields
+        for k, v in markdown_kwargs.items():
+            new_md = create_updated_options(new_md, **{k: v})
+        merged_options = merged_options.create_updated(markdown_options=new_md)
 
     if other_kwargs:
         merged_options = merged_options.create_updated(**other_kwargs)
-
-    # Update other options directly
-    # for k, v in other_kwargs.items():
-    #     if hasattr(merged_options, k):
-    #         setattr(merged_options, k, v)
 
     return merged_options
 

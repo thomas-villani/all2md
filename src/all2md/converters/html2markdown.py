@@ -938,6 +938,7 @@ class HTMLToMarkdown:
             attachment_output_dir=self.attachment_output_dir,
             attachment_base_url=self.attachment_base_url,
             is_image=True,
+            alt_text_mode=self.alt_text_mode,
         )
 
         return processed_image

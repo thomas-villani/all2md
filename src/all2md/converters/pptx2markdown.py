@@ -243,6 +243,7 @@ def _process_shape(
             attachment_output_dir=options.attachment_output_dir,
             attachment_base_url=options.attachment_base_url,
             is_image=True,
+            alt_text_mode=options.alt_text_mode,
         )
 
     # Handle charts (convert to tables if possible)

@@ -62,9 +62,11 @@ SuperscriptMode = Literal["html", "markdown", "ignore"]
 SubscriptMode = Literal["html", "markdown", "ignore"]
 EmphasisSymbol = Literal["*", "_"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
+AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 
 # Attachment handling defaults - defined here after AttachmentMode type
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
+DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 
 # =============================================================================
 # PDF-specific Constants

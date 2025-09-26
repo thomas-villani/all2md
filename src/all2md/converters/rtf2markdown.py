@@ -337,6 +337,7 @@ class RtfConverter:
             attachment_output_dir=self.options.attachment_output_dir,
             attachment_base_url=self.options.attachment_base_url,
             is_image=True,
+            alt_text_mode=self.options.alt_text_mode,
         )
 
 

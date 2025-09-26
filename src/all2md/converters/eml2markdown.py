@@ -749,6 +749,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
                 attachment_output_dir=options.attachment_output_dir,
                 attachment_base_url=options.attachment_base_url,
                 is_image=is_image,
+                alt_text_mode=options.alt_text_mode,
             )
 
             if processed_attachment:

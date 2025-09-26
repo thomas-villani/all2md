@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
-from all2md.constants import AttachmentMode
+from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ def process_attachment(
         attachment_output_dir: str | None = None,
         attachment_base_url: str | None = None,
         is_image: bool = True,
+        alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
 ) -> str:
     """Process an attachment according to the specified mode.
 
@@ -79,6 +80,12 @@ def process_attachment(
         Base URL for resolving relative URLs
     is_image : bool, default True
         Whether this is an image attachment
+    alt_text_mode : AltTextMode, default "default"
+        How to render alt-text content:
+        - "default": Current behavior - ![alt] for images, [filename] for files
+        - "plain_filename": Render non-images as plain filename text
+        - "strict_markdown": Use ![alt](#) format for proper Markdown structure
+        - "footnote": Use footnote references for accessibility
 
     Returns
     -------
@@ -91,9 +98,22 @@ def process_attachment(
 
     if attachment_mode == "alt_text":
         if is_image:
-            return f"![{alt_text or attachment_name}]"
+            if alt_text_mode == "strict_markdown":
+                return f"![{alt_text or attachment_name}](#)"
+            elif alt_text_mode == "footnote":
+                # Use footnote format for accessibility
+                return f"![{alt_text or attachment_name}][^{attachment_name}]"
+            else:  # "default" mode
+                return f"![{alt_text or attachment_name}]"
         else:
-            return f"[{attachment_name}]"
+            if alt_text_mode == "plain_filename":
+                return attachment_name
+            elif alt_text_mode == "strict_markdown":
+                return f"[{attachment_name}](#)"
+            elif alt_text_mode == "footnote":
+                return f"[{attachment_name}][^{attachment_name}]"
+            else:  # "default" mode
+                return f"[{attachment_name}]"
 
     if attachment_mode == "base64" and is_image:
         if not attachment_data:
@@ -149,9 +169,21 @@ def process_attachment(
     logger.info(f"Falling back to alt_text mode for attachment: {attachment_name} "
                 f"(mode: {attachment_mode}, has_data: {attachment_data is not None})")
     if is_image:
-        return f"![{alt_text or attachment_name}]"
+        if alt_text_mode == "strict_markdown":
+            return f"![{alt_text or attachment_name}](#)"
+        elif alt_text_mode == "footnote":
+            return f"![{alt_text or attachment_name}][^{attachment_name}]"
+        else:  # "default" mode
+            return f"![{alt_text or attachment_name}]"
     else:
-        return f"[{attachment_name}]"
+        if alt_text_mode == "plain_filename":
+            return attachment_name
+        elif alt_text_mode == "strict_markdown":
+            return f"[{attachment_name}](#)"
+        elif alt_text_mode == "footnote":
+            return f"[{attachment_name}][^{attachment_name}]"
+        else:  # "default" mode
+            return f"[{attachment_name}]"
 
 
 def extract_pptx_image_data(shape: Any) -> bytes | None:

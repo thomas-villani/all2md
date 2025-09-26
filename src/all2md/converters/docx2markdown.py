@@ -391,6 +391,7 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
                         attachment_output_dir=options.attachment_output_dir,
                         attachment_base_url=options.attachment_base_url,
                         is_image=True,
+                        alt_text_mode=options.alt_text_mode,
                     )
 
                     img_data.append((title, processed_image))

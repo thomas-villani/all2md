@@ -153,6 +153,7 @@ def _preprocess_html(
                 attachment_output_dir=options.attachment_output_dir,
                 attachment_base_url=options.attachment_base_url,
                 is_image=True,
+                alt_text_mode=options.alt_text_mode,
             )
             # If process_attachment returns a full markdown string, replace the tag entirely
             if new_src.startswith("!["):
