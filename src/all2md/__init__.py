@@ -72,11 +72,11 @@ import os
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Literal, Optional, Union
+from typing import IO, Optional, Union
 
 # Import converters to trigger registration
 from . import converters  # noqa: F401
-from .constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from .converter_registry import registry
@@ -102,26 +102,6 @@ logger = logging.getLogger(__name__)
 # Re-export for backward compatibility - all extension lists are now in constants.py
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
-# Type definitions
-DocumentFormat = Literal[
-    "auto",  # Auto-detect from filename/content
-    "pdf",  # PDF documents
-    "docx",  # Word documents
-    "pptx",  # PowerPoint presentations
-    "html",  # HTML documents
-    "mhtml",  # MHTML single-file web archives
-    "rtf",  # Rich Text Format
-    "xlsx",  # Excel spreadsheets
-    "csv",  # CSV files
-    "tsv",  # TSV files
-    "txt",  # Plain text
-    "eml",  # Email messages
-    "image",  # Image files (PNG, JPEG, GIF)
-    "ipynb",  # Jupyter Notebooks
-    "odt",  # OpenDocument Text
-    "odp",  # OpenDocument Presentation
-    "epub"  # EPUB e-books
-]
 
 
 # Content-based format detection
@@ -529,7 +509,7 @@ def to_markdown(
     options : BaseOptions, optional
         Pre-configured options object for format-specific settings.
         If provided, individual kwargs will override these settings.
-    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "xlsx", "csv", "tsv", "txt", "eml", "ipynb", "epub"}, default "auto"
+    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "spreadsheet", "txt", "eml", "ipynb", "epub"}, default "auto"
         Document format specification:
         - "auto": Detect format automatically from filename and content
         - Other values: Force processing as the specified format

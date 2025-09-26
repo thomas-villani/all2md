@@ -13,13 +13,6 @@
 #  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
 # src/all2md/converters/pdf2markdown.py
 """PDF to Markdown conversion module.
 
@@ -71,7 +64,7 @@ Original from pdf4llm package, modified by Tom Villani to improve table processi
 import re
 import string
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union
+from typing import IO, TYPE_CHECKING, Union, Optional
 
 if TYPE_CHECKING:
     import fitz
@@ -586,7 +579,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
 
 def page_to_markdown(
         page: "fitz.Page",
-        clip: "fitz.Rect | None",
+        clip: Optional["fitz.Rect"],
         hdr_prefix: IdentifyHeaders,
         md_options: MarkdownOptions | None = None,
         pdf_options: PdfOptions | None = None,

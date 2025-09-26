@@ -6,10 +6,11 @@ from dataclass options using field metadata.
 
 import argparse
 from dataclasses import fields, is_dataclass
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union, get_args
 
-from .converter_registry import registry
-from .options import MarkdownOptions
+from all2md.constants import DocumentFormat
+from all2md.converter_registry import registry
+from all2md.options import MarkdownOptions
 
 
 class DynamicCLIBuilder:
@@ -353,8 +354,7 @@ Examples:
         # Format override option
         parser.add_argument(
             "--format",
-            choices=["auto", "pdf", "docx", "pptx", "html", "mhtml", "eml", "epub", "rtf", "ipynb", "odf", "csv",
-                     "tsv", "xlsx", "image", "txt"],
+            choices=list(get_args(DocumentFormat)),
             default="auto",
             help="Force specific file format instead of auto-detection (default: auto)"
         )

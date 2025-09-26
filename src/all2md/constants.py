@@ -210,3 +210,19 @@ DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xlsx", ".docx", ".pptx", ".eml", ".rtf"
                        ".mht", ".mhtml"]
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
+DocumentFormat = Literal[
+    "auto",  # Auto-detect from filename/content
+    "pdf",  # PDF documents
+    "docx",  # Word documents
+    "pptx",  # PowerPoint presentations
+    "html",  # HTML documents
+    "mhtml",  # MHTML single-file web archives
+    "rtf",  # Rich Text Format
+    "spreadsheet",  # CSV, TSV, XLSX
+    "txt",  # Plain text
+    "eml",  # Email messages
+    "image",  # Image files (PNG, JPEG, GIF)
+    "ipynb",  # Jupyter Notebooks
+    "odf",  # OpenDocument Format
+    "epub"  # EPUB e-books
+]
