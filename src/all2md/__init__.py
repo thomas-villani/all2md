@@ -42,7 +42,7 @@ Basic usage for file conversion:
     >>> print(markdown_content)
 
 """
-
+import copy
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -94,6 +94,7 @@ from .options import (
     PdfOptions,
     PptxOptions,
     RtfOptions,
+    create_updated_options,
 )
 
 logger = logging.getLogger(__name__)
@@ -460,15 +461,17 @@ def _merge_options(
         options_instance = _create_options_from_kwargs(format, **kwargs)
 
         if options_instance.markdown_options is None:
-            options_instance.markdown_options = base_options
+            options_instance = create_updated_options(options_instance, markdown_options=base_options)
         else:
-            # Update existing MarkdownOptions
+            # Update existing MarkdownOptions by merging fields
+            merged_md_options = options_instance.markdown_options
             for field in fields(base_options):
-                setattr(options_instance.markdown_options, field.name, getattr(base_options, field.name))
+                field_value = getattr(base_options, field.name)
+                merged_md_options = create_updated_options(merged_md_options, **{field.name: field_value})
+            options_instance = create_updated_options(options_instance, markdown_options=merged_md_options)
         return options_instance
 
     # Create a copy of the base options
-    import copy
     merged_options = copy.deepcopy(base_options)
 
     # Extract MarkdownOptions fields from kwargs
@@ -478,18 +481,25 @@ def _merge_options(
 
     # Handle MarkdownOptions merging
     if markdown_kwargs:
+        new_markdown_options = MarkdownOptions(**markdown_kwargs)
+        merged_options = merged_options.create_updated(markdown_options=new_markdown_options)
 
-        if merged_options.markdown_options is None:
-            merged_options.markdown_options = MarkdownOptions(**markdown_kwargs)
-        else:
-            # Update existing MarkdownOptions
-            for k, v in markdown_kwargs.items():
-                setattr(merged_options.markdown_options, k, v)
+        # if merged_options.markdown_options is None:
+        #     new_markdown_options = MarkdownOptions(**markdown_kwargs)
+        #     merged_options = merged_options.create_updated(markdown_options=new_markdown_options)
+        #     merged_options.markdown_options = MarkdownOptions(**markdown_kwargs)
+        # else:
+        #     Update existing MarkdownOptions
+            # for k, v in markdown_kwargs.items():
+            #     setattr(merged_options.markdown_options, k, v)
+
+    if other_kwargs:
+        merged_options = merged_options.create_updated(**other_kwargs)
 
     # Update other options directly
-    for k, v in other_kwargs.items():
-        if hasattr(merged_options, k):
-            setattr(merged_options, k, v)
+    # for k, v in other_kwargs.items():
+    #     if hasattr(merged_options, k):
+    #         setattr(merged_options, k, v)
 
     return merged_options
 

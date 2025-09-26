@@ -17,6 +17,7 @@ def _setup_test_imports():
     # Make fitz available for PDF tests that need to mock it
     try:
         import fitz
+
         import all2md.converters.pdf2markdown
         all2md.converters.pdf2markdown.fitz = fitz
     except ImportError:

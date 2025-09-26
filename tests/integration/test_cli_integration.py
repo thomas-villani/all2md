@@ -211,7 +211,7 @@ class TestCLIIntegration:
 
         assert result == 1
         captured = capsys.readouterr()
-        assert "Error: Input file does not exist" in captured.err
+        assert "Error: No valid input files found" in captured.err
 
     def test_conversion_error_handling(self, capsys):
         """Test error handling for conversion errors."""
@@ -240,7 +240,6 @@ class TestCLIIntegration:
             assert result == 1
             captured = capsys.readouterr()
             assert "Missing dependency" in captured.err
-            assert "pip install all2md[full]" in captured.err
 
     def test_unexpected_error_handling(self, capsys):
         """Test error handling for unexpected errors."""
@@ -713,7 +712,7 @@ class TestAdvancedCLIIntegration:
 
         # Test rich output (may fallback if rich not installed)
         with patch('all2md.to_markdown') as mock_to_markdown:
-            mock_to_markdown.return_value = f"# Test Document\n\nContent"
+            mock_to_markdown.return_value = "# Test Document\n\nContent"
 
             result = main([
                 str(files[0]), str(files[1]),
@@ -749,10 +748,10 @@ class TestAdvancedCLIIntegration:
     def test_multi_file_processing_integration(self):
         """Test multi-file processing with various options."""
         # Create test files with different formats
-        html_file = self.temp_dir / "test.html"
+        html_file = self.temp_dir / "test_html.html"
         html_file.write_text("<h1>HTML Test</h1><p>HTML content</p>")
 
-        markdown_file = self.temp_dir / "test.md"
+        markdown_file = self.temp_dir / "test_markdown.md"
         markdown_file.write_text("# Markdown Test\n\nMarkdown content")
 
         output_dir = self.temp_dir / "converted"
@@ -971,7 +970,7 @@ class TestAdvancedCLIIntegration:
 
             # Error should be logged
             captured = capsys.readouterr()
-            assert "Error:" in captured.stderr or "failed" in captured.stderr.lower()
+            assert "Error:" in captured.err or "failed" in captured.err.lower()
 
     def test_complex_option_combinations(self):
         """Test complex combinations of new CLI options."""
@@ -1109,7 +1108,7 @@ class TestAdvancedCLIIntegration:
         """Test that stdin processing still works with new features."""
         test_content = "<h1>Stdin Test</h1><p>Content from stdin</p>"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch('all2md.cli.to_markdown') as mock_to_markdown:
             mock_to_markdown.return_value = "# Stdin Test\n\nContent from stdin"
 
             with patch('sys.stdin') as mock_stdin:

@@ -122,6 +122,15 @@ MAX_CODE_FENCE_LENGTH = 10
 DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
 TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "justify": ":---"}
 
+# Local file security
+DEFAULT_ALLOW_LOCAL_FILES = False
+DEFAULT_ALLOW_CWD_FILES = True
+
+# ZIP archive security
+DEFAULT_MAX_COMPRESSION_RATIO = 100.0  # Maximum compression ratio (uncompressed/compressed)
+DEFAULT_MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024  # 1GB maximum uncompressed size
+DEFAULT_MAX_ZIP_ENTRIES = 10000  # Maximum number of entries in a ZIP archive
+
 # =============================================================================
 # Email Processing Constants
 # =============================================================================

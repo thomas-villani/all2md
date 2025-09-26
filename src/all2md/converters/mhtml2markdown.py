@@ -78,6 +78,7 @@ from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import HtmlOptions, MarkdownOptions, MhtmlOptions
 from all2md.utils.inputs import validate_and_convert_input
+from all2md.utils.security import validate_local_file_access
 
 
 def mhtml_to_markdown(
@@ -179,6 +180,18 @@ def mhtml_to_markdown(
         if src.startswith("cid:"):
             asset_id = src[4:]
         elif src.startswith("file://"):
+            # Security check for local file access
+            if not validate_local_file_access(
+                src,
+                allow_local_files=options.allow_local_files,
+                local_file_allowlist=options.local_file_allowlist,
+                local_file_denylist=options.local_file_denylist,
+                allow_cwd_files=options.allow_cwd_files
+            ):
+                # Remove the tag if access is not allowed
+                tag.decompose()
+                continue
+
             # Some browsers save MHTML with file:// based locations
             asset_id = os.path.basename(src)
 

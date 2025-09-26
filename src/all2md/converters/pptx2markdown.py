@@ -88,7 +88,7 @@ The focus is on extracting textual and structural content.
 #
 import logging
 from pathlib import Path
-from typing import Any, IO, Union
+from typing import IO, Any, Union
 
 from pptx import Presentation
 from pptx.enum.chart import XL_CHART_TYPE
@@ -101,6 +101,7 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
 from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
+from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -358,6 +359,17 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
         doc_input, input_type = validate_and_convert_input(
             input_data, supported_types=["path-like", "file-like", "pptx.Presentation objects"]
         )
+
+        # Validate ZIP archive security for file-based inputs
+        if input_type in ("path", "file") and not isinstance(doc_input, PresentationType):
+            try:
+                validate_zip_archive(doc_input if input_type == "path" else input_data)
+            except Exception as e:
+                raise MarkdownConversionError(
+                    f"PPTX archive failed security validation: {str(e)}",
+                    conversion_stage="archive_validation",
+                    original_error=e
+                ) from e
 
         # Open presentation based on input type
         if input_type == "object" and isinstance(doc_input, PresentationType):

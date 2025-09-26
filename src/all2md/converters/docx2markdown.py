@@ -77,6 +77,7 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
 from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
 from all2md.utils.inputs import escape_markdown_special, format_special_text
+from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -491,6 +492,17 @@ def docx_to_markdown(
     else:
         # For non-file inputs, use a default name
         base_filename = "document"
+
+    # Validate ZIP archive security for file-based inputs
+    if isinstance(input_data, (str, Path)):
+        try:
+            validate_zip_archive(input_data)
+        except Exception as e:
+            raise MarkdownConversionError(
+                f"DOCX archive failed security validation: {str(e)}",
+                conversion_stage="archive_validation",
+                original_error=e
+            ) from e
 
     # Validate and convert input - for now use simplified approach
     try:

@@ -120,7 +120,6 @@ class TestDynamicCLIBuilder:
         builder = DynamicCLIBuilder()
 
         # Mock field and metadata for pages field
-        from dataclasses import field
         mock_field = Mock()
         mock_field.type = list[int] | None
         mock_field.default = None
@@ -160,18 +159,18 @@ class TestCLIParser:
         """Test that input argument is optional at parser level but validated in main()."""
         parser = create_parser()
 
-        # Should succeed with input file
+        # Should succeed with input file (now returns a list for multi-file support)
         args = parser.parse_args(["test.pdf"])
-        assert args.input == "test.pdf"
+        assert args.input == ["test.pdf"]
 
         # Should succeed without input file at parser level (validation happens in main)
         args = parser.parse_args([])
-        assert args.input is None
+        assert args.input == []
 
         # Should succeed with --about flag and no input file
         args = parser.parse_args(["--about"])
         assert args.about is True
-        assert args.input is None
+        assert args.input == []
 
     def test_parser_format_choices(self):
         """Test format argument choices."""
@@ -427,8 +426,9 @@ class TestNewCLIFeatures:
 
     def test_environment_variable_support_unit(self):
         """Test environment variable parsing logic."""
-        from all2md.cli import get_env_var_value
         import os
+
+        from all2md.cli import get_env_var_value
 
         # Test getting environment variable
         os.environ['ALL2MD_RICH'] = 'true'
@@ -448,8 +448,9 @@ class TestNewCLIFeatures:
 
     def test_environment_variable_type_conversion(self):
         """Test environment variable type conversion for different argument types."""
-        from all2md.cli import apply_env_vars_to_parser
         import os
+
+        from all2md.cli import apply_env_vars_to_parser
 
         parser = create_parser()
 
@@ -479,8 +480,9 @@ class TestNewCLIFeatures:
 
     def test_environment_variable_precedence(self):
         """Test that CLI arguments take precedence over environment variables."""
-        from all2md.cli import apply_env_vars_to_parser
         import os
+
+        from all2md.cli import apply_env_vars_to_parser
 
         parser = create_parser()
 
@@ -504,12 +506,17 @@ class TestNewCLIFeatures:
         """Test error handling for invalid parallel worker counts."""
         parser = create_parser()
 
-        # Test with invalid (negative) worker count
-        # Note: argparse may not validate negative integers by default
-        # This test verifies the parser accepts the argument but logic validation
-        # should happen in main() function
-        args = parser.parse_args(["test.pdf", "--parallel", "-1"])
-        assert args.parallel == -1  # Parser accepts it, main() should validate
+        # Test that negative values are rejected at parse time
+        with pytest.raises(SystemExit):
+            parser.parse_args(["test.pdf", "--parallel", "-1"])
+
+        # Test that zero is also rejected
+        with pytest.raises(SystemExit):
+            parser.parse_args(["test.pdf", "--parallel", "0"])
+
+        # Test that positive values work
+        args = parser.parse_args(["test.pdf", "--parallel", "4"])
+        assert args.parallel == 4
 
     def test_conflicting_options_validation(self):
         """Test validation of conflicting options."""
@@ -553,10 +560,10 @@ class TestNewCLIFeatures:
 
     def test_file_collection_logic_unit(self):
         """Test file collection logic with various patterns."""
-        from all2md.cli import collect_input_files
-        from pathlib import Path
         import tempfile
-        import os
+        from pathlib import Path
+
+        from all2md.cli import collect_input_files
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -588,9 +595,10 @@ class TestNewCLIFeatures:
 
     def test_output_path_generation(self):
         """Test output path generation logic."""
-        from all2md.cli import generate_output_path
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
+        from all2md.cli import generate_output_path
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

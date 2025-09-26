@@ -70,9 +70,8 @@ Original from pdf4llm package, modified by Tom Villani to improve table processi
 
 import re
 import string
-from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, IO, Union
+from typing import IO, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     import fitz

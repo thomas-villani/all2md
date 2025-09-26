@@ -75,6 +75,7 @@ from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, HtmlOptions, MarkdownOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +242,17 @@ def epub_to_markdown(
         else:
             # It's a file path
             epub_path = input_data
+
+        # Validate ZIP archive security (only for real file paths, not temporary files)
+        if not hasattr(input_data, 'read') and Path(epub_path).exists():
+            try:
+                validate_zip_archive(epub_path)
+            except Exception as e:
+                raise MarkdownConversionError(
+                    f"EPUB archive failed security validation: {str(e)}",
+                    conversion_stage="archive_validation",
+                    original_error=e
+                ) from e
 
         book = epub.read_epub(epub_path)
     except Exception as e:

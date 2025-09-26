@@ -116,7 +116,7 @@ from all2md.constants import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError
-from all2md.options import HtmlOptions, MarkdownOptions
+from all2md.options import HtmlOptions, MarkdownOptions, create_updated_options
 from all2md.utils.attachments import process_attachment
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 
@@ -536,7 +536,7 @@ class HTMLToMarkdown:
         processed = re.sub(r"\n{4,}", "\n\n\n", processed)
         return title + processed
 
-    def _process_node(self, node: Any) -> str:
+    def _process_node(self, node: Any, escape_markdown=False) -> str:
         """Process a BeautifulSoup node and its children recursively."""
         from bs4.element import NavigableString
         if isinstance(node, NavigableString):
@@ -860,19 +860,23 @@ class HTMLToMarkdown:
         href = node.get("href", "")
         title = node.get("title")
 
+        original_options = self.markdown_options
+        temporary_options = create_updated_options(self.markdown_options, escape_special=False)
         # Temporarily disable general escaping to handle link text specially
-        original_escape_setting = self.markdown_options.escape_special
-        self.markdown_options.escape_special = False
+        self.markdown_options = temporary_options
+
+        # original_escape_setting = self.markdown_options.escape_special
+        # self.markdown_options.escape_special = False
 
         # Process the link content without escaping
         content = "".join(self._process_node(child) for child in node.children)
         content = " ".join(content.split())
 
         # Restore original escaping setting
-        self.markdown_options.escape_special = original_escape_setting
+        self.markdown_options = original_options
 
         # Apply link-specific escaping that preserves nested markdown syntax
-        if original_escape_setting:
+        if self.markdown_options.escape_special:
             content = self._escape_markdown_link_text(content)
 
         # Resolve relative URLs

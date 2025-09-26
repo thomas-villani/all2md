@@ -92,7 +92,7 @@ from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
 from pathlib import Path
-from typing import Any, IO, Union
+from typing import IO, Any, Union
 
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata

@@ -36,10 +36,12 @@ Options Classes
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Union, Optional
+from dataclasses import dataclass, field, replace
+from typing import Any, Optional, Union, Self
 
 from .constants import (
+    DEFAULT_ALLOW_CWD_FILES,
+    DEFAULT_ALLOW_LOCAL_FILES,
     DEFAULT_ATTACHMENT_BASE_URL,
     DEFAULT_ATTACHMENT_MODE,
     DEFAULT_ATTACHMENT_OUTPUT_DIR,
@@ -93,8 +95,13 @@ from .constants import (
 )
 
 
-@dataclass
-class MarkdownOptions:
+class _CloneMixin:
+    def create_updated(self, **kwargs) -> Self:
+        return replace(self, **kwargs)   # type: ignore
+
+
+@dataclass(frozen=True)
+class MarkdownOptions(_CloneMixin):
     r"""Common Markdown formatting options used across conversion modules.
 
     This dataclass contains settings that control how Markdown output is
@@ -196,8 +203,8 @@ class MarkdownOptions:
     )
 
 
-@dataclass
-class BaseOptions:
+@dataclass(frozen=True)
+class BaseOptions(_CloneMixin):
     attachment_mode: AttachmentMode = field(
         default=DEFAULT_ATTACHMENT_MODE,
         metadata={
@@ -218,13 +225,8 @@ class BaseOptions:
         metadata={"exclude_from_cli": True}  # Special field, handled separately
     )
 
-    def update(self, **kwargs):
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
 
-
-@dataclass
+@dataclass(frozen=True)
 class PdfOptions(BaseOptions):
     """Configuration options for PDF-to-Markdown conversion.
 
@@ -421,7 +423,7 @@ class PdfOptions(BaseOptions):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class DocxOptions(BaseOptions):
     """Configuration options for DOCX-to-Markdown conversion.
 
@@ -452,7 +454,7 @@ class DocxOptions(BaseOptions):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class HtmlOptions(BaseOptions):
     """Configuration options for HTML-to-Markdown conversion.
 
@@ -523,9 +525,34 @@ class HtmlOptions(BaseOptions):
             "cli_name": "no-preserve-nested-structure"  # default=True, use --no-*
         }
     )
+    allow_local_files: bool = field(
+        default=DEFAULT_ALLOW_LOCAL_FILES,
+        metadata={"help": "Allow access to local files via file:// URLs (security setting)"}
+    )
+    local_file_allowlist: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "List of directories allowed for local file access (when allow_local_files=True)",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    local_file_denylist: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "List of directories denied for local file access",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    allow_cwd_files: bool = field(
+        default=DEFAULT_ALLOW_CWD_FILES,
+        metadata={
+            "help": "Allow local files from current working directory and subdirectories",
+            "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
+        }
+    )
 
 
-@dataclass
+@dataclass(frozen=True)
 class PptxOptions(BaseOptions):
     """Configuration options for PPTX-to-Markdown conversion.
 
@@ -561,7 +588,7 @@ class PptxOptions(BaseOptions):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class EmlOptions(BaseOptions):
     """Configuration options for EML-to-Markdown conversion.
 
@@ -658,7 +685,7 @@ class EmlOptions(BaseOptions):
     url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
 
 
-@dataclass
+@dataclass(frozen=True)
 class RtfOptions(BaseOptions):
     """Configuration options for RTF-to-Markdown conversion.
 
@@ -672,7 +699,7 @@ class RtfOptions(BaseOptions):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class IpynbOptions(BaseOptions):
     """Configuration options for IPYNB-to-Markdown conversion.
 
@@ -692,7 +719,7 @@ class IpynbOptions(BaseOptions):
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
 
 
-@dataclass
+@dataclass(frozen=True)
 class OdfOptions(BaseOptions):
     """Configuration options for ODF-to-Markdown conversion.
 
@@ -714,7 +741,7 @@ class OdfOptions(BaseOptions):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class EpubOptions(BaseOptions):
     """Configuration options for EPUB-to-Markdown conversion.
 
@@ -746,20 +773,56 @@ class EpubOptions(BaseOptions):
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MhtmlOptions(BaseOptions):
     """Configuration options for MHTML-to-Markdown conversion.
 
     This dataclass contains settings specific to MHTML file processing,
-    primarily for handling embedded assets like images.
+    primarily for handling embedded assets like images and local file security.
 
     Parameters
     ----------
+    allow_local_files : bool, default False
+        Allow access to local files via file:// URLs (security setting).
+    local_file_allowlist : list[str] | None, default None
+        List of directories allowed for local file access (when allow_local_files=True).
+    local_file_denylist : list[str] | None, default None
+        List of directories denied for local file access.
+    allow_cwd_files : bool, default True
+        Allow local files from current working directory and subdirectories.
+
+    Other Parameters
+    ----------------
     Inherited from BaseOptions
     """
-    pass
 
-@dataclass
+    allow_local_files: bool = field(
+        default=DEFAULT_ALLOW_LOCAL_FILES,
+        metadata={"help": "Allow access to local files via file:// URLs (security setting)"}
+    )
+    local_file_allowlist: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "List of directories allowed for local file access (when allow_local_files=True)",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    local_file_denylist: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "List of directories denied for local file access",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    allow_cwd_files: bool = field(
+        default=DEFAULT_ALLOW_CWD_FILES,
+        metadata={
+            "help": "Allow local files from current working directory and subdirectories",
+            "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
+        }
+    )
+
+@dataclass(frozen=True)
 class SpreadsheetOptions(BaseOptions):
     """Configuration options for Spreadsheet (XLSX/CSV/TSV) to Markdown conversion.
 
@@ -802,3 +865,31 @@ class SpreadsheetOptions(BaseOptions):
 
     # CSV/TSV parsing
     detect_csv_dialect: bool = True
+
+
+def create_updated_options(options: Any, **kwargs) -> Any:
+    """Create a new options instance with updated values.
+
+    This helper function supports the immutable pattern for frozen dataclasses.
+    It creates a new instance of the options with the specified fields updated,
+    rather than modifying the existing instance.
+
+    Parameters
+    ----------
+    options : Any
+        The original options instance (must be a dataclass)
+    **kwargs
+        Keyword arguments with the field names and new values to update
+
+    Returns
+    -------
+    Any
+        A new options instance with the updated values
+
+    Examples
+    --------
+    >>> original = PdfOptions(pages=[1, 2, 3])
+    >>> updated = create_updated_options(original, attachment_mode="base64", pages=[1])
+    >>> # original remains unchanged, updated has new values
+    """
+    return replace(options, **kwargs)

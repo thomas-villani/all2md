@@ -385,8 +385,9 @@ class TestOdfConverter:
 
     def test_process_table_disabled(self):
         """Test table processing when disabled."""
-        self.options.preserve_tables = False
-        self.converter = OdfConverter(self.mock_doc, self.options)
+        disabled_preserve = self.options.create_updated(preserve_tables=False)
+        # self.options.preserve_tables = False
+        self.converter = OdfConverter(self.mock_doc, disabled_preserve)
 
         table_mock = Mock()
 

@@ -78,6 +78,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, OdfOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +325,17 @@ def odf_to_markdown(
     """
     if options is None:
         options = OdfOptions()
+
+    # Validate ZIP archive security for file-based inputs (only for existing files)
+    if isinstance(input_data, (str, Path)) and Path(input_data).exists():
+        try:
+            validate_zip_archive(input_data)
+        except Exception as e:
+            raise MarkdownConversionError(
+                f"ODF archive failed security validation: {str(e)}",
+                conversion_stage="archive_validation",
+                original_error=e
+            ) from e
 
     try:
         doc = opendocument.load(input_data)

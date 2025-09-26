@@ -85,12 +85,12 @@ def apply_env_vars_to_parser(parser: argparse.ArgumentParser) -> None:
 
             if env_value is not None:
                 # Handle different argument types
-                if action.type == int:
+                if action.type is int:
                     try:
                         action.default = int(env_value)
                     except ValueError:
                         logging.warning(f"Invalid integer value for ALL2MD_{action.dest.upper()}: {env_value}")
-                elif action.type == float:
+                elif action.type is float:
                     try:
                         action.default = float(env_value)
                     except ValueError:
@@ -106,7 +106,7 @@ def apply_env_vars_to_parser(parser: argparse.ArgumentParser) -> None:
                     action.default = env_value.lower() in ('true', '1', 'yes', 'on')
                 elif hasattr(action, '__class__') and action.__class__.__name__ == '_StoreFalseAction':
                     # Handle negative boolean flags
-                    action.default = not (env_value.lower() in ('true', '1', 'yes', 'on'))
+                    action.default = env_value.lower() not in ('true', '1', 'yes', 'on')
                 else:
                     # Handle string arguments
                     action.default = env_value
@@ -196,11 +196,11 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         '--parallel', '-p',
-        type=int,
+        type=positive_int,
         nargs='?',
         const=None,
         default=1,
-        help='Process files in parallel (optionally specify number of workers)'
+        help='Process files in parallel (optionally specify number of workers, must be positive)'
     )
 
     parser.add_argument(
@@ -227,20 +227,6 @@ def create_parser() -> argparse.ArgumentParser:
         help='Disable summary output after processing multiple files'
     )
 
-    # Update input argument to accept multiple files
-    # Find and remove the existing input argument first
-    for i, action in enumerate(parser._actions):
-        if action.dest == 'input':
-            del parser._actions[i]
-            break
-
-    # Add the multi-file input argument
-    parser.add_argument(
-        'input',
-        nargs='*',
-        help='Input file(s) or directory(ies) to convert (use "-" for stdin)'
-    )
-
     # Apply environment variables as defaults
     apply_env_vars_to_parser(parser)
 
@@ -253,6 +239,17 @@ def parse_pdf_pages(pages_str: str) -> list[int]:
         return [int(p.strip()) for p in pages_str.split(",")]
     except ValueError as e:
         raise argparse.ArgumentTypeError(f"Invalid page numbers: {pages_str}") from e
+
+
+def positive_int(value: str) -> int:
+    """Validate positive integer for argparse."""
+    try:
+        ivalue = int(value)
+        if ivalue <= 0:
+            raise argparse.ArgumentTypeError(f"{value} is not a positive integer")
+        return ivalue
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value} is not a valid integer")
 
 
 def load_options_from_json(json_file_path: str) -> dict:
@@ -793,92 +790,76 @@ def process_files_collated(
         output_path = Path(args.out)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Show progress if requested or for multiple files
+    # Helper function to process files
+    def process_file(file: Path) -> bool:
+        """Process a single file for collation."""
+        success, content, error = convert_single_file_for_collation(
+            file, options, format_arg, file_separator
+        )
+        if success:
+            collated_content.append(content)
+            return True
+        else:
+            failed.append((file, error))
+            return False
+
+    # Determine if we should show progress
     show_progress = args.progress or args.rich or len(files) > 1
 
+    # Process with rich output if requested
     if show_progress and args.rich:
         try:
             from rich.console import Console
             from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+
+            console = Console()
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console
+            ) as progress:
+                task_id = progress.add_task("[cyan]Converting and collating files...", total=len(files))
+
+                for file in files:
+                    if process_file(file):
+                        console.print(f"[green]✓[/green] Processed {file}")
+                    else:
+                        console.print(f"[red]✗[/red] {file}: {failed[-1][1]}")
+                        if not args.skip_errors:
+                            break
+                    progress.update(task_id, advance=1)
+
         except ImportError:
             print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
             return 1
 
-        console = Console()
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console
-        ) as progress:
-            task_id = progress.add_task("[cyan]Converting and collating files...", total=len(files))
-
-            for file in files:
-                success, content, error = convert_single_file_for_collation(
-                    file, options, format_arg, file_separator
-                )
-
-                if success:
-                    collated_content.append(content)
-                    console.print(f"[green]✓[/green] Processed {file}")
-                else:
-                    failed.append((file, error))
-                    console.print(f"[red]✗[/red] {file}: {error}")
-                    if not args.skip_errors:
-                        break
-
-                progress.update(task_id, advance=1)
-
+    # Process with tqdm progress bar if requested
     elif show_progress:
         try:
             from tqdm import tqdm
-        except ImportError:
-            print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
-            show_progress = False
-
-        if show_progress:
             with tqdm(files, desc="Converting and collating files", unit="file") as pbar:
                 for file in pbar:
                     pbar.set_postfix_str(f"Processing {file.name}")
-
-                    success, content, error = convert_single_file_for_collation(
-                        file, options, format_arg, file_separator
-                    )
-
-                    if success:
-                        collated_content.append(content)
-                    else:
-                        failed.append((file, error))
-                        print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
+                    if not process_file(file):
+                        print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
                         if not args.skip_errors:
                             break
-        else:
-            # Fallback without progress
+        except ImportError:
+            # Fallback to simple processing
+            print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
             for file in files:
-                success, content, error = convert_single_file_for_collation(
-                    file, options, format_arg, file_separator
-                )
-
-                if success:
-                    collated_content.append(content)
-                else:
-                    failed.append((file, error))
-                    print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
+                if not process_file(file):
+                    print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
                     if not args.skip_errors:
                         break
-    else:
-        # Simple processing without progress
-        for file in files:
-            success, content, error = convert_single_file_for_collation(
-                file, options, format_arg, file_separator
-            )
 
-            if success:
-                collated_content.append(content)
-            else:
-                failed.append((file, error))
-                print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
+    # Simple processing without progress indicators
+    else:
+        for file in files:
+            if not process_file(file):
+                print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
                 if not args.skip_errors:
                     break
 
@@ -1001,6 +982,13 @@ def main(args: Optional[list[str]] = None) -> int:
     if not files:
         print("Error: No valid input files found", file=sys.stderr)
         return 1
+
+    # Validate output directory if specified
+    if parsed_args.output_dir:
+        output_dir_path = Path(parsed_args.output_dir)
+        if output_dir_path.exists() and not output_dir_path.is_dir():
+            print(f"Error: --output-dir must be a directory, not a file: {parsed_args.output_dir}", file=sys.stderr)
+            return 1
 
     # Validate options
     if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":

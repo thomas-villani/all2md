@@ -5,9 +5,8 @@ from dataclass options using field metadata.
 """
 
 import argparse
-import re
 from dataclasses import fields, is_dataclass
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 from .converter_registry import registry
 from .options import MarkdownOptions
@@ -21,7 +20,7 @@ class DynamicCLIBuilder:
     hard-coded CLI argument definitions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the CLI builder."""
         self.parser: Optional[argparse.ArgumentParser] = None
 
@@ -78,7 +77,7 @@ class DynamicCLIBuilder:
 
         return f"--{kebab_name}"
 
-    def get_argument_kwargs(self, field, metadata: Dict[str, Any], cli_name: str) -> Dict[str, Any]:
+    def get_argument_kwargs(self, field: Any, metadata: Dict[str, Any], cli_name: str) -> Dict[str, Any]:
         """Build argparse kwargs from field metadata.
 
         Parameters
@@ -151,7 +150,7 @@ class DynamicCLIBuilder:
             kwargs['type'] = metadata['type']
 
         elif field_type in (int, float, str):
-            if field_type != str:  # str is default, don't specify
+            if field_type is not str:  # str is default, don't specify
                 kwargs['type'] = field_type
 
         # Set default if field has one and it's not None
@@ -344,7 +343,11 @@ Examples:
         )
 
         # Core arguments (keep these manual)
-        parser.add_argument("input", nargs="?", help="Input file to convert (use '-' to read from stdin)")
+        parser.add_argument(
+            "input",
+            nargs="*",
+            help="Input file(s) or directory(ies) to convert (use '-' for stdin)"
+        )
         parser.add_argument("--out", "-o", help="Output file path (default: print to stdout)")
 
         # Format override option
@@ -509,7 +512,7 @@ Examples:
 
         return options
 
-    def _process_argument_value(self, field, metadata: dict, arg_value: Any, arg_name: str) -> Any:
+    def _process_argument_value(self, field: Any, metadata: Dict[str, Any], arg_value: Any, arg_name: str) -> Any:
         """Process and convert argument values based on field type.
 
         Parameters
