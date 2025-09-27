@@ -171,6 +171,41 @@ This is equivalent to:
 
 **Note:** The ``eml`` and ``ipynb`` extras are not needed as these formats use built-in Python libraries.
 
+Dependency Management
+---------------------
+
+all2md includes convenient command-line tools to manage optional dependencies after installation.
+
+Check Dependencies
+~~~~~~~~~~~~~~~~~~
+
+Check which dependencies are currently installed:
+
+.. code-block:: bash
+
+   # Check all format dependencies
+   all2md check-deps
+
+   # Check specific format dependencies
+   all2md check-deps pdf
+   all2md check-deps docx
+
+Install Dependencies
+~~~~~~~~~~~~~~~~~~~~
+
+Install missing dependencies directly from the command line:
+
+.. code-block:: bash
+
+   # Install all missing dependencies for all formats
+   all2md install-deps
+
+   # Install dependencies for specific format
+   all2md install-deps pdf
+   all2md install-deps docx
+
+**Note:** Running ``all2md install-deps`` without specifying a format will install dependencies for ALL supported formats, equivalent to ``pip install all2md[all]``.
+
 Development Installation
 ------------------------
 

@@ -79,14 +79,17 @@ def get_package_version(package_name: str) -> Optional[str]:
     """
     # For version checking, we need to use the pip package name, not import name
     # Most tools use the actual package name for version info
+
+    # Prefer importlib.metadata (modern approach, Python 3.8+)
     try:
-        import pkg_resources
-        return pkg_resources.get_distribution(package_name).version
+        from importlib import metadata
+        return metadata.version(package_name)
     except Exception:
+        # Fallback to pkg_resources for older environments
+        # Note: pkg_resources is deprecated but kept for compatibility
         try:
-            # Fallback to importlib.metadata for Python 3.8+
-            from importlib import metadata
-            return metadata.version(package_name)
+            import pkg_resources
+            return pkg_resources.get_distribution(package_name).version
         except Exception:
             return None
 

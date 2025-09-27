@@ -9,78 +9,6 @@ argument processing without requiring post-creation parser modification.
 import argparse
 import logging
 import os
-from typing import Any, Optional, Sequence, Union
-
-
-class EnvironmentVariableAction(argparse.Action):
-    """Action that applies environment variables as defaults during argument parsing.
-
-    This replaces the need to modify parser._actions after creation by handling
-    environment variable integration during the parsing phase.
-    """
-
-    def __init__(self, *args, **kwargs):
-        """Initialize the action with environment variable support."""
-        super().__init__(*args, **kwargs)
-        self._env_applied = False
-
-    def __call__(
-            self, parser: argparse.ArgumentParser, namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None], option_string: Optional[str] = None
-            ):
-        """Apply environment variable if no explicit value provided."""
-        # Apply environment variable as default if not already done
-        if not self._env_applied:
-            self._apply_env_default()
-            self._env_applied = True
-
-        # Process the actual argument value
-        if self.action == 'store_true':
-            setattr(namespace, self.dest, True)
-        elif self.action == 'store_false':
-            setattr(namespace, self.dest, False)
-        elif self.action == 'store':
-            setattr(namespace, self.dest, values)
-        elif self.action == 'append':
-            items = getattr(namespace, self.dest, None) or []
-            items.append(values)
-            setattr(namespace, self.dest, items)
-        else:
-            # Fallback to default action
-            setattr(namespace, self.dest, values)
-
-    def _apply_env_default(self):
-        """Apply environment variable as default if available."""
-        env_key = f"ALL2MD_{self.dest.upper().replace('-', '_')}"
-        env_value = os.environ.get(env_key)
-
-        if env_value is not None:
-            # Handle different argument types
-            if self.type is int:
-                try:
-                    self.default = int(env_value)
-                except ValueError:
-                    logging.warning(f"Invalid integer value for {env_key}: {env_value}")
-            elif self.type is float:
-                try:
-                    self.default = float(env_value)
-                except ValueError:
-                    logging.warning(f"Invalid float value for {env_key}: {env_value}")
-            elif hasattr(self, 'choices') and self.choices:
-                # Handle choice arguments
-                if env_value in self.choices:
-                    self.default = env_value
-                else:
-                    logging.warning(f"Invalid choice for {env_key}: {env_value}. Choices: {list(self.choices)}")
-            elif self.action == 'store_true':
-                # Handle boolean flags
-                self.default = env_value.lower() in ('true', '1', 'yes', 'on')
-            elif self.action == 'store_false':
-                # Handle negative boolean flags
-                self.default = env_value.lower() not in ('true', '1', 'yes', 'on')
-            else:
-                # Handle string arguments
-                self.default = env_value
 
 
 class DynamicVersionAction(argparse._VersionAction):
@@ -119,7 +47,7 @@ class DynamicVersionAction(argparse._VersionAction):
 
         parser.exit(message=f"{version}\n")
 
-
+# NOTE: unused?
 class TypedChoiceAction(argparse.Action):
     """Action that handles typed choices with better validation and error messages."""
 
@@ -174,7 +102,7 @@ class PositiveIntAction(argparse.Action):
         except ValueError:
             parser.error(f"argument {option_string}: {values} is not a valid integer")
 
-
+# NOTE: unused?
 class CommaSeparatedListAction(argparse.Action):
     """Action that parses comma-separated values into a list."""
 
@@ -202,7 +130,7 @@ class CommaSeparatedListAction(argparse.Action):
         else:
             setattr(namespace, self.dest, values)
 
-
+# TODO: remove
 def create_env_aware_action(**action_kwargs):
     """Factory function to create environment-aware action classes.
 

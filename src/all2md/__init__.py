@@ -42,44 +42,21 @@ Basic usage for file conversion:
     >>> print(markdown_content)
 
 """
-import copy
 #  Copyright (c) 2025 Tom Villani, Ph.D.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all copies or substantial
-#  portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-#  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-#  documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-#  and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-#
+import copy
 import logging
-import mimetypes
-import os
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
 from typing import IO, Optional, Union
 
-from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DocumentFormat
+from all2md.constants import DocumentFormat
 # Import converters to trigger registration
 from . import converters  # noqa: F401
 # Extensions lists moved to constants.py - keep references for backward compatibility
-from .converter_registry import registry
-from .exceptions import DependencyError, FormatError, InputError, MarkdownConversionError
-from .options import (
+from all2md.converter_registry import registry
+from all2md.exceptions import DependencyError, FormatError, InputError, MarkdownConversionError
+from all2md.options import (
     BaseOptions,
     DocxOptions,
     EmlOptions,
@@ -96,249 +73,6 @@ from .options import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Re-export for backward compatibility - all extension lists are now in constants.py
-ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
-
-
-# Content-based format detection
-
-def _detect_format_from_content(file_obj: IO[bytes]) -> DocumentFormat:
-    """Detect document format from file content using magic bytes.
-
-    Parameters
-    ----------
-    file_obj : IO[bytes]
-        File object positioned at the beginning of content.
-
-    Returns
-    -------
-    DocumentFormat
-        Detected format or "txt" if unable to determine.
-    """
-    # Save current position and read magic bytes
-    original_pos = file_obj.tell()
-    file_obj.seek(0)
-    magic_bytes = file_obj.read(512)  # Read first 512 bytes for detection
-    file_obj.seek(original_pos)  # Restore original position
-
-    if len(magic_bytes) == 0:
-        return "txt"
-
-    # PDF files start with %PDF
-    if magic_bytes.startswith(b'%PDF'):
-        return "pdf"
-
-    # ZIP-based files (DOCX, PPTX, XLSX, EPUB) start with ZIP signature
-    if magic_bytes.startswith(b'PK\x03\x04'):
-        # Read more content to distinguish between ZIP-based formats
-        file_obj.seek(0)
-        zip_content = file_obj.read(1024)
-        file_obj.seek(original_pos)
-
-        if b'word/' in zip_content:
-            return "docx"
-        elif b'ppt/' in zip_content:
-            return "pptx"
-        elif b'xl/' in zip_content:
-            return "xlsx"
-        elif b'META-INF/container.xml' in zip_content or b'mimetype' in zip_content:
-            # EPUB files contain META-INF/container.xml and/or mimetype file
-            return "epub"
-        else:
-            logger.debug("Could not determine specific ZIP format, defaulting to txt")
-            # Generic ZIP file, can't determine specific format
-            return "txt"
-
-    # RTF files start with {\rtf
-    if magic_bytes.startswith(b'{\\rtf'):
-        return "rtf"
-
-    # HTML files often start with <!DOCTYPE html> or <html
-    if (magic_bytes.lstrip().startswith(b'<!DOCTYPE html') or
-            magic_bytes.lstrip().startswith(b'<html') or
-            magic_bytes.lstrip().startswith(b'<HTML')):
-        return "html"
-
-    # EML files typically start with header fields
-    if (b'Return-Path:' in magic_bytes[:100] or
-            b'Received:' in magic_bytes[:100] or
-            b'From:' in magic_bytes[:100] or
-            b'To:' in magic_bytes[:100] or
-            b'Subject:' in magic_bytes[:100]):
-        return "eml"
-
-    # MHTML files start with MIME-Version and have multipart/related Content-Type
-    if (b'MIME-Version:' in magic_bytes[:50] and
-            b'multipart/related' in magic_bytes[:512]):
-        return "mhtml"
-
-    # Image formats
-    if magic_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
-        return "image"
-    elif magic_bytes.startswith(b'\xff\xd8\xff'):
-        return "image"
-    elif magic_bytes.startswith(b'GIF87a') or magic_bytes.startswith(b'GIF89a'):
-        return "image"
-
-    # Check for Jupyter Notebook JSON structure
-    try:
-        text_content = magic_bytes.decode('utf-8', errors='ignore')
-        if text_content.strip().startswith('{'):
-            # Try to parse as JSON to check for notebook structure
-            import json
-            try:
-                data = json.loads(text_content[:1024])  # Parse first 1KB as JSON sample
-                if isinstance(data, dict) and 'cells' in data and isinstance(data.get('cells'), list):
-                    # Has the basic structure of a Jupyter notebook
-                    logger.debug("Jupyter notebook structure detected in JSON content")
-                    return "ipynb"
-            except (json.JSONDecodeError, ValueError):
-                pass  # Not valid JSON or not a notebook structure
-    except UnicodeDecodeError:
-        pass
-
-    # Check if content looks like CSV/TSV (tabular data patterns)
-    try:
-        text_content = magic_bytes.decode('utf-8', errors='ignore')
-        lines = text_content.split('\n')[:5]  # Check first 5 lines
-        non_empty_lines = [line for line in lines if line.strip()]
-
-        if len(non_empty_lines) >= 2:  # Need at least 2 lines (header + data)
-            comma_count = sum(line.count(',') for line in non_empty_lines)
-            tab_count = sum(line.count('\t') for line in non_empty_lines)
-
-            # More relaxed CSV detection
-            if comma_count >= len(non_empty_lines):  # At least one comma per line
-                logger.debug(f"CSV pattern detected: {comma_count} commas in {len(non_empty_lines)} lines")
-                return "csv"
-            elif tab_count >= len(non_empty_lines):  # At least one tab per line
-                logger.debug(f"TSV pattern detected: {tab_count} tabs in {len(non_empty_lines)} lines")
-                return "tsv"
-    except UnicodeDecodeError:
-        pass
-
-    # Default to plain text if no specific format detected
-    return "txt"
-
-
-def _get_format_from_filename(filename: str) -> DocumentFormat:
-    """Extract format from filename extension with fallback to MIME type detection.
-
-    Parameters
-    ----------
-    filename : str
-        Filename to analyze.
-
-    Returns
-    -------
-    DocumentFormat
-        Format based on file extension, MIME type, or "txt" if unknown.
-    """
-    _, extension = os.path.splitext(filename.lower())
-
-    # First try our explicit mapping (most reliable for our supported formats)
-    format_map = {
-        '.pdf': 'pdf',
-        '.docx': 'docx',
-        '.pptx': 'pptx',
-        '.xlsx': 'xlsx',
-        '.html': 'html',
-        '.htm': 'html',
-        '.mhtml': 'mhtml',
-        '.mht': 'mhtml',
-        '.rtf': 'rtf',
-        '.csv': 'csv',
-        '.tsv': 'tsv',
-        '.eml': 'eml',
-        '.ipynb': 'ipynb',
-        '.odt': 'odf',
-        '.odp': 'odf',
-        '.epub': 'epub',
-        '.png': 'image',
-        '.jpg': 'image',
-        '.jpeg': 'image',
-        '.gif': 'image',
-    }
-
-    explicit_format = format_map.get(extension)
-    if explicit_format:
-        logger.debug(f"Format detected from extension {extension}: {explicit_format}")
-        return explicit_format  # type: ignore[return-value]
-
-    # Fall back to MIME type detection
-    mime_type, _ = mimetypes.guess_type(filename)
-    if mime_type:
-        mime_to_format = {
-            'application/pdf': 'pdf',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-            'text/html': 'html',
-            'application/rtf': 'rtf',
-            'text/rtf': 'rtf',
-            'text/csv': 'csv',
-            'text/tab-separated-values': 'tsv',
-            'message/rfc822': 'eml',
-            'image/png': 'image',
-            'image/jpeg': 'image',
-            'image/gif': 'image',
-        }
-
-        detected_format = mime_to_format.get(mime_type)
-        if detected_format:
-            logger.debug(f"Format detected from MIME type {mime_type}: {detected_format}")
-            return detected_format  # type: ignore[return-value]
-
-        # Check for generic text types
-        if mime_type.startswith('text/'):
-            logger.debug(f"Generic text MIME type detected: {mime_type}")
-            return "txt"
-
-    logger.debug(f"No format detected from filename {filename}, defaulting to txt")
-    return "txt"
-
-
-def _detect_format_comprehensive(file_obj: IO[bytes], filename: str) -> DocumentFormat:
-    """Comprehensive format detection using multiple strategies.
-
-    Uses a multi-layered approach with the following priority:
-    1. Explicit filename/extension mapping (if filename available)
-    2. MIME type detection (if filename available)
-    3. Content-based magic byte detection
-    4. Fallback to text format
-
-    Parameters
-    ----------
-    file_obj : IO[bytes]
-        File object for content analysis if needed.
-    filename : str
-        Filename for extension/MIME type analysis. Can be 'unknown'.
-
-    Returns
-    -------
-    DocumentFormat
-        Best-guess format based on available information.
-    """
-    logger.debug(f"Starting comprehensive format detection for file: {filename}")
-
-    # Strategy 1: If we have a filename, try filename-based detection first
-    if filename != 'unknown':
-        filename_format = _get_format_from_filename(filename)
-        if filename_format != "txt":
-            logger.debug(f"Format successfully detected from filename: {filename_format}")
-            return filename_format
-
-    # Strategy 2: If filename detection failed or unavailable, try content analysis
-    logger.debug("Filename detection failed or unavailable, trying content analysis")
-    content_format = _detect_format_from_content(file_obj)
-    if content_format != "txt":
-        logger.debug(f"Format successfully detected from content: {content_format}")
-        return content_format
-
-    # Strategy 3: Final fallback
-    logger.debug("All detection methods failed, defaulting to txt format")
-    return "txt"
 
 
 # Options handling helpers
@@ -488,175 +222,34 @@ def to_markdown(
 
     Parameters
     ----------
-    input : str, Path, or IO[bytes]
-        Input can be:
-        - File path (str or Path): Opens and processes the file
-        - File-like object (IO[bytes]): Processes the data directly
-    options : BaseOptions, optional
-        Pre-configured options object for format-specific settings.
-        If provided, individual kwargs will override these settings.
-    format : {"auto", "pdf", "docx", "pptx", "html", "rtf", "spreadsheet", "txt", "eml", "ipynb", "epub"}, default "auto"
-        Document format specification:
-        - "auto": Detect format automatically from filename and content
-        - Other values: Force processing as the specified format
-    **kwargs : keyword arguments
-        Individual conversion options that override or supplement the options parameter.
-
-        Common options for all formats:
-        - attachment_mode : {"skip", "alt_text", "download", "base64"}
-        - attachment_output_dir : str
-        - attachment_base_url : str
-
-        See format-specific options below for additional kwargs.
-
-    Format-Specific Options
-    -----------------------
-    **PDF Options** (see :class:`~all2md.options.PdfOptions`):
-        - pages : list[int], optional - Specific pages to convert
-        - detect_headers : bool = True - Auto-detect headers
-        - header_min_occurrences : int = 3 - Minimum header occurrences
-        - header_percentile_threshold : float = 0.85 - Header size threshold
-        - header_use_font_weight : bool = True - Use font weight for headers
-        - header_use_all_caps : bool = True - Use all caps for headers
-        - detect_columns : bool = True - Detect multi-column layouts
-        - column_gap_threshold : float = 20.0 - Column gap detection
-        - handle_rotated_text : bool = True - Handle rotated text
-        - normalize_headers : bool = True - Normalize header levels
-        - image_placement_markers : bool = True - Add image markers
-        - include_image_captions : bool = True - Include captions
-        - truncate_output_lines : int | None - Line limit
-        - detect_merged_cells : bool = True - Detect merged table cells
-        - table_ruling_line_threshold : float = 5.0 - Table line detection
-        - table_fallback_detection : bool = True - Fallback table detection
-        - table_alignment_auto_detect : bool = True - Auto-detect alignment
-        - page_separator : str = "---" - Page separator
-        - page_separator_format : str = "{separator}\\n\\n" - Separator format
-        - include_page_numbers : bool = False - Include page numbers
-        - merge_hyphenated_words : bool = True - Merge hyphenated words
-
-    **DOCX Options** (see :class:`~all2md.options.DocxOptions`):
-        - preserve_nested_structure : bool = True - Preserve nesting
-        - extract_title : bool = True - Extract document title
-
-    **HTML Options** (see :class:`~all2md.options.HtmlOptions`):
-        - use_hash_headings : bool = True - Use hash headings (#)
-        - strip_dangerous_elements : bool = True - Remove scripts/styles
-        - list_indent_width : int = 2 - List indentation width
-        - underline_mode : UnderlineMode = "simple" - Underline handling
-        - subscript_mode : SubscriptMode = "caret" - Subscript notation
-        - superscript_mode : SuperscriptMode = "parens" - Superscript notation
-        - convert_nbsp : bool = False - Convert non-breaking spaces
-        - escape_special : bool = True - Escape special chars
-        - url_wrappers : str = "<>" - Wrap URLs with these chars
-
-    **PPTX Options** (see :class:`~all2md.options.PptxOptions`):
-        - include_slide_numbers : bool = True - Include slide numbers
-        - include_speaker_notes : bool = True - Include speaker notes
-        - slide_separator : str = "---" - Slide separator
-
-    **EML Options** (see :class:`~all2md.options.EmlOptions`):
-        - convert_html_to_markdown : bool = True - Convert HTML bodies
-        - preserve_raw_headers : bool = False - Keep raw headers
-        - date_format_mode : DateFormatMode = "iso" - Date format
-        - date_strftime_pattern : str | None - Custom date format
-        - clean_quotes : bool = True - Clean email quotes
-        - detect_reply_separators : bool = True - Detect replies
-        - clean_wrapped_urls : bool = True - Fix wrapped URLs
-        - truncate_output_message : str = "...\\n[Content truncated]"
-
-    **EPUB Options** (see :class:`~all2md.options.EpubOptions`):
-        - include_chapter_numbers : bool = True - Include chapter numbers
-        - chapter_separator : str = "---" - Chapter separator
-
-    **IPYNB Options** (see :class:`~all2md.options.IpynbOptions`):
-        - include_cell_numbers : bool = True - Include cell numbers
-        - include_outputs : bool = True - Include cell outputs
-        - output_format : str = "text" - Output format
-        - cell_separator : str = "---" - Cell separator
-
-    **RTF Options** (see :class:`~all2md.options.RtfOptions`):
-        - preserve_formatting : bool = True - Preserve formatting
-
-    **ODF Options** (see :class:`~all2md.options.OdfOptions`):
-        - preserve_formatting : bool = True - Preserve formatting
-        - extract_metadata : bool = False - Extract document metadata
-
-    **Markdown Formatting Options** (see :class:`~all2md.options.MarkdownOptions`):
-        - emphasis_symbol : EmphasisSymbol = "*" - Bold/italic symbol
-        - bullet_symbols : list[str] = ["-", "*", "+"] - Bullet point symbols
-        - wrap_text : bool = False - Wrap text at column width
-        - max_line_length : int = 80 - Maximum line length
-        - preserve_whitespace : bool = False - Preserve whitespace
-        - code_block_fence : str = "```" - Code block fence
-        - heading_style : str = "atx" - Heading style (atx=#, setext=underline)
+    input : str, Path, IO[bytes], or bytes
+        Input data, which can be a file path, a file-like object, or raw bytes.
+    options : BaseOptions | MarkdownOptions, optional
+        A pre-configured options object for format-specific settings.
+        See the classes in `all2md.options` for details.
+    format : DocumentFormat, default "auto"
+        Explicitly specify the document format. If "auto", the format is
+        detected from the filename or content.
+    kwargs : Any
+        Individual conversion options that override settings in the `options`
+        parameter. These are mapped to the appropriate format-specific
+        options class. For a full list of available options, please refer to
+        the documentation for the :mod:`all2md.options` module and the specific
+        `...Options` classes (e.g., `PdfOptions`, `HtmlOptions`).
 
     Returns
     -------
     str
-        Document content converted to Markdown format
+        Document content converted to Markdown format.
 
     Raises
     ------
-    ImportError
-        If required dependencies for specific file formats are not installed
+    DependencyError
+        If required dependencies for a specific format are not installed.
     MarkdownConversionError
-        If file processing fails due to corruption, format issues, etc.
+        If file processing fails due to corruption or format issues.
     InputError
-        If input parameters are invalid or file cannot be accessed
-
-    Examples
-    --------
-    Convert from file path with automatic detection:
-
-        >>> content = to_markdown('document.pdf')
-        >>> print(type(content))
-        <class 'str'>
-
-    Convert PDF with specific pages:
-
-        >>> content = to_markdown('document.pdf',
-        ...                       pages=[0, 1, 2],
-        ...                       detect_headers=True,
-        ...                       include_page_numbers=True)
-
-    Convert DOCX with attachment handling:
-
-        >>> content = to_markdown('document.docx',
-        ...                       format='docx',
-        ...                       attachment_mode='download',
-        ...                       attachment_output_dir='./attachments',
-        ...                       preserve_nested_structure=True)
-
-    Convert HTML with custom formatting:
-
-        >>> content = to_markdown('page.html',
-        ...                       use_hash_headings=True,
-        ...                       list_indent_width=4,
-        ...                       emphasis_symbol='_')
-
-    Convert from file object with pre-configured options:
-
-        >>> pdf_options = PdfOptions(pages=[0, 1, 2], attachment_mode='base64')
-        >>> with open('document.pdf', 'rb') as f:
-        ...     content = to_markdown(f, options=pdf_options)
-
-    Override specific settings in existing options:
-
-        >>> content = to_markdown('document.pdf',
-        ...                       options=pdf_options,
-        ...                       attachment_mode='download')  # Override base64 with download
-
-    Notes
-    -----
-    Supported formats include PDF, Word (DOCX), PowerPoint (PPTX), HTML,
-    email (EML), Excel (XLSX), Jupyter Notebooks (IPYNB), EPUB e-books, RTF, images,
-    CSV/TSV, and 200+ text file formats.
-
-    The function provides intelligent format detection using filename extensions,
-    MIME types, and content analysis (magic bytes) for file objects without names.
-
-    For complete documentation of all available options, see the options classes
-    in the :mod:`all2md.options` module.
+        If input parameters are invalid or the file cannot be accessed.
     """
 
     # Handle input parameter - convert to file object and get filename
@@ -734,10 +327,6 @@ def to_markdown(
 
 
 __all__ = [
-    "ALL_ALLOWED_EXTENSIONS",
-    "DOCUMENT_EXTENSIONS",
-    "IMAGE_EXTENSIONS",
-    "PLAINTEXT_EXTENSIONS",
     "to_markdown",
     # Registry system
     "registry",

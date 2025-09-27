@@ -43,11 +43,10 @@ PDF processing includes sophisticated table detection, multi-column layout handl
 
    options = PdfOptions(
        pages=[0, 1, 2],                    # Process first 3 pages only
-       table_detection=True,               # Enable table detection
-       column_detection=True,              # Handle multi-column layouts
-       header_detection=True,              # Detect headers/footers
+       table_fallback_detection=True,      # Enable fallback table detection
+       detect_columns=True,                # Handle multi-column layouts (default)
+       header_percentile_threshold=75,     # Header detection threshold
        merge_hyphenated_words=True,        # Fix line-break hyphens
-       include_page_numbers=True,          # Add page number markers
        attachment_mode='base64'            # Embed images as base64
    )
 
@@ -105,8 +104,8 @@ Full formatting preservation including styles, tables, images, and document stru
    # Custom Markdown formatting
    md_options = MarkdownOptions(
        emphasis_symbol='_',                # Use underscores for emphasis
-       bullet_symbols=['•', '◦', '▪'],    # Custom bullet points
-       use_hash_headings=True             # Use # instead of underlines
+       bullet_symbols='•◦▪',              # Custom bullet points string
+       include_page_numbers=True           # Include page numbers in separators
    )
 
    options = DocxOptions(
@@ -163,11 +162,12 @@ Slide-by-slide extraction with support for speaker notes, shapes, and embedded c
    from all2md import to_markdown, PptxOptions
 
    options = PptxOptions(
-       include_speaker_notes=True,         # Include speaker notes
-       include_slide_numbers=True,         # Add slide number headers
-       extract_shapes=True,                # Process text boxes and shapes
+       include_notes=True,                 # Include speaker notes
+       slide_numbers=True,                 # Add slide number headers
        attachment_mode='base64',           # Embed images as base64
-       slide_separator='---'               # Custom slide separator
+       markdown_options=MarkdownOptions(
+           page_separator='---'            # Custom slide separator
+       )
    )
 
    markdown = to_markdown('detailed_presentation.pptx', options=options)
@@ -219,14 +219,11 @@ Intelligent conversion of web content with configurable element handling.
 
    options = HtmlOptions(
        strip_dangerous_elements=True,      # Remove script/style tags
-       convert_links=True,                 # Process hyperlinks
-       preserve_tables=True,               # Maintain table structure
+       use_hash_headings=True,             # Use # syntax for headings
+       extract_title=True,                 # Extract HTML title element
        attachment_mode='download',         # Download referenced images
        attachment_base_url='https://example.com',  # Base URL for relative links
-       custom_element_mapping={            # Custom element handling
-           'div.highlight': 'code_block',
-           'span.note': 'emphasis'
-       }
+       table_alignment_auto_detect=True    # Auto-detect table alignment
    )
 
    markdown = to_markdown('complex_webpage.html', options=options)
@@ -278,8 +275,7 @@ Comprehensive email parsing with attachment handling and reply chain detection.
        clean_wrapped_urls=True,            # Fix broken URLs
        attachment_mode='download',         # Save email attachments
        attachment_output_dir='./email_attachments',
-       max_chain_depth=3,                  # Limit reply chain depth
-       convert_html_parts=True             # Convert HTML email parts
+       convert_html_to_markdown=True       # Convert HTML email parts to Markdown
    )
 
    markdown = to_markdown('thread.eml', options=options)
@@ -326,12 +322,10 @@ Chapter-by-chapter extraction with metadata and navigation preservation.
    from all2md import to_markdown, EpubOptions
 
    options = EpubOptions(
-       include_metadata=True,              # Include book metadata
+       extract_metadata=True,              # Include book metadata
        include_toc=True,                   # Add table of contents
-       chapter_separators=True,            # Add chapter dividers
-       extract_images=True,                # Process book images
-       attachment_mode='base64',           # Embed images as base64
-       max_chapters=10                     # Limit number of chapters
+       merge_chapters=False,               # Keep chapters separated
+       attachment_mode='base64'            # Embed images as base64
    )
 
    markdown = to_markdown('novel.epub', options=options)
@@ -451,13 +445,10 @@ Complete notebook conversion including code cells, outputs, and metadata.
    from all2md import to_markdown, IpynbOptions
 
    options = IpynbOptions(
-       include_outputs=True,               # Include cell outputs
-       include_execution_count=True,       # Show execution numbers
-       include_metadata=False,             # Skip cell metadata
-       code_block_style='fenced',          # Code block formatting
+       truncate_long_outputs=100,          # Truncate outputs after 100 lines
+       truncate_output_message='... [output truncated] ...',  # Truncation message
        attachment_mode='base64',           # Embed plots as base64
-       max_output_lines=100,               # Limit output length
-       strip_ansi_codes=True               # Remove ANSI color codes
+       extract_metadata=True               # Include notebook metadata
    )
 
    markdown = to_markdown('data_analysis.ipynb', options=options)
@@ -748,7 +739,7 @@ Best Practices
       # Better control over complex conversions
       options = PdfOptions(
           pages=[0, 1, 2],
-          table_detection=True,
+          table_fallback_detection=True,
           attachment_mode='download'
       )
       markdown = to_markdown('complex.pdf', options=options)
@@ -770,8 +761,8 @@ Best Practices
    .. code-block:: python
 
       # Take advantage of format-specific features
-      docx_options = DocxOptions(style_mapping=True)
-      pdf_options = PdfOptions(table_detection=True)
+      docx_options = DocxOptions(preserve_tables=True)
+      pdf_options = PdfOptions(table_fallback_detection=True)
       html_options = HtmlOptions(strip_dangerous_elements=True)
 
 For complete configuration options, see the :doc:`options` reference. For troubleshooting specific format issues, visit the :doc:`troubleshooting` guide.

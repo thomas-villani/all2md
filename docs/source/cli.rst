@@ -342,18 +342,45 @@ PDF Options
       # Provide password for encrypted PDF
       all2md encrypted.pdf --pdf-password "secret123"
 
-``--pdf-detect-columns``, ``--pdf-no-detect-columns``
-   Enable or disable multi-column layout detection.
+``--pdf-no-detect-columns``
+   Disable multi-column layout detection.
 
-   **Default:** Enabled
+   **Default:** Column detection is enabled
 
    .. code-block:: bash
 
-      # Enable column detection (default)
-      all2md document.pdf --pdf-detect-columns
-
       # Disable column detection
       all2md document.pdf --pdf-no-detect-columns
+
+``--pdf-header-percentile-threshold``
+   Percentile threshold for header detection (e.g., 75 = top 25% of font sizes).
+
+   **Default:** 75
+
+   .. code-block:: bash
+
+      # Use stricter header detection (top 10% of font sizes)
+      all2md document.pdf --pdf-header-percentile-threshold 90
+
+``--pdf-no-table-fallback-detection``
+   Disable heuristic fallback when PyMuPDF table detection fails.
+
+   **Default:** Fallback detection is enabled
+
+   .. code-block:: bash
+
+      # Disable table fallback detection
+      all2md document.pdf --pdf-no-table-fallback-detection
+
+``--pdf-no-merge-hyphenated-words``
+   Disable merging of words split by hyphens at line breaks.
+
+   **Default:** Hyphenated word merging is enabled
+
+   .. code-block:: bash
+
+      # Keep hyphenated line breaks as-is
+      all2md document.pdf --pdf-no-merge-hyphenated-words
 
 HTML Options
 ~~~~~~~~~~~~
@@ -477,6 +504,140 @@ EPUB Options
 
       # Skip table of contents
       all2md book.epub --epub-no-include-toc
+
+Batch Processing
+----------------
+
+Multi-File Processing
+~~~~~~~~~~~~~~~~~~~~~
+
+all2md supports processing multiple files with parallel execution and rich output formatting.
+
+``--output-dir``
+   Directory to save converted files when processing multiple inputs.
+
+   .. code-block:: bash
+
+      # Convert all PDFs in current directory
+      all2md *.pdf --output-dir ./converted
+
+      # Convert with directory structure preservation
+      all2md ./documents --recursive --output-dir ./markdown --preserve-structure
+
+``--recursive``, ``-r``
+   Process directories recursively.
+
+   .. code-block:: bash
+
+      # Convert all supported files in directory tree
+      all2md ./documents --recursive --output-dir ./converted
+
+      # Process specific formats recursively
+      all2md ./documents --recursive --format pdf --output-dir ./pdfs
+
+``--parallel``, ``-p``
+   Process files in parallel with optional worker count.
+
+   .. code-block:: bash
+
+      # Use default number of workers (CPU count)
+      all2md *.pdf --parallel --output-dir ./converted
+
+      # Specify 4 parallel workers
+      all2md *.pdf --parallel 4 --output-dir ./converted
+
+``--skip-errors``
+   Continue processing remaining files if one fails.
+
+   .. code-block:: bash
+
+      # Don't stop on errors
+      all2md *.pdf --skip-errors --output-dir ./converted
+
+``--preserve-structure``
+   Maintain directory structure in output directory.
+
+   .. code-block:: bash
+
+      # Keep original directory hierarchy
+      all2md ./docs --recursive --preserve-structure --output-dir ./markdown
+
+``--collate``
+   Combine multiple files into a single output.
+
+   .. code-block:: bash
+
+      # Combine all PDFs into one markdown file
+      all2md *.pdf --collate --out combined.md
+
+      # Combine to stdout
+      all2md *.pdf --collate > all_documents.md
+
+``--exclude``
+   Exclude files matching glob pattern (can be used multiple times).
+
+   .. code-block:: bash
+
+      # Exclude test files
+      all2md ./docs --recursive --exclude "*test*" --output-dir ./converted
+
+      # Multiple exclusions
+      all2md ./docs --recursive --exclude "*.draft.*" --exclude "temp/*" --output-dir ./converted
+
+Rich Output Features
+~~~~~~~~~~~~~~~~~~~~
+
+``--rich``
+   Enable rich terminal output with formatting and colors.
+
+   .. code-block:: bash
+
+      # Pretty formatted output
+      all2md *.pdf --rich --output-dir ./converted
+
+``--progress``
+   Show progress bar for file conversions.
+
+   .. code-block:: bash
+
+      # Show progress bar
+      all2md *.pdf --progress --output-dir ./converted
+
+      # Progress is auto-enabled for multiple files with --rich
+      all2md *.pdf --rich --output-dir ./converted
+
+``--no-summary``
+   Disable summary output after processing multiple files.
+
+   .. code-block:: bash
+
+      # No summary statistics
+      all2md *.pdf --no-summary --output-dir ./converted
+
+Advanced Features
+~~~~~~~~~~~~~~~~~~
+
+``--save-config``
+   Save current CLI arguments to a JSON configuration file.
+
+   .. code-block:: bash
+
+      # Save settings for reuse
+      all2md document.pdf --attachment-mode base64 --save-config my_settings.json
+
+      # Use saved settings
+      all2md other_document.pdf --options-json my_settings.json
+
+``--dry-run``
+   Preview what would be converted without actually processing files.
+
+   .. code-block:: bash
+
+      # See what files would be processed
+      all2md ./documents --recursive --dry-run
+
+      # Test exclusion patterns
+      all2md ./docs --recursive --exclude "*.draft.*" --dry-run
 
 Dependency Management
 ---------------------
