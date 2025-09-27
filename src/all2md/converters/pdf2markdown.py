@@ -77,7 +77,7 @@ from all2md.constants import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError, PasswordProtectedError
 from all2md.options import MarkdownOptions, PdfOptions
-from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
@@ -749,7 +749,8 @@ def page_to_markdown(
 
 
 def extract_page_images(
-        page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document"
+        page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document",
+        attachment_sequencer=None
 ) -> list[dict]:
     """Extract images from a PDF page with their positions.
 
@@ -806,13 +807,24 @@ def extract_page_images(
 
             # Process image using unified attachment handling
             img_bytes = pix_rgb.tobytes("png")
-            img_filename = generate_attachment_filename(
-                base_stem=base_filename,
-                format_type="pdf",
-                page_num=page_num + 1,  # Convert to 1-based
-                sequence_num=img_idx + 1,
-                extension="png"
-            )
+
+            # Use sequencer if available, otherwise fall back to manual indexing
+            if attachment_sequencer:
+                img_filename, _ = attachment_sequencer(
+                    base_stem=base_filename,
+                    format_type="pdf",
+                    page_num=page_num + 1,  # Convert to 1-based
+                    extension="png"
+                )
+            else:
+                from all2md.utils.attachments import generate_attachment_filename
+                img_filename = generate_attachment_filename(
+                    base_stem=base_filename,
+                    format_type="pdf",
+                    page_num=page_num + 1,  # Convert to 1-based
+                    sequence_num=img_idx + 1,
+                    extension="png"
+                )
 
             image_path = process_attachment(
                 attachment_data=img_bytes,
@@ -1204,13 +1216,16 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
     hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=options)
     md_string = ""
 
+    # Create attachment sequencer for consistent filename generation
+    attachment_sequencer = create_attachment_sequencer()
+
     for pno in pages_to_use:
         page = doc[pno]
 
         # Extract images for all attachment modes except "skip"
         page_images = []
         if options.attachment_mode != "skip":
-            page_images = extract_page_images(page, pno, options, base_filename)
+            page_images = extract_page_images(page, pno, options, base_filename, attachment_sequencer)
 
         # 1. first locate all tables on page
         tabs = page.find_tables()

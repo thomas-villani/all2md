@@ -8,6 +8,7 @@ maintainability and discoverability of configurable parameters.
 Constants are organized by category: formatting, conversion behavior,
 file handling, and Markdown flavor specifications.
 """
+
 import json
 from pathlib import Path
 from typing import Literal
@@ -112,7 +113,8 @@ HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handlin
 # Content sanitization
 DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
 DANGEROUS_HTML_ELEMENTS = {"script", "style", "object", "embed", "form", "input", "iframe"}
-DANGEROUS_HTML_ATTRIBUTES = {"onclick", "onload", "onerror", "onmouseover", "onfocus", "onblur", "javascript:"}
+DANGEROUS_HTML_ATTRIBUTES = {"onclick", "onload", "onerror", "onmouseover", "onfocus", "onblur"}
+DANGEROUS_SCHEMES = {"javascript:", "vbscript:", "data:text/html"}
 
 # Block structure
 DEFAULT_PRESERVE_NESTED_STRUCTURE = True
@@ -165,7 +167,7 @@ DEFAULT_URL_WRAPPERS = [
     "urldefense.com",
     "safelinks.protection.outlook.com",
     "urldefense.proofpoint.com",
-    "protect-links.mimecast.com"
+    "protect-links.mimecast.com",
 ]
 
 # Header processing defaults
@@ -210,14 +212,64 @@ if _PLAINTEXT_EXTENSIONS_JSON_FILE.exists():
 else:
     # Fallback to most common
     PLAINTEXT_EXTENSIONS = common_file_extensions = [
-        ".js", ".json", ".html", ".css", ".py", ".java", ".cpp", ".c", ".h", ".ts", ".md", ".xml", ".sh", ".rb",
-        ".go", ".php", ".swift", ".rs", ".yaml", ".yml", ".txt",
-        ".jsx", ".tsx", ".json5", ".m", ".pl", ".bat", ".ps1", ".lua", ".coffee", ".dart", ".scss", ".sass", ".less",
-        ".vue", ".graphql", ".gradle", ".toml", ".ini", ".conf", ".dockerfile"
+        ".js",
+        ".json",
+        ".html",
+        ".css",
+        ".py",
+        ".java",
+        ".cpp",
+        ".c",
+        ".h",
+        ".ts",
+        ".md",
+        ".xml",
+        ".sh",
+        ".rb",
+        ".go",
+        ".php",
+        ".swift",
+        ".rs",
+        ".yaml",
+        ".yml",
+        ".txt",
+        ".jsx",
+        ".tsx",
+        ".json5",
+        ".m",
+        ".pl",
+        ".bat",
+        ".ps1",
+        ".lua",
+        ".coffee",
+        ".dart",
+        ".scss",
+        ".sass",
+        ".less",
+        ".vue",
+        ".graphql",
+        ".gradle",
+        ".toml",
+        ".ini",
+        ".conf",
+        ".dockerfile",
     ]
 
-DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xlsx", ".docx", ".pptx", ".eml", ".rtf", ".ipynb", ".odt", ".odp", ".epub",
-                       ".mht", ".mhtml"]
+DOCUMENT_EXTENSIONS = [
+    ".pdf",
+    ".csv",
+    ".xlsx",
+    ".docx",
+    ".pptx",
+    ".eml",
+    ".rtf",
+    ".ipynb",
+    ".odt",
+    ".odp",
+    ".epub",
+    ".mht",
+    ".mhtml",
+]
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
 DocumentFormat = Literal[
@@ -234,5 +286,5 @@ DocumentFormat = Literal[
     "image",  # Image files (PNG, JPEG, GIF)
     "ipynb",  # Jupyter Notebooks
     "odf",  # OpenDocument Format
-    "epub"  # EPUB e-books
+    "epub",  # EPUB e-books
 ]

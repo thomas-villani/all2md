@@ -63,7 +63,7 @@ from pyth.plugins.rtf15.reader import Rtf15Reader
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, RtfOptions
-from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
@@ -175,9 +175,10 @@ def extract_rtf_metadata(doc: Document) -> DocumentMetadata:
 class RtfConverter:
     """A class to convert a pyth Document object to Markdown."""
 
-    def __init__(self, options: RtfOptions):
+    def __init__(self, options: RtfOptions, attachment_sequencer=None):
         self.options = options
         self.md_options = options.markdown_options or MarkdownOptions()
+        self.attachment_sequencer = attachment_sequencer
         self.list_stack: list[tuple[str, int, int]] = []  # (type, level, number)
 
     def convert(self, doc: Document) -> str:
@@ -317,16 +318,25 @@ class RtfConverter:
         """Process an Image object using the unified attachment handler."""
         image_data = image.data
         # Generate standardized image filename
-        if not hasattr(self, '_img_counter'):
-            self._img_counter = 0
-        self._img_counter += 1
+        # Use sequencer if available, otherwise fall back to manual counting
+        if self.attachment_sequencer:
+            filename, _ = self.attachment_sequencer(
+                base_stem=getattr(self, '_base_filename', 'document'),
+                format_type="general",
+                extension="png"
+            )
+        else:
+            if not hasattr(self, '_img_counter'):
+                self._img_counter = 0
+            self._img_counter += 1
 
-        filename = generate_attachment_filename(
-            base_stem=getattr(self, '_base_filename', 'document'),
-            format_type="general",
-            sequence_num=self._img_counter,
-            extension="png"
-        )
+            from all2md.utils.attachments import generate_attachment_filename
+            filename = generate_attachment_filename(
+                base_stem=getattr(self, '_base_filename', 'document'),
+                format_type="general",
+                sequence_num=self._img_counter,
+                extension="png"
+            )
         alt_text = Path(filename).stem
 
         return process_attachment(
@@ -417,7 +427,10 @@ def rtf_to_markdown(
     else:
         base_filename = "document"
 
-    converter = RtfConverter(options)
+    # Create attachment sequencer for consistent filename generation
+    attachment_sequencer = create_attachment_sequencer()
+
+    converter = RtfConverter(options, attachment_sequencer)
     converter._base_filename = base_filename  # Pass base filename to converter
     markdown_content = converter.convert(doc)
 

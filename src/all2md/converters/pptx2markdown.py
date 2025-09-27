@@ -98,7 +98,7 @@ from pptx.util import Inches
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
-from all2md.utils.attachments import extract_pptx_image_data, generate_attachment_filename, process_attachment
+from all2md.utils.attachments import create_attachment_sequencer, extract_pptx_image_data, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
@@ -193,7 +193,7 @@ def _process_table(table: Any, md_options=None) -> str:
 
 def _process_shape(
         shape: Any, options: PptxOptions, base_filename: str = "presentation", slide_num: int = 1,
-        img_counter: dict | None = None
+        img_counter: dict | None = None, attachment_sequencer=None
 ) -> str | None:
     """Process a single shape and convert to markdown."""
     if img_counter is None:
@@ -220,18 +220,29 @@ def _process_shape(
         if image_data and not isinstance(image_data, bytes):
             image_data = None
         alt_text = shape.alt_text or "image"
-        # Get next sequence number for this slide
-        slide_key = f"slide_{slide_num}"
-        img_counter[slide_key] = img_counter.get(slide_key, 0) + 1
-        sequence_num = img_counter[slide_key]
 
-        image_filename = generate_attachment_filename(
-            base_stem=base_filename,
-            format_type="pptx",
-            slide_num=slide_num,
-            sequence_num=sequence_num,
-            extension="png"
-        )
+        # Use sequencer if available, otherwise fall back to manual counting
+        if attachment_sequencer:
+            image_filename, _ = attachment_sequencer(
+                base_stem=base_filename,
+                format_type="pptx",
+                slide_num=slide_num,
+                extension="png"
+            )
+        else:
+            # Get next sequence number for this slide
+            slide_key = f"slide_{slide_num}"
+            img_counter[slide_key] = img_counter.get(slide_key, 0) + 1
+            sequence_num = img_counter[slide_key]
+
+            from all2md.utils.attachments import generate_attachment_filename
+            image_filename = generate_attachment_filename(
+                base_stem=base_filename,
+                format_type="pptx",
+                slide_num=slide_num,
+                sequence_num=sequence_num,
+                extension="png"
+            )
 
         # Process image using unified attachment handling
         return process_attachment(
@@ -465,6 +476,9 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
     markdown_content = []
     img_counter = {}  # Track image sequences across slides
 
+    # Create attachment sequencer for consistent filename generation
+    attachment_sequencer = create_attachment_sequencer()
+
     for i, slide in enumerate(prs.slides, 1):
         slide_content = []
 
@@ -478,7 +492,7 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
 
         # Process all shapes in the slide
         for shape in slide.shapes:
-            shape_content = _process_shape(shape, options, base_filename, i, img_counter)
+            shape_content = _process_shape(shape, options, base_filename, i, img_counter, attachment_sequencer)
             if shape_content:
                 slide_content.append(shape_content + "\n")
 

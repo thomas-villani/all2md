@@ -109,6 +109,7 @@ from urllib.parse import urljoin, urlparse
 from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
+    DANGEROUS_SCHEMES,
     MARKDOWN_SPECIAL_CHARS,
     MAX_CODE_FENCE_LENGTH,
     MIN_CODE_FENCE_LENGTH,
@@ -138,13 +139,10 @@ CONVERTER_METADATA = ConverterMetadata(
     converter_function="html_to_markdown",
     required_packages=[("beautifulsoup4", "")],
     optional_packages=[],
-    import_error_message=(
-        "HTML conversion requires 'beautifulsoup4'. "
-        "Install with: pip install beautifulsoup4"
-    ),
+    import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
     options_class="HtmlOptions",
     description="Convert HTML documents to Markdown",
-    priority=5
+    priority=5,
 )
 
 
@@ -177,26 +175,26 @@ class HTMLToMarkdown:
     """
 
     def __init__(
-            self,
-            hash_headings: bool = True,
-            extract_title: bool = False,
-            emphasis_symbol: Literal["*", "_"] = "*",
-            bullet_symbols: str = "*-+",
-            convert_nbsp: bool = False,
-            strip_dangerous_elements: bool = False,
-            table_alignment_auto_detect: bool = True,
-            preserve_nested_structure: bool = True,
-            markdown_options: MarkdownOptions | None = None,
-            # New unified attachment handling parameters
-            attachment_mode: str = "alt_text",
-            attachment_output_dir: str | None = None,
-            attachment_base_url: str | None = None,
-            # Network security parameters
-            allow_remote_fetch: bool = False,
-            allowed_hosts: list[str] | None = None,
-            require_https: bool = False,
-            network_timeout: float = 10.0,
-            max_image_size_bytes: int = 20 * 1024 * 1024,
+        self,
+        hash_headings: bool = True,
+        extract_title: bool = False,
+        emphasis_symbol: Literal["*", "_"] = "*",
+        bullet_symbols: str = "*-+",
+        convert_nbsp: bool = False,
+        strip_dangerous_elements: bool = False,
+        table_alignment_auto_detect: bool = True,
+        preserve_nested_structure: bool = True,
+        markdown_options: MarkdownOptions | None = None,
+        # New unified attachment handling parameters
+        attachment_mode: str = "alt_text",
+        attachment_output_dir: str | None = None,
+        attachment_base_url: str | None = None,
+        # Network security parameters
+        allow_remote_fetch: bool = False,
+        allowed_hosts: list[str] | None = None,
+        require_https: bool = False,
+        network_timeout: float = 10.0,
+        max_image_size_bytes: int = 20 * 1024 * 1024,
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
@@ -326,18 +324,19 @@ class HTMLToMarkdown:
                         attr_value_lower = attr_value.lower().strip()
 
                         # Check specific URL attributes for dangerous schemes
-                        if attr_name.lower() in ('href', 'src', 'action', 'formaction'):
+                        if attr_name.lower() in ("href", "src", "action", "formaction"):
                             # Parse URL to check scheme precisely
                             parsed = urlparse(attr_value_lower)
-                            if parsed.scheme in ('javascript', 'data', 'vbscript', 'about'):
+                            if parsed.scheme in ("javascript", "data", "vbscript", "about"):
                                 return False
-                            # Also check for scheme-less javascript: URLs
-                            if attr_value_lower.startswith(('javascript:', 'vbscript:', 'data:text/html')):
+                            # Also check for scheme-less dangerous schemes
+                            if any(attr_value_lower.startswith(scheme) for scheme in DANGEROUS_SCHEMES):
                                 return False
 
-                        # Generic dangerous content check for other attributes
-                        elif any(danger in attr_value_lower for danger in DANGEROUS_HTML_ATTRIBUTES):
-                            return False
+                        # Check for dangerous scheme content in other style-related attributes
+                        elif attr_name.lower() in ("style", "background", "expression"):
+                            if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
+                                return False
 
         return True
 
@@ -395,7 +394,7 @@ class HTMLToMarkdown:
                 allowed_hosts=self.allowed_hosts,
                 require_https=self.require_https,
                 max_size_bytes=self.max_image_size_bytes,
-                timeout=self.network_timeout
+                timeout=self.network_timeout,
             )
         except NetworkSecurityError as e:
             logger.warning(f"Network security validation failed for {url}: {e}")
@@ -528,6 +527,7 @@ class HTMLToMarkdown:
     def _process_node(self, node: Any, escape_markdown=False) -> str:
         """Process a BeautifulSoup node and its children recursively."""
         from bs4.element import NavigableString
+
         if isinstance(node, NavigableString):
             text = self._decode_entities(str(node))
             return self._escape_markdown(text) if not self._in_code_block else text
@@ -981,92 +981,93 @@ def extract_html_metadata(soup: Any) -> DocumentMetadata:
     metadata = DocumentMetadata()
 
     # Extract from head section if available
-    head = soup.find('head')
+    head = soup.find("head")
     if head:
         # Extract title
-        title_tag = head.find('title')
+        title_tag = head.find("title")
         if title_tag and title_tag.string:
             metadata.title = title_tag.string.strip()
 
         # Extract meta tags
-        meta_tags = head.find_all('meta')
+        meta_tags = head.find_all("meta")
         for meta in meta_tags:
             # Get meta name/property and content
-            meta_name = meta.get('name', '').lower() or meta.get('property', '').lower()
-            content = meta.get('content', '').strip()
+            meta_name = meta.get("name", "").lower() or meta.get("property", "").lower()
+            content = meta.get("content", "").strip()
 
             if not meta_name or not content:
                 continue
 
             # Map common meta tags to standard fields
-            if meta_name in ['author', 'dc.creator', 'creator']:
+            if meta_name in ["author", "dc.creator", "creator"]:
                 metadata.author = content
-            elif meta_name in ['description', 'dc.description', 'og:description', 'twitter:description']:
+            elif meta_name in ["description", "dc.description", "og:description", "twitter:description"]:
                 if not metadata.subject:  # Only set if not already set
                     metadata.subject = content
-            elif meta_name in ['keywords', 'dc.subject']:
+            elif meta_name in ["keywords", "dc.subject"]:
                 # Split keywords by comma or semicolon
                 import re
-                metadata.keywords = [k.strip() for k in re.split('[,;]', content) if k.strip()]
-            elif meta_name in ['language', 'dc.language', 'og:locale']:
+
+                metadata.keywords = [k.strip() for k in re.split("[,;]", content) if k.strip()]
+            elif meta_name in ["language", "dc.language", "og:locale"]:
                 metadata.language = content
-            elif meta_name in ['generator', 'application-name']:
+            elif meta_name in ["generator", "application-name"]:
                 metadata.creator = content
-            elif meta_name in ['dc.date', 'article:published_time', 'publish_date']:
-                metadata.custom['published_date'] = content
-            elif meta_name in ['article:modified_time', 'last-modified', 'dc.modified']:
-                metadata.custom['modified_date'] = content
-            elif meta_name in ['og:title', 'twitter:title']:
+            elif meta_name in ["dc.date", "article:published_time", "publish_date"]:
+                metadata.custom["published_date"] = content
+            elif meta_name in ["article:modified_time", "last-modified", "dc.modified"]:
+                metadata.custom["modified_date"] = content
+            elif meta_name in ["og:title", "twitter:title"]:
                 if not metadata.title:  # Only set if not already set from <title>
                     metadata.title = content
-            elif meta_name in ['article:author', 'twitter:creator']:
+            elif meta_name in ["article:author", "twitter:creator"]:
                 if not metadata.author:  # Only set if not already set
                     metadata.author = content
-            elif meta_name in ['og:type', 'article:section']:
+            elif meta_name in ["og:type", "article:section"]:
                 metadata.category = content
-            elif meta_name == 'viewport':
-                metadata.custom['viewport'] = content
-            elif meta_name in ['og:url', 'canonical']:
-                metadata.custom['url'] = content
-            elif meta_name in ['robots', 'googlebot']:
-                metadata.custom['robots'] = content
+            elif meta_name == "viewport":
+                metadata.custom["viewport"] = content
+            elif meta_name in ["og:url", "canonical"]:
+                metadata.custom["url"] = content
+            elif meta_name in ["robots", "googlebot"]:
+                metadata.custom["robots"] = content
 
         # Check for charset
-        charset_meta = head.find('meta', {'charset': True})
+        charset_meta = head.find("meta", {"charset": True})
         if charset_meta:
-            metadata.custom['charset'] = charset_meta.get('charset')
+            metadata.custom["charset"] = charset_meta.get("charset")
         else:
             # Try http-equiv Content-Type
-            content_type_meta = head.find('meta', {'http-equiv': 'Content-Type'})
+            content_type_meta = head.find("meta", {"http-equiv": "Content-Type"})
             if content_type_meta:
-                content = content_type_meta.get('content', '')
-                if 'charset=' in content:
-                    charset = content.split('charset=')[-1].strip()
-                    metadata.custom['charset'] = charset
+                content = content_type_meta.get("content", "")
+                if "charset=" in content:
+                    charset = content.split("charset=")[-1].strip()
+                    metadata.custom["charset"] = charset
 
         # Extract link tags for additional metadata
-        link_tags = head.find_all('link')
+        link_tags = head.find_all("link")
         for link in link_tags:
-            rel = link.get('rel', [])
+            rel = link.get("rel", [])
             if isinstance(rel, list):
-                rel = ' '.join(rel)
+                rel = " ".join(rel)
 
-            if 'canonical' in rel:
-                metadata.custom['canonical_url'] = link.get('href')
-            elif 'author' in rel:
+            if "canonical" in rel:
+                metadata.custom["canonical_url"] = link.get("href")
+            elif "author" in rel:
                 if not metadata.author:
-                    metadata.author = link.get('href', '').replace('mailto:', '')
+                    metadata.author = link.get("href", "").replace("mailto:", "")
 
     # Extract Open Graph data if not already captured
     if not metadata.title:
-        og_title = soup.find('meta', property='og:title')
+        og_title = soup.find("meta", property="og:title")
         if og_title:
-            metadata.title = og_title.get('content', '').strip()
+            metadata.title = og_title.get("content", "").strip()
 
     # Extract from body if head data is missing
     if not metadata.title:
         # Try to find first h1 as title
-        h1 = soup.find('h1')
+        h1 = soup.find("h1")
         if h1:
             metadata.title = h1.get_text(strip=True)
 
@@ -1202,6 +1203,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
         if options.extract_metadata:
             try:
                 from bs4 import BeautifulSoup
+
                 soup = BeautifulSoup(html_content, "html.parser")
                 metadata = extract_html_metadata(soup)
             except Exception as e:

@@ -75,7 +75,7 @@ from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
-from all2md.utils.attachments import extract_docx_image_data, generate_attachment_filename, process_attachment
+from all2md.utils.attachments import create_attachment_sequencer, extract_docx_image_data, process_attachment
 from all2md.utils.inputs import escape_markdown_special, format_special_text
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
@@ -317,7 +317,7 @@ def _convert_table_to_markdown(table: "Table", md_options: MarkdownOptions | Non
     return "\n".join(markdown_rows)
 
 
-def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "document") -> Any:
+def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer=None) -> Any:
     """
     Generate a sequence of Paragraph and Table elements in order, handling images.
     """
@@ -377,12 +377,21 @@ def _iter_block_items(parent: Any, options: DocxOptions, base_filename: str = "d
                         logger.debug("No image format detected, using PNG as fallback")
 
                     # Process image using unified attachment handling
-                    image_filename = generate_attachment_filename(
-                        base_stem=base_filename,
-                        format_type="general",
-                        sequence_num=len(img_data) + 1,
-                        extension=extension
-                    )
+                    # Use sequencer if available, otherwise fall back to manual counting
+                    if attachment_sequencer:
+                        image_filename, _ = attachment_sequencer(
+                            base_stem=base_filename,
+                            format_type="general",
+                            extension=extension
+                        )
+                    else:
+                        from all2md.utils.attachments import generate_attachment_filename
+                        image_filename = generate_attachment_filename(
+                            base_stem=base_filename,
+                            format_type="general",
+                            sequence_num=len(img_data) + 1,
+                            extension=extension
+                        )
                     processed_image = process_attachment(
                         attachment_data=raw_image_data,
                         attachment_name=image_filename,
@@ -583,7 +592,10 @@ def docx_to_markdown(
     markdown_lines = []
     list_stack: list[tuple[str, int, int]] = []  # Track nested lists: (type, level, current_number)
 
-    for block in _iter_block_items(doc, options=options, base_filename=base_filename):
+    # Create attachment sequencer for consistent filename generation
+    attachment_sequencer = create_attachment_sequencer()
+
+    for block in _iter_block_items(doc, options=options, base_filename=base_filename, attachment_sequencer=attachment_sequencer):
         if isinstance(block, Paragraph):
             text = ""
 
