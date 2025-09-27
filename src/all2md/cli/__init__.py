@@ -98,7 +98,13 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
-    from all2md.cli.actions import PositiveIntAction
+    from all2md.cli.actions import (
+        PositiveIntAction,
+        EnvironmentAwareAction,
+        EnvironmentAwareBooleanAction,
+        EnvironmentAwareBooleanFalseAction,
+        EnvironmentAwareAppendAction
+    )
 
     builder = DynamicCLIBuilder()
     parser = builder.build_parser()
@@ -106,25 +112,26 @@ def create_parser() -> argparse.ArgumentParser:
     # Add new CLI options for enhanced features
     parser.add_argument(
         '--rich',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Enable rich terminal output with formatting'
     )
 
     parser.add_argument(
         '--progress',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Show progress bar for file conversions (automatically enabled for multiple files)'
     )
 
     parser.add_argument(
         '--output-dir',
+        action=EnvironmentAwareAction,
         type=str,
         help='Directory to save converted files (for multi-file processing)'
     )
 
     parser.add_argument(
         '--recursive', '-r',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Process directories recursively'
     )
 
@@ -139,25 +146,25 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         '--skip-errors',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Continue processing remaining files if one fails'
     )
 
     parser.add_argument(
         '--preserve-structure',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Preserve directory structure in output directory'
     )
 
     parser.add_argument(
         '--collate',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Combine multiple files into a single output (stdout or file)'
     )
 
     parser.add_argument(
         '--no-summary',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Disable summary output after processing multiple files'
     )
 
@@ -169,62 +176,21 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         '--dry-run',
-        action='store_true',
+        action=EnvironmentAwareBooleanAction,
         help='Show what would be converted without actually processing files'
     )
 
     parser.add_argument(
         '--exclude',
-        action='append',
+        action=EnvironmentAwareAppendAction,
         metavar='PATTERN',
         help='Exclude files matching this glob pattern (can be specified multiple times)'
     )
 
-    # Apply environment variable defaults using a cleaner approach
-    _apply_env_defaults_to_parser(parser)
 
     return parser
 
 
-def _apply_env_defaults_to_parser(parser: argparse.ArgumentParser) -> None:
-    """Apply environment variables as defaults using a clean action-agnostic approach."""
-    import os
-
-    def get_env_var_value(dest: str) -> Optional[str]:
-        """Get environment variable with ALL2MD_ prefix."""
-        env_key = f"ALL2MD_{dest.upper().replace('-', '_')}"
-        return os.environ.get(env_key)
-
-    # Get argument actions after parser creation but before use
-    for action in parser._actions:
-        if action.dest and action.dest not in ('help', 'version'):
-            env_value = get_env_var_value(action.dest)
-
-            if env_value is not None:
-                # Apply environment value as default based on action type
-                if isinstance(action, argparse._StoreTrueAction):
-                    action.default = env_value.lower() in ('true', '1', 'yes', 'on')
-                elif isinstance(action, argparse._StoreFalseAction):
-                    action.default = env_value.lower() not in ('true', '1', 'yes', 'on')
-                elif action.type is int:
-                    try:
-                        action.default = int(env_value)
-                    except ValueError:
-                        logging.warning(f"Invalid integer value for ALL2MD_{action.dest.upper()}: {env_value}")
-                elif action.type is float:
-                    try:
-                        action.default = float(env_value)
-                    except ValueError:
-                        logging.warning(f"Invalid float value for ALL2MD_{action.dest.upper()}: {env_value}")
-                elif hasattr(action, 'choices') and action.choices:
-                    if env_value in action.choices:
-                        action.default = env_value
-                    else:
-                        logging.warning(
-                            f"Invalid choice for ALL2MD_{action.dest.upper()}: {env_value}. Choices: {list(action.choices)}")
-                else:
-                    # Default to string
-                    action.default = env_value
 
 
 def parse_pdf_pages(pages_str: str) -> list[int]:
@@ -263,7 +229,7 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     """
     # Exclude special arguments that shouldn't be saved
     exclude_args = {
-        'input', 'out', 'save_config', 'about', 'version', 'dry_run', 'format'
+        'input', 'out', 'save_config', 'about', 'version', 'dry_run', 'format', '_env_checked'
     }
     # Note: 'exclude' is intentionally NOT excluded so it can be saved in config
 

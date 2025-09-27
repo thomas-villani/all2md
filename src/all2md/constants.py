@@ -72,7 +72,7 @@ DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 # PDF-specific Constants
 # =============================================================================
 
-PDF_MIN_PYMUPDF_VERSION = "1.24.0"
+PDF_MIN_PYMUPDF_VERSION = "1.26.4"
 
 # Header detection constants
 DEFAULT_HEADER_MIN_OCCURRENCES = 3

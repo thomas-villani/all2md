@@ -11,7 +11,6 @@ dependencies = [
     "beautifulsoup4>=4.13.5",
     "pymupdf>=1.26.4",
     "python-docx>=1.2.0",
-    "standard-imghdr>=3.13.0",
 ]
 
 [tool.hatch.metadata]

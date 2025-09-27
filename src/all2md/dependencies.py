@@ -6,12 +6,11 @@ optional dependencies for various converter modules.
 
 from __future__ import annotations
 
-import importlib
 import subprocess
 import sys
 from typing import Dict, List, Optional, Tuple
 
-from all2md.converter_registry import registry
+from all2md.converter_registry import _check_package_installed, registry
 
 
 def check_package_installed(package_name: str) -> bool:
@@ -27,41 +26,7 @@ def check_package_installed(package_name: str) -> bool:
     bool
         True if package is installed and importable
     """
-    # Mapping from package names to their actual import names
-    # Many packages have different install names vs import names
-    package_import_map = {
-        'python-docx': 'docx',
-        'beautifulsoup4': 'bs4',
-        'python-pptx': 'pptx',
-        'odfpy': 'odf',
-        'pillow': 'PIL',
-        'pyyaml': 'yaml',
-        # Add more mappings as needed
-    }
-
-    # Determine the correct import name
-    import_names_to_try = []
-
-    # First try the mapped name if it exists
-    if package_name.lower() in package_import_map:
-        import_names_to_try.append(package_import_map[package_name.lower()])
-
-    # Then try replacing hyphens with underscores
-    if '-' in package_name:
-        import_names_to_try.append(package_name.replace("-", "_"))
-
-    # Finally try the original package name
-    import_names_to_try.append(package_name)
-
-    # Try each possible import name
-    for import_name in import_names_to_try:
-        try:
-            importlib.import_module(import_name)
-            return True
-        except ImportError:
-            continue
-
-    return False
+    return _check_package_installed(package_name)
 
 
 def get_package_version(package_name: str) -> Optional[str]:
@@ -136,6 +101,9 @@ def get_all_dependencies() -> Dict[str, List[Tuple[str, str]]]:
     dict
         Mapping of format names to required packages
     """
+    # Ensure auto-discovery has been performed before listing formats
+    registry.auto_discover()
+
     dependencies = {}
     for format_name in registry.list_formats():
         metadata = registry.get_format_info(format_name)

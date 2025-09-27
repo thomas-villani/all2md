@@ -51,8 +51,7 @@ from pathlib import Path
 from typing import IO, Optional, Union
 
 from all2md.constants import DocumentFormat
-# Import converters to trigger registration
-from . import converters  # noqa: F401
+
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from all2md.converter_registry import registry
 from all2md.exceptions import DependencyError, FormatError, InputError, MarkdownConversionError
@@ -71,6 +70,9 @@ from all2md.options import (
     RtfOptions,
     create_updated_options,
 )
+
+# Import converters to trigger registration
+from . import converters  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

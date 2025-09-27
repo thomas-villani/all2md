@@ -47,45 +47,10 @@ class DynamicVersionAction(argparse._VersionAction):
 
         parser.exit(message=f"{version}\n")
 
-# NOTE: unused?
-class TypedChoiceAction(argparse.Action):
-    """Action that handles typed choices with better validation and error messages."""
-
-    def __init__(self, *args, choices=None, choice_type=None, **kwargs):
-        """Initialize with typed choices.
-
-        Parameters
-        ----------
-        choices : list
-            Valid choices for the argument
-        choice_type : type, optional
-            Type to convert the choice to
-        """
-        super().__init__(*args, **kwargs)
-        self.choices = choices
-        self.choice_type = choice_type
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        """Validate and convert the choice value."""
-        if self.choices and values not in self.choices:
-            raise argparse.ArgumentTypeError(
-                f"Invalid choice: '{values}' (choose from {list(self.choices)})"
-            )
-
-        # Convert to the specified type if provided
-        if self.choice_type:
-            try:
-                values = self.choice_type(values)
-            except (ValueError, TypeError) as e:
-                raise argparse.ArgumentTypeError(
-                    f"Cannot convert '{values}' to {self.choice_type.__name__}: {e}"
-                ) from e
-
-        setattr(namespace, self.dest, values)
 
 
 class PositiveIntAction(argparse.Action):
-    """Action that validates positive integers with better error messages."""
+    """Action that validates positive integers with environment variable support."""
 
     def __call__(self, parser, namespace, values, option_string=None):
         """Validate and convert to positive integer."""
@@ -94,6 +59,26 @@ class PositiveIntAction(argparse.Action):
             setattr(namespace, self.dest, self.const)
             return
 
+        # Check environment variable first
+        if not hasattr(namespace, '_env_checked'):
+            namespace._env_checked = set()
+
+        if self.dest not in namespace._env_checked:
+            namespace._env_checked.add(self.dest)
+            env_key = f"ALL2MD_{self.dest.upper().replace('-', '_')}"
+            env_value = os.environ.get(env_key)
+
+            if env_value is not None and not hasattr(namespace, self.dest):
+                try:
+                    ivalue = int(env_value)
+                    if ivalue <= 0:
+                        parser.error(f"Environment variable {env_key}: {env_value} is not a positive integer")
+                    setattr(namespace, self.dest, ivalue)
+                    return
+                except ValueError:
+                    parser.error(f"Environment variable {env_key}: {env_value} is not a valid integer")
+
+        # Normal validation
         try:
             ivalue = int(values)
             if ivalue <= 0:
@@ -102,104 +87,157 @@ class PositiveIntAction(argparse.Action):
         except ValueError:
             parser.error(f"argument {option_string}: {values} is not a valid integer")
 
-# NOTE: unused?
-class CommaSeparatedListAction(argparse.Action):
-    """Action that parses comma-separated values into a list."""
 
-    def __init__(self, *args, item_type=str, **kwargs):
-        """Initialize with item type for list elements.
+class EnvironmentAwareAction(argparse.Action):
+    """Base action that supports environment variable defaults.
 
-        Parameters
-        ----------
-        item_type : type, default str
-            Type to convert each list item to
-        """
+    This action checks for environment variables with the pattern ALL2MD_DEST_NAME
+    and uses them as defaults when the argument is not explicitly provided.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # Check environment variable and set as default if present
+        dest = kwargs.get('dest')
+        if dest is None and args:
+            # Extract dest from option strings like '--output-dir' -> 'output_dir'
+            for option in args:
+                if option.startswith('--'):
+                    dest = option[2:].replace('-', '_')
+                    break
+                elif option.startswith('-'):
+                    dest = option[1:]
+                    break
+
+        if dest:
+            env_key = f"ALL2MD_{dest.upper().replace('-', '_')}"
+            env_value = os.environ.get(env_key)
+            if env_value is not None:
+                # Apply type conversion and validation, override any existing default
+                try:
+                    converted_value = self._convert_env_value(env_value, dest)
+                    kwargs['default'] = converted_value
+                except (ValueError, TypeError) as e:
+                    # Log warning but don't fail initialization
+                    logging.warning(f"Invalid environment variable {env_key}={env_value}: {e}")
+
         super().__init__(*args, **kwargs)
-        self.item_type = item_type
+
+    def _convert_env_value(self, env_value: str, dest: str):
+        """Convert environment variable string to appropriate type."""
+        # Handle type conversion
+        if hasattr(self, 'type') and self.type is not None:
+            return self.type(env_value)
+
+        return env_value
 
     def __call__(self, parser, namespace, values, option_string=None):
-        """Parse comma-separated values into a typed list."""
-        if isinstance(values, str):
-            try:
-                items = [self.item_type(item.strip()) for item in values.split(',')]
-                setattr(namespace, self.dest, items)
-            except (ValueError, TypeError) as e:
-                raise argparse.ArgumentTypeError(
-                    f"Cannot convert comma-separated values to {self.item_type.__name__}: {e}"
-                ) from e
-        else:
-            setattr(namespace, self.dest, values)
+        """Standard action processing."""
+        setattr(namespace, self.dest, values)
 
-# TODO: remove
-def create_env_aware_action(**action_kwargs):
-    """Factory function to create environment-aware action classes.
 
-    Parameters
-    ----------
-    **action_kwargs
-        Action-specific kwargs (like action='store_true', type=str, etc.)
+class EnvironmentAwareBooleanAction(argparse._StoreTrueAction):
+    """Boolean action that supports environment variable defaults."""
 
-    Returns
-    -------
-    type
-        Custom action class with environment variable support
-    """
-    action_type = action_kwargs.get('action', 'store')
+    def __init__(self, *args, **kwargs):
+        # Check environment variable and set as default if present
+        dest = kwargs.get('dest')
+        if dest is None and args:
+            # Extract dest from option strings like '--rich' -> 'rich'
+            for option in args:
+                if option.startswith('--'):
+                    dest = option[2:].replace('-', '_')
+                    break
+                elif option.startswith('-'):
+                    dest = option[1:]
+                    break
 
-    # Determine the base action class based on the action type
-    if action_type == 'store_true':
-        base_class = argparse._StoreTrueAction
-    elif action_type == 'store_false':
-        base_class = argparse._StoreFalseAction
-    elif action_type == 'store':
-        base_class = argparse._StoreAction
-    elif action_type == 'append':
-        base_class = argparse._AppendAction
-    else:
-        base_class = argparse.Action
-
-    class EnvAwareAction(base_class):
-        def __init__(self, *args, **kwargs):
-            # Merge provided action_kwargs
-            final_kwargs = action_kwargs.copy()
-            final_kwargs.update(kwargs)
-
-            # Remove 'action' from kwargs since it's used for class selection
-            if 'action' in final_kwargs:
-                del final_kwargs['action']
-
-            super().__init__(*args, **final_kwargs)
-            # Don't apply env vars in __init__ - dest isn't set yet
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            """Apply environment variable default and then call parent action."""
-            # Apply environment variable default if this argument wasn't explicitly provided
-            if not hasattr(namespace, self.dest) or getattr(namespace, self.dest) == self.default:
-                self._apply_env_default()
-
-            # Call parent action
-            if callable(super()):
-                super().__call__(parser, namespace, values, option_string)
-            else:
-                # Fallback for actions that don't define __call__
-                setattr(namespace, self.dest, values if values is not None else self.default)
-
-        def _apply_env_default(self):
-            """Apply environment variable as default if available."""
-            env_key = f"ALL2MD_{self.dest.upper().replace('-', '_')}"
+        if dest:
+            env_key = f"ALL2MD_{dest.upper().replace('-', '_')}"
             env_value = os.environ.get(env_key)
-
             if env_value is not None:
-                # Handle different action types
-                if isinstance(self, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
-                    # For boolean actions, convert string to boolean
-                    self.default = env_value.lower() in ('true', '1', 'yes', 'on')
-                elif self.type:
-                    try:
-                        self.default = self.type(env_value)
-                    except (ValueError, TypeError):
-                        logging.warning(f"Cannot convert env var {env_key}={env_value} to {self.type}")
-                else:
-                    self.default = env_value
+                # Convert env var to boolean and override any existing default
+                bool_value = env_value.lower() in ('true', '1', 'yes', 'on')
+                kwargs['default'] = bool_value
 
-    return EnvAwareAction
+        super().__init__(*args, **kwargs)
+
+
+class EnvironmentAwareBooleanFalseAction(argparse._StoreFalseAction):
+    """Boolean false action (--no-*) that supports environment variable defaults."""
+
+    def __init__(self, *args, **kwargs):
+        # Check environment variable and set as default if present
+        dest = kwargs.get('dest')
+        if dest is None and args:
+            # Extract dest from option strings like '--no-rich' -> 'rich'
+            for option in args:
+                if option.startswith('--no-'):
+                    dest = option[5:].replace('-', '_')
+                    break
+                elif option.startswith('--'):
+                    dest = option[2:].replace('-', '_')
+                    break
+                elif option.startswith('-'):
+                    dest = option[1:]
+                    break
+
+        if dest:
+            env_key = f"ALL2MD_{dest.upper().replace('-', '_')}"
+            env_value = os.environ.get(env_key)
+            if env_value is not None:
+                # Convert env var to boolean and override any existing default
+                # For store_false action, we invert the logic
+                bool_value = env_value.lower() in ('true', '1', 'yes', 'on')
+                kwargs['default'] = bool_value
+
+        super().__init__(*args, **kwargs)
+
+
+class EnvironmentAwareAppendAction(argparse._AppendAction):
+    """Append action that supports environment variable defaults."""
+
+    def __init__(self, *args, **kwargs):
+        # Check environment variable and set as default if present
+        dest = kwargs.get('dest')
+        if dest is None and args:
+            # Extract dest from option strings like '--exclude' -> 'exclude'
+            for option in args:
+                if option.startswith('--'):
+                    dest = option[2:].replace('-', '_')
+                    break
+                elif option.startswith('-'):
+                    dest = option[1:]
+                    break
+
+        if dest:
+            env_key = f"ALL2MD_{dest.upper().replace('-', '_')}"
+            env_value = os.environ.get(env_key)
+            if env_value is not None:
+                # Split on commas for append actions, override any existing default
+                items = [item.strip() for item in env_value.split(',')]
+                kwargs['default'] = items
+
+        super().__init__(*args, **kwargs)
+
+
+def create_env_aware_argument(parser, *args, **kwargs):
+    """Helper function to add arguments with automatic environment variable support.
+
+    This function automatically selects the appropriate environment-aware action
+    based on the argument configuration.
+    """
+    action = kwargs.get('action', 'store')
+
+    if action == 'store_true':
+        kwargs['action'] = EnvironmentAwareBooleanAction
+    elif action == 'store_false':
+        kwargs['action'] = EnvironmentAwareBooleanFalseAction
+    elif action == 'append':
+        kwargs['action'] = EnvironmentAwareAppendAction
+    elif action in ('store', None):
+        kwargs['action'] = EnvironmentAwareAction
+    # For other actions like DynamicVersionAction, PositiveIntAction, leave as-is
+
+    return parser.add_argument(*args, **kwargs)
+
+

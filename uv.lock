@@ -16,13 +16,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
-    { name = "httpx" },
-    { name = "odfpy" },
     { name = "pymupdf" },
-    { name = "pyth3" },
     { name = "python-docx" },
-    { name = "python-pptx" },
-    { name = "standard-imghdr" },
 ]
 
 [package.optional-dependencies]
@@ -67,12 +62,6 @@ pdf = [
 pptx = [
     { name = "python-pptx" },
 ]
-progress = [
-    { name = "tqdm" },
-]
-rich = [
-    { name = "rich" },
-]
 rtf = [
     { name = "pyth3" },
 ]
@@ -86,11 +75,9 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'all'", specifier = ">=4.13.5" },
     { name = "beautifulsoup4", marker = "extra == 'html'", specifier = ">=4.13.5" },
     { name = "ebooklib", marker = "extra == 'epub'", specifier = ">=0.19" },
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'html'", specifier = ">=0.28.1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.2" },
-    { name = "odfpy", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.1.5" },
@@ -99,24 +86,19 @@ requires-dist = [
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.4" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.26.4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.2" },
-    { name = "pyth3", specifier = ">=0.7" },
     { name = "pyth3", marker = "extra == 'all'", specifier = ">=0.7" },
     { name = "pyth3", marker = "extra == 'rtf'", specifier = ">=0.7" },
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-docx", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "python-docx", marker = "extra == 'docx'", specifier = ">=1.2.0" },
-    { name = "python-pptx", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
     { name = "rich", marker = "extra == 'cli-extras'", specifier = ">=14.1.0" },
-    { name = "rich", marker = "extra == 'rich'", specifier = ">=14.1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.1" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=8.2.3" },
     { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=3.0.2" },
-    { name = "standard-imghdr", specifier = ">=3.13.0" },
     { name = "standard-imghdr", marker = "extra == 'all'", specifier = ">=3.13.0" },
     { name = "tqdm", marker = "extra == 'cli-extras'", specifier = ">=4.66.0" },
-    { name = "tqdm", marker = "extra == 'progress'", specifier = ">=4.66.0" },
 ]
 
 [[package]]

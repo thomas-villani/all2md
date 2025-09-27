@@ -43,7 +43,6 @@ Processing Features
 Dependencies
 ------------
 - python-pptx: For PowerPoint file parsing and content extraction
-- imghdr: For image format detection
 - base64: For image encoding
 - logging: For debug and error reporting
 

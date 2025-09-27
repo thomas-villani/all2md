@@ -38,7 +38,7 @@ class ConverterMetadata:
         Function name within the module (e.g., "pdf_to_markdown")
     required_packages : list[tuple[str, str]]
         Required packages as (package_name, version_spec) tuples
-        e.g., [("pymupdf", ">=1.24.0"), ("Pillow", ">=9.0.0")]
+        e.g., [("pymupdf", ">=1.26.4"), ("Pillow", ">=9.0.0")]
     optional_packages : list[tuple[str, str]]
         Optional packages that enhance functionality
     import_error_message : str

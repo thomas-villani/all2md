@@ -64,7 +64,7 @@ Original from pdf4llm package, modified by Tom Villani to improve table processi
 import re
 import string
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union, Optional
+from typing import IO, TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     import fitz
@@ -91,11 +91,11 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.pdf2markdown",
     converter_function="pdf_to_markdown",
-    required_packages=[("pymupdf", ">=1.24.0")],
+    required_packages=[("pymupdf", ">=1.26.4")],
     optional_packages=[],
     import_error_message=(
-        "PDF conversion requires 'pymupdf' version 1.24.0 or later. "
-        "Install with: pip install 'pymupdf>=1.24.0'"
+        "PDF conversion requires 'pymupdf' version 1.26.4 or later. "
+        "Install with: pip install 'pymupdf>=1.26.4'"
     ),
     options_class="PdfOptions",
     description="Convert PDF documents to Markdown with advanced table detection",
