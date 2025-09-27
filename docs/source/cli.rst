@@ -75,9 +75,14 @@ Output Control
 ``--format``
    Force specific file format instead of auto-detection.
 
-   **Choices:** ``auto``, ``pdf``, ``docx``, ``pptx``, ``html``, ``mhtml``, ``eml``, ``epub``, ``rtf``, ``ipynb``, ``odt``, ``odp``, ``csv``, ``tsv``, ``xlsx``, ``image``, ``txt``
+   **Choices:** ``auto``, ``pdf``, ``docx``, ``pptx``, ``html``, ``mhtml``, ``eml``, ``epub``, ``rtf``, ``ipynb``, ``odf``, ``spreadsheet``, ``image``, ``txt``
 
    **Default:** ``auto``
+
+   .. note::
+
+      * ``odf`` handles both OpenDocument Text (.odt) and Presentation (.odp) files
+      * ``spreadsheet`` handles Excel (.xlsx), CSV (.csv), and TSV (.tsv) files
 
    .. code-block:: bash
 
@@ -200,6 +205,114 @@ Configuration and Debugging
 
       # Quiet mode (errors only)
       all2md document.pdf --log-level ERROR
+
+Processing and Output Control
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``--rich``
+   Enable rich terminal output with enhanced formatting and colors.
+
+   .. code-block:: bash
+
+      # Enhanced terminal output
+      all2md document.pdf --rich
+
+``--progress``
+   Show progress bar for file conversions (automatically enabled for multiple files).
+
+   .. code-block:: bash
+
+      # Force progress bar for single file
+      all2md document.pdf --progress
+
+``--output-dir``
+   Directory to save converted files (for multi-file processing).
+
+   .. code-block:: bash
+
+      # Convert multiple files to directory
+      all2md *.pdf --output-dir ./markdown_output
+
+``--recursive``, ``-r``
+   Process directories recursively.
+
+   .. code-block:: bash
+
+      # Recursively convert all files in a directory tree
+      all2md ./documents --recursive --output-dir ./converted
+
+``--parallel``, ``-p``
+   Process files in parallel (optionally specify number of workers).
+
+   .. code-block:: bash
+
+      # Process files in parallel (auto-detect CPU cores)
+      all2md *.pdf --parallel
+
+      # Use specific number of workers
+      all2md *.pdf --parallel 4
+
+``--skip-errors``
+   Continue processing remaining files if one fails.
+
+   .. code-block:: bash
+
+      # Don't stop on errors
+      all2md *.pdf --skip-errors --output-dir ./converted
+
+``--preserve-structure``
+   Preserve directory structure in output directory.
+
+   .. code-block:: bash
+
+      # Maintain folder hierarchy
+      all2md ./docs --recursive --preserve-structure --output-dir ./markdown
+
+``--collate``
+   Combine multiple files into a single output (stdout or file).
+
+   .. code-block:: bash
+
+      # Combine all chapters into one file
+      all2md chapter_*.pdf --collate --out book.md
+
+      # Collate to stdout
+      all2md *.md --collate
+
+``--no-summary``
+   Disable summary output after processing multiple files.
+
+   .. code-block:: bash
+
+      # Quiet multi-file processing
+      all2md *.pdf --output-dir ./converted --no-summary
+
+``--save-config``
+   Save current CLI arguments to a JSON configuration file.
+
+   .. code-block:: bash
+
+      # Save current settings
+      all2md document.pdf --attachment-mode download --save-config my-config.json
+
+``--dry-run``
+   Show what would be converted without actually processing files.
+
+   .. code-block:: bash
+
+      # Preview what would be processed
+      all2md ./documents --recursive --dry-run
+
+``--exclude``
+   Exclude files matching this glob pattern (can be specified multiple times).
+
+   .. code-block:: bash
+
+      # Exclude temporary and backup files
+      all2md ./docs --recursive --exclude "*.tmp" --exclude "*.bak"
+
+      # Exclude multiple patterns
+      all2md ./source --recursive --exclude "__pycache__" --exclude "*.pyc"
 
 Format-Specific Options
 -----------------------
@@ -365,6 +478,63 @@ EPUB Options
       # Skip table of contents
       all2md book.epub --epub-no-include-toc
 
+Dependency Management
+---------------------
+
+all2md provides built-in dependency management commands to check and install format-specific dependencies.
+
+Check Dependencies
+~~~~~~~~~~~~~~~~~~
+
+Check which dependencies are available for a specific format:
+
+.. code-block:: bash
+
+   # Check all dependencies
+   all2md check-deps
+
+   # Check PDF dependencies
+   all2md check-deps pdf
+
+   # Check Word document dependencies
+   all2md check-deps docx
+
+   # Check all spreadsheet dependencies
+   all2md check-deps spreadsheet
+
+   # Show help for check command
+   all2md check-deps --help
+
+Install Dependencies
+~~~~~~~~~~~~~~~~~~~~
+
+Install missing dependencies for a specific format:
+
+.. code-block:: bash
+
+   # Install PDF dependencies
+   all2md install-deps pdf
+
+   # Install PowerPoint dependencies
+   all2md install-deps pptx
+
+   # Install all missing dependencies
+   all2md install-deps all
+
+   # Show help for install command
+   all2md install-deps --help
+
+**Supported dependency groups:**
+   * ``pdf`` - PyMuPDF for PDF processing
+   * ``docx`` - python-docx for Word documents
+   * ``pptx`` - python-pptx for PowerPoint
+   * ``html`` - BeautifulSoup4 and httpx for HTML
+   * ``epub`` - ebooklib for EPUB e-books
+   * ``rtf`` - pyth3 for Rich Text Format
+   * ``odf`` - odfpy for OpenDocument formats
+   * ``spreadsheet`` - openpyxl for Excel files
+   * ``all`` - All optional dependencies
+
 Practical Examples
 ------------------
 
@@ -423,13 +593,13 @@ Batch Processing
 
 .. code-block:: bash
 
-   # Process all PDFs in directory
-   for pdf in *.pdf; do
-       echo "Converting $pdf..."
-       all2md "$pdf" --out "${pdf%.pdf}.md" --attachment-mode download --attachment-output-dir "./images/${pdf%.pdf}"
-   done
+   # Process all PDFs in directory with parallel processing
+   all2md *.pdf --parallel --output-dir ./converted --skip-errors
 
-   # Process with consistent options
+   # Recursive processing with structure preservation
+   all2md ./documents --recursive --preserve-structure --output-dir ./markdown --exclude "*.tmp"
+
+   # Process with consistent options using old approach
    find ./documents -name "*.docx" -exec all2md {} --out {}.md --markdown-emphasis-symbol "_" \;
 
 Web Content Processing
@@ -442,6 +612,26 @@ Web Content Processing
 
    # Process saved web page with images
    all2md saved_page.html --attachment-mode download --attachment-base-url "https://example.com"
+
+Advanced Multi-File Processing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Recursively convert all documents with parallel processing
+   all2md ./documents --recursive --parallel 8 --output-dir ./markdown_output --rich
+
+   # Collate multiple chapters into a single book
+   all2md chapter_*.pdf --collate --out complete_book.md --skip-errors
+
+   # Process with exclusions and structure preservation
+   all2md ./project --recursive --preserve-structure --exclude "__pycache__" --exclude "*.tmp" --exclude "node_modules"
+
+   # Dry run to preview what would be processed
+   all2md ./large_project --recursive --dry-run --exclude "*.log"
+
+   # Quiet batch processing with error handling
+   all2md *.docx --parallel --skip-errors --no-summary --output-dir ./converted
 
 Configuration File Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -560,7 +750,14 @@ Set default options using environment variables:
    export ALL2MD_EMPHASIS_SYMBOL="_"
    export ALL2MD_BULLET_SYMBOLS="•◦▪"
 
+   # Set default processing options
+   export ALL2MD_RICH="true"
+   export ALL2MD_PARALLEL="4"
+   export ALL2MD_OUTPUT_DIR="./converted"
+   export ALL2MD_SKIP_ERRORS="true"
+   export ALL2MD_RECURSIVE="true"
+
    # Use in script
-   all2md document.pdf  # Uses environment defaults
+   all2md ./documents  # Uses environment defaults for rich output, parallel processing, etc.
 
 For complete option details and programmatic usage, see the :doc:`options` reference and Python API documentation.

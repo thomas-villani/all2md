@@ -112,8 +112,6 @@ Full formatting preservation including styles, tables, images, and document stru
    options = DocxOptions(
        markdown_options=md_options,
        preserve_tables=True,               # Maintain table formatting
-       extract_images=True,                # Process embedded images
-       style_mapping=True,                 # Map Word styles to Markdown
        attachment_mode='download',         # Download images locally
        attachment_output_dir='./doc_images'
    )
@@ -132,11 +130,11 @@ Full formatting preservation including styles, tables, images, and document stru
 
 **DOCX-Specific Features:**
 
-* **Style Preservation:** Maps Word styles to appropriate Markdown
-* **Table Handling:** Preserves complex table structures
-* **Image Processing:** Extracts images from document relationships
+* **Table Handling:** Configurable preservation of table structures
+* **Image Processing:** Automatic extraction of embedded images
 * **List Formatting:** Maintains numbered and bulleted list structures
-* **Header Mapping:** Converts Word heading styles to Markdown headers
+* **Style Conversion:** Built-in conversion of Word styles to Markdown
+* **Format Preservation:** Maintains bold, italic, and other text formatting
 
 PowerPoint Presentations (PPTX)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -356,16 +354,18 @@ Chapter-by-chapter extraction with metadata and navigation preservation.
 Data and Spreadsheet Formats
 -----------------------------
 
-Excel Spreadsheets (XLSX)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Spreadsheet Files (XLSX/CSV/TSV)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**File Extensions:** ``.xlsx``
+**File Extensions:** ``.xlsx``, ``.csv``, ``.tsv``
 
-**Dependencies:** ``pip install all2md[csv]``
+**Dependencies:** ``pip install all2md[spreadsheet]``
 
-**Technology:** pandas for robust spreadsheet processing
+**Technology:** openpyxl for XLSX files, built-in csv module for CSV/TSV
 
-Multi-sheet workbook processing with intelligent table formatting.
+**Format Note:** All spreadsheet formats are handled by the unified ``spreadsheet`` converter with ``SpreadsheetOptions``.
+
+Multi-sheet workbook processing with intelligent table formatting and automatic format detection.
 
 **Basic Usage:**
 
@@ -373,57 +373,8 @@ Multi-sheet workbook processing with intelligent table formatting.
 
    from all2md import to_markdown
 
-   # Convert spreadsheet
+   # Convert Excel spreadsheet
    markdown = to_markdown('data.xlsx')
-
-**Advanced Options:**
-
-.. code-block:: python
-
-   from all2md import to_markdown, XlsxOptions
-
-   options = XlsxOptions(
-       sheets=['Sheet1', 'Summary'],       # Process specific sheets
-       include_sheet_names=True,           # Add sheet name headers
-       skip_empty_sheets=True,             # Ignore empty sheets
-       table_formatting=True,              # Enhanced table formatting
-       max_rows=1000,                      # Limit rows per sheet
-       header_detection=True               # Auto-detect headers
-   )
-
-   markdown = to_markdown('workbook.xlsx', options=options)
-
-**Command Line:**
-
-.. code-block:: bash
-
-   # Process specific sheets
-   all2md workbook.xlsx --sheets "Sheet1,Summary"
-
-**XLSX-Specific Features:**
-
-* **Multi-sheet Support:** Process all or selected worksheets
-* **Header Detection:** Automatically identifies table headers
-* **Data Type Preservation:** Maintains formatting for dates, numbers
-* **Table Formatting:** Creates clean Markdown tables
-* **Empty Cell Handling:** Intelligent handling of sparse data
-
-CSV/TSV Files
-~~~~~~~~~~~~~
-
-**File Extensions:** ``.csv``, ``.tsv``
-
-**Dependencies:** ``pip install all2md[csv]`` (pandas) or built-in
-
-**Technology:** pandas (preferred) or built-in csv module
-
-Tabular data conversion with automatic delimiter detection.
-
-**Basic Usage:**
-
-.. code-block:: python
-
-   from all2md import to_markdown
 
    # Convert CSV
    markdown = to_markdown('data.csv')
@@ -435,33 +386,40 @@ Tabular data conversion with automatic delimiter detection.
 
 .. code-block:: python
 
-   from all2md import to_markdown, CsvOptions
+   from all2md import to_markdown, SpreadsheetOptions
 
-   options = CsvOptions(
-       delimiter=',',                      # Explicit delimiter
-       encoding='utf-8',                   # File encoding
-       header_row=0,                       # Header row index
-       skip_rows=0,                        # Rows to skip
-       max_rows=500,                       # Limit output rows
-       table_formatting='grid'             # Table style
+   options = SpreadsheetOptions(
+       sheets=['Sheet1', 'Summary'],       # XLSX: Process specific sheets
+       include_sheet_titles=True,          # Add sheet name headers
+       render_formulas=True,               # XLSX: Use stored values vs formulas
+       max_rows=1000,                      # Limit rows per sheet
+       max_cols=20,                        # Limit columns per sheet
+       truncation_indicator="...",         # Message when truncated
+       detect_csv_dialect=True,            # CSV/TSV: Auto-detect format
+       attachment_mode='alt_text'          # Future: embedded images
    )
 
-   markdown = to_markdown('large_dataset.csv', options=options)
+   markdown = to_markdown('workbook.xlsx', options=options)
 
 **Command Line:**
 
 .. code-block:: bash
 
-   # Custom delimiter
-   all2md data.txt --delimiter ";" --encoding "latin1"
+   # Process specific sheets in XLSX
+   all2md workbook.xlsx --spreadsheet-sheets "Sheet1,Summary"
 
-**CSV/TSV-Specific Features:**
+   # Limit output size
+   all2md large_data.csv --spreadsheet-max-rows 500 --spreadsheet-max-cols 10
 
-* **Auto-detection:** Automatically detects delimiters and structure
-* **Encoding Support:** Handles various character encodings
-* **Large File Handling:** Memory-efficient processing of large datasets
-* **Flexible Parsing:** Configurable parsing parameters
+**Spreadsheet-Specific Features:**
+
+* **Unified Processing:** Single converter handles XLSX, CSV, and TSV
+* **Multi-sheet Support:** Process all or selected XLSX worksheets
+* **Auto-detection:** Automatically detects CSV/TSV delimiters and structure
+* **Formula Handling:** XLSX can show stored values or formulas
+* **Size Limiting:** Configurable row and column limits for large datasets
 * **Clean Tables:** Produces well-formatted Markdown tables
+* **Encoding Support:** Handles various character encodings for CSV/TSV
 
 Notebook and Code Formats
 --------------------------
@@ -558,7 +516,9 @@ OpenDocument Formats (ODT/ODP)
 
 **Technology:** odfpy for OpenDocument parsing
 
-LibreOffice and OpenOffice document support.
+**Format Note:** Both ODT and ODP files are handled by the unified ``odf`` converter with ``OdfOptions``.
+
+LibreOffice and OpenOffice document support with consistent processing for both text and presentation formats.
 
 **Basic Usage:**
 
@@ -572,10 +532,35 @@ LibreOffice and OpenOffice document support.
    # Convert OpenDocument Presentation
    markdown = to_markdown('slides.odp')
 
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown, OdfOptions
+
+   options = OdfOptions(
+       preserve_tables=True,               # Maintain table formatting
+       attachment_mode='download',         # Handle embedded images
+       attachment_output_dir='./odf_images'
+   )
+
+   markdown = to_markdown('document.odt', options=options)
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Disable table preservation
+   all2md document.odt --odf-no-preserve-tables
+
+   # Process with image download
+   all2md presentation.odp --attachment-mode download --attachment-output-dir ./images
+
 **ODF-Specific Features:**
 
+* **Unified Processing:** Single converter handles both ODT and ODP formats
 * **Style Mapping:** Converts ODF styles to Markdown
-* **Table Processing:** Handles ODF table structures
+* **Table Processing:** Configurable table structure preservation
 * **Image Extraction:** Processes embedded images and objects
 * **Cross-platform:** Works with LibreOffice/OpenOffice documents
 

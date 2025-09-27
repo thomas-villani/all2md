@@ -38,7 +38,7 @@ PDF Support
 
    pip install all2md[pdf]
 
-**Dependencies:** PyMuPDF (>=1.26.4)
+**Dependencies:** PyMuPDF
 
 **Formats:** PDF documents with advanced table detection, image extraction, and text formatting
 
@@ -49,7 +49,7 @@ Word Documents
 
    pip install all2md[docx]
 
-**Dependencies:** python-docx (>=1.2.0)
+**Dependencies:** python-docx
 
 **Formats:** Microsoft Word .docx files with full formatting preservation
 
@@ -60,7 +60,7 @@ PowerPoint Presentations
 
    pip install all2md[pptx]
 
-**Dependencies:** python-pptx (>=1.0.2)
+**Dependencies:** python-pptx
 
 **Formats:** Microsoft PowerPoint .pptx files with slide-by-slide extraction
 
@@ -71,16 +71,14 @@ HTML Documents
 
    pip install all2md[html]
 
-**Dependencies:** BeautifulSoup4 (>=4.13.5), httpx (>=0.28.1)
+**Dependencies:** BeautifulSoup4, httpx
 
 **Formats:** HTML and MHTML files with intelligent content extraction
 
 Email Files
 ~~~~~~~~~~~
 
-.. code-block:: bash
-
-   pip install all2md[eml]
+Email support is built into the base installation - no additional dependencies required.
 
 **Dependencies:** Built-in Python email libraries
 
@@ -93,7 +91,7 @@ EPUB E-books
 
    pip install all2md[epub]
 
-**Dependencies:** ebooklib (>=0.19)
+**Dependencies:** ebooklib
 
 **Formats:** EPUB e-book files with chapter extraction and metadata
 
@@ -104,7 +102,7 @@ RTF Documents
 
    pip install all2md[rtf]
 
-**Dependencies:** pyth3 (>=0.7)
+**Dependencies:** pyth3
 
 **Formats:** Rich Text Format files with formatting preservation
 
@@ -115,27 +113,25 @@ OpenDocument Formats
 
    pip install all2md[odf]
 
-**Dependencies:** odfpy (>=1.4.1)
+**Dependencies:** odfpy
 
 **Formats:** OpenDocument Text (.odt) and Presentation (.odp) files
 
-Excel Spreadsheets
-~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   pip install all2md[csv]
-
-**Dependencies:** pandas (>=2.3.2)
-
-**Formats:** Excel .xlsx files, enhanced CSV/TSV processing
-
-Jupyter Notebooks
+Spreadsheet Files
 ~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-   pip install all2md[ipynb]
+   pip install all2md[spreadsheet]
+
+**Dependencies:** openpyxl for Excel files, built-in csv module for CSV/TSV
+
+**Formats:** Excel .xlsx files, CSV and TSV files with unified processing
+
+Jupyter Notebooks
+~~~~~~~~~~~~~~~~~
+
+Jupyter Notebook support is built into the base installation - no additional dependencies required.
 
 **Dependencies:** Built-in Python json libraries
 
@@ -153,7 +149,7 @@ Install Multiple Formats
    pip install all2md[pdf,docx,html]
 
    # Office suite formats
-   pip install all2md[pdf,docx,pptx,csv]
+   pip install all2md[pdf,docx,pptx,spreadsheet]
 
    # All supported formats
    pip install all2md[all]
@@ -171,7 +167,9 @@ This is equivalent to:
 
 .. code-block:: bash
 
-   pip install all2md[pdf,docx,pptx,html,eml,epub,rtf,odf,csv,ipynb]
+   pip install all2md[pdf,docx,pptx,html,epub,rtf,odf,spreadsheet]
+
+**Note:** The ``eml`` and ``ipynb`` extras are not needed as these formats use built-in Python libraries.
 
 Development Installation
 ------------------------

@@ -22,3 +22,4 @@ Submodules
    all2md.converters.pdf2markdown
    all2md.converters.pptx2markdown
    all2md.converters.rtf2markdown
+   all2md.converters.spreadsheet2markdown

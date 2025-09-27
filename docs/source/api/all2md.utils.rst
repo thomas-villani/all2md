@@ -14,3 +14,6 @@ Submodules
 
    all2md.utils.attachments
    all2md.utils.inputs
+   all2md.utils.metadata
+   all2md.utils.network_security
+   all2md.utils.security
