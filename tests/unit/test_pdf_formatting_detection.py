@@ -54,14 +54,14 @@ class TestPdfFormattingDetection:
             test_span_normal = {"size": 12.0, "flags": 0, "text": "Normal Text"}
             test_span_small = {"size": 10.0, "flags": 0, "text": "Small Text"}
 
-            large_header = header_identifier.get_header_id(test_span_large)
-            normal_header = header_identifier.get_header_id(test_span_normal)
-            small_header = header_identifier.get_header_id(test_span_small)
+            large_header = header_identifier.get_header_level(test_span_large)
+            normal_header = header_identifier.get_header_level(test_span_normal)
+            small_header = header_identifier.get_header_level(test_span_small)
 
             # Headers should be determined by relative font sizes
-            assert isinstance(large_header, str)
-            assert isinstance(normal_header, str)
-            assert isinstance(small_header, str)
+            assert isinstance(large_header, int)
+            assert isinstance(normal_header, int)
+            assert isinstance(small_header, int)
 
         finally:
             doc.close()

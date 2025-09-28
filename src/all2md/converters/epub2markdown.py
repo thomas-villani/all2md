@@ -75,6 +75,7 @@ from all2md.converters.html2markdown import html_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, HtmlOptions, MarkdownOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.inputs import format_markdown_heading
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
@@ -381,7 +382,9 @@ def epub_to_markdown(
             md_toc_items.append(f"- [{title}](#{_slugify(title)})")
 
         if md_toc_items:
-            md_toc = "## Table of Contents\n\n" + "\n".join(md_toc_items) + "\n\n"
+            use_hash = options.markdown_options.use_hash_headings if options.markdown_options else True
+            toc_heading = format_markdown_heading("Table of Contents", 2, use_hash)
+            md_toc = toc_heading + "\n".join(md_toc_items) + "\n\n"
 
     spine_items = [book.get_item_with_id(item[0]) for item in book.spine]
     all_md_parts = []
@@ -399,7 +402,8 @@ def epub_to_markdown(
 
             chapter_parts = []
             if chapter_title:
-                chapter_parts.append(f"# {chapter_title}\n")
+                use_hash = options.markdown_options.use_hash_headings if options.markdown_options else True
+                chapter_parts.append(format_markdown_heading(chapter_title, 1, use_hash))
 
             main_content = html_to_markdown(processed_html, options=html_options)
             chapter_parts.append(main_content)

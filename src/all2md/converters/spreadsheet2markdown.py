@@ -42,7 +42,7 @@ from all2md.constants import TABLE_ALIGNMENT_MAPPING
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, SpreadsheetOptions
-from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input
+from all2md.utils.inputs import escape_markdown_special, format_markdown_heading, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 logger = logging.getLogger(__name__)
@@ -267,7 +267,8 @@ def _xlsx_to_markdown(workbook: Any, options: SpreadsheetOptions) -> str:
         sheet = workbook[sname]
 
         if options.include_sheet_titles:
-            sections.append(f"## {sname}\n")
+            use_hash = options.markdown_options.use_hash_headings if options.markdown_options else True
+            sections.append(format_markdown_heading(sname, 2, use_hash))
 
         # Determine rows and merged cells
         merged_map = _map_merged_cells(sheet)

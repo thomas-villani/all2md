@@ -99,7 +99,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
 from all2md.utils.attachments import create_attachment_sequencer, extract_pptx_image_data, process_attachment
-from all2md.utils.inputs import format_special_text, validate_and_convert_input
+from all2md.utils.inputs import format_markdown_heading, format_special_text, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
@@ -486,9 +486,12 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
         if slide.shapes.title:
             title_text = _process_text_frame(slide.shapes.title.text_frame, options.markdown_options)
             if options.slide_numbers:
-                slide_content.append(f"# Slide {i}: {title_text.strip()}\n")
+                full_title = f"Slide {i}: {title_text.strip()}"
             else:
-                slide_content.append(f"# {title_text.strip()}\n")
+                full_title = title_text.strip()
+
+            use_hash = options.markdown_options.use_hash_headings if options.markdown_options else True
+            slide_content.append(format_markdown_heading(full_title, 1, use_hash))
 
         # Process all shapes in the slide
         for shape in slide.shapes:

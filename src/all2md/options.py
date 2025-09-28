@@ -151,6 +151,10 @@ class MarkdownOptions(_CloneMixin):
         - "html": Use <sub>text</sub> tags
         - "markdown": Use ~text~ (non-standard)
         - "ignore": Strip subscript formatting
+    use_hash_headings : bool, default True
+        Whether to use # syntax for headings instead of underline style.
+        When True, generates "# Heading" style. When False, generates
+        "Heading\n=======" style for level 1 and "Heading\n-------" for levels 2+.
     """
 
     escape_special: bool = field(
@@ -209,6 +213,13 @@ class MarkdownOptions(_CloneMixin):
         metadata={
             "help": "How to handle subscript text",
             "choices": ["html", "markdown", "ignore"]
+        }
+    )
+    use_hash_headings: bool = field(
+        default=DEFAULT_USE_HASH_HEADINGS,
+        metadata={
+            "help": "Use # syntax for headings instead of underline style",
+            "cli_name": "no-use-hash-headings"  # default=True, use --no-*
         }
     )
 
@@ -492,8 +503,6 @@ class HtmlOptions(BaseOptions):
 
     Parameters
     ----------
-    use_hash_headings : bool, default True
-        Whether to use # syntax for headings instead of underline style.
     extract_title : bool, default False
         Whether to extract and use the HTML <title> element.
     convert_nbsp : bool, default False
@@ -508,25 +517,16 @@ class HtmlOptions(BaseOptions):
     Examples
     --------
     Convert with underline-style headings:
-        >>> options = HtmlOptions(use_hash_headings=False)
+        >>> md_opts = MarkdownOptions(use_hash_headings=False)
+        >>> options = HtmlOptions(markdown_options=md_opts)
 
     Convert and extract page title:
-        >>> options = HtmlOptions(extract_title=True, remove_images=True)
-
-    Convert with image download and base URL resolution:
-        >>> options = HtmlOptions(base_url="https://example.com", download_images=True)
+        >>> options = HtmlOptions(extract_title=True)
 
     Convert with content sanitization:
         >>> options = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=True)
     """
 
-    use_hash_headings: bool = field(
-        default=DEFAULT_USE_HASH_HEADINGS,
-        metadata={
-            "help": "Use # syntax for headings instead of underline style",
-            "cli_name": "no-use-hash-headings"  # default=True, use --no-*
-        }
-    )
     extract_title: bool = field(
         default=DEFAULT_EXTRACT_TITLE,
         metadata={"help": "Extract and use HTML <title> element as main heading"}

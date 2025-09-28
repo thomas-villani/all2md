@@ -15,6 +15,8 @@ Functions
 - is_path_like: Check if input is path-like (string or Path object)
 - is_file_like: Check if input is a file-like object
 - escape_markdown_special: Escape special Markdown characters in text
+- format_special_text: Format special text (underline, superscript, subscript)
+- format_markdown_heading: Format headings in hash or underline style
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
@@ -362,3 +364,63 @@ def format_special_text(text: str, format_type: str, mode: str = "html") -> str:
         )
 
     return format_map[mode][format_type]
+
+
+def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str:
+    """Format a heading in Markdown using either hash or underline style.
+
+    Parameters
+    ----------
+    text : str
+        The heading text content
+    level : int
+        The heading level (1-6 for hash style, 1-2 for underline style)
+    use_hash : bool, default True
+        Whether to use hash-style headings (# Heading) or underline style (Heading\n=======)
+
+    Returns
+    -------
+    str
+        Formatted heading string with appropriate newlines
+
+    Examples
+    --------
+    >>> format_markdown_heading("Main Title", 1, use_hash=True)
+    '# Main Title\n\n'
+    >>> format_markdown_heading("Main Title", 1, use_hash=False)
+    'Main Title\n==========\n\n'
+    >>> format_markdown_heading("Subtitle", 2, use_hash=False)
+    'Subtitle\n--------\n\n'
+
+    Notes
+    -----
+    For underline style:
+    - Level 1 headings use '=' characters for underline
+    - Level 2+ headings use '-' characters for underline
+    - Only levels 1-2 are supported for underline style; higher levels fall back to hash style
+
+    For hash style:
+    - Supports levels 1-6 (# to ######)
+    - Levels beyond 6 are clamped to 6
+    """
+    # Clamp level to valid ranges
+    level = max(1, min(level, 6))
+
+    # Strip and clean the text
+    text = text.strip()
+
+    if use_hash:
+        # Hash-style: # Heading, ## Heading, etc.
+        return f"{'#' * level} {text}\n\n"
+    else:
+        # Underline style: only supported for levels 1-2
+        if level == 1:
+            underline_char = "="
+        elif level == 2:
+            underline_char = "-"
+        else:
+            # Fall back to hash style for levels 3+
+            return f"{'#' * level} {text}\n\n"
+
+        underline = underline_char * len(text)
+        return f"{text}\n{underline}\n\n"

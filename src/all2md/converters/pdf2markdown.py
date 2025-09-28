@@ -78,7 +78,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError, PasswordProtectedError
 from all2md.options import MarkdownOptions, PdfOptions
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
-from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
+from all2md.utils.inputs import escape_markdown_special, format_markdown_heading, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 # Converter metadata for registration
@@ -288,14 +288,15 @@ class IdentifyHeaders:
 
         # make the header tag dictionary
         for i, size in enumerate(sizes):
-            self.header_id[size] = "#" * min(i + 1, 6) + " "  # Limit to h6
+            level = min(i + 1, 6)  # Limit to h6
+            # Store level information for later formatting
+            self.header_id[size] = level
 
-    def get_header_id(self, span: dict) -> str:
-        """Return appropriate markdown header prefix for a text span.
+    def get_header_level(self, span: dict) -> int:
+        """Return header level for a text span, or 0 if not a header.
 
         Analyzes the font size of a text span and returns the corresponding
-        Markdown header prefix (e.g., "# ", "## ", "### ") or empty string
-        if the span should be treated as body text.
+        header level (1-6) or 0 if the span should be treated as body text.
 
         Parameters
         ----------
@@ -304,27 +305,27 @@ class IdentifyHeaders:
 
         Returns
         -------
-        str
-            Markdown header prefix string ("# ", "## ", etc.) or empty string
+        int
+            Header level (1-6) or 0 if not a header
         """
         fontsize = round(span["size"])  # compute fontsize
-        hdr_id = self.header_id.get(fontsize, "")
+        level = self.header_id.get(fontsize, 0)
 
         # Check for additional header indicators if no size-based header found
-        if not hdr_id and self.options:
+        if not level and self.options:
             text = span.get("text", "").strip()
 
             # Check for bold header
             if self.options.header_use_font_weight and (span.get("flags", 0) & 16):
                 if fontsize in self.bold_header_sizes:
-                    hdr_id = self.header_id.get(fontsize, "")
+                    level = self.header_id.get(fontsize, 0)
 
             # Check for all-caps header
             if self.options.header_use_all_caps and text.isupper() and text.isalpha():
                 if fontsize in self.allcaps_header_sizes:
-                    hdr_id = self.header_id.get(fontsize, "")
+                    level = self.header_id.get(fontsize, 0)
 
-        return hdr_id
+        return level
 
 
 def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[dict]]:
@@ -702,15 +703,16 @@ def page_to_markdown(
                     # this is text in some monospaced font
                     output_parts.append(f"`{s['text'].strip()}` ")
                 else:  # not a mono text
-                    # for first span, get header prefix string if present
-                    hdr_string = hdr_prefix.get_header_id(s) if i == 0 else ""
+                    # for first span, get header level if present
+                    hdr_level = hdr_prefix.get_header_level(s) if i == 0 else 0
 
-                    if hdr_string and "#" in since_last_line:
-                        hdr_string = ""
+                    # Don't add headers if there's already a header on this line
+                    if hdr_level and "#" in since_last_line:
+                        hdr_level = 0
 
                     prefix = ""
                     suffix = ""
-                    if hdr_string == "" and "#" not in since_last_line:
+                    if hdr_level == 0 and "#" not in since_last_line:
                         if bold:
                             prefix = "**"
                             suffix += "**"
@@ -720,12 +722,19 @@ def page_to_markdown(
 
                     ltext = resolve_links(links, s, md_options)
                     if ltext:
-                        text = f"{hdr_string}{prefix}{ltext}{suffix} "
+                        span_text = f"{prefix}{ltext}{suffix}"
                     else:
                         span_text = s["text"].strip()
                         if md_options and md_options.escape_special:
                             span_text = escape_markdown_special(span_text)
-                        text = f"{hdr_string}{prefix}{span_text}{suffix} "
+                        span_text = f"{prefix}{span_text}{suffix}"
+
+                    # Apply header formatting if this is a header
+                    if hdr_level > 0:
+                        use_hash = md_options.use_hash_headings if md_options else True
+                        text = format_markdown_heading(span_text.strip(), hdr_level, use_hash)
+                    else:
+                        text = f"{span_text} "
                     text = (
                         text.replace("<", "&lt;")
                         .replace(">", "&gt;")

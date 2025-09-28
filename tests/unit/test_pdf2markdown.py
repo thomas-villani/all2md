@@ -37,17 +37,17 @@ def test_identify_headers_empty_doc():
 
     hdr = mod.IdentifyHeaders(EmptyDoc())
     assert hdr.header_id == {}
-    assert hdr.get_header_id({"size": 15}) == ""
-    assert hdr.get_header_id({"size": 100}) == ""
+    assert hdr.get_header_level({"size": 15}) == 0
+    assert hdr.get_header_level({"size": 100}) == 0
 
 
 @pytest.mark.unit
 def test_identify_headers_mapping():
     doc = FakeDocIdent()
     hdr = mod.IdentifyHeaders(doc)
-    assert hdr.header_id.get(20) == "# "
-    assert hdr.get_header_id({"size": 20.0, "flags": 0, "text": "test"}) == "# "
-    assert hdr.get_header_id({"size": 12.0, "flags": 0, "text": "test"}) == ""
+    assert hdr.header_id.get(20) == 1  # Level 1 heading
+    assert hdr.get_header_level({"size": 20.0, "flags": 0, "text": "test"}) == 1
+    assert hdr.get_header_level({"size": 12.0, "flags": 0, "text": "test"}) == 0
 
 
 @pytest.mark.unit
@@ -101,7 +101,7 @@ def test_header_detection_with_percentile():
         header_min_occurrences=1,
     )
     hdr = mod.IdentifyHeaders(doc, options=options)
-    assert hdr.header_id.get(20) == "# "  # Large font should be header
+    assert hdr.header_id.get(20) == 1  # Large font should be level 1 header
 
 
 @pytest.mark.unit

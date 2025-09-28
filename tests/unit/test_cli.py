@@ -227,10 +227,10 @@ class TestCLIParser:
         assert hasattr(args, 'pdf_detect_columns')
         assert args.pdf_detect_columns is False
 
-        # Test --html-no-use-hash-headings flag
-        args = parser.parse_args(["test.html", "--html-no-use-hash-headings"])
-        assert hasattr(args, 'html_use_hash_headings')
-        assert args.html_use_hash_headings is False
+        # Test --markdown-no-use-hash-headings flag
+        args = parser.parse_args(["test.html", "--markdown-no-use-hash-headings"])
+        assert hasattr(args, 'markdown_use_hash_headings')
+        assert args.markdown_use_hash_headings is False
 
         # Test --markdown-no-escape-special flag
         args = parser.parse_args(["test.pdf", "--markdown-no-escape-special"])

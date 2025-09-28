@@ -384,18 +384,20 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     """
     try:
         from all2md.converters.html2markdown import html_to_markdown
-        from all2md.options import HtmlOptions
+        from all2md.options import HtmlOptions, MarkdownOptions
+
+        # Create MarkdownOptions with default hash headings if not provided
+        md_options = options.markdown_options or MarkdownOptions(use_hash_headings=True)
 
         # Create HTML options that match EML preferences and security settings
         html_options = HtmlOptions(
-            use_hash_headings=True,
             extract_title=False,
             convert_nbsp=False,
             strip_dangerous_elements=True,
             attachment_mode=options.attachment_mode,
             attachment_output_dir=options.attachment_output_dir,
             attachment_base_url=options.attachment_base_url,
-            markdown_options=options.markdown_options,
+            markdown_options=md_options,
             # Network security settings from EML options
             allow_remote_fetch=options.allow_remote_fetch,
             allowed_hosts=options.allowed_hosts,

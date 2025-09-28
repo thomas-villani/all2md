@@ -247,11 +247,11 @@ class TestPdfLayoutAdvanced:
         header_analyzer = IdentifyHeaders(mock_doc, options=options)
 
         # Large, bold text should be detected as header regardless of some rotated content
-        header_id = header_analyzer.get_header_id(header_span)
-        assert header_id != ""  # Should be detected as header
+        header_level = header_analyzer.get_header_level(header_span)
+        assert header_level > 0  # Should be detected as header
 
         # Rotated text should not interfere with header detection
-        rotated_id = header_analyzer.get_header_id(rotated_sidebar)
+        rotated_level = header_analyzer.get_header_level(rotated_sidebar)
         # Rotated text might or might not be header depending on implementation
 
     def test_column_detection_with_images_and_graphics(self):

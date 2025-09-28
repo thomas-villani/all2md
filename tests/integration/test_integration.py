@@ -360,8 +360,9 @@ class TestNewAPI:
         html_io = BytesIO(html_content)
 
         # Create options with one setting
+        md_opts = MarkdownOptions(use_hash_headings=False)
         base_options = HtmlOptions(
-            use_hash_headings=False,
+            markdown_options=md_opts,
             convert_nbsp=True
         )
 

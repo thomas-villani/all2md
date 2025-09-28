@@ -164,9 +164,11 @@ def test_custom_emphasis_symbol_and_bullets():
 @pytest.mark.unit
 def test_title_extraction_default_and_no_hash():
     html = "<html><head><title>My Title</title></head><body><p>Para</p></body></html>"
-    md_default = html_to_markdown(html, options=HtmlOptions(extract_title=True, use_hash_headings=True))
+    md_opts_hash = MarkdownOptions(use_hash_headings=True)
+    md_default = html_to_markdown(html, options=HtmlOptions(extract_title=True, markdown_options=md_opts_hash))
     assert md_default == "# My Title\n\nPara"
-    md_no_hash = html_to_markdown(html, options=HtmlOptions(extract_title=True, use_hash_headings=False))
+    md_opts_underline = MarkdownOptions(use_hash_headings=False)
+    md_no_hash = html_to_markdown(html, options=HtmlOptions(extract_title=True, markdown_options=md_opts_underline))
     assert md_no_hash == "My Title\n========\n\nPara"
 
 

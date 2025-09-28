@@ -110,6 +110,7 @@ from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
     DANGEROUS_SCHEMES,
+    DEFAULT_USE_HASH_HEADINGS,
     MARKDOWN_SPECIAL_CHARS,
     MAX_CODE_FENCE_LENGTH,
     MIN_CODE_FENCE_LENGTH,
@@ -1215,7 +1216,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
 
         # Prepare converter arguments, only passing non-None values
         converter_kwargs = {
-            "hash_headings": options.use_hash_headings,
+            "hash_headings": options.markdown_options.use_hash_headings if options.markdown_options else DEFAULT_USE_HASH_HEADINGS,
             "extract_title": options.extract_title,
             "convert_nbsp": options.convert_nbsp,
             "strip_dangerous_elements": options.strip_dangerous_elements,

@@ -78,6 +78,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import MarkdownOptions, OdfOptions
 from all2md.utils.attachments import process_attachment
+from all2md.utils.inputs import format_markdown_heading
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
@@ -150,7 +151,8 @@ class OdfConverter:
 
         if hasattr(p, 'qname') and p.qname == (TEXTNS, 'h'):
             level = int(p.getAttribute("outlinelevel") or 1)
-            return f"{'#' * level} {content}"
+            use_hash = self.options.markdown_options.use_hash_headings if self.options.markdown_options else True
+            return format_markdown_heading(content, level, use_hash).rstrip()  # Remove trailing newlines
 
         return content
 
