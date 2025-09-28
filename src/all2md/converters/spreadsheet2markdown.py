@@ -36,7 +36,7 @@ import io
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Iterable, Union
+from typing import IO, Any, Iterable, Optional, Union
 
 from all2md.constants import TABLE_ALIGNMENT_MAPPING
 from all2md.converter_metadata import ConverterMetadata
@@ -450,7 +450,11 @@ def _csv_or_tsv_to_markdown(
     sample = text_stream.read(4096)
     text_stream.seek(0)
 
-    if force_delimiter:
+    # Check if user provided a delimiter override via options
+    if options.csv_delimiter:
+        dialect = csv.excel()
+        dialect.delimiter = options.csv_delimiter
+    elif force_delimiter:
         dialect = csv.excel()
         dialect.delimiter = delimiter or "\t"
     elif options.detect_csv_dialect:
@@ -485,9 +489,19 @@ def _csv_or_tsv_to_markdown(
     if not rows:
         return ""
 
-    # Use first row as header by default
-    header = rows[0]
-    data_rows = rows[1:]
+    # Handle header based on has_header option
+    if options.has_header:
+        # Use first row as header
+        header = rows[0]
+        data_rows = rows[1:]
+    else:
+        # No header in data - generate generic headers based on first row column count
+        if rows:
+            num_cols = len(rows[0]) if rows else 0
+            header = [f"Column {i+1}" for i in range(num_cols)]
+            data_rows = rows  # All rows are data
+        else:
+            return ""
 
     # Truncate columns
     if options.max_cols is not None:
@@ -501,7 +515,12 @@ def _csv_or_tsv_to_markdown(
         truncated = True
 
     # Sanitize cells
-    header = [_sanitize_cell_text(c, md_options).lstrip("\ufeff") for c in header]  # strip BOM in first header cell
+    if options.has_header:
+        # Only sanitize actual header text if it came from the file
+        header = [_sanitize_cell_text(c, md_options).lstrip("\ufeff") for c in header]  # strip BOM in first header cell
+    else:
+        # Generic headers are already clean, just apply standard sanitization
+        header = [_sanitize_cell_text(c, md_options) for c in header]
     data_rows = [[_sanitize_cell_text(c, md_options) for c in r] for r in data_rows]
 
     # Alignments default to center

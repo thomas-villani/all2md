@@ -68,6 +68,7 @@ from all2md.options import (
     PdfOptions,
     PptxOptions,
     RtfOptions,
+    SpreadsheetOptions,
     create_updated_options,
 )
 
@@ -102,7 +103,8 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "ipynb": IpynbOptions,
         "rtf": RtfOptions,
         "odf": OdfOptions,
-        "epub": EpubOptions
+        "epub": EpubOptions,
+        "spreadsheet": SpreadsheetOptions
     }
     return format_to_class.get(format)
 

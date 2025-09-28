@@ -666,11 +666,12 @@ Examples:
             default_value = field.default
 
             # For --no-* flags with True defaults, arg_value is False when flag is used
-            if (default_value is True and
-                    'cli_name' in metadata and
-                    metadata['cli_name'].startswith('no-') and
-                    arg_value is False):
-                return False
+            # This handles both explicit cli_name metadata and inferred --no-* names
+            if default_value is True and arg_value is False:
+                # Either has explicit no- prefix in metadata, or is a True-default being set to False
+                if ('cli_name' in metadata and metadata['cli_name'].startswith('no-')) or \
+                   ('cli_name' not in metadata):
+                    return False
 
             # For regular boolean flags with False defaults, arg_value is True when flag is used
             elif default_value is False and arg_value is True:

@@ -783,6 +783,7 @@ def extract_page_images(
     if options.attachment_mode == "alt_text" and not options.image_placement_markers:
         return []
 
+    import fitz
     images = []
     image_list = page.get_images()
 
@@ -880,6 +881,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
         r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+[A-Z]\.",
     ]
 
+    import fitz
     # Search below image
     search_below = fitz.Rect(image_bbox.x0 - 20, image_bbox.y1, image_bbox.x1 + 20, image_bbox.y1 + 50)
 
@@ -930,6 +932,8 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
 
     h_lines = []
     v_lines = []
+
+    import fitz
 
     for item in drawings:
         if "items" not in item:

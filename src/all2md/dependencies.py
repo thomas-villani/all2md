@@ -6,11 +6,89 @@ optional dependencies for various converter modules.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from typing import Dict, List, Optional, Tuple
 
 from all2md.converter_registry import _check_package_installed, registry
+
+
+def _sanitize_package_name(package_name: str) -> str:
+    """Sanitize package name to prevent command injection.
+
+    Parameters
+    ----------
+    package_name : str
+        Raw package name to sanitize
+
+    Returns
+    -------
+    str
+        Sanitized package name
+
+    Raises
+    ------
+    ValueError
+        If package name contains invalid characters
+    """
+    # Allow alphanumeric, hyphens, underscores, and dots for package names
+    # This covers standard PyPI package naming conventions
+    if not re.match(r'^[a-zA-Z0-9._-]+$', package_name):
+        raise ValueError(f"Invalid package name: {package_name!r}. Package names must contain only letters, numbers, dots, hyphens, and underscores.")
+
+    # Additional safety: reject names that could be shell commands or contain shell metacharacters
+    dangerous_patterns = [
+        r'^\s*$',  # empty or whitespace only
+        r'[;&|`$(){}[\]\\]',  # shell metacharacters
+        r'^\.',  # names starting with dot (hidden files)
+        r'\.\.',  # directory traversal
+    ]
+
+    for pattern in dangerous_patterns:
+        if re.search(pattern, package_name):
+            raise ValueError(f"Invalid package name: {package_name!r}. Contains potentially dangerous characters.")
+
+    return package_name
+
+
+def _sanitize_version_spec(version_spec: str) -> str:
+    """Sanitize version specification to prevent command injection.
+
+    Parameters
+    ----------
+    version_spec : str
+        Raw version specification to sanitize
+
+    Returns
+    -------
+    str
+        Sanitized version specification
+
+    Raises
+    ------
+    ValueError
+        If version spec contains invalid characters
+    """
+    if not version_spec:
+        return version_spec
+
+    # Allow standard version specifiers: ==, >=, <=, >, <, !=, ~=, and version numbers
+    # Version numbers can contain digits, dots, letters (for pre/post releases), plus, and hyphens
+    if not re.match(r'^[><=!~]*[a-zA-Z0-9.\-+]+$', version_spec):
+        raise ValueError(f"Invalid version specification: {version_spec!r}. Must be a valid pip version specifier.")
+
+    # Additional safety: reject dangerous patterns
+    dangerous_patterns = [
+        r'[;&|`$(){}[\]\\]',  # shell metacharacters
+        r'\s',  # whitespace
+    ]
+
+    for pattern in dangerous_patterns:
+        if re.search(pattern, version_spec):
+            raise ValueError(f"Invalid version specification: {version_spec!r}. Contains potentially dangerous characters.")
+
+    return version_spec
 
 
 def check_package_installed(package_name: str) -> bool:
@@ -221,10 +299,17 @@ def install_dependencies(
         cmd.append("--upgrade")
 
     for package_name, version_spec in packages:
-        if version_spec:
-            cmd.append(f"{package_name}{version_spec}")
+        # Sanitize package name and version specification to prevent command injection
+        try:
+            safe_package_name = _sanitize_package_name(package_name)
+            safe_version_spec = _sanitize_version_spec(version_spec) if version_spec else ""
+        except ValueError as e:
+            return False, f"Package validation failed: {e}"
+
+        if safe_version_spec:
+            cmd.append(f"{safe_package_name}{safe_version_spec}")
         else:
-            cmd.append(package_name)
+            cmd.append(safe_package_name)
 
     try:
         result = subprocess.run(

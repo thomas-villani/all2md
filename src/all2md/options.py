@@ -945,7 +945,11 @@ class SpreadsheetOptions(BaseOptions):
     truncation_indicator : str, default "..."
         Appended note when rows/columns are truncated.
     detect_csv_dialect : bool, default True
-        For CSV/TSV: enable csv.Sniffer-based dialect detection (ignored if force delimiter).
+        For CSV/TSV: enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set).
+    csv_delimiter : str | None, default None
+        Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|'). When set, disables dialect detection.
+    has_header : bool, default True
+        Whether the first row contains column headers. When False, generates generic headers (Column 1, Column 2, etc.).
     markdown_options : MarkdownOptions | None, default None
         Shared markdown formatting options.
     attachment_mode : AttachmentMode, default "alt_text"
@@ -968,6 +972,8 @@ class SpreadsheetOptions(BaseOptions):
 
     # CSV/TSV parsing
     detect_csv_dialect: bool = True
+    csv_delimiter: Optional[str] = None
+    has_header: bool = True
 
 
 def create_updated_options(options: Any, **kwargs) -> Any:
