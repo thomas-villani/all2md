@@ -230,16 +230,19 @@ def to_markdown(
         Input data, which can be a file path, a file-like object, or raw bytes.
     options : BaseOptions | MarkdownOptions, optional
         A pre-configured options object for format-specific settings.
-        See the classes in `all2md.options` for details.
+        See the classes in `all2md.options` for details. When provided
+        alongside `kwargs`, the kwargs will override matching fields in
+        the options object, allowing for selective customization.
     format : DocumentFormat, default "auto"
         Explicitly specify the document format. If "auto", the format is
         detected from the filename or content.
     kwargs : Any
         Individual conversion options that override settings in the `options`
         parameter. These are mapped to the appropriate format-specific
-        options class. For a full list of available options, please refer to
-        the documentation for the :mod:`all2md.options` module and the specific
-        `...Options` classes (e.g., `PdfOptions`, `HtmlOptions`).
+        options class and take precedence over the same fields in `options`.
+        For a full list of available options, please refer to the documentation
+        for the :mod:`all2md.options` module and the specific `...Options`
+        classes (e.g., `PdfOptions`, `HtmlOptions`).
 
     Returns
     -------
@@ -254,6 +257,56 @@ def to_markdown(
         If file processing fails due to corruption or format issues.
     InputError
         If input parameters are invalid or the file cannot be accessed.
+
+    Notes
+    -----
+    **Options Merging Logic:**
+
+    The function supports flexible configuration through three approaches:
+
+    1. **Options only**: Pass a pre-configured options object
+        >>> options = PdfOptions(pages=[0, 1], attachment_mode="base64")
+        >>> to_markdown("doc.pdf", options=options)
+
+    2. **Kwargs only**: Pass individual options as keyword arguments
+        >>> to_markdown("doc.pdf", pages=[0, 1], attachment_mode="base64")
+
+    3. **Combined (recommended)**: Use options as base with kwargs overrides
+        >>> base_options = PdfOptions(attachment_mode="download")
+        >>> to_markdown("doc.pdf", options=base_options, attachment_mode="base64")
+        # Results in base64 mode (kwargs override options)
+
+    When both `options` and `kwargs` are provided, kwargs take precedence for
+    matching field names. This allows you to define reusable base configurations
+    and selectively override specific settings per conversion.
+
+    **MarkdownOptions Handling:**
+
+    MarkdownOptions can be provided either:
+    - Directly as the `options` parameter (creates format-specific options with those markdown settings)
+    - Embedded in format-specific options via the `markdown_options` field
+    - As individual kwargs prefixed implicitly (e.g., `emphasis_symbol="_"`)
+
+    Examples
+    --------
+    Basic conversion with auto-detection:
+        >>> markdown = to_markdown("document.pdf")
+
+    Using pre-configured options:
+        >>> pdf_opts = PdfOptions(pages=[0, 1, 2], attachment_mode="download")
+        >>> markdown = to_markdown("document.pdf", options=pdf_opts)
+
+    Combining options with selective overrides:
+        >>> base_opts = PdfOptions(attachment_mode="download", detect_columns=True)
+        >>> markdown = to_markdown("doc.pdf", options=base_opts, attachment_mode="base64")
+        # Uses base64 mode but keeps column detection enabled
+
+    Using MarkdownOptions directly:
+        >>> md_opts = MarkdownOptions(emphasis_symbol="_", bullet_symbols="•◦▪")
+        >>> markdown = to_markdown("document.pdf", options=md_opts)
+
+    Mixed markdown and format-specific options:
+        >>> to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_", bullet_symbols="•◦▪")
     """
 
     # Handle input parameter - convert to file object and get filename

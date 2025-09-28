@@ -51,18 +51,37 @@ Core Components
 
    all2md/
    ├── __init__.py           # Main entry point and format detection
-   ├── cli.py               # Command-line interface
+   ├── __main__.py          # Entry point for CLI (python -m all2md)
    ├── constants.py         # Default values and configuration
    ├── exceptions.py        # Custom exception hierarchy
    ├── options.py           # Configuration dataclasses
+   ├── converter_registry.py # Registry system for converters
+   ├── converter_metadata.py # Metadata and dependency management
+   ├── cli/                 # Command-line interface package
+   │   ├── __init__.py      # CLI package initialization
+   │   ├── actions.py       # Core CLI actions and commands
+   │   ├── builder.py       # Argument parser construction
+   │   └── processors.py    # File processing and batch operations
    ├── converters/          # Format-specific conversion modules
+   │   ├── __init__.py
    │   ├── pdf2markdown.py
    │   ├── docx2markdown.py
    │   ├── html2markdown.py
-   │   └── ...
+   │   ├── eml2markdown.py
+   │   ├── pptx2markdown.py
+   │   ├── ipynb2markdown.py
+   │   ├── epub2markdown.py
+   │   ├── odf2markdown.py
+   │   ├── mhtml2markdown.py
+   │   ├── rtf2markdown.py
+   │   └── spreadsheet2markdown.py
    └── utils/               # Shared utilities
+       ├── __init__.py
        ├── inputs.py        # Input validation and handling
-       └── attachments.py   # Image and attachment processing
+       ├── attachments.py   # Image and attachment processing
+       ├── metadata.py      # Document metadata extraction
+       ├── security.py      # Security utilities
+       └── network_security.py # Network and SSRF protection
 
 The Main Entry Point
 ~~~~~~~~~~~~~~~~~~~~~
@@ -87,26 +106,15 @@ The ``to_markdown()`` function in ``__init__.py`` acts as the orchestrator:
 Format Detection Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+The library uses a registry-based detection system (``ConverterRegistry.detect_format``) that employs multiple detection strategies in priority order to ensure accurate format identification:
 
-   def _detect_format_comprehensive(file_obj, filename):
-       """Multi-strategy format detection"""
+1. **Explicit hint**: When format is explicitly specified, bypass detection
+2. **Filename extension**: Analyze file extension for immediate format identification
+3. **MIME type detection**: Use ``mimetypes.guess_type()`` for secondary verification
+4. **Magic bytes/content detectors**: Examine file headers and content patterns for files without reliable names
+5. **Fallback to plain text**: Graceful degradation when no specific format is detected
 
-       # Strategy 1: Filename-based detection
-       if filename != 'unknown':
-           format = _get_format_from_filename(filename)
-           if format != "txt":
-               return format
-
-       # Strategy 2: Content-based detection
-       format = _detect_format_from_content(file_obj)
-       if format != "txt":
-           return format
-
-       # Strategy 3: Fallback to plain text
-       return "txt"
-
-This approach maximizes accuracy while providing graceful degradation for edge cases.
+This registry-based approach maximizes accuracy while providing graceful degradation for edge cases. Each converter registers its supported extensions, MIME types, and content detection patterns with the central registry, making the system easily extensible for new formats.
 
 Converter Architecture
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -245,11 +253,60 @@ HTML Documents
 **Advanced Features:**
 - Semantic HTML conversion
 - Table structure preservation
-- Image and media handling
+- Image and media handling with secure remote fetching
 - Link processing
 - Custom element mapping
+- Comprehensive network security controls
 
-**Technology:** BeautifulSoup4 for robust HTML parsing
+**Technology:** BeautifulSoup4 for robust HTML parsing, httpx for secure HTTP requests
+
+**Network Security:**
+
+HTML processing includes sophisticated network security features to prevent SSRF attacks and control remote resource access:
+
+.. code-block:: python
+
+   from all2md import HtmlOptions
+
+   # Secure configuration for web applications
+   secure_options = HtmlOptions(
+       allow_remote_fetch=True,           # Enable remote fetching
+       allowed_hosts=["example.com", "cdn.example.com"],  # Whitelist specific hosts
+       require_https=True,                # Force HTTPS for all requests
+       network_timeout=5.0,               # 5-second timeout
+       max_image_size_bytes=2 * 1024 * 1024,  # 2MB image limit
+       attachment_mode="download",
+       attachment_output_dir="./secure_images"
+   )
+
+   # Process HTML with strict security controls
+   markdown = to_markdown("webpage.html", options=secure_options)
+
+**Global Network Disable:**
+
+For maximum security in sensitive environments, use the ``ALL2MD_DISABLE_NETWORK`` environment variable to globally block all network operations:
+
+.. code-block:: bash
+
+   # Disable all network operations globally
+   export ALL2MD_DISABLE_NETWORK=1
+   all2md webpage.html  # Will skip all remote resources
+
+.. code-block:: python
+
+   import os
+   os.environ['ALL2MD_DISABLE_NETWORK'] = '1'
+
+   # All network requests will be blocked regardless of options
+   markdown = to_markdown("webpage.html", allow_remote_fetch=True)  # Still blocked
+
+**Security Features:**
+
+- **Host validation**: Only allow requests to explicitly whitelisted domains
+- **HTTPS enforcement**: Reject HTTP requests when ``require_https=True``
+- **Size limits**: Prevent DoS via large downloads with ``max_image_size_bytes``
+- **Timeout protection**: Prevent hanging requests with configurable timeouts
+- **SSRF prevention**: Built-in protection against Server-Side Request Forgery attacks
 
 Email (EML)
 ~~~~~~~~~~~

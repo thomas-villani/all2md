@@ -15,6 +15,8 @@ all2md uses dataclass-based configuration to provide type-safe, well-documented 
 Options Hierarchy
 ~~~~~~~~~~~~~~~~~~
 
+The all2md options system uses a clear inheritance structure that separates universal settings from format-specific configurations:
+
 .. code-block:: text
 
    BaseOptions (universal attachment/metadata options)
@@ -30,7 +32,31 @@ Options Hierarchy
    ├── MhtmlOptions (MHTML web archive options)
    └── SpreadsheetOptions (Excel/CSV/TSV options)
 
-   MarkdownOptions (common Markdown formatting)
+   MarkdownOptions (common Markdown formatting - used by all format options)
+
+**How it works:**
+
+1. **BaseOptions** provides universal settings that all converters use, including:
+
+   - Attachment handling (``attachment_mode``, ``attachment_output_dir``)
+   - Metadata extraction (``extract_metadata``)
+   - Network security settings (``max_download_bytes``)
+
+2. **Format-specific Options** (e.g., ``PdfOptions``, ``HtmlOptions``) inherit from ``BaseOptions`` and add their own specialized settings:
+
+   - PDF: page selection, header detection, table parsing
+   - HTML: content sanitization, network security
+   - PowerPoint: slide numbering, notes inclusion
+
+3. **MarkdownOptions** contains common Markdown formatting settings and can be embedded in any format-specific options via the ``markdown_options`` field:
+
+   - Text formatting (emphasis symbols, bullet styles)
+   - Page separators and numbering
+   - Special character handling
+
+**Options Merging Logic:**
+
+When you pass both an ``options`` object and individual ``**kwargs`` to ``to_markdown()``, the kwargs override the options object settings. This allows you to use a base configuration and selectively override specific values.
 
 Using Options
 ~~~~~~~~~~~~~

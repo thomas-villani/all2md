@@ -203,7 +203,7 @@ class MarkdownConversionError(All2MdError):
         self.conversion_stage = conversion_stage
 
 
-class DependencyError(All2MdError):
+class DependencyError(ImportError, All2MdError):
     """Exception raised when required dependencies are not available.
 
     This exception is raised when attempting to use a converter that

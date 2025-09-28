@@ -96,6 +96,7 @@ User Guide
    overview
    formats
    cli
+   recipes
    plugins
    troubleshooting
 

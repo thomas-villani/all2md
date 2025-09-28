@@ -401,6 +401,86 @@ HTML Options
       # Clean up HTML by removing scripts and styles
       all2md webpage.html --html-strip-dangerous-elements
 
+Network Security Options
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``--html-allow-remote-fetch``
+   Allow fetching remote URLs for images and resources (base64/download modes).
+
+   **Default:** Disabled (prevents SSRF attacks)
+
+   .. code-block:: bash
+
+      # Enable remote fetching with security controls
+      all2md webpage.html --html-allow-remote-fetch --html-require-https --html-network-timeout 5
+
+``--html-allowed-hosts``
+   Comma-separated list of allowed hostnames for remote fetching.
+
+   .. code-block:: bash
+
+      # Only allow specific hosts
+      all2md webpage.html --html-allow-remote-fetch --html-allowed-hosts "example.com,cdn.example.com"
+
+``--html-require-https``
+   Require HTTPS for all remote URL fetching.
+
+   **Default:** Disabled
+
+   .. code-block:: bash
+
+      # Force HTTPS for security
+      all2md webpage.html --html-allow-remote-fetch --html-require-https
+
+``--html-network-timeout``
+   Timeout in seconds for remote URL fetching.
+
+   **Default:** 10.0
+
+   .. code-block:: bash
+
+      # Set 5-second timeout
+      all2md webpage.html --html-allow-remote-fetch --html-network-timeout 5
+
+``--html-max-image-size-bytes``
+   Maximum allowed size in bytes for downloaded images.
+
+   **Default:** 10485760 (10MB)
+
+   .. code-block:: bash
+
+      # Limit images to 2MB
+      all2md webpage.html --html-allow-remote-fetch --html-max-image-size-bytes 2097152
+
+Global Network Control
+^^^^^^^^^^^^^^^^^^^^^^^
+
+For maximum security, use the ``ALL2MD_DISABLE_NETWORK`` environment variable to globally block all network operations:
+
+.. code-block:: bash
+
+   # Disable all network operations globally
+   export ALL2MD_DISABLE_NETWORK=1
+   all2md webpage.html  # Will skip all remote resources regardless of options
+
+Security Examples
+^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # Secure web scraping with allowlist
+   all2md webpage.html \
+       --html-allow-remote-fetch \
+       --html-allowed-hosts "trusted-site.com" \
+       --html-require-https \
+       --html-network-timeout 5 \
+       --html-max-image-size-bytes 1048576 \
+       --attachment-mode download \
+       --attachment-output-dir ./secure_images
+
+   # Maximum security (no network access)
+   ALL2MD_DISABLE_NETWORK=1 all2md webpage.html --attachment-mode skip
+
 PowerPoint Options
 ~~~~~~~~~~~~~~~~~~
 
