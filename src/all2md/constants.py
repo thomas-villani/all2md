@@ -139,6 +139,10 @@ DEFAULT_NETWORK_TIMEOUT = 10.0
 DEFAULT_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024  # 20MB
 DEFAULT_MAX_REDIRECTS = 5
 
+# Download size limits for security
+DEFAULT_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100MB maximum per download
+DEFAULT_MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024  # 50MB maximum per attachment
+
 # ZIP archive security
 DEFAULT_MAX_COMPRESSION_RATIO = 100.0  # Maximum compression ratio (uncompressed/compressed)
 DEFAULT_MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024  # 1GB maximum uncompressed size

@@ -263,14 +263,22 @@ class TestSecureImageFetching:
         mock_disabled.return_value = False
         mock_validate.return_value = None  # No exception
 
-        # Mock HTTP response
-        mock_response = Mock()
-        mock_response.headers = {'content-type': 'image/png'}
-        mock_response.content = b'fake_image_data'
-        mock_response.raise_for_status.return_value = None
+        # Mock HEAD response
+        mock_head_response = Mock()
+        mock_head_response.headers = {'content-type': 'image/png', 'content-length': '15'}
+        mock_head_response.raise_for_status.return_value = None
+
+        # Mock streaming response
+        mock_stream_response = Mock()
+        mock_stream_response.headers = {'content-type': 'image/png'}
+        mock_stream_response.raise_for_status.return_value = None
+        mock_stream_response.iter_bytes.return_value = [b'fake_image_data']
+        mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
+        mock_stream_response.__exit__ = Mock(return_value=None)
 
         mock_http_client = MagicMock()
-        mock_http_client.get.return_value = mock_response
+        mock_http_client.head.return_value = mock_head_response
+        mock_http_client.stream.return_value = mock_stream_response
         mock_http_client.__enter__.return_value = mock_http_client
         mock_http_client.__exit__.return_value = None
 
@@ -287,13 +295,22 @@ class TestSecureImageFetching:
         mock_disabled.return_value = False
         mock_validate.return_value = None
 
-        mock_response = Mock()
-        mock_response.headers = {'content-type': 'text/html'}
-        mock_response.content = b'<html>not an image</html>'
-        mock_response.raise_for_status.return_value = None
+        # Mock HEAD response
+        mock_head_response = Mock()
+        mock_head_response.headers = {'content-type': 'text/html', 'content-length': '26'}
+        mock_head_response.raise_for_status.return_value = None
+
+        # Mock streaming response - not reached due to HEAD content-type check
+        mock_stream_response = Mock()
+        mock_stream_response.headers = {'content-type': 'text/html'}
+        mock_stream_response.raise_for_status.return_value = None
+        mock_stream_response.iter_bytes.return_value = [b'<html>not an image</html>']
+        mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
+        mock_stream_response.__exit__ = Mock(return_value=None)
 
         mock_http_client = MagicMock()
-        mock_http_client.get.return_value = mock_response
+        mock_http_client.head.return_value = mock_head_response
+        mock_http_client.stream.return_value = mock_stream_response
         mock_http_client.__enter__.return_value = mock_http_client
         mock_http_client.__exit__.return_value = None
 
@@ -310,13 +327,23 @@ class TestSecureImageFetching:
         mock_disabled.return_value = False
         mock_validate.return_value = None
 
-        mock_response = Mock()
-        mock_response.headers = {'content-type': 'image/png'}
-        mock_response.content = b'x' * (25 * 1024 * 1024)  # 25MB > 20MB limit
-        mock_response.raise_for_status.return_value = None
+        # Mock HEAD response
+        mock_head_response = Mock()
+        mock_head_response.headers = {'content-type': 'image/png'}  # No content-length
+        mock_head_response.raise_for_status.return_value = None
+
+        # Mock streaming response with large chunks
+        large_chunk = b'x' * (10 * 1024 * 1024)  # 10MB chunks
+        mock_stream_response = Mock()
+        mock_stream_response.headers = {'content-type': 'image/png'}
+        mock_stream_response.raise_for_status.return_value = None
+        mock_stream_response.iter_bytes.return_value = [large_chunk, large_chunk, large_chunk]  # 30MB total
+        mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
+        mock_stream_response.__exit__ = Mock(return_value=None)
 
         mock_http_client = MagicMock()
-        mock_http_client.get.return_value = mock_response
+        mock_http_client.head.return_value = mock_head_response
+        mock_http_client.stream.return_value = mock_stream_response
         mock_http_client.__enter__.return_value = mock_http_client
         mock_http_client.__exit__.return_value = None
 
@@ -333,13 +360,22 @@ class TestSecureImageFetching:
         mock_disabled.return_value = False
         mock_validate.return_value = None
 
-        mock_response = Mock()
-        mock_response.headers = {'content-type': 'image/png'}
-        mock_response.content = b''  # Empty content
-        mock_response.raise_for_status.return_value = None
+        # Mock HEAD response
+        mock_head_response = Mock()
+        mock_head_response.headers = {'content-type': 'image/png', 'content-length': '0'}
+        mock_head_response.raise_for_status.return_value = None
+
+        # Mock streaming response with empty content
+        mock_stream_response = Mock()
+        mock_stream_response.headers = {'content-type': 'image/png'}
+        mock_stream_response.raise_for_status.return_value = None
+        mock_stream_response.iter_bytes.return_value = []  # Empty content
+        mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
+        mock_stream_response.__exit__ = Mock(return_value=None)
 
         mock_http_client = MagicMock()
-        mock_http_client.get.return_value = mock_response
+        mock_http_client.head.return_value = mock_head_response
+        mock_http_client.stream.return_value = mock_stream_response
         mock_http_client.__enter__.return_value = mock_http_client
         mock_http_client.__exit__.return_value = None
 

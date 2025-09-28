@@ -195,6 +195,7 @@ class HTMLToMarkdown:
         require_https: bool = False,
         network_timeout: float = 10.0,
         max_image_size_bytes: int = 20 * 1024 * 1024,
+        max_download_bytes: int = 100 * 1024 * 1024,
     ):
         self.hash_headings = hash_headings
         self.extract_title = extract_title
@@ -217,6 +218,7 @@ class HTMLToMarkdown:
         self.require_https = require_https
         self.network_timeout = network_timeout
         self.max_image_size_bytes = max_image_size_bytes
+        self.max_download_bytes = max_download_bytes
 
         # Internal state
         self._list_depth = 0
@@ -389,11 +391,13 @@ class HTMLToMarkdown:
             )
 
         try:
+            # Use the smaller of max_download_bytes and max_image_size_bytes for security
+            effective_max_size = min(self.max_download_bytes, self.max_image_size_bytes)
             return fetch_image_securely(
                 url=url,
                 allowed_hosts=self.allowed_hosts,
                 require_https=self.require_https,
-                max_size_bytes=self.max_image_size_bytes,
+                max_size_bytes=effective_max_size,
                 timeout=self.network_timeout,
             )
         except NetworkSecurityError as e:
@@ -1227,6 +1231,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             "require_https": options.require_https,
             "network_timeout": options.network_timeout,
             "max_image_size_bytes": options.max_image_size_bytes,
+            "max_download_bytes": options.max_download_bytes,
         }
 
         # Only add emphasis_symbol and bullet_symbols if markdown_options exists

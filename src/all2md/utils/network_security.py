@@ -300,6 +300,121 @@ def create_secure_http_client(
     return client
 
 
+def fetch_content_securely(
+        url: str,
+        allowed_hosts: list[str] | None = None,
+        require_https: bool = False,
+        max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
+        timeout: float = 10.0,
+        expected_content_types: list[str] | None = None
+) -> bytes:
+    """Securely fetch content from URL with streaming and comprehensive validation.
+
+    Parameters
+    ----------
+    url : str
+        URL to fetch content from
+    allowed_hosts : list[str] | None, default None
+        List of allowed hostnames or CIDR blocks
+    require_https : bool, default False
+        If True, only HTTPS URLs are allowed
+    max_size_bytes : int, default 20MB
+        Maximum allowed response size in bytes
+    timeout : float, default 10.0
+        Request timeout in seconds
+    expected_content_types : list[str] | None, default None
+        List of allowed content type prefixes (e.g., ["image/", "text/"])
+
+    Returns
+    -------
+    bytes
+        Content data
+
+    Raises
+    ------
+    NetworkSecurityError
+        If URL fails security validation or fetch constraints
+    """
+    # Check global network disable first
+    if is_network_disabled():
+        raise NetworkSecurityError(
+            "Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable")
+
+    # Initial URL validation
+    validate_url_security(url, allowed_hosts=allowed_hosts, require_https=require_https)
+
+    try:
+        with create_secure_http_client(
+                timeout=timeout,
+                allowed_hosts=allowed_hosts,
+                require_https=require_https
+        ) as client:
+            # Use HEAD request first to check content-length header
+            try:
+                head_response = client.head(url)
+                head_response.raise_for_status()
+
+                # Check content-length header if present
+                content_length_header = head_response.headers.get('content-length')
+                if content_length_header:
+                    try:
+                        declared_size = int(content_length_header)
+                        if declared_size > max_size_bytes:
+                            raise NetworkSecurityError(
+                                f"Content-Length too large: {declared_size} bytes (max: {max_size_bytes})"
+                            )
+                    except ValueError:
+                        pass  # Invalid content-length header, will check during streaming
+
+                # Check content type from HEAD response
+                content_type = head_response.headers.get('content-type', '').lower()
+                if expected_content_types and not any(content_type.startswith(ct) for ct in expected_content_types):
+                    raise NetworkSecurityError(
+                        f"Invalid content type: {content_type}. Expected one of: {expected_content_types}"
+                    )
+            except Exception as head_error:
+                # HEAD request failed, continue with GET but be more cautious
+                logger.debug(f"HEAD request failed for {url}: {head_error}")
+
+            # Stream the actual content with size validation
+            with client.stream('GET', url) as response:
+                response.raise_for_status()
+
+                # Final content type check from GET response
+                content_type = response.headers.get('content-type', '').lower()
+                if expected_content_types and not any(content_type.startswith(ct) for ct in expected_content_types):
+                    raise NetworkSecurityError(
+                        f"Invalid content type: {content_type}. Expected one of: {expected_content_types}"
+                    )
+
+                # Stream content with size limit
+                content_chunks = []
+                total_size = 0
+
+                for chunk in response.iter_bytes(chunk_size=8192):
+                    total_size += len(chunk)
+                    if total_size > max_size_bytes:
+                        raise NetworkSecurityError(
+                            f"Response too large: exceeded {max_size_bytes} bytes during streaming"
+                        )
+                    content_chunks.append(chunk)
+
+                if total_size == 0:
+                    raise NetworkSecurityError("Empty response received")
+
+                content = b''.join(content_chunks)
+                logger.debug(f"Successfully fetched {total_size} bytes from {url}")
+                return content
+
+    except Exception as e:
+        if isinstance(e, NetworkSecurityError):
+            raise
+        # Check if it's an httpx error
+        if hasattr(e, '__module__') and e.__module__ and 'httpx' in e.__module__:
+            raise NetworkSecurityError(f"HTTP request failed for {url}: {e}") from e
+        raise NetworkSecurityError(f"Unexpected error fetching {url}: {e}") from e
+
+
 def fetch_image_securely(
         url: str,
         allowed_hosts: list[str] | None = None,
@@ -308,6 +423,8 @@ def fetch_image_securely(
         timeout: float = 10.0
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
+
+    This is a convenience wrapper around fetch_content_securely for image downloads.
 
     Parameters
     ----------
@@ -332,50 +449,14 @@ def fetch_image_securely(
     NetworkSecurityError
         If URL fails security validation or fetch constraints
     """
-    # Check global network disable first
-    if is_network_disabled():
-        raise NetworkSecurityError(
-            "Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable")
-
-    # Initial URL validation
-    validate_url_security(url, allowed_hosts=allowed_hosts, require_https=require_https)
-
-    try:
-        with create_secure_http_client(
-                timeout=timeout,
-                allowed_hosts=allowed_hosts,
-                require_https=require_https
-        ) as client:
-            response = client.get(url)
-            response.raise_for_status()
-
-            # Validate content type
-            content_type = response.headers.get('content-type', '').lower()
-            if not content_type.startswith('image/'):
-                raise NetworkSecurityError(
-                    f"Invalid content type for image: {content_type}. Expected image/*"
-                )
-
-            # Validate content size
-            content_length = len(response.content)
-            if content_length > max_size_bytes:
-                raise NetworkSecurityError(
-                    f"Response too large: {content_length} bytes (max: {max_size_bytes})"
-                )
-
-            if content_length == 0:
-                raise NetworkSecurityError("Empty response received")
-
-            logger.debug(f"Successfully fetched {content_length} bytes from {url}")
-            return response.content
-
-    except Exception as e:
-        if isinstance(e, NetworkSecurityError):
-            raise
-        # Check if it's an httpx error
-        if hasattr(e, '__module__') and e.__module__ and 'httpx' in e.__module__:
-            raise NetworkSecurityError(f"HTTP request failed for {url}: {e}") from e
-        raise NetworkSecurityError(f"Unexpected error fetching {url}: {e}") from e
+    return fetch_content_securely(
+        url=url,
+        allowed_hosts=allowed_hosts,
+        require_https=require_https,
+        max_size_bytes=max_size_bytes,
+        timeout=timeout,
+        expected_content_types=["image/"]
+    )
 
 
 def is_network_disabled() -> bool:

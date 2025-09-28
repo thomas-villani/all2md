@@ -87,7 +87,7 @@ to handle common encoding issues and format variations gracefully.
 
 import datetime
 import re
-from email import message_from_file, policy
+from email import message_from_binary_file, message_from_bytes, message_from_file, policy
 from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
@@ -347,6 +347,9 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
         payload = part.get_payload(decode=True)
 
         if isinstance(payload, bytes):
+            # Check for extremely large text payloads (protection against memory exhaustion)
+            if len(payload) > options.max_attachment_size_bytes:
+                return f"[Content too large ({len(payload)} bytes) - truncated for security]"
             return payload.decode(charset, errors="replace")
         elif isinstance(payload, str):
             return payload
@@ -742,6 +745,12 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
             if not isinstance(attachment_data, (bytes, type(None))):
                 attachment_data = None
 
+            # Check attachment size limits for security
+            if attachment_data and isinstance(attachment_data, bytes):
+                if len(attachment_data) > options.max_attachment_size_bytes:
+                    # Skip attachment that exceeds size limit
+                    continue
+
             # Determine if it's an image
             content_type = part.get_content_type()
             is_image = content_type.startswith("image/") if content_type else False
@@ -1050,18 +1059,24 @@ def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions
     if options is None:
         options = EmlOptions()
 
-    # Validate and process input with enhanced EmailMessage parsing
+    # Validate and process input with robust binary parsing
     try:
         if isinstance(input_data, (str, Path)):
-            with open(input_data, encoding="utf-8") as f:
-                eml_msg = message_from_file(f, policy=policy.default)
+            # Use binary file reading to avoid encoding assumptions
+            with open(input_data, 'rb') as f:
+                eml_msg = message_from_binary_file(f, policy=policy.default)
         elif isinstance(input_data, StringIO):
+            # StringIO already contains text, use text parser
             eml_msg = message_from_file(input_data, policy=policy.default)
         elif hasattr(input_data, 'read'):
-            # Handle IO[bytes] - read, decode to text, and parse
+            # Handle IO[bytes] - read binary data and parse directly
             input_data.seek(0)  # Ensure we're at the beginning
-            content = input_data.read().decode('utf-8', errors='replace')
-            eml_msg = message_from_file(StringIO(content), policy=policy.default)
+            content = input_data.read()
+            if isinstance(content, bytes):
+                eml_msg = message_from_bytes(content, policy=policy.default)
+            else:
+                # If it's text, convert to string and parse
+                eml_msg = message_from_file(StringIO(str(content)), policy=policy.default)
         else:
             raise InputError(
                 f"Unsupported input type: {type(input_data).__name__}. Expected str, Path, or binary file object",

@@ -75,6 +75,8 @@ from .constants import (
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LIST_INDENT_WIDTH,
+    DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
+    DEFAULT_MAX_DOWNLOAD_BYTES,
     DEFAULT_MAX_IMAGE_SIZE_BYTES,
     DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_NETWORK_TIMEOUT,
@@ -242,6 +244,13 @@ class BaseOptions(_CloneMixin):
     markdown_options: MarkdownOptions | None = field(
         default=None,
         metadata={"exclude_from_cli": True}  # Special field, handled separately
+    )
+    max_download_bytes: int = field(
+        default=DEFAULT_MAX_DOWNLOAD_BYTES,
+        metadata={
+            "help": "Maximum allowed size in bytes for any single download",
+            "type": int
+        }
     )
 
 
@@ -766,6 +775,13 @@ class EmlOptions(BaseOptions):
         default=DEFAULT_MAX_IMAGE_SIZE_BYTES,
         metadata={
             "help": "Maximum allowed size in bytes for downloaded images in HTML parts",
+            "type": int
+        }
+    )
+    max_attachment_size_bytes: int = field(
+        default=DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
+        metadata={
+            "help": "Maximum allowed size in bytes for email attachments",
             "type": int
         }
     )
