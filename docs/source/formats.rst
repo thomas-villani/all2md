@@ -43,7 +43,7 @@ PDF processing includes sophisticated table detection, multi-column layout handl
 
    options = PdfOptions(
        pages=[0, 1, 2],                    # Process first 3 pages only
-       table_fallback_detection=True,      # Enable fallback table detection
+       enable_table_fallback_detection=True, # Enable fallback table detection
        detect_columns=True,                # Handle multi-column layouts (default)
        header_percentile_threshold=75,     # Header detection threshold
        merge_hyphenated_words=True,        # Fix line-break hyphens
@@ -105,7 +105,7 @@ Full formatting preservation including styles, tables, images, and document stru
    md_options = MarkdownOptions(
        emphasis_symbol='_',                # Use underscores for emphasis
        bullet_symbols='•◦▪',              # Custom bullet points string
-       include_page_numbers=True           # Include page numbers in separators
+       page_separator_template="--- Page {page_num} ---" # Include page numbers in separators
    )
 
    options = DocxOptions(
@@ -163,7 +163,7 @@ Slide-by-slide extraction with support for speaker notes, shapes, and embedded c
 
    options = PptxOptions(
        include_notes=True,                 # Include speaker notes
-       slide_numbers=True,                 # Add slide number headers
+       include_slide_numbers=True,         # Add slide number headers
        attachment_mode='base64',           # Embed images as base64
        markdown_options=MarkdownOptions(
            page_separator='---'            # Custom slide separator
@@ -739,7 +739,7 @@ Best Practices
       # Better control over complex conversions
       options = PdfOptions(
           pages=[0, 1, 2],
-          table_fallback_detection=True,
+          enable_table_fallback_detection=True,
           attachment_mode='download'
       )
       markdown = to_markdown('complex.pdf', options=options)
@@ -762,7 +762,7 @@ Best Practices
 
       # Take advantage of format-specific features
       docx_options = DocxOptions(preserve_tables=True)
-      pdf_options = PdfOptions(table_fallback_detection=True)
+      pdf_options = PdfOptions(enable_table_fallback_detection=True)
       html_options = HtmlOptions(strip_dangerous_elements=True)
 
 For complete configuration options, see the :doc:`options` reference. For troubleshooting specific format issues, visit the :doc:`troubleshooting` guide.

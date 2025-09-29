@@ -29,7 +29,7 @@ Converting Directory of Mixed Documents
        "extract_metadata": true,
        "pdf.detect_columns": true,
        "html.strip_dangerous_elements": true,
-       "pptx.slide_numbers": true,
+       "pptx.include_slide_numbers": true,
        "eml.convert_html_to_markdown": true
    }
    EOF
@@ -80,7 +80,7 @@ Converting Directory of Mixed Documents
            'pptx': PptxOptions(
                attachment_mode="download",
                attachment_output_dir="./extracted_media",
-               slide_numbers=True,
+               include_slide_numbers=True,
                markdown_options=md_options
            )
        }
@@ -159,8 +159,7 @@ Creating Text-Only Archive from Website
            escape_special=False,  # Keep text readable
            use_hash_headings=True,
            page_separator="=" * 80,
-           page_separator_format="Page: {page_num} - {filename}",
-           include_page_numbers=True
+           page_separator_template="Page: {page_num} - {filename}"
        )
 
        html_options = HtmlOptions(
@@ -234,7 +233,7 @@ Document Processing for Fine-tuning
                bullet_symbols="*-+",
                use_hash_headings=True,
                page_separator="\\n---\\n",  # Clear page breaks
-               include_page_numbers=False  # No page numbers for training
+               page_separator_template="\n---\n"  # Clear page breaks only
            )
 
            self.pdf_options = PdfOptions(
@@ -242,7 +241,7 @@ Document Processing for Fine-tuning
                extract_metadata=True,
                detect_columns=True,
                merge_hyphenated_words=True,
-               table_fallback_detection=True,
+               enable_table_fallback_detection=True,
                markdown_options=self.md_options
            )
 
@@ -364,6 +363,7 @@ Web Application Integration
    from pathlib import Path
    from typing import Optional, Union
    from all2md import to_markdown, HtmlOptions, PdfOptions, MarkdownOptions
+   from all2md.options import NetworkFetchOptions, LocalFileAccessOptions
 
    class SecureDocumentProcessor:
        """Secure document processor for web applications."""
@@ -387,12 +387,16 @@ Web Application Integration
            # Secure HTML processing
            self.html_options = HtmlOptions(
                attachment_mode="skip",
-               allow_remote_fetch=False,  # Prevent SSRF attacks
-               allow_local_files=False,   # Prevent local file access
+               network=NetworkFetchOptions(
+                   allow_remote_fetch=False,  # Prevent SSRF attacks
+                   require_https=True,
+                   network_timeout=5.0,
+                   max_remote_asset_bytes=1024 * 1024  # 1MB image limit
+               ),
+               local_files=LocalFileAccessOptions(
+                   allow_local_files=False   # Prevent local file access
+               ),
                strip_dangerous_elements=True,  # Remove scripts/styles
-               require_https=True,
-               network_timeout=5.0,
-               max_image_size_bytes=1024 * 1024,  # 1MB image limit
                markdown_options=self.md_options
            )
 

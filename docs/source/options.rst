@@ -90,8 +90,25 @@ Using Options
    # Options map to CLI arguments with prefixes
    all2md document.pdf --pdf-pages "0,1,2" --attachment-mode download --markdown-emphasis-symbol "_"
 
-Base Options Classes
---------------------
+Shared Options Classes
+----------------------
+
+BaseOptions
+~~~~~~~~~~~
+
+Universal options inherited by all format-specific options classes.
+
+.. autoclass:: all2md.options.BaseOptions
+   :noindex:
+
+**CLI Prefix:** (no prefix - universal options)
+
+**Key Options:**
+
+* ``attachment_mode``: How to handle images/attachments (skip, alt_text, download, base64)
+* ``attachment_output_dir``: Directory for downloaded attachments
+* ``extract_metadata``: Extract document metadata as YAML front matter
+
 
 MarkdownOptions
 ~~~~~~~~~~~~~~~
@@ -113,32 +130,74 @@ Common Markdown formatting options used across all conversion modules.
        escape_special=True,           # Escape Markdown special characters
        emphasis_symbol="*",           # Use asterisks for emphasis
        bullet_symbols="*-+",          # Bullet symbols for nested lists
-       page_separator="-----",        # Page separator text
-       include_page_numbers=False,    # Include page numbers in separators
+       page_separator_template="-----", # Page separator template
        list_indent_width=4,           # Spaces per list level
        underline_mode="html",         # How to handle underlined text
        superscript_mode="html",       # How to handle superscript
        subscript_mode="html"          # How to handle subscript
    )
 
-BaseOptions
-~~~~~~~~~~~
 
-Universal options inherited by all format-specific options classes.
+NetworkFetchOptions
+~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: all2md.options.BaseOptions
+Network security configuration for controlling remote resource fetching.
+
+.. autoclass:: all2md.options.NetworkFetchOptions
    :noindex:
 
-**CLI Prefix:** (no prefix - universal options)
+**Key Features:**
 
-**Key Options:**
+* **SSRF Protection:** Controls remote resource fetching to prevent server-side request forgery
+* **Host Allowlisting:** Restrict fetching to specific trusted domains
+* **HTTPS Enforcement:** Require secure connections for all remote requests
+* **Size Limits:** Control maximum download size to prevent resource exhaustion
+* **Timeout Controls:** Set network timeout limits
 
-* ``attachment_mode``: How to handle images/attachments (skip, alt_text, download, base64)
-* ``attachment_output_dir``: Directory for downloaded attachments
-* ``extract_metadata``: Extract document metadata as YAML front matter
+**Example:**
+
+.. code-block:: python
+
+   from all2md.options import NetworkFetchOptions
+
+   network_options = NetworkFetchOptions(
+       allow_remote_fetch=True,          # Enable remote fetching
+       allowed_hosts=["cdn.example.com", "images.example.org"],  # Trusted hosts only
+       require_https=True,               # Force HTTPS
+       network_timeout=10.0,             # 10 second timeout
+       max_remote_asset_bytes=5*1024*1024  # 5MB max download
+   )
+
+LocalFileAccessOptions
+~~~~~~~~~~~~~~~~~~~~~~
+
+Local file system access configuration for controlling access to local files.
+
+.. autoclass:: all2md.options.LocalFileAccessOptions
+   :noindex:
+
+**Key Features:**
+
+* **Local File Control:** Enable/disable access to local files via file:// URLs
+* **Directory Allowlisting:** Specify allowed/denied directories for local access
+* **Working Directory Access:** Control access to current working directory
+* **Security Boundaries:** Prevent unauthorized file system access
+
+**Example:**
+
+.. code-block:: python
+
+   from all2md.options import LocalFileAccessOptions
+
+   local_options = LocalFileAccessOptions(
+       allow_local_files=True,           # Enable local file access
+       local_file_allowlist=["/safe/dir", "/images"], # Allowed directories
+       local_file_denylist=["/etc", "/home"],         # Blocked directories
+       allow_cwd_files=True              # Allow current directory access
+   )
 
 Format-Specific Options
-------------------------
+-----------------------
 
 PdfOptions
 ~~~~~~~~~~
@@ -169,7 +228,7 @@ Configuration for PDF document conversion with advanced parsing features.
        password="secret",                  # For encrypted PDFs
        header_percentile_threshold=75,     # Top 25% font sizes as headers
        detect_columns=True,                # Multi-column layout
-       table_fallback_detection=True,      # Heuristic table detection
+       enable_table_fallback_detection=True, # Heuristic table detection
        attachment_mode="base64"            # Embed images as base64
    )
 
@@ -222,7 +281,7 @@ Configuration for HTML document conversion with security and network features.
        use_hash_headings=True,         # Use # syntax for headers
        extract_title=True,             # Extract HTML title
        strip_dangerous_elements=True,  # Remove script/style tags
-       allow_remote_fetch=False,       # Block network requests (SSRF protection)
+       network=NetworkFetchOptions(allow_remote_fetch=False), # Block network requests (SSRF protection)
        attachment_mode="download"      # Download images locally
    )
 
@@ -243,7 +302,7 @@ Configuration for Microsoft PowerPoint presentation conversion.
    from all2md.options import PptxOptions
 
    options = PptxOptions(
-       slide_numbers=True,             # Include slide numbers
+       include_slide_numbers=True,     # Include slide numbers
        include_notes=True,             # Include speaker notes
        attachment_mode="base64"        # Embed images
    )
@@ -420,8 +479,10 @@ Configuration for MHTML web archive processing.
    from all2md.options import MhtmlOptions
 
    options = MhtmlOptions(
-       allow_local_files=False,        # Block local file access
-       allow_cwd_files=True,           # Allow current directory
+       local_files=LocalFileAccessOptions(
+           allow_local_files=False,    # Block local file access
+           allow_cwd_files=True        # Allow current directory
+       ),
        attachment_mode="download"      # Download embedded resources
    )
 
@@ -442,21 +503,57 @@ You can combine different option types for complex conversions:
    md_opts = MarkdownOptions(
        emphasis_symbol="_",
        bullet_symbols="•◦▪",
-       page_separator="=== PAGE {} ===",
-       include_page_numbers=True
+       page_separator_template="=== PAGE {page_num} =="
    )
 
    # PDF options with custom Markdown
    pdf_opts = PdfOptions(
        pages=[0, 1, 2, 3, 4],
        detect_columns=True,
-       table_fallback_detection=True,
+       enable_table_fallback_detection=True,
        attachment_mode="download",
        attachment_output_dir="./pdf_images",
        markdown_options=md_opts
    )
 
    result = to_markdown("complex_document.pdf", options=pdf_opts)
+
+Security Configuration with Nested Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The new nested options structure provides better organization for security settings:
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options import HtmlOptions, NetworkFetchOptions, LocalFileAccessOptions
+
+   # Configure network security
+   network_opts = NetworkFetchOptions(
+       allow_remote_fetch=True,
+       allowed_hosts=["cdn.example.com", "images.example.org"],
+       require_https=True,
+       network_timeout=5.0,
+       max_remote_asset_bytes=2*1024*1024  # 2MB limit
+   )
+
+   # Configure local file access
+   local_opts = LocalFileAccessOptions(
+       allow_local_files=False,  # Block local file access for security
+       allow_cwd_files=True      # Allow current directory only
+   )
+
+   # HTML options with security configuration
+   html_opts = HtmlOptions(
+       extract_title=True,
+       strip_dangerous_elements=True,
+       network=network_opts,
+       local_files=local_opts,
+       attachment_mode="download",
+       attachment_output_dir="./safe_downloads"
+   )
+
+   result = to_markdown("webpage.html", options=html_opts)
 
 JSON Configuration
 ~~~~~~~~~~~~~~~~~~
@@ -471,7 +568,10 @@ Options can be loaded from JSON files for reusable configurations:
      "markdown.emphasis_symbol": "_",
      "pdf.detect_columns": true,
      "pdf.pages": [0, 1, 2],
-     "html.strip_dangerous_elements": true
+     "pdf.enable_table_fallback_detection": true,
+     "html.strip_dangerous_elements": true,
+     "html.network.allow_remote_fetch": false,
+     "pptx.include_slide_numbers": true
    }
 
 .. code-block:: bash
@@ -500,5 +600,147 @@ All options classes are frozen dataclasses for thread safety. Use ``create_updat
    # Original options unchanged
    print(options.pages)      # [0, 1]
    print(new_options.pages)  # [0, 1, 2, 3]
+
+Migration Guide
+---------------
+
+Options Refactoring Changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The all2md options system has been improved to provide better organization and reduce redundancy. Here's how to migrate from the old field names to the new structure:
+
+Field Name Changes
+^^^^^^^^^^^^^^^^^^
+
+**PDF Options:**
+
+.. code-block:: python
+
+   # Old
+   PdfOptions(table_fallback_detection=True)
+
+   # New
+   PdfOptions(enable_table_fallback_detection=True)
+
+**PowerPoint Options:**
+
+.. code-block:: python
+
+   # Old
+   PptxOptions(slide_numbers=True)
+
+   # New
+   PptxOptions(include_slide_numbers=True)
+
+**Markdown Options - Page Separators:**
+
+.. code-block:: python
+
+   # Old
+   MarkdownOptions(
+       page_separator="-----",
+       page_separator_format="Page {page_num}",
+       include_page_numbers=True
+   )
+
+   # New
+   MarkdownOptions(
+       page_separator_template="Page {page_num}"  # Unified template
+   )
+
+Network Security Options
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Network and local file security options are now organized in nested dataclasses:
+
+.. code-block:: python
+
+   # Old
+   HtmlOptions(
+       allow_remote_fetch=True,
+       allowed_hosts=["example.com"],
+       require_https=True,
+       network_timeout=10.0,
+       max_image_size_bytes=1024*1024
+   )
+
+   # New
+   HtmlOptions(
+       network=NetworkFetchOptions(
+           allow_remote_fetch=True,
+           allowed_hosts=["example.com"],
+           require_https=True,
+           network_timeout=10.0,
+           max_remote_asset_bytes=1024*1024  # Renamed for clarity
+       )
+   )
+
+**Local File Access:**
+
+.. code-block:: python
+
+   # Old
+   MhtmlOptions(
+       allow_local_files=False,
+       local_file_allowlist=["/safe/dir"],
+       local_file_denylist=["/etc"],
+       allow_cwd_files=True
+   )
+
+   # New
+   MhtmlOptions(
+       local_files=LocalFileAccessOptions(
+           allow_local_files=False,
+           local_file_allowlist=["/safe/dir"],
+           local_file_denylist=["/etc"],
+           allow_cwd_files=True
+       )
+   )
+
+**Email Size Limits:**
+
+.. code-block:: python
+
+   # Old
+   EmlOptions(max_attachment_size_bytes=50*1024*1024)
+
+   # New
+   EmlOptions(max_email_attachment_bytes=50*1024*1024)
+
+CLI Argument Changes
+^^^^^^^^^^^^^^^^^^^^
+
+Command-line arguments have been updated to reflect the new structure:
+
+.. code-block:: bash
+
+   # Old
+   all2md document.pdf --pdf-table-fallback-detection
+   all2md slides.pptx --pptx-slide-numbers
+   all2md --markdown-page-separator "---" --markdown-include-page-numbers
+
+   # New
+   all2md document.pdf --pdf-enable-table-fallback-detection
+   all2md slides.pptx --pptx-include-slide-numbers
+   all2md --markdown-page-separator-template "--- Page {page_num} ---"
+
+**Nested Options in CLI:**
+
+.. code-block:: bash
+
+   # Old
+   all2md webpage.html --html-allow-remote-fetch --html-require-https
+
+   # New
+   all2md webpage.html --html-network-allow-remote-fetch --html-network-require-https
+
+Benefits of the New Structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* **Better Organization:** Related options are grouped together in logical dataclasses
+* **Reduced Redundancy:** Eliminated duplicate fields across different option classes
+* **Clearer Naming:** More consistent and descriptive field names
+* **Enhanced Security:** Network and file access options are clearly separated
+* **Improved CLI:** Arguments are properly grouped and easier to discover
 
 For complete CLI usage examples, see the :doc:`cli` reference.

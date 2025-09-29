@@ -267,14 +267,17 @@ HTML processing includes sophisticated network security features to prevent SSRF
 .. code-block:: python
 
    from all2md import HtmlOptions
+   from all2md.options import NetworkFetchOptions
 
    # Secure configuration for web applications
    secure_options = HtmlOptions(
-       allow_remote_fetch=True,           # Enable remote fetching
-       allowed_hosts=["example.com", "cdn.example.com"],  # Whitelist specific hosts
-       require_https=True,                # Force HTTPS for all requests
-       network_timeout=5.0,               # 5-second timeout
-       max_image_size_bytes=2 * 1024 * 1024,  # 2MB image limit
+       network=NetworkFetchOptions(
+           allow_remote_fetch=True,       # Enable remote fetching
+           allowed_hosts=["example.com", "cdn.example.com"],  # Whitelist specific hosts
+           require_https=True,            # Force HTTPS for all requests
+           network_timeout=5.0,           # 5-second timeout
+           max_remote_asset_bytes=2 * 1024 * 1024  # 2MB image limit
+       ),
        attachment_mode="download",
        attachment_output_dir="./secure_images"
    )
@@ -298,7 +301,7 @@ For maximum security in sensitive environments, use the ``ALL2MD_DISABLE_NETWORK
    os.environ['ALL2MD_DISABLE_NETWORK'] = '1'
 
    # All network requests will be blocked regardless of options
-   markdown = to_markdown("webpage.html", allow_remote_fetch=True)  # Still blocked
+   markdown = to_markdown("webpage.html", network=NetworkFetchOptions(allow_remote_fetch=True))  # Still blocked
 
 **Security Features:**
 
