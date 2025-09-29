@@ -123,18 +123,20 @@ class TestAltTextModes:
 
     def test_alt_text_mode_with_download_mode(self):
         """Test that alt_text_mode doesn't affect download mode."""
-        result = process_attachment(
-            attachment_data=b"fake image data",
-            attachment_name="test.png",
-            alt_text="Test Image",
-            attachment_mode="download",
-            attachment_output_dir="/tmp/test",
-            alt_text_mode="strict_markdown",
-            is_image=True
-        )
-        # Download mode should ignore alt_text_mode
-        assert result.startswith("![Test Image](")
-        assert "test.png" in result
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = process_attachment(
+                attachment_data=b"fake image data",
+                attachment_name="test.png",
+                alt_text="Test Image",
+                attachment_mode="download",
+                attachment_output_dir=temp_dir,
+                alt_text_mode="strict_markdown",
+                is_image=True
+            )
+            # Download mode should ignore alt_text_mode
+            assert result.startswith("![Test Image](")
+            assert "test.png" in result
 
     def test_alt_text_mode_with_base64_mode(self):
         """Test that alt_text_mode doesn't affect base64 mode."""

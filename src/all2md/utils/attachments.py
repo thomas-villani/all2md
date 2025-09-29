@@ -43,13 +43,186 @@ Functions
 import base64
 import logging
 import os
+import re
+import unicodedata
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
+    """Sanitize an attachment filename for secure file system storage.
+
+    This function normalizes Unicode characters, removes dangerous patterns,
+    and ensures cross-platform compatibility while preventing security issues.
+
+    Parameters
+    ----------
+    filename : str
+        Original filename to sanitize
+    max_length : int, default 255
+        Maximum length for the sanitized filename
+
+    Returns
+    -------
+    str
+        Sanitized filename safe for file system use
+
+    Raises
+    ------
+    ValueError
+        If the filename contains potentially malicious patterns that cannot be sanitized
+
+    Examples
+    --------
+    >>> sanitize_attachment_filename("test\u0301.png")  # test with combining accent
+    'test.png'
+    >>> sanitize_attachment_filename("../../../etc/passwd")
+    'passwd'
+    >>> sanitize_attachment_filename("file<>|name?.txt")
+    'filename.txt'
+    """
+    if not filename or not filename.strip():
+        return "attachment"
+
+    original_filename = filename
+
+    # Security check: detect potentially malicious patterns
+    malicious_patterns = [
+        r'\.\.[\\/]',  # Directory traversal
+        r'^[\\/]',     # Absolute paths
+        r'[\x00-\x1f\x7f]',  # Control characters
+        r'^\s*$',      # Only whitespace
+    ]
+
+    for pattern in malicious_patterns:
+        if re.search(pattern, filename):
+            logger.warning(f"Potentially malicious filename pattern detected: {filename}")
+            # Continue with sanitization rather than rejecting
+
+    # Check for excessive length before processing
+    if len(filename) > max_length * 2:  # Arbitrary threshold
+        logger.warning(f"Filename extremely long ({len(filename)} chars), truncating: {filename[:50]}...")
+
+    # Normalize Unicode to prevent visually confusable names
+    # NFKC removes compatibility characters and combines decomposed characters
+    normalized = unicodedata.normalize('NFKC', filename)
+
+    # Convert to lowercase for case normalization
+    normalized = normalized.lower()
+
+    # Handle directory traversal attempts and path separators FIRST
+    # Split by path separators and take only the last part (filename)
+    path_parts = re.split(r'[/\\]', normalized)
+    safe_chars = path_parts[-1] if path_parts else "attachment"
+
+    # Remove or replace dangerous characters
+    # Keep only alphanumeric, dots, hyphens, underscores, and spaces
+    safe_chars = re.sub(r'[^\w\.\-\s]', '', safe_chars)
+
+    # Replace multiple spaces/dots with single versions
+    safe_chars = re.sub(r'\s+', '_', safe_chars)
+    safe_chars = re.sub(r'\.+', '.', safe_chars)
+
+    # Remove leading/trailing dots and spaces (Windows restrictions)
+    safe_chars = safe_chars.strip('. ')
+
+    # Additional security: remove any remaining path-like constructs
+    safe_chars = re.sub(r'\.\.+', '.', safe_chars)
+
+    # Remove Windows reserved names
+    windows_reserved = {
+        'con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5',
+        'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4',
+        'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
+    }
+
+    name_parts = safe_chars.split('.')
+    if name_parts[0].lower() in windows_reserved:
+        name_parts[0] = f"file_{name_parts[0]}"
+        safe_chars = '.'.join(name_parts)
+
+    # Security check: ensure the filename isn't just dots
+    if re.match(r'^\.*$', safe_chars):
+        safe_chars = "attachment"
+
+    # Ensure we have something meaningful
+    if not safe_chars or safe_chars == '.':
+        safe_chars = "attachment"
+
+    # Security: prevent filenames that are all underscores (edge case)
+    if re.match(r'^_+$', safe_chars):
+        safe_chars = "attachment"
+
+    # Truncate if too long, preserving extension
+    if len(safe_chars) > max_length:
+        if '.' in safe_chars:
+            name, ext = safe_chars.rsplit('.', 1)
+            max_name_length = max_length - len(ext) - 1  # -1 for the dot
+            if max_name_length > 0:
+                safe_chars = f"{name[:max_name_length]}.{ext}"
+            else:
+                safe_chars = f"file.{ext}"
+        else:
+            safe_chars = safe_chars[:max_length]
+
+    # Final security check: ensure we still have a valid filename
+    if not safe_chars or len(safe_chars.strip()) == 0:
+        safe_chars = "attachment"
+
+    # Log the transformation if it was significant
+    if safe_chars != original_filename:
+        logger.debug(f"Sanitized filename: '{original_filename}' -> '{safe_chars}'")
+
+    return safe_chars
+
+
+def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> Path:
+    """Ensure a unique file path by adding numeric suffixes for collisions.
+
+    Parameters
+    ----------
+    base_path : Path
+        The desired base path for the attachment
+    max_attempts : int, default 1000
+        Maximum number of collision resolution attempts
+
+    Returns
+    -------
+    Path
+        A unique file path that doesn't exist on the filesystem
+
+    Raises
+    ------
+    RuntimeError
+        If unable to find a unique path after max_attempts
+
+    Examples
+    --------
+    >>> # If image.png exists, returns image-1.png
+    >>> ensure_unique_attachment_path(Path("./attachments/image.png"))
+    Path('./attachments/image-1.png')
+    """
+    if not base_path.exists():
+        return base_path
+
+    # Extract name and extension
+    stem = base_path.stem
+    suffix = base_path.suffix
+    parent = base_path.parent
+
+    # Try numbered suffixes
+    for i in range(1, max_attempts + 1):
+        new_path = parent / f"{stem}-{i}{suffix}"
+        if not new_path.exists():
+            return new_path
+
+    # If we get here, we couldn't find a unique path
+    raise RuntimeError(f"Unable to find unique path after {max_attempts} attempts for {base_path}")
 
 
 def process_attachment(
@@ -140,30 +313,77 @@ def process_attachment(
             attachment_output_dir = "attachments"
 
         # Create output directory if it doesn't exist
-        os.makedirs(attachment_output_dir, exist_ok=True)
+        try:
+            os.makedirs(attachment_output_dir, exist_ok=True)
+        except OSError as e:
+            logger.error(f"Failed to create attachment directory {attachment_output_dir}: {e}")
+            # Fall back to alt-text mode if directory creation fails
+            if is_image:
+                if alt_text_mode == "strict_markdown":
+                    return f"![{alt_text or attachment_name}](#)"
+                elif alt_text_mode == "footnote":
+                    return f"![{alt_text or attachment_name}][^{attachment_name}]"
+                else:
+                    return f"![{alt_text or attachment_name}]"
+            else:
+                if alt_text_mode == "plain_filename":
+                    return attachment_name
+                elif alt_text_mode == "strict_markdown":
+                    return f"[{attachment_name}](#)"
+                elif alt_text_mode == "footnote":
+                    return f"[{attachment_name}][^{attachment_name}]"
+                else:
+                    return f"[{attachment_name}]"
 
-        # Generate safe filename
-        safe_name = "".join(c for c in attachment_name if c.isalnum() or c in "._-")
-        if not safe_name:
-            safe_name = "attachment"
+        # Sanitize the filename for security
+        safe_name = sanitize_attachment_filename(attachment_name)
 
-        attachment_path = Path(attachment_output_dir) / safe_name
+        # Create the initial attachment path
+        base_path = Path(attachment_output_dir) / safe_name
+
+        # Ensure the path is unique to prevent collisions
+        unique_path = ensure_unique_attachment_path(base_path)
 
         # Write attachment data if available
         if attachment_data:
-            with open(attachment_path, "wb") as f:
-                f.write(attachment_data)
+            try:
+                with open(unique_path, "wb") as f:
+                    f.write(attachment_data)
+                logger.debug(f"Wrote attachment to: {unique_path}")
+            except OSError as e:
+                logger.error(f"Failed to write attachment {unique_path}: {e}")
+                # Fall back to alt-text mode if writing fails
+                if is_image:
+                    if alt_text_mode == "strict_markdown":
+                        return f"![{alt_text or attachment_name}](#)"
+                    elif alt_text_mode == "footnote":
+                        return f"![{alt_text or attachment_name}][^{attachment_name}]"
+                    else:
+                        return f"![{alt_text or attachment_name}]"
+                else:
+                    if alt_text_mode == "plain_filename":
+                        return attachment_name
+                    elif alt_text_mode == "strict_markdown":
+                        return f"[{attachment_name}](#)"
+                    elif alt_text_mode == "footnote":
+                        return f"[{attachment_name}][^{attachment_name}]"
+                    else:
+                        return f"[{attachment_name}]"
 
-        # Build URL
+        # Build URL using the final filename
+        final_filename = unique_path.name
         if attachment_base_url:
-            url = urljoin(attachment_base_url.rstrip("/") + "/", safe_name)
+            url = urljoin(attachment_base_url.rstrip("/") + "/", final_filename)
         else:
-            url = str(attachment_path)
+            url = str(unique_path)
+
+        # Use the sanitized filename for display if no alt_text provided
+        display_name = alt_text or safe_name
 
         if is_image:
-            return f"![{alt_text or attachment_name}]({url})"
+            return f"![{display_name}]({url})"
         else:
-            return f"[{attachment_name}]({url})"
+            return f"[{display_name}]({url})"
 
     # Fallback to alt_text mode if attachment data is missing or mode is unsupported
     logger.info(f"Falling back to alt_text mode for attachment: {attachment_name} "
@@ -322,7 +542,7 @@ def generate_attachment_filename(
         return f"{base_stem}_{attachment_type}{sequence_num}.{extension}"
 
 
-def create_attachment_sequencer():
+def create_attachment_sequencer() -> Callable[[str, str], tuple[str, int]]:
     """Create a closure that tracks attachment sequence numbers to prevent duplicates.
 
     Returns
@@ -337,10 +557,10 @@ def create_attachment_sequencer():
     >>> sequencer("doc", "pdf", page_num=1)  # Returns: ('doc_p1_img2.png', 2)
     >>> sequencer("doc", "pdf", page_num=2)  # Returns: ('doc_p2_img1.png', 1)
     """
-    used_filenames = set()
-    sequence_counters = {}
+    used_filenames: set[str] = set()
+    sequence_counters: dict[str, int] = {}
 
-    def get_next_filename(base_stem: str, format_type: str = "general", **kwargs) -> tuple[str, int]:
+    def get_next_filename(base_stem: str, format_type: str = "general", **kwargs: Any) -> tuple[str, int]:
         """Generate next available filename with sequence number.
 
         Returns
