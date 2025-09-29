@@ -1169,7 +1169,17 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
         if input_type == "path":
             doc = fitz.open(filename=str(doc_input))
         elif input_type in ("file", "bytes"):
-            doc = fitz.open(stream=doc_input)
+            # Handle different file-like object types
+            if hasattr(doc_input, 'name') and hasattr(doc_input, 'read'):
+                # For file objects that have a name attribute (like BufferedReader from open()),
+                # use the filename approach which is more memory efficient
+                doc = fitz.open(filename=doc_input.name)
+            elif hasattr(doc_input, 'read'):
+                # For file-like objects without name (like BytesIO), read the content
+                doc = fitz.open(stream=doc_input.read(), filetype="pdf")
+            else:
+                # For bytes objects
+                doc = fitz.open(stream=doc_input)
         elif input_type == "object":
             if isinstance(doc_input, fitz.Document) or (
                     hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")

@@ -553,12 +553,16 @@ def process_with_rich_output(
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
                 for file in files:
-                    output_path = generate_output_path(
-                        file,
-                        Path(args.output_dir) if args.output_dir else None,
-                        args.preserve_structure,
-                        base_input_dir
-                    )
+                    # For single files without explicit output, use stdout with rich formatting
+                    if len(files) == 1 and not args.out and not args.output_dir:
+                        output_path = None
+                    else:
+                        output_path = generate_output_path(
+                            file,
+                            Path(args.output_dir) if args.output_dir else None,
+                            args.preserve_structure,
+                            base_input_dir
+                        )
                     future = executor.submit(
                         convert_single_file,
                         file,
@@ -571,14 +575,40 @@ def process_with_rich_output(
 
                 for future in as_completed(futures):
                     file, output_path = futures[future]
-                    success, file_str, error = future.result()
+
+                    # Special handling for single file rich output to stdout
+                    if len(files) == 1 and not args.out and not args.output_dir:
+                        try:
+                            # Convert the document
+                            markdown_content = to_markdown(file, format=format_arg, **options)
+
+                            # Render with Rich Markdown
+                            from rich.markdown import Markdown
+                            console.print(Markdown(markdown_content))
+
+                            success = True
+                            error = None
+                        except (MarkdownConversionError, InputError) as e:
+                            success = False
+                            error = str(e)
+                        except ImportError as e:
+                            success = False
+                            error = f"Missing dependency: {e}"
+                        except Exception as e:
+                            success = False
+                            error = f"Unexpected error: {e}"
+                    else:
+                        success, file_str, error = future.result()
 
                     if success:
                         results.append((file, output_path))
-                        console.print(f"[green]✓[/green] {file} → {output_path}")
+                        if output_path:
+                            console.print(f"[green]OK[/green] {file} -> {output_path}")
+                        else:
+                            console.print(f"[green]OK[/green] Converted {file}")
                     else:
                         failed.append((file, error))
-                        console.print(f"[red]✗[/red] {file}: {error}")
+                        console.print(f"[red]ERROR[/red] {file}: {error}")
                         if not args.skip_errors:
                             break
 
@@ -588,41 +618,70 @@ def process_with_rich_output(
             task_id = progress.add_task("[cyan]Converting files...", total=len(files))
 
             for file in files:
-                output_path = generate_output_path(
-                    file,
-                    Path(args.output_dir) if args.output_dir else None,
-                    args.preserve_structure,
-                    base_input_dir
-                )
+                # For single files without explicit output, use stdout with rich formatting
+                if len(files) == 1 and not args.out and not args.output_dir:
+                    output_path = None
+                else:
+                    output_path = generate_output_path(
+                        file,
+                        Path(args.output_dir) if args.output_dir else None,
+                        args.preserve_structure,
+                        base_input_dir
+                    )
 
-                success, file_str, error = convert_single_file(
-                    file,
-                    output_path,
-                    options,
-                    format_arg,
-                    False
-                )
+                # Special handling for single file rich output to stdout
+                if len(files) == 1 and not args.out and not args.output_dir:
+                    try:
+                        # Convert the document
+                        markdown_content = to_markdown(file, format=format_arg, **options)
+
+                        # Render with Rich Markdown
+                        from rich.markdown import Markdown
+                        console.print(Markdown(markdown_content))
+
+                        success = True
+                        error = None
+                    except (MarkdownConversionError, InputError) as e:
+                        success = False
+                        error = str(e)
+                    except ImportError as e:
+                        success = False
+                        error = f"Missing dependency: {e}"
+                    except Exception as e:
+                        success = False
+                        error = f"Unexpected error: {e}"
+                else:
+                    success, file_str, error = convert_single_file(
+                        file,
+                        output_path,
+                        options,
+                        format_arg,
+                        False
+                    )
 
                 if success:
                     results.append((file, output_path))
-                    console.print(f"[green]✓[/green] {file} → {output_path}")
+                    if output_path:
+                        console.print(f"[green]OK[/green] {file} -> {output_path}")
+                    else:
+                        console.print(f"[green]OK[/green] Converted {file}")
                 else:
                     failed.append((file, error))
-                    console.print(f"[red]✗[/red] {file}: {error}")
+                    console.print(f"[red]ERROR[/red] {file}: {error}")
                     if not args.skip_errors:
                         break
 
                 progress.update(task_id, advance=1)
 
-    # Show summary
-    if not args.no_summary:
+    # Show summary table only for multiple files
+    if not args.no_summary and len(files) > 1:
         console.print()
         table = Table(title="Conversion Summary")
         table.add_column("Status", style="cyan", no_wrap=True)
         table.add_column("Count", style="magenta")
 
-        table.add_row("✓ Successful", str(len(results)))
-        table.add_row("✗ Failed", str(len(failed)))
+        table.add_row("+ Successful", str(len(results)))
+        table.add_row("- Failed", str(len(failed)))
         table.add_row("Total", str(len(files)))
 
         console.print(table)
@@ -829,9 +888,9 @@ def process_files_collated(
 
                 for file in files:
                     if process_file(file):
-                        console.print(f"[green]✓[/green] Processed {file}")
+                        console.print(f"[green]OK[/green] Processed {file}")
                     else:
-                        console.print(f"[red]✗[/red] {file}: {failed[-1][1]}")
+                        console.print(f"[red]ERROR[/red] {file}: {failed[-1][1]}")
                         if not args.skip_errors:
                             break
                     progress.update(task_id, advance=1)
@@ -889,8 +948,8 @@ def process_files_collated(
                 table.add_column("Status", style="cyan", no_wrap=True)
                 table.add_column("Count", style="magenta")
 
-                table.add_row("✓ Successfully processed", str(len(collated_content)))
-                table.add_row("✗ Failed", str(len(failed)))
+                table.add_row("+ Successfully processed", str(len(collated_content)))
+                table.add_row("- Failed", str(len(failed)))
                 table.add_row("Total", str(len(files)))
 
                 console.print(table)
