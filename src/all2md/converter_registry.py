@@ -184,6 +184,9 @@ class ConverterRegistry:
             # Try to get options class if specified
             options_class = None
             if metadata.options_class:
+                # TODO: this is brittle and would probably fail for plugins
+                #  a better solution is to point to the class itself, or if its a str,
+                #  to include the full path to the class (e.g. all2md_myplugin.options.OptionsClass)
                 # Import from options module
                 from . import options
                 options_class = getattr(options, metadata.options_class, None)

@@ -546,7 +546,7 @@ Test with Minimal Example
    print(result)
 
 Examine File Structure
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 

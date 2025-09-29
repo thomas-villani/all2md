@@ -61,7 +61,7 @@ class ConverterMetadata:
     required_packages: list[tuple[str, str]] = field(default_factory=list)
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
-    options_class: str = ""
+    options_class: str = ""   # TODO: how to handle
     description: str = ""
     priority: int = 0
 

@@ -653,7 +653,7 @@ Format Detection
 ----------------
 
 Automatic Format Detection
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 all2md uses multiple strategies to detect document formats:
 
@@ -695,7 +695,7 @@ Format-Specific Error Handling
 ------------------------------
 
 Missing Dependencies
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -709,7 +709,7 @@ Missing Dependencies
        print("Install with: pip install all2md[pdf]")
 
 Unsupported Features
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 

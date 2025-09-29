@@ -55,7 +55,7 @@ Supported HTML Elements
 - Blockquotes with proper nesting
 
 Configuration Options
---------------------
+---------------------
 - Hash-style vs. underline-style headings
 - Emphasis symbols (* vs _)
 - Custom bullet symbols for lists

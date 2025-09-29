@@ -805,7 +805,7 @@ Working with Images
    all2md webpage.html --attachment-mode download --attachment-base-url https://example.com
 
 Advanced PDF Processing
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -819,7 +819,7 @@ Advanced PDF Processing
    all2md simple.pdf --pdf-no-detect-columns
 
 Email Processing
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -830,7 +830,7 @@ Email Processing
    all2md thread.eml --eml-no-include-headers --eml-no-preserve-thread-structure
 
 Batch Processing
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -844,7 +844,7 @@ Batch Processing
    find ./documents -name "*.docx" -exec all2md {} --out {}.md --markdown-emphasis-symbol "_" \;
 
 Web Content Processing
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -927,7 +927,7 @@ Common Exit Codes
 * ``3`` - Input/output error (file not found, permission denied)
 
 Error Examples
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -947,7 +947,7 @@ Shell Integration
 -----------------
 
 Bash Completion
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 Add to your ``.bashrc`` or ``.bash_profile``:
 
@@ -957,7 +957,7 @@ Add to your ``.bashrc`` or ``.bash_profile``:
    complete -f -X '!*.@(pdf|docx|pptx|html|eml|epub|ipynb|odt|odp|xlsx|csv|tsv)' all2md
 
 Aliases and Functions
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -977,7 +977,7 @@ Aliases and Functions
    }
 
 Environment Variables
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 Set default options using environment variables:
 

@@ -122,15 +122,15 @@ class MarkdownOptions(_CloneMixin):
     ----------
     escape_special : bool, default True
         Whether to escape special Markdown characters in text content.
-        When True, characters like *, _, #, [, ], (, ), \ are escaped
+        When True, characters like \*, \_, #, [, ], (, ), \\ are escaped
         to prevent unintended formatting.
-    emphasis_symbol : {"*", "_"}, default "*"
+    emphasis_symbol : {"\*", "\_"}, default "\*"
         Symbol to use for emphasis/italic formatting in Markdown.
-    bullet_symbols : str, default "*-+"
+    bullet_symbols : str, default "\*-+"
         Characters to cycle through for nested bullet lists.
-    page_separator : str, default "-----"
+    page_separator : str, default "\-\-\-\-\-"
         Text used to separate pages or sections in output.
-    page_separator_format : str, default "-----"
+    page_separator_format : str, default "\-\-\-\-\-"
         Format string for page separators. Can include {page_num} placeholder.
     include_page_numbers : bool, default False
         Whether to include page numbers in page separators.

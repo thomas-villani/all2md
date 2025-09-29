@@ -435,7 +435,7 @@ New option classes inherit from ``BaseOptions``:
        markdown_options: Optional[MarkdownOptions] = None
 
 Integration Patterns
--------------------
+--------------------
 
 Batch Processing
 ~~~~~~~~~~~~~~~~

@@ -1,5 +1,5 @@
 all2md Documentation
-===================
+=====================
 
 Welcome to all2md, a Python document conversion library for rapid, lightweight transformation of various document formats to Markdown. Designed specifically for LLMs and document processing pipelines.
 
@@ -95,6 +95,7 @@ User Guide
    quickstart
    overview
    formats
+   options
    cli
    recipes
    plugins
