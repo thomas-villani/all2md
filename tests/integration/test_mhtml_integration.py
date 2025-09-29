@@ -139,7 +139,15 @@ class TestMhtmlIntegrationImages:
         mhtml_content = create_mhtml_with_multiple_assets()
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
-        options = MhtmlOptions(attachment_mode="base64")
+        # Enable local file access to test file:// URL processing
+        from all2md.options import LocalFileAccessOptions
+        options = MhtmlOptions(
+            attachment_mode="base64",
+            local_files=LocalFileAccessOptions(
+                allow_local_files=True,
+                allow_cwd_files=True
+            )
+        )
         result = mhtml_to_markdown(mhtml_file, options=options)
 
         assert isinstance(result, str)
@@ -394,10 +402,19 @@ class TestMhtmlIntegrationPerformance:
         """Test performance with repeated asset processing."""
         mhtml_content = create_mhtml_with_multiple_assets()
 
+        # Enable local file access to test file:// URL processing
+        from all2md.options import LocalFileAccessOptions, MhtmlOptions
+        options = MhtmlOptions(
+            local_files=LocalFileAccessOptions(
+                allow_local_files=True,
+                allow_cwd_files=True
+            )
+        )
+
         # Convert same file multiple times
         for i in range(3):
             mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
-            result = mhtml_to_markdown(mhtml_file)
+            result = mhtml_to_markdown(mhtml_file, options=options)
 
             assert isinstance(result, str)
             # Data URLs may be blocked, so check for image processing instead
@@ -467,4 +484,236 @@ Content-Type: text/html
         assert isinstance(result, str)
         assert "Test Without Charset" in result
         assert "Regular ASCII content" in result
+        assert_markdown_valid(result)
+
+
+@pytest.mark.integration
+@pytest.mark.mhtml
+class TestMhtmlSecurityIntegration:
+    """Test MHTML security features integration."""
+
+    def test_file_url_security_master_switch(self, temp_dir):
+        """Test that master switch blocks file:// URLs even with allow_cwd_files=True."""
+        # Create MHTML with file:// references to current directory
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Test Security</h1>
+    <img src="file://./test_image.png" alt="Local file">
+    <img src="file:///etc/passwd" alt="System file">
+</body>
+</html>
+
+--test-boundary--
+"""
+        mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
+
+        # Test with master switch disabled (default)
+        options = MhtmlOptions()  # Uses default security settings
+        result = mhtml_to_markdown(mhtml_file, options=options)
+
+        assert isinstance(result, str)
+        # Images should be removed due to security restrictions
+        assert "file://" not in result
+        assert "test_image.png" not in result
+        assert "/etc/passwd" not in result
+        assert_markdown_valid(result)
+
+    def test_file_url_security_explicit_disable(self, temp_dir):
+        """Test explicit disabling of local file access."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Test Security</h1>
+    <img src="file://./allowed_image.png" alt="CWD file">
+</body>
+</html>
+
+--test-boundary--
+"""
+        mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
+
+        # Explicitly disable local file access
+        from all2md.options import LocalFileAccessOptions
+        local_files_options = LocalFileAccessOptions(
+            allow_local_files=False,
+            allow_cwd_files=True  # Should be ignored due to master switch
+        )
+        options = MhtmlOptions(local_files=local_files_options)
+        result = mhtml_to_markdown(mhtml_file, options=options)
+
+        assert isinstance(result, str)
+        # Image should be removed
+        assert "file://" not in result
+        assert "allowed_image.png" not in result
+        assert_markdown_valid(result)
+
+    def test_file_url_security_with_allowlist(self, temp_dir):
+        """Test local file access with allowlist."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Test Allowlist</h1>
+    <img src="file:///allowed/path/image.png" alt="Allowed file">
+    <img src="file:///denied/path/image.png" alt="Denied file">
+</body>
+</html>
+
+--test-boundary--
+"""
+        mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
+
+        # Enable local files with allowlist
+        from all2md.options import LocalFileAccessOptions
+        local_files_options = LocalFileAccessOptions(
+            allow_local_files=True,
+            local_file_allowlist=["/allowed/path"],
+            allow_cwd_files=False
+        )
+        options = MhtmlOptions(local_files=local_files_options)
+        result = mhtml_to_markdown(mhtml_file, options=options)
+
+        assert isinstance(result, str)
+        # Should not contain the file URLs since files don't actually exist
+        # but processing should not fail
+        assert_markdown_valid(result)
+
+    def test_file_url_security_with_denylist(self, temp_dir):
+        """Test local file access with denylist."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Test Denylist</h1>
+    <img src="file:///etc/passwd" alt="System file">
+    <img src="file:///safe/path/image.png" alt="Safe file">
+</body>
+</html>
+
+--test-boundary--
+"""
+        mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
+
+        # Enable local files with denylist
+        from all2md.options import LocalFileAccessOptions
+        local_files_options = LocalFileAccessOptions(
+            allow_local_files=True,
+            local_file_denylist=["/etc", "/var", "/usr"],
+            allow_cwd_files=False
+        )
+        options = MhtmlOptions(local_files=local_files_options)
+        result = mhtml_to_markdown(mhtml_file, options=options)
+
+        assert isinstance(result, str)
+        # Images should be processed according to denylist rules
+        assert_markdown_valid(result)
+
+    def test_cwd_file_security_when_enabled(self, temp_dir):
+        """Test CWD file access when properly enabled."""
+        # Create a test image file in temp directory
+        test_image = temp_dir / "test_image.png"
+        test_image.write_bytes(b"fake_png_data")
+
+        mhtml_content = f"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Test CWD Access</h1>
+    <img src="file://./{test_image.name}" alt="CWD file">
+</body>
+</html>
+
+--test-boundary--
+""".encode('utf-8')
+
+        mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
+
+        # Change to temp directory to test CWD access
+        import os
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+
+            # Enable CWD access properly
+            from all2md.options import LocalFileAccessOptions
+            local_files_options = LocalFileAccessOptions(
+                allow_local_files=True,  # Master switch must be True
+                allow_cwd_files=True
+            )
+            options = MhtmlOptions(local_files=local_files_options)
+            result = mhtml_to_markdown(mhtml_file, options=options)
+
+            assert isinstance(result, str)
+            assert_markdown_valid(result)
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_mixed_security_scenarios(self, temp_dir):
+        """Test mixed security scenarios with various URL types."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Mixed URL Types</h1>
+    <img src="http://example.com/remote.png" alt="Remote file">
+    <img src="file://./local.png" alt="Local file">
+    <img src="data:image/png;base64,abc" alt="Data URI">
+    <img src="cid:embedded" alt="CID reference">
+</body>
+</html>
+
+--test-boundary
+Content-Type: image/png
+Content-ID: <embedded>
+
+fake_image_data
+--test-boundary--
+"""
+        mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
+
+        # Test with default security (should block file:// but allow others)
+        options = MhtmlOptions()
+        result = mhtml_to_markdown(mhtml_file, options=options)
+
+        assert isinstance(result, str)
+        # Remote URLs, data URIs, and CID references should be preserved
+        assert "http://example.com/remote.png" in result or "![Remote file]" in result
+        assert "data:image/png;base64" in result or "![Data URI]" in result
+        # CID should be processed and embedded
+        # Local file:// should be removed
+        assert "file://" not in result
         assert_markdown_valid(result)

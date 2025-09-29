@@ -131,7 +131,7 @@ TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "
 
 # Local file security
 DEFAULT_ALLOW_LOCAL_FILES = False
-DEFAULT_ALLOW_CWD_FILES = True
+DEFAULT_ALLOW_CWD_FILES = False
 
 # Network security (SSRF protection)
 DEFAULT_ALLOW_REMOTE_FETCH = False

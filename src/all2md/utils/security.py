@@ -47,13 +47,14 @@ def validate_local_file_access(
     file_url : str
         The file:// URL to validate
     allow_local_files : bool, default False
-        Master switch for local file access
+        Master switch for local file access. If False, no local files are allowed.
     local_file_allowlist : list[str] | None, default None
         List of directories allowed for local file access (when allow_local_files=True)
     local_file_denylist : list[str] | None, default None
         List of directories denied for local file access
     allow_cwd_files : bool, default True
-        Allow local files from current working directory and subdirectories
+        Allow local files from current working directory and subdirectories.
+        Only applies when allow_local_files=True.
 
     Returns
     -------
@@ -64,7 +65,9 @@ def validate_local_file_access(
     --------
     >>> validate_local_file_access("file:///etc/passwd", allow_local_files=False)
     False
-    >>> validate_local_file_access("file://./image.png", allow_cwd_files=True)
+    >>> validate_local_file_access("file://./image.png", allow_local_files=False)
+    False
+    >>> validate_local_file_access("file://./image.png", allow_local_files=True, allow_cwd_files=True)
     True
     """
     if not file_url.startswith("file://"):
@@ -98,6 +101,10 @@ def validate_local_file_access(
             except ValueError:
                 continue  # File is not under this denied directory
 
+    # Check master switch for local files first
+    if not allow_local_files:
+        return False
+
     # Check if CWD files are allowed and file is under CWD
     if allow_cwd_files:
         try:
@@ -106,12 +113,8 @@ def validate_local_file_access(
         except ValueError:
             pass  # File is not under CWD
 
-    # Check master switch for local files
-    if not allow_local_files:
-        return False
-
     # Check allowlist if provided
-    if local_file_allowlist:
+    if local_file_allowlist is not None:
         for allowed_dir in local_file_allowlist:
             allowed_path = Path(allowed_dir).resolve()
             try:
@@ -119,7 +122,7 @@ def validate_local_file_access(
                 return True  # File is in an allowed directory
             except ValueError:
                 continue  # File is not under this allowed directory
-        return False  # Not in any allowed directory
+        return False  # Not in any allowed directory (or empty allowlist)
 
     # If allow_local_files=True and no allowlist, allow access
     return True

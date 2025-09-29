@@ -134,7 +134,51 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
             assert 'cid:test-image' not in processed_html
 
     def test_mhtml_to_markdown_with_file_urls(self):
-        """Test MHTML conversion with file:// referenced images."""
+        """Test MHTML conversion with file:// referenced images when local files enabled."""
+        mhtml_content = b"""MIME-Version: 1.0
+Content-Type: multipart/related; boundary="test-boundary"
+
+--test-boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+    <img src="file://test.png" alt="File Image">
+</body></html>
+
+--test-boundary
+Content-Type: image/png
+Content-Location: test.png
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+
+--test-boundary--
+"""
+
+        from all2md.options import MhtmlOptions, LocalFileAccessOptions
+
+        # Enable local file access to test file:// URL processing
+        options = MhtmlOptions(
+            local_files=LocalFileAccessOptions(
+                allow_local_files=True,
+                allow_cwd_files=True
+            )
+        )
+
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+            mock_html_to_md.return_value = "![File Image](data:image/png;base64,...)"
+
+            result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
+
+            # Verify that the image src was processed
+            args, _ = mock_html_to_md.call_args
+            processed_html = args[0]
+
+            assert 'data:image/png;base64,' in processed_html
+            assert 'file://test.png' not in processed_html
+
+    def test_mhtml_to_markdown_file_urls_blocked_by_default(self):
+        """Test that file:// URLs are blocked by default security settings."""
         mhtml_content = b"""MIME-Version: 1.0
 Content-Type: multipart/related; boundary="test-boundary"
 
@@ -156,16 +200,18 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
 """
 
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
-            mock_html_to_md.return_value = "![File Image](data:image/png;base64,...)"
+            mock_html_to_md.return_value = "![File Image]"
 
+            # Use default options (should block file:// URLs)
             result = mhtml_to_markdown(io.BytesIO(mhtml_content))
 
-            # Verify that the image src was processed
+            # Verify that the image src was removed due to security
             args, _ = mock_html_to_md.call_args
             processed_html = args[0]
 
-            assert 'data:image/png;base64,' in processed_html
+            # The img tag should be removed entirely due to security restrictions
             assert 'file://test.png' not in processed_html
+            assert 'data:image/png;base64,' not in processed_html
 
     def test_mhtml_to_markdown_ms_word_artifact_cleanup(self):
         """Test cleanup of MS Word artifacts in MHTML."""
