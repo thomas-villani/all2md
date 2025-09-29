@@ -163,7 +163,7 @@ class HTMLToMarkdown:
         bullet_symbols: str = "*-+",
         convert_nbsp: bool = False,
         strip_dangerous_elements: bool = False,
-        table_alignment_auto_detect: bool = True,
+        detect_table_alignment: bool = True,
         preserve_nested_structure: bool = True,
         markdown_options: MarkdownOptions | None = None,
         # New unified attachment handling parameters
@@ -189,7 +189,7 @@ class HTMLToMarkdown:
         self.attachment_output_dir = attachment_output_dir
         self.attachment_base_url = attachment_base_url
         self.strip_dangerous_elements = strip_dangerous_elements
-        self.table_alignment_auto_detect = table_alignment_auto_detect
+        self.detect_table_alignment = detect_table_alignment
         self.preserve_nested_structure = preserve_nested_structure
         self.markdown_options = markdown_options or MarkdownOptions()
 
@@ -785,7 +785,7 @@ class HTMLToMarkdown:
 
     def _get_alignment(self, cell: Any) -> str:
         """Get markdown alignment for table cell with enhanced detection."""
-        if not self.table_alignment_auto_detect:
+        if not self.detect_table_alignment:
             return ":---:"
 
         # Check align attribute
@@ -1200,19 +1200,19 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             "extract_title": options.extract_title,
             "convert_nbsp": options.convert_nbsp,
             "strip_dangerous_elements": options.strip_dangerous_elements,
-            "table_alignment_auto_detect": options.table_alignment_auto_detect,
+            "detect_table_alignment": options.detect_table_alignment,
             "preserve_nested_structure": options.preserve_nested_structure,
             "markdown_options": options.markdown_options,
             "attachment_mode": options.attachment_mode,
             "attachment_output_dir": options.attachment_output_dir,
             "attachment_base_url": options.attachment_base_url,
             # Network security options
-            "allow_remote_fetch": options.allow_remote_fetch,
-            "allowed_hosts": options.allowed_hosts,
-            "require_https": options.require_https,
-            "network_timeout": options.network_timeout,
-            "max_image_size_bytes": options.max_image_size_bytes,
-            "max_download_bytes": options.max_download_bytes,
+            "allow_remote_fetch": options.network.allow_remote_fetch,
+            "allowed_hosts": options.network.allowed_hosts,
+            "require_https": options.network.require_https,
+            "network_timeout": options.network.network_timeout,
+            "max_image_size_bytes": options.network.max_remote_asset_bytes,
+            "max_download_bytes": options.max_asset_bytes,
         }
 
         # Only add emphasis_symbol and bullet_symbols if markdown_options exists

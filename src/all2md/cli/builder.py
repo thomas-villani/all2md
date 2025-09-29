@@ -302,6 +302,19 @@ class DynamicCLIBuilder:
 
             # Skip excluded fields
             if metadata.get('exclude_from_cli', False):
+                # Check if this is a nested dataclass we should handle
+                field_type = self._resolve_field_type(field, options_class)
+                field_type, _ = self._handle_optional_type(field_type)
+
+                if is_dataclass(field_type):
+                    # Handle nested dataclass by flattening its fields
+                    nested_prefix = f"{format_prefix}-{field.name}" if format_prefix else field.name
+                    self.add_options_class_arguments(
+                        parser,
+                        field_type,
+                        format_prefix=nested_prefix,
+                        group_name=None  # Don't create separate groups for nested classes
+                    )
                 continue
 
             # Skip markdown_options field - handled separately
@@ -393,6 +406,19 @@ class DynamicCLIBuilder:
 
             # Skip excluded fields
             if metadata.get('exclude_from_cli', False):
+                # Check if this is a nested dataclass we should handle
+                field_type = self._resolve_field_type(field, options_class)
+                field_type, _ = self._handle_optional_type(field_type)
+
+                if is_dataclass(field_type):
+                    # Handle nested dataclass by flattening its fields
+                    nested_prefix = f"{format_prefix}-{field.name}" if format_prefix else field.name
+                    self.add_format_specific_options(
+                        parser,
+                        field_type,
+                        format_prefix=nested_prefix,
+                        group_name=None  # Don't create separate groups for nested classes
+                    )
                 continue
 
             # Skip markdown_options field - handled separately

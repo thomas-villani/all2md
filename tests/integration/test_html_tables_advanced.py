@@ -134,7 +134,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        converter = HTMLToMarkdown(table_alignment_auto_detect=True)
+        converter = HTMLToMarkdown(detect_table_alignment=True)
         markdown = converter.convert(html)
         assert_markdown_valid(markdown)
 

@@ -1279,7 +1279,7 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
         tabs = page.find_tables()
 
         # Use fallback table detection if enabled and no tables found
-        if options.table_fallback_detection and not tabs.tables:
+        if options.enable_table_fallback_detection and not tabs.tables:
             _fallback_rects = detect_tables_by_ruling_lines(page, options.table_ruling_line_threshold)
             # Note: We can't create actual table objects from fallback detection,
             # but we can mark these regions for special processing
@@ -1378,11 +1378,8 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
                 md_string += "\n"
 
         # Add customizable page separator
-        if md_options.include_page_numbers:
-            separator = md_options.page_separator_format.replace("{page_num}", str(pno + 1))
-            md_string += f"\n{separator}\n\n"
-        else:
-            md_string += f"\n{md_options.page_separator}\n\n"
+        separator = md_options.page_separator_template.replace("{page_num}", str(pno + 1))
+        md_string += f"\n{separator}\n\n"
 
     # Prepend metadata if enabled
     md_string = prepend_metadata_if_enabled(md_string, metadata, options.extract_metadata)

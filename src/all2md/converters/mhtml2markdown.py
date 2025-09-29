@@ -312,10 +312,10 @@ def mhtml_to_markdown(
             # Security check for local file access
             if not validate_local_file_access(
                     src,
-                    allow_local_files=options.allow_local_files,
-                    local_file_allowlist=options.local_file_allowlist,
-                    local_file_denylist=options.local_file_denylist,
-                    allow_cwd_files=options.allow_cwd_files
+                    allow_local_files=options.local_files.allow_local_files,
+                    local_file_allowlist=options.local_files.local_file_allowlist,
+                    local_file_denylist=options.local_files.local_file_denylist,
+                    allow_cwd_files=options.local_files.allow_cwd_files
             ):
                 # Remove the tag if access is not allowed
                 tag.decompose()

@@ -21,7 +21,7 @@ class TestMergeOptions:
             emphasis_symbol="_",
             bullet_symbols="*-+",
             list_indent_width=2,
-            include_page_numbers=True
+            page_separator_template="--- Page {page_num} ---"
         )
         base_options = PdfOptions(markdown_options=base_markdown)
 
@@ -38,7 +38,7 @@ class TestMergeOptions:
         # Check that other fields were preserved
         assert result.markdown_options.bullet_symbols == "*-+"
         assert result.markdown_options.list_indent_width == 2
-        assert result.markdown_options.include_page_numbers is True
+        assert result.markdown_options.page_separator_template == "--- Page {page_num} ---"
 
     def test_merge_multiple_markdown_fields(self):
         """Test merging multiple MarkdownOptions fields at once."""
@@ -46,8 +46,7 @@ class TestMergeOptions:
             emphasis_symbol="_",
             bullet_symbols="*-+",
             list_indent_width=2,
-            include_page_numbers=True,
-            page_separator="---"
+            page_separator_template="--- Page {page_num} ---"
         )
         base_options = PdfOptions(markdown_options=base_markdown)
 
@@ -65,8 +64,7 @@ class TestMergeOptions:
 
         # Check that other fields were preserved
         assert result.markdown_options.bullet_symbols == "*-+"
-        assert result.markdown_options.include_page_numbers is True
-        assert result.markdown_options.page_separator == "---"
+        assert result.markdown_options.page_separator_template == "--- Page {page_num} ---"
 
     def test_merge_with_none_markdown_options(self):
         """Test merging when base options has no MarkdownOptions."""
@@ -85,7 +83,7 @@ class TestMergeOptions:
         assert result.markdown_options.list_indent_width == 2
 
         # Other fields should have defaults
-        assert result.markdown_options.include_page_numbers is False  # default
+        assert result.markdown_options.page_separator_template == "-----"  # default
 
     def test_merge_non_markdown_fields_preserved(self):
         """Test that non-markdown fields are still merged correctly."""

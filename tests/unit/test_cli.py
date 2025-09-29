@@ -247,8 +247,8 @@ class TestCLIParser:
         assert getattr(args, 'html.strip_dangerous_elements') is True
 
         # Test PowerPoint flags
-        args = parser.parse_args(["test.pptx", "--pptx-slide-numbers"])
-        assert getattr(args, 'pptx.slide_numbers') is True
+        args = parser.parse_args(["test.pptx", "--pptx-include-slide-numbers"])
+        assert getattr(args, 'pptx.include_slide_numbers') is True
 
         # Test negative flags
         args = parser.parse_args(["test.eml", "--eml-no-include-headers", "--eml-no-preserve-thread-structure"])

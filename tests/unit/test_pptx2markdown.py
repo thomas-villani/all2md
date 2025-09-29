@@ -129,7 +129,7 @@ def test_pptx_to_markdown_default():
 
     from all2md.options import PptxOptions
 
-    options = PptxOptions(attachment_mode="alt_text", slide_numbers=True)
+    options = PptxOptions(attachment_mode="alt_text", include_slide_numbers=True)
     output = pptx_to_markdown(prs, options=options)
     assert "# Slide 1: Test PowerPoint Presentation" in output
     assert "First Level Bullet" in output
@@ -142,7 +142,7 @@ def test_pptx_to_markdown_no_slide_numbers():
     prs = create_test_presentation()
     from all2md.options import PptxOptions
 
-    options = PptxOptions(attachment_mode="alt_text", slide_numbers=False)
+    options = PptxOptions(attachment_mode="alt_text", include_slide_numbers=False)
     output = pptx_to_markdown(prs, options=options)
     assert "# Test PowerPoint Presentation" in output
     assert "Slide 1:" not in output

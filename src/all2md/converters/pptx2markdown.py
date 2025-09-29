@@ -699,7 +699,7 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
         # Process slide title if present
         if slide.shapes.title:
             title_text = _process_text_frame(slide.shapes.title.text_frame, options.markdown_options, is_title=True)
-            if options.slide_numbers:
+            if options.include_slide_numbers:
                 full_title = f"Slide {i}: {title_text.strip()}"
             else:
                 full_title = title_text.strip()

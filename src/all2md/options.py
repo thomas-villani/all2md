@@ -52,16 +52,15 @@ from .constants import (
     DEFAULT_EXTRACT_METADATA,
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_HANDLE_ROTATED_TEXT,
+    DEFAULT_HEADER_FONT_SIZE_RATIO,
+    DEFAULT_HEADER_MAX_LINE_LENGTH,
     # PDF-specific constants
     DEFAULT_HEADER_MIN_OCCURRENCES,
     DEFAULT_HEADER_PERCENTILE_THRESHOLD,
     DEFAULT_HEADER_USE_ALL_CAPS,
     DEFAULT_HEADER_USE_FONT_WEIGHT,
-    DEFAULT_HEADER_FONT_SIZE_RATIO,
-    DEFAULT_HEADER_MAX_LINE_LENGTH,
     DEFAULT_IMAGE_PLACEMENT_MARKERS,
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
-    DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LIST_INDENT_WIDTH,
     DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
     DEFAULT_MAX_DOWNLOAD_BYTES,
@@ -70,7 +69,6 @@ from .constants import (
     DEFAULT_NETWORK_TIMEOUT,
     DEFAULT_NORMALIZE_HEADERS,
     DEFAULT_PAGE_SEPARATOR,
-    DEFAULT_PAGE_SEPARATOR_FORMAT,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_PRESERVE_RAW_HEADERS,
     DEFAULT_REQUIRE_HTTPS,
@@ -116,12 +114,9 @@ class MarkdownOptions(_CloneMixin):
         Symbol to use for emphasis/italic formatting in Markdown.
     bullet_symbols : str, default "\*-+"
         Characters to cycle through for nested bullet lists.
-    page_separator : str, default "\-\-\-\-\-"
-        Text used to separate pages or sections in output.
-    page_separator_format : str, default "\-\-\-\-\-"
-        Format string for page separators. Can include {page_num} placeholder.
-    include_page_numbers : bool, default False
-        Whether to include page numbers in page separators.
+    page_separator_template : str, default "\-\-\-\-\-"
+        Template for page separators. Supports placeholders like {page_num}, {page_count}.
+        Use plain text without placeholders for simple separators.
     list_indent_width : int, default 4
         Number of spaces to use for each level of list indentation.
     underline_mode : {"html", "markdown", "ignore"}, default "html"
@@ -153,7 +148,7 @@ class MarkdownOptions(_CloneMixin):
         }
     )
     emphasis_symbol: EmphasisSymbol = field(
-        default=DEFAULT_EMPHASIS_SYMBOL,
+        default=DEFAULT_EMPHASIS_SYMBOL,  # type: ignore[arg-type]
         metadata={
             "help": "Symbol to use for emphasis/italic formatting",
             "choices": ["*", "_"]
@@ -163,17 +158,12 @@ class MarkdownOptions(_CloneMixin):
         default=DEFAULT_BULLET_SYMBOLS,
         metadata={"help": "Characters to cycle through for nested bullet lists"}
     )
-    page_separator: str = field(
+    page_separator_template: str = field(
         default=DEFAULT_PAGE_SEPARATOR,
-        metadata={"help": "Text used to separate pages or sections in output"}
-    )
-    page_separator_format: str = field(
-        default=DEFAULT_PAGE_SEPARATOR_FORMAT,
-        metadata={"help": "Format string for page separators (can include {page_num})"}
-    )
-    include_page_numbers: bool = field(
-        default=DEFAULT_INCLUDE_PAGE_NUMBERS,
-        metadata={"help": "Include page numbers in page separators"}
+        metadata={
+            "help": "Template for page separators. Supports placeholders: {page_num}, {page_count}. "
+                    "Use plain text without placeholders for simple separators."
+        }
     )
     list_indent_width: int = field(
         default=DEFAULT_LIST_INDENT_WIDTH,
@@ -213,6 +203,111 @@ class MarkdownOptions(_CloneMixin):
 
 
 @dataclass(frozen=True)
+class NetworkFetchOptions(_CloneMixin):
+    """Network security options for remote resource fetching.
+
+    This dataclass contains settings that control how remote resources
+    (images, CSS, etc.) are fetched, including security constraints
+    to prevent SSRF attacks.
+
+    Parameters
+    ----------
+    allow_remote_fetch : bool, default False
+        Whether to allow fetching remote URLs for images and other resources.
+        When False, prevents SSRF attacks by blocking all network requests.
+    allowed_hosts : list[str] | None, default None
+        List of allowed hostnames or CIDR blocks for remote fetching.
+        If None, all hosts are allowed (subject to other security constraints).
+    require_https : bool, default False
+        Whether to require HTTPS for all remote URL fetching.
+    network_timeout : float, default 10.0
+        Timeout in seconds for remote URL fetching.
+    max_remote_asset_bytes : int, default 20MB
+        Maximum allowed size in bytes for downloaded remote assets.
+    """
+
+    allow_remote_fetch: bool = field(
+        default=DEFAULT_ALLOW_REMOTE_FETCH,
+        metadata={
+            "help": "Allow fetching remote URLs for images and other resources. "
+                    "When False, prevents SSRF attacks by blocking all network requests."
+        }
+    )
+    allowed_hosts: list[str] | None = field(
+        default=DEFAULT_ALLOWED_HOSTS,
+        metadata={
+            "help": "List of allowed hostnames or CIDR blocks for remote fetching. "
+                    "If None, all hosts are allowed (subject to other security constraints)."
+        }
+    )
+    require_https: bool = field(
+        default=DEFAULT_REQUIRE_HTTPS,
+        metadata={"help": "Require HTTPS for all remote URL fetching"}
+    )
+    network_timeout: float = field(
+        default=DEFAULT_NETWORK_TIMEOUT,
+        metadata={
+            "help": "Timeout in seconds for remote URL fetching",
+            "type": float
+        }
+    )
+    max_remote_asset_bytes: int = field(
+        default=DEFAULT_MAX_IMAGE_SIZE_BYTES,  # Reuse existing default
+        metadata={
+            "help": "Maximum allowed size in bytes for downloaded remote assets",
+            "type": int
+        }
+    )
+
+
+@dataclass(frozen=True)
+class LocalFileAccessOptions(_CloneMixin):
+    """Local file access security options.
+
+    This dataclass contains settings that control access to local files
+    via file:// URLs and similar mechanisms.
+
+    Parameters
+    ----------
+    allow_local_files : bool, default False
+        Whether to allow access to local files via file:// URLs.
+    local_file_allowlist : list[str] | None, default None
+        List of directories allowed for local file access.
+        Only applies when allow_local_files=True.
+    local_file_denylist : list[str] | None, default None
+        List of directories denied for local file access.
+    allow_cwd_files : bool, default True
+        Whether to allow local files from current working directory and subdirectories.
+    """
+
+    allow_local_files: bool = field(
+        default=DEFAULT_ALLOW_LOCAL_FILES,
+        metadata={"help": "Allow access to local files via file:// URLs (security setting)"}
+    )
+    local_file_allowlist: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "List of directories allowed for local file access (when allow_local_files=True)",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    local_file_denylist: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "List of directories denied for local file access",
+            "exclude_from_cli": True  # Complex type, exclude for now
+        }
+    )
+    allow_cwd_files: bool = field(
+        default=DEFAULT_ALLOW_CWD_FILES,
+        metadata={
+            "help": "Allow local files from current working directory and subdirectories",
+            "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
+        }
+    )
+
+
+@dataclass(frozen=True)
 class BaseOptions(_CloneMixin):
     attachment_mode: AttachmentMode = field(
         default=DEFAULT_ATTACHMENT_MODE,
@@ -244,10 +339,10 @@ class BaseOptions(_CloneMixin):
         default=None,
         metadata={"exclude_from_cli": True}  # Special field, handled separately
     )
-    max_download_bytes: int = field(
+    max_asset_bytes: int = field(
         default=DEFAULT_MAX_DOWNLOAD_BYTES,
         metadata={
-            "help": "Maximum allowed size in bytes for any single download",
+            "help": "Maximum allowed size in bytes for any single asset/download (global limit)",
             "type": int
         }
     )
@@ -299,7 +394,7 @@ class PdfOptions(BaseOptions):
         Minimum gap between columns in points.
 
     # Table detection parameters
-    table_fallback_detection : bool, default True
+    enable_table_fallback_detection : bool, default True
         Use heuristic fallback if PyMuPDF table detection fails.
     detect_merged_cells : bool, default True
         Attempt to identify merged cells in tables.
@@ -430,11 +525,11 @@ class PdfOptions(BaseOptions):
     )
 
     # Table detection parameters
-    table_fallback_detection: bool = field(
+    enable_table_fallback_detection: bool = field(
         default=DEFAULT_TABLE_FALLBACK_DETECTION,
         metadata={
             "help": "Use heuristic fallback if PyMuPDF table detection fails",
-            "cli_name": "no-table-fallback-detection"  # default=True, use --no-*
+            "cli_name": "no-enable-table-fallback-detection"  # default=True, use --no-*
         }
     )
     detect_merged_cells: bool = field(
@@ -515,7 +610,7 @@ class HtmlOptions(BaseOptions):
         Whether to convert non-breaking spaces (&nbsp;) to regular spaces in the output.
     strip_dangerous_elements : bool, default False
         Whether to remove potentially dangerous HTML elements (script, style, etc.).
-    table_alignment_auto_detect : bool, default True
+    detect_table_alignment : bool, default True
         Whether to automatically detect table column alignment from CSS/attributes.
     preserve_nested_structure : bool, default True
         Whether to maintain proper nesting for blockquotes and other elements.
@@ -545,77 +640,37 @@ class HtmlOptions(BaseOptions):
         default=DEFAULT_STRIP_DANGEROUS_ELEMENTS,
         metadata={"help": "Remove potentially dangerous HTML elements (script, style, etc.)"}
     )
-    table_alignment_auto_detect: bool = field(
+    detect_table_alignment: bool = field(
         default=DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
         metadata={
             "help": "Automatically detect table column alignment from CSS/attributes",
-            "cli_name": "no-table-alignment-auto-detect"  # default=True, use --no-*
+            "cli_name": "no-detect-table-alignment"  # default=True, use --no-*
         }
     )
 
     # Network security options
-    allow_remote_fetch: bool = field(
-        default=DEFAULT_ALLOW_REMOTE_FETCH,
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
         metadata={
-            "help": "Allow fetching remote URLs for images (base64/download modes). "
-                    "When False, prevents SSRF attacks by blocking all network requests."
+            "help": "Network security settings for remote resource fetching",
+            "exclude_from_cli": True  # Handled via flattened fields
         }
     )
-    allowed_hosts: list[str] | None = field(
-        default=DEFAULT_ALLOWED_HOSTS,
+
+    # Local file access options
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
         metadata={
-            "help": "List of allowed hostnames or CIDR blocks for remote fetching. "
-                    "If specified, only URLs from these hosts will be fetched."
+            "help": "Local file access security settings",
+            "exclude_from_cli": True  # Handled via flattened fields
         }
     )
-    require_https: bool = field(
-        default=DEFAULT_REQUIRE_HTTPS,
-        metadata={"help": "Require HTTPS for all remote URL fetching"}
-    )
-    network_timeout: float = field(
-        default=DEFAULT_NETWORK_TIMEOUT,
-        metadata={
-            "help": "Timeout in seconds for remote URL fetching",
-            "type": float
-        }
-    )
-    max_image_size_bytes: int = field(
-        default=DEFAULT_MAX_IMAGE_SIZE_BYTES,
-        metadata={
-            "help": "Maximum allowed size in bytes for downloaded images",
-            "type": int
-        }
-    )
+
     preserve_nested_structure: bool = field(
         default=DEFAULT_PRESERVE_NESTED_STRUCTURE,
         metadata={
             "help": "Maintain proper nesting for blockquotes and other elements",
             "cli_name": "no-preserve-nested-structure"  # default=True, use --no-*
-        }
-    )
-    allow_local_files: bool = field(
-        default=DEFAULT_ALLOW_LOCAL_FILES,
-        metadata={"help": "Allow access to local files via file:// URLs (security setting)"}
-    )
-    local_file_allowlist: list[str] | None = field(
-        default=None,
-        metadata={
-            "help": "List of directories allowed for local file access (when allow_local_files=True)",
-            "exclude_from_cli": True  # Complex type, exclude for now
-        }
-    )
-    local_file_denylist: list[str] | None = field(
-        default=None,
-        metadata={
-            "help": "List of directories denied for local file access",
-            "exclude_from_cli": True  # Complex type, exclude for now
-        }
-    )
-    allow_cwd_files: bool = field(
-        default=DEFAULT_ALLOW_CWD_FILES,
-        metadata={
-            "help": "Allow local files from current working directory and subdirectories",
-            "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
         }
     )
 
@@ -629,7 +684,7 @@ class PptxOptions(BaseOptions):
 
     Parameters
     ----------
-    slide_numbers : bool, default False
+    include_slide_numbers : bool, default False
         Whether to include slide numbers in the output.
     include_notes : bool, default True
         Whether to include speaker notes in the conversion.
@@ -637,13 +692,13 @@ class PptxOptions(BaseOptions):
     Examples
     --------
     Convert with slide numbers and base64 images:
-        >>> options = PptxOptions(slide_numbers=True, attachment_mode="base64")
+        >>> options = PptxOptions(include_slide_numbers=True, attachment_mode="base64")
 
     Convert slides only (no notes):
         >>> options = PptxOptions(include_notes=False)
     """
 
-    slide_numbers: bool = field(
+    include_slide_numbers: bool = field(
         default=DEFAULT_SLIDE_NUMBERS,
         metadata={"help": "Include slide numbers in output"}
     )
@@ -752,39 +807,16 @@ class EmlOptions(BaseOptions):
     )
     url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
 
-    # Network security options (inherited by HTML conversion when enabled)
-    allow_remote_fetch: bool = field(
-        default=DEFAULT_ALLOW_REMOTE_FETCH,
+    # Network security options for HTML conversion (when convert_html_to_markdown=True)
+    html_network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
         metadata={
-            "help": "Allow fetching remote URLs when converting HTML parts to Markdown. "
-                    "Only applies when convert_html_to_markdown=True."
+            "help": "Network security settings for HTML part conversion",
+            "exclude_from_cli": True  # Handled via flattened fields
         }
     )
-    allowed_hosts: list[str] | None = field(
-        default=DEFAULT_ALLOWED_HOSTS,
-        metadata={
-            "help": "List of allowed hostnames or CIDR blocks for remote fetching in HTML parts."
-        }
-    )
-    require_https: bool = field(
-        default=DEFAULT_REQUIRE_HTTPS,
-        metadata={"help": "Require HTTPS for remote URL fetching in HTML parts"}
-    )
-    network_timeout: float = field(
-        default=DEFAULT_NETWORK_TIMEOUT,
-        metadata={
-            "help": "Timeout in seconds for remote URL fetching in HTML parts",
-            "type": float
-        }
-    )
-    max_image_size_bytes: int = field(
-        default=DEFAULT_MAX_IMAGE_SIZE_BYTES,
-        metadata={
-            "help": "Maximum allowed size in bytes for downloaded images in HTML parts",
-            "type": int
-        }
-    )
-    max_attachment_size_bytes: int = field(
+
+    max_email_attachment_bytes: int = field(
         default=DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
         metadata={
             "help": "Maximum allowed size in bytes for email attachments",
@@ -816,11 +848,11 @@ class IpynbOptions(BaseOptions):
 
     Parameters
     ----------
-    truncate_long_outputs : int or None, default DEFAULT_COLLAPSE_OUTPUT_LINES
-        Maximum number of lines for text outputs before collapsing.
-        If None, outputs are not collapsed.
-    truncate_output_message : str or None, default = DEFAULT_COLLAPSE_OUTPUT_MESSAGE
-        The message to place to indicate truncated message.
+    truncate_long_outputs : int or None, default DEFAULT_TRUNCATE_OUTPUT_LINES
+        Maximum number of lines for text outputs before truncating.
+        If None, outputs are not truncated.
+    truncate_output_message : str or None, default DEFAULT_TRUNCATE_OUTPUT_MESSAGE
+        The message to place to indicate truncated output.
     """
 
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
@@ -890,43 +922,20 @@ class MhtmlOptions(BaseOptions):
 
     Parameters
     ----------
-    allow_local_files : bool, default False
-        Allow access to local files via file:// URLs (security setting).
-    local_file_allowlist : list[str] | None, default None
-        List of directories allowed for local file access (when allow_local_files=True).
-    local_file_denylist : list[str] | None, default None
-        List of directories denied for local file access.
-    allow_cwd_files : bool, default True
-        Allow local files from current working directory and subdirectories.
+    local_files : LocalFileAccessOptions
+        Local file access security settings.
 
     Other Parameters
     ----------------
     Inherited from BaseOptions
     """
 
-    allow_local_files: bool = field(
-        default=DEFAULT_ALLOW_LOCAL_FILES,
-        metadata={"help": "Allow access to local files via file:// URLs (security setting)"}
-    )
-    local_file_allowlist: list[str] | None = field(
-        default=None,
+    # Local file access options
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
         metadata={
-            "help": "List of directories allowed for local file access (when allow_local_files=True)",
-            "exclude_from_cli": True  # Complex type, exclude for now
-        }
-    )
-    local_file_denylist: list[str] | None = field(
-        default=None,
-        metadata={
-            "help": "List of directories denied for local file access",
-            "exclude_from_cli": True  # Complex type, exclude for now
-        }
-    )
-    allow_cwd_files: bool = field(
-        default=DEFAULT_ALLOW_CWD_FILES,
-        metadata={
-            "help": "Allow local files from current working directory and subdirectories",
-            "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
+            "help": "Local file access security settings",
+            "exclude_from_cli": True  # Handled via flattened fields
         }
     )
 

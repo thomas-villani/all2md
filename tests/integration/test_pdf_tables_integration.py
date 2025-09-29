@@ -131,7 +131,7 @@ class TestPdfTablesIntegration:
         pdf_bytes = create_test_pdf_bytes('tables')
 
         # Test with fallback detection enabled
-        options = PdfOptions(table_fallback_detection=True)
+        options = PdfOptions(enable_table_fallback_detection=True)
         result = pdf_to_markdown(pdf_bytes, options=options)
         assert_markdown_valid(result)
 
@@ -187,7 +187,7 @@ class TestPdfTablesIntegration:
         # Our test tables are small, but should still be handled properly
         pdf_bytes = create_test_pdf_bytes('tables')
 
-        options = PdfOptions(table_fallback_detection=True)
+        options = PdfOptions(enable_table_fallback_detection=True)
         result = pdf_to_markdown(pdf_bytes, options=options)
         assert_markdown_valid(result)
 

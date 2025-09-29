@@ -93,7 +93,7 @@ class TestFullConversionPipeline:
         # Convert with options
         options = PptxOptions(
             attachment_mode="skip",
-            slide_numbers=True
+            include_slide_numbers=True
         )
         markdown_options = MarkdownOptions()
 
@@ -129,7 +129,7 @@ class TestFullConversionPipeline:
             # Convert with options
             options = PdfOptions(
                 attachment_mode="base64",
-                table_fallback_detection=True
+                enable_table_fallback_detection=True
             )
             markdown_options = MarkdownOptions()
 

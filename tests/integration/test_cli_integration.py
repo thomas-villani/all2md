@@ -201,7 +201,7 @@ class TestCLIIntegration:
 
             assert kwargs["emphasis_symbol"] == "_"
             assert kwargs["bullet_symbols"] == "•→◦"
-            assert kwargs["page_separator"] == "====="
+            assert kwargs["page_separator_template"] == "====="
 
     def test_file_not_found_error(self, capsys):
         """Test error handling when input file doesn't exist."""

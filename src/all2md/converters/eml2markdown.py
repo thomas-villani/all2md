@@ -326,7 +326,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
 
         if isinstance(payload, bytes):
             # Check for extremely large text payloads (protection against memory exhaustion)
-            if len(payload) > options.max_attachment_size_bytes:
+            if len(payload) > options.max_email_attachment_bytes:
                 return f"[Content too large ({len(payload)} bytes) - truncated for security]"
             return payload.decode(charset, errors="replace")
         elif isinstance(payload, str):
@@ -377,11 +377,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
             attachment_base_url=options.attachment_base_url,
             markdown_options=md_options,
             # Network security settings from EML options
-            allow_remote_fetch=options.allow_remote_fetch,
-            allowed_hosts=options.allowed_hosts,
-            require_https=options.require_https,
-            network_timeout=options.network_timeout,
-            max_image_size_bytes=options.max_image_size_bytes,
+            network=options.html_network,
         )
 
         # Convert HTML to Markdown
@@ -727,7 +723,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
 
             # Check attachment size limits for security
             if attachment_data and isinstance(attachment_data, bytes):
-                if len(attachment_data) > options.max_attachment_size_bytes:
+                if len(attachment_data) > options.max_email_attachment_bytes:
                     # Skip attachment that exceeds size limit
                     continue
 

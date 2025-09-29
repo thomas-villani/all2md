@@ -240,7 +240,7 @@ def test_table_alignment_detection():
         <tr><td>1</td><td>2</td><td>3</td></tr>
     </table>
     """
-    converter = HTMLToMarkdown(table_alignment_auto_detect=True)
+    converter = HTMLToMarkdown(detect_table_alignment=True)
     result = converter.convert(html)
     assert ":---" in result
     assert ":---:" in result
@@ -406,7 +406,7 @@ def test_options_object_usage():
     options = HtmlOptions(
         extract_title=False,
         strip_dangerous_elements=True,
-        table_alignment_auto_detect=True,
+        detect_table_alignment=True,
         convert_nbsp=True,
         markdown_options=MarkdownOptions(escape_special=True),
     )

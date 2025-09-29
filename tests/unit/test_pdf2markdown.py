@@ -176,9 +176,9 @@ def test_detect_tables_by_ruling_lines():
 @pytest.mark.unit
 def test_page_separator_customization():
     """Test customizable page separators."""
-    md_options = MarkdownOptions(page_separator_format="--- Page {page_num} ---", include_page_numbers=True)
+    md_options = MarkdownOptions(page_separator_template="--- Page {page_num} ---")
     # Would need to test in full pdf_to_markdown flow
-    assert "{page_num}" in md_options.page_separator_format
+    assert "{page_num}" in md_options.page_separator_template
 
 
 @pytest.mark.unit
