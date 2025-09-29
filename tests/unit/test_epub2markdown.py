@@ -15,7 +15,7 @@ from all2md.converters.epub2markdown import (
     _slugify,
     epub_to_markdown,
 )
-from all2md.exceptions import MarkdownConversionError
+from all2md.exceptions import DependencyError, MarkdownConversionError
 from all2md.options import EpubOptions
 
 # Skip tests if ebooklib is not available
@@ -131,7 +131,8 @@ class TestEpubToMarkdown:
         """Test HTML preprocessing with multiple footnotes."""
         html_content = '''
         <html><body>
-            <p>First footnote<a epub:type="noteref" href="#fn1">1</a> and second<a epub:type="noteref" href="#fn2">2</a>.</p>
+            <p>First footnote<a epub:type="noteref" href="#fn1">1</a> and
+            second<a epub:type="noteref" href="#fn2">2</a>.</p>
             <div id="fn1">First footnote content.</div>
             <div id="fn2">Second footnote with <strong>formatting</strong>.</div>
         </body></html>
@@ -169,7 +170,7 @@ class TestEpubToMarkdown:
         assert "[^1]" in processed_html
         assert footnotes == ["[^1]: Footnote without epub:type."]
 
-    @patch('all2md.converters.epub2markdown.epub.read_epub')
+    @patch('ebooklib.epub.read_epub')
     def test_epub_to_markdown_import_error_handling(self, mock_read_epub):
         """Test handling of EPUB parsing errors."""
         mock_read_epub.side_effect = Exception("Failed to parse EPUB")
@@ -180,7 +181,7 @@ class TestEpubToMarkdown:
         assert "Failed to read or parse EPUB file" in str(exc_info.value)
         assert exc_info.value.conversion_stage == "document_opening"
 
-    @patch('all2md.converters.epub2markdown.epub.read_epub')
+    @patch('ebooklib.epub.read_epub')
     def test_epub_to_markdown_with_options(self, mock_read_epub):
         """Test EPUB conversion with various options."""
         # Setup mock book
@@ -209,7 +210,7 @@ class TestEpubToMarkdown:
             assert isinstance(result, str)
             mock_html_to_md.assert_called_once()
 
-    @patch('all2md.converters.epub2markdown.epub.read_epub')
+    @patch('ebooklib.epub.read_epub')
     def test_epub_to_markdown_chapter_processing_error(self, mock_read_epub):
         """Test handling of individual chapter processing errors."""
         # Setup mock book
@@ -236,7 +237,7 @@ class TestEpubToMarkdown:
         epub_bytes = b"fake epub content"
         epub_file = io.BytesIO(epub_bytes)
 
-        with patch('all2md.converters.epub2markdown.epub.read_epub') as mock_read_epub:
+        with patch('ebooklib.epub.read_epub') as mock_read_epub:
             mock_book = MagicMock()
             mock_book.toc = []
             mock_book.spine = []
@@ -309,17 +310,18 @@ class TestEpubErrorHandling:
     """Test error handling in EPUB conversion."""
 
     def test_missing_ebooklib_import_error(self):
-        """Test that appropriate error is raised when ebooklib is missing."""
-        # This test is complex to implement properly with dynamic imports
-        # For now, we'll test the import error message from the module
-        with patch('all2md.converters.epub2markdown.ebooklib', None):
-            with patch('all2md.converters.epub2markdown.epub', None):
-                # Test would need module-level import handling
-                pass
+        """Test that appropriate DependencyError is raised when ebooklib is missing."""
+        # Patch the specific modules to simulate missing dependencies
+        with patch.dict('sys.modules', {'ebooklib': None, 'ebooklib.epub': None}):
+            with pytest.raises(DependencyError) as exc_info:
+                epub_to_markdown("dummy.epub")
+
+            assert exc_info.value.converter_name == "epub"
+            assert ("ebooklib", "") in exc_info.value.missing_packages
 
     def test_conversion_error_propagation(self):
         """Test that conversion errors are properly wrapped."""
-        with patch('all2md.converters.epub2markdown.epub.read_epub') as mock_read_epub:
+        with patch('ebooklib.epub.read_epub') as mock_read_epub:
             mock_read_epub.side_effect = ValueError("Invalid EPUB structure")
 
             with pytest.raises(MarkdownConversionError) as exc_info:
@@ -330,7 +332,7 @@ class TestEpubErrorHandling:
 
     def test_none_options_handling(self):
         """Test that None options are handled gracefully."""
-        with patch('all2md.converters.epub2markdown.epub.read_epub') as mock_read_epub:
+        with patch('ebooklib.epub.read_epub') as mock_read_epub:
             mock_book = MagicMock()
             mock_book.toc = []
             mock_book.spine = []

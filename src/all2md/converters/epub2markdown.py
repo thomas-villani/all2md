@@ -33,20 +33,10 @@ import re
 import tempfile
 from collections import OrderedDict
 from pathlib import Path, PurePosixPath
-from typing import IO, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Union
 
-# Try to import dependencies and raise helpful errors
-try:
+if TYPE_CHECKING:
     import ebooklib
-    from ebooklib import epub
-except ImportError as e:
-    raise ImportError("`ebooklib` is required for EPUB conversion. Install with: `pip install ebooklib`") from e
-
-try:
-    from bs4 import BeautifulSoup
-except ImportError as e:
-    raise ImportError(
-        "`beautifulsoup4` is required for EPUB conversion. Install with: `pip install beautifulsoup4`") from e
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converters.html2markdown import html_to_markdown
@@ -60,21 +50,24 @@ from all2md.utils.security import validate_zip_archive
 logger = logging.getLogger(__name__)
 
 
-def _build_toc_map(toc: list) -> dict[str, str]:
+def _build_toc_map(toc: list, epub_module: Any = None) -> dict[str, str]:
     """Recursively build a map of hrefs to chapter titles from the TOC."""
     toc_map = {}
     for item in toc:
-        if isinstance(item, epub.Link):
+        # Check if item has href and title attributes and href is not empty
+        if hasattr(item, 'href') and hasattr(item, 'title') and item.href:
             # Clean up href by removing anchor tags
             href = item.href.split("#")[0]
             toc_map[href] = item.title
         elif isinstance(item, tuple) and len(item) == 2:
-            # Handle nested sections
+            # Handle nested sections (Section, [Links])
             section, nested_toc = item
-            if isinstance(section, epub.Link):
+            # Only add section to map if it has a non-empty href
+            if hasattr(section, 'href') and hasattr(section, 'title') and section.href:
                 href = section.href.split("#")[0]
                 toc_map[href] = section.title
-            toc_map.update(_build_toc_map(nested_toc))
+            # Always process nested TOC regardless of section type
+            toc_map.update(_build_toc_map(nested_toc, epub_module))
     return toc_map
 
 
@@ -89,10 +82,17 @@ def _slugify(text: str) -> str:
 def _preprocess_html(
         html_content: str,
         item: Any,
-        book: epub.EpubBook,
+        book: Any,  # epub.EpubBook when dependencies available
         options: EpubOptions,
 ) -> tuple[str, list[str]]:
     """Pre-process HTML to handle images and footnotes before Markdown conversion."""
+    # Import BeautifulSoup here to handle dependencies gracefully
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        # If BeautifulSoup is not available, return unchanged content
+        return html_content, []
+
     soup = BeautifulSoup(html_content, "html.parser")
 
     # --- Handle Images ---
@@ -176,7 +176,7 @@ def _preprocess_html(
     return str(soup), list(footnotes.values())
 
 
-def extract_epub_metadata(book: epub.EpubBook) -> DocumentMetadata:
+def extract_epub_metadata(book: Any) -> DocumentMetadata:  # epub.EpubBook when dependencies available
     """Extract metadata from EPUB book.
 
     Parameters
@@ -290,6 +290,29 @@ def epub_to_markdown(
     ImportError
         If required libraries (ebooklib, beautifulsoup4) are not installed.
     """
+    # Import dependencies inside function to avoid import-time failures
+    try:
+        import ebooklib
+        from bs4 import BeautifulSoup
+        from ebooklib import epub
+    except ImportError as e:
+        from all2md.exceptions import DependencyError
+        if "ebooklib" in str(e):
+            raise DependencyError(
+                converter_name="epub",
+                missing_packages=[("ebooklib", "")],
+                install_command="pip install ebooklib"
+            ) from e
+        elif "bs4" in str(e) or "beautifulsoup4" in str(e):
+            raise DependencyError(
+                converter_name="epub",
+                missing_packages=[("beautifulsoup4", "")],
+                install_command="pip install beautifulsoup4"
+            ) from e
+        else:
+            # Re-raise if it's a different import error
+            raise
+
     if options is None:
         options = EpubOptions()
 
@@ -347,7 +370,7 @@ def epub_to_markdown(
         markdown_options=md_options,
     )
 
-    toc_map = _build_toc_map(book.toc)
+    toc_map = _build_toc_map(book.toc, epub)
 
     md_toc = ""
     if options.include_toc:
@@ -417,7 +440,10 @@ CONVERTER_METADATA = ConverterMetadata(
     converter_module="all2md.converters.epub2markdown",
     converter_function="epub_to_markdown",
     required_packages=[("ebooklib", ""), ("beautifulsoup4", "")],
-    import_error_message="EPUB conversion requires 'ebooklib' and 'beautifulsoup4'. Install with: pip install ebooklib beautifulsoup4",
+    import_error_message=(
+        "EPUB conversion requires 'ebooklib' and 'beautifulsoup4'. "
+        "Install with: pip install ebooklib beautifulsoup4"
+    ),
     options_class="EpubOptions",
     description="Convert EPUB e-books to Markdown",
     priority=6

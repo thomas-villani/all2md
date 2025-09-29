@@ -48,9 +48,10 @@ import os
 import re
 from email import policy
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, TYPE_CHECKING, Union
 
-from bs4 import BeautifulSoup
+if TYPE_CHECKING:
+    pass
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converters.html2markdown import html_to_markdown
@@ -114,6 +115,13 @@ def extract_mhtml_metadata(msg: email.message.EmailMessage, html_content: str) -
 
     # Extract metadata from HTML content using BeautifulSoup
     try:
+        # Import BeautifulSoup here to handle dependencies gracefully
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            # If BeautifulSoup is not available, skip HTML parsing
+            return metadata
+
         soup = BeautifulSoup(html_content, 'html.parser')
 
         # Get title from HTML if not already set
@@ -232,6 +240,17 @@ def mhtml_to_markdown(
     MarkdownConversionError
         If the MHTML file is malformed or contains no HTML content.
     """
+    # Import dependencies inside function to avoid import-time failures
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError as e:
+        from all2md.exceptions import DependencyError
+        raise DependencyError(
+            converter_name="mhtml",
+            missing_packages=[("beautifulsoup4", "")],
+            install_command="pip install beautifulsoup4"
+        ) from e
+
     if options is None:
         options = MhtmlOptions()
 
