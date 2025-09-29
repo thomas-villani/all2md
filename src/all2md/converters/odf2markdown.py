@@ -80,9 +80,13 @@ class OdfConverter:
             return self.style_cache[style_name]
 
         properties = {"bold": False, "italic": False}
+        style_found = False
+
+        # First try main styles
         try:
             style = self.doc.styles.getStyleByName(style_name)
             if style:
+                style_found = True
                 for child in style.childNodes:
                     if hasattr(child, 'qname') and child.qname == (STYLENS, 'text-properties'):
                         if child.getAttribute("fontweight") == "bold":
@@ -90,9 +94,26 @@ class OdfConverter:
                         if child.getAttribute("fontstyle") == "italic":
                             properties["italic"] = True
         except Exception as e:
-            logger.debug(f"Error during style parsing, using defaults. Error: {e!r}", exc_info=e)
-            # Style not found or error parsing, use defaults
-            pass
+            logger.debug(f"Error during main style parsing for {style_name}: {e!r}", exc_info=e)
+
+        # If not found in main styles, try automatic styles
+        if not style_found:
+            try:
+                auto_styles = self.doc.automaticstyles
+                if hasattr(auto_styles, 'childNodes'):
+                    for style in auto_styles.childNodes:
+                        if (hasattr(style, 'getAttribute') and hasattr(style, 'qname') and
+                            style.qname == (STYLENS, 'style') and
+                            style.getAttribute('name') == style_name):
+                            for child in style.childNodes:
+                                if hasattr(child, 'qname') and child.qname == (STYLENS, 'text-properties'):
+                                    if child.getAttribute("fontweight") == "bold":
+                                        properties["bold"] = True
+                                    if child.getAttribute("fontstyle") == "italic":
+                                        properties["italic"] = True
+                            break
+            except Exception as e:
+                logger.debug(f"Error during automatic style parsing for {style_name}: {e!r}", exc_info=e)
 
         self.style_cache[style_name] = properties
         return properties
