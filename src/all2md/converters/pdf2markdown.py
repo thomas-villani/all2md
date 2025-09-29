@@ -246,14 +246,18 @@ class IdentifyHeaders:
             )
             body_limit = temp[0][0] if temp else 12
 
-        # Get header sizes based on percentile threshold
+        # Get header sizes based on percentile threshold and minimum font size ratio
         if self.options.header_percentile_threshold and fontsizes:
             sorted_sizes = sorted(fontsizes.keys(), reverse=True)
             percentile_idx = int(len(sorted_sizes) * (1 - self.options.header_percentile_threshold / 100))
             percentile_threshold = sorted_sizes[max(0, percentile_idx - 1)] if percentile_idx > 0 else sorted_sizes[0]
-            sizes = [s for s in sorted_sizes if s >= percentile_threshold and s > body_limit]
+            # Apply both percentile and font size ratio filters
+            min_header_size = body_limit * self.options.header_font_size_ratio
+            sizes = [s for s in sorted_sizes if s >= percentile_threshold and s >= min_header_size]
         else:
-            sizes = sorted([f for f in fontsizes if f > body_limit], reverse=True)
+            # Apply font size ratio filter even without percentile threshold
+            min_header_size = body_limit * self.options.header_font_size_ratio
+            sizes = sorted([f for f in fontsizes if f >= min_header_size], reverse=True)
 
         # Add sizes from allowlist
         if self.options.header_size_allowlist:
@@ -263,16 +267,17 @@ class IdentifyHeaders:
                     sizes.append(rounded_size)
             sizes = sorted(sizes, reverse=True)
 
-        # Add bold and all-caps sizes as potential headers
+        # Add bold and all-caps sizes as potential headers (but still respect font size ratio)
+        min_header_size = body_limit * self.options.header_font_size_ratio
         if self.options.header_use_font_weight:
             for size in fontweight_sizes:
-                if size not in sizes and size >= body_limit:
+                if size not in sizes and size >= min_header_size:
                     sizes.append(size)
                     self.bold_header_sizes.add(size)
 
         if self.options.header_use_all_caps:
             for size in allcaps_sizes:
-                if size not in sizes and size >= body_limit:
+                if size not in sizes and size >= min_header_size:
                     sizes.append(size)
                     self.allcaps_header_sizes.add(size)
 
@@ -289,6 +294,7 @@ class IdentifyHeaders:
 
         Analyzes the font size of a text span and returns the corresponding
         header level (1-6) or 0 if the span should be treated as body text.
+        Includes content-based validation to reduce false positives.
 
         Parameters
         ----------
@@ -316,6 +322,22 @@ class IdentifyHeaders:
             if self.options.header_use_all_caps and text.isupper() and text.isalpha():
                 if fontsize in self.allcaps_header_sizes:
                     level = self.header_id.get(fontsize, 0)
+
+        # Apply content-based validation if we detected a potential header
+        if level > 0:
+            text = span.get("text", "").strip()
+
+            # Skip if text is too long to be a realistic header
+            if len(text) > self.options.header_max_line_length:
+                return 0
+
+            # Skip if text is mostly whitespace or empty
+            if not text or len(text.strip()) == 0:
+                return 0
+
+            # Skip if text looks like a paragraph (ends with typical sentence punctuation and is long)
+            if len(text) > 50 and text.endswith(('.', '!', '?')):
+                return 0
 
         return level
 
@@ -568,6 +590,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     return None
 
 
+
 def page_to_markdown(
         page: "fitz.Page",
         clip: Optional["fitz.Rect"],
@@ -691,9 +714,19 @@ def page_to_markdown(
                 bold = s["flags"] & 16
                 italic = s["flags"] & 2
 
-                if mono:
-                    # this is text in some monospaced font
+                # Check for list bullets before treating as monospace
+                span_text_stripped = s['text'].strip()
+                is_list_bullet = span_text_stripped in ['-', 'o'] and len(span_text_stripped) == 1
+
+                if mono and not is_list_bullet:
+                    # this is text in some monospaced font (but not a list bullet)
                     output_parts.append(f"`{s['text'].strip()}` ")
+                elif is_list_bullet:
+                    # Handle list bullets with special formatting
+                    if span_text_stripped == '-':
+                        output_parts.append("* ")  # Convert - to *
+                    elif span_text_stripped == 'o':
+                        output_parts.append("  - ")  # Convert o to indented -
                 else:  # not a mono text
                     # for first span, get header level if present
                     hdr_level = hdr_prefix.get_header_level(s) if i == 0 else 0

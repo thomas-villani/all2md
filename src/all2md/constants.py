@@ -76,10 +76,12 @@ DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 PDF_MIN_PYMUPDF_VERSION = "1.26.4"
 
 # Header detection constants
-DEFAULT_HEADER_MIN_OCCURRENCES = 3
+DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives
 DEFAULT_HEADER_USE_FONT_WEIGHT = True
 DEFAULT_HEADER_USE_ALL_CAPS = True
 DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
+DEFAULT_HEADER_FONT_SIZE_RATIO = 1.2  # Minimum ratio between header and body text font size
+DEFAULT_HEADER_MAX_LINE_LENGTH = 100  # Maximum character length for text to be considered a header
 
 # Column detection constants
 DEFAULT_DETECT_COLUMNS = True

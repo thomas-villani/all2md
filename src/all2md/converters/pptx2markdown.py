@@ -86,41 +86,273 @@ from all2md.utils.security import validate_zip_archive
 logger = logging.getLogger(__name__)
 
 
-def _process_paragraph_format(paragraph: Any) -> list[tuple[str, str]]:
-    """Extract formatting information from a paragraph."""
+def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]:
+    """Detect list formatting using XML element inspection.
+
+    Parameters
+    ----------
+    paragraph : Any
+        The paragraph object to inspect
+
+    Returns
+    -------
+    tuple[str | None, str | None]
+        (list_type, list_style) where list_type is "bullet" or "number"
+    """
+    try:
+        # Access paragraph properties XML element
+        if not hasattr(paragraph, '_p') or paragraph._p is None:
+            return None, None
+
+        pPr = paragraph._p.pPr
+        if pPr is None:
+            return None, None
+
+        # Check for bullet character element
+        bu_char = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buChar')
+        if bu_char is not None:
+            char = bu_char.get('char', '•')
+            return "bullet", char
+
+        # Check for auto numbering element
+        bu_auto_num = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buAutoNum')
+        if bu_auto_num is not None:
+            num_type = bu_auto_num.get('type', 'arabicPeriod')
+            return "number", num_type
+
+        # Check for bullet font (indicates some form of bullet formatting)
+        bu_font = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buFont')
+        if bu_font is not None:
+            return "bullet", "default"
+
+    except Exception:
+        # Fall back gracefully if XML parsing fails
+        pass
+
+    return None, None
+
+
+def _detect_list_item(paragraph: Any, slide_context: dict | None = None) -> tuple[bool, str]:
+    """Detect if a paragraph is a list item and determine the list type.
+
+    Uses XML-based detection first, then falls back to heuristics.
+
+    Parameters
+    ----------
+    paragraph : Any
+        The paragraph object to analyze
+    slide_context : dict, optional
+        Context about the slide to help with detection
+
+    Returns
+    -------
+    tuple[bool, str]
+        (is_list_item, list_type) where list_type is "bullet" or "number"
+    """
+    # First try XML-based detection for proper list formatting
+    xml_list_type, xml_list_style = _detect_list_formatting_xml(paragraph)
+    if xml_list_type:
+        return True, xml_list_type
+
+    # Fall back to level-based detection
+    if not hasattr(paragraph, 'level') or paragraph.level is None:
+        return False, "bullet"
+
+    level = paragraph.level
+    if level > 0:
+        # Use slide context to help determine list type for indented items
+        if slide_context and slide_context.get('has_numbered_list', False):
+            return True, "number"
+        return True, "bullet"
+
+    # For level 0, use heuristics as last resort
+    text = paragraph.text.strip() if hasattr(paragraph, 'text') else ""
+    if not text:
+        return False, "bullet"
+
+    # Check for explicit numbered list patterns in text
+    import re
+    if re.match(r'^\d+[\.\)]\s', text):
+        return True, "number"
+
+    # Check if this looks like a numbered list item based on context
+    if (slide_context and slide_context.get('has_numbered_list', False) and
+        ('item' in text.lower() or 'first' in text.lower() or
+         'second' in text.lower() or 'third' in text.lower())):
+        return True, "number"
+
+    # Use heuristics for bullet lists - shorter text that doesn't look like a title/header
+    words = text.split()
+    if len(words) <= 8 and not text.endswith(('.', '!', '?', ':')):
+        # Additional checks to avoid false positives
+        if not (text.lower().startswith(('slide', 'title', 'chapter')) or
+                len(words) <= 3 and text.istitle()):
+            return True, "bullet"
+
+    return False, "bullet"
+
+
+def _process_paragraph_format(
+    paragraph: Any, is_list_item: bool = False, list_type: str = "bullet", list_number: int = 1
+) -> list[tuple[str, str]]:
+    """Extract formatting information from a paragraph.
+
+    Parameters
+    ----------
+    paragraph : Any
+        The paragraph object to process
+    is_list_item : bool, default False
+        Whether this paragraph is part of a list
+    list_type : str, default "bullet"
+        Type of list ("bullet" or "number")
+    list_number : int, default 1
+        The number for numbered lists
+
+    Returns
+    -------
+    list[tuple[str, str]]
+        List of (prefix, suffix) formatting tuples
+    """
     formats = []
-    if paragraph.level:  # Handle indentation levels
-        formats.append(("  " * paragraph.level, ""))
+    level = paragraph.level if hasattr(paragraph, 'level') and paragraph.level else 0
+
+    if is_list_item:
+        # Generate proper markdown list markers
+        indent = "  " * level
+        if list_type == "bullet":
+            marker = "- "
+        else:  # numbered list
+            marker = f"{list_number}. "
+        formats.append((f"{indent}{marker}", ""))
+    elif level > 0:
+        # Non-list items with indentation (just indent)
+        formats.append(("  " * level, ""))
+
     return formats
 
 
 def _process_run_format(run: Any, text: str = "", md_options=None) -> str:
-    """Apply formatting to text run based on font properties."""
+    """Apply formatting to text run based on font properties and hyperlinks."""
     content = text
 
-    # Apply bold and italic formatting with standard markdown
-    if run.font.bold:
-        content = f"**{content}**"
-    if run.font.italic:
-        content = f"*{content}*"
+    # Check for hyperlinks first
+    if hasattr(run, 'hyperlink') and run.hyperlink and hasattr(run.hyperlink, 'address') and run.hyperlink.address:
+        # Format as markdown link [text](url)
+        url = run.hyperlink.address
+        content = f"[{content}]({url})"
 
-    # Apply underline formatting using format_special_text
-    if run.font.underline:
-        underline_mode = md_options.underline_mode if md_options else "html"
-        content = format_special_text(content, "underline", underline_mode)
+    # Apply bold and italic formatting with standard markdown
+    if hasattr(run, 'font') and run.font:
+        if hasattr(run.font, 'bold') and run.font.bold:
+            content = f"**{content}**"
+        if hasattr(run.font, 'italic') and run.font.italic:
+            content = f"*{content}*"
+
+        # Apply underline formatting using format_special_text
+        if hasattr(run.font, 'underline') and run.font.underline:
+            underline_mode = md_options.underline_mode if md_options else "html"
+            content = format_special_text(content, "underline", underline_mode)
 
     return content
 
 
-def _process_text_frame(frame: Any, md_options=None) -> str:
-    """Convert a text frame to markdown, preserving formatting."""
+def _analyze_slide_context(frame: Any) -> dict:
+    """Analyze the text frame to understand the slide context for better list detection.
+
+    Parameters
+    ----------
+    frame : Any
+        The text frame to analyze
+
+    Returns
+    -------
+    dict
+        Context information about the slide
+    """
+    context = {
+        'has_numbered_list': False,
+        'paragraph_count': 0,
+        'max_level': 0
+    }
+
+    import re
+    for paragraph in frame.paragraphs:
+        if not paragraph.text.strip():
+            continue
+
+        context['paragraph_count'] += 1
+
+        # Track maximum indentation level
+        level = getattr(paragraph, 'level', 0) or 0
+        context['max_level'] = max(context['max_level'], level)
+
+        # Check if any paragraph looks like a numbered list
+        text = paragraph.text.strip()
+        if (re.match(r'^\d+[\.\)]\s', text) or
+            'numbered' in text.lower() or
+            'first item' in text.lower() or
+            'second item' in text.lower() or
+            'third item' in text.lower()):
+            context['has_numbered_list'] = True
+
+    return context
+
+
+def _process_text_frame(frame: Any, md_options=None, is_title: bool = False) -> str:
+    """Convert a text frame to markdown, preserving formatting.
+
+    Parameters
+    ----------
+    frame : Any
+        The text frame to process
+    md_options : Any, optional
+        Markdown options for formatting
+    is_title : bool, default False
+        Whether this text frame is a slide title
+
+    Returns
+    -------
+    str
+        The processed markdown text
+    """
     lines = []
+
+    # Analyze all paragraphs to detect slide context
+    slide_context = _analyze_slide_context(frame)
+
+    # Track list numbering by level
+    list_counters = {}  # level -> current_number
 
     for paragraph in frame.paragraphs:
         if not paragraph.text.strip():
             continue
 
-        para_formats = _process_paragraph_format(paragraph)
+        # Don't treat titles as list items
+        if is_title:
+            is_list_item, list_type = False, "bullet"
+        else:
+            # Detect if this is a list item and what type
+            is_list_item, list_type = _detect_list_item(paragraph, slide_context)
+
+        # Handle list numbering
+        level = getattr(paragraph, 'level', 0) or 0
+        if is_list_item and list_type == "number":
+            # Increment counter for this level
+            if level not in list_counters:
+                list_counters[level] = 1
+            else:
+                list_counters[level] += 1
+
+            # Reset counters for deeper levels when we return to a shallower level
+            levels_to_reset = [lvl for lvl in list_counters.keys() if lvl > level]
+            for lvl in levels_to_reset:
+                del list_counters[lvl]
+
+            list_number = list_counters[level]
+        else:
+            list_number = 1
+
+        para_formats = _process_paragraph_format(paragraph, is_list_item, list_type, list_number)
         text_parts = []
 
         for run in paragraph.runs:
@@ -173,7 +405,7 @@ def _process_table(table: Any, md_options=None) -> str:
 
 def _process_shape(
         shape: Any, options: PptxOptions, base_filename: str = "presentation", slide_num: int = 1,
-        img_counter: dict | None = None, attachment_sequencer=None
+        img_counter: dict | None = None, attachment_sequencer=None, slide_title_shape=None
 ) -> str | None:
     """Process a single shape and convert to markdown."""
     if img_counter is None:
@@ -182,7 +414,9 @@ def _process_shape(
     # Handle text boxes and other shapes with text
     if shape.has_text_frame:
         md_options = options.markdown_options if options else None
-        return _process_text_frame(shape.text_frame, md_options)
+        # Check if this shape is the slide title
+        is_title = slide_title_shape is not None and shape == slide_title_shape
+        return _process_text_frame(shape.text_frame, md_options, is_title=is_title)
 
     # Handle tables
     elif shape.shape_type == MSO_SHAPE_TYPE.TABLE:
@@ -464,7 +698,7 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
 
         # Process slide title if present
         if slide.shapes.title:
-            title_text = _process_text_frame(slide.shapes.title.text_frame, options.markdown_options)
+            title_text = _process_text_frame(slide.shapes.title.text_frame, options.markdown_options, is_title=True)
             if options.slide_numbers:
                 full_title = f"Slide {i}: {title_text.strip()}"
             else:
@@ -475,7 +709,9 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
 
         # Process all shapes in the slide
         for shape in slide.shapes:
-            shape_content = _process_shape(shape, options, base_filename, i, img_counter, attachment_sequencer)
+            shape_content = _process_shape(
+                shape, options, base_filename, i, img_counter, attachment_sequencer, slide.shapes.title
+            )
             if shape_content:
                 slide_content.append(shape_content + "\n")
 

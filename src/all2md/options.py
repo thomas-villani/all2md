@@ -57,6 +57,8 @@ from .constants import (
     DEFAULT_HEADER_PERCENTILE_THRESHOLD,
     DEFAULT_HEADER_USE_ALL_CAPS,
     DEFAULT_HEADER_USE_FONT_WEIGHT,
+    DEFAULT_HEADER_FONT_SIZE_RATIO,
+    DEFAULT_HEADER_MAX_LINE_LENGTH,
     DEFAULT_IMAGE_PLACEMENT_MARKERS,
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
@@ -281,6 +283,10 @@ class PdfOptions(BaseOptions):
         Consider bold/font weight when detecting headers.
     header_use_all_caps : bool, default True
         Consider all-caps text as potential headers.
+    header_font_size_ratio : float, default 1.2
+        Minimum ratio between header and body text font size.
+    header_max_line_length : int, default 100
+        Maximum character length for text to be considered a header.
 
     # Reading order and layout parameters
     detect_columns : bool, default True
@@ -376,6 +382,20 @@ class PdfOptions(BaseOptions):
         metadata={
             "help": "Consider all-caps text as potential headers",
             "cli_name": "no-header-use-all-caps"  # default=True, use --no-*
+        }
+    )
+    header_font_size_ratio: float = field(
+        default=DEFAULT_HEADER_FONT_SIZE_RATIO,
+        metadata={
+            "help": "Minimum ratio between header and body text font size",
+            "type": float
+        }
+    )
+    header_max_line_length: int = field(
+        default=DEFAULT_HEADER_MAX_LINE_LENGTH,
+        metadata={
+            "help": "Maximum character length for text to be considered a header",
+            "type": int
         }
     )
 

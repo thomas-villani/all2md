@@ -264,12 +264,12 @@ def _process_hyperlink(run: Any) -> tuple[str | None, Any]:
 def _get_run_formatting_key(run: Any) -> tuple[bool, bool, bool, bool, bool, bool]:
     """Get a tuple of formatting attributes to use as a key for grouping similarly formatted runs."""
     return (
-        bool(run.bold),
-        bool(run.italic),
-        bool(run.underline),
-        bool(run.font.strike),
-        bool(run.font.subscript),
-        bool(run.font.superscript),
+        bool(run.bold if hasattr(run, "bold") else False),
+        bool(run.italic if hasattr(run, "italic") else False),
+        bool(run.underline if hasattr(run, "underline") else False),
+        bool(run.font.strike if hasattr(run, "font") else False),
+        bool(run.font.subscript if hasattr(run, "font") else False),
+        bool(run.font.superscript if hasattr(run, "font") else False),
         # bool(_process_hyperlink(run))  # Include hyperlink in formatting key
     )
 
