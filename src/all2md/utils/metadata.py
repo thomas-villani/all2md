@@ -26,7 +26,39 @@ creation date, keywords, and format-specific metadata fields.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Mapping
+
+# Standard property mappings for different document formats
+PDF_FIELD_MAPPING = {
+    'title': ['title', 'Title'],
+    'author': ['author', 'Author'],
+    'subject': ['subject', 'Subject'],
+    'creator': ['creator', 'Creator'],
+    'producer': ['producer', 'Producer'],
+    'keywords': ['keywords', 'Keywords'],
+}
+
+OFFICE_FIELD_MAPPING = {
+    'title': 'title',
+    'author': 'author',
+    'subject': 'subject',
+    'category': 'category',
+    'language': 'language',
+    'keywords': 'keywords',
+    'creation_date': 'created',
+    'modification_date': 'modified',
+}
+
+SPREADSHEET_FIELD_MAPPING = {
+    'title': 'title',
+    'author': 'creator',
+    'subject': ['subject', 'description'],
+    'language': 'language',
+    'category': 'category',
+    'keywords': 'keywords',
+    'creation_date': 'created',
+    'modification_date': 'modified',
+}
 
 
 @dataclass
@@ -250,6 +282,174 @@ def format_yaml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
 
     lines.append("---")
     return '\n'.join(lines) + '\n\n'
+
+
+def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[str] = None) -> Optional[str]:
+    """Safely extract a string property from an object with optional fallback.
+
+    Parameters
+    ----------
+    obj : Any
+        Object to extract property from
+    primary_attr : str
+        Primary attribute name to check
+    fallback_attr : str | None
+        Optional fallback attribute name if primary is not found or empty
+
+    Returns
+    -------
+    str | None
+        Non-empty string value, or None if not found or empty
+    """
+    def get_non_empty_value(attr_name: str) -> Optional[str]:
+        if hasattr(obj, attr_name):
+            value = getattr(obj, attr_name)
+            if value and str(value).strip():
+                return str(value).strip()
+        return None
+
+    # Try primary attribute first
+    result = get_non_empty_value(primary_attr)
+    if result:
+        return result
+
+    # Try fallback if provided
+    if fallback_attr:
+        return get_non_empty_value(fallback_attr)
+
+    return None
+
+
+def extract_keywords_from_string(keywords_str: str) -> List[str]:
+    """Extract and clean keywords from a delimited string.
+
+    Parameters
+    ----------
+    keywords_str : str
+        String containing keywords separated by commas or semicolons
+
+    Returns
+    -------
+    list[str]
+        List of cleaned keyword strings
+    """
+    if not keywords_str or not keywords_str.strip():
+        return []
+
+    import re
+    keywords = [k.strip() for k in re.split('[,;]', keywords_str) if k.strip()]
+    return keywords
+
+
+def map_properties_to_metadata(
+    props_obj: Any,
+    field_mapping: Mapping[str, Union[str, List[str]]],
+    custom_handlers: Optional[Dict[str, Any]] = None
+) -> DocumentMetadata:
+    """Map properties from a document object to DocumentMetadata using field mappings.
+
+    Parameters
+    ----------
+    props_obj : Any
+        Object containing document properties (e.g., core_properties, metadata dict)
+    field_mapping : dict[str, str | list[str]]
+        Mapping from DocumentMetadata fields to property names.
+        Values can be single strings or lists of fallback names.
+    custom_handlers : dict[str, Any] | None
+        Optional custom handling functions for specific fields
+
+    Returns
+    -------
+    DocumentMetadata
+        Populated metadata object
+
+    Examples
+    --------
+    >>> # For DOCX/PPTX core_properties
+    >>> mapping = {
+    ...     'title': 'title',
+    ...     'author': 'author',
+    ...     'subject': 'subject',
+    ...     'keywords': 'keywords'
+    ... }
+    >>> metadata = map_properties_to_metadata(props, mapping)
+
+    >>> # For PDF with fallbacks
+    >>> mapping = {
+    ...     'title': ['title', 'Title'],
+    ...     'author': ['author', 'Author']
+    ... }
+    >>> metadata = map_properties_to_metadata(pdf_meta, mapping)
+    """
+    metadata = DocumentMetadata()
+    custom_handlers = custom_handlers or {}
+
+    # Handle standard fields with mapping
+    for metadata_field, prop_names in field_mapping.items():
+        if not hasattr(metadata, metadata_field):
+            continue
+
+        # Handle custom processing for this field
+        if metadata_field in custom_handlers:
+            handler = custom_handlers[metadata_field]
+            if callable(handler):
+                value = handler(props_obj, prop_names)
+                setattr(metadata, metadata_field, value)
+            continue
+
+        # Extract value using property names
+        value = None
+        if isinstance(prop_names, list):
+            # Try each name in the list until we find a non-empty value
+            for prop_name in prop_names:
+                value = safe_extract_property(props_obj, prop_name)
+                if value:
+                    break
+        else:
+            value = safe_extract_property(props_obj, prop_names)
+
+        # Special handling for keywords field
+        if metadata_field == 'keywords' and value:
+            if isinstance(value, str):
+                value = extract_keywords_from_string(value)
+            elif not isinstance(value, list):
+                value = [str(value)] if value else []  # type: ignore
+
+        setattr(metadata, metadata_field, value)
+
+    return metadata
+
+
+def extract_dict_metadata(
+    metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
+) -> DocumentMetadata:
+    """Extract metadata from a dictionary (useful for PDF and similar formats).
+
+    Parameters
+    ----------
+    metadata_dict : dict[str, Any]
+        Dictionary containing metadata key-value pairs
+    field_mapping : dict[str, str | list[str]]
+        Mapping from DocumentMetadata fields to dictionary keys
+
+    Returns
+    -------
+    DocumentMetadata
+        Populated metadata object
+    """
+    # Create a simple object wrapper for the dictionary to work with existing functions
+    class DictWrapper:
+        def __init__(self, data: Dict[str, Any]):
+            self._data = data
+
+        def __getattr__(self, name: str) -> Any:
+            return self._data.get(name)
+
+        def __hasattr__(self, name: str) -> bool:
+            return name in self._data
+
+    dict_obj = DictWrapper(metadata_dict)
+    return map_properties_to_metadata(dict_obj, field_mapping)
 
 
 def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadata], extract_metadata: bool) -> str:

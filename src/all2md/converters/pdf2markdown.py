@@ -51,7 +51,7 @@ Original from pdf4llm package, modified by Tom Villani to improve table processi
 import re
 import string
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     import fitz
@@ -71,7 +71,12 @@ from all2md.utils.inputs import (
     validate_and_convert_input,
     validate_page_range,
 )
-from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
+from all2md.utils.metadata import (
+    PDF_FIELD_MAPPING,
+    DocumentMetadata,
+    extract_dict_metadata,
+    prepend_metadata_if_enabled,
+)
 
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
@@ -1025,6 +1030,39 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
     return table_rects
 
 
+def _parse_pdf_date(date_str: str) -> str:
+    """Parse PDF date format into a readable string.
+
+    Parameters
+    ----------
+    date_str : str
+        PDF date string (e.g., "D:20210315120000Z")
+
+    Returns
+    -------
+    str
+        Parsed date or original string if parsing fails
+    """
+    if not date_str or not date_str.startswith('D:'):
+        return date_str
+
+    try:
+        from datetime import datetime
+        # Remove D: prefix and parse
+        clean_date = date_str[2:]
+        if 'Z' in clean_date:
+            clean_date = clean_date.replace('Z', '+0000')
+        # Basic parsing - format is YYYYMMDDHHmmSS
+        if len(clean_date) >= 8:
+            year = int(clean_date[0:4])
+            month = int(clean_date[4:6])
+            day = int(clean_date[6:8])
+            return datetime(year, month, day)
+    except (ValueError, IndexError):
+        pass
+    return date_str
+
+
 def extract_pdf_metadata(doc: "fitz.Document") -> DocumentMetadata:
     """Extract metadata from PDF document.
 
@@ -1038,90 +1076,60 @@ def extract_pdf_metadata(doc: "fitz.Document") -> DocumentMetadata:
     DocumentMetadata
         Extracted metadata
     """
-    metadata = DocumentMetadata()
-
     # PyMuPDF provides metadata as a dictionary
     pdf_meta = doc.metadata if hasattr(doc, 'metadata') else {}
 
-    # Map PDF metadata fields to our standard fields
-    if pdf_meta:
-        # Helper to get non-empty string values
-        def get_non_empty(key1, key2=None):
-            val = pdf_meta.get(key1, '')
-            if val and val.strip():
-                return val.strip()
-            if key2:
-                val = pdf_meta.get(key2, '')
-                if val and val.strip():
-                    return val.strip()
-            return None
+    if not pdf_meta:
+        return DocumentMetadata()
 
-        metadata.title = get_non_empty('title', 'Title')
-        metadata.author = get_non_empty('author', 'Author')
-        metadata.subject = get_non_empty('subject', 'Subject')
-        metadata.creator = get_non_empty('creator', 'Creator')
-        metadata.producer = get_non_empty('producer', 'Producer')
+    # Create custom handlers for PDF-specific field processing
+    def handle_pdf_dates(meta_dict: dict[str, Any], field_names: list[str]) -> Any:
+        """Handle PDF date fields with special parsing."""
+        for field_name in field_names:
+            if field_name in meta_dict:
+                date_val = meta_dict[field_name]
+                if date_val and str(date_val).strip():
+                    return _parse_pdf_date(str(date_val).strip())
+        return None
 
-        # Handle keywords - may be a string that needs splitting
-        keywords = get_non_empty('keywords', 'Keywords')
-        if keywords:
-            if isinstance(keywords, str):
-                # Split by common delimiters
-                import re
-                metadata.keywords = [k.strip() for k in re.split('[,;]', keywords) if k.strip()]
-            elif isinstance(keywords, list):
-                metadata.keywords = keywords
+    # Custom field mapping for PDF dates
+    pdf_mapping = PDF_FIELD_MAPPING.copy()
+    pdf_mapping.update({
+        'creation_date': ['creationDate', 'CreationDate'],
+        'modification_date': ['modDate', 'ModDate'],
+    })
 
-        # Handle dates
-        creation_date = get_non_empty('creationDate', 'CreationDate')
-        if creation_date:
-            # PyMuPDF returns dates as strings like "D:20210315120000Z"
-            if isinstance(creation_date, str) and creation_date.startswith('D:'):
-                # Parse PDF date format
-                try:
-                    from datetime import datetime
-                    # Remove D: prefix and parse
-                    date_str = creation_date[2:]
-                    if 'Z' in date_str:
-                        date_str = date_str.replace('Z', '+0000')
-                    # Basic parsing - format is YYYYMMDDHHmmSS
-                    if len(date_str) >= 8:
-                        year = int(date_str[0:4])
-                        month = int(date_str[4:6])
-                        day = int(date_str[6:8])
-                        metadata.creation_date = datetime(year, month, day)
-                except (ValueError, IndexError):
-                    metadata.creation_date = creation_date
-            else:
-                metadata.creation_date = creation_date
+    # Custom handlers for special fields
+    custom_handlers = {
+        'creation_date': handle_pdf_dates,
+        'modification_date': handle_pdf_dates,
+    }
 
-        mod_date = get_non_empty('modDate', 'ModDate')
-        if mod_date:
-            # Same parsing as creation date
-            if isinstance(mod_date, str) and mod_date.startswith('D:'):
-                try:
-                    from datetime import datetime
-                    date_str = mod_date[2:]
-                    if 'Z' in date_str:
-                        date_str = date_str.replace('Z', '+0000')
-                    if len(date_str) >= 8:
-                        year = int(date_str[0:4])
-                        month = int(date_str[4:6])
-                        day = int(date_str[6:8])
-                        metadata.modification_date = datetime(year, month, day)
-                except (ValueError, IndexError):
-                    metadata.modification_date = mod_date
-            else:
-                metadata.modification_date = mod_date
+    # Use the utility function for standard extraction
+    metadata = extract_dict_metadata(pdf_meta, pdf_mapping)
 
-        # Store any additional PDF-specific metadata
-        for key, value in pdf_meta.items():
-            if key not in ['title', 'Title', 'author', 'Author', 'subject', 'Subject',
-                           'creator', 'Creator', 'producer', 'Producer', 'keywords', 'Keywords',
-                           'creationDate', 'CreationDate', 'modDate', 'ModDate', 'format',
-                           'trapped', 'encryption']:  # Skip internal PDF fields
-                if value and str(value).strip():  # Only include non-empty values
-                    metadata.custom[key] = value
+    # Apply custom handlers for date fields
+    for field_name, handler in custom_handlers.items():
+        if field_name in pdf_mapping:
+            value = handler(pdf_meta, pdf_mapping[field_name])
+            if value:
+                setattr(metadata, field_name, value)
+
+    # Store any additional PDF-specific metadata in custom fields
+    processed_keys = set()
+    for field_names in pdf_mapping.values():
+        if isinstance(field_names, list):
+            processed_keys.update(field_names)
+        else:
+            processed_keys.add(field_names)
+
+    # Skip internal PDF fields
+    internal_fields = {'format', 'trapped', 'encryption'}
+
+    for key, value in pdf_meta.items():
+        if key not in processed_keys and key not in internal_fields:
+            if value and str(value).strip():
+                metadata.custom[key] = value
 
     return metadata
 

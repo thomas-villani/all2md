@@ -43,7 +43,12 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, SpreadsheetOptions
 from all2md.utils.inputs import escape_markdown_special, format_markdown_heading, validate_and_convert_input
-from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
+from all2md.utils.metadata import (
+    SPREADSHEET_FIELD_MAPPING,
+    DocumentMetadata,
+    map_properties_to_metadata,
+    prepend_metadata_if_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -188,61 +193,31 @@ def extract_xlsx_metadata(workbook: Any) -> DocumentMetadata:
     DocumentMetadata
         Extracted metadata
     """
-    metadata = DocumentMetadata()
-
-    # Access workbook properties
-    if hasattr(workbook, 'properties'):
+    if not hasattr(workbook, 'properties'):
+        metadata = DocumentMetadata()
+    else:
         props = workbook.properties
+        # Use the utility function for standard metadata extraction
+        metadata = map_properties_to_metadata(props, SPREADSHEET_FIELD_MAPPING)
 
-        # Standard document properties
-        if hasattr(props, 'title') and props.title:
-            metadata.title = props.title
-        if hasattr(props, 'creator') and props.creator:
-            metadata.author = props.creator
-        if hasattr(props, 'subject') and props.subject:
-            metadata.subject = props.subject
-        if hasattr(props, 'description') and props.description:
-            if not metadata.subject:  # Use description if no subject
-                metadata.subject = props.description
-        if hasattr(props, 'keywords') and props.keywords:
-            # Split keywords by comma or semicolon
-            if isinstance(props.keywords, str):
-                import re
-                metadata.keywords = [k.strip() for k in re.split('[,;]', props.keywords) if k.strip()]
-            else:
-                metadata.keywords = props.keywords
-        if hasattr(props, 'language') and props.language:
-            metadata.language = props.language
-        if hasattr(props, 'category') and props.category:
-            metadata.category = props.category
+        # Add XLSX-specific custom metadata
+        custom_properties = ['lastModifiedBy', 'revision', 'version', 'company', 'manager']
+        for prop_name in custom_properties:
+            if hasattr(props, prop_name):
+                value = getattr(props, prop_name)
+                if value:
+                    # Normalize property names for consistency
+                    normalized_name = 'last_modified_by' if prop_name == 'lastModifiedBy' else prop_name
+                    metadata.custom[normalized_name] = value
 
-        # Dates
-        if hasattr(props, 'created') and props.created:
-            metadata.creation_date = props.created
-        if hasattr(props, 'modified') and props.modified:
-            metadata.modification_date = props.modified
-
-        # Additional XLSX-specific metadata
-        if hasattr(props, 'lastModifiedBy') and props.lastModifiedBy:
-            metadata.custom['last_modified_by'] = props.lastModifiedBy
-        if hasattr(props, 'revision') and props.revision:
-            metadata.custom['revision'] = props.revision
-        if hasattr(props, 'version') and props.version:
-            metadata.custom['version'] = props.version
-        if hasattr(props, 'company') and props.company:
-            metadata.custom['company'] = props.company
-        if hasattr(props, 'manager') and props.manager:
-            metadata.custom['manager'] = props.manager
+        # Application info as fallback creator
+        if not metadata.creator and hasattr(props, 'application') and props.application:
+            metadata.creator = props.application
 
     # Workbook-specific metadata
     if hasattr(workbook, 'sheetnames'):
         metadata.custom['sheet_count'] = len(workbook.sheetnames)
         metadata.custom['sheet_names'] = workbook.sheetnames
-
-    # Application info
-    if hasattr(workbook, 'properties') and hasattr(workbook.properties, 'application'):
-        if workbook.properties.application:
-            metadata.creator = workbook.properties.application
 
     return metadata
 

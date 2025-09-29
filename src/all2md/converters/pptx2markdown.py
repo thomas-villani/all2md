@@ -80,7 +80,12 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import PptxOptions
 from all2md.utils.attachments import create_attachment_sequencer, extract_pptx_image_data, process_attachment
 from all2md.utils.inputs import format_markdown_heading, format_special_text, validate_and_convert_input
-from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
+from all2md.utils.metadata import (
+    OFFICE_FIELD_MAPPING,
+    DocumentMetadata,
+    map_properties_to_metadata,
+    prepend_metadata_if_enabled,
+)
 from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
@@ -572,46 +577,26 @@ def extract_pptx_metadata(prs: Presentation) -> DocumentMetadata:
     DocumentMetadata
         Extracted metadata
     """
-    metadata = DocumentMetadata()
-
-    # Access core properties
-    if hasattr(prs, 'core_properties'):
+    if not hasattr(prs, 'core_properties'):
+        metadata = DocumentMetadata()
+    else:
         props = prs.core_properties
+        # Use the utility function for standard metadata extraction
+        metadata = map_properties_to_metadata(props, OFFICE_FIELD_MAPPING)
 
-        # Extract standard properties
-        metadata.title = props.title if hasattr(props, 'title') and props.title else None
-        metadata.author = props.author if hasattr(props, 'author') and props.author else None
-        metadata.subject = props.subject if hasattr(props, 'subject') and props.subject else None
-        metadata.category = props.category if hasattr(props, 'category') and props.category else None
-        metadata.language = props.language if hasattr(props, 'language') and props.language else None
+        # Add PPTX-specific custom metadata
+        custom_properties = ['last_modified_by', 'revision', 'comments']
+        for prop_name in custom_properties:
+            if hasattr(props, prop_name):
+                value = getattr(props, prop_name)
+                if value:
+                    metadata.custom[prop_name] = value
 
-        # Handle keywords
-        if hasattr(props, 'keywords') and props.keywords:
-            if isinstance(props.keywords, str):
-                import re
-                metadata.keywords = [k.strip() for k in re.split('[,;]', props.keywords) if k.strip()]
-            elif isinstance(props.keywords, list):
-                metadata.keywords = props.keywords
-
-        # Handle dates
-        if hasattr(props, 'created') and props.created:
-            metadata.creation_date = props.created
-        if hasattr(props, 'modified') and props.modified:
-            metadata.modification_date = props.modified
-
-        # Additional PPTX-specific metadata
-        if hasattr(props, 'last_modified_by') and props.last_modified_by:
-            metadata.custom['last_modified_by'] = props.last_modified_by
-        if hasattr(props, 'revision') and props.revision:
-            metadata.custom['revision'] = props.revision
-        if hasattr(props, 'comments') and props.comments:
-            metadata.custom['comments'] = props.comments
-
-        # Add slide count as custom metadata
-        try:
-            metadata.custom['slide_count'] = len(prs.slides)
-        except Exception:
-            pass
+    # Add slide count as custom metadata
+    try:
+        metadata.custom['slide_count'] = len(prs.slides)
+    except Exception:
+        pass
 
     return metadata
 

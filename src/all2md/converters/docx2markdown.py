@@ -76,7 +76,12 @@ from all2md.exceptions import MarkdownConversionError
 from all2md.options import DocxOptions, MarkdownOptions
 from all2md.utils.attachments import create_attachment_sequencer, extract_docx_image_data, process_attachment
 from all2md.utils.inputs import escape_markdown_special, format_special_text
-from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
+from all2md.utils.metadata import (
+    OFFICE_FIELD_MAPPING,
+    DocumentMetadata,
+    map_properties_to_metadata,
+    prepend_metadata_if_enabled,
+)
 from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
@@ -522,42 +527,21 @@ def extract_docx_metadata(doc: "docx.document.Document") -> DocumentMetadata:
     DocumentMetadata
         Extracted metadata
     """
-    metadata = DocumentMetadata()
+    if not hasattr(doc, 'core_properties'):
+        return DocumentMetadata()
 
-    # Access core properties
-    if hasattr(doc, 'core_properties'):
-        props = doc.core_properties
+    props = doc.core_properties
 
-        # Extract standard properties
-        metadata.title = props.title if hasattr(props, 'title') and props.title else None
-        metadata.author = props.author if hasattr(props, 'author') and props.author else None
-        metadata.subject = props.subject if hasattr(props, 'subject') and props.subject else None
-        metadata.category = props.category if hasattr(props, 'category') and props.category else None
-        metadata.language = props.language if hasattr(props, 'language') and props.language else None
+    # Use the utility function for standard metadata extraction
+    metadata = map_properties_to_metadata(props, OFFICE_FIELD_MAPPING)
 
-        # Handle keywords
-        if hasattr(props, 'keywords') and props.keywords:
-            if isinstance(props.keywords, str):
-                import re
-                metadata.keywords = [k.strip() for k in re.split('[,;]', props.keywords) if k.strip()]
-            elif isinstance(props.keywords, list):
-                metadata.keywords = props.keywords
-
-        # Handle dates
-        if hasattr(props, 'created') and props.created:
-            metadata.creation_date = props.created
-        if hasattr(props, 'modified') and props.modified:
-            metadata.modification_date = props.modified
-
-        # Additional DOCX-specific metadata
-        if hasattr(props, 'last_modified_by') and props.last_modified_by:
-            metadata.custom['last_modified_by'] = props.last_modified_by
-        if hasattr(props, 'revision') and props.revision:
-            metadata.custom['revision'] = props.revision
-        if hasattr(props, 'version') and props.version:
-            metadata.custom['version'] = props.version
-        if hasattr(props, 'comments') and props.comments:
-            metadata.custom['comments'] = props.comments
+    # Add DOCX-specific custom metadata
+    custom_properties = ['last_modified_by', 'revision', 'version', 'comments']
+    for prop_name in custom_properties:
+        if hasattr(props, prop_name):
+            value = getattr(props, prop_name)
+            if value:
+                metadata.custom[prop_name] = value
 
     return metadata
 
