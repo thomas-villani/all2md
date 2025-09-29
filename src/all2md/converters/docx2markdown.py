@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 # src/all2md/converters/docx2markdown.py
-
 """Word document to Markdown conversion module.
 
 This module provides functionality to convert Microsoft Word documents (DOCX format)
