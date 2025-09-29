@@ -50,13 +50,17 @@ class TestCLIIntegration:
         output_file = self.temp_dir / "output.md"
 
         # Test with title extraction and dangerous element stripping
-        result = main([
-            str(html_file),
-            "--out", str(output_file),
-            "--html-extract-title",
-            "--html-strip-dangerous-elements",
-            "--markdown-emphasis-symbol", "_"
-        ])
+        result = main(
+            [
+                str(html_file),
+                "--out",
+                str(output_file),
+                "--html-extract-title",
+                "--html-strip-dangerous-elements",
+                "--markdown-emphasis-symbol",
+                "_",
+            ]
+        )
 
         assert result == 0
         assert output_file.exists()
@@ -73,15 +77,10 @@ class TestCLIIntegration:
         pdf_file = self.temp_dir / "test.pdf"
         pdf_file.write_text("Mock PDF content")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test PDF\n\nContent from pages 1-2"
 
-            result = main([
-                str(pdf_file),
-                "--pdf-pages", "1,2",
-                "--pdf-password", "secret",
-                "--pdf-no-detect-columns"
-            ])
+            result = main([str(pdf_file), "--pdf-pages", "1,2", "--pdf-password", "secret", "--pdf-no-detect-columns"])
 
             assert result == 0
             # Verify the correct options were passed
@@ -89,10 +88,10 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert 'pages' in kwargs
-            assert kwargs['pages'] == [1, 2]
-            assert kwargs['password'] == 'secret'
-            assert kwargs['detect_columns'] is False
+            assert "pages" in kwargs
+            assert kwargs["pages"] == [1, 2]
+            assert kwargs["password"] == "secret"
+            assert kwargs["detect_columns"] is False
 
     def test_format_override(self):
         """Test format override functionality."""
@@ -100,31 +99,25 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>HTML Content</h1>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "<h1>HTML Content</h1>"
 
-            result = main([
-                str(html_file),
-                "--format", "txt"
-            ])
+            result = main([str(html_file), "--format", "txt"])
 
             assert result == 0
             # Verify format was overridden
             call_args = mock_to_markdown.call_args
-            assert call_args[1]['format'] == 'txt'
+            assert call_args[1]["format"] == "txt"
 
     def test_attachment_validation_warning(self, capsys):
         """Test warning when attachment-output-dir used without download mode."""
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test"
 
-            result = main([
-                str(html_file),
-                "--attachment-output-dir", "./images"
-            ])
+            result = main([str(html_file), "--attachment-output-dir", "./images"])
 
             assert result == 0
 
@@ -138,35 +131,37 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test"
 
-            with patch('logging.basicConfig') as mock_logging:
-                result = main([
-                    str(html_file),
-                    "--log-level", "DEBUG"
-                ])
+            with patch("logging.basicConfig") as mock_logging:
+                result = main([str(html_file), "--log-level", "DEBUG"])
 
                 assert result == 0
                 # Verify logging was configured with DEBUG level
                 mock_logging.assert_called_once()
                 call_args = mock_logging.call_args
-                assert call_args[1]['level'] == 10  # logging.DEBUG
+                assert call_args[1]["level"] == 10  # logging.DEBUG
 
     def test_attachment_options_propagation(self):
         """Test that attachment options are properly propagated."""
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test <img src='image.png' alt='test'></p>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test ![test](images/image.png)"
 
-            result = main([
-                str(html_file),
-                "--attachment-mode", "download",
-                "--attachment-output-dir", "./images",
-                "--attachment-base-url", "https://example.com"
-            ])
+            result = main(
+                [
+                    str(html_file),
+                    "--attachment-mode",
+                    "download",
+                    "--attachment-output-dir",
+                    "./images",
+                    "--attachment-base-url",
+                    "https://example.com",
+                ]
+            )
 
             assert result == 0
 
@@ -174,24 +169,29 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['attachment_mode'] == 'download'
-            assert kwargs['attachment_output_dir'] == './images'
-            assert kwargs['attachment_base_url'] == 'https://example.com'
+            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_output_dir"] == "./images"
+            assert kwargs["attachment_base_url"] == "https://example.com"
 
     def test_markdown_options_propagation(self):
         """Test that Markdown formatting options are properly propagated."""
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p><em>italic</em> and <ul><li>item</li></ul></p>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "_italic_ and\n\n- item"
 
-            result = main([
-                str(html_file),
-                "--markdown-emphasis-symbol", "_",
-                "--markdown-bullet-symbols", "•→◦",
-                "--markdown-page-separator", "====="
-            ])
+            result = main(
+                [
+                    str(html_file),
+                    "--markdown-emphasis-symbol",
+                    "_",
+                    "--markdown-bullet-symbols",
+                    "•→◦",
+                    "--markdown-page-separator",
+                    "=====",
+                ]
+            )
 
             assert result == 0
 
@@ -199,9 +199,9 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['emphasis_symbol'] == '_'
-            assert kwargs['bullet_symbols'] == '•→◦'
-            assert kwargs['page_separator'] == '====='
+            assert kwargs["emphasis_symbol"] == "_"
+            assert kwargs["bullet_symbols"] == "•→◦"
+            assert kwargs["page_separator"] == "====="
 
     def test_file_not_found_error(self, capsys):
         """Test error handling when input file doesn't exist."""
@@ -218,7 +218,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = MarkdownConversionError("Test conversion error")
 
             result = main([str(html_file)])
@@ -232,7 +232,7 @@ class TestCLIIntegration:
         pdf_file = self.temp_dir / "test.pdf"
         pdf_file.write_text("Mock PDF")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = ImportError("PyMuPDF not found")
 
             result = main([str(pdf_file)])
@@ -246,7 +246,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = RuntimeError("Unexpected error")
 
             result = main([str(html_file)])
@@ -264,13 +264,10 @@ class TestCLIIntegration:
         output_dir = self.temp_dir / "nested" / "dir"
         output_file = output_dir / "output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test"
 
-            result = main([
-                str(html_file),
-                "--out", str(output_file)
-            ])
+            result = main([str(html_file), "--out", str(output_file)])
 
             assert result == 0
             assert output_file.exists()
@@ -281,7 +278,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>Test</h1>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Content"
 
             result = main([str(html_file)])
@@ -307,21 +304,32 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "complex_output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
-            mock_to_markdown.return_value = "# Complex Test\n\n## Heading\n\n**Bold** and _italic_ text.\n\n![Test image](images/test.png)"
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+            mock_to_markdown.return_value = (
+                "# Complex Test\n\n## Heading\n\n**Bold** and _italic_ text.\n\n![Test image](images/test.png)"
+            )
 
-            result = main([
-                str(html_file),
-                "--out", str(output_file),
-                "--format", "html",
-                "--html-extract-title",
-                "--html-strip-dangerous-elements",
-                "--attachment-mode", "download",
-                "--attachment-output-dir", "images",
-                "--markdown-emphasis-symbol", "_",
-                "--markdown-bullet-symbols", "•→◦",
-                "--log-level", "INFO"
-            ])
+            result = main(
+                [
+                    str(html_file),
+                    "--out",
+                    str(output_file),
+                    "--format",
+                    "html",
+                    "--html-extract-title",
+                    "--html-strip-dangerous-elements",
+                    "--attachment-mode",
+                    "download",
+                    "--attachment-output-dir",
+                    "images",
+                    "--markdown-emphasis-symbol",
+                    "_",
+                    "--markdown-bullet-symbols",
+                    "•→◦",
+                    "--log-level",
+                    "INFO",
+                ]
+            )
 
             assert result == 0
 
@@ -329,13 +337,13 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['format'] == 'html'
-            assert kwargs['extract_title'] is True
-            assert kwargs['strip_dangerous_elements'] is True
-            assert kwargs['attachment_mode'] == 'download'
-            assert kwargs['attachment_output_dir'] == 'images'
-            assert kwargs['emphasis_symbol'] == '_'
-            assert kwargs['bullet_symbols'] == '•→◦'
+            assert kwargs["format"] == "html"
+            assert kwargs["extract_title"] is True
+            assert kwargs["strip_dangerous_elements"] is True
+            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_output_dir"] == "images"
+            assert kwargs["emphasis_symbol"] == "_"
+            assert kwargs["bullet_symbols"] == "•→◦"
 
     def test_odf_conversion_basic(self):
         """Test basic ODF file conversion via CLI."""
@@ -343,7 +351,7 @@ class TestCLIIntegration:
         odt_file = self.temp_dir / "test.odt"
         odt_file.write_text("Mock ODT content")  # Not a real ODT, but CLI should detect format
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Document\n\nThis is converted from ODT."
 
             result = main([str(odt_file)])
@@ -358,15 +366,22 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
-            mock_to_markdown.return_value = "# ODT Document\n\nContent with table:\n\n| Col1 | Col2 |\n| --- | --- |\n| A | B |"
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+            mock_to_markdown.return_value = (
+                "# ODT Document\n\nContent with table:\n\n| Col1 | Col2 |\n| --- | --- |\n| A | B |"
+            )
 
-            result = main([
-                str(odt_file),
-                "--out", str(output_file),
-                "--attachment-mode", "base64",
-                "--markdown-emphasis-symbol", "_"
-            ])
+            result = main(
+                [
+                    str(odt_file),
+                    "--out",
+                    str(output_file),
+                    "--attachment-mode",
+                    "base64",
+                    "--markdown-emphasis-symbol",
+                    "_",
+                ]
+            )
 
             assert result == 0
             assert output_file.exists()
@@ -376,17 +391,17 @@ class TestCLIIntegration:
             kwargs = call_args[1]
 
             # preserve_tables should not be in kwargs when default True is specified
-            assert 'preserve_tables' not in kwargs
+            assert "preserve_tables" not in kwargs
             print(kwargs)
-            assert kwargs['attachment_mode'] == 'base64'
-            assert kwargs['emphasis_symbol'] == '_'
+            assert kwargs["attachment_mode"] == "base64"
+            assert kwargs["emphasis_symbol"] == "_"
 
     def test_odp_conversion(self):
         """Test ODP presentation conversion via CLI."""
         odp_file = self.temp_dir / "presentation.odp"
         odp_file.write_text("Mock ODP content")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Slide 1\n\nPresentation content\n\n# Slide 2\n\nMore content"
 
             result = main([str(odp_file)])
@@ -400,81 +415,84 @@ class TestCLIIntegration:
         test_file = self.temp_dir / "document.txt"
         test_file.write_text("Mock content")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nForced as ODT"
 
-            result = main([
-                str(test_file),
-                "--format", "odf"
-            ])
+            result = main([str(test_file), "--format", "odf"])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs['format'] == 'odf'
+            assert kwargs["format"] == "odf"
 
     def test_odf_attachment_handling(self):
         """Test ODF attachment handling options."""
         odt_file = self.temp_dir / "with_images.odt"
         odt_file.write_text("Mock ODT with images")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\n![Image](image.png)\n\nText with image."
 
-            result = main([
-                str(odt_file),
-                "--attachment-mode", "download",
-                "--attachment-output-dir", str(self.temp_dir / "images"),
-                "--attachment-base-url", "https://example.com/images/"
-            ])
+            result = main(
+                [
+                    str(odt_file),
+                    "--attachment-mode",
+                    "download",
+                    "--attachment-output-dir",
+                    str(self.temp_dir / "images"),
+                    "--attachment-base-url",
+                    "https://example.com/images/",
+                ]
+            )
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['attachment_mode'] == 'download'
-            assert kwargs['attachment_output_dir'] == str(self.temp_dir / "images")
-            assert kwargs['attachment_base_url'] == 'https://example.com/images/'
+            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_output_dir"] == str(self.temp_dir / "images")
+            assert kwargs["attachment_base_url"] == "https://example.com/images/"
 
     def test_odf_table_handling(self):
         """Test ODF table preservation options."""
         odt_file = self.temp_dir / "with_tables.odt"
         odt_file.write_text("Mock ODT with tables")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             # Test with tables enabled
-            mock_to_markdown.return_value = "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
+            mock_to_markdown.return_value = (
+                "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
+            )
 
-            result = main([
-                str(odt_file)
-                # No flag needed - tables are preserved by default
-            ])
+            result = main(
+                [
+                    str(odt_file)
+                    # No flag needed - tables are preserved by default
+                ]
+            )
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert 'preserve_tables' not in kwargs  # Default True, shouldn't be in kwargs
+            assert "preserve_tables" not in kwargs  # Default True, shouldn't be in kwargs
 
             # Test with tables disabled
             mock_to_markdown.reset_mock()
             mock_to_markdown.return_value = "# Document\n\nTable content as text"
 
-            result = main([
-                str(odt_file),
-                "--odf-no-preserve-tables"
-            ])
+            result = main([str(odt_file), "--odf-no-preserve-tables"])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs['preserve_tables'] is False
+            assert kwargs["preserve_tables"] is False
 
     def test_odf_error_handling(self):
         """Test error handling for ODF conversion."""
         nonexistent_file = self.temp_dir / "nonexistent.odt"
 
         # Should fail gracefully for nonexistent file
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = InputError("File not found")
 
             result = main([str(nonexistent_file)])
@@ -488,30 +506,22 @@ class TestCLIIntegration:
         # Create test notebook
         notebook_content = {
             "cells": [
-                {
-                    "cell_type": "markdown",
-                    "source": ["# Test Notebook\n", "This is a test."]
-                },
+                {"cell_type": "markdown", "source": ["# Test Notebook\n", "This is a test."]},
                 {
                     "cell_type": "code",
                     "source": ["print('Hello, World!')"],
-                    "outputs": [
-                        {
-                            "output_type": "stream",
-                            "text": ["Hello, World!\n"]
-                        }
-                    ]
-                }
+                    "outputs": [{"output_type": "stream", "text": ["Hello, World!\n"]}],
+                },
             ],
             "metadata": {"kernelspec": {"language": "python"}},
-            "nbformat": 4
+            "nbformat": 4,
         }
 
         ipynb_file = self.temp_dir / "test.ipynb"
-        with open(ipynb_file, 'w') as f:
+        with open(ipynb_file, "w") as f:
             json.dump(notebook_content, f)
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Notebook\n\nThis is a test.\n\n```python\nprint('Hello, World!')\n```\n\n```\nHello, World!\n```"
 
             result = main([str(ipynb_file)])
@@ -524,48 +534,50 @@ class TestCLIIntegration:
         test_file = self.temp_dir / "document.txt"
         test_file.write_text("Mock notebook content")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nForced as Jupyter Notebook"
 
-            result = main([
-                str(test_file),
-                "--format", "ipynb"
-            ])
+            result = main([str(test_file), "--format", "ipynb"])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs['format'] == 'ipynb'
+            assert kwargs["format"] == "ipynb"
 
     def test_ipynb_attachment_handling(self):
         """Test Jupyter Notebook image attachment handling options."""
         ipynb_file = self.temp_dir / "with_plots.ipynb"
         ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Notebook\n\n![cell output](plot.png)\n\nCode with plot."
 
-            result = main([
-                str(ipynb_file),
-                "--attachment-mode", "download",
-                "--attachment-output-dir", str(self.temp_dir / "plots"),
-                "--attachment-base-url", "https://example.com/plots/"
-            ])
+            result = main(
+                [
+                    str(ipynb_file),
+                    "--attachment-mode",
+                    "download",
+                    "--attachment-output-dir",
+                    str(self.temp_dir / "plots"),
+                    "--attachment-base-url",
+                    "https://example.com/plots/",
+                ]
+            )
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['attachment_mode'] == 'download'
-            assert kwargs['attachment_output_dir'] == str(self.temp_dir / "plots")
-            assert kwargs['attachment_base_url'] == 'https://example.com/plots/'
+            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_output_dir"] == str(self.temp_dir / "plots")
+            assert kwargs["attachment_base_url"] == "https://example.com/plots/"
 
     def test_ipynb_truncate_options(self):
         """Test Jupyter Notebook output truncation options."""
         ipynb_file = self.temp_dir / "long_output.ipynb"
         ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             # Test basic ipynb conversion
             mock_to_markdown.return_value = "```python\nfor i in range(10): print(i)\n```"
 
@@ -578,7 +590,7 @@ class TestCLIIntegration:
         """Test error handling for Jupyter Notebook conversion."""
         nonexistent_file = self.temp_dir / "nonexistent.ipynb"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = InputError("Invalid JSON")
 
             result = main([str(nonexistent_file)])
@@ -592,25 +604,22 @@ class TestCLIIntegration:
         notebook_content = {
             "cells": [
                 {"cell_type": "markdown", "source": ["# Output Test"]},
-                {"cell_type": "code", "source": ["x = 42"], "outputs": []}
+                {"cell_type": "code", "source": ["x = 42"], "outputs": []},
             ],
             "metadata": {"kernelspec": {"language": "python"}},
-            "nbformat": 4
+            "nbformat": 4,
         }
 
         ipynb_file = self.temp_dir / "input.ipynb"
-        with open(ipynb_file, 'w') as f:
+        with open(ipynb_file, "w") as f:
             json.dump(notebook_content, f)
 
         output_file = self.temp_dir / "output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Output Test\n\n```python\nx = 42\n```"
 
-            result = main([
-                str(ipynb_file),
-                "--out", str(output_file)
-            ])
+            result = main([str(ipynb_file), "--out", str(output_file)])
 
             assert result == 0
             # Output file should be written
@@ -625,22 +634,18 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "complex_output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = """# Complex Notebook
 
 Code and outputs with custom settings."""
 
-            result = main([
-                str(ipynb_file),
-                "--out", str(output_file),
-                "--attachment-mode", "base64"
-            ])
+            result = main([str(ipynb_file), "--out", str(output_file), "--attachment-mode", "base64"])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs['attachment_mode'] == 'base64'
+            assert kwargs["attachment_mode"] == "base64"
 
     def test_odf_with_complex_options(self):
         """Test ODF conversion with comprehensive option set."""
@@ -649,7 +654,7 @@ Code and outputs with custom settings."""
 
         output_file = self.temp_dir / "complex_output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = """# Complex Document
 
 This is a complex document with:
@@ -664,14 +669,21 @@ This is a complex document with:
 
 ![Image alt text](data:image/png;base64,iVBORw...)"""
 
-            result = main([
-                str(odt_file),
-                "--out", str(output_file),
-                "--attachment-mode", "base64",
-                "--markdown-emphasis-symbol", "_",
-                "--markdown-bullet-symbols", "*",
-                "--log-level", "DEBUG"
-            ])
+            result = main(
+                [
+                    str(odt_file),
+                    "--out",
+                    str(output_file),
+                    "--attachment-mode",
+                    "base64",
+                    "--markdown-emphasis-symbol",
+                    "_",
+                    "--markdown-bullet-symbols",
+                    "*",
+                    "--log-level",
+                    "DEBUG",
+                ]
+            )
 
             assert result == 0
             assert output_file.exists()
@@ -680,10 +692,10 @@ This is a complex document with:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert 'preserve_tables' not in kwargs  # Default True, shouldn't be in kwargs
-            assert kwargs['attachment_mode'] == 'base64'
-            assert kwargs['emphasis_symbol'] == '_'
-            assert kwargs['bullet_symbols'] == '*'
+            assert "preserve_tables" not in kwargs  # Default True, shouldn't be in kwargs
+            assert kwargs["attachment_mode"] == "base64"
+            assert kwargs["emphasis_symbol"] == "_"
+            assert kwargs["bullet_symbols"] == "*"
 
 
 @pytest.mark.integration
@@ -711,15 +723,19 @@ class TestAdvancedCLIIntegration:
         output_dir = self.temp_dir / "output"
 
         # Test rich output (may fallback if rich not installed)
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Document\n\nContent"
 
-            result = main([
-                str(files[0]), str(files[1]),
-                "--rich",
-                "--output-dir", str(output_dir),
-                "--no-summary"  # Disable summary to test just rich processing
-            ])
+            result = main(
+                [
+                    str(files[0]),
+                    str(files[1]),
+                    "--rich",
+                    "--output-dir",
+                    str(output_dir),
+                    "--no-summary",  # Disable summary to test just rich processing
+                ]
+            )
 
             assert result == 0
             # Should process without crashing regardless of rich availability
@@ -733,14 +749,10 @@ class TestAdvancedCLIIntegration:
             html_file.write_text(f"<h1>Document {i}</h1><p>Test content {i}</p>")
             files.append(str(html_file))
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nTest content"
 
-            result = main([
-                *files,
-                "--progress",
-                "--no-summary"
-            ])
+            result = main([*files, "--progress", "--no-summary"])
 
             assert result == 0
             # Should handle progress bar gracefully (with or without tqdm)
@@ -756,7 +768,8 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "converted"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+
             def mock_conversion(input_path, **kwargs):
                 if "html" in str(input_path):
                     return "# HTML Test\n\nHTML content"
@@ -765,13 +778,9 @@ class TestAdvancedCLIIntegration:
 
             mock_to_markdown.side_effect = mock_conversion
 
-            result = main([
-                str(html_file),
-                str(markdown_file),
-                "--output-dir", str(output_dir),
-                "--skip-errors",
-                "--no-summary"
-            ])
+            result = main(
+                [str(html_file), str(markdown_file), "--output-dir", str(output_dir), "--skip-errors", "--no-summary"]
+            )
 
             assert result == 0
             assert output_dir.exists()
@@ -791,7 +800,8 @@ class TestAdvancedCLIIntegration:
 
         output_file = self.temp_dir / "combined.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+
             def mock_conversion(input_path, **kwargs):
                 # Extract number from filename
                 filename = str(input_path)
@@ -804,12 +814,7 @@ class TestAdvancedCLIIntegration:
 
             mock_to_markdown.side_effect = mock_conversion
 
-            result = main([
-                *files,
-                "--collate",
-                "--out", str(output_file),
-                "--no-summary"
-            ])
+            result = main([*files, "--collate", "--out", str(output_file), "--no-summary"])
 
             assert result == 0
             assert output_file.exists()
@@ -836,7 +841,7 @@ class TestAdvancedCLIIntegration:
             self.temp_dir / "root.html",
             self.temp_dir / "subdir1" / "level1.html",
             self.temp_dir / "subdir2" / "another.html",
-            self.temp_dir / "subdir1" / "nested" / "deep.html"
+            self.temp_dir / "subdir1" / "nested" / "deep.html",
         ]
 
         for i, file_path in enumerate(files_created):
@@ -844,16 +849,19 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "output"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
-            result = main([
-                str(self.temp_dir),
-                "--recursive",
-                "--output-dir", str(output_dir),
-                "--preserve-structure",
-                "--no-summary"
-            ])
+            result = main(
+                [
+                    str(self.temp_dir),
+                    "--recursive",
+                    "--output-dir",
+                    str(output_dir),
+                    "--preserve-structure",
+                    "--no-summary",
+                ]
+            )
 
             assert result == 0
             assert output_dir.exists()
@@ -870,11 +878,11 @@ class TestAdvancedCLIIntegration:
         html_file.write_text("<h1>Test</h1>")
 
         # Set environment variables
-        os.environ['ALL2MD_NO_SUMMARY'] = 'true'
-        os.environ['ALL2MD_OUTPUT_DIR'] = str(self.temp_dir / "env_output")
+        os.environ["ALL2MD_NO_SUMMARY"] = "true"
+        os.environ["ALL2MD_OUTPUT_DIR"] = str(self.temp_dir / "env_output")
 
         try:
-            with patch('all2md.to_markdown') as mock_to_markdown:
+            with patch("all2md.cli.to_markdown") as mock_to_markdown:
                 mock_to_markdown.return_value = "# Test\n\nContent"
 
                 # Test using environment variables
@@ -884,21 +892,24 @@ class TestAdvancedCLIIntegration:
                 # Should use env var for output dir (if not overridden)
 
             # Test CLI override of environment variables
-            with patch('all2md.to_markdown') as mock_to_markdown:
+            with patch("all2md.cli.to_markdown") as mock_to_markdown:
                 mock_to_markdown.return_value = "# Test\n\nContent"
 
                 cli_output_dir = self.temp_dir / "cli_output"
-                result = main([
-                    str(html_file),
-                    "--output-dir", str(cli_output_dir)  # Should override env var
-                ])
+                result = main(
+                    [
+                        str(html_file),
+                        "--output-dir",
+                        str(cli_output_dir),  # Should override env var
+                    ]
+                )
 
                 assert result == 0
 
         finally:
             # Clean up environment
-            os.environ.pop('ALL2MD_NO_SUMMARY', None)
-            os.environ.pop('ALL2MD_OUTPUT_DIR', None)
+            os.environ.pop("ALL2MD_NO_SUMMARY", None)
+            os.environ.pop("ALL2MD_OUTPUT_DIR", None)
 
     def test_parallel_processing_integration(self):
         """Test parallel processing integration."""
@@ -911,21 +922,18 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "parallel_output"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+
             def slow_conversion(input_path, **kwargs):
                 import time
+
                 time.sleep(0.1)  # Simulate processing time
                 return f"# Converted {input_path.name}\n\nContent"
 
             mock_to_markdown.side_effect = slow_conversion
 
             # Test parallel processing
-            result = main([
-                *files,
-                "--parallel", "2",
-                "--output-dir", str(output_dir),
-                "--no-summary"
-            ])
+            result = main([*files, "--parallel", "2", "--output-dir", str(output_dir), "--no-summary"])
 
             assert result == 0
             assert output_dir.exists()
@@ -945,7 +953,8 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "error_output"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+
             def selective_error(input_path, **kwargs):
                 if "bad" in str(input_path):
                     raise Exception("Simulated conversion error")
@@ -954,13 +963,9 @@ class TestAdvancedCLIIntegration:
             mock_to_markdown.side_effect = selective_error
 
             # Test with skip-errors
-            result = main([
-                str(good_file),
-                str(bad_file),
-                "--skip-errors",
-                "--output-dir", str(output_dir),
-                "--no-summary"
-            ])
+            result = main(
+                [str(good_file), str(bad_file), "--skip-errors", "--output-dir", str(output_dir), "--no-summary"]
+            )
 
             assert result == 1  # Should return error code but continue processing
 
@@ -981,19 +986,22 @@ class TestAdvancedCLIIntegration:
             test_file.write_text(f"<h1>Complex {i}</h1><p>Test {i}</p>")
             files.append(str(test_file))
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Complex\n\nTest content"
 
             # Test combination of many new features
-            result = main([
-                *files,
-                "--rich",  # Rich output
-                "--progress",  # Progress bar
-                "--parallel", "2",  # Parallel processing
-                "--skip-errors",  # Error handling
-                "--collate",  # File collation
-                "--no-summary"  # No summary
-            ])
+            result = main(
+                [
+                    *files,
+                    "--rich",  # Rich output
+                    "--progress",  # Progress bar
+                    "--parallel",
+                    "2",  # Parallel processing
+                    "--skip-errors",  # Error handling
+                    "--collate",  # File collation
+                    "--no-summary",  # No summary
+                ]
+            )
 
             # Should handle all options gracefully
             assert result == 0
@@ -1010,7 +1018,8 @@ class TestAdvancedCLIIntegration:
         output_dir = self.temp_dir / "multi_output"
         images_dir = self.temp_dir / "images"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+
             def mock_with_images(input_path, **kwargs):
                 if "doc1" in str(input_path):
                     return "# Doc 1\n\n![Image 1](images/image1.png)"
@@ -1019,14 +1028,19 @@ class TestAdvancedCLIIntegration:
 
             mock_to_markdown.side_effect = mock_with_images
 
-            result = main([
-                str(html1),
-                str(html2),
-                "--output-dir", str(output_dir),
-                "--attachment-mode", "download",
-                "--attachment-output-dir", str(images_dir),
-                "--no-summary"
-            ])
+            result = main(
+                [
+                    str(html1),
+                    str(html2),
+                    "--output-dir",
+                    str(output_dir),
+                    "--attachment-mode",
+                    "download",
+                    "--attachment-output-dir",
+                    str(images_dir),
+                    "--no-summary",
+                ]
+            )
 
             assert result == 0
 
@@ -1034,48 +1048,50 @@ class TestAdvancedCLIIntegration:
             assert mock_to_markdown.call_count == 2
             for call in mock_to_markdown.call_args_list:
                 kwargs = call[1]
-                assert kwargs['attachment_mode'] == 'download'
-                assert str(images_dir) in kwargs['attachment_output_dir']
+                assert kwargs["attachment_mode"] == "download"
+                assert str(images_dir) in kwargs["attachment_output_dir"]
 
     def test_markdown_options_with_multi_file(self):
         """Test Markdown formatting options across multiple files."""
-        files = [
-            self.temp_dir / "test1.html",
-            self.temp_dir / "test2.html"
-        ]
+        files = [self.temp_dir / "test1.html", self.temp_dir / "test2.html"]
 
         for i, file_path in enumerate(files):
             file_path.write_text(f"<h1>Test {i}</h1><p><em>Italic</em> and <strong>bold</strong></p>")
 
         output_dir = self.temp_dir / "formatted_output"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\n_Italic_ and **bold**"
 
-            result = main([
-                str(files[0]),
-                str(files[1]),
-                "--output-dir", str(output_dir),
-                "--markdown-emphasis-symbol", "_",
-                "--markdown-bullet-symbols", "•",
-                "--no-summary"
-            ])
+            result = main(
+                [
+                    str(files[0]),
+                    str(files[1]),
+                    "--output-dir",
+                    str(output_dir),
+                    "--markdown-emphasis-symbol",
+                    "_",
+                    "--markdown-bullet-symbols",
+                    "•",
+                    "--no-summary",
+                ]
+            )
 
             assert result == 0
 
             # Verify markdown options were passed
             for call in mock_to_markdown.call_args_list:
                 kwargs = call[1]
-                assert kwargs['emphasis_symbol'] == '_'
-                assert kwargs['bullet_symbols'] == '•'
+                assert kwargs["emphasis_symbol"] == "_"
+                assert kwargs["bullet_symbols"] == "•"
 
     def test_format_detection_with_multi_file(self):
         """Test format detection across multiple file types."""
         # Create files with different extensions
         files = {
-            'test.html': '<h1>HTML</h1><p>HTML content</p>',
-            'test.pdf': 'Mock PDF content',  # Will be mocked
-            'test.docx': 'Mock DOCX content',  # Will be mocked
+            "test.html": "<h1>HTML</h1><p>HTML content</p>",
+            "test.pdf": "Mock PDF content",  # Will be mocked
+            "test.docx": "Mock DOCX content",  # Will be mocked
         }
 
         file_paths = []
@@ -1084,22 +1100,20 @@ class TestAdvancedCLIIntegration:
             file_path.write_text(content)
             file_paths.append(str(file_path))
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+
             def format_specific_mock(input_path, **kwargs):
                 path_str = str(input_path)
-                if 'html' in path_str:
+                if "html" in path_str:
                     return "# HTML Document\n\nHTML content"
-                elif 'pdf' in path_str:
+                elif "pdf" in path_str:
                     return "# PDF Document\n\nPDF content"
                 else:
                     return "# DOCX Document\n\nDOCX content"
 
             mock_to_markdown.side_effect = format_specific_mock
 
-            result = main([
-                *file_paths,
-                "--no-summary"
-            ])
+            result = main([*file_paths, "--no-summary"])
 
             assert result == 0
             assert mock_to_markdown.call_count == 3
@@ -1108,10 +1122,10 @@ class TestAdvancedCLIIntegration:
         """Test that stdin processing still works with new features."""
         test_content = "<h1>Stdin Test</h1><p>Content from stdin</p>"
 
-        with patch('all2md.cli.processors.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Stdin Test\n\nContent from stdin"
 
-            with patch('sys.stdin') as mock_stdin:
+            with patch("sys.stdin") as mock_stdin:
                 mock_stdin.buffer.read.return_value = test_content.encode()
 
                 result = main(["-"])  # stdin
@@ -1137,23 +1151,23 @@ class TestEnhancedCLIIntegration:
     def test_dependency_check_integration(self):
         """Test dependency check command integration."""
         # Test check-deps command
-        result = main(['check-deps'])
+        result = main(["check-deps"])
         assert result in [0, 1]  # Should either succeed or indicate missing deps
 
         # Test check-deps with specific format
-        result = main(['check-deps', 'pdf'])
+        result = main(["check-deps", "pdf"])
         assert result in [0, 1]  # Should either succeed or indicate missing deps
 
     def test_dependency_install_integration(self):
         """Test dependency install command integration."""
         # Note: We don't actually install packages in tests, but we test the CLI path
-        with patch('all2md.dependencies.get_missing_dependencies') as mock_missing:
-            with patch('all2md.dependencies.install_dependencies') as mock_install:
+        with patch("all2md.dependencies.get_missing_dependencies") as mock_missing:
+            with patch("all2md.dependencies.install_dependencies") as mock_install:
                 # Mock that there are missing dependencies
-                mock_missing.return_value = [('test-package', '>=1.0')]
+                mock_missing.return_value = [("test-package", ">=1.0")]
                 mock_install.return_value = (True, "Mock installation successful")
 
-                result = main(['install-deps', 'pdf'])
+                result = main(["install-deps", "pdf"])
                 assert result == 0
                 mock_install.assert_called_once()
 
@@ -1162,32 +1176,38 @@ class TestEnhancedCLIIntegration:
         config_file = self.temp_dir / "test_config.json"
 
         # Test saving configuration
-        result = main([
-            "test.pdf",
-            "--pdf-pages", "1,2,3",
-            "--markdown-emphasis-symbol", "_",
-            "--rich",
-            "--save-config", str(config_file)
-        ])
+        result = main(
+            [
+                "test.pdf",
+                "--pdf-pages",
+                "1,2,3",
+                "--markdown-emphasis-symbol",
+                "_",
+                "--rich",
+                "--save-config",
+                str(config_file),
+            ]
+        )
 
         assert result == 0
         assert config_file.exists()
 
         # Verify config content
         import json
+
         with open(config_file) as f:
             config = json.load(f)
 
-        assert 'pdf.pages' in config
-        assert config['pdf.pages'] == '1,2,3'
-        assert 'markdown.emphasis_symbol' in config
-        assert config['markdown.emphasis_symbol'] == '_'
-        assert 'rich' in config
-        assert config['rich'] is True
+        assert "pdf.pages" in config
+        assert config["pdf.pages"] == "1,2,3"
+        assert "markdown.emphasis_symbol" in config
+        assert config["markdown.emphasis_symbol"] == "_"
+        assert "rich" in config
+        assert config["rich"] is True
 
         # Should not include input or save_config
-        assert 'input' not in config
-        assert 'save_config' not in config
+        assert "input" not in config
+        assert "save_config" not in config
 
     def test_dry_run_integration(self):
         """Test dry run mode integration."""
@@ -1199,12 +1219,7 @@ class TestEnhancedCLIIntegration:
             test_files.append(str(test_file))
 
         # Test dry run mode
-        result = main([
-            *test_files,
-            "--dry-run",
-            "--output-dir", str(self.temp_dir / "output"),
-            "--rich"
-        ])
+        result = main([*test_files, "--dry-run", "--output-dir", str(self.temp_dir / "output"), "--rich"])
 
         assert result == 0
         # No files should actually be created
@@ -1220,12 +1235,7 @@ class TestEnhancedCLIIntegration:
             test_file.write_text(f"<h1>Section {i}</h1>")
             files.append(str(test_file))
 
-        result = main([
-            *files,
-            "--dry-run",
-            "--collate",
-            "--out", str(self.temp_dir / "combined.md")
-        ])
+        result = main([*files, "--dry-run", "--collate", "--out", str(self.temp_dir / "combined.md")])
 
         assert result == 0
         captured = capsys.readouterr()
@@ -1244,7 +1254,7 @@ class TestEnhancedCLIIntegration:
             self.temp_dir / "exclude.tmp",
             self.temp_dir / "backup_file.html",
             self.temp_dir / "subdir" / "nested.html",
-            self.temp_dir / "subdir" / "backup_nested.html"
+            self.temp_dir / "subdir" / "backup_nested.html",
         ]
 
         for file_path in test_files:
@@ -1252,17 +1262,22 @@ class TestEnhancedCLIIntegration:
 
         output_dir = self.temp_dir / "output"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
-            result = main([
-                str(self.temp_dir),
-                "--recursive",
-                "--exclude", "*.tmp",
-                "--exclude", "backup_*",
-                "--output-dir", str(output_dir),
-                "--no-summary"
-            ])
+            result = main(
+                [
+                    str(self.temp_dir),
+                    "--recursive",
+                    "--exclude",
+                    "*.tmp",
+                    "--exclude",
+                    "backup_*",
+                    "--output-dir",
+                    str(output_dir),
+                    "--no-summary",
+                ]
+            )
 
             assert result == 0
             # Should have processed some files but not excluded ones
@@ -1291,22 +1306,27 @@ class TestEnhancedCLIIntegration:
             self.temp_dir / "temp_file.pdf",
             self.temp_dir / "file.temp.pdf",
             self.temp_dir / "backup_doc.pdf",
-            self.temp_dir / "normal.pdf"
+            self.temp_dir / "normal.pdf",
         ]
 
         for file_path in test_files:
             file_path.write_text("test content")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
-            result = main([
-                str(self.temp_dir),
-                "--exclude", "temp_*",
-                "--exclude", "*.temp.*",
-                "--exclude", "backup_*",
-                "--no-summary"
-            ])
+            result = main(
+                [
+                    str(self.temp_dir),
+                    "--exclude",
+                    "temp_*",
+                    "--exclude",
+                    "*.temp.*",
+                    "--exclude",
+                    "backup_*",
+                    "--no-summary",
+                ]
+            )
 
             assert result == 0
 
@@ -1329,50 +1349,57 @@ class TestEnhancedCLIIntegration:
         """Test saving configuration with complex option combinations."""
         config_file = self.temp_dir / "complex_config.json"
 
-        result = main([
-            "test.pdf",
-            "--pdf-pages", "1,3,5",
-            "--pdf-password", "secret123",
-            "--pdf-no-detect-columns",
-            "--markdown-emphasis-symbol", "_",
-            "--markdown-bullet-symbols", "*-+",
-            "--attachment-mode", "download",
-            "--attachment-output-dir", "./images",
-            "--rich",
-            "--exclude", "*.tmp",
-            "--exclude", "backup_*",
-            "--save-config", str(config_file)
-        ])
+        result = main(
+            [
+                "test.pdf",
+                "--pdf-pages",
+                "1,3,5",
+                "--pdf-password",
+                "secret123",
+                "--pdf-no-detect-columns",
+                "--markdown-emphasis-symbol",
+                "_",
+                "--markdown-bullet-symbols",
+                "*-+",
+                "--attachment-mode",
+                "download",
+                "--attachment-output-dir",
+                "./images",
+                "--rich",
+                "--exclude",
+                "*.tmp",
+                "--exclude",
+                "backup_*",
+                "--save-config",
+                str(config_file),
+            ]
+        )
 
         assert result == 0
         assert config_file.exists()
 
         # Load and verify comprehensive config
         import json
+
         with open(config_file) as f:
             config = json.load(f)
 
         # Should include all relevant options
-        assert config['pdf.pages'] == '1,3,5'
-        assert config['pdf.password'] == 'secret123'
-        assert config['pdf.detect_columns'] is False
-        assert config['markdown.emphasis_symbol'] == '_'
-        assert config['markdown.bullet_symbols'] == '*-+'
-        assert config['attachment_mode'] == 'download'
-        assert config['attachment_output_dir'] == './images'
-        assert config['rich'] is True
-        assert config['exclude'] == ['*.tmp', 'backup_*']
+        assert config["pdf.pages"] == "1,3,5"
+        assert config["pdf.password"] == "secret123"
+        assert config["pdf.detect_columns"] is False
+        assert config["markdown.emphasis_symbol"] == "_"
+        assert config["markdown.bullet_symbols"] == "*-+"
+        assert config["attachment_mode"] == "download"
+        assert config["attachment_output_dir"] == "./images"
+        assert config["rich"] is True
+        assert config["exclude"] == ["*.tmp", "backup_*"]
 
     def test_config_load_and_use(self):
         """Test loading and using saved configuration."""
         # First, save a config
         config_file = self.temp_dir / "saved_config.json"
-        result = main([
-            "test.pdf",
-            "--markdown-emphasis-symbol", "_",
-            "--rich",
-            "--save-config", str(config_file)
-        ])
+        result = main(["test.pdf", "--markdown-emphasis-symbol", "_", "--rich", "--save-config", str(config_file)])
         assert result == 0
 
         # Create a test file to convert
@@ -1380,30 +1407,22 @@ class TestEnhancedCLIIntegration:
         test_file.write_text("<h1>Test</h1><p><em>Italic</em></p>")
 
         # Use the saved config
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\n_Italic_"
 
-            result = main([
-                str(test_file),
-                "--options-json", str(config_file)
-            ])
+            result = main([str(test_file), "--options-json", str(config_file)])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
             # Should have loaded options from config
-            assert kwargs['emphasis_symbol'] == '_'
+            assert kwargs["emphasis_symbol"] == "_"
 
     def test_combined_new_features_integration(self):
         """Test all new features working together."""
         # Create multiple test files with some to exclude
-        files_to_create = [
-            "document1.html",
-            "document2.html",
-            "temp_file.html",
-            "backup_doc.html"
-        ]
+        files_to_create = ["document1.html", "document2.html", "temp_file.html", "backup_doc.html"]
 
         test_files = []
         for filename in files_to_create:
@@ -1415,17 +1434,24 @@ class TestEnhancedCLIIntegration:
         output_dir = self.temp_dir / "output"
 
         # First, test dry run with all features
-        result = main([
-            str(self.temp_dir),
-            "--dry-run",
-            "--exclude", "temp_*",
-            "--exclude", "backup_*",
-            "--output-dir", str(output_dir),
-            "--rich",
-            "--parallel", "2",
-            "--preserve-structure",
-            "--save-config", str(config_file)
-        ])
+        result = main(
+            [
+                str(self.temp_dir),
+                "--dry-run",
+                "--exclude",
+                "temp_*",
+                "--exclude",
+                "backup_*",
+                "--output-dir",
+                str(output_dir),
+                "--rich",
+                "--parallel",
+                "2",
+                "--preserve-structure",
+                "--save-config",
+                str(config_file),
+            ]
+        )
 
         assert result == 0
         # Config should be saved even in dry run
@@ -1434,14 +1460,10 @@ class TestEnhancedCLIIntegration:
         assert not output_dir.exists()
 
         # Now test actual conversion using the config
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nContent"
 
-            result = main([
-                str(self.temp_dir),
-                "--options-json", str(config_file),
-                "--no-summary"
-            ])
+            result = main([str(self.temp_dir), "--options-json", str(config_file), "--no-summary"])
 
             assert result == 0
 
@@ -1462,10 +1484,10 @@ class TestEnhancedCLIIntegration:
     def test_dependency_commands_with_rich_output(self, capsys):
         """Test dependency commands with rich output (if available)."""
         # Test dependency check with rich output
-        with patch('all2md.dependencies.print_dependency_report') as mock_report:
+        with patch("all2md.dependencies.print_dependency_report") as mock_report:
             mock_report.return_value = "All2MD Dependency Status\n===================\nPDF: ✓"
 
-            result = main(['check-deps'])
+            result = main(["check-deps"])
             assert result in [0, 1]
 
             captured = capsys.readouterr()
@@ -1478,16 +1500,13 @@ class TestEnhancedCLIIntegration:
         test_file = self.temp_dir / "test.html"
         test_file.write_text("<h1>Test</h1>")
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             # Test with complex exclusion patterns that don't match our file
-            result = main([
-                str(test_file),
-                "--exclude", "**/somethingelse/**",
-                "--exclude", "[0-9]*backup*",
-                "--no-summary"
-            ])
+            result = main(
+                [str(test_file), "--exclude", "**/somethingelse/**", "--exclude", "[0-9]*backup*", "--no-summary"]
+            )
 
             # Should handle without crashing (patterns don't match our test file)
             assert result == 0
@@ -1496,7 +1515,7 @@ class TestEnhancedCLIIntegration:
         """Test dry run mode with stdin input."""
         test_content = "<h1>Stdin Test</h1>"
 
-        with patch('sys.stdin') as mock_stdin:
+        with patch("sys.stdin") as mock_stdin:
             mock_stdin.buffer.read.return_value = test_content.encode()
 
             # Dry run with stdin should show what would be processed
@@ -1513,37 +1532,34 @@ class TestEnhancedCLIIntegration:
         config_file = self.temp_dir / "env_config.json"
 
         # Set environment variables
-        os.environ['ALL2MD_RICH'] = 'true'
-        os.environ['ALL2MD_NO_SUMMARY'] = 'true'
+        os.environ["ALL2MD_RICH"] = "true"
+        os.environ["ALL2MD_NO_SUMMARY"] = "true"
 
         try:
             # Save config with environment variables active
-            result = main([
-                "test.pdf",
-                "--markdown-emphasis-symbol", "_",
-                "--save-config", str(config_file)
-            ])
+            result = main(["test.pdf", "--markdown-emphasis-symbol", "_", "--save-config", str(config_file)])
 
             assert result == 0
             assert config_file.exists()
 
             # Load config and verify
             import json
+
             with open(config_file) as f:
                 config = json.load(f)
 
             # Environment variables should be reflected in saved config
-            assert 'rich' in config
-            assert config['rich'] is True
-            assert 'no_summary' in config
-            assert config['no_summary'] is True
-            assert 'markdown.emphasis_symbol' in config
-            assert config['markdown.emphasis_symbol'] == '_'
+            assert "rich" in config
+            assert config["rich"] is True
+            assert "no_summary" in config
+            assert config["no_summary"] is True
+            assert "markdown.emphasis_symbol" in config
+            assert config["markdown.emphasis_symbol"] == "_"
 
         finally:
             # Clean up environment
-            os.environ.pop('ALL2MD_RICH', None)
-            os.environ.pop('ALL2MD_NO_SUMMARY', None)
+            os.environ.pop("ALL2MD_RICH", None)
+            os.environ.pop("ALL2MD_NO_SUMMARY", None)
 
     def test_backward_compatibility_with_new_features(self):
         """Test that new features don't break existing CLI workflows."""
@@ -1553,23 +1569,19 @@ class TestEnhancedCLIIntegration:
 
         output_file = self.temp_dir / "output.md"
 
-        with patch('all2md.to_markdown') as mock_to_markdown:
+        with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             # Test that all existing patterns still work
             test_patterns = [
                 # Basic usage
                 [str(test_file)],
-
                 # With output
                 [str(test_file), "--out", str(output_file)],
-
                 # With format
                 [str(test_file), "--format", "html"],
-
                 # With format-specific options
                 [str(test_file), "--html-extract-title", "--markdown-emphasis-symbol", "_"],
-
                 # With attachment options
                 [str(test_file), "--attachment-mode", "base64"],
             ]

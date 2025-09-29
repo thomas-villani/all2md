@@ -309,27 +309,23 @@ def to_markdown(
         >>> to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_", bullet_symbols="•◦▪")
     """
 
-    # Handle input parameter - convert to file object and get filename
-    if isinstance(input, (str, Path)):
-        filename = str(input)
-        with open(input, 'rb') as file:
-            return to_markdown(file, options=options, format=format, _filename=filename, **kwargs)
-    elif isinstance(input, bytes):
-        file: IO[bytes] = BytesIO(input)
-        filename = "unknown"
-    else:
-        # File-like object case
-        file: IO[bytes] = input  # type: ignore
-        filename = getattr(file, 'name', kwargs.pop('_filename', 'unknown'))
-
-    # Determine the actual format to use
-    if format == "auto":
-        # Use registry-based detection
-        actual_format = registry.detect_format(file, hint=None)
-    else:
-        # Use explicitly specified format
+    # Determine format first, before opening files
+    if format != "auto":
+        # Format explicitly specified
         actual_format = format
         logger.debug(f"Using explicitly specified format: {actual_format}")
+    elif isinstance(input, (str, Path)):
+        # Try to detect format from filename first (won't open the file)
+        actual_format = registry.detect_format(input, hint=None)
+        # Registry already logs the detection method, no need to duplicate
+    else:
+        # For bytes or file-like objects, we need to inspect content
+        if isinstance(input, bytes):
+            file: IO[bytes] = BytesIO(input)
+        else:
+            file: IO[bytes] = input  # type: ignore
+        actual_format = registry.detect_format(file, hint=None)
+        # Registry already logs the detection method
 
     # Create or merge options based on parameters
     if options is not None and kwargs:
@@ -345,20 +341,42 @@ def to_markdown(
         # No options provided
         final_options = None
 
-    # Process file based on detected/specified format using registry
+    # Process input based on detected/specified format using registry
     try:
         # Get converter function from registry
         converter_func, options_class = registry.get_converter(actual_format)
 
-        # Handle special cases for different input types
-        if actual_format == "html":
-            file.seek(0)
-            html_content = file.read().decode("utf-8", errors="replace")
-            content = converter_func(html_content, options=final_options)
+        # Now handle the actual input
+        if isinstance(input, (str, Path)):
+            # Pass filename directly to converter - let it handle file opening
+            # This is more efficient and preserves filename context
+            if actual_format == "html":
+                # HTML converter expects string content
+                with open(input, 'r', encoding='utf-8', errors='replace') as f:
+                    content = converter_func(f.read(), options=final_options)
+            else:
+                # Most converters can handle filename/path directly
+                content = converter_func(input, options=final_options)
+
+        elif isinstance(input, bytes):
+            # Create BytesIO for bytes input
+            file = BytesIO(input)
+            if actual_format == "html":
+                html_content = input.decode("utf-8", errors="replace")
+                content = converter_func(html_content, options=final_options)
+            else:
+                content = converter_func(file, options=final_options)
+
         else:
-            # Standard converter call
-            file.seek(0)
-            content = converter_func(file, options=final_options)
+            # File-like object
+            file = input  # type: ignore
+            if actual_format == "html":
+                file.seek(0)
+                html_content = file.read().decode("utf-8", errors="replace")
+                content = converter_func(html_content, options=final_options)
+            else:
+                file.seek(0)
+                content = converter_func(file, options=final_options)
 
     except DependencyError:
         # Re-raise dependency errors as-is
@@ -373,11 +391,27 @@ def to_markdown(
             raise FormatError("Invalid input type: `image` not supported.") from None
         else:
             # Plain text handling
-            file.seek(0)
-            try:
-                content = file.read().decode("utf-8", errors="replace")
-            except Exception as e:
-                raise MarkdownConversionError(f"Could not decode file as UTF-8: {filename}") from e
+            if isinstance(input, (str, Path)):
+                try:
+                    with open(input, 'r', encoding='utf-8', errors='replace') as f:
+                        content = f.read()
+                except Exception as e:
+                    raise MarkdownConversionError(f"Could not read file as UTF-8: {input}") from e
+            elif isinstance(input, bytes):
+                try:
+                    content = input.decode("utf-8", errors="replace")
+                except Exception as e:
+                    raise MarkdownConversionError("Could not decode bytes as UTF-8") from e
+            else:
+                # File-like object
+                file = input  # type: ignore
+                file.seek(0)
+                try:
+                    content = file.read()
+                    if isinstance(content, bytes):
+                        content = content.decode("utf-8", errors="replace")
+                except Exception as e:
+                    raise MarkdownConversionError("Could not decode file as UTF-8") from e
 
     # Fix windows newlines and return
     return content.replace("\r\n", "\n")

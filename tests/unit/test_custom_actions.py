@@ -1,0 +1,242 @@
+"""Test custom argparse actions for the CLI."""
+
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+
+import argparse
+from unittest.mock import Mock
+
+import pytest
+
+from all2md.cli.custom_actions import (
+    TrackingStoreAction,
+    TrackingStoreFalseAction,
+    TrackingStoreTrueAction,
+    merge_nested_dicts,
+    parse_dot_notation,
+)
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestDotNotationHelpers:
+    """Test dot notation helper functions."""
+
+    def test_parse_dot_notation_single_level(self):
+        """Test parsing single-level dot notation."""
+        result = parse_dot_notation("field", "value")
+        assert result == {"field": "value"}
+
+    def test_parse_dot_notation_two_levels(self):
+        """Test parsing two-level dot notation."""
+        result = parse_dot_notation("pdf.pages", [1, 2, 3])
+        assert result == {"pdf": {"pages": [1, 2, 3]}}
+
+    def test_parse_dot_notation_three_levels(self):
+        """Test parsing three-level dot notation."""
+        result = parse_dot_notation("format.pdf.password", "secret")
+        assert result == {"format": {"pdf": {"password": "secret"}}}
+
+    def test_merge_nested_dicts_simple(self):
+        """Test merging simple nested dictionaries."""
+        base = {"a": 1, "b": 2}
+        update = {"c": 3}
+        result = merge_nested_dicts(base, update)
+        assert result == {"a": 1, "b": 2, "c": 3}
+
+    def test_merge_nested_dicts_nested(self):
+        """Test merging nested dictionaries."""
+        base = {"pdf": {"pages": [1, 2]}}
+        update = {"pdf": {"password": "secret"}}
+        result = merge_nested_dicts(base, update)
+        assert result == {"pdf": {"pages": [1, 2], "password": "secret"}}
+
+    def test_merge_nested_dicts_override(self):
+        """Test that merge overrides values."""
+        base = {"pdf": {"pages": [1, 2]}}
+        update = {"pdf": {"pages": [3, 4]}}
+        result = merge_nested_dicts(base, update)
+        assert result == {"pdf": {"pages": [3, 4]}}
+
+    def test_merge_nested_dicts_deep_nesting(self):
+        """Test merging deeply nested dictionaries."""
+        base = {"a": {"b": {"c": 1, "d": 2}}}
+        update = {"a": {"b": {"c": 3, "e": 4}}}
+        result = merge_nested_dicts(base, update)
+        assert result == {"a": {"b": {"c": 3, "d": 2, "e": 4}}}
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestTrackingActions:
+    """Test custom tracking argparse actions."""
+
+    def test_tracking_store_action(self):
+        """Test TrackingStoreAction tracks provided arguments."""
+        parser = argparse.ArgumentParser()
+        action = TrackingStoreAction(
+            option_strings=["--test"],
+            dest="test_field"
+        )
+
+        namespace = argparse.Namespace()
+        action(parser, namespace, "test_value", "--test")
+
+        assert namespace.test_field == "test_value"
+        assert hasattr(namespace, "_provided_args")
+        assert "test_field" in namespace._provided_args
+
+    def test_tracking_store_action_with_type(self):
+        """Test TrackingStoreAction with type conversion."""
+        parser = argparse.ArgumentParser()
+        action = TrackingStoreAction(
+            option_strings=["--number"],
+            dest="number_field",
+            type=int
+        )
+
+        namespace = argparse.Namespace()
+        # The type conversion happens before the action is called
+        action(parser, namespace, 42, "--number")
+
+        assert namespace.number_field == 42
+        assert "number_field" in namespace._provided_args
+
+    def test_tracking_store_true_action(self):
+        """Test TrackingStoreTrueAction."""
+        parser = argparse.ArgumentParser()
+        action = TrackingStoreTrueAction(
+            option_strings=["--enable"],
+            dest="enable_feature"
+        )
+
+        namespace = argparse.Namespace()
+        action(parser, namespace, None, "--enable")
+
+        assert namespace.enable_feature is True
+        assert hasattr(namespace, "_provided_args")
+        assert "enable_feature" in namespace._provided_args
+
+    def test_tracking_store_false_action(self):
+        """Test TrackingStoreFalseAction."""
+        parser = argparse.ArgumentParser()
+        action = TrackingStoreFalseAction(
+            option_strings=["--no-feature"],
+            dest="feature_enabled",
+            default=True
+        )
+
+        namespace = argparse.Namespace()
+        action(parser, namespace, None, "--no-feature")
+
+        assert namespace.feature_enabled is False
+        assert hasattr(namespace, "_provided_args")
+        assert "feature_enabled" in namespace._provided_args
+
+    def test_tracking_actions_multiple_args(self):
+        """Test that multiple arguments are tracked correctly."""
+        parser = argparse.ArgumentParser()
+
+        action1 = TrackingStoreAction(
+            option_strings=["--arg1"],
+            dest="arg1"
+        )
+        action2 = TrackingStoreAction(
+            option_strings=["--arg2"],
+            dest="arg2"
+        )
+
+        namespace = argparse.Namespace()
+
+        action1(parser, namespace, "value1", "--arg1")
+        action2(parser, namespace, "value2", "--arg2")
+
+        assert namespace.arg1 == "value1"
+        assert namespace.arg2 == "value2"
+        assert "arg1" in namespace._provided_args
+        assert "arg2" in namespace._provided_args
+        assert len(namespace._provided_args) == 2
+
+    def test_tracking_action_preserves_existing_provided_args(self):
+        """Test that tracking actions preserve existing _provided_args."""
+        parser = argparse.ArgumentParser()
+        action = TrackingStoreAction(
+            option_strings=["--new"],
+            dest="new_arg"
+        )
+
+        namespace = argparse.Namespace()
+        # Pre-existing provided args
+        namespace._provided_args = {"existing_arg"}
+
+        action(parser, namespace, "new_value", "--new")
+
+        assert namespace.new_arg == "new_value"
+        assert "existing_arg" in namespace._provided_args
+        assert "new_arg" in namespace._provided_args
+        assert len(namespace._provided_args) == 2
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestIntegrationWithArgparse:
+    """Test integration of custom actions with argparse."""
+
+    def test_parser_with_tracking_actions(self):
+        """Test that a parser can use tracking actions."""
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument(
+            "--text",
+            action=TrackingStoreAction,
+            dest="text_field"
+        )
+        parser.add_argument(
+            "--enable",
+            action=TrackingStoreTrueAction,
+            dest="enable_flag"
+        )
+        parser.add_argument(
+            "--no-feature",
+            action=TrackingStoreFalseAction,
+            dest="feature_flag",
+            default=True
+        )
+
+        # Parse with some arguments
+        args = parser.parse_args(["--text", "hello", "--enable"])
+
+        assert args.text_field == "hello"
+        assert args.enable_flag is True
+        assert args.feature_flag is True  # Default, not provided
+
+        assert hasattr(args, "_provided_args")
+        assert "text_field" in args._provided_args
+        assert "enable_flag" in args._provided_args
+        assert "feature_flag" not in args._provided_args  # Not provided
+
+    def test_dot_notation_dest_with_tracking(self):
+        """Test that dot notation destinations work with tracking actions."""
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument(
+            "--pdf-pages",
+            action=TrackingStoreAction,
+            dest="pdf.pages"
+        )
+        parser.add_argument(
+            "--markdown-emphasis",
+            action=TrackingStoreAction,
+            dest="markdown.emphasis"
+        )
+
+        args = parser.parse_args(["--pdf-pages", "1,2,3", "--markdown-emphasis", "_"])
+
+        # Check that dot notation is preserved in namespace
+        assert hasattr(args, "pdf.pages")
+        assert getattr(args, "pdf.pages") == "1,2,3"
+        assert hasattr(args, "markdown.emphasis")
+        assert getattr(args, "markdown.emphasis") == "_"
+
+        # Check tracking
+        assert "pdf.pages" in args._provided_args
+        assert "markdown.emphasis" in args._provided_args
