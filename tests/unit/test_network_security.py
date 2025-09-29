@@ -433,3 +433,84 @@ class TestIntegrationScenarios:
 
         # Should not raise
         validate_url_security("https://i.redd.it/image.png")
+
+
+class TestEventHooksImplementation:
+    """Test the new event hooks-based HTTP client implementation."""
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_event_hooks_validate_initial_request(self, mock_resolve):
+        """Test that request event hooks validate the initial URL."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        # Mock private IP resolution to trigger security error
+        mock_resolve.return_value = [ipaddress.IPv4Address("192.168.1.1")]
+
+        client = create_secure_http_client()
+
+        # Attempting to make a request should trigger validation in the request hook
+        with pytest.raises(Exception):  # NetworkSecurityError will be wrapped by httpx
+            with client:
+                client.get("http://internal.company.com")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_event_hooks_validate_redirect_chain(self, mock_resolve):
+        """Test that response event hooks validate redirect chains."""
+        from all2md.utils.network_security import create_secure_http_client
+        import httpx
+
+        # Create a mock response with redirect history containing a private IP
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'content-type': 'text/html'}
+        mock_response.history = [
+            Mock(url="http://safe.example.com"),  # Initial URL (safe)
+            Mock(url="http://192.168.1.1/evil")   # Redirect to private IP (unsafe)
+        ]
+
+        # Mock resolution: safe.example.com -> public IP, but the redirect history contains private IP
+        def mock_resolver(hostname):
+            if hostname == "safe.example.com":
+                return [ipaddress.IPv4Address("8.8.8.8")]  # Public IP
+            elif hostname == "192.168.1.1":
+                return [ipaddress.IPv4Address("192.168.1.1")]  # Private IP
+            return [ipaddress.IPv4Address("8.8.8.8")]
+
+        mock_resolve.side_effect = mock_resolver
+
+        client = create_secure_http_client()
+
+        # Test the response hook directly
+        validate_response_redirects = None
+        if hasattr(client, 'event_hooks') and 'response' in client.event_hooks:
+            validate_response_redirects = client.event_hooks['response'][0]
+
+        # Should raise NetworkSecurityError when validating redirect chain
+        if validate_response_redirects:
+            with pytest.raises(Exception):  # NetworkSecurityError will be raised
+                validate_response_redirects(mock_response)
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_event_hooks_client_creation_success(self, mock_resolve):
+        """Test that event hooks client is created successfully with valid configuration."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
+
+        client = create_secure_http_client(
+            timeout=15.0,
+            max_redirects=3,
+            allowed_hosts=["example.com"],
+            require_https=True
+        )
+
+        # Verify client configuration - focus on event hooks
+        assert client.follow_redirects is True
+        assert hasattr(client, 'event_hooks')
+        assert 'request' in client.event_hooks
+        assert 'response' in client.event_hooks
+        assert len(client.event_hooks['request']) == 1
+        assert len(client.event_hooks['response']) == 1
+
+        # Verify timeout is set (as an httpx.Timeout object)
+        assert client.timeout is not None

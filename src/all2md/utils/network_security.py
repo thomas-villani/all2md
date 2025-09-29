@@ -252,6 +252,10 @@ def create_secure_http_client(
 ) -> Any:
     """Create httpx client with security constraints.
 
+    This implementation uses httpx event hooks for robust URL validation
+    instead of fragile transport subclassing. Validates all requests including
+    redirects using stable httpx APIs.
+
     Parameters
     ----------
     timeout : float, default 10.0
@@ -270,28 +274,41 @@ def create_secure_http_client(
     """
     import httpx
 
-    # Custom transport that validates redirects
-    class SecurityValidatedTransport(httpx.HTTPTransport):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.allowed_hosts = allowed_hosts
-            self.require_https = require_https
-
-        def handle_request(self, request):
-            # Validate every request (including redirects)
+    def validate_request_url(request: Any) -> None:
+        """Event hook to validate URLs before each request."""
+        try:
             validate_url_security(
                 str(request.url),
-                allowed_hosts=self.allowed_hosts,
-                require_https=self.require_https
+                allowed_hosts=allowed_hosts,
+                require_https=require_https
             )
-            return super().handle_request(request)
+        except NetworkSecurityError:
+            # Re-raise to abort the request
+            raise
 
-    # Create client with security constraints
+    def validate_response_redirects(response: Any) -> None:
+        """Event hook to validate redirect chains."""
+        # Validate each URL in the redirect history
+        for redirect_response in response.history:
+            try:
+                validate_url_security(
+                    str(redirect_response.url),
+                    allowed_hosts=allowed_hosts,
+                    require_https=require_https
+                )
+            except NetworkSecurityError:
+                # Re-raise to indicate security violation
+                raise
+
+    # Create client with event hooks for security validation
     client = httpx.Client(
         timeout=timeout,
         follow_redirects=True,
         max_redirects=max_redirects,
-        transport=SecurityValidatedTransport(),
+        event_hooks={
+            'request': [validate_request_url],
+            'response': [validate_response_redirects]
+        },
         headers={
             'User-Agent': 'all2md-image-fetcher/1.0'
         }
