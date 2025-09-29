@@ -99,11 +99,10 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
     from all2md.cli.actions import (
-        PositiveIntAction,
         EnvironmentAwareAction,
+        EnvironmentAwareAppendAction,
         EnvironmentAwareBooleanAction,
-        EnvironmentAwareBooleanFalseAction,
-        EnvironmentAwareAppendAction
+        PositiveIntAction,
     )
 
     builder = DynamicCLIBuilder()

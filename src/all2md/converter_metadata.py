@@ -7,7 +7,7 @@ requirements, and registration information for the plugin registry system.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 
 @dataclass
@@ -43,8 +43,12 @@ class ConverterMetadata:
         Optional packages that enhance functionality
     import_error_message : str
         Custom error message for missing dependencies
-    options_class : str
-        Name of the options dataclass (e.g., "PdfOptions")
+    options_class : Union[str, type, None]
+        Options class specification. Can be:
+        - Simple class name (e.g., "PdfOptions") - looks in all2md.options
+        - Fully qualified name (e.g., "myplugin.options.MyOptions")
+        - Direct class reference (e.g., MyOptionsClass)
+        - None for no options
     description : str
         Human-readable description of the converter
     priority : int
@@ -61,7 +65,7 @@ class ConverterMetadata:
     required_packages: list[tuple[str, str]] = field(default_factory=list)
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
-    options_class: str = ""   # TODO: how to handle
+    options_class: Optional[Union[str, type]] = None
     description: str = ""
     priority: int = 0
 

@@ -46,7 +46,6 @@ from all2md.utils.attachments import create_attachment_sequencer, process_attach
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
-
 logger = logging.getLogger(__name__)
 
 

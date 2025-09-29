@@ -65,7 +65,12 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError, PasswordProtectedError
 from all2md.options import MarkdownOptions, PdfOptions
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
-from all2md.utils.inputs import escape_markdown_special, format_markdown_heading, validate_and_convert_input, validate_page_range
+from all2md.utils.inputs import (
+    escape_markdown_special,
+    format_markdown_heading,
+    validate_and_convert_input,
+    validate_page_range,
+)
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 # Converter metadata for registration

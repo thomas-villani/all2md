@@ -104,7 +104,7 @@ Create a ``ConverterMetadata`` object that describes your converter:
             "MyFormat conversion requires 'myformat-parser' version 1.0.0 or later. "
             "Install with: pip install 'myformat-parser>=1.0.0'"
         ),
-        options_class="BaseOptions",  # Or your custom options class
+        options_class="BaseOptions",  # See Custom Options Classes section below
         description="Convert MyFormat documents to Markdown with advanced features",
         priority=5  # Higher numbers = higher priority for format detection
     )
@@ -146,7 +146,23 @@ Advanced Features
 Custom Options Classes
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-For complex converters, you may want to define custom options:
+For complex converters, you may want to define custom options. The ``options_class`` attribute in ``ConverterMetadata`` supports three different ways to specify the options class:
+
+**Method 1: Simple Class Name (Built-in Converters)**
+
+For options classes defined in ``all2md.options``:
+
+.. code-block:: python
+
+    CONVERTER_METADATA = ConverterMetadata(
+        # ... other fields ...
+        options_class="BaseOptions",  # Looks in all2md.options module
+        # ... rest of metadata ...
+    )
+
+**Method 2: Fully Qualified Class Name (Recommended for Plugins)**
+
+For custom options classes in your plugin package:
 
 .. code-block:: python
 
@@ -162,13 +178,39 @@ For complex converters, you may want to define custom options:
         preserve_formatting: bool = False
         custom_parser_mode: str = "strict"
 
-Then reference it in your metadata:
+Then reference it with the full module path:
 
 .. code-block:: python
 
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
-        options_class="MyFormatOptions",
+        options_class="all2md_myformat.options.MyFormatOptions",
+        # ... rest of metadata ...
+    )
+
+**Method 3: Direct Class Reference**
+
+You can also pass the class directly:
+
+.. code-block:: python
+
+    from all2md_myformat.options import MyFormatOptions
+
+    CONVERTER_METADATA = ConverterMetadata(
+        # ... other fields ...
+        options_class=MyFormatOptions,  # Direct class reference
+        # ... rest of metadata ...
+    )
+
+**No Options Class**
+
+If your converter doesn't need options:
+
+.. code-block:: python
+
+    CONVERTER_METADATA = ConverterMetadata(
+        # ... other fields ...
+        options_class=None,  # No options class needed
         # ... rest of metadata ...
     )
 

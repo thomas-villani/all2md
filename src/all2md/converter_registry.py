@@ -73,6 +73,54 @@ def _check_package_installed(package_name: str) -> bool:
     return False
 
 
+def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[type]:
+    """Load options class from various specifications.
+
+    Parameters
+    ----------
+    options_class_spec : Union[str, type, None]
+        Options class specification. Can be:
+        - Simple class name (e.g., "PdfOptions") - looks in all2md.options
+        - Fully qualified name (e.g., "myplugin.options.MyOptions")
+        - Direct class reference
+        - None
+
+    Returns
+    -------
+    Optional[type]
+        The loaded options class or None
+    """
+    if options_class_spec is None:
+        return None
+    elif isinstance(options_class_spec, type):
+        # Direct class reference
+        return options_class_spec
+    elif isinstance(options_class_spec, str):
+        # String specification
+        # Check if it contains a dot (fully qualified)
+        if '.' in options_class_spec:
+            # Parse module and class name
+            module_path, class_name = options_class_spec.rsplit('.', 1)
+            try:
+                module = importlib.import_module(module_path)
+                return getattr(module, class_name)
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Could not load options class '{options_class_spec}': {e}")
+                return None
+        else:
+            # Simple name - look in all2md.options (backward compatibility)
+            try:
+                from . import options
+                return getattr(options, options_class_spec, None)
+            except AttributeError:
+                logger.warning(f"Options class '{options_class_spec}' not found in all2md.options")
+                return None
+    else:
+        # This shouldn't happen with proper typing, but handle it gracefully
+        logger.warning(f"Invalid options_class specification type: {type(options_class_spec)}")
+        return None
+
+
 class ConverterRegistry:
     """Registry for managing document converters.
 
@@ -182,14 +230,7 @@ class ConverterRegistry:
             converter_func = getattr(module, metadata.converter_function)
 
             # Try to get options class if specified
-            options_class = None
-            if metadata.options_class:
-                # TODO: this is brittle and would probably fail for plugins
-                #  a better solution is to point to the class itself, or if its a str,
-                #  to include the full path to the class (e.g. all2md_myplugin.options.OptionsClass)
-                # Import from options module
-                from . import options
-                options_class = getattr(options, metadata.options_class, None)
+            options_class = _load_options_class(metadata.options_class)
 
             return converter_func, options_class
 
