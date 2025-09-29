@@ -188,9 +188,9 @@ Configuration and Debugging
       {
         "attachment_mode": "download",
         "attachment_output_dir": "./images",
-        "pdf_detect_columns": true,
-        "pdf_pages": [0, 1, 2],
-        "markdown_emphasis_symbol": "_"
+        "pdf.detect_columns": true,
+        "pdf.pages": [0, 1, 2],
+        "markdown.emphasis_symbol": "_"
       }
 
 ``--log-level``
@@ -884,10 +884,10 @@ Create a configuration file ``config.json``:
    {
        "attachment_mode": "download",
        "attachment_output_dir": "./attachments",
-       "markdown_emphasis_symbol": "_",
-       "markdown_bullet_symbols": "•◦▪",
-       "pdf_detect_columns": true,
-       "html_strip_dangerous_elements": true,
+       "markdown.emphasis_symbol": "_",
+       "markdown.bullet_symbols": "•◦▪",
+       "pdf.detect_columns": true,
+       "html.strip_dangerous_elements": true,
        "log_level": "INFO"
    }
 

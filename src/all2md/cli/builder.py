@@ -11,6 +11,13 @@ from dataclasses import fields, is_dataclass
 from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
 
 from all2md.constants import DocumentFormat
+from all2md.cli.custom_actions import (
+    TrackingStoreAction,
+    TrackingStoreFalseAction,
+    TrackingStoreTrueAction,
+    merge_nested_dicts,
+    parse_dot_notation,
+)
 from all2md.converter_registry import registry
 from all2md.options import MarkdownOptions
 
@@ -317,12 +324,26 @@ class DynamicCLIBuilder:
             # Build argument kwargs
             kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
-            # Set dest for boolean flags that need special handling
-            if 'action' in kwargs and kwargs['action'] in ['store_true', 'store_false']:
-                if format_prefix and format_prefix != 'markdown':
-                    kwargs['dest'] = f"{format_prefix}_{field.name}"
-                elif format_prefix == 'markdown':
-                    kwargs['dest'] = f"markdown_{field.name}"
+            # Set dest using dot notation for better structure mapping
+            # and use tracking actions for booleans
+            if 'action' in kwargs:
+                if kwargs['action'] == 'store_true':
+                    kwargs['action'] = TrackingStoreTrueAction
+                    if format_prefix:
+                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    else:
+                        kwargs['dest'] = field.name
+                elif kwargs['action'] == 'store_false':
+                    kwargs['action'] = TrackingStoreFalseAction
+                    if format_prefix:
+                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    else:
+                        kwargs['dest'] = field.name
+            else:
+                # For non-boolean arguments, use TrackingStoreAction
+                kwargs['action'] = TrackingStoreAction
+                if format_prefix:
+                    kwargs['dest'] = f"{format_prefix}.{field.name}"
                 else:
                     kwargs['dest'] = field.name
 
@@ -394,12 +415,26 @@ class DynamicCLIBuilder:
             # Build argument kwargs
             kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
-            # Set dest for boolean flags that need special handling
-            if 'action' in kwargs and kwargs['action'] in ['store_true', 'store_false']:
-                if format_prefix and format_prefix != 'markdown':
-                    kwargs['dest'] = f"{format_prefix}_{field.name}"
-                elif format_prefix == 'markdown':
-                    kwargs['dest'] = f"markdown_{field.name}"
+            # Set dest using dot notation for better structure mapping
+            # and use tracking actions for booleans
+            if 'action' in kwargs:
+                if kwargs['action'] == 'store_true':
+                    kwargs['action'] = TrackingStoreTrueAction
+                    if format_prefix:
+                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    else:
+                        kwargs['dest'] = field.name
+                elif kwargs['action'] == 'store_false':
+                    kwargs['action'] = TrackingStoreFalseAction
+                    if format_prefix:
+                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    else:
+                        kwargs['dest'] = field.name
+            else:
+                # For non-boolean arguments, use TrackingStoreAction
+                kwargs['action'] = TrackingStoreAction
+                if format_prefix:
+                    kwargs['dest'] = f"{format_prefix}.{field.name}"
                 else:
                     kwargs['dest'] = field.name
 
@@ -534,10 +569,10 @@ Examples:
         return parser
 
     def map_args_to_options(self, parsed_args: argparse.Namespace, json_options: dict | None = None) -> dict:
-        """Map CLI arguments to options using dataclass introspection.
+        """Map CLI arguments to options using dot notation parsing.
 
-        This replaces the old hard-coded _map_cli_args_to_options function
-        with a generic system that works with any dataclass.
+        This simplified version uses dot notation in argument destinations
+        to directly map to the nested structure of options.
 
         Parameters
         ----------
@@ -551,21 +586,32 @@ Examples:
         dict
             Mapped options dictionary ready for to_markdown()
         """
-        # Start with JSON options if provided
-        options = json_options.copy() if json_options else {}
+        # Start with JSON options if provided, processing dot notation keys
+        options = {}
+        if json_options:
+            # Process JSON options that may contain dot notation keys
+            for key, value in json_options.items():
+                if '.' in key:
+                    # Extract the field name from dot notation (e.g., "pdf.pages" -> "pages")
+                    field_name = key.split('.', 1)[1]
+                    options[field_name] = value
+                else:
+                    # Direct field name
+                    options[key] = value
         args_dict = vars(parsed_args)
 
-        # Auto-discover converters to get their options classes
+        # Get the set of explicitly provided arguments
+        provided_args = getattr(parsed_args, '_provided_args', set())
+
+        # Auto-discover converters to get their options classes for validation
         registry.auto_discover()
 
-        # Collect all options classes
+        # Collect all options classes for field validation
         options_classes = {}
 
-        # Add BaseOptions (universal options with no prefix)
+        # Add BaseOptions
         from all2md.options import BaseOptions
         options_classes['base'] = BaseOptions
-
-        # Add MarkdownOptions (handled specially with markdown prefix)
         options_classes['markdown'] = MarkdownOptions
 
         # Add converter-specific options
@@ -579,63 +625,71 @@ Examples:
 
         # Process each argument
         for arg_name, arg_value in args_dict.items():
-            # Skip None values and special arguments
-            if arg_value is None or arg_name in ['input', 'out', 'format', 'log_level', 'options_json', 'about',
-                                                 'version']:
+            # Skip special arguments
+            if arg_name in ['input', 'out', 'format', 'log_level', 'options_json', 'about',
+                           'version', '_provided_args']:
                 continue
 
-            # Handle different argument patterns
-            mapped = False
+            # Only process arguments that were explicitly provided
+            if arg_name not in provided_args:
+                continue
 
-            # Check BaseOptions (no prefix)
-            if not mapped and 'base' in options_classes:
-                base_options = options_classes['base']
-                for field in fields(base_options):
-                    if field.name == arg_name:
-                        processed_value = self._process_argument_value(field, field.metadata or {}, arg_value, arg_name)
-                        if processed_value is not None:
-                            options[field.name] = processed_value
-                        mapped = True
-                        break
+            # Handle dot notation arguments (e.g., "pdf.pages")
+            if '.' in arg_name:
+                parts = arg_name.split('.', 1)
+                format_prefix = parts[0]
+                field_name = parts[1]
 
-            # Check MarkdownOptions (markdown_ prefix)
-            if not mapped and arg_name.startswith('markdown_'):
-                field_name = arg_name[9:]  # Remove 'markdown_' prefix
-                if 'markdown' in options_classes:
-                    markdown_options = options_classes['markdown']
-                    for field in fields(markdown_options):
+                # Validate field exists in the corresponding options class
+                if format_prefix in options_classes:
+                    options_class = options_classes[format_prefix]
+                    field_found = False
+
+                    for field in fields(options_class):
                         if field.name == field_name:
-                            processed_value = self._process_argument_value(field, field.metadata or {}, arg_value,
-                                                                           arg_name)
+                            processed_value = self._process_argument_value(
+                                field, field.metadata or {}, arg_value, arg_name,
+                                was_provided=True
+                            )
                             if processed_value is not None:
                                 options[field.name] = processed_value
-                            mapped = True
+                            field_found = True
                             break
 
-            # Check format-specific options (format_ prefix)
-            if not mapped and '_' in arg_name:
-                parts = arg_name.split('_', 1)
-                if len(parts) == 2:
-                    format_prefix, field_name = parts
-                    if format_prefix in options_classes:
-                        format_options = options_classes[format_prefix]
-                        for field in fields(format_options):
-                            if field.name == field_name:
-                                processed_value = self._process_argument_value(field, field.metadata or {}, arg_value,
-                                                                               arg_name)
-                                if processed_value is not None:
-                                    options[field.name] = processed_value
-                                mapped = True
-                                break
+                    if not field_found and arg_value is not None:
+                        # Store unrecognized but provided values
+                        options[field_name] = arg_value
+            else:
+                # Handle non-dot notation arguments (BaseOptions fields)
+                if 'base' in options_classes:
+                    base_options = options_classes['base']
+                    field_found = False
 
-            # Handle unmapped arguments as direct field names
-            if not mapped and arg_value:
-                options[arg_name] = arg_value
+                    for field in fields(base_options):
+                        if field.name == arg_name:
+                            processed_value = self._process_argument_value(
+                                field, field.metadata or {}, arg_value, arg_name,
+                                was_provided=True
+                            )
+                            if processed_value is not None:
+                                options[field.name] = processed_value
+                            field_found = True
+                            break
+
+                    if not field_found and arg_value is not None:
+                        # Store unrecognized but provided values
+                        options[arg_name] = arg_value
 
         return options
 
-    def _process_argument_value(self, field: Any, metadata: Dict[str, Any], arg_value: Any, arg_name: str) -> Any:
+    def _process_argument_value(
+            self, field: Any, metadata: Dict[str, Any], arg_value: Any,
+            arg_name: str, was_provided: bool = False
+    ) -> Any:
         """Process and convert argument values based on field type.
+
+        Simplified version that relies on the was_provided flag to determine
+        whether to include a value, eliminating complex default-checking logic.
 
         Parameters
         ----------
@@ -647,12 +701,18 @@ Examples:
             Raw argument value
         arg_name : str
             CLI argument name
+        was_provided : bool
+            Whether this argument was explicitly provided by the user
 
         Returns
         -------
         Any
             Processed value or None if should be skipped
         """
+        # If not explicitly provided, skip it
+        if not was_provided:
+            return None
+
         # Handle list_int type (comma-separated integers)
         if metadata.get('type') == 'list_int' and isinstance(arg_value, str):
             try:
@@ -660,37 +720,6 @@ Examples:
             except ValueError:
                 return None
 
-        # Handle boolean fields with defaults (handle string type annotations)
-        field_type_is_bool = field.type is bool or field.type == 'bool'
-        if field_type_is_bool:
-            default_value = field.default
-
-            # For --no-* flags with True defaults, arg_value is False when flag is used
-            # This handles both explicit cli_name metadata and inferred --no-* names
-            if default_value is True and arg_value is False:
-                # Either has explicit no- prefix in metadata, or is a True-default being set to False
-                if ('cli_name' in metadata and metadata['cli_name'].startswith('no-')) or \
-                   ('cli_name' not in metadata):
-                    return False
-
-            # For regular boolean flags with False defaults, arg_value is True when flag is used
-            elif default_value is False and arg_value is True:
-                return True
-
-            # Skip setting if boolean value matches default and wasn't explicitly set
-            elif arg_value == default_value:
-                return None
-
-        # Handle choices - only include non-default values
-        if 'choices' in metadata and arg_value != field.default:
-            return arg_value
-
-        # Handle numeric types
-        if metadata.get('type') in (int, float) and arg_value != field.default:
-            return arg_value
-
-        # Handle string types - only include non-default values
-        if isinstance(arg_value, str) and arg_value != field.default:
-            return arg_value
-
-        return None
+        # For explicitly provided arguments, return the value
+        # The tracking actions ensure we only get here for user-provided values
+        return arg_value

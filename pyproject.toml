@@ -8,7 +8,6 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "python-docx>=1.2.0",
 ]
 
 [tool.hatch.metadata]
@@ -98,7 +97,6 @@ exclude = [
 fix = true
 
 [tool.ruff.lint]
-# Enable selected rules (you can customize this list)
 select = [
     "E",  # pycodestyle errors
     "F",  # pyflakes errors
@@ -107,9 +105,7 @@ select = [
     "B",  # flake8-bugbear
     "I",  # import-related rules
 ]
-# Ignore specific rules if needed
 ignore = [
-    "E501",  # line too long (handle with black)
     "C901"
 ]
 

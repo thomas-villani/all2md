@@ -24,13 +24,13 @@ Converting Directory of Mixed Documents
    {
        "attachment_mode": "download",
        "attachment_output_dir": "./extracted_media",
-       "markdown_emphasis_symbol": "_",
-       "markdown_bullet_symbols": "•◦▪",
+       "markdown.emphasis_symbol": "_",
+       "markdown.bullet_symbols": "•◦▪",
        "extract_metadata": true,
-       "pdf_detect_columns": true,
-       "html_strip_dangerous_elements": true,
-       "pptx_slide_numbers": true,
-       "eml_convert_html_to_markdown": true
+       "pdf.detect_columns": true,
+       "html.strip_dangerous_elements": true,
+       "pptx.slide_numbers": true,
+       "eml.convert_html_to_markdown": true
    }
    EOF
 
@@ -132,11 +132,11 @@ Creating Text-Only Archive from Website
    cat > web_archive_config.json << EOF
    {
        "attachment_mode": "skip",
-       "html_extract_title": true,
-       "html_strip_dangerous_elements": true,
-       "html_convert_nbsp": true,
-       "markdown_escape_special": false,
-       "markdown_use_hash_headings": true
+       "html.extract_title": true,
+       "html.strip_dangerous_elements": true,
+       "html.convert_nbsp": true,
+       "markdown.escape_special": false,
+       "markdown.use_hash_headings": true
    }
    EOF
 

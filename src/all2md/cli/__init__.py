@@ -228,7 +228,7 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     """
     # Exclude special arguments that shouldn't be saved
     exclude_args = {
-        'input', 'out', 'save_config', 'about', 'version', 'dry_run', 'format', '_env_checked'
+        'input', 'out', 'save_config', 'about', 'version', 'dry_run', 'format', '_env_checked', '_provided_args'
     }
     # Note: 'exclude' is intentionally NOT excluded so it can be saved in config
 

@@ -69,10 +69,10 @@ class TestDynamicCLIBuilder:
         assert builder.infer_cli_name("emphasis_symbol", "markdown") == "--markdown-emphasis-symbol"
 
     def test_argument_mapping_pdf_options(self):
-        """Test mapping of PDF-specific CLI arguments with new dynamic system."""
+        """Test mapping of PDF-specific CLI arguments with new dot notation system."""
         builder = DynamicCLIBuilder()
 
-        # Create mock parsed args with the new naming convention
+        # Create mock parsed args with the new dot notation naming convention
         parsed_args = Mock()
         parsed_args.input = "test.pdf"
         parsed_args.out = None
@@ -82,15 +82,10 @@ class TestDynamicCLIBuilder:
         parsed_args.version = False
         parsed_args.options_json = None
 
-        # PDF options (new format)
-        parsed_args.pdf_pages = "1,2,3"
-        parsed_args.pdf_password = "secret"
-        parsed_args.pdf_detect_columns = False  # This would be set by --pdf-no-detect-columns
+        # Set explicitly provided arguments (simulating the tracking actions)
+        parsed_args._provided_args = {'pdf.pages', 'pdf.password', 'pdf.detect_columns', 'markdown.emphasis_symbol'}
 
-        # Markdown options (new format)
-        parsed_args.markdown_emphasis_symbol = "_"
-
-        # Mock vars to simulate the argument namespace
+        # Mock vars to simulate the argument namespace with dot notation
         with patch('builtins.vars', return_value={
             'input': 'test.pdf',
             'out': None,
@@ -99,10 +94,11 @@ class TestDynamicCLIBuilder:
             'about': False,
             'version': False,
             'options_json': None,
-            'pdf_pages': '1,2,3',
-            'pdf_password': 'secret',
-            'pdf_detect_columns': False,
-            'markdown_emphasis_symbol': '_',
+            '_provided_args': parsed_args._provided_args,
+            'pdf.pages': '1,2,3',
+            'pdf.password': 'secret',
+            'pdf.detect_columns': False,
+            'markdown.emphasis_symbol': '_',
         }):
             options = builder.map_args_to_options(parsed_args)
 
@@ -126,20 +122,24 @@ class TestDynamicCLIBuilder:
 
         metadata = {"type": "list_int"}
 
-        # Test valid comma-separated integers
-        result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf_pages")
+        # Test valid comma-separated integers with was_provided=True
+        result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf.pages", was_provided=True)
         assert result == [1, 2, 3]
 
         # Test single integer
-        result = builder._process_argument_value(mock_field, metadata, "5", "pdf_pages")
+        result = builder._process_argument_value(mock_field, metadata, "5", "pdf.pages", was_provided=True)
         assert result == [5]
 
         # Test with spaces
-        result = builder._process_argument_value(mock_field, metadata, "1, 2, 3", "pdf_pages")
+        result = builder._process_argument_value(mock_field, metadata, "1, 2, 3", "pdf.pages", was_provided=True)
         assert result == [1, 2, 3]
 
         # Test invalid input returns None
-        result = builder._process_argument_value(mock_field, metadata, "1,invalid,3", "pdf_pages")
+        result = builder._process_argument_value(mock_field, metadata, "1,invalid,3", "pdf.pages", was_provided=True)
+        assert result is None
+
+        # Test that not provided returns None
+        result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf.pages", was_provided=False)
         assert result is None
 
 
@@ -205,18 +205,18 @@ class TestCLIParser:
 
         # Test that PDF options exist
         args = parser.parse_args(["test.pdf", "--pdf-pages", "1,2,3"])
-        assert hasattr(args, 'pdf_pages')
-        assert args.pdf_pages == "1,2,3"
+        assert hasattr(args, 'pdf.pages')
+        assert getattr(args, 'pdf.pages') == "1,2,3"
 
         # Test that HTML options exist
         args = parser.parse_args(["test.html", "--html-extract-title"])
-        assert hasattr(args, 'html_extract_title')
-        assert args.html_extract_title is True
+        assert hasattr(args, 'html.extract_title')
+        assert getattr(args, 'html.extract_title') is True
 
         # Test that Markdown options exist
         args = parser.parse_args(["test.pdf", "--markdown-emphasis-symbol", "_"])
-        assert hasattr(args, 'markdown_emphasis_symbol')
-        assert args.markdown_emphasis_symbol == "_"
+        assert hasattr(args, 'markdown.emphasis_symbol')
+        assert getattr(args, 'markdown.emphasis_symbol') == "_"
 
     def test_parser_boolean_no_flags(self):
         """Test --no-* flags for boolean options with True defaults."""
@@ -224,18 +224,18 @@ class TestCLIParser:
 
         # Test --pdf-no-detect-columns flag
         args = parser.parse_args(["test.pdf", "--pdf-no-detect-columns"])
-        assert hasattr(args, 'pdf_detect_columns')
-        assert args.pdf_detect_columns is False
+        assert hasattr(args, 'pdf.detect_columns')
+        assert getattr(args, 'pdf.detect_columns') is False
 
         # Test --markdown-no-use-hash-headings flag
         args = parser.parse_args(["test.html", "--markdown-no-use-hash-headings"])
-        assert hasattr(args, 'markdown_use_hash_headings')
-        assert args.markdown_use_hash_headings is False
+        assert hasattr(args, 'markdown.use_hash_headings')
+        assert getattr(args, 'markdown.use_hash_headings') is False
 
         # Test --markdown-no-escape-special flag
         args = parser.parse_args(["test.pdf", "--markdown-no-escape-special"])
-        assert hasattr(args, 'markdown_escape_special')
-        assert args.markdown_escape_special is False
+        assert hasattr(args, 'markdown.escape_special')
+        assert getattr(args, 'markdown.escape_special') is False
 
     def test_parser_boolean_flags(self):
         """Test boolean flag arguments."""
@@ -243,17 +243,17 @@ class TestCLIParser:
 
         # Test HTML flags
         args = parser.parse_args(["test.html", "--html-extract-title", "--html-strip-dangerous-elements"])
-        assert args.html_extract_title is True
-        assert args.html_strip_dangerous_elements is True
+        assert getattr(args, 'html.extract_title') is True
+        assert getattr(args, 'html.strip_dangerous_elements') is True
 
         # Test PowerPoint flags
         args = parser.parse_args(["test.pptx", "--pptx-slide-numbers"])
-        assert args.pptx_slide_numbers is True
+        assert getattr(args, 'pptx.slide_numbers') is True
 
         # Test negative flags
         args = parser.parse_args(["test.eml", "--eml-no-include-headers", "--eml-no-preserve-thread-structure"])
-        assert args.eml_include_headers is False
-        assert args.eml_preserve_thread_structure is False
+        assert getattr(args, 'eml.include_headers') is False
+        assert getattr(args, 'eml.preserve_thread_structure') is False
 
 
 @pytest.mark.unit

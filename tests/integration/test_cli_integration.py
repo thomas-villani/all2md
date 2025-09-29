@@ -1178,10 +1178,10 @@ class TestEnhancedCLIIntegration:
         with open(config_file) as f:
             config = json.load(f)
 
-        assert 'pdf_pages' in config
-        assert config['pdf_pages'] == '1,2,3'
-        assert 'markdown_emphasis_symbol' in config
-        assert config['markdown_emphasis_symbol'] == '_'
+        assert 'pdf.pages' in config
+        assert config['pdf.pages'] == '1,2,3'
+        assert 'markdown.emphasis_symbol' in config
+        assert config['markdown.emphasis_symbol'] == '_'
         assert 'rich' in config
         assert config['rich'] is True
 
@@ -1353,11 +1353,11 @@ class TestEnhancedCLIIntegration:
             config = json.load(f)
 
         # Should include all relevant options
-        assert config['pdf_pages'] == '1,3,5'
-        assert config['pdf_password'] == 'secret123'
-        assert config['pdf_detect_columns'] is False
-        assert config['markdown_emphasis_symbol'] == '_'
-        assert config['markdown_bullet_symbols'] == '*-+'
+        assert config['pdf.pages'] == '1,3,5'
+        assert config['pdf.password'] == 'secret123'
+        assert config['pdf.detect_columns'] is False
+        assert config['markdown.emphasis_symbol'] == '_'
+        assert config['markdown.bullet_symbols'] == '*-+'
         assert config['attachment_mode'] == 'download'
         assert config['attachment_output_dir'] == './images'
         assert config['rich'] is True
@@ -1393,7 +1393,7 @@ class TestEnhancedCLIIntegration:
             kwargs = call_args[1]
 
             # Should have loaded options from config
-            assert kwargs['markdown_emphasis_symbol'] == '_'
+            assert kwargs['emphasis_symbol'] == '_'
 
     def test_combined_new_features_integration(self):
         """Test all new features working together."""
@@ -1537,8 +1537,8 @@ class TestEnhancedCLIIntegration:
             assert config['rich'] is True
             assert 'no_summary' in config
             assert config['no_summary'] is True
-            assert 'markdown_emphasis_symbol' in config
-            assert config['markdown_emphasis_symbol'] == '_'
+            assert 'markdown.emphasis_symbol' in config
+            assert config['markdown.emphasis_symbol'] == '_'
 
         finally:
             # Clean up environment

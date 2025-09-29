@@ -468,10 +468,10 @@ Options can be loaded from JSON files for reusable configurations:
    {
      "attachment_mode": "download",
      "attachment_output_dir": "./attachments",
-     "markdown_emphasis_symbol": "_",
-     "pdf_detect_columns": true,
-     "pdf_pages": [0, 1, 2],
-     "html_strip_dangerous_elements": true
+     "markdown.emphasis_symbol": "_",
+     "pdf.detect_columns": true,
+     "pdf.pages": [0, 1, 2],
+     "html.strip_dangerous_elements": true
    }
 
 .. code-block:: bash
