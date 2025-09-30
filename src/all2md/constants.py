@@ -287,6 +287,7 @@ DocumentFormat = Literal[
     "mhtml",  # MHTML single-file web archives
     "rtf",  # Rich Text Format
     "spreadsheet",  # CSV, TSV, XLSX
+    "sourcecode",  # Source code files with syntax highlighting
     "txt",  # Plain text
     "eml",  # Email messages
     "image",  # Image files (PNG, JPEG, GIF)

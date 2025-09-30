@@ -68,6 +68,7 @@ from all2md.options import (
     PdfOptions,
     PptxOptions,
     RtfOptions,
+    SourceCodeOptions,
     SpreadsheetOptions,
     create_updated_options,
 )
@@ -104,6 +105,7 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "rtf": RtfOptions,
         "odf": OdfOptions,
         "epub": EpubOptions,
+        "sourcecode": SourceCodeOptions,
         "spreadsheet": SpreadsheetOptions
     }
     return format_to_class.get(format)
@@ -433,6 +435,7 @@ __all__ = [
     "OdfOptions",
     "PdfOptions",
     "PptxOptions",
+    "SourceCodeOptions",
     "MarkdownConversionError",
     "InputError",
     "DependencyError",
