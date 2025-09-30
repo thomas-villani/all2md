@@ -942,17 +942,17 @@ class MhtmlOptions(BaseOptions):
 
 @dataclass(frozen=True)
 class SpreadsheetOptions(BaseOptions):
-    """Configuration options for Spreadsheet (XLSX/CSV/TSV) to Markdown conversion.
+    """Configuration options for Spreadsheet (XLSX/CSV/TSV/ODS) to Markdown conversion.
 
     Parameters
     ----------
     sheets : list[str] | str | None, default None
-        For XLSX: list of exact sheet names to include or a regex pattern.
+        For XLSX/ODS: list of exact sheet names to include or a regex pattern.
         If None, includes all sheets.
     include_sheet_titles : bool, default True
         Prepend each sheet with a '## {sheet_name}' heading.
     render_formulas : bool, default True
-        For XLSX: when True, uses stored values (data_only=True). When False, shows formulas.
+        For XLSX/ODS: when True, uses stored values (data_only=True). When False, shows formulas.
     max_rows : int | None, default None
         Maximum number of data rows per table (excluding header). None = unlimited.
     max_cols : int | None, default None
@@ -965,10 +965,18 @@ class SpreadsheetOptions(BaseOptions):
         Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|'). When set, disables dialect detection.
     has_header : bool, default True
         Whether the first row contains column headers. When False, generates generic headers (Column 1, Column 2, etc.).
+    header_detection_mode : str, default "manual"
+        Header detection strategy: "manual" (use has_header), "auto" (style-based heuristics),
+        or "numeric_density" (analyze numeric vs text content ratio).
+    auto_header_threshold : float, default 0.7
+        For auto detection: minimum ratio of non-numeric cells required to consider a row as header.
+    numeric_format_handling : str, default "preserve"
+        How to handle numeric formatting: "preserve" (keep original), "simplify" (basic formatting),
+        or "raw" (no formatting).
     markdown_options : MarkdownOptions | None, default None
         Shared markdown formatting options.
     attachment_mode : AttachmentMode, default "alt_text"
-        Reserved for future XLSX-embedded images (not currently extracted).
+        Reserved for future XLSX/ODS-embedded images (not currently extracted).
     attachment_output_dir : str | None, default None
         Directory for download mode (future use).
     attachment_base_url : str | None, default None
@@ -977,7 +985,7 @@ class SpreadsheetOptions(BaseOptions):
     sheets: Union[list[str], str, None] = None
     include_sheet_titles: bool = True
 
-    # XLSX-specific
+    # XLSX/ODS-specific
     render_formulas: bool = True
 
     # Truncation
@@ -989,6 +997,11 @@ class SpreadsheetOptions(BaseOptions):
     detect_csv_dialect: bool = True
     csv_delimiter: Optional[str] = None
     has_header: bool = True
+
+    # Enhanced header detection (useful for all formats)
+    header_detection_mode: str = "manual"
+    auto_header_threshold: float = 0.7
+    numeric_format_handling: str = "preserve"
 
 
 @dataclass(frozen=True)

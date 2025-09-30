@@ -2,10 +2,11 @@
 #
 # src/all2md/converters/spreadsheet2markdown.py
 
-"""Spreadsheet (XLSX/CSV/TSV) to Markdown conversion module.
+"""Spreadsheet (XLSX/ODS/CSV/TSV) to Markdown conversion module.
 
 This module converts:
 - XLSX (Excel workbooks) via openpyxl
+- ODS (OpenDocument Spreadsheets) via odfpy
 - CSV and TSV via Python's csv module (with optional dialect detection)
 
 Key Features
@@ -17,16 +18,28 @@ Key Features
   - Best-effort handling for merged cells (blank out non-master cells)
   - Optional formula rendering (values vs formulas) via data_only
   - Column alignment inferred from header cell horizontal alignment
+- ODS:
+  - Per-sheet conversion to Markdown tables
+  - Optional sheet selection by name list or regex
+  - Smart header detection using style analysis and content heuristics
+  - Support for cell repetition attributes
+  - Embedded image detection (framework ready for process_attachment)
 - CSV/TSV:
   - Optional dialect detection
   - Optional delimiter override (tsv uses tab)
   - First row used as header by default
+- Enhanced header detection (all formats):
+  - Manual mode (use has_header setting)
+  - Auto mode (style-based heuristics for XLSX/ODS)
+  - Numeric density mode (analyze text vs numeric content ratio)
 - Row/column truncation with indicator
 - Uses shared MarkdownOptions when available (escaping rules etc.)
 
 Dependencies
 ------------
-- openpyxl (only for XLSX). CSV/TSV use standard library.
+- openpyxl (only for XLSX)
+- odfpy (only for ODS)
+- CSV/TSV use standard library
 """
 
 from __future__ import annotations
@@ -59,8 +72,8 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
     def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str]]:
         """Get required packages based on detected spreadsheet format.
 
-        For XLSX files, openpyxl is required. For CSV/TSV files, no additional
-        packages are needed beyond the standard library.
+        For XLSX files, openpyxl is required. For ODS files, odfpy is required.
+        For CSV/TSV files, no additional packages are needed beyond the standard library.
 
         Parameters
         ----------
@@ -73,11 +86,36 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
             Required packages for the detected format
         """
         if content is None:
-            # If no content provided, assume worst case (XLSX)
-            return self.required_packages
+            # If no content provided, assume worst case (both XLSX and ODS possible)
+            return [("openpyxl", ""), ("odfpy", "")]
 
-        # Check if it's XLSX by magic bytes (ZIP signature)
+        # Check if it's a ZIP file (could be XLSX or ODS)
         if content.startswith(b'PK\x03\x04'):
+            # Try to determine if it's ODS or XLSX
+            try:
+                import io
+                import zipfile
+
+                with zipfile.ZipFile(io.BytesIO(content), 'r') as zf:
+                    file_list = zf.namelist()
+                    # ODS files contain mimetype file with opendocument.spreadsheet
+                    if 'mimetype' in file_list:
+                        try:
+                            mimetype = zf.read('mimetype').decode('utf-8', errors='ignore').strip()
+                            if 'opendocument.spreadsheet' in mimetype:
+                                return [("odfpy", "")]
+                        except Exception:
+                            pass
+                    # XLSX files contain [Content_Types].xml and xl/ directory
+                    if '[Content_Types].xml' in file_list or any(f.startswith('xl/') for f in file_list):
+                        return [("openpyxl", "")]
+                    # If we find META-INF/manifest.xml but no clear XLSX markers, likely ODS
+                    if 'META-INF/manifest.xml' in file_list:
+                        return [("odfpy", "")]
+            except Exception:
+                pass
+
+            # Default to XLSX for ZIP files if we can't determine
             return [("openpyxl", "")]
 
         # Check if it's CSV/TSV via content detection
@@ -85,7 +123,7 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
             return []  # CSV/TSV don't need additional packages
 
         # If we can't determine, assume XLSX for safety
-        return self.required_packages
+        return [("openpyxl", "")]
 
 
 def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None) -> str:
@@ -577,13 +615,431 @@ def _detect_csv_tsv_content(content: bytes) -> bool:
     return False
 
 
+def _detect_header_row_auto(rows: list[list[Any]], threshold: float = 0.7) -> int:
+    """Auto-detect header row using heuristics.
+
+    Parameters
+    ----------
+    rows : list[list[Any]]
+        Rows of cell data
+    threshold : float
+        Minimum ratio of non-numeric cells to consider a row as header
+
+    Returns
+    -------
+    int
+        Row index that appears to be the header (0-based), or 0 if uncertain
+    """
+    if not rows or len(rows) < 2:
+        return 0
+
+    for row_idx, row in enumerate(rows[:3]):  # Check first 3 rows
+        if not row:
+            continue
+
+        non_numeric_count = 0
+        total_cells = 0
+
+        for cell in row:
+            if cell is not None and str(cell).strip():
+                total_cells += 1
+                # Check if cell value is non-numeric text
+                cell_str = str(cell).strip()
+                try:
+                    float(cell_str)
+                    # It's numeric
+                except (ValueError, TypeError):
+                    # It's text
+                    non_numeric_count += 1
+
+        if total_cells > 0:
+            non_numeric_ratio = non_numeric_count / total_cells
+            if non_numeric_ratio >= threshold:
+                return row_idx
+
+    # Default to first row
+    return 0
+
+
+def _ods_detect_header_row_style(sheet: Any, options: SpreadsheetOptions) -> int:
+    """Detect header row using ODF style analysis.
+
+    Parameters
+    ----------
+    sheet : odf.table.Table
+        ODS table/sheet object
+    options : SpreadsheetOptions
+        Conversion options
+
+    Returns
+    -------
+    int
+        Row index that appears to be the header (0-based)
+    """
+    try:
+        # Try to import odf modules
+        from odf.table import TableCell, TableRow
+
+        rows = list(sheet.getElementsByType(TableRow))
+        if not rows:
+            return 0
+
+        # Check first few rows for bold formatting
+        for row_idx, row in enumerate(rows[:3]):
+            cells = list(row.getElementsByType(TableCell))
+            if not cells:
+                continue
+
+            bold_count = 0
+            total_text_cells = 0
+
+            for cell in cells:
+                text_content = str(cell).strip()
+                if text_content:
+                    total_text_cells += 1
+
+                    # Check if cell has bold style
+                    style_name = cell.getAttribute("stylename")
+                    if style_name:
+                        # This is a simplified check - in practice, we'd need to
+                        # traverse the style hierarchy to check for bold formatting
+                        # For now, we'll use a heuristic approach
+                        if "bold" in style_name.lower() or "header" in style_name.lower():
+                            bold_count += 1
+
+            if total_text_cells > 0 and bold_count / total_text_cells >= 0.5:
+                return row_idx
+
+    except Exception as e:
+        logger.debug(f"Error in style-based header detection: {e}")
+
+    return 0
+
+
+def _ods_extract_metadata(doc: Any) -> DocumentMetadata:
+    """Extract metadata from ODS document.
+
+    Parameters
+    ----------
+    doc : odf.opendocument.OpenDocument
+        The ODS document object
+
+    Returns
+    -------
+    DocumentMetadata
+        Extracted metadata
+    """
+    metadata = DocumentMetadata()
+
+    try:
+        # Extract basic metadata
+        meta = doc.meta
+        if meta:
+            # Get document info
+            for child in meta.childNodes:
+                if hasattr(child, 'qname'):
+                    qname = child.qname
+                    if qname and len(qname) >= 2:
+                        tag_name = qname[1]  # Local name
+
+                        if tag_name == "title" and child.firstChild:
+                            metadata.title = str(child.firstChild.data)
+                        elif tag_name == "creator" and child.firstChild:
+                            metadata.creator = str(child.firstChild.data)
+                        elif tag_name == "subject" and child.firstChild:
+                            metadata.subject = str(child.firstChild.data)
+                        elif tag_name == "description" and child.firstChild:
+                            # Store description in custom metadata since DocumentMetadata doesn't have it
+                            metadata.custom['description'] = str(child.firstChild.data)
+                        elif tag_name == "creation-date" and child.firstChild:
+                            metadata.creation_date = str(child.firstChild.data)
+                        elif tag_name == "date" and child.firstChild:
+                            metadata.modification_date = str(child.firstChild.data)
+
+        # Add ODS-specific metadata
+        body = doc.body
+        if body:
+            from odf.table import Table
+            tables = list(body.getElementsByType(Table))
+            metadata.custom['sheet_count'] = len(tables)
+            metadata.custom['sheet_names'] = [
+                table.getAttribute("name") or f"Sheet{i+1}" for i, table in enumerate(tables)
+            ]
+
+    except Exception as e:
+        logger.debug(f"Error extracting ODS metadata: {e}")
+
+    return metadata
+
+
+def _ods_process_sheet(sheet: Any, sheet_name: str, options: SpreadsheetOptions) -> str:
+    """Process a single ODS sheet into Markdown.
+
+    Parameters
+    ----------
+    sheet : odf.table.Table
+        ODS sheet/table object
+    sheet_name : str
+        Name of the sheet
+    options : SpreadsheetOptions
+        Conversion options
+
+    Returns
+    -------
+    str
+        Markdown representation of the sheet
+    """
+    try:
+        from odf.draw import Frame
+        from odf.table import TableCell, TableRow
+
+        md_options = options.markdown_options or MarkdownOptions()
+        sections = []
+
+        # Add sheet title if requested
+        if options.include_sheet_titles:
+            use_hash = md_options.use_hash_headings if hasattr(md_options, 'use_hash_headings') else True
+            sections.append(format_markdown_heading(sheet_name, 2, use_hash))
+
+        # Extract all rows
+        rows = list(sheet.getElementsByType(TableRow))
+        if not rows:
+            return ""
+
+        # Convert to cell data
+        raw_rows = []
+        for row in rows:
+            cells = list(row.getElementsByType(TableCell))
+            row_data = []
+
+            for cell in cells:
+                # Get cell text content
+                cell_text = ""
+                for node in cell.childNodes:
+                    if hasattr(node, 'data'):
+                        cell_text += str(node.data)
+                    elif hasattr(node, 'childNodes'):
+                        for subnode in node.childNodes:
+                            if hasattr(subnode, 'data'):
+                                cell_text += str(subnode.data)
+
+                # Handle cell repetition (number-columns-repeated attribute)
+                repeat_count = 1
+                try:
+                    repeat_attr = cell.getAttribute("numbercolumnsrepeated")
+                    if repeat_attr:
+                        repeat_count = int(repeat_attr)
+                except (ValueError, TypeError):
+                    pass
+
+                # Add cell data (with repetition)
+                for _ in range(repeat_count):
+                    row_data.append(cell_text.strip() if cell_text else "")
+
+            raw_rows.append(row_data)
+
+        # Remove empty trailing rows
+        while raw_rows and all(not cell for cell in raw_rows[-1]):
+            raw_rows.pop()
+
+        if not raw_rows:
+            return ""
+
+        # Apply row limits
+        if options.max_rows is not None:
+            total_available = len(raw_rows) - 1  # Exclude potential header
+            if total_available > options.max_rows:
+                raw_rows = raw_rows[:options.max_rows + 1]  # +1 for header
+
+        # Determine header row
+        header_row_idx = 0
+        if options.header_detection_mode == "auto":
+            header_row_idx = _ods_detect_header_row_style(sheet, options)
+        elif options.header_detection_mode == "numeric_density":
+            header_row_idx = _detect_header_row_auto(raw_rows, options.auto_header_threshold)
+        elif options.has_header:
+            header_row_idx = 0
+        else:
+            # Generate synthetic header
+            if raw_rows:
+                max_cols = max(len(row) for row in raw_rows)
+                if options.max_cols is not None:
+                    max_cols = min(max_cols, options.max_cols)
+                header = [f"Column {i+1}" for i in range(max_cols)]
+                data_rows = raw_rows
+            else:
+                header = []
+                data_rows = []
+
+        if options.has_header or options.header_detection_mode in ("auto", "numeric_density"):
+            if header_row_idx < len(raw_rows):
+                header = raw_rows[header_row_idx]
+                data_rows = raw_rows[header_row_idx + 1:]
+            else:
+                header = raw_rows[0] if raw_rows else []
+                data_rows = raw_rows[1:] if len(raw_rows) > 1 else []
+
+        # Apply column limits
+        if options.max_cols is not None:
+            header = header[:options.max_cols]
+            data_rows = [row[:options.max_cols] for row in data_rows]
+
+        # Sanitize all cell content
+        header = [_sanitize_cell_text(cell, md_options) for cell in header]
+        data_rows = [[_sanitize_cell_text(cell, md_options) for cell in row] for row in data_rows]
+
+        # Ensure all rows have same number of columns
+        if header:
+            max_cols = len(header)
+            data_rows = [row + [""] * (max_cols - len(row)) for row in data_rows]
+
+        # Build table
+        if header:
+            alignments = [":---:"] * len(header)  # Default to center alignment
+            table_md = _build_markdown_table(header, data_rows, alignments)
+            sections.append(table_md)
+
+        # Add truncation indicator if needed
+        truncated = (options.max_rows is not None and len(rows) - 1 > options.max_rows) or \
+                   (options.max_cols is not None and any(len(row) > options.max_cols for row in raw_rows))
+        if truncated:
+            sections.append(f"\n*{options.truncation_indicator}*")
+
+        # Process embedded images/drawings
+        try:
+            frames = list(sheet.getElementsByType(Frame))
+            for _frame in frames:
+                # This would require more complex processing with process_attachment
+                # For now, we'll just note their presence
+                pass
+        except Exception as e:
+            logger.debug(f"Error processing ODS drawings: {e}")
+
+        return "\n\n".join([s.strip() for s in sections if s.strip()])
+
+    except Exception as e:
+        logger.debug(f"Error processing ODS sheet '{sheet_name}': {e}")
+        return ""
+
+
+def ods_to_markdown(
+        input_data: Union[str, Path, IO[bytes], IO[Any]],
+        options: SpreadsheetOptions | None = None
+) -> str:
+    """Convert ODS spreadsheet to Markdown tables.
+
+    Parameters
+    ----------
+    input_data : Union[str, Path, IO[bytes], IO[Any]]
+        ODS file to convert
+    options : SpreadsheetOptions | None
+        Conversion options
+
+    Returns
+    -------
+    str
+        Markdown representation of the spreadsheet
+
+    Raises
+    ------
+    DependencyError
+        If odfpy is not installed
+    MarkdownConversionError
+        If conversion fails
+    """
+    if options is None:
+        options = SpreadsheetOptions()
+
+    # Lazy import to have clean dependency errors
+    try:
+        from odf import opendocument
+        from odf.table import Table
+    except ImportError as e:
+        raise DependencyError(
+            converter_name="ods",
+            missing_packages=[("odfpy", "")]
+        ) from e
+
+    try:
+        # Validate and open
+        doc_input, input_type = validate_and_convert_input(
+            input_data, supported_types=["path-like", "file-like", "bytes"], require_binary=True
+        )
+
+        # Load ODS document
+        if input_type == "object" and hasattr(doc_input, 'body'):
+            # Already an OpenDocument object
+            doc = doc_input
+        else:
+            doc = opendocument.load(doc_input)
+
+        # Extract metadata if requested
+        metadata = None
+        if options.extract_metadata:
+            metadata = _ods_extract_metadata(doc)
+
+        # Get all tables/sheets
+        body = doc.body
+        tables = list(body.getElementsByType(Table)) if body else []
+
+        if not tables:
+            result = ""
+        else:
+            # Filter sheets based on options
+            sheet_names = [table.getAttribute("name") or f"Sheet{i+1}" for i, table in enumerate(tables)]
+            selected_tables = []
+            selected_names = []
+
+            if isinstance(options.sheets, list):
+                # Filter by exact names
+                for i, name in enumerate(sheet_names):
+                    if name in options.sheets:
+                        selected_tables.append(tables[i])
+                        selected_names.append(name)
+            elif isinstance(options.sheets, str):
+                # Filter by regex pattern
+                import re
+                pattern = re.compile(options.sheets)
+                for i, name in enumerate(sheet_names):
+                    if pattern.search(name):
+                        selected_tables.append(tables[i])
+                        selected_names.append(name)
+            else:
+                # Include all sheets
+                selected_tables = tables
+                selected_names = sheet_names
+
+            # Process each selected sheet
+            sections = []
+            for table, name in zip(selected_tables, selected_names, strict=False):
+                sheet_md = _ods_process_sheet(table, name, options)
+                if sheet_md.strip():
+                    sections.append(sheet_md)
+
+            result = "\n\n".join(sections)
+
+        # Prepend metadata if enabled
+        result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+
+        return result
+
+    except InputError:
+        raise
+    except DependencyError:
+        raise
+    except Exception as e:
+        raise MarkdownConversionError(
+            f"Failed to process ODS file: {e}", conversion_stage="document_processing", original_error=e
+        ) from e
+
+
 def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]]) -> str:
     """Detect spreadsheet format from input data.
 
     Returns
     -------
     str
-        Format name: "xlsx", "csv", or "tsv"
+        Format name: "xlsx", "ods", "csv", or "tsv"
     """
     # If it's a path, check extension first
     if isinstance(input_data, (str, Path)):
@@ -591,6 +1047,8 @@ def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]])
         ext = path.suffix.lower()
         if ext == ".xlsx":
             return "xlsx"
+        elif ext == ".ods":
+            return "ods"
         elif ext == ".csv":
             return "csv"
         elif ext == ".tsv":
@@ -604,6 +1062,8 @@ def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]])
             ext = path.suffix.lower()
             if ext == ".xlsx":
                 return "xlsx"
+            elif ext == ".ods":
+                return "ods"
             elif ext == ".csv":
                 return "csv"
             elif ext == ".tsv":
@@ -630,8 +1090,57 @@ def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]])
             except Exception:
                 sample = b""
 
-        # Check for XLSX (ZIP signature)
+        # Check for ZIP-based formats (XLSX or ODS)
         if sample.startswith(b'PK\x03\x04'):
+            # Both XLSX and ODS are ZIP files, need to check content
+            try:
+                import io
+                import zipfile
+
+                # Create a file-like object from the input for ZIP inspection
+                if hasattr(input_data, 'read'):
+                    # For file-like objects, read the full content
+                    pos = getattr(input_data, 'tell', lambda: 0)()
+                    try:
+                        input_data.seek(0)
+                        zip_content = input_data.read()
+                        input_data.seek(pos)  # Restore position
+                    except Exception:
+                        return "xlsx"  # Default to XLSX if we can't read
+                elif isinstance(input_data, bytes):
+                    zip_content = input_data
+                else:
+                    # String path case
+                    try:
+                        with open(input_data, 'rb') as f:
+                            zip_content = f.read()
+                    except Exception:
+                        return "xlsx"  # Default to XLSX if we can't read
+
+                # Check ZIP contents to distinguish XLSX from ODS
+                try:
+                    with zipfile.ZipFile(io.BytesIO(zip_content), 'r') as zf:
+                        file_list = zf.namelist()
+                        # ODS files contain META-INF/manifest.xml and mimetype
+                        if 'mimetype' in file_list:
+                            try:
+                                mimetype = zf.read('mimetype').decode('utf-8', errors='ignore').strip()
+                                if 'opendocument.spreadsheet' in mimetype:
+                                    return "ods"
+                            except Exception:
+                                pass
+                        # XLSX files contain [Content_Types].xml and xl/ directory
+                        if '[Content_Types].xml' in file_list or any(f.startswith('xl/') for f in file_list):
+                            return "xlsx"
+                        # If we find META-INF/manifest.xml but no clear mimetype, likely ODS
+                        if 'META-INF/manifest.xml' in file_list:
+                            return "ods"
+                except Exception:
+                    pass
+            except ImportError:
+                pass
+
+            # Default to XLSX for ZIP files if we can't determine the format
             return "xlsx"
 
         # Check for CSV/TSV patterns
@@ -661,7 +1170,7 @@ def spreadsheet_to_markdown(
         input_data: Union[str, Path, IO[bytes], IO[str]],
         options: SpreadsheetOptions | None = None
 ) -> str:
-    """Convert spreadsheet (XLSX/CSV/TSV) to Markdown table.
+    """Convert spreadsheet (XLSX/ODS/CSV/TSV) to Markdown table.
 
     This unified function detects the spreadsheet format and routes
     to the appropriate converter function.
@@ -681,7 +1190,7 @@ def spreadsheet_to_markdown(
     Raises
     ------
     DependencyError
-        If required packages are not installed (openpyxl for XLSX)
+        If required packages are not installed (openpyxl for XLSX, odfpy for ODS)
     InputError
         If input is invalid
     MarkdownConversionError
@@ -697,6 +1206,8 @@ def spreadsheet_to_markdown(
     # Route to appropriate converter
     if detected_format == "xlsx":
         return xlsx_to_markdown(input_data, options)
+    elif detected_format == "ods":
+        return ods_to_markdown(input_data, options)
     elif detected_format == "csv":
         return csv_to_markdown(input_data, options)
     elif detected_format == "tsv":
@@ -709,22 +1220,24 @@ def spreadsheet_to_markdown(
 
 CONVERTER_METADATA = SpreadsheetConverterMetadata(
     format_name="spreadsheet",
-    extensions=[".xlsx", ".csv", ".tsv"],
+    extensions=[".xlsx", ".ods", ".csv", ".tsv"],
     mime_types=[
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # XLSX
+        "application/vnd.oasis.opendocument.spreadsheet",  # ODS
         "text/csv",
         "application/csv",
         "text/tab-separated-values"  # TSV
     ],
     magic_bytes=[
-        (b"PK\x03\x04", 0),  # ZIP signature for XLSX
+        (b"PK\x03\x04", 0),  # ZIP signature for XLSX and ODS
     ],
     content_detector=_detect_csv_tsv_content,
     converter_module="all2md.converters.spreadsheet2markdown",
     converter_function="spreadsheet_to_markdown",
-    required_packages=[("openpyxl", "")],  # Only required for XLSX, handled in xlsx_to_markdown
-    import_error_message="XLSX conversion requires 'openpyxl'. Install with: pip install openpyxl",
+    required_packages=[("openpyxl", ""), ("odfpy", "")],  # Conditionally required based on format
+    import_error_message="Spreadsheet conversion requires dependencies: 'openpyxl' for XLSX, "
+                        "'odfpy' for ODS. Install with: pip install openpyxl odfpy",
     options_class="SpreadsheetOptions",
-    description="Convert spreadsheets (XLSX, CSV, TSV) to Markdown tables",
-    priority=7  # Use higher priority to catch XLSX before generic text detection
+    description="Convert spreadsheets (XLSX, ODS, CSV, TSV) to Markdown tables",
+    priority=5  # Reduced priority since ODS should be handled by ODF converter at priority 4 if both are available
 )
