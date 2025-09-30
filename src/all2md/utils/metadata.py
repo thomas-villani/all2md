@@ -26,7 +26,7 @@ creation date, keywords, and format-specific metadata fields.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, Mapping
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 # Standard property mappings for different document formats
 PDF_FIELD_MAPPING = {

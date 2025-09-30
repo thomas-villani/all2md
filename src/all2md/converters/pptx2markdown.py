@@ -2,8 +2,6 @@
 #
 # src/all2md/converters/pptx2markdown.py
 
-from __future__ import annotations
-
 """PowerPoint presentation to Markdown conversion module.
 
 This module provides functionality to extract content from Microsoft PowerPoint
@@ -67,6 +65,7 @@ Requires python-pptx package. Complex animations, transitions, and some
 advanced PowerPoint features will be omitted in the conversion process.
 The focus is on extracting textual and structural content.
 """
+from __future__ import annotations
 
 import logging
 from pathlib import Path
@@ -88,10 +87,6 @@ from all2md.utils.security import validate_zip_archive
 # Type checking imports for static analysis without runtime overhead
 if TYPE_CHECKING:
     from pptx import Presentation
-    from pptx.enum.chart import XL_CHART_TYPE
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
-    from pptx.shapes.graphfrm import GraphicFrame
-    from pptx.util import Inches
 
 logger = logging.getLogger(__name__)
 
@@ -627,10 +622,6 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
     """
     # Lazy import of heavy python-pptx dependencies
     from pptx import Presentation
-    from pptx.enum.chart import XL_CHART_TYPE
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
-    from pptx.shapes.graphfrm import GraphicFrame
-    from pptx.util import Inches
 
     # Handle backward compatibility and merge options
     if options is None:

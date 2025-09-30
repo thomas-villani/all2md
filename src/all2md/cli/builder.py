@@ -10,14 +10,12 @@ import argparse
 from dataclasses import fields, is_dataclass
 from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
 
-from all2md.constants import DocumentFormat
 from all2md.cli.custom_actions import (
     TrackingStoreAction,
     TrackingStoreFalseAction,
     TrackingStoreTrueAction,
-    merge_nested_dicts,
-    parse_dot_notation,
 )
+from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.options import MarkdownOptions
 

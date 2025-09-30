@@ -1,9 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 # src/all2md/converters/odf2markdown.py
-
-from __future__ import annotations
-
 """OpenDocument to Markdown conversion module.
 
 This module provides functionality to convert OpenDocument Text (ODT) and
@@ -41,11 +38,12 @@ Note
 Requires the odfpy package. Some advanced OpenDocument features may not have
 direct Markdown equivalents and will be approximated or omitted.
 """
+from __future__ import annotations
 
 import logging
 import re
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Union
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
@@ -58,11 +56,7 @@ from all2md.utils.security import validate_zip_archive
 # Type checking imports for static analysis without runtime overhead
 if TYPE_CHECKING:
     from odf import draw, opendocument, table, text
-    from odf.draw import DRAWNS
     from odf.element import Element
-    from odf.style import STYLENS
-    from odf.table import TABLENS
-    from odf.text import TEXTNS
 
 logger = logging.getLogger(__name__)
 
@@ -461,8 +455,7 @@ def odf_to_markdown(
         If the document cannot be opened or processed.
     """
     # Lazy import of heavy odfpy document parsing classes
-    from odf import draw, opendocument, table, text
-    from odf.element import Element
+    from odf import opendocument
 
     if options is None:
         options = OdfOptions()
