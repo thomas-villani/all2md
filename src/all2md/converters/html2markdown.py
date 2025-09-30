@@ -151,7 +151,9 @@ from all2md.constants import (
     DEFAULT_USE_HASH_HEADINGS,
     MARKDOWN_SPECIAL_CHARS,
     MAX_CODE_FENCE_LENGTH,
+    MAX_LANGUAGE_IDENTIFIER_LENGTH,
     MIN_CODE_FENCE_LENGTH,
+    SAFE_LANGUAGE_IDENTIFIER_PATTERN,
     SAFE_LINK_SCHEMES,
     TABLE_ALIGNMENT_MAPPING,
 )
@@ -447,6 +449,57 @@ class HTMLToMarkdown:
             logger.debug(f"Failed to download image from {url}: {e}")
             raise Exception(f"Failed to download image from {url}: {e}") from e
 
+    def _sanitize_language_identifier(self, language: str) -> str:
+        """Sanitize language identifier to prevent markdown injection attacks.
+
+        Code fence language identifiers must only contain safe characters to prevent
+        markdown injection via malicious HTML class attributes. This method validates
+        and sanitizes language strings by checking against a safe pattern of
+        alphanumeric characters, underscores, hyphens, and plus signs.
+
+        Parameters
+        ----------
+        language : str
+            Raw language identifier string to sanitize.
+
+        Returns
+        -------
+        str
+            Sanitized language identifier, or empty string if invalid.
+
+        Examples
+        --------
+        >>> self._sanitize_language_identifier("python")
+        'python'
+        >>> self._sanitize_language_identifier("c++")
+        'c++'
+        >>> self._sanitize_language_identifier("python\\nmalicious")
+        ''
+        >>> self._sanitize_language_identifier("python javascript")
+        ''
+        """
+        if not language:
+            return ""
+
+        # Strip whitespace
+        language = language.strip()
+
+        # Check length limit
+        if len(language) > MAX_LANGUAGE_IDENTIFIER_LENGTH:
+            logger.warning(
+                f"Language identifier exceeds maximum length ({MAX_LANGUAGE_IDENTIFIER_LENGTH}): {language[:50]}..."
+            )
+            return ""
+
+        # Validate against safe pattern
+        if not re.match(SAFE_LANGUAGE_IDENTIFIER_PATTERN, language):
+            logger.warning(
+                f"Blocked potentially dangerous language identifier containing invalid characters: {language[:50]}"
+            )
+            return ""
+
+        return language
+
     def _extract_language_from_attrs(self, node: Any) -> str:
         """Extract language identifier from various HTML attributes and patterns.
 
@@ -464,23 +517,33 @@ class HTMLToMarkdown:
             if isinstance(classes, str):
                 classes = [classes]
 
-            for cls in classes:
-                # Check for language-xxx pattern
-                if match := re.match(r"language-(\w+)", cls):
-                    return match.group(1)
+            for idx, cls in enumerate(classes):
+                # Check for language-xxx pattern (allow hyphens, plus, underscores in language name)
+                if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
+                    return self._sanitize_language_identifier(match.group(1))
                 # Check for lang-xxx pattern
-                elif match := re.match(r"lang-(\w+)", cls):
-                    return match.group(1)
-                # Check for brush: xxx pattern
-                elif match := re.match(r"brush:\s*(\w+)", cls):
-                    return match.group(1)
-                # Use the class as-is if it's a simple language name
-                elif cls and not cls.startswith("hljs") and not cls.startswith("highlight"):
+                elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
+                    return self._sanitize_language_identifier(match.group(1))
+                # Check for brush: xxx pattern - note that BeautifulSoup splits "brush: sql" into ["brush:", "sql"]
+                elif cls == "brush:" and idx + 1 < len(classes):
+                    # Next class is the language identifier
+                    return self._sanitize_language_identifier(classes[idx + 1])
+                elif match := re.match(r"brush:\s*([a-zA-Z0-9_+\-]+)", cls):
+                    # Fallback for cases where brush:lang is together without space
+                    return self._sanitize_language_identifier(match.group(1))
+                # Use the class as-is if it's a simple language name (only if we haven't found one yet)
+                elif (
+                    not language
+                    and cls
+                    and not cls.startswith("hljs")
+                    and not cls.startswith("highlight")
+                    and cls != "brush:"
+                ):
                     language = cls
 
         # Check data-lang attribute
         if node.get("data-lang"):
-            return node.get("data-lang")
+            return self._sanitize_language_identifier(node.get("data-lang"))
 
         # Check child code element's classes (for pre > code structures)
         code_child = node.find("code")
@@ -490,12 +553,12 @@ class HTMLToMarkdown:
                 classes = [classes]
 
             for cls in classes:
-                if match := re.match(r"language-(\w+)", cls):
-                    return match.group(1)
-                elif match := re.match(r"lang-(\w+)", cls):
-                    return match.group(1)
+                if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
+                    return self._sanitize_language_identifier(match.group(1))
+                elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
+                    return self._sanitize_language_identifier(match.group(1))
 
-        return language
+        return self._sanitize_language_identifier(language)
 
     def _get_optimal_code_fence(self, code_content: str) -> str:
         """Determine optimal code fence length based on content.

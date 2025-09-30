@@ -132,6 +132,10 @@ DEFAULT_PRESERVE_NESTED_STRUCTURE = True
 MIN_CODE_FENCE_LENGTH = 3
 MAX_CODE_FENCE_LENGTH = 10
 
+# Code fence language identifier security (markdown injection prevention)
+SAFE_LANGUAGE_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9_+\-]+$"
+MAX_LANGUAGE_IDENTIFIER_LENGTH = 50
+
 # Table handling
 DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
 TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "justify": ":---"}

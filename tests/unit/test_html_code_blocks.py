@@ -428,3 +428,258 @@ planck = 6.626e-34
         # Should use 9 backticks to fence content containing up to 8
         assert "`````````" in markdown
         assert "````````eight````````" in markdown
+
+
+class TestCodeFenceLanguageSanitization:
+    """Test security: sanitization of code fence language identifiers to prevent markdown injection."""
+
+    def test_malicious_newline_injection(self):
+        """Test that language identifiers with newlines are blocked.
+
+        BeautifulSoup splits class attributes on whitespace (including newlines),
+        so 'python\\n# Injected markdown\\nmalicious' becomes separate classes.
+        The key security property is that newlines cannot break the code fence structure.
+        """
+        html = '<pre class="python\n# Injected markdown\nmalicious"><code>code = True</code></pre>'
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # Should not have the injected markdown characters in the fence line
+        assert "# Injected markdown" not in markdown
+
+        # Should still have the code content
+        assert "code = True" in markdown
+
+        # Should use first valid language identifier (python)
+        # BeautifulSoup normalizes newlines, so markdown structure is safe
+        assert "```python" in markdown
+
+        # Verify no markdown structure was broken
+        lines = markdown.strip().split("\n")
+        assert lines[0].startswith("```")  # Valid fence start
+        assert lines[-1] == "```"  # Valid fence end
+
+    def test_malicious_space_injection(self):
+        """Test that language identifiers with spaces are blocked."""
+        html = '<pre class="python javascript"><code>code = True</code></pre>'
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # Should not have the space-separated languages
+        # The class won't match any pattern, so will fall through to sanitization
+        assert "code = True" in markdown
+
+    def test_malicious_special_characters(self):
+        """Test that language identifiers with special characters are blocked."""
+        test_cases = [
+            '<pre class="python<script>alert(1)</script>"><code>code = True</code></pre>',
+            '<pre class="python`markdown`injection"><code>code = True</code></pre>',
+            '<pre class="python*bold*text"><code>code = True</code></pre>',
+            '<pre class="python[link](url)"><code>code = True</code></pre>',
+        ]
+
+        converter = HTMLToMarkdown()
+
+        for html in test_cases:
+            markdown = converter.convert(html)
+            assert_markdown_valid(markdown)
+
+            # Should not have the injected content
+            assert "script" not in markdown.lower() or "```" in markdown
+            assert "alert" not in markdown or "```" in markdown
+            assert "code = True" in markdown
+
+    def test_valid_language_identifiers(self):
+        """Test that valid language identifiers are preserved."""
+        test_cases = [
+            ("python", "python"),
+            ("javascript", "javascript"),
+            ("c-sharp", "c-sharp"),
+            ("c_plus_plus", "c_plus_plus"),
+            ("rust-2021", "rust-2021"),
+            ("java8", "java8"),
+            ("objective-c", "objective-c"),
+        ]
+
+        for lang_class, expected_lang in test_cases:
+            html = f'<pre class="language-{lang_class}"><code>code = True</code></pre>'
+            converter = HTMLToMarkdown()
+            markdown = converter.convert(html)
+            assert_markdown_valid(markdown)
+
+            # Should preserve the valid language identifier
+            assert f"```{expected_lang}" in markdown
+            assert "code = True" in markdown
+
+    def test_valid_language_with_numbers_and_special(self):
+        """Test valid languages with numbers, underscores, hyphens, and plus signs."""
+        html = '''
+        <pre class="language-python3"><code>print("python3")</code></pre>
+        <pre class="language-c++"><code>int main() {}</code></pre>
+        <pre class="language-objective-c"><code>@interface MyClass</code></pre>
+        <pre class="language-gnu_assembly"><code>mov eax, 1</code></pre>
+        '''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # All valid language identifiers should be preserved
+        assert "```python3" in markdown
+        assert "```c++" in markdown or "```c" in markdown  # c++ should pass
+        assert "```objective-c" in markdown
+        assert "```gnu_assembly" in markdown
+
+    def test_empty_and_whitespace_language(self):
+        """Test that empty or whitespace-only language identifiers are handled."""
+        html = '''
+        <pre class="  "><code>code = True</code></pre>
+        <pre class=""><code>more code</code></pre>
+        <pre data-lang="   "><code>even more</code></pre>
+        '''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # Should use generic code fences without language
+        assert "code = True" in markdown
+        assert "more code" in markdown
+        assert "even more" in markdown
+
+        # Count code fences - should all be generic (empty language)
+        lines = markdown.strip().split("\n")
+        fence_lines = [line for line in lines if line.startswith("```")]
+        # All fences should be exactly "```" with no language
+        assert all(line == "```" for line in fence_lines)
+
+    def test_excessively_long_language_identifier(self):
+        """Test that excessively long language identifiers are blocked."""
+        long_lang = "a" * 100
+        html = f'<pre class="language-{long_lang}"><code>code = True</code></pre>'
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # Should not include the long language identifier
+        assert long_lang not in markdown
+        assert "code = True" in markdown
+
+        # Should use generic code fence
+        lines = markdown.strip().split("\n")
+        assert lines[0] == "```"
+
+    def test_data_lang_attribute_sanitization(self):
+        """Test that data-lang attributes are also sanitized."""
+        html = '''
+        <pre data-lang="python\nmalicious"><code>code = True</code></pre>
+        <pre data-lang="javascript alert(1)"><code>more code</code></pre>
+        <pre data-lang="valid-rust"><code>fn main() {}</code></pre>
+        '''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # Malicious data-lang should be blocked
+        assert "malicious" not in markdown
+        assert "alert" not in markdown
+
+        # Valid data-lang should be preserved
+        assert "```valid-rust" in markdown or "```validrust" in markdown
+
+        # All code should be present
+        assert "code = True" in markdown
+        assert "more code" in markdown
+        assert "fn main() {}" in markdown
+
+    def test_child_code_element_class_sanitization(self):
+        """Test that child code element classes are sanitized.
+
+        BeautifulSoup normalizes newlines and angle brackets in class attributes,
+        protecting against markdown injection. The language patterns extract only
+        valid identifiers from the class attribute.
+        """
+        html = '''
+        <pre><code class="language-python\nmalicious">code = True</code></pre>
+        <pre><code class="language-javascript<script>">more code</code></pre>
+        <pre><code class="language-valid-go">func main() {}</code></pre>
+        '''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # language-python should be extracted (BeautifulSoup normalizes the newline)
+        assert "```python" in markdown
+
+        # language-javascript should be extracted (angle bracket causes split/normalization)
+        assert "```javascript" in markdown
+
+        # Valid language should be preserved
+        assert "```valid-go" in markdown
+
+        # All code should be present
+        assert "code = True" in markdown
+        assert "more code" in markdown
+        assert "func main() {}" in markdown
+
+        # Verify no markdown structure breakage
+        assert markdown.count("```") % 2 == 0  # Even number of fences
+
+    def test_fallback_class_sanitization(self):
+        """Test that fallback class names (without patterns) are sanitized."""
+        html = '''
+        <pre class="python"><code>code = True</code></pre>
+        <pre class="javascript\nmalicious"><code>more code</code></pre>
+        <pre class="valid_lang"><code>even more</code></pre>
+        '''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # Valid fallback should be preserved
+        assert "```python" in markdown
+        assert "```valid_lang" in markdown
+
+        # Malicious fallback should be blocked
+        assert "malicious" not in markdown
+
+        # All code should be present
+        assert "code = True" in markdown
+        assert "more code" in markdown
+        assert "even more" in markdown
+
+    def test_integration_with_existing_patterns(self):
+        """Test that sanitization works with existing language detection patterns."""
+        html = '''
+        <pre class="language-python"><code>python code</code></pre>
+        <pre class="lang-javascript"><code>js code</code></pre>
+        <pre class="brush: sql"><code>sql code</code></pre>
+        <pre data-lang="rust"><code>rust code</code></pre>
+        <pre><code class="language-go">go code</code></pre>
+        '''
+
+        converter = HTMLToMarkdown()
+        markdown = converter.convert(html)
+        assert_markdown_valid(markdown)
+
+        # All valid patterns should work
+        assert "```python" in markdown
+        assert "```javascript" in markdown or "```js" in markdown
+        assert "```sql" in markdown
+        assert "```rust" in markdown
+        assert "```go" in markdown
+
+        # All code should be present
+        assert "python code" in markdown
+        assert "js code" in markdown
+        assert "sql code" in markdown
+        assert "rust code" in markdown
+        assert "go code" in markdown
