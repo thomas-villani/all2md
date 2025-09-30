@@ -89,6 +89,141 @@ def test_link_with_and_without_title():
 
 
 @pytest.mark.unit
+def test_link_scheme_security_javascript():
+    """Test that javascript: scheme is blocked to prevent XSS."""
+    html = '<a href="javascript:alert(\'XSS\')">Click me</a>'
+    converter = HTMLToMarkdown()
+    md = converter.convert(html)
+    assert md == "[Click me]()"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_vbscript():
+    """Test that vbscript: scheme is blocked to prevent XSS."""
+    html = '<a href="vbscript:msgbox(\'XSS\')">Click me</a>'
+    converter = HTMLToMarkdown()
+    md = converter.convert(html)
+    assert md == "[Click me]()"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_data_html():
+    """Test that data:text/html scheme is blocked to prevent XSS."""
+    html = '<a href="data:text/html,<script>alert(\'XSS\')</script>">Click me</a>'
+    converter = HTMLToMarkdown()
+    md = converter.convert(html)
+    assert md == "[Click me]()"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_data_javascript():
+    """Test that data:text/javascript scheme is blocked to prevent XSS."""
+    html = '<a href="data:text/javascript,alert(\'XSS\')">Click me</a>'
+    converter = HTMLToMarkdown()
+    md = converter.convert(html)
+    assert md == "[Click me]()"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_safe_schemes():
+    """Test that safe URL schemes are allowed."""
+    test_cases = [
+        ('<a href="http://example.com">HTTP</a>', "[HTTP](http://example.com)"),
+        ('<a href="https://example.com">HTTPS</a>', "[HTTPS](https://example.com)"),
+        ('<a href="mailto:test@example.com">Email</a>', "[Email](mailto:test@example.com)"),
+        ('<a href="ftp://ftp.example.com/file.txt">FTP</a>', "[FTP](ftp://ftp.example.com/file.txt)"),
+        ('<a href="tel:+1234567890">Phone</a>', "[Phone](tel:+1234567890)"),
+        ('<a href="sms:+1234567890">SMS</a>', "[SMS](sms:+1234567890)"),
+    ]
+    converter = HTMLToMarkdown()
+    for html, expected in test_cases:
+        md = converter.convert(html)
+        assert md == expected
+
+
+@pytest.mark.unit
+def test_link_scheme_security_relative_urls():
+    """Test that relative URLs are preserved and not blocked."""
+    test_cases = [
+        ('<a href="/page">Absolute path</a>', "[Absolute path](/page)"),
+        ('<a href="./page.html">Relative path</a>', "[Relative path](./page.html)"),
+        ('<a href="../parent/page.html">Parent path</a>', "[Parent path](../parent/page.html)"),
+        ('<a href="page.html">Simple path</a>', "[Simple path](page.html)"),
+        ('<a href="#section">Fragment</a>', "[Fragment](#section)"),
+        ('<a href="?query=value">Query</a>', "[Query](?query=value)"),
+    ]
+    converter = HTMLToMarkdown()
+    for html, expected in test_cases:
+        md = converter.convert(html)
+        assert md == expected
+
+
+@pytest.mark.unit
+def test_link_scheme_security_require_https():
+    """Test that require_https blocks non-HTTPS schemes (except mailto, tel, sms)."""
+    from all2md.options import HtmlOptions, NetworkFetchOptions
+
+    options = HtmlOptions(network=NetworkFetchOptions(require_https=True))
+    converter = HTMLToMarkdown(require_https=True)
+
+    # HTTP should be blocked
+    html_http = '<a href="http://example.com">HTTP</a>'
+    md_http = converter.convert(html_http)
+    assert md_http == "[HTTP]()"
+
+    # HTTPS should be allowed
+    html_https = '<a href="https://example.com">HTTPS</a>'
+    md_https = converter.convert(html_https)
+    assert md_https == "[HTTPS](https://example.com)"
+
+    # mailto, tel, sms should still be allowed
+    html_mailto = '<a href="mailto:test@example.com">Email</a>'
+    md_mailto = converter.convert(html_mailto)
+    assert md_mailto == "[Email](mailto:test@example.com)"
+
+    html_tel = '<a href="tel:+1234567890">Phone</a>'
+    md_tel = converter.convert(html_tel)
+    assert md_tel == "[Phone](tel:+1234567890)"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_case_insensitive():
+    """Test that scheme validation is case-insensitive."""
+    test_cases = [
+        '<a href="JAVASCRIPT:alert(\'XSS\')">Upper</a>',
+        '<a href="JavaScript:alert(\'XSS\')">Mixed</a>',
+        '<a href="JaVaScRiPt:alert(\'XSS\')">Weird</a>',
+    ]
+    converter = HTMLToMarkdown()
+    for html in test_cases:
+        md = converter.convert(html)
+        assert md == "[Upper]()" or md == "[Mixed]()" or md == "[Weird]()"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_with_strip_dangerous_elements_off():
+    """Test that link scheme validation happens even when strip_dangerous_elements=False."""
+    converter = HTMLToMarkdown(strip_dangerous_elements=False)
+    html = '<a href="javascript:alert(\'XSS\')">Click me</a>'
+    md = converter.convert(html)
+    assert md == "[Click me]()"
+
+
+@pytest.mark.unit
+def test_link_scheme_security_empty_and_whitespace():
+    """Test handling of empty and whitespace URLs."""
+    test_cases = [
+        ('<a href="">Empty</a>', "[Empty]()"),
+        ('<a href="   ">Whitespace</a>', "[Whitespace]()"),
+        ('<a>No href</a>', "[No href]()"),
+    ]
+    converter = HTMLToMarkdown()
+    for html, expected in test_cases:
+        md = converter.convert(html)
+        assert md == expected
+
+
+@pytest.mark.unit
 def test_image_and_removal():
     html = '<img src="img.png" alt="Alt" title="T">'
     conv_keep = HTMLToMarkdown(attachment_mode="alt_text")

@@ -115,7 +115,15 @@ HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handlin
 DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
 DANGEROUS_HTML_ELEMENTS = {"script", "style", "object", "embed", "form", "input", "iframe"}
 DANGEROUS_HTML_ATTRIBUTES = {"onclick", "onload", "onerror", "onmouseover", "onfocus", "onblur"}
-DANGEROUS_SCHEMES = {"javascript:", "vbscript:", "data:text/html"}
+DANGEROUS_SCHEMES = {
+    "javascript:",
+    "vbscript:",
+    "data:text/html",
+    "data:text/javascript",
+    "data:application/javascript",
+    "data:application/x-javascript",
+}
+SAFE_LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp", "ftps", "tel", "sms", ""})
 
 # Block structure
 DEFAULT_PRESERVE_NESTED_STRUCTURE = True

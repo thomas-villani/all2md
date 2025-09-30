@@ -36,6 +36,16 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
     -----
     Security presets set multiple options to secure defaults. Explicit CLI flags
     can still override preset values if specified after the preset flag.
+
+    The flat keys set by this function are automatically mapped to nested
+    dataclass fields by _create_options_from_kwargs in __init__.py:
+
+    - allow_remote_fetch, require_https, allowed_hosts, network_timeout,
+      max_remote_asset_bytes -> HtmlOptions.network (NetworkFetchOptions)
+    - allow_local_files, allow_cwd_files -> HtmlOptions.local_files,
+      MhtmlOptions.local_files (LocalFileAccessOptions)
+    - allow_remote_fetch, require_https, etc. -> EmlOptions.html_network
+      (NetworkFetchOptions)
     """
     import sys
 
@@ -248,7 +258,8 @@ def process_multi_file(
     Returns
     -------
     int
-        Exit code (0 for success, highest error code otherwise: 1 for general errors, 2 for dependency errors, 3 for input errors)
+        Exit code (0 for success, highest error code otherwise: 1 for general errors,
+        2 for dependency errors, 3 for input errors)
     """
     # Import processing functions
     from all2md.cli import (

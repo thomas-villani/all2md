@@ -111,21 +111,110 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
     return format_to_class.get(format)
 
 
+def _collect_nested_dataclass_kwargs(options_class: type[BaseOptions], kwargs: dict) -> dict:
+    """Collect kwargs that belong to nested dataclass fields.
+
+    This function inspects the options class for nested dataclass fields
+    (e.g., network: NetworkFetchOptions) and groups kwargs that match
+    those nested fields' internal field names.
+
+    Parameters
+    ----------
+    options_class : type[BaseOptions]
+        The options class to inspect.
+    kwargs : dict
+        Flat keyword arguments that may contain nested dataclass fields.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping nested field names to dictionaries of their kwargs.
+        Also includes remaining kwargs that don't belong to nested dataclasses.
+
+    Examples
+    --------
+    For HtmlOptions with kwargs like {'allow_remote_fetch': True, 'extract_title': False}:
+    Returns: {
+        'network': {'allow_remote_fetch': True},
+        'remaining': {'extract_title': False}
+    }
+    """
+    from dataclasses import is_dataclass
+    from typing import get_type_hints
+
+    nested_kwargs = {}
+    remaining_kwargs = {}
+
+    # Use get_type_hints to properly resolve string annotations
+    try:
+        type_hints = get_type_hints(options_class)
+    except Exception:
+        # Fallback if type hints can't be resolved
+        type_hints = {}
+
+    # Build a mapping of field_name -> nested_dataclass_type
+    nested_fields = {}
+    for field in fields(options_class):
+        # Get resolved type from hints, fallback to field.type
+        field_type = type_hints.get(field.name, field.type)
+
+        # Handle Optional and Union types
+        if hasattr(field_type, '__origin__'):
+            # For Optional[SomeType], get the actual type
+            if hasattr(field_type, '__args__'):
+                for arg in field_type.__args__:
+                    if arg is not type(None) and is_dataclass(arg):
+                        nested_fields[field.name] = arg
+                        break
+        elif is_dataclass(field_type):
+            nested_fields[field.name] = field_type
+
+    # For each nested field, collect kwargs that match its internal fields
+    for nested_field_name, nested_dataclass in nested_fields.items():
+        nested_field_names = {f.name for f in fields(nested_dataclass)}
+        matching_kwargs = {}
+
+        for kwarg_name, kwarg_value in kwargs.items():
+            if kwarg_name in nested_field_names:
+                matching_kwargs[kwarg_name] = kwarg_value
+
+        if matching_kwargs:
+            nested_kwargs[nested_field_name] = matching_kwargs
+
+    # Collect remaining kwargs that aren't in any nested field
+    all_nested_field_names: set[str] = set()
+    for nested_dataclass in nested_fields.values():
+        all_nested_field_names.update(f.name for f in fields(nested_dataclass))
+
+    for kwarg_name, kwarg_value in kwargs.items():
+        if kwarg_name not in all_nested_field_names:
+            remaining_kwargs[kwarg_name] = kwarg_value
+
+    return {'nested': nested_kwargs, 'remaining': remaining_kwargs}
+
+
 def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions | None:
     """Create format-specific options object from keyword arguments.
+
+    This function handles flat kwargs and assembles nested dataclass instances
+    as needed. For example, flat keys like 'allow_remote_fetch' are grouped
+    and used to create a NetworkFetchOptions instance for HtmlOptions.network.
 
     Parameters
     ----------
     format : DocumentFormat
         The document format to create options for.
     **kwargs
-        Keyword arguments to use for options creation.
+        Keyword arguments to use for options creation. Can include flat keys
+        that map to nested dataclass fields.
 
     Returns
     -------
     BaseOptions | None
         Options instance or None for formats that don't use options.
     """
+    from dataclasses import is_dataclass
+
     options_class = _get_options_class_for_format(format)
     if not options_class:
         return None
@@ -140,13 +229,53 @@ def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions
     # Create MarkdownOptions if we have any markdown-specific options
     markdown_options = MarkdownOptions(**markdown_opts) if markdown_opts else None
 
-    # Add markdown_options to remaining kwargs if created
-    if markdown_options:
-        remaining_kwargs['markdown_options'] = markdown_options
+    # Collect nested dataclass kwargs
+    nested_info = _collect_nested_dataclass_kwargs(options_class, remaining_kwargs)
+    nested_dataclass_kwargs = nested_info['nested']
+    flat_remaining_kwargs = nested_info['remaining']
 
+    # Add markdown_options to flat kwargs if created
+    if markdown_options:
+        flat_remaining_kwargs['markdown_options'] = markdown_options
+
+    # Use get_type_hints to properly resolve types
+    from typing import get_type_hints
+    try:
+        type_hints = get_type_hints(options_class)
+    except Exception:
+        type_hints = {}
+
+    # Create instances of nested dataclasses
+    for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():
+        # Find the nested dataclass type using type hints
+        field_type = type_hints.get(nested_field_name)
+        if not field_type:
+            # Fallback to field.type
+            for field in fields(options_class):
+                if field.name == nested_field_name:
+                    field_type = field.type
+                    break
+
+        if field_type:
+            # Handle Optional types
+            nested_class = None
+            if hasattr(field_type, '__origin__'):
+                if hasattr(field_type, '__args__'):
+                    for arg in field_type.__args__:
+                        if arg is not type(None) and is_dataclass(arg):
+                            nested_class = arg
+                            break
+            elif is_dataclass(field_type):
+                nested_class = field_type
+
+            if nested_class:
+                # Create instance of nested dataclass
+                flat_remaining_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
+
+    # Filter to only valid top-level kwargs
     option_names = [field.name for field in fields(options_class)]
-    valid_kwargs = {k: v for k, v in remaining_kwargs.items() if k in option_names}
-    missing = [k for k in remaining_kwargs if k not in valid_kwargs]
+    valid_kwargs = {k: v for k, v in flat_remaining_kwargs.items() if k in option_names}
+    missing = [k for k in flat_remaining_kwargs if k not in valid_kwargs]
     if missing:
         logger.debug(f"Skipping unknown options: {missing}")
     return options_class(**valid_kwargs)
@@ -205,7 +334,61 @@ def _merge_options(
         merged_options = merged_options.create_updated(markdown_options=new_md)
 
     if other_kwargs:
-        merged_options = merged_options.create_updated(**other_kwargs)
+        # Handle nested dataclass kwargs
+        from dataclasses import is_dataclass
+        from typing import get_type_hints
+
+        options_class = type(base_options)
+        nested_info = _collect_nested_dataclass_kwargs(options_class, other_kwargs)
+        nested_dataclass_kwargs = nested_info['nested']
+        flat_other_kwargs = nested_info['remaining']
+
+        # Use get_type_hints to properly resolve types
+        try:
+            type_hints = get_type_hints(options_class)
+        except Exception:
+            type_hints = {}
+
+        # For nested dataclasses, merge with existing values
+        for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():
+            # Get existing nested instance
+            existing_nested = getattr(merged_options, nested_field_name, None)
+
+            if existing_nested is not None:
+                # Merge with existing nested dataclass
+                updated_nested = create_updated_options(existing_nested, **nested_kwargs)
+                flat_other_kwargs[nested_field_name] = updated_nested
+            else:
+                # Create new nested dataclass instance using type hints
+                field_type = type_hints.get(nested_field_name)
+                if not field_type:
+                    # Fallback to field.type
+                    for field in fields(options_class):
+                        if field.name == nested_field_name:
+                            field_type = field.type
+                            break
+
+                if field_type:
+                    nested_class = None
+                    if hasattr(field_type, '__origin__'):
+                        if hasattr(field_type, '__args__'):
+                            for arg in field_type.__args__:
+                                if arg is not type(None) and is_dataclass(arg):
+                                    nested_class = arg
+                                    break
+                    elif is_dataclass(field_type):
+                        nested_class = field_type
+
+                    if nested_class:
+                        flat_other_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
+
+        # Filter to only valid top-level kwargs before passing to create_updated
+        option_field_names = {field.name for field in fields(options_class)}
+        valid_other_kwargs = {k: v for k, v in flat_other_kwargs.items() if k in option_field_names}
+
+        # Apply all updates
+        if valid_other_kwargs:
+            merged_options = merged_options.create_updated(**valid_other_kwargs)
 
     return merged_options
 

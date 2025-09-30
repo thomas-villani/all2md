@@ -44,10 +44,35 @@ Configuration Options
 
 Security Considerations
 -----------------------
-This module includes basic content sanitization via the `strip_dangerous_elements`
-option, which uses a blacklist-based approach to remove potentially dangerous HTML
-elements and attributes. While this provides a reasonable baseline for processing
-trusted or semi-trusted HTML, it is NOT a complete security solution for untrusted input.
+This module includes multiple layers of security protection to prevent XSS attacks
+and other security vulnerabilities when converting HTML to Markdown.
+
+**Link Scheme Validation (Always Active)**
+
+All link URLs (href attributes in <a> tags) are automatically validated to prevent
+XSS attacks via dangerous URL schemes. This validation is ALWAYS performed,
+regardless of the `strip_dangerous_elements` setting, providing defense-in-depth
+protection. Dangerous schemes that are blocked include:
+
+- `javascript:` - Executes JavaScript when clicked
+- `vbscript:` - Executes VBScript (older browsers)
+- `data:text/html`, `data:text/javascript` - Can contain executable code
+
+Only safe schemes are allowed: http, https, mailto, ftp, ftps, tel, sms.
+Relative URLs (e.g., /page, ./file.html, #anchor) are preserved.
+
+When `require_https=True`, only HTTPS links are allowed (except mailto, tel, sms).
+
+**Content Sanitization (Optional)**
+
+The `strip_dangerous_elements` option provides additional protection by removing
+potentially dangerous HTML elements and attributes during DOM processing:
+
+- Script and style tags (always removed, even when option is False)
+- Event handler attributes (onclick, onerror, etc.)
+- Potentially unsafe elements (object, embed, iframe, form, input, etc.)
+
+**Best Practices for Production Applications**
 
 For production applications handling untrusted HTML content:
 
@@ -65,19 +90,13 @@ For production applications handling untrusted HTML content:
    CSP headers to provide defense-in-depth protection against XSS attacks.
 
 3. **Validate User Input**: Always validate and sanitize user-provided HTML
-   before processing, especially when dealing with URLs in href and src attributes.
+   before processing.
 
 4. **Network Security**: When `allow_remote_fetch=True`, be aware of potential
    SSRF (Server-Side Request Forgery) risks. Use `allowed_hosts` and `require_https`
    options to restrict which remote resources can be fetched.
 
-The `strip_dangerous_elements` option provides basic protection by removing:
-- Script and style tags (always removed, even when option is False)
-- Event handler attributes (onclick, onerror, etc.)
-- Dangerous URL schemes (javascript:, data:, vbscript:)
-- Potentially unsafe elements (script, object, embed, iframe, etc.)
-
-However, HTML sanitization is complex, and new attack vectors are discovered regularly.
+HTML sanitization is complex, and new attack vectors are discovered regularly.
 Always use defense-in-depth strategies and consider the security requirements of your
 specific use case.
 
@@ -133,6 +152,7 @@ from all2md.constants import (
     MARKDOWN_SPECIAL_CHARS,
     MAX_CODE_FENCE_LENGTH,
     MIN_CODE_FENCE_LENGTH,
+    SAFE_LINK_SCHEMES,
     TABLE_ALIGNMENT_MAPPING,
 )
 from all2md.converter_metadata import ConverterMetadata
@@ -868,8 +888,87 @@ class HTMLToMarkdown:
 
         return ":---:"
 
+    def _sanitize_link_url(self, url: str) -> str:
+        """Sanitize link URL to prevent XSS attacks via dangerous schemes.
+
+        This method validates URL schemes to prevent XSS attacks through
+        javascript:, data:, vbscript:, and other dangerous URL schemes.
+        Link scheme validation is performed regardless of the
+        strip_dangerous_elements setting to ensure defense-in-depth.
+
+        Parameters
+        ----------
+        url : str
+            URL to sanitize.
+
+        Returns
+        -------
+        str
+            Sanitized URL, or empty string if the URL contains a dangerous scheme.
+        """
+        if not url:
+            return url
+
+        if not url.strip():
+            return ""
+
+        url_lower = url.lower().strip()
+
+        # Preserve relative URLs (no scheme), fragments, and anchors
+        # Check for common relative URL patterns
+        if url_lower.startswith(("#", "/", "./", "../", "?")):
+            return url
+
+        # Parse the URL to extract the scheme
+        try:
+            parsed = urlparse(url_lower)
+            scheme = parsed.scheme.lower() if parsed.scheme else ""
+        except Exception:
+            logger.warning(f"Failed to parse URL for scheme validation: {url}")
+            return ""
+
+        # If no scheme detected, treat as relative URL (check for common patterns)
+        if not scheme:
+            # Check if it looks like a relative path without scheme
+            if not url_lower.startswith(("http://", "https://", "ftp://", "ftps://", "mailto:", "tel:", "sms:")):
+                # Could be a relative path like "page.html" or "path/to/page"
+                return url
+
+        # Check if scheme is in the safe list
+        if scheme not in SAFE_LINK_SCHEMES:
+            logger.warning(
+                f"Blocked link with potentially dangerous scheme '{scheme}:' "
+                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
+            )
+            return ""
+
+        # If require_https is enabled, block non-https schemes (except mailto, tel, sms)
+        if self.require_https and scheme not in ("https", "mailto", "tel", "sms", ""):
+            logger.warning(
+                f"Blocked link with non-HTTPS scheme '{scheme}:' due to require_https setting "
+                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
+            )
+            return ""
+
+        return url
+
     def _process_link(self, node: Any) -> str:
-        """Process hyperlinks with URL resolution."""
+        """Process hyperlinks with URL resolution and security validation.
+
+        This method processes HTML anchor tags and converts them to Markdown
+        link syntax. It validates URL schemes to prevent XSS attacks via
+        javascript:, data:, vbscript:, and other dangerous schemes.
+
+        Parameters
+        ----------
+        node : BeautifulSoup element
+            The anchor element to process.
+
+        Returns
+        -------
+        str
+            Markdown-formatted link.
+        """
         href = node.get("href", "")
         title = node.get("title")
 
@@ -895,6 +994,9 @@ class HTMLToMarkdown:
         # Resolve relative URLs
         if href:
             href = self._resolve_url(href)
+
+        # Sanitize URL to prevent XSS attacks (always performed, regardless of strip_dangerous_elements)
+        href = self._sanitize_link_url(href)
 
         if title:
             return f'[{content}]({href} "{title}")'

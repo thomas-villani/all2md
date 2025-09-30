@@ -237,7 +237,7 @@ class TestCLIIntegration:
 
             result = main([str(pdf_file)])
 
-            assert result == 1
+            assert result == 2
             captured = capsys.readouterr()
             assert "Missing dependency" in captured.err
 
@@ -497,7 +497,7 @@ class TestCLIIntegration:
 
             result = main([str(nonexistent_file)])
 
-            assert result == 1  # Error exit code
+            assert result == 3  # Error exit code
 
     def test_ipynb_basic_conversion(self):
         """Test basic Jupyter Notebook conversion through CLI."""
@@ -595,7 +595,7 @@ class TestCLIIntegration:
 
             result = main([str(nonexistent_file)])
 
-            assert result == 1  # Error exit code
+            assert result == 3  # Error exit code
 
     def test_ipynb_with_output_file(self):
         """Test Jupyter Notebook conversion with output file specification."""

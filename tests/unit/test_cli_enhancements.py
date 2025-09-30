@@ -8,7 +8,6 @@ This module tests the enhanced CLI features including:
 - Security preset flags
 """
 
-import argparse
 from unittest.mock import Mock, patch
 
 import pytest
@@ -145,7 +144,7 @@ class TestListFormatsCommand:
         mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
 
         result = handle_list_formats_command(['unknown'])
-        assert result == 1
+        assert result == 3
 
 
 @pytest.mark.unit
@@ -297,6 +296,7 @@ class TestEnhancedDryRun:
     def test_dry_run_shows_format_detection(self, mock_check_installed, mock_check_version, mock_registry):
         """Test that enhanced dry-run shows format detection info."""
         from pathlib import Path
+
         from all2md.cli import process_dry_run
 
         # Setup mocks
@@ -363,3 +363,211 @@ class TestCLIIntegration:
 
         assert args.dry_run is True
         assert args.paranoid_mode is True
+
+
+@pytest.mark.unit
+class TestSecurityPresetOptionsMapping:
+    """Test that security preset options correctly map to nested dataclasses."""
+
+    def test_safe_mode_creates_html_options_with_nested_fields(self):
+        """Test that safe-mode flat keys create proper HtmlOptions with nested dataclasses."""
+        from all2md import _create_options_from_kwargs
+        from all2md.options import HtmlOptions
+
+        # Simulate what apply_security_preset does
+        kwargs = {
+            'strip_dangerous_elements': True,
+            'allow_remote_fetch': True,
+            'require_https': True,
+            'allow_local_files': False,
+            'allow_cwd_files': False,
+        }
+
+        options = _create_options_from_kwargs('html', **kwargs)
+
+        # Verify options instance is created
+        assert options is not None
+        assert isinstance(options, HtmlOptions)
+
+        # Verify top-level field
+        assert options.strip_dangerous_elements is True
+
+        # Verify nested NetworkFetchOptions fields
+        assert options.network is not None
+        assert options.network.allow_remote_fetch is True
+        assert options.network.require_https is True
+
+        # Verify nested LocalFileAccessOptions fields
+        assert options.local_files is not None
+        assert options.local_files.allow_local_files is False
+        assert options.local_files.allow_cwd_files is False
+
+    def test_paranoid_mode_creates_html_options_with_all_fields(self):
+        """Test that paranoid-mode creates HtmlOptions with all security settings."""
+        from all2md import _create_options_from_kwargs
+        from all2md.options import HtmlOptions
+
+        kwargs = {
+            'strip_dangerous_elements': True,
+            'allow_remote_fetch': True,
+            'require_https': True,
+            'allowed_hosts': [],
+            'allow_local_files': False,
+            'allow_cwd_files': False,
+            'max_remote_asset_bytes': 5 * 1024 * 1024,
+        }
+
+        options = _create_options_from_kwargs('html', **kwargs)
+
+        assert options is not None
+        assert isinstance(options, HtmlOptions)
+        assert options.strip_dangerous_elements is True
+        assert options.network.allow_remote_fetch is True
+        assert options.network.require_https is True
+        assert options.network.allowed_hosts == []
+        assert options.network.max_remote_asset_bytes == 5 * 1024 * 1024
+        assert options.local_files.allow_local_files is False
+        assert options.local_files.allow_cwd_files is False
+
+    def test_strict_html_sanitize_creates_html_options(self):
+        """Test that strict-html-sanitize creates proper HtmlOptions."""
+        from all2md import _create_options_from_kwargs
+        from all2md.options import HtmlOptions
+
+        kwargs = {
+            'strip_dangerous_elements': True,
+            'allow_remote_fetch': False,
+            'allow_local_files': False,
+            'allow_cwd_files': False,
+        }
+
+        options = _create_options_from_kwargs('html', **kwargs)
+
+        assert options is not None
+        assert isinstance(options, HtmlOptions)
+        assert options.strip_dangerous_elements is True
+        assert options.network.allow_remote_fetch is False
+        assert options.local_files.allow_local_files is False
+        assert options.local_files.allow_cwd_files is False
+
+    def test_eml_options_with_html_network_nested_field(self):
+        """Test that EmlOptions correctly handles html_network nested field."""
+        from all2md import _create_options_from_kwargs
+        from all2md.options import EmlOptions
+
+        kwargs = {
+            'allow_remote_fetch': True,
+            'require_https': True,
+            'convert_html_to_markdown': True,
+        }
+
+        options = _create_options_from_kwargs('eml', **kwargs)
+
+        assert options is not None
+        assert isinstance(options, EmlOptions)
+        assert options.convert_html_to_markdown is True
+        assert options.html_network is not None
+        assert options.html_network.allow_remote_fetch is True
+        assert options.html_network.require_https is True
+
+    def test_mhtml_options_with_local_files_nested_field(self):
+        """Test that MhtmlOptions correctly handles local_files nested field."""
+        from all2md import _create_options_from_kwargs
+        from all2md.options import MhtmlOptions
+
+        kwargs = {
+            'allow_local_files': False,
+            'allow_cwd_files': False,
+        }
+
+        options = _create_options_from_kwargs('mhtml', **kwargs)
+
+        assert options is not None
+        assert isinstance(options, MhtmlOptions)
+        assert options.local_files is not None
+        assert options.local_files.allow_local_files is False
+        assert options.local_files.allow_cwd_files is False
+
+    def test_mixed_flat_and_top_level_kwargs(self):
+        """Test that mixed flat nested and top-level kwargs work together."""
+        from all2md import _create_options_from_kwargs
+        from all2md.options import HtmlOptions
+
+        kwargs = {
+            'extract_title': True,  # Top-level field
+            'allow_remote_fetch': True,  # Nested in network
+            'convert_nbsp': True,  # Top-level field
+            'require_https': True,  # Nested in network
+        }
+
+        options = _create_options_from_kwargs('html', **kwargs)
+
+        assert options is not None
+        assert isinstance(options, HtmlOptions)
+        # Top-level fields
+        assert options.extract_title is True
+        assert options.convert_nbsp is True
+        # Nested fields
+        assert options.network.allow_remote_fetch is True
+        assert options.network.require_https is True
+
+    def test_security_preset_end_to_end_integration(self):
+        """Test complete flow: preset -> options -> to_markdown."""
+        import tempfile
+        from pathlib import Path
+
+        from all2md import to_markdown
+
+        # Create a simple HTML file
+        html_content = '<html><body><h1>Test</h1><script>alert("xss")</script></body></html>'
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+            f.write(html_content)
+            temp_file = Path(f.name)
+
+        try:
+            # Test with security preset kwargs (simulating what CLI does)
+            markdown = to_markdown(
+                temp_file,
+                format='html',
+                strip_dangerous_elements=True,
+                allow_remote_fetch=True,
+                require_https=True,
+                allow_local_files=False,
+                allow_cwd_files=False
+            )
+
+            # Verify conversion happened
+            assert markdown is not None
+            assert 'Test' in markdown
+            # Script tag should be stripped by strip_dangerous_elements
+            assert 'alert' not in markdown
+        finally:
+            temp_file.unlink()
+
+    def test_merge_options_with_flat_nested_kwargs(self):
+        """Test that _merge_options correctly handles flat nested kwargs."""
+        from all2md import _merge_options
+        from all2md.options import HtmlOptions
+
+        # Start with base options
+        base_options = HtmlOptions(extract_title=True)
+
+        # Merge with flat nested kwargs
+        merged = _merge_options(
+            base_options,
+            'html',
+            allow_remote_fetch=True,
+            require_https=True,
+            convert_nbsp=True
+        )
+
+        assert merged is not None
+        assert isinstance(merged, HtmlOptions)
+        # Original field preserved
+        assert merged.extract_title is True
+        # New top-level field added
+        assert merged.convert_nbsp is True
+        # Nested fields added
+        assert merged.network.allow_remote_fetch is True
+        assert merged.network.require_https is True

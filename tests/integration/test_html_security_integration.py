@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.converters.html2markdown import HTMLToMarkdown, html_to_markdown
 from all2md.options import EmlOptions, HtmlOptions, NetworkFetchOptions
 
 
@@ -313,3 +313,166 @@ class TestSecurityDocumentationExamples:
         # All external images should be converted to alt text
         assert "![blocked]" in result
         assert "![inline]" in result
+
+
+class TestLinkSchemeSecurityIntegration:
+    """Integration tests for link scheme security and XSS prevention."""
+
+    def test_multiple_dangerous_links_in_document(self):
+        """Test that multiple dangerous links in the same document are all blocked."""
+        html_content = '''
+        <h1>Test Page</h1>
+        <p>Here are some malicious links:</p>
+        <ul>
+            <li><a href="javascript:alert('XSS1')">JavaScript XSS</a></li>
+            <li><a href="vbscript:msgbox('XSS2')">VBScript XSS</a></li>
+            <li><a href="data:text/html,<script>alert('XSS3')</script>">Data HTML XSS</a></li>
+            <li><a href="https://safe.com">Safe Link</a></li>
+        </ul>
+        '''
+
+        result = html_to_markdown(html_content)
+
+        # Dangerous links should have empty hrefs
+        assert "[JavaScript XSS]()" in result
+        assert "[VBScript XSS]()" in result
+        assert "[Data HTML XSS]()" in result
+
+        # Safe link should be preserved
+        assert "[Safe Link](https://safe.com)" in result
+
+    def test_mixed_safe_and_dangerous_links_with_metadata(self):
+        """Test document with mixed links and metadata extraction."""
+        html_content = '''
+        <html>
+        <head>
+            <title>Security Test</title>
+            <meta name="author" content="Test Author">
+        </head>
+        <body>
+            <h1>Links Test</h1>
+            <p>Contact us at <a href="mailto:test@example.com">test@example.com</a></p>
+            <p>Don't click <a href="javascript:void(0)">here</a></p>
+            <p>Call us at <a href="tel:+1234567890">+1234567890</a></p>
+        </body>
+        </html>
+        '''
+
+        options = HtmlOptions(extract_title=True, extract_metadata=True)
+        result = html_to_markdown(html_content, options)
+
+        # Safe links should work
+        assert "[test@example.com](mailto:test@example.com)" in result
+        assert "[+1234567890](tel:+1234567890)" in result
+
+        # Dangerous link should be blocked
+        assert "[here]()" in result
+
+    def test_link_security_with_base_url_resolution(self):
+        """Test that link security works with base URL resolution."""
+        html_content = '''
+        <a href="/page">Relative link</a>
+        <a href="javascript:alert('xss')">XSS link</a>
+        '''
+
+        options = HtmlOptions(attachment_base_url="https://example.com")
+        result = html_to_markdown(html_content, options)
+
+        # Relative link should be resolved
+        assert "[Relative link](https://example.com/page)" in result
+
+        # XSS link should still be blocked
+        assert "[XSS link]()" in result
+
+    def test_require_https_blocks_http_links(self):
+        """Test that require_https setting blocks HTTP links."""
+        html_content = '''
+        <p>
+            <a href="http://insecure.com">HTTP Link</a>
+            <a href="https://secure.com">HTTPS Link</a>
+            <a href="ftp://files.com">FTP Link</a>
+            <a href="mailto:test@example.com">Email Link</a>
+        </p>
+        '''
+
+        options = HtmlOptions(network=NetworkFetchOptions(require_https=True))
+        converter = HTMLToMarkdown(require_https=True)
+        result = converter.convert(html_content)
+
+        # HTTP and FTP should be blocked
+        assert "[HTTP Link]()" in result
+        assert "[FTP Link]()" in result
+
+        # HTTPS should be allowed
+        assert "[HTTPS Link](https://secure.com)" in result
+
+        # mailto should still be allowed
+        assert "[Email Link](mailto:test@example.com)" in result
+
+    def test_xss_prevention_in_complex_document(self):
+        """Test XSS prevention in a complex HTML document with various attacks."""
+        html_content = '''
+        <article>
+            <h1>Article Title</h1>
+            <p>This is a <a href="javascript:void(document.cookie='stolen')">malicious link</a>.</p>
+            <p>Also dangerous: <a href="data:text/javascript,alert('xss')">data scheme</a></p>
+            <p>Safe navigation: <a href="/about">About</a> | <a href="#contact">Contact</a></p>
+
+            <h2>More Content</h2>
+            <blockquote>
+                <p>A quote with a <a href="vbscript:CreateObject('WScript.Shell')">VBScript link</a></p>
+            </blockquote>
+
+            <ul>
+                <li><a href="https://example.com">Safe external link</a></li>
+                <li><a href="file:///etc/passwd">Local file access</a></li>
+            </ul>
+        </article>
+        '''
+
+        result = html_to_markdown(html_content)
+
+        # All dangerous links should be neutralized
+        assert "javascript:" not in result
+        assert "vbscript:" not in result
+        assert "data:text/javascript" not in result
+
+        # Safe links should remain
+        assert "[About](/about)" in result
+        assert "[Contact](#contact)" in result
+        assert "[Safe external link](https://example.com)" in result
+
+    def test_link_security_with_strip_dangerous_elements(self):
+        """Test that link security works independently of strip_dangerous_elements setting."""
+        html_content = '<a href="javascript:alert(\'xss\')">Click</a>'
+
+        # Test with strip_dangerous_elements=False (default)
+        # Link text is preserved but href is neutralized
+        options_default = HtmlOptions(strip_dangerous_elements=False)
+        result_default = html_to_markdown(html_content, options_default)
+        assert "[Click]()" in result_default
+
+        # Test with strip_dangerous_elements=True
+        # Entire element is removed during DOM sanitization
+        options_strict = HtmlOptions(strip_dangerous_elements=True)
+        result_strict = html_to_markdown(html_content, options_strict)
+        assert result_strict.strip() == ""  # Element removed entirely
+
+    def test_case_insensitive_scheme_detection(self):
+        """Test that scheme detection is case-insensitive."""
+        html_content = '''
+        <a href="JAVASCRIPT:alert('XSS')">Upper</a>
+        <a href="JavaScript:alert('XSS')">Mixed</a>
+        <a href="JaVaScRiPt:alert('XSS')">Weird</a>
+        <a href="HTTP://example.com">HTTP Upper</a>
+        '''
+
+        result = html_to_markdown(html_content)
+
+        # All javascript variants should be blocked
+        assert "[Upper]()" in result
+        assert "[Mixed]()" in result
+        assert "[Weird]()" in result
+
+        # HTTP in uppercase should still work
+        assert "[HTTP Upper](HTTP://example.com)" in result or "[HTTP Upper](http://example.com)" in result
