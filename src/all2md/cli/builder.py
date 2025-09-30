@@ -322,7 +322,8 @@ class DynamicCLIBuilder:
 
                 if is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
-                    nested_prefix = f"{format_prefix}-{self.snake_to_kebab(field.name)}" if format_prefix else self.snake_to_kebab(field.name)
+                    kebab_name = self.snake_to_kebab(field.name)
+                    nested_prefix = f"{format_prefix}-{kebab_name}" if format_prefix else kebab_name
                     self._add_options_arguments_internal(
                         group,  # Use parent group instead of parser
                         field_type,
@@ -342,10 +343,11 @@ class DynamicCLIBuilder:
 
             # Get CLI name (explicit or inferred)
             if 'cli_name' in metadata:
-                if metadata['cli_name'].startswith('no-'):
-                    cli_name = f"--{format_prefix}-{metadata['cli_name']}" if format_prefix else f"--{metadata['cli_name']}"
+                cli_meta_name = metadata['cli_name']
+                if cli_meta_name.startswith('no-'):
+                    cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
                 else:
-                    cli_name = f"--{format_prefix}-{metadata['cli_name']}" if format_prefix else f"--{metadata['cli_name']}"
+                    cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
             else:
                 cli_name = self.infer_cli_name(field.name, format_prefix, is_bool_true_default)
 

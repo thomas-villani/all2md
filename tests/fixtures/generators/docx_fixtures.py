@@ -24,7 +24,7 @@ def create_docx_with_formatting() -> docx.Document:
     doc = docx.Document()
 
     # Title
-    title = doc.add_heading("Formatting Test Document", level=1)
+    doc.add_heading("Formatting Test Document", level=1)
 
     # Basic formatting examples
     p1 = doc.add_paragraph("This paragraph contains ")

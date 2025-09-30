@@ -1399,8 +1399,13 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
                 logger.warning(f"Failed to extract HTML metadata: {e}")
 
         # Prepare converter arguments, only passing non-None values
+        hash_headings = (
+            options.markdown_options.use_hash_headings
+            if options.markdown_options
+            else DEFAULT_USE_HASH_HEADINGS
+        )
         converter_kwargs = {
-            "hash_headings": options.markdown_options.use_hash_headings if options.markdown_options else DEFAULT_USE_HASH_HEADINGS,
+            "hash_headings": hash_headings,
             "extract_title": options.extract_title,
             "convert_nbsp": options.convert_nbsp,
             "strip_dangerous_elements": options.strip_dangerous_elements,
@@ -1426,7 +1431,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             if options.markdown_options.bullet_symbols is not None:
                 converter_kwargs["bullet_symbols"] = options.markdown_options.bullet_symbols
 
-        converter = HTMLToMarkdown(**converter_kwargs)
+        converter = HTMLToMarkdown(**converter_kwargs)  # type: ignore[arg-type]
         result = converter.convert(html_content)
 
         # Prepend metadata if enabled

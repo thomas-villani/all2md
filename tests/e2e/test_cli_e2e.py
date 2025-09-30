@@ -781,8 +781,10 @@ class TestEpubCLIEndToEnd:
         """Test basic EPUB conversion via CLI."""
         # Skip if ebooklib not available
         try:
-            import ebooklib
-        except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("ebooklib") is None:
+                pytest.skip("ebooklib not available for EPUB tests")
+        except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
         from tests.fixtures.generators.epub_fixtures import create_simple_epub
@@ -809,8 +811,10 @@ class TestEpubCLIEndToEnd:
     def test_epub_with_output_file(self):
         """Test EPUB conversion to output file."""
         try:
-            import ebooklib
-        except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("ebooklib") is None:
+                pytest.skip("ebooklib not available for EPUB tests")
+        except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
         from tests.fixtures.generators.epub_fixtures import create_simple_epub
@@ -838,8 +842,10 @@ class TestEpubCLIEndToEnd:
     def test_epub_with_base64_images(self):
         """Test EPUB conversion with base64 image embedding."""
         try:
-            import ebooklib
-        except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("ebooklib") is None:
+                pytest.skip("ebooklib not available for EPUB tests")
+        except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
         from tests.fixtures.generators.epub_fixtures import create_epub_with_images
@@ -864,8 +870,10 @@ class TestEpubCLIEndToEnd:
     def test_epub_with_download_images(self):
         """Test EPUB conversion with image download."""
         try:
-            import ebooklib
-        except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("ebooklib") is None:
+                pytest.skip("ebooklib not available for EPUB tests")
+        except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
         from tests.fixtures.generators.epub_fixtures import create_epub_with_images
@@ -894,8 +902,10 @@ class TestEpubCLIEndToEnd:
     def test_epub_format_override(self):
         """Test EPUB format override."""
         try:
-            import ebooklib
-        except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("ebooklib") is None:
+                pytest.skip("ebooklib not available for EPUB tests")
+        except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
         from tests.fixtures.generators.epub_fixtures import create_simple_epub
@@ -1446,7 +1456,6 @@ class TestAdvancedCLIFeaturesE2E:
         ''')
 
         output_dir = self.temp_dir / "attachment_output"
-        images_dir = self.temp_dir / "images"
 
         result = self._run_cli([
             str(html1),

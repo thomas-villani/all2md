@@ -821,11 +821,11 @@ class TestNewEnhancedCLIFeatures:
 
     def test_dry_run_processing(self):
         """Test dry run mode processing."""
+        import sys
         import tempfile
+        from io import StringIO
         from pathlib import Path
         from unittest.mock import Mock
-        from io import StringIO
-        import sys
 
         from all2md.cli import process_dry_run
 

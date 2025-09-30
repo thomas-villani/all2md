@@ -4,14 +4,11 @@ Tests for CSV delimiter override and header handling options.
 """
 
 import io
-from pathlib import Path
-
-import pytest
 
 from all2md.converters.spreadsheet2markdown import (
     csv_to_markdown,
-    tsv_to_markdown,
     spreadsheet_to_markdown,
+    tsv_to_markdown,
 )
 from all2md.options import SpreadsheetOptions
 

@@ -179,12 +179,13 @@ class TestPdfFormatting:
         )
 
         # Test header detection logic
-        header_analyzer = IdentifyHeaders(mock_doc, options=options)
+        _header_analyzer = IdentifyHeaders(mock_doc, options=options)
 
         # Simulate header detection (exact implementation may vary)
         # Bold + large should be strong header candidate
         # Large alone might be header
         # Bold alone (small) might not be header
+        # The header_analyzer is created to test initialization with options
 
     def test_underline_and_strikethrough_flags(self):
         """Test detection of underline and strikethrough formatting."""
@@ -244,7 +245,7 @@ class TestPdfFormatting:
             "dir": (1, 0)
         }
 
-        proportional_span = {
+        _proportional_span = {
             "text": "Regular text",
             "bbox": (100, 130, 200, 150),
             "size": 12.0,
@@ -254,6 +255,7 @@ class TestPdfFormatting:
         }
 
         # Test font family detection (implementation-dependent)
+        # The proportional_span is defined for documentation purposes
         assert "Courier" in monospace_span.get("font", "")
 
     @patch('all2md.converters.pdf2markdown.fitz.open')
@@ -337,12 +339,13 @@ class TestPdfFormatting:
             "flags": 0,
         }
 
-        options = PdfOptions(
+        _options = PdfOptions(
             header_use_all_caps=True,
             header_min_occurrences=1
         )
 
         # Test ALL CAPS detection
+        # The options are defined to document the configuration context
         assert all_caps_span["text"].isupper()
         assert not mixed_case_span["text"].isupper()
 
@@ -383,13 +386,13 @@ class TestPdfFormatting:
     def test_font_size_emphasis_correlation(self):
         """Test correlation between font size and emphasis."""
         # Mock spans with same formatting but different sizes
-        large_bold_span = {
+        _large_bold_span = {
             "text": "Large Bold",
             "size": 18.0,
             "flags": 16,  # Bold
         }
 
-        small_bold_span = {
+        _small_bold_span = {
             "text": "Small Bold",
             "size": 8.0,
             "flags": 16,  # Bold
@@ -398,13 +401,15 @@ class TestPdfFormatting:
         # Large + bold might be header
         # Small + bold might just be emphasis
         # Implementation should consider both size and formatting
+        # These spans are defined for documentation of the size/emphasis relationship
 
     def test_formatting_consistency_across_document(self):
         """Test consistency of formatting interpretation across document."""
         # Mock document with consistent formatting patterns
-        header_pattern = {"size": 16.0, "flags": 16}  # Large + Bold
-        body_pattern = {"size": 12.0, "flags": 0}  # Normal
-        emphasis_pattern = {"size": 12.0, "flags": 2}  # Italic
+        _header_pattern = {"size": 16.0, "flags": 16}  # Large + Bold
+        _body_pattern = {"size": 12.0, "flags": 0}  # Normal
+        _emphasis_pattern = {"size": 12.0, "flags": 2}  # Italic
 
         # Should consistently identify similar patterns
         # This would be tested in full document processing
+        # These patterns are defined to document expected formatting consistency

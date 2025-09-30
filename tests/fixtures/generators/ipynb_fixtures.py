@@ -169,8 +169,10 @@ def create_notebook_with_long_outputs() -> Dict[str, Any]:
                             "text/plain": [
                                 "           A         B         C         D         E\n" +
                                 "\n".join([
-                                              f"{i:2d}  {i * 0.1:8.6f}  {i * 0.2:8.6f}  {i * 0.3:8.6f}  {i * 0.4:8.6f}  {i * 0.5:8.6f}"
-                                              for i in range(20)])
+                                    (f"{i:2d}  {i * 0.1:8.6f}  {i * 0.2:8.6f}  "
+                                     f"{i * 0.3:8.6f}  {i * 0.4:8.6f}  {i * 0.5:8.6f}")
+                                    for i in range(20)
+                                ])
                             ]
                         }
                     }

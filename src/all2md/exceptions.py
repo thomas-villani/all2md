@@ -14,6 +14,9 @@ Exception Hierarchy
   - MarkdownConversionError (conversion process failures)
 """
 
+from typing import Any
+
+
 class All2MdError(Exception):
     """Base exception class for all all2md-specific errors.
 
@@ -148,7 +151,7 @@ class InputError(All2MdError):
             self,
             message: str,
             parameter_name: str | None = None,
-            parameter_value=None,
+            parameter_value: Any = None,
             original_error: Exception | None = None
     ):
         super().__init__(message, original_error=original_error)

@@ -98,18 +98,23 @@ def _preprocess_html(
     # --- Handle Images ---
     current_dir = PurePosixPath(item.get_name()).parent
     for img_tag in soup.find_all("img"):
+        # img_tag from find_all could be various types, need to check
+        if not hasattr(img_tag, 'get'):
+            continue
         src = img_tag.get("src")
         if not src:
             continue
 
         # Resolve relative path inside the EPUB archive
         # Note: PurePosixPath doesn't have resolve(), so we normalize manually
-        combined_path = current_dir / src
+        # src could be str, list, or other types from AttributeValueList
+        src_str = str(src) if not isinstance(src, str) else src
+        combined_path = current_dir / src_str
         # Convert to string and normalize any relative components
         resolved_path = str(combined_path).replace("\\", "/")
         # Handle relative path components like '../' manually
         path_parts = resolved_path.split("/")
-        normalized_parts = []
+        normalized_parts: list[str] = []
         for part in path_parts:
             if part == "..":
                 if normalized_parts:
@@ -122,7 +127,8 @@ def _preprocess_html(
         if image_item:
             image_data = image_item.get_content()
             image_name = Path(image_item.get_name()).name
-            alt_text = img_tag.get("alt", "") or Path(image_name).stem
+            alt_attr = img_tag.get("alt", "")
+            alt_text = str(alt_attr) if alt_attr else Path(image_name).stem
 
             new_src = process_attachment(
                 attachment_data=image_data,
@@ -136,25 +142,34 @@ def _preprocess_html(
             )
             # If process_attachment returns a full markdown string, replace the tag entirely
             if new_src.startswith("!["):
-                img_tag.replace_with(new_src)
+                if hasattr(img_tag, 'replace_with'):
+                    img_tag.replace_with(new_src)
             else:  # Otherwise, just update the src attribute
-                img_tag["src"] = new_src
+                if hasattr(img_tag, '__setitem__'):
+                    img_tag["src"] = new_src
         else:
             logger.warning(f"Could not find image item for src: {src} (resolved to {resolved_path})")
 
     # --- Handle Footnotes ---
-    footnotes = OrderedDict()
+    footnotes: dict[str, str] = OrderedDict()
     # Prioritize standard epub:type attribute
     footnote_refs = soup.find_all("a", attrs={"epub:type": "noteref"})
     if not footnote_refs:  # Fallback for non-standard footnotes
         footnote_refs = soup.find_all("a", href=re.compile(r"#fn|#ftn|#note"))
 
     for ref in footnote_refs:
+        # ref from find_all could be various types, need to check
+        if not hasattr(ref, 'get'):
+            continue
         href = ref.get("href")
-        if not href or not href.startswith("#"):
+        if not href:
+            continue
+        # href could be str or AttributeValueList, convert to str
+        href_str = str(href) if not isinstance(href, str) else href
+        if not href_str.startswith("#"):
             continue
 
-        note_id = href[1:]
+        note_id = href_str[1:]
         note_elem = soup.find(id=note_id)
 
         if note_elem:
@@ -165,7 +180,7 @@ def _preprocess_html(
             note_text = note_elem.get_text(separator=" ", strip=True)
 
             # Store the footnote definition for later
-            footnotes[ref_num] = f"[^{ref_num}]: {note_text}"
+            footnotes[str(ref_num)] = f"[^{ref_num}]: {note_text}"
 
             # Replace the original link with a Markdown footnote reference
             ref.replace_with(f"[^{ref_num}]")
@@ -293,7 +308,6 @@ def epub_to_markdown(
     # Import dependencies inside function to avoid import-time failures
     try:
         import ebooklib
-        from bs4 import BeautifulSoup
         from ebooklib import epub
     except ImportError as e:
         from all2md.exceptions import DependencyError
@@ -328,7 +342,7 @@ def epub_to_markdown(
             epub_path = temp_file.name
         else:
             # It's a file path
-            epub_path = input_data
+            epub_path = str(input_data)
 
         # Validate ZIP archive security (only for real file paths, not temporary files)
         if not hasattr(input_data, 'read') and Path(epub_path).exists():
@@ -380,7 +394,8 @@ def epub_to_markdown(
 
         md_toc_items = []
         for title in toc_titles:
-            md_toc_items.append(f"- [{title}](#{_slugify(title)})")
+            if title:  # Only process non-None titles
+                md_toc_items.append(f"- [{title}](#{_slugify(title)})")
 
         if md_toc_items:
             use_hash = options.markdown_options.use_hash_headings if options.markdown_options else True

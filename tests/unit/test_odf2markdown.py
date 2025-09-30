@@ -591,7 +591,7 @@ class TestOdfMetadataExtraction:
         mock_meta = Mock()
 
         # Import the actual ODF classes for proper matching
-        from odf.dc import Title, Creator, Description
+        from odf.dc import Creator, Description, Title
 
         mock_meta.getElementsByType = lambda elem_type: {
             Title: [mock_title],

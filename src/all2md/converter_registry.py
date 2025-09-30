@@ -449,7 +449,11 @@ class ConverterRegistry:
         """
         return self._converters.get(format_name)
 
-    def check_dependencies(self, format_name: Optional[str] = None, input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None) -> Dict[str, List[str]]:
+    def check_dependencies(
+        self,
+        format_name: Optional[str] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+    ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 
         Parameters

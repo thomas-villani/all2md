@@ -76,7 +76,10 @@ class TestHtmlConverterSecurity:
         """Test HTTPS requirement blocks HTTP URLs."""
         html_content = '<img src="http://example.com/image.png" alt="test">'
 
-        options = HtmlOptions(network=NetworkFetchOptions(allow_remote_fetch=True, require_https=True), attachment_mode="base64")
+        options = HtmlOptions(
+            network=NetworkFetchOptions(allow_remote_fetch=True, require_https=True),
+            attachment_mode="base64"
+        )
 
         # Should fall back to alt_text when HTTPS is required but HTTP is used
         result = html_to_markdown(html_content, options)
@@ -86,7 +89,13 @@ class TestHtmlConverterSecurity:
         """Test that hostname allowlist is enforced."""
         html_content = '<img src="https://evil.com/malware.png" alt="bad">'
 
-        options = HtmlOptions(network=NetworkFetchOptions(allow_remote_fetch=True, allowed_hosts=["trusted.com", "cdn.example.org"]), attachment_mode="base64")
+        options = HtmlOptions(
+            network=NetworkFetchOptions(
+                allow_remote_fetch=True,
+                allowed_hosts=["trusted.com", "cdn.example.org"]
+            ),
+            attachment_mode="base64"
+        )
 
         # Should fall back to alt_text when hostname not in allowlist
         result = html_to_markdown(html_content, options)
@@ -112,7 +121,8 @@ class TestHtmlConverterSecurity:
         <p>Images:</p>
         <img src="https://example.com/good.png" alt="good">
         <img src="http://192.168.1.1/bad.png" alt="bad">
-        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="inline">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgA\
+AAABJ RU5ErkJggg==" alt="inline">
         '''
 
         options = HtmlOptions(
@@ -174,7 +184,7 @@ class TestEmlConverterSecurityInheritance:
         with patch('all2md.converters.html2markdown.html_to_markdown') as mock_html_convert:
             mock_html_convert.return_value = "![test](https://example.com/image.png)"
 
-            result = _convert_html_to_markdown(html_content, options)
+            _convert_html_to_markdown(html_content, options)
 
             # Verify HTML converter was called with security settings
             mock_html_convert.assert_called_once()

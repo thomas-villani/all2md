@@ -92,7 +92,7 @@ from .constants import (
 
 
 class _CloneMixin:
-    def create_updated(self, **kwargs) -> Self:
+    def create_updated(self, **kwargs: Any) -> Self:
         return replace(self, **kwargs)  # type: ignore
 
 
@@ -1052,7 +1052,7 @@ class SourceCodeOptions(BaseOptions):
     )
 
 
-def create_updated_options(options: Any, **kwargs) -> Any:
+def create_updated_options(options: Any, **kwargs: Any) -> Any:
     """Create a new options instance with updated values.
 
     This helper function supports the immutable pattern for frozen dataclasses.

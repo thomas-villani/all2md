@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-
-from tests.utils import cleanup_test_dir, create_test_temp_dir
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
 def _setup_test_imports():

@@ -2,9 +2,7 @@
 
 """Unit tests for security functionality in all2md."""
 
-import os
 import tempfile
-import unittest
 from pathlib import Path
 
 import pytest

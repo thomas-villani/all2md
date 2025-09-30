@@ -127,14 +127,17 @@ def extract_mhtml_metadata(msg: email.message.EmailMessage, html_content: str) -
         # Get title from HTML if not already set
         if not metadata.title:
             title_tag = soup.find('title')
-            if title_tag and title_tag.string:
-                metadata.title = title_tag.string.strip()
+            if title_tag and hasattr(title_tag, 'string') and title_tag.string:
+                metadata.title = str(title_tag.string).strip()
 
         # Extract meta tags
         meta_tags = soup.find_all('meta')
         keywords_list = []
 
         for meta in meta_tags:
+            # meta_tags are from find_all, need to check if they have get method
+            if not hasattr(meta, 'get'):
+                continue
             name_attr = meta.get('name')
             property_attr = meta.get('property')
             content_attr = meta.get('content')
@@ -285,7 +288,11 @@ def mhtml_to_markdown(
         if part.get_content_type() == "text/html":
             payload = part.get_payload(decode=True)
             charset = part.get_content_charset() or "utf-8"
-            html_string = payload.decode(charset, errors="replace")
+            # Payload could be bytes, Message, or Any - need to check
+            if isinstance(payload, bytes):
+                html_string = payload.decode(charset, errors="replace")
+            elif payload is not None:
+                html_string = str(payload)
             break  # Assume the first HTML part is the main document
 
     if not html_string:
@@ -318,6 +325,9 @@ def mhtml_to_markdown(
 
     # Handle asset inlining
     for tag in soup.find_all(src=re.compile(r"^(cid:|file://)")):
+        # Tag from find_all could be various types, need to check if it has get method
+        if not hasattr(tag, 'get'):
+            continue
         src_attr = tag.get("src")
         if not src_attr:
             continue
@@ -337,7 +347,8 @@ def mhtml_to_markdown(
                     allow_cwd_files=options.local_files.allow_cwd_files
             ):
                 # Remove the tag if access is not allowed
-                tag.decompose()
+                if hasattr(tag, 'decompose'):
+                    tag.decompose()
                 continue
 
             # Some browsers save MHTML with file:// based locations
@@ -348,7 +359,8 @@ def mhtml_to_markdown(
             if data and mime_type and mime_type.startswith("image/"):
                 if isinstance(data, bytes):
                     b64_data = base64.b64encode(data).decode("utf-8")
-                    tag["src"] = f"data:{mime_type};base64,{b64_data}"
+                    if hasattr(tag, '__setitem__'):
+                        tag["src"] = f"data:{mime_type};base64,{b64_data}"
 
     processed_html = str(soup)
 

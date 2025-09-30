@@ -35,7 +35,8 @@ def _sanitize_package_name(package_name: str) -> str:
     # Allow alphanumeric, hyphens, underscores, and dots for package names
     # This covers standard PyPI package naming conventions
     if not re.match(r'^[a-zA-Z0-9._-]+$', package_name):
-        raise ValueError(f"Invalid package name: {package_name!r}. Package names must contain only letters, numbers, dots, hyphens, and underscores.")
+        raise ValueError(f"Invalid package name: {package_name!r}. "
+                         "Package names must contain only letters, numbers, dots, hyphens, and underscores.")
 
     # Additional safety: reject names that could be shell commands or contain shell metacharacters
     dangerous_patterns = [
@@ -86,7 +87,8 @@ def _sanitize_version_spec(version_spec: str) -> str:
 
     for pattern in dangerous_patterns:
         if re.search(pattern, version_spec):
-            raise ValueError(f"Invalid version specification: {version_spec!r}. Contains potentially dangerous characters.")
+            raise ValueError(f"Invalid version specification: {version_spec!r}. "
+                             "Contains potentially dangerous characters.")
 
     return version_spec
 

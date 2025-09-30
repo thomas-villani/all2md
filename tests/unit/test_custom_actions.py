@@ -4,17 +4,17 @@
 
 import argparse
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from all2md.cli.custom_actions import (
+    DynamicVersionAction,
+    TrackingAppendAction,
+    TrackingPositiveIntAction,
     TrackingStoreAction,
     TrackingStoreFalseAction,
     TrackingStoreTrueAction,
-    TrackingAppendAction,
-    TrackingPositiveIntAction,
-    DynamicVersionAction,
     merge_nested_dicts,
     parse_dot_notation,
 )

@@ -5,8 +5,6 @@ error conditions, allowing scripts and automation to properly handle failures.
 """
 
 import subprocess
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -108,9 +106,10 @@ class TestExitCodes:
         Note: This test will pass if Rich is installed, so we skip it in that case.
         """
         try:
-            import rich
-            pytest.skip("Rich is installed, cannot test missing dependency")
-        except ImportError:
+            import importlib.util
+            if importlib.util.find_spec("rich") is not None:
+                pytest.skip("Rich is installed, cannot test missing dependency")
+        except Exception:
             pass
 
         html_file = tmp_path / "test.html"
@@ -228,10 +227,10 @@ class TestExitCodeConstants:
     def test_constants_defined(self):
         """Test that exit code constants are defined in constants.py."""
         from all2md.constants import (
-            EXIT_SUCCESS,
-            EXIT_ERROR,
             EXIT_DEPENDENCY_ERROR,
+            EXIT_ERROR,
             EXIT_INPUT_ERROR,
+            EXIT_SUCCESS,
         )
 
         assert EXIT_SUCCESS == 0

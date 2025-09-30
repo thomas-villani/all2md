@@ -613,7 +613,8 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
     """
     # Enhanced email header pattern
     email_matcher = re.compile(
-        r"(From: (?P<from>.*?)\n(?:(?:Sent|Date):\s*(?P<date>.*?)\n)?To: (?P<to>.*?)\n(?:Cc: (?P<cc>.*?)\n)?Subject: (?P<subject>.*?)\n)",
+        r"(From: (?P<from>.*?)\n(?:(?:Sent|Date):\s*(?P<date>.*?)\n)?"
+        r"To: (?P<to>.*?)\n(?:Cc: (?P<cc>.*?)\n)?Subject: (?P<subject>.*?)\n)",
         re.MULTILINE | re.DOTALL
     )
 

@@ -6,10 +6,7 @@ from io import BytesIO
 import pytest
 
 from all2md import to_markdown
-from all2md.options import (
-    EmlOptions, HtmlOptions, IpynbOptions,
-    MhtmlOptions
-)
+from all2md.options import EmlOptions, HtmlOptions, IpynbOptions, MhtmlOptions
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 

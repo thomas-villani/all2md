@@ -49,7 +49,7 @@ OFFICE_FIELD_MAPPING = {
     'modification_date': 'modified',
 }
 
-SPREADSHEET_FIELD_MAPPING = {
+SPREADSHEET_FIELD_MAPPING: Mapping[str, Union[str, List[str]]] = {
     'title': 'title',
     'author': 'creator',
     'subject': ['subject', 'description'],
@@ -111,7 +111,7 @@ class DocumentMetadata:
         dict
             Dictionary containing only non-None metadata fields
         """
-        result = {}
+        result: Dict[str, Any] = {}
 
         # Standard fields
         if self.title:
@@ -413,7 +413,7 @@ def map_properties_to_metadata(
             if isinstance(value, str):
                 value = extract_keywords_from_string(value)
             elif not isinstance(value, list):
-                value = [str(value)] if value else []  # type: ignore
+                value = [str(value)] if value else []
 
         setattr(metadata, metadata_field, value)
 

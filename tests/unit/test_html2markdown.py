@@ -161,9 +161,6 @@ def test_link_scheme_security_relative_urls():
 @pytest.mark.unit
 def test_link_scheme_security_require_https():
     """Test that require_https blocks non-HTTPS schemes (except mailto, tel, sms)."""
-    from all2md.options import HtmlOptions, NetworkFetchOptions
-
-    options = HtmlOptions(network=NetworkFetchOptions(require_https=True))
     converter = HTMLToMarkdown(require_https=True)
 
     # HTTP should be blocked

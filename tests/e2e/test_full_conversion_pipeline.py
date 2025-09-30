@@ -353,7 +353,7 @@ class TestFullConversionPipeline:
 
         # Convert all documents
         results = []
-        for content, extension, expected_format in documents:
+        for content, extension, _expected_format in documents:
             result = to_markdown(BytesIO(content), format=extension.lstrip('.'))
             results.append(result)
 

@@ -123,7 +123,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test with Image\n\n![Test Image](data:image/png;base64,...)"
 
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
 
             # Verify that html_to_markdown was called with processed HTML
             args, _ = mock_html_to_md.call_args
@@ -155,7 +155,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
 --test-boundary--
 """
 
-        from all2md.options import MhtmlOptions, LocalFileAccessOptions
+        from all2md.options import LocalFileAccessOptions, MhtmlOptions
 
         # Enable local file access to test file:// URL processing
         options = MhtmlOptions(
@@ -168,7 +168,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "![File Image](data:image/png;base64,...)"
 
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
+            mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
 
             # Verify that the image src was processed
             args, _ = mock_html_to_md.call_args
@@ -203,7 +203,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
             mock_html_to_md.return_value = "![File Image]"
 
             # Use default options (should block file:// URLs)
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
 
             # Verify that the image src was removed due to security
             args, _ = mock_html_to_md.call_args
@@ -280,7 +280,7 @@ Content-Type: text/html; charset=utf-8
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test"
 
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
+            mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
 
             # Verify options were passed to html_to_markdown
             args, kwargs = mock_html_to_md.call_args
@@ -307,7 +307,7 @@ Content-Type: text/html; charset=utf-8
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Café & Résumé"
 
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
 
             # Should handle Unicode characters properly - they will be HTML encoded
             assert "Caf" in str(mock_html_to_md.call_args) and "R" in str(mock_html_to_md.call_args)
@@ -370,7 +370,7 @@ Content-Type: text/html; charset=utf-8
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# First HTML"
 
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
 
             # Should use the first HTML part
             args, _ = mock_html_to_md.call_args
@@ -397,7 +397,7 @@ Content-Type: text/html; charset=utf-8
         with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "Content with images"
 
-            result = mhtml_to_markdown(io.BytesIO(mhtml_content))
+            mhtml_to_markdown(io.BytesIO(mhtml_content))
 
             # Should handle missing assets gracefully
             args, _ = mock_html_to_md.call_args
@@ -426,7 +426,7 @@ class TestMhtmlErrorHandling:
         invalid_content = b"Not a valid email/MIME message"
 
         # This should still work as email.message_from_bytes is quite forgiving
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.converters.mhtml2markdown.html_to_markdown'):
             with pytest.raises(MarkdownConversionError) as exc_info:
                 mhtml_to_markdown(io.BytesIO(invalid_content))
 

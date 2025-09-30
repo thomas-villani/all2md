@@ -522,7 +522,10 @@ class TestCLIIntegration:
             json.dump(notebook_content, f)
 
         with patch("all2md.cli.to_markdown") as mock_to_markdown:
-            mock_to_markdown.return_value = "# Test Notebook\n\nThis is a test.\n\n```python\nprint('Hello, World!')\n```\n\n```\nHello, World!\n```"
+            mock_to_markdown.return_value = (
+                "# Test Notebook\n\nThis is a test.\n\n```python\n"
+                "print('Hello, World!')\n```\n\n```\nHello, World!\n```"
+            )
 
             result = main([str(ipynb_file)])
 

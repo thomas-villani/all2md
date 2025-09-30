@@ -23,11 +23,12 @@ from tests.utils import assert_markdown_valid
 
 # Skip tests if ebooklib is not available
 try:
-    import ebooklib
-    from ebooklib import epub
-
-    EBOOKLIB_AVAILABLE = True
-except ImportError:
+    import importlib.util
+    if importlib.util.find_spec("ebooklib") is not None:
+        EBOOKLIB_AVAILABLE = True
+    else:
+        EBOOKLIB_AVAILABLE = False
+except Exception:
     EBOOKLIB_AVAILABLE = False
 
 
@@ -318,7 +319,7 @@ class TestEpubIntegrationPerformance:
         epub_content = create_simple_epub()
 
         # Test multiple times to check for consistency
-        for i in range(3):
+        for _ in range(3):
             epub_file = create_epub_file(epub_content, temp_dir)
             result = epub_to_markdown(epub_file)
 

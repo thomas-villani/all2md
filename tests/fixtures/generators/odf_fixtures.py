@@ -8,13 +8,23 @@ import tempfile
 from pathlib import Path
 
 try:
-    from odf import teletype
-    from odf.draw import Frame, Image, TextBox
-    from odf.opendocument import OpenDocumentPresentation, OpenDocumentText
-    from odf.style import ListLevelProperties, ParagraphProperties, Style, TextProperties
-    from odf.table import Table, TableCell, TableColumn, TableRow
-    from odf.text import A, H, List, ListItem, ListLevelStyleBullet, ListLevelStyleNumber, ListStyle, P, Span, Tab
-    from odf.text import S as Space
+    from odf.draw import Frame, TextBox  # noqa: F401
+    from odf.opendocument import OpenDocumentPresentation, OpenDocumentText  # noqa: F401
+    from odf.style import Style, TextProperties  # noqa: F401
+    from odf.table import Table, TableCell, TableColumn, TableRow  # noqa: F401
+    from odf.text import (  # noqa: F401
+        A,
+        H,
+        List,
+        ListItem,
+        ListLevelStyleBullet,
+        ListLevelStyleNumber,
+        ListStyle,
+        P,
+        Span,
+        Tab,
+    )
+    from odf.text import S as Space  # noqa: F401
 
     HAS_ODFPY = True
 except ImportError:
@@ -242,7 +252,7 @@ def create_odt_with_tables() -> 'OpenDocumentText':
     table = Table(name="TestTable")
 
     # Add columns
-    for i in range(3):
+    for _ in range(3):
         column = TableColumn()
         table.addElement(column)
 
@@ -292,7 +302,7 @@ def create_odt_with_tables() -> 'OpenDocumentText':
     formatted_table = Table(name="FormattedTable")
 
     # Add columns
-    for i in range(2):
+    for _ in range(2):
         column = TableColumn()
         formatted_table.addElement(column)
 
@@ -648,7 +658,7 @@ def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
     table = Table(name="ComprehensiveTable")
 
     # Add columns
-    for i in range(3):
+    for _ in range(3):
         column = TableColumn()
         table.addElement(column)
 

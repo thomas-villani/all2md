@@ -288,9 +288,9 @@ def create_pptx_with_charts() -> Presentation:
 
     # Add chart
     x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4)
-    chart = slide.shapes.add_chart(
+    slide.shapes.add_chart(
         XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-    ).chart
+    )
 
     # Line chart slide
     slide = prs.slides.add_slide(slide_layout)
@@ -306,9 +306,9 @@ def create_pptx_with_charts() -> Presentation:
     line_data.add_series('Expenses', (30, 35, 40, 38, 42, 45))
 
     # Add line chart
-    line_chart = slide.shapes.add_chart(
+    slide.shapes.add_chart(
         XL_CHART_TYPE.LINE, x, y, cx, cy, line_data
-    ).chart
+    )
 
     # Pie chart slide
     slide = prs.slides.add_slide(slide_layout)
@@ -323,9 +323,9 @@ def create_pptx_with_charts() -> Presentation:
     pie_data.add_series('Market Share', (40, 25, 20, 15))
 
     # Add pie chart
-    pie_chart = slide.shapes.add_chart(
+    slide.shapes.add_chart(
         XL_CHART_TYPE.PIE, x, y, cx, cy, pie_data
-    ).chart
+    )
 
     return prs
 

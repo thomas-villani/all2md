@@ -399,7 +399,6 @@ def rtf_to_markdown(
     """
     # Lazy import of heavy pyth dependencies
     try:
-        from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
         from pyth.plugins.rtf15.reader import Rtf15Reader
     except ImportError:
         Rtf15Reader = None

@@ -24,9 +24,9 @@ class TestDocxListsAdvanced:
         doc = docx.Document()
 
         # Different numbering styles - python-docx has limitations but we can simulate
-        p1 = doc.add_paragraph("First item", style="List Number")
-        p2 = doc.add_paragraph("Second item", style="List Number")
-        p3 = doc.add_paragraph("Third item", style="List Number")
+        doc.add_paragraph("First item", style="List Number")
+        doc.add_paragraph("Second item", style="List Number")
+        doc.add_paragraph("Third item", style="List Number")
 
         # Nested with different style (simulated)
         p4 = doc.add_paragraph("Nested alpha item", style="List Number")
@@ -123,7 +123,6 @@ class TestDocxListsAdvanced:
 
         # Check indentation increases
         for i, line in enumerate(list_lines[:4]):  # Check first 4 levels
-            expected_spaces = i * 2  # Typically 2 spaces per level
             leading_spaces = len(line) - len(line.lstrip())
             # Should have increasing indentation
             if i > 0:
@@ -137,7 +136,7 @@ class TestDocxListsAdvanced:
         p1 = doc.add_paragraph("Text before ")
 
         # Add hyperlink
-        hyperlink_run = p1.add_run("hyperlink")
+        p1.add_run("hyperlink")
         # Note: python-docx hyperlink support is limited, but we test the structure
 
         p1.add_run(" and text after with more content")
@@ -145,7 +144,7 @@ class TestDocxListsAdvanced:
         # List item with mixed content
         p2 = doc.add_paragraph("", style="List Bullet")
         p2.add_run("List item with ")
-        link_run = p2.add_run("embedded link")
+        p2.add_run("embedded link")
         p2.add_run(" and more text")
 
         temp_file = self.temp_dir / "mixed_content.docx"
@@ -201,14 +200,14 @@ class TestDocxListsAdvanced:
         doc = docx.Document()
 
         # First list item
-        p1 = doc.add_paragraph("First paragraph of list item", style="List Bullet")
+        doc.add_paragraph("First paragraph of list item", style="List Bullet")
 
         # Continuation paragraph (no list style but indented)
         p2 = doc.add_paragraph("Second paragraph of same list item")
         p2.paragraph_format.left_indent = Inches(0.5)
 
         # Second list item
-        p3 = doc.add_paragraph("New list item", style="List Bullet")
+        doc.add_paragraph("New list item", style="List Bullet")
 
         temp_file = self.temp_dir / "multi_paragraph_list.docx"
         doc.save(str(temp_file))

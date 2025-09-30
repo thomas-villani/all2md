@@ -120,11 +120,11 @@ class TestDocxImagesAdvanced:
         doc = docx.Document()
 
         # Image in paragraph
-        p1 = doc.add_paragraph("Text before image ")
+        doc.add_paragraph("Text before image ")
         doc.add_picture(str(png_path), width=Inches(1))
 
         # Image in list item (simulated)
-        p2 = doc.add_paragraph("List item with image:", style="List Bullet")
+        doc.add_paragraph("List item with image:", style="List Bullet")
         doc.add_picture(str(png_path), width=Inches(0.5))
 
         # Image in table cell

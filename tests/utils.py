@@ -52,11 +52,11 @@ class DocxTestGenerator:
 
         # Paragraph with both text and inline image
         p_mixed = doc.add_paragraph("Text before image ")
-        run = p_mixed.add_run()
-        # Simulate adding an image inline with text
+        _run = p_mixed.add_run()
+        # Simulate adding an image inline with text (run created but not configured)
         p_mixed.add_run(" text after image with ")
-        link_run = p_mixed.add_run("hyperlink")
-        # Add hyperlink would be done here in real scenario
+        _link_run = p_mixed.add_run("hyperlink")
+        # Add hyperlink would be done here in real scenario (link_run created but not configured)
 
         # Restart numbering
         doc.add_paragraph("Restarted list item 1", style="List Number")
@@ -123,8 +123,8 @@ class DocxTestGenerator:
 
         # Image in paragraph with text
         p = doc.add_paragraph("Text before ")
-        run = p.add_run()
-        # run.add_picture(str(img_path), width=Inches(0.5))  # Inline image
+        _run = p.add_run()
+        # _run.add_picture(str(img_path), width=Inches(0.5))  # Inline image would be added here
         p.add_run(" text after image")
 
         return doc
@@ -421,8 +421,9 @@ class PptxTestGenerator:
 
         # Grouped shapes (simulated - would need more complex setup)
         # Add multiple shapes that conceptually could be grouped
-        shape1 = slide.shapes.add_shape(1, PptxInches(1), PptxInches(3), PptxInches(1), PptxInches(0.5))
-        shape2 = slide.shapes.add_shape(1, PptxInches(2), PptxInches(3), PptxInches(1), PptxInches(0.5))
+        _shape1 = slide.shapes.add_shape(1, PptxInches(1), PptxInches(3), PptxInches(1), PptxInches(0.5))
+        _shape2 = slide.shapes.add_shape(1, PptxInches(2), PptxInches(3), PptxInches(1), PptxInches(0.5))
+        # Shapes created to test grouped shape scenario but not configured further
 
         return prs
 

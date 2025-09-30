@@ -85,7 +85,7 @@ class TestDocxEscaping:
 
         # Code-like content
         p3 = doc.add_paragraph()
-        run3 = p3.add_run("Code: `function() { return 'hello'; }`")
+        p3.add_run("Code: `function() { return 'hello'; }`")
 
         temp_file = self.temp_dir / "formatted_special_chars.docx"
         doc.save(str(temp_file))
@@ -112,7 +112,7 @@ class TestDocxEscaping:
 
         # Monospace font (simulating code)
         p1 = doc.add_paragraph()
-        run1 = p1.add_run("def function():\n    return {'key': 'value'}")
+        p1.add_run("def function():\n    return {'key': 'value'}")
         # Note: Setting monospace font in python-docx is complex
 
         # Paragraph with code-like content

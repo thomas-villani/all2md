@@ -456,8 +456,8 @@ class TestEventHooksImplementation:
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_event_hooks_validate_redirect_chain(self, mock_resolve):
         """Test that response event hooks validate redirect chains."""
+
         from all2md.utils.network_security import create_secure_http_client
-        import httpx
 
         # Create a mock response with redirect history containing a private IP
         mock_response = Mock()

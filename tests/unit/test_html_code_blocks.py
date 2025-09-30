@@ -242,7 +242,8 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 <span class="line-number">2</span>    <span class="keyword">return</span> <span class="string">"highlighted"</span>
 <span class="line-number">3</span>    <span class="comment"># Comment</span></code></pre>
 
-        <pre><code><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">example</span>() {</span>
+        <pre><code><span class="hljs-function"><span class="hljs-keyword">function</span> \
+<span class="hljs-title">example</span>() {</span>
     <span class="hljs-keyword">return</span> <span class="hljs-string">"code"</span>;
 <span class="hljs-punctuation">}</span></code></pre>
         '''

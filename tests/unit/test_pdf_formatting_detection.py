@@ -19,7 +19,7 @@ class TestPdfFormattingDetection:
         # PyMuPDF font flags - these are the actual constants
         BOLD_FLAG = 16
         ITALIC_FLAG = 2
-        SUPERSCRIPT_FLAG = 1
+        _SUPERSCRIPT_FLAG = 1  # Documented but not currently tested
 
         # Test flag combinations
         bold_only = BOLD_FLAG

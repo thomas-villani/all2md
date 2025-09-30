@@ -373,7 +373,8 @@ def xlsx_to_markdown(
         )
 
         # If already an openpyxl workbook
-        if input_type == "object" and getattr(doc_input, "__class__", None).__name__ == "Workbook":
+        doc_class = getattr(doc_input, "__class__", None)
+        if input_type == "object" and doc_class is not None and doc_class.__name__ == "Workbook":
             wb = doc_input
         else:
             wb = openpyxl.load_workbook(doc_input, data_only=options.render_formulas)
@@ -469,25 +470,30 @@ def _csv_or_tsv_to_markdown(
     text_stream.seek(0)
 
     # Check if user provided a delimiter override via options
+    dialect: csv.Dialect
     if options.csv_delimiter:
-        dialect = csv.excel()
-        dialect.delimiter = options.csv_delimiter
+        exc_dialect = csv.excel()
+        exc_dialect.delimiter = options.csv_delimiter
+        dialect = exc_dialect
     elif force_delimiter:
-        dialect = csv.excel()
-        dialect.delimiter = delimiter or "\t"
+        exc_dialect = csv.excel()
+        exc_dialect.delimiter = delimiter or "\t"
+        dialect = exc_dialect
     elif options.detect_csv_dialect:
         try:
             sniffer = csv.Sniffer()
-            detected = sniffer.sniff(sample, delimiters=[",", "\t", ";", "|", "\x1f"])
-            dialect = detected
+            # sniff() expects delimiters as a string, not a list
+            dialect = sniffer.sniff(sample, delimiters=",\t;|\x1f")
         except Exception:
-            dialect = csv.excel()
+            exc_dialect = csv.excel()
             if delimiter:
-                dialect.delimiter = delimiter
+                exc_dialect.delimiter = delimiter
+            dialect = exc_dialect
     else:
-        dialect = csv.excel()
+        exc_dialect = csv.excel()
         if delimiter:
-            dialect.delimiter = delimiter
+            exc_dialect.delimiter = delimiter
+        dialect = exc_dialect
 
     reader = csv.reader(text_stream, dialect=dialect)
     rows: list[list[str]] = []
@@ -1076,23 +1082,29 @@ def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]])
     # Try content-based detection
     try:
         # For file-like objects, read a sample
-        if hasattr(input_data, 'read'):
+        sample: bytes = b""
+        if hasattr(input_data, 'read') and not isinstance(input_data, (str, Path)):
             pos = getattr(input_data, 'tell', lambda: 0)()
             try:
                 input_data.seek(0)
-                sample = input_data.read(1024)
-                input_data.seek(pos)  # Restore position
+                sample_data = input_data.read(1024)
+                input_data.seek(pos)
+                # Ensure we have bytes
+                if isinstance(sample_data, bytes):
+                    sample = sample_data
+                elif isinstance(sample_data, str):
+                    sample = sample_data.encode('utf-8', errors='ignore')
             except Exception:
-                sample = b""
+                pass
         elif isinstance(input_data, bytes):
             sample = input_data[:1024]
-        else:
-            # String path case - read first 1KB
+        elif isinstance(input_data, (str, Path)):
+            # String or Path case - read first 1KB
             try:
-                with open(input_data, 'rb') as f:
+                with open(str(input_data), 'rb') as f:
                     sample = f.read(1024)
             except Exception:
-                sample = b""
+                pass
 
         # Check for ZIP-based formats (XLSX or ODS)
         if sample.startswith(b'PK\x03\x04'):
@@ -1102,28 +1114,34 @@ def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]])
                 import zipfile
 
                 # Create a file-like object from the input for ZIP inspection
-                if hasattr(input_data, 'read'):
+                zip_content: bytes = b""
+                if hasattr(input_data, 'read') and not isinstance(input_data, (str, Path)):
                     # For file-like objects, read the full content
                     pos = getattr(input_data, 'tell', lambda: 0)()
                     try:
                         input_data.seek(0)
-                        zip_content = input_data.read()
-                        input_data.seek(pos)  # Restore position
+                        content_data = input_data.read()
+                        input_data.seek(pos)
+                        # Ensure we have bytes
+                        if isinstance(content_data, bytes):
+                            zip_content = content_data
+                        elif isinstance(content_data, str):
+                            zip_content = content_data.encode('utf-8', errors='ignore')
                     except Exception:
                         return "xlsx"  # Default to XLSX if we can't read
                 elif isinstance(input_data, bytes):
                     zip_content = input_data
-                else:
-                    # String path case
+                elif isinstance(input_data, (str, Path)):
+                    # String or Path case
                     try:
-                        with open(input_data, 'rb') as f:
+                        with open(str(input_data), 'rb') as f:
                             zip_content = f.read()
                     except Exception:
                         return "xlsx"  # Default to XLSX if we can't read
 
                 # Check ZIP contents to distinguish XLSX from ODS
                 try:
-                    with zipfile.ZipFile(io.BytesIO(zip_content), 'r') as zf:
+                    with zipfile.ZipFile(io.BytesIO(zip_content)) as zf:
                         file_list = zf.namelist()
                         # ODS files contain META-INF/manifest.xml and mimetype
                         if 'mimetype' in file_list:
