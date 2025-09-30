@@ -157,21 +157,67 @@ Markdown Formatting
       # Custom bullet symbols
       all2md document.docx --markdown-bullet-symbols "•◦▪"
 
-``--markdown-page-separator``
-   Text used to separate pages in multi-page documents.
+``--markdown-page-separator-template``
+   Template text used to separate pages in multi-page documents. Use ``{page_num}`` to include the page number.
 
    **Default:** ``-----``
 
    .. code-block:: bash
 
-      # Custom page separator
-      all2md document.pdf --markdown-page-separator "=== PAGE BREAK ==="
+      # Custom page separator template
+      all2md document.pdf --markdown-page-separator-template "=== PAGE BREAK ==="
+
+      # Include page numbers in separator
+      all2md document.pdf --markdown-page-separator-template "--- Page {page_num} ---"
 
 Configuration and Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``--options-json``
    Path to JSON file containing conversion options. Command line options override JSON settings.
+
+   .. note::
+
+      **Passing List Values:** The current CLI implementation does not parse comma-separated strings into lists for ``list[str]`` fields. For options that accept multiple values (lists), you must use JSON configuration:
+
+      **List-type options requiring JSON:**
+
+      * ``html.network.allowed_hosts`` - Whitelist of allowed hostnames
+      * ``eml.url_wrappers`` - Custom URL wrapper patterns to clean
+      * ``spreadsheet.sheets`` - Specific sheets to process (or use regex pattern as single string)
+      * ``pdf.pages`` - Can use comma-separated string: ``"0,1,2"`` (parsed as integers)
+
+      **Example JSON configuration:**
+
+      .. code-block:: json
+
+         {
+           "html.network.allowed_hosts": ["cdn.example.com", "images.example.org"],
+           "eml.url_wrappers": ["safelinks.protection.outlook.com", "urldefense.com"],
+           "spreadsheet.sheets": ["Sheet1", "Summary", "Data"]
+         }
+
+      **Usage:**
+
+      .. code-block:: bash
+
+         # Use JSON for list values
+         all2md webpage.html --options-json config.json --html-network-allow-remote-fetch
+
+         # CLI flags can still override non-list settings
+         all2md webpage.html --options-json config.json --attachment-mode download
+
+      **Single-value workaround:**
+
+      For single values, you can pass them directly:
+
+      .. code-block:: bash
+
+         # Single host (works without JSON)
+         all2md webpage.html --html-network-allowed-hosts "cdn.example.com"
+
+         # Single sheet as regex pattern
+         all2md workbook.xlsx --spreadsheet-sheets "^Sheet1$"
 
    .. code-block:: bash
 
@@ -383,7 +429,7 @@ PDF Options
       # Use stricter header detection (top 10% of font sizes)
       all2md document.pdf --pdf-header-percentile-threshold 90
 
-``--pdf-no-table-fallback-detection``
+``--pdf-no-enable-table-fallback-detection``
    Disable heuristic fallback when PyMuPDF table detection fails.
 
    **Default:** Fallback detection is enabled
@@ -391,7 +437,7 @@ PDF Options
    .. code-block:: bash
 
       # Disable table fallback detection
-      all2md document.pdf --pdf-no-table-fallback-detection
+      all2md document.pdf --pdf-no-enable-table-fallback-detection
 
 ``--pdf-no-merge-hyphenated-words``
    Disable merging of words split by hyphens at line breaks.
@@ -438,10 +484,18 @@ Network Security Options
 ``--html-network-allowed-hosts``
    Comma-separated list of allowed hostnames for remote fetching.
 
+   .. note::
+
+      For specifying multiple hosts in a list, you can use a comma-separated value as shown below for a single invocation. For more complex list specifications, use a JSON configuration file with the ``--options-json`` flag.
+
    .. code-block:: bash
 
-      # Only allow specific hosts
-      all2md webpage.html --html-network-allow-remote-fetch --html-network-allowed-hosts "example.com,cdn.example.com"
+      # Only allow specific hosts (single host)
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-allowed-hosts "example.com"
+
+      # Multiple hosts via JSON config (recommended for multiple values)
+      # In config.json: {"html.network.allowed_hosts": ["example.com", "cdn.example.com"]}
+      all2md webpage.html --html-network-allow-remote-fetch --options-json config.json
 
 ``--html-network-require-https``
    Require HTTPS for all remote URL fetching.
@@ -466,7 +520,7 @@ Network Security Options
 ``--html-network-max-remote-asset-bytes``
    Maximum allowed size in bytes for downloaded remote assets.
 
-   **Default:** 10485760 (10MB)
+   **Default:** 20971520 (20MB)
 
    .. code-block:: bash
 
@@ -501,6 +555,164 @@ Security Examples
 
    # Maximum security (no network access)
    ALL2MD_DISABLE_NETWORK=1 all2md webpage.html --attachment-mode skip
+
+Security Preset Options
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+For common security scenarios, all2md provides convenient preset flags that configure multiple security settings at once. These presets are especially useful when processing untrusted HTML or web content.
+
+``--strict-html-sanitize``
+   Strict security preset: strips dangerous HTML elements and disables all remote and local file fetching.
+
+   **Applies the following settings:**
+      * ``strip_dangerous_elements=True`` - Removes script, style, and other potentially dangerous tags
+      * ``allow_remote_fetch=False`` - Blocks all remote URL fetching
+      * ``allow_local_files=False`` - Blocks local file access
+      * ``allow_cwd_files=False`` - Blocks current directory file access
+
+   .. code-block:: bash
+
+      # Maximum HTML sanitization
+      all2md untrusted.html --strict-html-sanitize
+
+``--safe-mode``
+   Balanced security preset: sanitizes HTML and allows remote fetch with HTTPS requirement, but blocks local file access.
+
+   **Applies the following settings:**
+      * ``strip_dangerous_elements=True`` - Removes dangerous HTML elements
+      * ``allow_remote_fetch=True`` - Allows remote fetching with restrictions
+      * ``require_https=True`` - Enforces HTTPS for all remote URLs
+      * ``allow_local_files=False`` - Blocks local file access
+      * ``allow_cwd_files=False`` - Blocks current directory file access
+
+   .. code-block:: bash
+
+      # Balanced security for web content
+      all2md webpage.html --safe-mode --attachment-mode download
+
+``--paranoid-mode``
+   Maximum security preset: like safe-mode but with stricter size limits and host validation.
+
+   **Applies the following settings:**
+      * All settings from ``--safe-mode``
+      * ``allowed_hosts=[]`` - Validates all HTTPS hosts (allows all by default)
+      * ``max_attachment_size_bytes=5242880`` - Reduces max size to 5MB (from default 20MB)
+      * ``max_remote_asset_bytes=5242880`` - Reduces max remote asset size to 5MB
+
+   .. code-block:: bash
+
+      # Maximum security for untrusted sources
+      all2md suspicious.html --paranoid-mode
+
+**Understanding Security Presets:**
+
+Security presets provide quick, pre-configured security settings for common scenarios. They're especially valuable when processing untrusted HTML or web content where you need protection against:
+
+* **Server-Side Request Forgery (SSRF)** - Preventing malicious HTML from accessing internal network resources
+* **Local File Disclosure** - Blocking access to sensitive local files
+* **Resource Exhaustion** - Limiting download sizes to prevent DoS attacks
+* **Script Injection** - Removing dangerous HTML elements
+
+**Preset Comparison:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 25 25 25
+
+   * - Setting
+     - strict-html-sanitize
+     - safe-mode
+     - paranoid-mode
+   * - Strip dangerous elements
+     - ✓ Yes
+     - ✓ Yes
+     - ✓ Yes
+   * - Remote fetch
+     - ✗ Blocked
+     - ✓ HTTPS only
+     - ✓ HTTPS only
+   * - Local file access
+     - ✗ Blocked
+     - ✗ Blocked
+     - ✗ Blocked
+   * - Max download size
+     - N/A
+     - 20MB (default)
+     - 5MB (reduced)
+   * - Host validation
+     - N/A
+     - Optional
+     - ✓ Enforced
+
+**When to Use Each Preset:**
+
+* **--strict-html-sanitize**: Maximum security for completely untrusted HTML. Blocks all network and file access.
+
+  *Use cases:* User-submitted HTML, scraped content from unknown sources, any HTML that shouldn't access external resources.
+
+* **--safe-mode**: Balanced security for web content that needs images. Allows HTTPS-only remote fetching.
+
+  *Use cases:* Converting web pages with images, processing HTML emails, documentation with external resources.
+
+* **--paranoid-mode**: Maximum security with some remote access. Like safe-mode but with stricter size limits and host validation.
+
+  *Use cases:* High-security environments, processing potentially malicious content, compliance-sensitive operations.
+
+**Overriding Preset Values:**
+
+Individual security flags specified after a preset will override the preset's defaults. This allows you to start with a secure baseline and selectively relax restrictions:
+
+.. code-block:: bash
+
+   # Start with strict sanitization, then allow specific trusted hosts
+   all2md webpage.html --safe-mode --html-network-allowed-hosts "cdn.example.com"
+
+   # Use paranoid mode but increase size limit for legitimate large images
+   all2md webpage.html --paranoid-mode --html-network-max-remote-asset-bytes 10485760  # 10MB
+
+   # Combine safe-mode with attachment downloads
+   all2md webpage.html --safe-mode --attachment-mode download --attachment-output-dir ./images
+
+**Important:** CLI flags are processed left-to-right, so presets should come first:
+
+.. code-block:: bash
+
+   # ✓ Correct: Preset first, then overrides
+   all2md page.html --safe-mode --html-network-max-remote-asset-bytes 5242880
+
+   # ✗ Wrong: Override will be reset by preset
+   all2md page.html --html-network-max-remote-asset-bytes 5242880 --safe-mode
+
+**Progressive Security Examples:**
+
+.. code-block:: bash
+
+   # From least to most secure processing of the same HTML file
+
+   # 1. No security (default - use only for trusted local HTML)
+   all2md trusted.html --attachment-mode download
+
+   # 2. Basic sanitization (remove scripts/styles)
+   all2md webpage.html --html-strip-dangerous-elements --attachment-mode download
+
+   # 3. Safe mode (HTTPS-only external resources)
+   all2md webpage.html --safe-mode --attachment-mode download
+
+   # 4. Paranoid mode (strict size limits and validation)
+   all2md webpage.html --paranoid-mode --attachment-mode download
+
+   # 5. Maximum security (no external access at all)
+   all2md untrusted.html --strict-html-sanitize --attachment-mode skip
+
+**Note on Network Access:**
+
+For absolute maximum security across all operations (not just HTML), use the ``ALL2MD_DISABLE_NETWORK`` environment variable which globally disables all network operations:
+
+.. code-block:: bash
+
+   # Global network disable - overrides ALL other settings
+   export ALL2MD_DISABLE_NETWORK=1
+   all2md webpage.html  # No network access regardless of flags
 
 PowerPoint Options
 ~~~~~~~~~~~~~~~~~~
@@ -796,6 +1008,234 @@ Install missing dependencies for a specific format:
    * ``odf`` - odfpy for OpenDocument formats
    * ``spreadsheet`` - openpyxl for Excel files
    * ``all`` - All optional dependencies
+
+Format Detection and Planning
+------------------------------
+
+List Supported Formats
+~~~~~~~~~~~~~~~~~~~~~~
+
+The ``list-formats`` command displays all supported file formats, their extensions, required dependencies, and availability status in your environment.
+
+**Basic Usage:**
+
+.. code-block:: bash
+
+   # List all supported formats with availability status
+   all2md list-formats
+
+**Example output:**
+
+.. code-block:: text
+
+   Format         Extensions              Dependencies    Status
+   ─────────────────────────────────────────────────────────────
+   pdf            .pdf                   PyMuPDF         ✓ Available
+   docx           .docx                  python-docx     ✓ Available
+   html           .html, .htm            BeautifulSoup4  ✓ Available
+   pptx           .pptx                  python-pptx     ✗ Missing
+   ...
+
+**Show Format Details:**
+
+.. code-block:: bash
+
+   # Get detailed information about a specific format
+   all2md list-formats pdf
+
+**Example output:**
+
+.. code-block:: text
+
+   Format: pdf
+   Extensions: .pdf
+   MIME types: application/pdf
+   Dependencies:
+     - PyMuPDF (fitz) - ✓ Installed (version 1.23.8)
+   Features:
+     - Table detection and extraction
+     - Multi-column layout handling
+     - Image extraction
+     - Page-specific processing
+     - Encrypted PDF support
+
+**Filter by Availability:**
+
+.. code-block:: bash
+
+   # Show only formats with installed dependencies
+   all2md list-formats --available-only
+
+**Rich Output:**
+
+.. code-block:: bash
+
+   # Enhanced formatting with colors and styling (requires rich library)
+   all2md list-formats --rich
+
+This command is especially useful for:
+
+* **Diagnosing format support issues** - Verify that required dependencies are installed
+* **Planning installations** - See what formats are available before processing files
+* **CI/CD pipelines** - Check environment setup programmatically
+* **Documentation** - Generate up-to-date format support lists
+
+Detect File Format Without Converting
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``--detect-only`` flag analyzes files to determine their format without performing conversion. This is useful for validating format detection, checking file types in batch operations, or verifying dependencies before processing.
+
+**Basic Usage:**
+
+.. code-block:: bash
+
+   # Detect format for a single file
+   all2md document.pdf --detect-only
+
+**Example output:**
+
+.. code-block:: text
+
+   File: document.pdf
+   Detected format: pdf
+   Converter: pdf2markdown
+   Dependencies: ✓ All required dependencies available
+   Ready to convert: Yes
+
+**Batch Detection:**
+
+.. code-block:: bash
+
+   # Detect formats for multiple files
+   all2md *.* --detect-only
+
+**Example output:**
+
+.. code-block:: text
+
+   File                    Format      Status
+   ───────────────────────────────────────────────
+   report.pdf             pdf         ✓ Ready
+   slides.pptx            pptx        ✗ Missing python-pptx
+   data.xlsx              spreadsheet ✓ Ready
+   notes.txt              txt         ✓ Ready
+   webpage.html           html        ✓ Ready
+
+**With Rich Output:**
+
+.. code-block:: bash
+
+   # Enhanced detection table with colors and progress bar
+   all2md documents/*.* --detect-only --rich
+
+**Use Cases:**
+
+* **Pre-flight checks** - Verify all files can be processed before starting batch conversion
+* **Format validation** - Confirm file extensions match actual content
+* **Dependency verification** - Identify missing dependencies for specific files
+* **CI/CD integration** - Validate document collections in automated pipelines
+
+Dry Run Mode
+~~~~~~~~~~~~
+
+The ``--dry-run`` flag shows exactly what would be converted without actually processing files. This is invaluable for previewing batch operations, verifying file selection patterns, and checking configurations.
+
+**Basic Usage:**
+
+.. code-block:: bash
+
+   # Preview what would be converted
+   all2md documents/*.pdf --dry-run --output-dir ./converted
+
+**Example output:**
+
+.. code-block:: text
+
+   Dry run mode: No files will be converted
+
+   Planned conversions:
+
+   documents/report.pdf → ./converted/report.md
+   documents/analysis.pdf → ./converted/analysis.md
+   documents/summary.pdf → ./converted/summary.md
+
+   Total: 3 files would be converted
+
+**With Exclusions:**
+
+.. code-block:: bash
+
+   # Preview with exclusion patterns
+   all2md ./project --recursive --exclude "*.tmp" --exclude "__pycache__" --dry-run
+
+**Example output:**
+
+.. code-block:: text
+
+   Dry run mode: No files will be converted
+
+   Scanning directory: ./project (recursive)
+   Exclusion patterns: *.tmp, __pycache__
+
+   Planned conversions:
+
+   ./project/docs/readme.md → ./project/docs/readme.md (text)
+   ./project/reports/q1.pdf → ./project/reports/q1.md
+   ./project/data/sales.xlsx → ./project/data/sales.md
+
+   Excluded:
+   ./project/cache/temp.tmp (matches *.tmp)
+   ./project/__pycache__/config.pyc (matches __pycache__)
+
+   Total: 3 files would be converted, 2 excluded
+
+**With Rich Progress:**
+
+.. code-block:: bash
+
+   # Show dry run with rich formatting
+   all2md large_collection/*.* --dry-run --rich --progress
+
+**Example output:**
+
+.. code-block:: text
+
+   🔍 Analyzing files...
+
+   ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┓
+   ┃ Source              ┃ Format   ┃ Destination           ┃
+   ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
+   │ report.pdf          │ pdf      │ ./converted/report.md │
+   │ slides.pptx         │ pptx     │ ./converted/slides.md │
+   │ data.xlsx           │ sheet    │ ./converted/data.md   │
+   └─────────────────────┴──────────┴───────────────────────┘
+
+   ✓ 3 files ready to convert
+   ⚠ 1 file missing dependencies (pptx)
+
+**Combined with Other Options:**
+
+.. code-block:: bash
+
+   # Preview complex batch operation
+   all2md ./documents \
+       --recursive \
+       --preserve-structure \
+       --output-dir ./markdown \
+       --exclude "*.draft.*" \
+       --exclude "temp/*" \
+       --parallel 4 \
+       --dry-run
+
+This shows exactly how files will be processed, where they'll be saved, and what directory structure will be created, all without touching any files.
+
+**Use Cases:**
+
+* **Validate glob patterns** - Ensure file selection matches expectations
+* **Test exclusion rules** - Verify that unwanted files are properly filtered
+* **Preview directory structure** - See output layout with ``--preserve-structure``
+* **Verify batch settings** - Check all configuration before starting long-running jobs
+* **Safe experimentation** - Try different options without risk
 
 Practical Examples
 ------------------

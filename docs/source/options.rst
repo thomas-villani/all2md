@@ -106,6 +106,108 @@ All CLI options also support environment variable defaults. Use the pattern ``AL
 
 See the :doc:`cli` reference for complete environment variable documentation.
 
+Boolean Options Quick Reference
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Many options are boolean flags that default to ``True``. In code, you set them directly. On the CLI, you use the ``--<prefix>-no-<option>`` pattern to **disable** them.
+
+**Common Boolean Options Cheat Sheet:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 25 30
+
+   * - Option Field (Python)
+     - Default
+     - CLI Flag to Enable
+     - CLI Flag to Disable
+   * - ``MarkdownOptions.use_hash_headings``
+     - ``True``
+     - (default)
+     - ``--markdown-no-use-hash-headings``
+   * - ``PdfOptions.detect_columns``
+     - ``True``
+     - (default)
+     - ``--pdf-no-detect-columns``
+   * - ``PdfOptions.merge_hyphenated_words``
+     - ``True``
+     - (default)
+     - ``--pdf-no-merge-hyphenated-words``
+   * - ``PdfOptions.enable_table_fallback_detection``
+     - ``True``
+     - (default)
+     - ``--pdf-no-enable-table-fallback-detection``
+   * - ``HtmlOptions.detect_table_alignment``
+     - ``True``
+     - (default)
+     - ``--html-no-detect-table-alignment``
+   * - ``HtmlOptions.preserve_nested_structure``
+     - ``True``
+     - (default)
+     - ``--html-no-preserve-nested-structure``
+   * - ``PptxOptions.include_notes``
+     - ``True``
+     - (default)
+     - ``--pptx-no-include-notes``
+   * - ``EmlOptions.include_headers``
+     - ``True``
+     - (default)
+     - ``--eml-no-include-headers``
+   * - ``EmlOptions.preserve_thread_structure``
+     - ``True``
+     - (default)
+     - ``--eml-no-preserve-thread-structure``
+   * - ``OdfOptions.preserve_tables``
+     - ``True``
+     - (default)
+     - ``--odf-no-preserve-tables``
+   * - ``EpubOptions.merge_chapters``
+     - ``True``
+     - (default)
+     - ``--epub-no-merge-chapters``
+   * - ``EpubOptions.include_toc``
+     - ``True``
+     - (default)
+     - ``--epub-no-include-toc``
+
+**Pattern Explanation:**
+
+* **Python API**: Set boolean directly: ``PdfOptions(detect_columns=False)``
+* **CLI Default=True**: Use ``--<prefix>-no-<field-name>`` to disable: ``--pdf-no-detect-columns``
+* **CLI Default=False**: Use ``--<prefix>-<field-name>`` to enable (less common)
+
+**Examples:**
+
+.. code-block:: python
+
+   # Python: Explicitly disable column detection
+   from all2md import PdfOptions
+
+   options = PdfOptions(
+       detect_columns=False,
+       merge_hyphenated_words=False,
+       enable_table_fallback_detection=True  # Leave this enabled
+   )
+
+.. code-block:: bash
+
+   # CLI: Disable column detection and hyphenation merging
+   all2md document.pdf --pdf-no-detect-columns --pdf-no-merge-hyphenated-words
+
+   # CLI: Disable hash headings (use underline style)
+   all2md document.docx --markdown-no-use-hash-headings
+
+   # CLI: Disable speaker notes in PowerPoint
+   all2md presentation.pptx --pptx-no-include-notes
+
+**Why the "no-" pattern?**
+
+This pattern (called "negative flags" or "disable flags") is used because:
+
+1. It makes the default behavior clear - the base flag name describes what's enabled by default
+2. It follows Unix conventions (e.g., ``--no-color``, ``--no-verify``)
+3. It prevents ambiguity - ``--pdf-detect-columns`` could mean "enable" or just state the option name
+
 Shared Options Classes
 ----------------------
 
@@ -136,6 +238,12 @@ Common Markdown formatting options used across all conversion modules.
 
 **CLI Prefix:** ``--markdown-``
 
+**Key Options:**
+
+* ``use_hash_headings``: Use ``#`` syntax for headings instead of underlines (default: ``True``)
+
+  - **CLI:** ``--markdown-no-use-hash-headings`` to disable (use underline-style headings)
+
 **Example:**
 
 .. code-block:: python
@@ -147,6 +255,7 @@ Common Markdown formatting options used across all conversion modules.
        emphasis_symbol="*",           # Use asterisks for emphasis
        bullet_symbols="*-+",          # Bullet symbols for nested lists
        page_separator_template="-----", # Page separator template
+       use_hash_headings=True,        # Use # syntax for headings (default)
        list_indent_width=4,           # Spaces per list level
        underline_mode="html",         # How to handle underlined text
        superscript_mode="html",       # How to handle superscript
@@ -170,6 +279,10 @@ Network security configuration for controlling remote resource fetching.
 * **Size Limits:** Control maximum download size to prevent resource exhaustion
 * **Timeout Controls:** Set network timeout limits
 
+**Key Defaults:**
+
+* ``max_remote_asset_bytes``: 20971520 (20MB) - Maximum size for remote asset downloads
+
 **Example:**
 
 .. code-block:: python
@@ -181,8 +294,22 @@ Network security configuration for controlling remote resource fetching.
        allowed_hosts=["cdn.example.com", "images.example.org"],  # Trusted hosts only
        require_https=True,               # Force HTTPS
        network_timeout=10.0,             # 10 second timeout
-       max_remote_asset_bytes=5*1024*1024  # 5MB max download
+       max_remote_asset_bytes=5*1024*1024  # 5MB max download (default: 20MB)
    )
+
+.. note::
+
+   List fields like ``allowed_hosts`` should be passed as Python lists in code. For CLI usage with multiple values, use JSON configuration files:
+
+   .. code-block:: json
+
+      {
+        "html.network.allowed_hosts": ["cdn.example.com", "images.example.org"]
+      }
+
+   .. code-block:: bash
+
+      all2md webpage.html --options-json config.json
 
 LocalFileAccessOptions
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -291,13 +418,20 @@ Configuration for HTML document conversion with security and network features.
 
 .. code-block:: python
 
-   from all2md.options import HtmlOptions
+   from all2md.options import HtmlOptions, NetworkFetchOptions, MarkdownOptions
+
+   # Create MarkdownOptions for hash headings
+   md_options = MarkdownOptions(use_hash_headings=True)
 
    options = HtmlOptions(
-       use_hash_headings=True,         # Use # syntax for headers
        extract_title=True,             # Extract HTML title
        strip_dangerous_elements=True,  # Remove script/style tags
-       network=NetworkFetchOptions(allow_remote_fetch=False), # Block network requests (SSRF protection)
+       detect_table_alignment=True,    # Auto-detect table alignment (default)
+       network=NetworkFetchOptions(
+           allow_remote_fetch=False,   # Block network requests (SSRF protection)
+           max_remote_asset_bytes=20*1024*1024  # 20MB default
+       ),
+       markdown_options=md_options,    # Pass Markdown formatting options
        attachment_mode="download"      # Download images locally
    )
 
@@ -353,8 +487,23 @@ Configuration for email message processing with advanced parsing features.
        clean_quotes=True,              # Clean quoted content
        detect_reply_separators=True,   # Detect "On <date> wrote:" patterns
        clean_wrapped_urls=True,        # Remove URL defense wrappers
+       url_wrappers=["safelinks.protection.outlook.com"],  # Custom URL wrapper patterns
        convert_html_to_markdown=True   # Convert HTML parts to Markdown
    )
+
+.. note::
+
+   For list fields like ``url_wrappers``, use JSON configuration for multiple custom patterns:
+
+   .. code-block:: json
+
+      {
+        "eml.url_wrappers": [
+          "safelinks.protection.outlook.com",
+          "urldefense.com",
+          "scanner.example.com"
+        ]
+      }
 
 SpreadsheetOptions
 ~~~~~~~~~~~~~~~~~~

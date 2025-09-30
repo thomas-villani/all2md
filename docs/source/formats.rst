@@ -60,7 +60,7 @@ PDF processing includes sophisticated table detection, multi-column layout handl
    all2md document.pdf
 
    # With specific pages and image download
-   all2md document.pdf --pages "0,1,2" --attachment-mode download
+   all2md document.pdf --pdf-pages "0,1,2" --attachment-mode download --markdown-emphasis-symbol "*"
 
 **PDF-Specific Features:**
 
@@ -125,7 +125,7 @@ Full formatting preservation including styles, tables, images, and document stru
    all2md document.docx --out output.md
 
    # Custom formatting with image download
-   all2md document.docx --emphasis-symbol "_" --attachment-mode download
+   all2md document.docx --markdown-emphasis-symbol "_" --attachment-mode download
 
 **DOCX-Specific Features:**
 
@@ -176,8 +176,14 @@ Slide-by-slide extraction with support for speaker notes, shapes, and embedded c
 
 .. code-block:: bash
 
-   # Include speaker notes
-   all2md presentation.pptx --include-speaker-notes
+   # Include slide numbers
+   all2md presentation.pptx --pptx-slide-numbers
+
+   # Exclude speaker notes (default is to include them)
+   all2md presentation.pptx --pptx-no-include-notes
+
+   # Include slide numbers and keep speaker notes
+   all2md presentation.pptx --pptx-slide-numbers
 
 **PPTX-Specific Features:**
 
@@ -215,15 +221,20 @@ Intelligent conversion of web content with configurable element handling.
 
 .. code-block:: python
 
-   from all2md import to_markdown, HtmlOptions
+   from all2md import to_markdown, HtmlOptions, MarkdownOptions
+
+   # Create MarkdownOptions for hash headings
+   md_options = MarkdownOptions(
+       use_hash_headings=True              # Use # syntax for headings
+   )
 
    options = HtmlOptions(
        strip_dangerous_elements=True,      # Remove script/style tags
-       use_hash_headings=True,             # Use # syntax for headings
        extract_title=True,                 # Extract HTML title element
        attachment_mode='download',         # Download referenced images
        attachment_base_url='https://example.com',  # Base URL for relative links
-       table_alignment_auto_detect=True    # Auto-detect table alignment
+       detect_table_alignment=True,        # Auto-detect table alignment
+       markdown_options=md_options         # Pass MarkdownOptions
    )
 
    markdown = to_markdown('complex_webpage.html', options=options)
@@ -399,8 +410,12 @@ Multi-sheet workbook processing with intelligent table formatting and automatic 
 
 .. code-block:: bash
 
-   # Process specific sheets in XLSX
-   all2md workbook.xlsx --spreadsheet-sheets "Sheet1,Summary"
+   # Process specific sheets in XLSX using regex pattern
+   all2md workbook.xlsx --spreadsheet-sheets "^(Sheet1|Summary)$"
+
+   # For multiple specific sheets, use JSON config (recommended)
+   # In config.json: {"spreadsheet.sheets": ["Sheet1", "Summary"]}
+   all2md workbook.xlsx --options-json config.json
 
    # Limit output size
    all2md large_data.csv --spreadsheet-max-rows 500 --spreadsheet-max-cols 10
@@ -457,8 +472,8 @@ Complete notebook conversion including code cells, outputs, and metadata.
 
 .. code-block:: bash
 
-   # Include outputs and execution counts
-   all2md notebook.ipynb --include-outputs --include-execution-count
+   # Truncate long outputs
+   all2md notebook.ipynb --ipynb-truncate-long-outputs 50 --ipynb-truncate-output-message "... output truncated ..."
 
 **IPYNB-Specific Features:**
 
@@ -690,6 +705,171 @@ all2md uses multiple strategies to detect document formats:
    # Override automatic detection
    markdown = to_markdown('file.dat', format='pdf')
    markdown = to_markdown(file_object, format='docx')
+
+Programmatic Format Override
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can explicitly force a specific format converter, even when the file extension or content suggests otherwise. This is useful for:
+
+* Files with incorrect or missing extensions
+* Raw data that needs specific parsing
+* Testing format converters with unusual inputs
+* Working with streams or file-like objects without reliable metadata
+
+**Basic Format Override:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Force PDF processing regardless of filename
+   markdown = to_markdown('unknown_file', format='pdf')
+
+   # Process data as HTML even if extension says .txt
+   markdown = to_markdown('content.txt', format='html')
+
+   # Explicitly handle file object as DOCX
+   with open('document', 'rb') as f:
+       markdown = to_markdown(f, format='docx')
+
+**Format Override with Options:**
+
+Combine explicit format specification with format-specific options:
+
+.. code-block:: python
+
+   from all2md import to_markdown, PdfOptions, DocxOptions, HtmlOptions
+
+   # Force PDF processing with specific options
+   pdf_options = PdfOptions(
+       pages=[0, 1, 2],
+       detect_columns=False,
+       attachment_mode='base64'
+   )
+   markdown = to_markdown('file.dat', format='pdf', options=pdf_options)
+
+   # Or use kwargs for simpler cases
+   markdown = to_markdown(
+       'mystery_file',
+       format='pdf',
+       pages=[0, 1, 2],
+       detect_columns=False,
+       attachment_mode='base64'
+   )
+
+   # Force Word processing with custom Markdown formatting
+   from all2md import MarkdownOptions
+
+   md_opts = MarkdownOptions(emphasis_symbol='_', use_hash_headings=False)
+   docx_opts = DocxOptions(markdown_options=md_opts)
+   markdown = to_markdown('document.bin', format='docx', options=docx_opts)
+
+   # Force HTML processing with security settings
+   html_opts = HtmlOptions(
+       strip_dangerous_elements=True,
+       extract_title=True
+   )
+   markdown = to_markdown('content', format='html', options=html_opts)
+
+**Real-World Use Cases:**
+
+.. code-block:: python
+
+   from all2md import to_markdown, PdfOptions
+   import tempfile
+
+   # 1. Process downloaded content without filename
+   def process_download(response_content):
+       """Convert downloaded document regardless of source filename."""
+       with tempfile.NamedTemporaryFile(suffix='.tmp') as tmp:
+           tmp.write(response_content)
+           tmp.flush()
+           # Explicitly specify format since temp file has .tmp extension
+           return to_markdown(tmp.name, format='pdf')
+
+   # 2. Handle file objects from database BLOBs
+   def convert_blob(file_data, detected_type):
+       """Convert binary data with known type."""
+       import io
+       file_obj = io.BytesIO(file_data)
+       # No filename available, must specify format
+       return to_markdown(file_obj, format=detected_type)
+
+   # 3. Batch process with format verification
+   def safe_convert(filepath, expected_format='auto'):
+       """Convert file with format validation."""
+       try:
+           # Try with expected format
+           return to_markdown(filepath, format=expected_format)
+       except Exception as e:
+           print(f"Failed with {expected_format}, trying auto-detection")
+           return to_markdown(filepath, format='auto')
+
+   # 4. Pipeline with format transformation
+   def extract_text_from_mixed_sources(files_dict):
+       """Process different formats from various sources."""
+       results = {}
+       for name, (data, fmt) in files_dict.items():
+           results[name] = to_markdown(data, format=fmt)
+       return results
+
+   # Example usage:
+   mixed_data = {
+       'report': (report_bytes, 'pdf'),
+       'slides': (pptx_data, 'pptx'),
+       'spreadsheet': (excel_bytes, 'spreadsheet')
+   }
+   converted = extract_text_from_mixed_sources(mixed_data)
+
+**Testing Format Converters:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Test how different converters handle the same content
+   test_file = 'ambiguous_file.bin'
+
+   formats_to_try = ['pdf', 'docx', 'html', 'txt']
+   results = {}
+
+   for fmt in formats_to_try:
+       try:
+           result = to_markdown(test_file, format=fmt)
+           results[fmt] = {'success': True, 'length': len(result)}
+       except Exception as e:
+           results[fmt] = {'success': False, 'error': str(e)}
+
+   # Find which format worked best
+   successful = {k: v for k, v in results.items() if v['success']}
+   best_format = max(successful.items(), key=lambda x: x[1]['length'])[0]
+   print(f"Best format: {best_format}")
+
+**Important Notes:**
+
+* **Validation**: Format override bypasses automatic detection but not validation. If the file isn't actually the specified format, conversion will fail.
+* **Dependencies**: The required dependencies for the forced format must be installed.
+* **Performance**: Explicit format specification is slightly faster than auto-detection.
+* **Error Handling**: Always wrap format overrides in try-except blocks when the actual format is uncertain.
+
+**Available Format Values:**
+
+Valid format strings for the ``format`` parameter:
+
+* ``'auto'`` - Automatic detection (default)
+* ``'pdf'`` - PDF documents
+* ``'docx'`` - Word documents (.docx)
+* ``'pptx'`` - PowerPoint presentations (.pptx)
+* ``'html'`` - HTML documents
+* ``'mhtml'`` - MHTML web archives
+* ``'eml'`` - Email messages (.eml)
+* ``'epub'`` - EPUB e-books
+* ``'rtf'`` - Rich Text Format
+* ``'ipynb'`` - Jupyter notebooks
+* ``'odf'`` - OpenDocument formats (.odt, .odp)
+* ``'spreadsheet'`` - Excel/CSV/TSV files
+* ``'image'`` - Image files (limited support)
+* ``'txt'`` - Plain text (fallback)
 
 Format-Specific Error Handling
 ------------------------------

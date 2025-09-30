@@ -116,6 +116,23 @@ The library uses a registry-based detection system (``ConverterRegistry.detect_f
 
 This registry-based approach maximizes accuracy while providing graceful degradation for edge cases. Each converter registers its supported extensions, MIME types, and content detection patterns with the central registry, making the system easily extensible for new formats.
 
+**Inspecting Format Support:**
+
+You can use the ``list-formats`` CLI command to explore which formats are supported and check which dependencies are available in your environment:
+
+.. code-block:: bash
+
+   # List all supported formats with their status
+   all2md list-formats
+
+   # Show details about a specific format
+   all2md list-formats pdf
+
+   # Show only formats with available dependencies
+   all2md list-formats --available-only
+
+This is particularly useful when diagnosing format detection issues or verifying that required dependencies are installed.
+
 Converter Architecture
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -385,6 +402,250 @@ Each format's dependencies are isolated:
        raise ImportError("python-docx required for DOCX processing")
 
 This allows partial installations and clear error messages for missing dependencies.
+
+Programmatic Dependency Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For automated setups, CI/CD pipelines, or installation scripts, all2md provides programmatic dependency checking and installation command generation:
+
+.. code-block:: python
+
+   from all2md.dependencies import (
+       check_all_dependencies,
+       get_missing_dependencies,
+       generate_install_command,
+       is_format_available
+   )
+
+   # Check all format dependencies
+   results = check_all_dependencies()
+   for format_name, deps in results.items():
+       print(f"{format_name}: {deps['status']}")
+       if not deps['available']:
+           print(f"  Missing: {', '.join(deps['missing'])}")
+
+   # Check specific format availability
+   if is_format_available('pdf'):
+       print("PDF conversion available")
+   else:
+       print("PDF dependencies missing")
+
+   # Get list of missing dependencies
+   missing = get_missing_dependencies()
+   if missing:
+       print(f"Missing dependencies: {missing}")
+
+   # Generate installation command
+   cmd = generate_install_command(['pdf', 'docx'])
+   print(f"Install with: {cmd}")
+   # Output: pip install all2md[pdf,docx]
+
+**Complete Automated Setup Script:**
+
+.. code-block:: python
+
+   """
+   Automated all2md setup and validation script.
+   """
+   from all2md.dependencies import (
+       check_all_dependencies,
+       get_missing_dependencies,
+       generate_install_command,
+       is_format_available
+   )
+   import subprocess
+   import sys
+
+   def check_environment():
+       """Check which formats are available."""
+       print("Checking all2md dependencies...")
+       results = check_all_dependencies()
+
+       available = []
+       unavailable = []
+
+       for fmt, info in results.items():
+           if info['available']:
+               available.append(fmt)
+           else:
+               unavailable.append(fmt)
+
+       print(f"\n✓ Available formats ({len(available)}): {', '.join(available)}")
+       if unavailable:
+           print(f"✗ Unavailable formats ({len(unavailable)}): {', '.join(unavailable)}")
+
+       return available, unavailable
+
+   def install_missing_deps(formats):
+       """Install dependencies for specific formats."""
+       if not formats:
+           print("No dependencies to install")
+           return True
+
+       cmd = generate_install_command(formats)
+       print(f"\nInstalling: {cmd}")
+
+       try:
+           subprocess.check_call(cmd.split())
+           print("✓ Installation successful")
+           return True
+       except subprocess.CalledProcessError as e:
+           print(f"✗ Installation failed: {e}")
+           return False
+
+   def validate_required_formats(required):
+       """Ensure specific formats are available."""
+       missing = []
+       for fmt in required:
+           if not is_format_available(fmt):
+               missing.append(fmt)
+
+       if missing:
+           print(f"\n⚠ Required formats not available: {', '.join(missing)}")
+           return False
+
+       print(f"\n✓ All required formats available: {', '.join(required)}")
+       return True
+
+   def main():
+       """Main setup routine."""
+       # Check current environment
+       available, unavailable = check_environment()
+
+       # Define required formats for your project
+       required_formats = ['pdf', 'docx', 'html']
+
+       # Check if required formats are available
+       if not validate_required_formats(required_formats):
+           # Install missing dependencies
+           missing = [f for f in required_formats if not is_format_available(f)]
+           if install_missing_deps(missing):
+               # Recheck after installation
+               validate_required_formats(required_formats)
+           else:
+               print("\nSetup incomplete. Please install dependencies manually.")
+               sys.exit(1)
+
+       print("\n✓ all2md setup complete")
+
+   if __name__ == '__main__':
+       main()
+
+**CI/CD Pipeline Integration:**
+
+.. code-block:: python
+
+   """
+   CI/CD pre-flight check for all2md capabilities.
+   """
+   from all2md.dependencies import check_all_dependencies
+   import json
+   import sys
+
+   def ci_dependency_check():
+       """Check dependencies and output results for CI."""
+       results = check_all_dependencies()
+
+       # Generate CI-friendly report
+       report = {
+           'available_formats': [],
+           'missing_formats': [],
+           'total_formats': len(results),
+           'ready': True
+       }
+
+       for fmt, info in results.items():
+           if info['available']:
+               report['available_formats'].append(fmt)
+           else:
+               report['missing_formats'].append({
+                   'format': fmt,
+                   'missing_deps': info['missing']
+               })
+               report['ready'] = False
+
+       # Output JSON for parsing by CI tools
+       print(json.dumps(report, indent=2))
+
+       # Exit with error code if not ready
+       if not report['ready']:
+           print("\n❌ Some dependencies are missing", file=sys.stderr)
+           sys.exit(1)
+       else:
+           print("\n✅ All dependencies available")
+           sys.exit(0)
+
+   if __name__ == '__main__':
+       ci_dependency_check()
+
+**Docker Container Setup:**
+
+.. code-block:: python
+
+   """
+   Install all2md with specific formats in a Docker container.
+   """
+   import os
+   import subprocess
+   from all2md.dependencies import generate_install_command
+
+   def install_for_docker():
+       """Install all2md with required formats."""
+       # Read required formats from environment or config
+       required = os.environ.get('ALL2MD_FORMATS', 'pdf,docx,html').split(',')
+
+       # Generate and run installation command
+       cmd = generate_install_command(required)
+       print(f"Installing all2md with: {', '.join(required)}")
+       subprocess.check_call(cmd.split())
+
+       print("Installation complete")
+
+**Conditional Feature Loading:**
+
+.. code-block:: python
+
+   """
+   Application that adapts based on available formats.
+   """
+   from all2md import to_markdown
+   from all2md.dependencies import is_format_available
+
+   class DocumentConverter:
+       """Converter that adapts to available dependencies."""
+
+       def __init__(self):
+           self.supported_formats = self._detect_formats()
+
+       def _detect_formats(self):
+           """Detect which formats are available."""
+           all_formats = ['pdf', 'docx', 'pptx', 'html', 'spreadsheet']
+           return [f for f in all_formats if is_format_available(f)]
+
+       def convert(self, filepath, format='auto'):
+           """Convert file with fallback handling."""
+           if format != 'auto' and format not in self.supported_formats:
+               raise ValueError(
+                   f"Format '{format}' not available. "
+                   f"Supported: {', '.join(self.supported_formats)}"
+               )
+
+           return to_markdown(filepath, format=format)
+
+       def get_supported_formats(self):
+           """Return list of supported formats."""
+           return self.supported_formats.copy()
+
+   # Usage
+   converter = DocumentConverter()
+   print(f"Supported formats: {converter.get_supported_formats()}")
+
+   if 'pdf' in converter.get_supported_formats():
+       result = converter.convert('document.pdf')
+   else:
+       print("PDF support not available")
+
+This programmatic approach enables sophisticated automation, dynamic feature detection, and graceful degradation when specific format support is unavailable.
 
 Performance Considerations
 --------------------------

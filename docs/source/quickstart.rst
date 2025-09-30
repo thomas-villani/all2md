@@ -58,6 +58,30 @@ Let's convert a document to Markdown:
 
 That's it! all2md automatically detects the file format and converts it to clean Markdown.
 
+.. note::
+
+   **Output Normalization:** The ``to_markdown()`` function always returns a string with normalized line endings. Specifically:
+
+   * All line endings (``\r\n``, ``\r``) are converted to Unix-style (``\n``)
+   * This ensures consistent output across Windows, macOS, and Linux
+   * Makes string comparison and processing predictable
+   * If you need Windows-style line endings, convert after receiving the result:
+
+   .. code-block:: python
+
+      markdown = to_markdown('document.pdf')
+      # Output uses \n line endings
+
+      # Convert to Windows line endings if needed
+      windows_markdown = markdown.replace('\n', '\r\n')
+
+      # Or use Python's text mode when writing files
+      with open('output.md', 'w', newline='') as f:
+          f.write(markdown)  # Preserves \n
+
+      with open('output.md', 'w') as f:
+          f.write(markdown)  # Python handles newline conversion
+
 Common Use Cases
 ----------------
 
@@ -106,7 +130,7 @@ Common Use Cases
    # Use underscores for emphasis and custom bullets
    md_options = MarkdownOptions(
        emphasis_symbol='_',
-       bullet_symbols=['•', '◦', '▪'],
+       bullet_symbols='•◦▪',
        use_hash_headings=True
    )
 
@@ -116,7 +140,7 @@ Common Use Cases
 .. code-block:: bash
 
    # Command line equivalent
-   all2md document.pdf --emphasis-symbol "_" --bullet-symbols "•,◦,▪"
+   all2md document.pdf --markdown-emphasis-symbol "_" --markdown-bullet-symbols "•◦▪"
 
 4. Batch Processing
 ~~~~~~~~~~~~~~~~~~~
@@ -209,9 +233,9 @@ Jupyter Notebook Example
    from all2md import to_markdown, IpynbOptions
 
    options = IpynbOptions(
-       include_outputs=True,      # Include cell outputs
-       include_execution_count=True,  # Show execution numbers
-       attachment_mode='base64'   # Embed plots as base64
+       truncate_long_outputs=100,        # Truncate outputs after 100 lines
+       truncate_output_message='... (output truncated) ...',  # Custom truncation message
+       attachment_mode='base64'          # Embed plots as base64
    )
 
    markdown = to_markdown('analysis.ipynb', options=options)

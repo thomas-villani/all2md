@@ -249,12 +249,18 @@ PDF Problems
 
 .. code-block:: python
 
-   # Adjust table detection parameters
+   from all2md import PdfOptions
+
+   # Enable table detection with fallback heuristics
    options = PdfOptions(
-       table_fallback_detection=True,
-       detect_merged_cells=True,
-       table_ruling_line_threshold=0.3  # Lower for subtle lines
+       enable_table_fallback_detection=True,  # Enable heuristic fallback
+       attachment_mode='skip'  # Skip images for faster processing
    )
+
+.. code-block:: bash
+
+   # CLI equivalent
+   all2md document.pdf --pdf-no-enable-table-fallback-detection  # To disable fallback
 
 **Column Layout Problems**
 
@@ -297,6 +303,11 @@ Word Document Issues
        markdown_options=md_options
    )
 
+.. code-block:: bash
+
+   # CLI equivalent
+   all2md document.docx --markdown-emphasis-symbol "*"
+
 **Image Problems**
 
 *Problem:* Images missing or not extracted.
@@ -304,6 +315,8 @@ Word Document Issues
 *Solutions:*
 
 .. code-block:: python
+
+   from all2md import DocxOptions
 
    # Download images to directory
    options = DocxOptions(
@@ -313,6 +326,12 @@ Word Document Issues
 
    # Or embed as base64
    options = DocxOptions(attachment_mode='base64')
+
+.. code-block:: bash
+
+   # CLI equivalents
+   all2md document.docx --attachment-mode download --attachment-output-dir ./word_images
+   all2md document.docx --attachment-mode base64
 
 HTML Issues
 ~~~~~~~~~~~
@@ -325,11 +344,23 @@ HTML Issues
 
 .. code-block:: python
 
+   from all2md import HtmlOptions
+
    options = HtmlOptions(strip_dangerous_elements=True)
 
 .. code-block:: bash
 
+   # Basic sanitization
    all2md webpage.html --html-strip-dangerous-elements
+
+   # Or use security presets for quick configuration
+   all2md webpage.html --strict-html-sanitize  # Maximum sanitization, blocks all fetching
+   all2md webpage.html --safe-mode             # Balanced security with HTTPS-only
+   all2md webpage.html --paranoid-mode         # Maximum security with 5MB limits
+
+.. note::
+
+   **Security Presets:** The new ``--strict-html-sanitize``, ``--safe-mode``, and ``--paranoid-mode`` flags provide pre-configured security settings for common scenarios. These are especially useful when processing untrusted HTML content. See :doc:`cli` for details.
 
 **Relative Links Broken**
 
@@ -339,6 +370,8 @@ HTML Issues
 
 .. code-block:: python
 
+   from all2md import HtmlOptions
+
    options = HtmlOptions(
        attachment_mode='download',
        attachment_base_url='https://example.com'
@@ -346,7 +379,7 @@ HTML Issues
 
 .. code-block:: bash
 
-   all2md webpage.html --attachment-base-url "https://example.com"
+   all2md webpage.html --attachment-mode download --attachment-base-url "https://example.com"
 
 Email Processing Issues
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -358,6 +391,8 @@ Email Processing Issues
 *Solutions:*
 
 .. code-block:: python
+
+   from all2md import EmlOptions
 
    # Enable HTML conversion for better encoding handling
    options = EmlOptions(
@@ -373,6 +408,8 @@ Email Processing Issues
 
 .. code-block:: python
 
+   from all2md import EmlOptions
+
    # Adjust thread processing
    options = EmlOptions(
        preserve_thread_structure=True,
@@ -386,6 +423,11 @@ Email Processing Issues
        include_headers=False
    )
 
+.. code-block:: bash
+
+   # CLI equivalents
+   all2md message.eml --eml-no-preserve-thread-structure --eml-no-include-headers
+
 Performance Issues
 ------------------
 
@@ -398,6 +440,8 @@ Slow Processing
 
 .. code-block:: python
 
+   from all2md import PdfOptions
+
    # Process specific pages only
    options = PdfOptions(pages=[0, 1, 2])  # First 3 pages
 
@@ -407,8 +451,15 @@ Slow Processing
    # Disable complex features
    options = PdfOptions(
        detect_columns=False,
-       table_fallback_detection=False
+       enable_table_fallback_detection=False
    )
+
+.. code-block:: bash
+
+   # CLI equivalents
+   all2md document.pdf --pdf-pages "0,1,2"
+   all2md document.pdf --attachment-mode skip
+   all2md document.pdf --pdf-no-detect-columns --pdf-no-enable-table-fallback-detection
 
 Memory Issues
 ~~~~~~~~~~~~~
@@ -419,7 +470,10 @@ Memory Issues
 
 .. code-block:: python
 
+   from all2md import to_markdown, PdfOptions
+
    # Process in smaller chunks
+   total_pages = 100  # Example total
    for i in range(0, total_pages, 10):
        page_chunk = list(range(i, min(i + 10, total_pages)))
        options = PdfOptions(pages=page_chunk)
@@ -428,6 +482,12 @@ Memory Issues
 
    # Skip attachment processing
    options = PdfOptions(attachment_mode='skip')
+
+.. code-block:: bash
+
+   # CLI: Process specific page ranges
+   all2md large.pdf --pdf-pages "0,1,2,3,4,5,6,7,8,9" --out chunk1.md
+   all2md large.pdf --pdf-pages "10,11,12,13,14,15,16,17,18,19" --out chunk2.md
 
 Command Line Issues
 -------------------
