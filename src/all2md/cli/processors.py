@@ -168,7 +168,7 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
     Returns
     -------
     int
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 for success, 1 for general errors, 2 for dependency errors, 3 for input errors)
     """
     # Read from stdin
     try:
@@ -210,16 +210,22 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
 
         return 0
 
-    except (MarkdownConversionError, InputError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-    except ImportError as e:
-        print(f"Missing dependency: {e}", file=sys.stderr)
-        print("Install required dependencies with: pip install all2md[full]", file=sys.stderr)
-        return 1
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        return 1
+        from all2md.constants import get_exit_code_for_exception
+        from all2md.exceptions import DependencyError
+
+        exit_code = get_exit_code_for_exception(e)
+
+        # Print appropriate error message
+        if isinstance(e, (DependencyError, ImportError)):
+            print(f"Missing dependency: {e}", file=sys.stderr)
+            print("Install required dependencies with: pip install all2md[full]", file=sys.stderr)
+        elif isinstance(e, (MarkdownConversionError, InputError)):
+            print(f"Error: {e}", file=sys.stderr)
+        else:
+            print(f"Unexpected error: {e}", file=sys.stderr)
+
+        return exit_code
 
 
 def process_multi_file(
@@ -242,7 +248,7 @@ def process_multi_file(
     Returns
     -------
     int
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 for success, highest error code otherwise: 1 for general errors, 2 for dependency errors, 3 for input errors)
     """
     # Import processing functions
     from all2md.cli import (
@@ -295,19 +301,26 @@ def process_multi_file(
             except ImportError:
                 print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
                 # Fall through to regular conversion
-            except (MarkdownConversionError, InputError) as e:
-                print(f"Error: {e}", file=sys.stderr)
-                return 1
+            except Exception as e:
+                from all2md.constants import get_exit_code_for_exception
+                from all2md.exceptions import DependencyError
 
-        success, file_str, error = convert_single_file(file, output_path, options, format_arg, False)
+                exit_code = get_exit_code_for_exception(e)
+                if isinstance(e, (DependencyError, ImportError)):
+                    print(f"Missing dependency: {e}", file=sys.stderr)
+                else:
+                    print(f"Error: {e}", file=sys.stderr)
+                return exit_code
 
-        if success:
+        exit_code, file_str, error = convert_single_file(file, output_path, options, format_arg, False)
+
+        if exit_code == 0:
             if output_path:
                 print(f"Converted {file} -> {output_path}")
             return 0
         else:
             print(f"Error: {error}", file=sys.stderr)
-            return 1
+            return exit_code
 
     # Process multiple files or with special output
     if parsed_args.collate:

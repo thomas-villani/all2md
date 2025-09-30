@@ -59,7 +59,7 @@ Core Components
    ├── converter_metadata.py # Metadata and dependency management
    ├── cli/                 # Command-line interface package
    │   ├── __init__.py      # CLI package initialization
-   │   ├── actions.py       # Core CLI actions and commands
+   │   ├── custom_actions.py       # Core CLI actions and commands
    │   ├── builder.py       # Argument parser construction
    │   └── processors.py    # File processing and batch operations
    ├── converters/          # Format-specific conversion modules

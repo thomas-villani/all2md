@@ -294,3 +294,39 @@ DocumentFormat = Literal[
     "odf",  # OpenDocument Format
     "epub",  # EPUB e-books
 ]
+
+# =============================================================================
+# CLI Exit Codes
+# =============================================================================
+
+EXIT_SUCCESS = 0
+EXIT_ERROR = 1
+EXIT_DEPENDENCY_ERROR = 2
+EXIT_INPUT_ERROR = 3
+
+
+def get_exit_code_for_exception(exception: Exception) -> int:
+    """Map an exception to an appropriate CLI exit code.
+
+    Parameters
+    ----------
+    exception : Exception
+        The exception to map to an exit code
+
+    Returns
+    -------
+    int
+        The appropriate exit code for the exception type
+    """
+    from all2md.exceptions import DependencyError, InputError
+
+    # Check for dependency-related errors
+    if isinstance(exception, (DependencyError, ImportError)):
+        return EXIT_DEPENDENCY_ERROR
+
+    # Check for input validation errors
+    if isinstance(exception, InputError):
+        return EXIT_INPUT_ERROR
+
+    # All other errors (conversion errors, format errors, etc.)
+    return EXIT_ERROR

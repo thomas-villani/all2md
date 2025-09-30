@@ -405,7 +405,7 @@ To completely remove all2md:
    pip uninstall all2md
 
    # Also remove optional dependencies if desired
-   pip uninstall pymupdf python-docx python-pptx beautifulsoup4 pandas ebooklib odfpy pyth3 httpx standard-imghdr
+   pip uninstall pymupdf python-docx python-pptx beautifulsoup4 pandas ebooklib odfpy pyth3 httpx
 
 System-Specific Notes
 ---------------------

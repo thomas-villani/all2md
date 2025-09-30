@@ -209,7 +209,7 @@ class TestCLIIntegration:
 
         result = main([str(nonexistent_file)])
 
-        assert result == 1
+        assert result == 3  # EXIT_INPUT_ERROR
         captured = capsys.readouterr()
         assert "Error: No valid input files found" in captured.err
 

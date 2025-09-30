@@ -441,7 +441,7 @@ def convert_single_file(
         options: Dict[str, Any],
         format_arg: str,
         show_progress: bool = False
-) -> Tuple[bool, str, Optional[str]]:
+) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown.
 
     Parameters
@@ -459,9 +459,11 @@ def convert_single_file(
 
     Returns
     -------
-    Tuple[bool, str, Optional[str]]
-        Success status, file path string, and error message if failed
+    Tuple[int, str, Optional[str]]
+        Exit code (0 for success), file path string, and error message if failed
     """
+    from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
+
     try:
         # Convert the document
         markdown_content = to_markdown(input_path, format=format_arg, **options)
@@ -469,17 +471,19 @@ def convert_single_file(
         # Output the result
         if output_path:
             output_path.write_text(markdown_content, encoding="utf-8")
-            return True, str(input_path), None
+            return EXIT_SUCCESS, str(input_path), None
         else:
             print(markdown_content)
-            return True, str(input_path), None
+            return EXIT_SUCCESS, str(input_path), None
 
-    except (MarkdownConversionError, InputError) as e:
-        return False, str(input_path), str(e)
-    except ImportError as e:
-        return False, str(input_path), f"Missing dependency: {e}"
     except Exception as e:
-        return False, str(input_path), f"Unexpected error: {e}"
+        exit_code = get_exit_code_for_exception(e)
+        error_msg = str(e)
+        if isinstance(e, ImportError):
+            error_msg = f"Missing dependency: {e}"
+        elif not isinstance(e, (MarkdownConversionError, InputError)):
+            error_msg = f"Unexpected error: {e}"
+        return exit_code, str(input_path), error_msg
 
 
 def convert_single_file_for_collation(
@@ -487,7 +491,7 @@ def convert_single_file_for_collation(
         options: Dict[str, Any],
         format_arg: str,
         file_separator: str = "\n\n---\n\n"
-) -> Tuple[bool, str, Optional[str]]:
+) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown for collation.
 
     Parameters
@@ -503,9 +507,11 @@ def convert_single_file_for_collation(
 
     Returns
     -------
-    Tuple[bool, str, Optional[str]]
-        Success status, markdown content, and error message if failed
+    Tuple[int, str, Optional[str]]
+        Exit code (0 for success), markdown content, and error message if failed
     """
+    from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
+
     try:
         # Convert the document
         markdown_content = to_markdown(input_path, format=format_arg, **options)
@@ -514,14 +520,16 @@ def convert_single_file_for_collation(
         header = f"# File: {input_path.name}\n\n"
         content_with_header = header + markdown_content
 
-        return True, content_with_header, None
+        return EXIT_SUCCESS, content_with_header, None
 
-    except (MarkdownConversionError, InputError) as e:
-        return False, "", str(e)
-    except ImportError as e:
-        return False, "", f"Missing dependency: {e}"
     except Exception as e:
-        return False, "", f"Unexpected error: {e}"
+        exit_code = get_exit_code_for_exception(e)
+        error_msg = str(e)
+        if isinstance(e, ImportError):
+            error_msg = f"Missing dependency: {e}"
+        elif not isinstance(e, (MarkdownConversionError, InputError)):
+            error_msg = f"Unexpected error: {e}"
+        return exit_code, "", error_msg
 
 
 def process_with_rich_output(
@@ -546,8 +554,10 @@ def process_with_rich_output(
     Returns
     -------
     int
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 for success, highest error code otherwise)
     """
+    from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
+
     try:
         from rich.console import Console
         from rich.panel import Panel
@@ -555,8 +565,9 @@ def process_with_rich_output(
         from rich.table import Table
         from rich.text import Text
     except ImportError:
+        from all2md.constants import EXIT_DEPENDENCY_ERROR
         print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-        return 1
+        return EXIT_DEPENDENCY_ERROR
 
     console = Console()
 
@@ -574,6 +585,7 @@ def process_with_rich_output(
 
     results = []
     failed = []
+    max_exit_code = EXIT_SUCCESS
 
     with Progress(
             SpinnerColumn(),
@@ -603,24 +615,23 @@ def process_with_rich_output(
                         from rich.markdown import Markdown
                         console.print(Markdown(markdown_content))
 
-                        success = True
+                        exit_code = EXIT_SUCCESS
                         error = None
-                    except (MarkdownConversionError, InputError) as e:
-                        success = False
-                        error = str(e)
-                    except ImportError as e:
-                        success = False
-                        error = f"Missing dependency: {e}"
                     except Exception as e:
-                        success = False
-                        error = f"Unexpected error: {e}"
+                        exit_code = get_exit_code_for_exception(e)
+                        error = str(e)
+                        if isinstance(e, ImportError):
+                            error = f"Missing dependency: {e}"
+                        elif not isinstance(e, (MarkdownConversionError, InputError)):
+                            error = f"Unexpected error: {e}"
 
-                    if success:
+                    if exit_code == EXIT_SUCCESS:
                         results.append((file, None))
                         console.print(f"[green]OK[/green] Converted {file}")
                     else:
                         failed.append((file, error))
                         console.print(f"[red]ERROR[/red] {file}: {error}")
+                        max_exit_code = max(max_exit_code, exit_code)
 
                     progress.update(task_id, advance=1)
                 else:
@@ -644,9 +655,9 @@ def process_with_rich_output(
 
                     for future in as_completed(futures):
                         file, output_path = futures[future]
-                        success, file_str, error = future.result()
+                        exit_code, file_str, error = future.result()
 
-                        if success:
+                        if exit_code == EXIT_SUCCESS:
                             results.append((file, output_path))
                             if output_path:
                                 console.print(f"[green]OK[/green] {file} -> {output_path}")
@@ -655,6 +666,7 @@ def process_with_rich_output(
                         else:
                             failed.append((file, error))
                             console.print(f"[red]ERROR[/red] {file}: {error}")
+                            max_exit_code = max(max_exit_code, exit_code)
                             if not args.skip_errors:
                                 break
 
@@ -685,19 +697,17 @@ def process_with_rich_output(
                         from rich.markdown import Markdown
                         console.print(Markdown(markdown_content))
 
-                        success = True
+                        exit_code = EXIT_SUCCESS
                         error = None
-                    except (MarkdownConversionError, InputError) as e:
-                        success = False
-                        error = str(e)
-                    except ImportError as e:
-                        success = False
-                        error = f"Missing dependency: {e}"
                     except Exception as e:
-                        success = False
-                        error = f"Unexpected error: {e}"
+                        exit_code = get_exit_code_for_exception(e)
+                        error = str(e)
+                        if isinstance(e, ImportError):
+                            error = f"Missing dependency: {e}"
+                        elif not isinstance(e, (MarkdownConversionError, InputError)):
+                            error = f"Unexpected error: {e}"
                 else:
-                    success, file_str, error = convert_single_file(
+                    exit_code, file_str, error = convert_single_file(
                         file,
                         output_path,
                         options,
@@ -705,7 +715,7 @@ def process_with_rich_output(
                         False
                     )
 
-                if success:
+                if exit_code == EXIT_SUCCESS:
                     results.append((file, output_path))
                     if output_path:
                         console.print(f"[green]OK[/green] {file} -> {output_path}")
@@ -714,6 +724,7 @@ def process_with_rich_output(
                 else:
                     failed.append((file, error))
                     console.print(f"[red]ERROR[/red] {file}: {error}")
+                    max_exit_code = max(max_exit_code, exit_code)
                     if not args.skip_errors:
                         break
 
@@ -732,7 +743,7 @@ def process_with_rich_output(
 
         console.print(table)
 
-    return 0 if len(failed) == 0 else 1
+    return max_exit_code
 
 
 def process_with_progress_bar(
@@ -757,8 +768,10 @@ def process_with_progress_bar(
     Returns
     -------
     int
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 for success, highest error code otherwise)
     """
+    from all2md.constants import EXIT_SUCCESS
+
     try:
         from tqdm import tqdm
     except ImportError:
@@ -772,6 +785,7 @@ def process_with_progress_bar(
         base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
 
     failed = []
+    max_exit_code = EXIT_SUCCESS
 
     # Process files with progress bar
     with tqdm(files, desc="Converting files", unit="file") as pbar:
@@ -785,7 +799,7 @@ def process_with_progress_bar(
                 base_input_dir
             )
 
-            success, file_str, error = convert_single_file(
+            exit_code, file_str, error = convert_single_file(
                 file,
                 output_path,
                 options,
@@ -793,11 +807,12 @@ def process_with_progress_bar(
                 False
             )
 
-            if success:
+            if exit_code == EXIT_SUCCESS:
                 print(f"Converted {file} -> {output_path}")
             else:
                 print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
                 failed.append((file, error))
+                max_exit_code = max(max_exit_code, exit_code)
                 if not args.skip_errors:
                     break
 
@@ -805,7 +820,7 @@ def process_with_progress_bar(
     if not args.no_summary:
         print(f"\nConversion complete: {len(files) - len(failed)}/{len(files)} files successful")
 
-    return 0 if len(failed) == 0 else 1
+    return max_exit_code
 
 
 def process_files_simple(
@@ -830,14 +845,17 @@ def process_files_simple(
     Returns
     -------
     int
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 for success, highest error code otherwise)
     """
+    from all2md.constants import EXIT_SUCCESS
+
     # Determine base input directory for structure preservation
     base_input_dir = None
     if args.preserve_structure and len(files) > 0:
         base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
 
     failed = []
+    max_exit_code = EXIT_SUCCESS
 
     for file in files:
         output_path = generate_output_path(
@@ -847,7 +865,7 @@ def process_files_simple(
             base_input_dir
         )
 
-        success, file_str, error = convert_single_file(
+        exit_code, file_str, error = convert_single_file(
             file,
             output_path,
             options,
@@ -855,15 +873,16 @@ def process_files_simple(
             False
         )
 
-        if success:
+        if exit_code == EXIT_SUCCESS:
             print(f"Converted {file} -> {output_path}")
         else:
             print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
             failed.append((file, error))
+            max_exit_code = max(max_exit_code, exit_code)
             if not args.skip_errors:
                 break
 
-    return 0 if len(failed) == 0 else 1
+    return max_exit_code
 
 
 def process_files_collated(
@@ -888,11 +907,14 @@ def process_files_collated(
     Returns
     -------
     int
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 for success, highest error code otherwise)
     """
+    from all2md.constants import EXIT_SUCCESS
+
     collated_content = []
     failed = []
     file_separator = "\n\n---\n\n"
+    max_exit_code = EXIT_SUCCESS
 
     # Determine output path
     output_path = None
@@ -901,17 +923,24 @@ def process_files_collated(
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Helper function to process files
-    def process_file(file: Path) -> bool:
-        """Process a single file for collation."""
-        success, content, error = convert_single_file_for_collation(
+    def process_file(file: Path) -> int:
+        """Process a single file for collation.
+
+        Returns
+        -------
+        int
+            Exit code (0 for success)
+        """
+        nonlocal max_exit_code
+        exit_code, content, error = convert_single_file_for_collation(
             file, options, format_arg, file_separator
         )
-        if success:
+        if exit_code == EXIT_SUCCESS:
             collated_content.append(content)
-            return True
         else:
             failed.append((file, error))
-            return False
+            max_exit_code = max(max_exit_code, exit_code)
+        return exit_code
 
     # Determine if we should show progress
     show_progress = args.progress or args.rich or len(files) > 1
@@ -933,7 +962,8 @@ def process_files_collated(
                 task_id = progress.add_task("[cyan]Converting and collating files...", total=len(files))
 
                 for file in files:
-                    if process_file(file):
+                    exit_code = process_file(file)
+                    if exit_code == EXIT_SUCCESS:
                         console.print(f"[green]OK[/green] Processed {file}")
                     else:
                         console.print(f"[red]ERROR[/red] {file}: {failed[-1][1]}")
@@ -942,8 +972,9 @@ def process_files_collated(
                     progress.update(task_id, advance=1)
 
         except ImportError:
+            from all2md.constants import EXIT_DEPENDENCY_ERROR
             print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-            return 1
+            return EXIT_DEPENDENCY_ERROR
 
     # Process with tqdm progress bar if requested
     elif show_progress:
@@ -952,7 +983,8 @@ def process_files_collated(
             with tqdm(files, desc="Converting and collating files", unit="file") as pbar:
                 for file in pbar:
                     pbar.set_postfix_str(f"Processing {file.name}")
-                    if not process_file(file):
+                    exit_code = process_file(file)
+                    if exit_code != EXIT_SUCCESS:
                         print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
                         if not args.skip_errors:
                             break
@@ -960,7 +992,8 @@ def process_files_collated(
             # Fallback to simple processing
             print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
             for file in files:
-                if not process_file(file):
+                exit_code = process_file(file)
+                if exit_code != EXIT_SUCCESS:
                     print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
                     if not args.skip_errors:
                         break
@@ -968,7 +1001,8 @@ def process_files_collated(
     # Simple processing without progress indicators
     else:
         for file in files:
-            if not process_file(file):
+            exit_code = process_file(file)
+            if exit_code != EXIT_SUCCESS:
                 print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
                 if not args.skip_errors:
                     break
@@ -1004,7 +1038,7 @@ def process_files_collated(
         else:
             print(f"\nCollation complete: {len(collated_content)}/{len(files)} files processed successfully")
 
-    return 0 if len(failed) == 0 else 1
+    return max_exit_code
 
 
 def process_dry_run(
@@ -1381,9 +1415,10 @@ def process_detect_only(
 
     print(f"\nTotal files analyzed: {len(detection_results)}")
     if any_issues:
+        from all2md.constants import EXIT_DEPENDENCY_ERROR
         unavailable_count = sum(1 for r in detection_results if not r['available'])
         print(f"Files with unavailable converters: {unavailable_count}")
-        return 1
+        return EXIT_DEPENDENCY_ERROR
     else:
         print("All detected converters are available")
         return 0
@@ -1445,9 +1480,10 @@ Examples:
     formats = registry.list_formats()
     if specific_format:
         if specific_format not in formats:
+            from all2md.constants import EXIT_INPUT_ERROR
             print(f"Error: Format '{specific_format}' not found", file=sys.stderr)
             print(f"Available formats: {', '.join(formats)}", file=sys.stderr)
-            return 1
+            return EXIT_INPUT_ERROR
         formats = [specific_format]
 
     # Gather format information
@@ -1748,8 +1784,9 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Ensure input is provided when not using special flags
     if not parsed_args.input:
+        from all2md.constants import EXIT_INPUT_ERROR
         print("Error: Input file is required", file=sys.stderr)
-        return 1
+        return EXIT_INPUT_ERROR
 
     # Set up logging level
     # If --verbose is specified and --log-level is at default, use DEBUG
@@ -1763,16 +1800,17 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Handle stdin input
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
+        from all2md.constants import EXIT_INPUT_ERROR
         # Set up options and validate
         try:
             options, format_arg = setup_and_validate_options(parsed_args)
         except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)
-            return 1
+            return EXIT_INPUT_ERROR
 
         # Validate arguments
         if not validate_arguments(parsed_args):
-            return 1
+            return EXIT_INPUT_ERROR
 
         return process_stdin(parsed_args, options, format_arg)
 
@@ -1784,11 +1822,12 @@ def main(args: Optional[list[str]] = None) -> int:
     )
 
     if not files:
+        from all2md.constants import EXIT_INPUT_ERROR
         if parsed_args.exclude:
             print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
         else:
             print("Error: No valid input files found", file=sys.stderr)
-        return 1
+        return EXIT_INPUT_ERROR
 
     # Handle exclusion patterns from JSON
     if parsed_args.options_json:
@@ -1806,25 +1845,29 @@ def main(args: Optional[list[str]] = None) -> int:
                 )
 
                 if not files:
+                    from all2md.constants import EXIT_INPUT_ERROR
                     if parsed_args.exclude:
                         print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
                     else:
                         print("Error: No valid input files found", file=sys.stderr)
-                    return 1
+                    return EXIT_INPUT_ERROR
         except argparse.ArgumentTypeError as e:
+            from all2md.constants import EXIT_INPUT_ERROR
             print(f"Error: {e}", file=sys.stderr)
-            return 1
+            return EXIT_INPUT_ERROR
 
     # Validate arguments
     if not validate_arguments(parsed_args, files):
-        return 1
+        from all2md.constants import EXIT_INPUT_ERROR
+        return EXIT_INPUT_ERROR
 
     # Set up options
     try:
         options, format_arg = setup_and_validate_options(parsed_args)
     except argparse.ArgumentTypeError as e:
+        from all2md.constants import EXIT_INPUT_ERROR
         print(f"Error: {e}", file=sys.stderr)
-        return 1
+        return EXIT_INPUT_ERROR
 
     # Delegate to multi-file processor
     return process_multi_file(files, parsed_args, options, format_arg)
