@@ -566,67 +566,75 @@ def process_with_rich_output(
             max_workers = args.parallel if args.parallel else None
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
-                for file in files:
-                    # For single files without explicit output, use stdout with rich formatting
-                    if len(files) == 1 and not args.out and not args.output_dir:
-                        output_path = None
+
+                # Special case: single file to stdout with rich formatting
+                # Process directly on main thread to avoid wasteful worker spawn
+                if len(files) == 1 and not args.out and not args.output_dir:
+                    file = files[0]
+                    try:
+                        # Convert the document
+                        markdown_content = to_markdown(file, format=format_arg, **options)
+
+                        # Render with Rich Markdown
+                        from rich.markdown import Markdown
+                        console.print(Markdown(markdown_content))
+
+                        success = True
+                        error = None
+                    except (MarkdownConversionError, InputError) as e:
+                        success = False
+                        error = str(e)
+                    except ImportError as e:
+                        success = False
+                        error = f"Missing dependency: {e}"
+                    except Exception as e:
+                        success = False
+                        error = f"Unexpected error: {e}"
+
+                    if success:
+                        results.append((file, None))
+                        console.print(f"[green]OK[/green] Converted {file}")
                     else:
+                        failed.append((file, error))
+                        console.print(f"[red]ERROR[/red] {file}: {error}")
+
+                    progress.update(task_id, advance=1)
+                else:
+                    # Submit files to executor for parallel processing
+                    for file in files:
                         output_path = generate_output_path(
                             file,
                             Path(args.output_dir) if args.output_dir else None,
                             args.preserve_structure,
                             base_input_dir
                         )
-                    future = executor.submit(
-                        convert_single_file,
-                        file,
-                        output_path,
-                        options,
-                        format_arg,
-                        False
-                    )
-                    futures[future] = (file, output_path)
+                        future = executor.submit(
+                            convert_single_file,
+                            file,
+                            output_path,
+                            options,
+                            format_arg,
+                            False
+                        )
+                        futures[future] = (file, output_path)
 
-                for future in as_completed(futures):
-                    file, output_path = futures[future]
-
-                    # Special handling for single file rich output to stdout
-                    if len(files) == 1 and not args.out and not args.output_dir:
-                        try:
-                            # Convert the document
-                            markdown_content = to_markdown(file, format=format_arg, **options)
-
-                            # Render with Rich Markdown
-                            from rich.markdown import Markdown
-                            console.print(Markdown(markdown_content))
-
-                            success = True
-                            error = None
-                        except (MarkdownConversionError, InputError) as e:
-                            success = False
-                            error = str(e)
-                        except ImportError as e:
-                            success = False
-                            error = f"Missing dependency: {e}"
-                        except Exception as e:
-                            success = False
-                            error = f"Unexpected error: {e}"
-                    else:
+                    for future in as_completed(futures):
+                        file, output_path = futures[future]
                         success, file_str, error = future.result()
 
-                    if success:
-                        results.append((file, output_path))
-                        if output_path:
-                            console.print(f"[green]OK[/green] {file} -> {output_path}")
+                        if success:
+                            results.append((file, output_path))
+                            if output_path:
+                                console.print(f"[green]OK[/green] {file} -> {output_path}")
+                            else:
+                                console.print(f"[green]OK[/green] Converted {file}")
                         else:
-                            console.print(f"[green]OK[/green] Converted {file}")
-                    else:
-                        failed.append((file, error))
-                        console.print(f"[red]ERROR[/red] {file}: {error}")
-                        if not args.skip_errors:
-                            break
+                            failed.append((file, error))
+                            console.print(f"[red]ERROR[/red] {file}: {error}")
+                            if not args.skip_errors:
+                                break
 
-                    progress.update(task_id, advance=1)
+                        progress.update(task_id, advance=1)
         else:
             # Sequential processing
             task_id = progress.add_task("[cyan]Converting files...", total=len(files))

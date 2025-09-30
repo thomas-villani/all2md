@@ -11,6 +11,8 @@ Test Coverage:
 """
 
 import os
+import shutil
+from pathlib import Path
 from unittest.mock import patch
 
 from all2md.converters.html2markdown import html_to_markdown
@@ -19,6 +21,13 @@ from all2md.options import EmlOptions, HtmlOptions, NetworkFetchOptions
 
 class TestHtmlConverterSecurity:
     """Test HTML converter security enforcement."""
+
+    def teardown_method(self):
+        """Clean up test artifacts after each test."""
+        # Remove safe_images directories that may be created during tests
+        for path in [Path("safe_images"), Path("tests/safe_images"), Path("tests/integration/safe_images")]:
+            if path.exists():
+                shutil.rmtree(path)
 
     def test_default_security_blocks_remote_fetch(self):
         """Test that default settings prevent remote fetching."""
@@ -248,6 +257,13 @@ class TestSecurityErrorHandling:
 
 class TestSecurityDocumentationExamples:
     """Test examples that would be used in security documentation."""
+
+    def teardown_method(self):
+        """Clean up test artifacts after each test."""
+        # Remove safe_images directories that may be created during tests
+        for path in [Path("safe_images"), Path("tests/safe_images"), Path("tests/integration/safe_images")]:
+            if path.exists():
+                shutil.rmtree(path)
 
     def test_secure_configuration_example(self):
         """Test recommended secure configuration."""

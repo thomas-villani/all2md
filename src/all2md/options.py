@@ -276,7 +276,7 @@ class LocalFileAccessOptions(_CloneMixin):
         Only applies when allow_local_files=True.
     local_file_denylist : list[str] | None, default None
         List of directories denied for local file access.
-    allow_cwd_files : bool, default True
+    allow_cwd_files : bool, default False
         Whether to allow local files from current working directory and subdirectories.
     """
 

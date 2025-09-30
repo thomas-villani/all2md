@@ -160,10 +160,10 @@ class ConverterRegistry:
         metadata : ConverterMetadata
             Converter metadata to register
 
-        Raises
-        ------
-        ValueError
-            If converter with same format_name already registered
+        Notes
+        -----
+        If a converter with the same format_name is already registered, it will
+        be overwritten and a warning will be logged.
         """
         if metadata.format_name in self._converters:
             logger.warning(

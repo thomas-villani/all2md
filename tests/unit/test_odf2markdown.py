@@ -115,7 +115,7 @@ class TestOdfConverter:
 
     def test_get_style_properties_bold_italic(self):
         """Test extracting bold and italic properties from style."""
-        from all2md.converters.odf2markdown import STYLENS
+        from odf.style import STYLENS
 
         mock_style = Mock()
 
@@ -162,7 +162,7 @@ class TestOdfConverter:
 
     def test_process_text_runs_formatted_span(self):
         """Test processing formatted text spans."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock bold span
         text_node = MockTextNode("Bold Text")
@@ -182,7 +182,7 @@ class TestOdfConverter:
 
     def test_process_text_runs_hyperlink(self):
         """Test processing hyperlinks."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         text_node = MockTextNode("Link Text")
         link = MockElement(
@@ -198,7 +198,7 @@ class TestOdfConverter:
 
     def test_process_text_runs_spaces(self):
         """Test processing space elements."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         text1 = MockTextNode("Word")
         space = MockElement(qname=(TEXTNS, 's'))
@@ -211,7 +211,7 @@ class TestOdfConverter:
 
     def test_process_paragraph_simple(self):
         """Test processing simple paragraph."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         text_node = MockTextNode("Paragraph content")
         para = MockElement(
@@ -225,7 +225,7 @@ class TestOdfConverter:
 
     def test_process_paragraph_heading(self):
         """Test processing heading element."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         text_node = MockTextNode("Heading Text")
         heading = MockElement(
@@ -240,7 +240,7 @@ class TestOdfConverter:
 
     def test_process_paragraph_empty(self):
         """Test processing empty paragraph."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         para = MockElement(qname=(TEXTNS, 'p'), child_nodes=[])
 
@@ -250,7 +250,7 @@ class TestOdfConverter:
 
     def test_is_ordered_list_numbered(self):
         """Test detection of ordered list."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock list element
         lst = MockElement(attributes={"stylename": "NumberedListStyle"})
@@ -271,7 +271,7 @@ class TestOdfConverter:
 
     def test_is_ordered_list_bulleted(self):
         """Test detection of unordered list."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock list element
         lst = MockElement(attributes={"stylename": "BulletListStyle"})
@@ -300,7 +300,7 @@ class TestOdfConverter:
 
     def test_process_list_unordered(self):
         """Test processing unordered list."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock list items
         text1 = MockTextNode("Item 1")
@@ -326,7 +326,7 @@ class TestOdfConverter:
 
     def test_process_list_ordered(self):
         """Test processing ordered list."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock list items
         text1 = MockTextNode("First item")
@@ -398,7 +398,7 @@ class TestOdfConverter:
 
     def test_process_image_basic(self):
         """Test processing image element."""
-        from all2md.converters.odf2markdown import draw
+        from odf import draw
 
         # Mock image elements
         image_element = Mock()
@@ -434,7 +434,7 @@ class TestOdfConverter:
 
     def test_process_image_missing_from_package(self):
         """Test processing image missing from package."""
-        from all2md.converters.odf2markdown import draw
+        from odf import draw
 
         image_element = Mock()
         image_element.getAttribute.return_value = "missing_image.png"
@@ -453,7 +453,7 @@ class TestOdfConverter:
 
     def test_convert_basic_document(self):
         """Test converting basic document structure."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock document content
         text_node = MockTextNode("Document content")
@@ -467,7 +467,7 @@ class TestOdfConverter:
 
     def test_convert_presentation_document(self):
         """Test converting presentation document."""
-        from all2md.converters.odf2markdown import TEXTNS
+        from odf.text import TEXTNS
 
         # Mock presentation content
         text_node = MockTextNode("Slide content")
@@ -491,7 +491,7 @@ class TestOdfToMarkdownFunction:
         """Test odf_to_markdown with custom options."""
         options = OdfOptions(preserve_tables=False)
 
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_doc = MockDocument()
             mock_doc.text.childNodes = []
             mock_load.return_value = mock_doc
@@ -502,7 +502,7 @@ class TestOdfToMarkdownFunction:
 
     def test_odf_to_markdown_default_options(self):
         """Test odf_to_markdown with default options."""
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_doc = MockDocument()
             mock_doc.text.childNodes = []
             mock_load.return_value = mock_doc
@@ -513,7 +513,7 @@ class TestOdfToMarkdownFunction:
 
     def test_odf_to_markdown_missing_dependency(self):
         """Test error handling when odfpy is not available."""
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_load.side_effect = ImportError("No module named odfpy")
 
             with pytest.raises(MarkdownConversionError) as exc_info:
@@ -524,7 +524,7 @@ class TestOdfToMarkdownFunction:
 
     def test_odf_to_markdown_document_error(self):
         """Test error handling when document cannot be loaded."""
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_load.side_effect = Exception("Corrupted document")
 
             with pytest.raises(MarkdownConversionError) as exc_info:
@@ -539,7 +539,7 @@ class TestOdfToMarkdownFunction:
 
         file_obj = BytesIO(b"mock odf data")
 
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_doc = MockDocument()
             mock_doc.text.childNodes = []
             mock_load.return_value = mock_doc
@@ -555,7 +555,7 @@ class TestOdfToMarkdownFunction:
 
         path_obj = Path("test.odt")
 
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_doc = MockDocument()
             mock_doc.text.childNodes = []
             mock_load.return_value = mock_doc
@@ -718,7 +718,7 @@ class TestOdfMetadataExtraction:
         """Test odf_to_markdown with metadata extraction enabled."""
         options = OdfOptions(extract_metadata=True)
 
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_doc = MockDocument()
             mock_doc.text.childNodes = []
             mock_doc.meta = Mock()
@@ -744,7 +744,7 @@ class TestOdfMetadataExtraction:
         """Test odf_to_markdown with metadata extraction disabled."""
         options = OdfOptions(extract_metadata=False)
 
-        with patch('all2md.converters.odf2markdown.opendocument.load') as mock_load:
+        with patch('odf.opendocument.load') as mock_load:
             mock_doc = MockDocument()
             mock_doc.text.childNodes = []
             mock_load.return_value = mock_doc

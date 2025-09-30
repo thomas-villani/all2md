@@ -149,7 +149,7 @@ class ConverterMetadata:
         check_bytes = content[:max_check]
 
         for pattern, offset in self.magic_bytes:
-            if len(check_bytes) > offset + len(pattern):
+            if len(check_bytes) >= offset + len(pattern):
                 if check_bytes[offset:offset + len(pattern)] == pattern:
                     return True
 

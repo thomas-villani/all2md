@@ -288,6 +288,12 @@ def create_secure_http_client(
 
     def validate_response_redirects(response: Any) -> None:
         """Event hook to validate redirect chains."""
+        # Check redirect count
+        if len(response.history) > max_redirects:
+            raise NetworkSecurityError(
+                f"Too many redirects: {len(response.history)} > {max_redirects}"
+            )
+
         # Validate each URL in the redirect history
         for redirect_response in response.history:
             try:
@@ -304,7 +310,6 @@ def create_secure_http_client(
     client = httpx.Client(
         timeout=timeout,
         follow_redirects=True,
-        max_redirects=max_redirects,
         event_hooks={
             'request': [validate_request_url],
             'response': [validate_response_redirects]

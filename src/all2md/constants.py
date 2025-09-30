@@ -98,7 +98,6 @@ DEFAULT_IMAGE_PLACEMENT_MARKERS = True
 DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
 
 # Page separator constants
-DEFAULT_PAGE_SEPARATOR_FORMAT = "-----"
 DEFAULT_INCLUDE_PAGE_NUMBERS = False
 
 # =============================================================================
@@ -217,7 +216,7 @@ if _PLAINTEXT_EXTENSIONS_JSON_FILE.exists():
     PLAINTEXT_EXTENSIONS = json.loads(_PLAINTEXT_EXTENSIONS_JSON_FILE.read_text(encoding="utf-8"))
 else:
     # Fallback to most common
-    PLAINTEXT_EXTENSIONS = common_file_extensions = [
+    PLAINTEXT_EXTENSIONS = [
         ".js",
         ".json",
         ".html",

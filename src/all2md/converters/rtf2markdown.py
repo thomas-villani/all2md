@@ -2,6 +2,8 @@
 #
 # src/all2md/converters/rtf2markdown.py
 
+from __future__ import annotations
+
 """Rich Text Format (RTF) to Markdown conversion module.
 
 This module provides functionality to convert Rich Text Format (RTF) documents
@@ -41,10 +43,7 @@ import io
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
-
-from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
-from pyth.plugins.rtf15.reader import Rtf15Reader
+from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
@@ -52,6 +51,11 @@ from all2md.options import MarkdownOptions, RtfOptions
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.inputs import format_special_text, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
+
+# Type checking imports for static analysis without runtime overhead
+if TYPE_CHECKING:
+    from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
+    from pyth.plugins.rtf15.reader import Rtf15Reader
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,9 @@ def extract_rtf_metadata(doc: Document) -> DocumentMetadata:
     DocumentMetadata
         Extracted metadata
     """
+    # Import pyth types for isinstance checks
+    from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
+
     metadata = DocumentMetadata()
 
     # RTF documents parsed by pyth have limited metadata access
@@ -158,11 +165,22 @@ class RtfConverter:
     """A class to convert a pyth Document object to Markdown."""
 
     def __init__(self, options: RtfOptions, attachment_sequencer: Any = None):
+        # Import pyth types for use in converter methods
+        from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
+
         self.options = options
         self.md_options = options.markdown_options or MarkdownOptions()
         self.attachment_sequencer = attachment_sequencer
         self.list_stack: list[tuple[str, int, int]] = []  # (type, level, number)
         self._base_filename: str = "document"  # Default base filename
+
+        # Store type references as instance attributes for isinstance checks
+        self.Paragraph = Paragraph
+        self.List = List
+        self.ListEntry = ListEntry
+        self.Text = Text
+        self.Image = Image
+        self.Document = Document
 
     def convert(self, doc: Document) -> str:
         """Convert the pyth Document to a Markdown string."""
@@ -177,11 +195,11 @@ class RtfConverter:
 
     def _process_element(self, element: Any) -> str:
         """Dispatch element processing to the appropriate method."""
-        if isinstance(element, Paragraph):
+        if isinstance(element, self.Paragraph):
             return self._process_paragraph(element)
-        elif isinstance(element, List):
+        elif isinstance(element, self.List):
             return self._process_list(element)
-        elif isinstance(element, ListEntry):
+        elif isinstance(element, self.ListEntry):
             return self._process_list_entry(element)
 
         # Other top-level elements can be added here
@@ -195,9 +213,9 @@ class RtfConverter:
         # Process inner content (mostly Text and Image objects)
         text_parts = []
         for item in para.content:
-            if isinstance(item, Text):
+            if isinstance(item, self.Text):
                 text_parts.append(self._process_text(item))
-            elif isinstance(item, Image):
+            elif isinstance(item, self.Image):
                 text_parts.append(self._process_image(item))
 
         full_text = "".join(text_parts).strip()
@@ -269,7 +287,7 @@ class RtfConverter:
         # Process each list entry
         list_parts = []
         for entry in list_elem.content:
-            if isinstance(entry, ListEntry):
+            if isinstance(entry, self.ListEntry):
                 list_parts.append(self._process_list_entry(entry))
             else:
                 # Handle other potential content in lists
@@ -381,6 +399,13 @@ def rtf_to_markdown(
     MarkdownConversionError
         If the `pyth` library is not installed or if RTF parsing fails.
     """
+    # Lazy import of heavy pyth dependencies
+    try:
+        from pyth.document import Document, Image, List, ListEntry, Paragraph, Text
+        from pyth.plugins.rtf15.reader import Rtf15Reader
+    except ImportError:
+        Rtf15Reader = None
+
     if Rtf15Reader is None:
         raise MarkdownConversionError(
             "`pyth` library is required for RTF conversion. Install with: pip install pyth",

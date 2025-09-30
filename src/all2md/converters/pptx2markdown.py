@@ -1,6 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 # src/all2md/converters/pptx2markdown.py
+
+from __future__ import annotations
+
 """PowerPoint presentation to Markdown conversion module.
 
 This module provides functionality to extract content from Microsoft PowerPoint
@@ -67,13 +70,7 @@ The focus is on extracting textual and structural content.
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
-
-from pptx import Presentation
-from pptx.enum.chart import XL_CHART_TYPE
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.shapes.graphfrm import GraphicFrame
-from pptx.util import Inches
+from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
@@ -87,6 +84,14 @@ from all2md.utils.metadata import (
     prepend_metadata_if_enabled,
 )
 from all2md.utils.security import validate_zip_archive
+
+# Type checking imports for static analysis without runtime overhead
+if TYPE_CHECKING:
+    from pptx import Presentation
+    from pptx.enum.chart import XL_CHART_TYPE
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from pptx.shapes.graphfrm import GraphicFrame
+    from pptx.util import Inches
 
 logger = logging.getLogger(__name__)
 
@@ -413,6 +418,10 @@ def _process_shape(
         img_counter: dict | None = None, attachment_sequencer=None, slide_title_shape=None
 ) -> str | None:
     """Process a single shape and convert to markdown."""
+    from pptx.enum.chart import XL_CHART_TYPE
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from pptx.shapes.graphfrm import GraphicFrame
+
     if img_counter is None:
         img_counter = {}
 
@@ -616,6 +625,13 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
     str
         The presentation content in Markdown format
     """
+    # Lazy import of heavy python-pptx dependencies
+    from pptx import Presentation
+    from pptx.enum.chart import XL_CHART_TYPE
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from pptx.shapes.graphfrm import GraphicFrame
+    from pptx.util import Inches
+
     # Handle backward compatibility and merge options
     if options is None:
         options = PptxOptions()
@@ -733,6 +749,9 @@ CONVERTER_METADATA = ConverterMetadata(
 
 def create_test_presentation() -> Any:
     """Create a test PowerPoint presentation with various elements."""
+    from pptx import Presentation
+    from pptx.util import Inches
+
     prs = Presentation()
 
     # Title slide

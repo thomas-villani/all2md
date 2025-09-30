@@ -2,6 +2,7 @@
 #
 # src/all2md/converters/odf2markdown.py
 
+from __future__ import annotations
 
 """OpenDocument to Markdown conversion module.
 
@@ -44,14 +45,7 @@ direct Markdown equivalents and will be approximated or omitted.
 import logging
 import re
 from pathlib import Path
-from typing import IO, Union
-
-from odf import draw, opendocument, table, text
-from odf.draw import DRAWNS
-from odf.element import Element
-from odf.style import STYLENS
-from odf.table import TABLENS
-from odf.text import TEXTNS
+from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
@@ -61,6 +55,15 @@ from all2md.utils.inputs import format_markdown_heading
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 from all2md.utils.security import validate_zip_archive
 
+# Type checking imports for static analysis without runtime overhead
+if TYPE_CHECKING:
+    from odf import draw, opendocument, table, text
+    from odf.draw import DRAWNS
+    from odf.element import Element
+    from odf.style import STYLENS
+    from odf.table import TABLENS
+    from odf.text import TEXTNS
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,11 +71,23 @@ class OdfConverter:
     """Stateful converter for ODF documents."""
 
     def __init__(self, doc: opendocument.OpenDocument, options: OdfOptions):
+        # Import namespace constants for use throughout the converter
+        from odf.draw import DRAWNS
+        from odf.style import STYLENS
+        from odf.table import TABLENS
+        from odf.text import TEXTNS
+
         self.doc = doc
         self.options = options
         self.md_options = options.markdown_options or MarkdownOptions()
         self.style_cache: dict[str, dict[str, bool]] = {}
         self.list_level = 0
+
+        # Store namespace constants as instance attributes
+        self.TEXTNS = TEXTNS
+        self.STYLENS = STYLENS
+        self.TABLENS = TABLENS
+        self.DRAWNS = DRAWNS
 
     def _get_style_properties(self, style_name: str) -> dict[str, bool]:
         """Get and cache formatting properties (bold, italic) for a given style."""
@@ -88,7 +103,7 @@ class OdfConverter:
             if style:
                 style_found = True
                 for child in style.childNodes:
-                    if hasattr(child, 'qname') and child.qname == (STYLENS, 'text-properties'):
+                    if hasattr(child, 'qname') and child.qname == (self.STYLENS, 'text-properties'):
                         if child.getAttribute("fontweight") == "bold":
                             properties["bold"] = True
                         if child.getAttribute("fontstyle") == "italic":
@@ -103,10 +118,10 @@ class OdfConverter:
                 if hasattr(auto_styles, 'childNodes'):
                     for style in auto_styles.childNodes:
                         if (hasattr(style, 'getAttribute') and hasattr(style, 'qname') and
-                            style.qname == (STYLENS, 'style') and
+                            style.qname == (self.STYLENS, 'style') and
                             style.getAttribute('name') == style_name):
                             for child in style.childNodes:
-                                if hasattr(child, 'qname') and child.qname == (STYLENS, 'text-properties'):
+                                if hasattr(child, 'qname') and child.qname == (self.STYLENS, 'text-properties'):
                                     if child.getAttribute("fontweight") == "bold":
                                         properties["bold"] = True
                                     if child.getAttribute("fontstyle") == "italic":
@@ -124,7 +139,7 @@ class OdfConverter:
         for node in element.childNodes:
             if node.nodeType == node.TEXT_NODE:
                 parts.append(str(node.data))
-            elif hasattr(node, 'qname') and node.qname == (TEXTNS, 'span'):
+            elif hasattr(node, 'qname') and node.qname == (self.TEXTNS, 'span'):
                 content = self._process_text_runs(node)
                 style_name = node.getAttribute("stylename")
                 if style_name:
@@ -134,22 +149,22 @@ class OdfConverter:
                     if props["italic"]:
                         content = f"*{content}*"
                 parts.append(content)
-            elif hasattr(node, 'qname') and node.qname == (TEXTNS, 'a'):  # Handle hyperlinks
+            elif hasattr(node, 'qname') and node.qname == (self.TEXTNS, 'a'):  # Handle hyperlinks
                 href = node.getAttribute("href")
                 link_text = self._process_text_runs(node)
                 if href and link_text:
                     parts.append(f"[{link_text}]({href})")
-            elif hasattr(node, 'qname') and node.qname == (TEXTNS, 's'):  # Handle spaces
+            elif hasattr(node, 'qname') and node.qname == (self.TEXTNS, 's'):  # Handle spaces
                 parts.append(" ")
         return "".join(parts)
 
-    def _process_paragraph(self, p: Union[text.P, text.H]) -> str:
+    def _process_paragraph(self, p: text.P | text.H) -> str:
         """Convert a paragraph or heading element to Markdown."""
         content = self._process_text_runs(p).strip()
         if not content:
             return ""
 
-        if hasattr(p, 'qname') and p.qname == (TEXTNS, 'h'):
+        if hasattr(p, 'qname') and p.qname == (self.TEXTNS, 'h'):
             level = int(p.getAttribute("outlinelevel") or 1)
             use_hash = self.options.markdown_options.use_hash_headings if self.options.markdown_options else True
             return format_markdown_heading(content, level, use_hash).rstrip()  # Remove trailing newlines
@@ -164,14 +179,14 @@ class OdfConverter:
         is_ordered = self._is_ordered_list(lst)
 
         for i, item in enumerate(lst.childNodes):
-            if not hasattr(item, 'qname') or item.qname != (TEXTNS, 'list-item'):
+            if not hasattr(item, 'qname') or item.qname != (self.TEXTNS, 'list-item'):
                 continue
             item_content = []
             for element in item.childNodes:
                 if hasattr(element, 'qname'):
-                    if element.qname == (TEXTNS, 'p'):
+                    if element.qname == (self.TEXTNS, 'p'):
                         item_content.append(self._process_paragraph(element))
-                    elif element.qname == (TEXTNS, 'list'):
+                    elif element.qname == (self.TEXTNS, 'list'):
                         item_content.append(self._process_list(element))
 
             full_content = "\n".join(item_content)
@@ -184,6 +199,8 @@ class OdfConverter:
 
     def _process_table(self, tbl: table.Table) -> str:
         """Convert a table element to a Markdown table."""
+        from odf import table
+
         if not self.options.preserve_tables:
             return ""
 
@@ -209,6 +226,8 @@ class OdfConverter:
 
     def _process_image(self, frame: draw.Frame) -> str:
         """Extract and process an image."""
+        from odf import draw
+
         image_element = frame.getElementsByType(draw.Image)
         if not image_element:
             return ""
@@ -243,13 +262,13 @@ class OdfConverter:
         """Recursively process an ODF element and its children."""
         if hasattr(element, 'qname'):
             qname = element.qname
-            if qname == (TEXTNS, 'p') or qname == (TEXTNS, 'h'):
+            if qname == (self.TEXTNS, 'p') or qname == (self.TEXTNS, 'h'):
                 return self._process_paragraph(element)
-            elif qname == (TEXTNS, 'list'):
+            elif qname == (self.TEXTNS, 'list'):
                 return self._process_list(element)
-            elif qname == (TABLENS, 'table'):
+            elif qname == (self.TABLENS, 'table'):
                 return self._process_table(element)
-            elif qname == (DRAWNS, 'frame'):
+            elif qname == (self.DRAWNS, 'frame'):
                 return self._process_image(element)
         if hasattr(element, "childNodes"):
             return "\n".join(self._process_element(child) for child in element.childNodes)
@@ -282,15 +301,15 @@ class OdfConverter:
         if hasattr(auto_styles, 'childNodes'):
             for style in auto_styles.childNodes:
                 if (hasattr(style, 'getAttribute') and hasattr(style, 'qname') and
-                        style.qname == (TEXTNS, 'list-style')):
+                        style.qname == (self.TEXTNS, 'list-style')):
                     try:
                         if style.getAttribute('name') == style_name:
                             # Check the first level style to determine list type
                             for child in style.childNodes:
                                 if hasattr(child, 'qname'):
-                                    if child.qname == (TEXTNS, 'list-level-style-number'):
+                                    if child.qname == (self.TEXTNS, 'list-level-style-number'):
                                         return True  # It's a numbered list
-                                    elif child.qname == (TEXTNS, 'list-level-style-bullet'):
+                                    elif child.qname == (self.TEXTNS, 'list-level-style-bullet'):
                                         return False  # It's a bulleted list
                     except Exception:
                         continue
@@ -441,6 +460,10 @@ def odf_to_markdown(
     MarkdownConversionError
         If the document cannot be opened or processed.
     """
+    # Lazy import of heavy odfpy document parsing classes
+    from odf import draw, opendocument, table, text
+    from odf.element import Element
+
     if options is None:
         options = OdfOptions()
 
