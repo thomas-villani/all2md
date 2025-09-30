@@ -1197,7 +1197,13 @@ def main(args: Optional[list[str]] = None) -> int:
         return 1
 
     # Set up logging level
-    log_level = getattr(logging, parsed_args.log_level.upper())
+    # If --verbose is specified and --log-level is at default, use DEBUG
+    if parsed_args.verbose and parsed_args.log_level == "WARNING":
+        log_level = logging.DEBUG
+    else:
+        # --log-level takes precedence if explicitly set
+        log_level = getattr(logging, parsed_args.log_level.upper())
+
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
     # Handle stdin input

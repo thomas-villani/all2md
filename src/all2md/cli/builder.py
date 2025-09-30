@@ -270,12 +270,16 @@ class DynamicCLIBuilder:
 
         return kwargs
 
-    def add_options_class_arguments(
+    def _add_options_arguments_internal(
             self, parser: argparse.ArgumentParser,
             options_class: Type, format_prefix: Optional[str] = None,
-            group_name: Optional[str] = None
+            group_name: Optional[str] = None,
+            exclude_base_fields: bool = False
             ) -> None:
-        """Add arguments for an options dataclass.
+        """Internal method to add arguments for an options dataclass.
+
+        This unified implementation is used by both add_options_class_arguments
+        and add_format_specific_options to eliminate code duplication.
 
         Parameters
         ----------
@@ -287,9 +291,17 @@ class DynamicCLIBuilder:
             Prefix for argument names (e.g., 'pdf')
         group_name : str, optional
             Name for argument group
+        exclude_base_fields : bool, default=False
+            If True, skip fields that are defined in BaseOptions
         """
         if not is_dataclass(options_class):
             return
+
+        # Get BaseOptions fields to exclude if requested
+        base_field_names = set()
+        if exclude_base_fields:
+            from all2md.options import BaseOptions
+            base_field_names = {f.name for f in fields(BaseOptions)}
 
         # Create argument group if requested
         if group_name:
@@ -298,6 +310,10 @@ class DynamicCLIBuilder:
             group = parser
 
         for field in fields(options_class):
+            # Skip BaseOptions fields if exclude_base_fields is True
+            if exclude_base_fields and field.name in base_field_names:
+                continue
+
             metadata = field.metadata or {}
 
             # Skip excluded fields
@@ -309,11 +325,12 @@ class DynamicCLIBuilder:
                 if is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
                     nested_prefix = f"{format_prefix}-{self.snake_to_kebab(field.name)}" if format_prefix else self.snake_to_kebab(field.name)
-                    self.add_options_class_arguments(
+                    self._add_options_arguments_internal(
                         group,  # Use parent group instead of parser
                         field_type,
                         format_prefix=nested_prefix,
-                        group_name=None  # Don't create separate groups for nested classes
+                        group_name=None,  # Don't create separate groups for nested classes
+                        exclude_base_fields=exclude_base_fields
                     )
                 continue
 
@@ -365,6 +382,28 @@ class DynamicCLIBuilder:
                 group.add_argument(cli_name, **kwargs)
             except Exception as e:
                 print(f"Warning: Could not add argument {cli_name}: {e}")
+
+    def add_options_class_arguments(
+            self, parser: argparse.ArgumentParser,
+            options_class: Type, format_prefix: Optional[str] = None,
+            group_name: Optional[str] = None
+            ) -> None:
+        """Add arguments for an options dataclass.
+
+        Parameters
+        ----------
+        parser : ArgumentParser
+            Parser to add arguments to
+        options_class : Type
+            Options dataclass type
+        format_prefix : str, optional
+            Prefix for argument names (e.g., 'pdf')
+        group_name : str, optional
+            Name for argument group
+        """
+        self._add_options_arguments_internal(
+            parser, options_class, format_prefix, group_name, exclude_base_fields=False
+        )
 
     def add_format_specific_options(
             self, parser: argparse.ArgumentParser,
@@ -384,91 +423,9 @@ class DynamicCLIBuilder:
         group_name : str, optional
             Name for argument group
         """
-        if not is_dataclass(options_class):
-            return
-
-        # Get BaseOptions fields to exclude
-        from all2md.options import BaseOptions
-        base_field_names = {f.name for f in fields(BaseOptions)}
-
-        # Create argument group if requested
-        if group_name:
-            group = parser.add_argument_group(group_name)
-        else:
-            group = parser
-
-        for field in fields(options_class):
-            # Skip BaseOptions fields - they're handled as universal options
-            if field.name in base_field_names:
-                continue
-
-            metadata = field.metadata or {}
-
-            # Skip excluded fields
-            if metadata.get('exclude_from_cli', False):
-                # Check if this is a nested dataclass we should handle
-                field_type = self._resolve_field_type(field, options_class)
-                field_type, _ = self._handle_optional_type(field_type)
-
-                if is_dataclass(field_type):
-                    # Handle nested dataclass by flattening its fields
-                    nested_prefix = f"{format_prefix}-{self.snake_to_kebab(field.name)}" if format_prefix else self.snake_to_kebab(field.name)
-                    self.add_format_specific_options(
-                        group,  # Use parent group instead of parser
-                        field_type,
-                        format_prefix=nested_prefix,
-                        group_name=None  # Don't create separate groups for nested classes
-                    )
-                continue
-
-            # Skip markdown_options field - handled separately
-            if field.name == 'markdown_options':
-                continue
-
-            # Determine if this is a boolean with True default for --no-* handling
-            field_type_is_bool = field.type is bool or field.type == 'bool'
-            is_bool_true_default = field_type_is_bool and field.default is True
-
-            # Get CLI name (explicit or inferred)
-            if 'cli_name' in metadata:
-                if metadata['cli_name'].startswith('no-'):
-                    cli_name = f"--{format_prefix}-{metadata['cli_name']}" if format_prefix else f"--{metadata['cli_name']}"
-                else:
-                    cli_name = f"--{format_prefix}-{metadata['cli_name']}" if format_prefix else f"--{metadata['cli_name']}"
-            else:
-                cli_name = self.infer_cli_name(field.name, format_prefix, is_bool_true_default)
-
-            # Build argument kwargs
-            kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
-
-            # Set dest using dot notation for better structure mapping
-            # and use tracking actions for booleans
-            if 'action' in kwargs:
-                if kwargs['action'] == 'store_true':
-                    kwargs['action'] = TrackingStoreTrueAction
-                    if format_prefix:
-                        kwargs['dest'] = f"{format_prefix}.{field.name}"
-                    else:
-                        kwargs['dest'] = field.name
-                elif kwargs['action'] == 'store_false':
-                    kwargs['action'] = TrackingStoreFalseAction
-                    if format_prefix:
-                        kwargs['dest'] = f"{format_prefix}.{field.name}"
-                    else:
-                        kwargs['dest'] = field.name
-            else:
-                # For non-boolean arguments, use TrackingStoreAction
-                kwargs['action'] = TrackingStoreAction
-                if format_prefix:
-                    kwargs['dest'] = f"{format_prefix}.{field.name}"
-                else:
-                    kwargs['dest'] = field.name
-
-            # Add the argument
-            try:
-                group.add_argument(cli_name, **kwargs)
-            except Exception as e:
-                print(f"Warning: Could not add argument {cli_name}: {e}")
+        self._add_options_arguments_internal(
+            parser, options_class, format_prefix, group_name, exclude_base_fields=True
+        )
 
     def build_parser(self) -> argparse.ArgumentParser:
         """Build the complete argument parser with dynamic arguments.
@@ -530,12 +487,17 @@ Examples:
         # Options JSON file
         parser.add_argument("--options-json", help="Path to JSON file containing conversion options")
 
-        # Logging level option
+        # Logging and verbosity options
+        parser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="Enable verbose output with detailed logging (equivalent to --log-level DEBUG)"
+        )
         parser.add_argument(
             "--log-level",
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
             default="WARNING",
-            help="Set logging level for debugging (default: WARNING)"
+            help="Set logging level for debugging (default: WARNING). Overrides --verbose if both are specified."
         )
 
         # Version and about options

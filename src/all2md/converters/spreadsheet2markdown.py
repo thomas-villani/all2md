@@ -16,6 +16,9 @@ Key Features
   - Optional sheet selection by name list or regex
   - Hyperlink preservation ([text](url))
   - Best-effort handling for merged cells (blank out non-master cells)
+    Note: Merged cells render as empty strings in non-master cell positions
+    in the resulting Markdown table. Only the top-left master cell retains
+    content. This is a limitation of Markdown's table format.
   - Optional formula rendering (values vs formulas) via data_only
   - Column alignment inferred from header cell horizontal alignment
 - ODS:
@@ -25,9 +28,10 @@ Key Features
   - Support for cell repetition attributes
   - Embedded image detection (framework ready for process_attachment)
 - CSV/TSV:
-  - Optional dialect detection
+  - Optional dialect detection (reads up to 4KB sample into memory)
   - Optional delimiter override (tsv uses tab)
   - First row used as header by default
+  - Streaming parsing via csv.reader for memory efficiency with large files
 - Enhanced header detection (all formats):
   - Manual mode (use has_header setting)
   - Auto mode (style-based heuristics for XLSX/ODS)

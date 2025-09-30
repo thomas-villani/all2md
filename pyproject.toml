@@ -44,7 +44,6 @@ all = [
     "pyth3>=0.7",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
-    "standard-imghdr>=3.13.0",
 ]
 dev = [
     "mypy>=1.18.2",

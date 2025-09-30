@@ -42,6 +42,45 @@ Configuration Options
 - Image handling modes (embed, remove, convert)
 - Title extraction from HTML head
 
+Security Considerations
+-----------------------
+This module includes basic content sanitization via the `strip_dangerous_elements`
+option, which uses a blacklist-based approach to remove potentially dangerous HTML
+elements and attributes. While this provides a reasonable baseline for processing
+trusted or semi-trusted HTML, it is NOT a complete security solution for untrusted input.
+
+For production applications handling untrusted HTML content:
+
+1. **Use Specialized Sanitization Libraries**: Consider using dedicated HTML
+   sanitization libraries such as Bleach (pip install bleach) which provide
+   more comprehensive whitelist-based sanitization:
+
+   ```python
+   import bleach
+   safe_html = bleach.clean(untrusted_html, tags=['p', 'em', 'strong'], strip=True)
+   markdown = html_to_markdown(safe_html)
+   ```
+
+2. **Implement Content Security Policy (CSP)**: For web applications, implement
+   CSP headers to provide defense-in-depth protection against XSS attacks.
+
+3. **Validate User Input**: Always validate and sanitize user-provided HTML
+   before processing, especially when dealing with URLs in href and src attributes.
+
+4. **Network Security**: When `allow_remote_fetch=True`, be aware of potential
+   SSRF (Server-Side Request Forgery) risks. Use `allowed_hosts` and `require_https`
+   options to restrict which remote resources can be fetched.
+
+The `strip_dangerous_elements` option provides basic protection by removing:
+- Script and style tags (always removed, even when option is False)
+- Event handler attributes (onclick, onerror, etc.)
+- Dangerous URL schemes (javascript:, data:, vbscript:)
+- Potentially unsafe elements (script, object, embed, iframe, etc.)
+
+However, HTML sanitization is complex, and new attack vectors are discovered regularly.
+Always use defense-in-depth strategies and consider the security requirements of your
+specific use case.
+
 Dependencies
 ------------
 - beautifulsoup4: For HTML parsing and DOM manipulation
