@@ -489,7 +489,7 @@ Examples:
 
         # Logging and verbosity options
         parser.add_argument(
-            "--verbose",
+            "--verbose", "-v",
             action="store_true",
             help="Enable verbose output with detailed logging (equivalent to --log-level DEBUG)"
         )
@@ -511,7 +511,7 @@ Examples:
             except Exception:
                 return "unknown"
 
-        parser.add_argument("--version", "-v", action=DynamicVersionAction,
+        parser.add_argument("--version", "-V", action=DynamicVersionAction,
                             version_callback=lambda: f"all2md {get_version()}")
         parser.add_argument("--about", "-A", action="store_true",
                             help="Show detailed information about all2md and exit")

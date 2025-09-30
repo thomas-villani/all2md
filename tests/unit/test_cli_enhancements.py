@@ -1,0 +1,365 @@
+"""Unit tests for new CLI enhancements.
+
+This module tests the enhanced CLI features including:
+- Version mismatch detection in DependencyError
+- list-formats command
+- Enhanced dry-run with format detection
+- detect-only mode
+- Security preset flags
+"""
+
+import argparse
+from unittest.mock import Mock, patch
+
+import pytest
+
+from all2md.cli import create_parser, handle_list_formats_command, process_detect_only
+from all2md.cli.processors import apply_security_preset
+from all2md.exceptions import DependencyError
+
+
+@pytest.mark.unit
+class TestDependencyErrorEnhancements:
+    """Test DependencyError with version mismatch support."""
+
+    def test_dependency_error_with_missing_packages_only(self):
+        """Test DependencyError with only missing packages."""
+        error = DependencyError(
+            converter_name="pdf",
+            missing_packages=[("pymupdf", ">=1.24.0"), ("pillow", "")],
+            version_mismatches=[]
+        )
+
+        assert error.converter_name == "pdf"
+        assert len(error.missing_packages) == 2
+        assert len(error.version_mismatches) == 0
+        assert "requires the following packages" in str(error)
+        assert "pymupdf" in str(error)
+        assert "pillow" in str(error)
+
+    def test_dependency_error_with_version_mismatches_only(self):
+        """Test DependencyError with only version mismatches."""
+        error = DependencyError(
+            converter_name="pdf",
+            missing_packages=[],
+            version_mismatches=[
+                ("numpy", ">=1.24.0", "1.20.0"),
+                ("pandas", ">=2.0.0", "1.5.3")
+            ]
+        )
+
+        assert error.converter_name == "pdf"
+        assert len(error.missing_packages) == 0
+        assert len(error.version_mismatches) == 2
+        assert "version mismatches" in str(error)
+        assert "numpy" in str(error)
+        assert "requires >=1.24.0, but 1.20.0 is installed" in str(error)
+
+    def test_dependency_error_with_both_types(self):
+        """Test DependencyError with both missing packages and version mismatches."""
+        error = DependencyError(
+            converter_name="pdf",
+            missing_packages=[("pymupdf", ">=1.24.0")],
+            version_mismatches=[("numpy", ">=1.24.0", "1.20.0")]
+        )
+
+        error_str = str(error)
+        assert "requires the following packages" in error_str
+        assert "version mismatches" in error_str
+        assert "pymupdf" in error_str
+        assert "numpy" in error_str
+
+    def test_dependency_error_install_command_generation(self):
+        """Test that install command includes all problematic packages."""
+        error = DependencyError(
+            converter_name="pdf",
+            missing_packages=[("pymupdf", ">=1.24.0")],
+            version_mismatches=[("numpy", ">=1.24.0", "1.20.0")]
+        )
+
+        error_str = str(error)
+        assert "pip install --upgrade" in error_str
+        assert "pymupdf" in error_str
+        assert "numpy" in error_str
+
+
+@pytest.mark.unit
+class TestListFormatsCommand:
+    """Test list-formats CLI command."""
+
+    def test_list_formats_help(self):
+        """Test that list-formats shows help with -h flag."""
+        result = handle_list_formats_command(['--help'])
+        assert result == 0
+
+    @patch('all2md.converter_registry.registry')
+    @patch('all2md.dependencies.check_version_requirement')
+    @patch('all2md.dependencies.get_package_version')
+    def test_list_formats_basic(self, mock_get_version, mock_check_version, mock_registry):
+        """Test basic list-formats output."""
+        # Setup mock registry
+        mock_registry.auto_discover = Mock()
+        mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
+
+        # Mock format info
+        mock_metadata = Mock()
+        mock_metadata.description = "PDF converter"
+        mock_metadata.extensions = ['.pdf']
+        mock_metadata.mime_types = ['application/pdf']
+        mock_metadata.converter_module = "all2md.converters.pdf2markdown"
+        mock_metadata.priority = 100
+        mock_metadata.required_packages = []
+
+        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+
+        # Test execution (plain text mode)
+        result = handle_list_formats_command([])
+        assert result == 0
+
+    @patch('all2md.converter_registry.registry')
+    @patch('all2md.dependencies.check_version_requirement')
+    @patch('all2md.dependencies.get_package_version')
+    def test_list_formats_with_specific_format(self, mock_get_version, mock_check_version, mock_registry):
+        """Test list-formats with specific format."""
+        mock_registry.auto_discover = Mock()
+        mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
+
+        mock_metadata = Mock()
+        mock_metadata.description = "PDF converter"
+        mock_metadata.extensions = ['.pdf']
+        mock_metadata.mime_types = ['application/pdf']
+        mock_metadata.converter_module = "all2md.converters.pdf2markdown"
+        mock_metadata.priority = 100
+        mock_metadata.required_packages = [("pymupdf", ">=1.24.0")]
+
+        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+        mock_check_version.return_value = (True, "1.24.0")
+
+        result = handle_list_formats_command(['pdf'])
+        assert result == 0
+
+    @patch('all2md.converter_registry.registry')
+    def test_list_formats_unknown_format(self, mock_registry):
+        """Test list-formats with unknown format."""
+        mock_registry.auto_discover = Mock()
+        mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
+
+        result = handle_list_formats_command(['unknown'])
+        assert result == 1
+
+
+@pytest.mark.unit
+class TestDetectOnlyMode:
+    """Test detect-only mode functionality."""
+
+    def test_detect_only_flag_in_parser(self):
+        """Test that --detect-only flag is available in parser."""
+        parser = create_parser()
+        args = parser.parse_args(['--detect-only', 'test.pdf'])
+
+        assert hasattr(args, 'detect_only')
+        assert args.detect_only is True
+
+    @patch('all2md.converter_registry.registry')
+    @patch('all2md.dependencies.check_version_requirement')
+    @patch('all2md.dependencies.check_package_installed')
+    def test_detect_only_basic(self, mock_check_installed, mock_check_version, mock_registry):
+        """Test basic detect-only functionality."""
+        from pathlib import Path
+
+        # Setup mocks
+        mock_registry.auto_discover = Mock()
+        mock_registry.detect_format = Mock(return_value='pdf')
+
+        mock_metadata = Mock()
+        mock_metadata.extensions = ['.pdf']
+        mock_metadata.mime_types = ['application/pdf']
+        mock_metadata.required_packages = []
+
+        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+        mock_registry.list_formats = Mock(return_value=['pdf'])
+
+        # Create mock args
+        args = Mock()
+        args.rich = False
+
+        # Create a temporary test file
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            test_file = Path(f.name)
+
+        try:
+            result = process_detect_only([test_file], args, 'auto')
+            assert result == 0
+        finally:
+            test_file.unlink()
+
+
+@pytest.mark.unit
+class TestSecurityPresets:
+    """Test security preset functionality."""
+
+    def test_strict_html_sanitize_preset(self):
+        """Test --strict-html-sanitize preset applies correct options."""
+        args = Mock()
+        args.strict_html_sanitize = True
+        args.safe_mode = False
+        args.paranoid_mode = False
+
+        options = {}
+        result = apply_security_preset(args, options)
+
+        assert result['strip_dangerous_elements'] is True
+        assert result['allow_remote_fetch'] is False
+        assert result['allow_local_files'] is False
+        assert result['allow_cwd_files'] is False
+
+    def test_safe_mode_preset(self):
+        """Test --safe-mode preset applies correct options."""
+        args = Mock()
+        args.strict_html_sanitize = False
+        args.safe_mode = True
+        args.paranoid_mode = False
+
+        options = {}
+        result = apply_security_preset(args, options)
+
+        assert result['strip_dangerous_elements'] is True
+        assert result['allow_remote_fetch'] is True
+        assert result['require_https'] is True
+        assert result['allow_local_files'] is False
+        assert result['allow_cwd_files'] is False
+
+    def test_paranoid_mode_preset(self):
+        """Test --paranoid-mode preset applies correct options."""
+        args = Mock()
+        args.strict_html_sanitize = False
+        args.safe_mode = False
+        args.paranoid_mode = True
+
+        options = {}
+        result = apply_security_preset(args, options)
+
+        assert result['strip_dangerous_elements'] is True
+        assert result['allow_remote_fetch'] is True
+        assert result['require_https'] is True
+        assert result['allowed_hosts'] == []
+        assert result['allow_local_files'] is False
+        assert result['allow_cwd_files'] is False
+        assert result['max_attachment_size_bytes'] == 5 * 1024 * 1024
+        assert result['max_remote_asset_bytes'] == 5 * 1024 * 1024
+
+    def test_no_preset_applied(self):
+        """Test that no preset leaves options unchanged."""
+        args = Mock()
+        args.strict_html_sanitize = False
+        args.safe_mode = False
+        args.paranoid_mode = False
+
+        options = {'existing_option': 'value'}
+        result = apply_security_preset(args, options)
+
+        assert result == {'existing_option': 'value'}
+        assert 'strip_dangerous_elements' not in result
+
+    def test_preset_flags_in_parser(self):
+        """Test that security preset flags are available in parser."""
+        parser = create_parser()
+
+        # Test strict-html-sanitize
+        args = parser.parse_args(['--strict-html-sanitize', 'test.html'])
+        assert args.strict_html_sanitize is True
+
+        # Test safe-mode
+        args = parser.parse_args(['--safe-mode', 'test.html'])
+        assert args.safe_mode is True
+
+        # Test paranoid-mode
+        args = parser.parse_args(['--paranoid-mode', 'test.html'])
+        assert args.paranoid_mode is True
+
+
+@pytest.mark.unit
+class TestEnhancedDryRun:
+    """Test enhanced dry-run with format detection."""
+
+    def test_dry_run_flag_still_works(self):
+        """Test that existing --dry-run flag still works."""
+        parser = create_parser()
+        args = parser.parse_args(['--dry-run', 'test.pdf'])
+
+        assert hasattr(args, 'dry_run')
+        assert args.dry_run is True
+
+    @patch('all2md.converter_registry.registry')
+    @patch('all2md.dependencies.check_version_requirement')
+    @patch('all2md.dependencies.check_package_installed')
+    def test_dry_run_shows_format_detection(self, mock_check_installed, mock_check_version, mock_registry):
+        """Test that enhanced dry-run shows format detection info."""
+        from pathlib import Path
+        from all2md.cli import process_dry_run
+
+        # Setup mocks
+        mock_registry.auto_discover = Mock()
+        mock_registry.detect_format = Mock(return_value='pdf')
+        mock_registry.list_formats = Mock(return_value=['pdf'])
+
+        mock_metadata = Mock()
+        mock_metadata.extensions = ['.pdf']
+        mock_metadata.required_packages = []
+
+        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+
+        args = Mock()
+        args.rich = False
+        args.collate = False
+        args.out = None
+        args.output_dir = None
+        args.preserve_structure = False
+        args.format = 'auto'
+        args.recursive = False
+        args.parallel = 1
+        args.exclude = None
+
+        # Create a temporary test file
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            test_file = Path(f.name)
+
+        try:
+            result = process_dry_run([test_file], args, 'auto')
+            assert result == 0
+        finally:
+            test_file.unlink()
+
+
+@pytest.mark.unit
+class TestCLIIntegration:
+    """Test integration of all new features."""
+
+    def test_all_new_flags_in_help(self):
+        """Test that all new flags appear in help output."""
+        parser = create_parser()
+        help_text = parser.format_help()
+
+        # Check for new flags
+        assert '--detect-only' in help_text
+        assert '--strict-html-sanitize' in help_text
+        assert '--safe-mode' in help_text
+        assert '--paranoid-mode' in help_text
+
+    def test_security_and_detect_together(self):
+        """Test that security presets work with detect-only mode."""
+        parser = create_parser()
+        args = parser.parse_args(['--detect-only', '--safe-mode', 'test.html'])
+
+        assert args.detect_only is True
+        assert args.safe_mode is True
+
+    def test_security_and_dry_run_together(self):
+        """Test that security presets work with dry-run mode."""
+        parser = create_parser()
+        args = parser.parse_args(['--dry-run', '--paranoid-mode', 'test.html'])
+
+        assert args.dry_run is True
+        assert args.paranoid_mode is True

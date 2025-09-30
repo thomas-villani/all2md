@@ -107,10 +107,10 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
     from all2md.cli.custom_actions import (
-        TrackingStoreAction,
         TrackingAppendAction,
-        TrackingStoreTrueAction,
         TrackingPositiveIntAction,
+        TrackingStoreAction,
+        TrackingStoreTrueAction,
     )
 
     builder = DynamicCLIBuilder()
@@ -194,10 +194,34 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        '--detect-only',
+        action=TrackingStoreTrueAction,
+        help='Show format detection results without conversion (useful for debugging batch inputs)'
+    )
+
+    parser.add_argument(
         '--exclude',
         action=TrackingAppendAction,
         metavar='PATTERN',
         help='Exclude files matching this glob pattern (can be specified multiple times)'
+    )
+
+    # Security preset flags
+    security_group = parser.add_argument_group('Security preset options')
+    security_group.add_argument(
+        '--strict-html-sanitize',
+        action=TrackingStoreTrueAction,
+        help='Enable strict HTML sanitization (disables remote fetch, local files, strips dangerous elements)'
+    )
+    security_group.add_argument(
+        '--safe-mode',
+        action=TrackingStoreTrueAction,
+        help='Balanced security for untrusted input (allows HTTPS remote fetch, strips dangerous elements)'
+    )
+    security_group.add_argument(
+        '--paranoid-mode',
+        action=TrackingStoreTrueAction,
+        help='Maximum security settings (strict restrictions, reduced size limits)'
     )
 
 
@@ -1004,14 +1028,68 @@ def process_dry_run(
     int
         Exit code (always 0 for dry run)
     """
+    from all2md.converter_registry import registry
+    from all2md.dependencies import check_version_requirement
+
     # Determine base input directory for structure preservation
     base_input_dir = None
     if args.preserve_structure and len(files) > 0:
         base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
 
+    # Auto-discover converters for format detection
+    registry.auto_discover()
+
     print("DRY RUN MODE - Showing what would be processed")
     print(f"Found {len(files)} file(s) to convert")
     print()
+
+    # Gather format detection information for each file
+    file_info_list = []
+    for file in files:
+        # Detect format for this file
+        if format_arg != "auto":
+            detected_format = format_arg
+            detection_method = "explicit (--format)"
+        else:
+            detected_format = registry.detect_format(file)
+            # Try to determine detection method
+            if file.suffix.lower() in [ext for fmt_name in registry.list_formats()
+                                       for ext in registry.get_format_info(fmt_name).extensions
+                                       if registry.get_format_info(fmt_name)]:
+                detection_method = "extension"
+            else:
+                detection_method = "content analysis"
+
+        # Get converter metadata
+        converter_metadata = registry.get_format_info(detected_format)
+
+        # Check if converter is available
+        converter_available = True
+        dependency_issues = []
+        if converter_metadata and converter_metadata.required_packages:
+            for pkg_name, version_spec in converter_metadata.required_packages:
+                if version_spec:
+                    meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
+                    if not meets_req:
+                        converter_available = False
+                        if installed_version:
+                            dependency_issues.append(f"{pkg_name} (version mismatch)")
+                        else:
+                            dependency_issues.append(f"{pkg_name} (missing)")
+                else:
+                    from all2md.dependencies import check_package_installed
+                    if not check_package_installed(pkg_name):
+                        converter_available = False
+                        dependency_issues.append(f"{pkg_name} (missing)")
+
+        file_info_list.append({
+            'file': file,
+            'detected_format': detected_format,
+            'detection_method': detection_method,
+            'converter_available': converter_available,
+            'dependency_issues': dependency_issues,
+            'converter_metadata': converter_metadata,
+        })
 
     if args.rich:
         try:
@@ -1023,8 +1101,12 @@ def process_dry_run(
             table.add_column("Input File", style="cyan", no_wrap=False)
             table.add_column("Output", style="green", no_wrap=False)
             table.add_column("Format", style="yellow")
+            table.add_column("Detection", style="magenta")
+            table.add_column("Status", style="white")
 
-            for file in files:
+            for info in file_info_list:
+                file = info['file']
+
                 if args.collate:
                     # For collation, all files go to one output
                     if args.out:
@@ -1033,7 +1115,7 @@ def process_dry_run(
                         output_str = "stdout (collated)"
                 else:
                     # Individual file processing
-                    if len(files) == 1 and args.out and not args.output_dir:
+                    if len(file_info_list) == 1 and args.out and not args.output_dir:
                         output_path = Path(args.out)
                     else:
                         output_path = generate_output_path(
@@ -1045,10 +1127,21 @@ def process_dry_run(
                         )
                     output_str = str(output_path)
 
+                # Format status with color coding
+                if info['converter_available']:
+                    status = "[green][OK] Ready[/green]"
+                else:
+                    issues = ", ".join(info['dependency_issues'][:2])
+                    if len(info['dependency_issues']) > 2:
+                        issues += "..."
+                    status = f"[red][X] {issues}[/red]"
+
                 table.add_row(
                     str(file),
                     output_str,
-                    format_arg if format_arg != "auto" else "auto-detect"
+                    info['detected_format'].upper(),
+                    info['detection_method'],
+                    status
                 )
 
             console.print(table)
@@ -1059,14 +1152,16 @@ def process_dry_run(
 
     if not args.rich:
         # Simple text output
-        for i, file in enumerate(files, 1):
+        for i, info in enumerate(file_info_list, 1):
+            file = info['file']
+
             if args.collate:
                 if args.out:
                     output_str = f" -> {args.out} (collated)"
                 else:
                     output_str = " -> stdout (collated)"
             else:
-                if len(files) == 1 and args.out and not args.output_dir:
+                if len(file_info_list) == 1 and args.out and not args.output_dir:
                     output_path = Path(args.out)
                 else:
                     output_path = generate_output_path(
@@ -1078,7 +1173,18 @@ def process_dry_run(
                     )
                 output_str = f" -> {output_path}"
 
-            print(f"{i:3d}. {file}{output_str}")
+            # Format detection and status
+            status = "[OK]" if info['converter_available'] else "[X]"
+            format_str = f"[{info['detected_format'].upper()}, {info['detection_method']}]"
+
+            print(f"{i:3d}. {status} {file}{output_str}")
+            print(f"     Format: {format_str}")
+
+            if not info['converter_available']:
+                issues_str = ", ".join(info['dependency_issues'])
+                print(f"     Issues: {issues_str}")
+
+            print()  # Blank line between files
 
     print()
     print("Options that would be used:")
@@ -1100,6 +1206,443 @@ def process_dry_run(
     return 0
 
 
+def process_detect_only(
+        files: List[Path],
+        args: argparse.Namespace,
+        format_arg: str
+) -> int:
+    """Process files in detect-only mode - show format detection without conversion plan.
+
+    Parameters
+    ----------
+    files : List[Path]
+        List of files to detect formats for
+    args : argparse.Namespace
+        Command-line arguments
+    format_arg : str
+        Format specification
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 if any detection issues)
+    """
+    from all2md.converter_registry import registry
+    from all2md.dependencies import check_version_requirement
+
+    # Auto-discover converters
+    registry.auto_discover()
+
+    print("DETECT-ONLY MODE - Format Detection Results")
+    print(f"Analyzing {len(files)} file(s)")
+    print()
+
+    # Gather detection info
+    detection_results = []
+    any_issues = False
+
+    for file in files:
+        # Detect format
+        if format_arg != "auto":
+            detected_format = format_arg
+            detection_method = "explicit (--format)"
+        else:
+            detected_format = registry.detect_format(file)
+
+            # Determine detection method
+            metadata = registry.get_format_info(detected_format)
+            if metadata and file.suffix.lower() in metadata.extensions:
+                detection_method = "file extension"
+            else:
+                # Check MIME type
+                import mimetypes
+                mime_type, _ = mimetypes.guess_type(str(file))
+                if mime_type and metadata and mime_type in metadata.mime_types:
+                    detection_method = "MIME type"
+                else:
+                    detection_method = "magic bytes/content"
+
+        # Get converter info
+        converter_metadata = registry.get_format_info(detected_format)
+
+        # Check dependencies
+        converter_available = True
+        dependency_status = []
+
+        if converter_metadata and converter_metadata.required_packages:
+            for pkg_name, version_spec in converter_metadata.required_packages:
+                if version_spec:
+                    meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
+                    if not meets_req:
+                        converter_available = False
+                        any_issues = True
+                        if installed_version:
+                            dependency_status.append((pkg_name, 'version mismatch', installed_version, version_spec))
+                        else:
+                            dependency_status.append((pkg_name, 'missing', None, version_spec))
+                    else:
+                        dependency_status.append((pkg_name, 'ok', installed_version, version_spec))
+                else:
+                    from all2md.dependencies import check_package_installed
+                    if not check_package_installed(pkg_name):
+                        converter_available = False
+                        any_issues = True
+                        dependency_status.append((pkg_name, 'missing', None, None))
+                    else:
+                        dependency_status.append((pkg_name, 'ok', None, None))
+
+        detection_results.append({
+            'file': file,
+            'format': detected_format,
+            'method': detection_method,
+            'available': converter_available,
+            'deps': dependency_status,
+            'metadata': converter_metadata,
+        })
+
+    # Display results
+    if args.rich:
+        try:
+            from rich.console import Console
+            from rich.table import Table
+
+            console = Console()
+
+            # Main detection table
+            table = Table(title="Format Detection Results")
+            table.add_column("File", style="cyan", no_wrap=False)
+            table.add_column("Detected Format", style="yellow")
+            table.add_column("Detection Method", style="magenta")
+            table.add_column("Converter Status", style="white")
+
+            for result in detection_results:
+                if result['available']:
+                    status = "[green][OK] Available[/green]"
+                else:
+                    status = "[red][X] Unavailable[/red]"
+
+                table.add_row(
+                    str(result['file']),
+                    result['format'].upper(),
+                    result['method'],
+                    status
+                )
+
+            console.print(table)
+
+            # Show dependency details if there are issues
+            if any_issues:
+                console.print("\n[bold yellow]Dependency Issues:[/bold yellow]")
+                for result in detection_results:
+                    if not result['available']:
+                        console.print(f"\n[cyan]{result['file']}[/cyan] ({result['format'].upper()}):")
+                        for pkg_name, status, installed, required in result['deps']:
+                            if status == 'missing':
+                                console.print(f"  [red][X] {pkg_name} - Not installed[/red]")
+                            elif status == 'version mismatch':
+                                msg = f"  [yellow][!] {pkg_name} - Version mismatch"
+                                msg += f" (requires {required}, installed: {installed})[/yellow]"
+                                console.print(msg)
+
+                        if result['metadata']:
+                            install_cmd = result['metadata'].get_install_command()
+                            console.print(f"  [dim]Install: {install_cmd}[/dim]")
+
+        except ImportError:
+            # Fall back to plain text
+            args.rich = False
+
+    if not args.rich:
+        # Plain text output
+        for i, result in enumerate(detection_results, 1):
+            status = "[OK]" if result['available'] else "[X]"
+            print(f"{i:3d}. {status} {result['file']}")
+            print(f"     Format: {result['format'].upper()}")
+            print(f"     Detection: {result['method']}")
+
+            if result['deps']:
+                print("     Dependencies:")
+                for pkg_name, status_str, installed, required in result['deps']:
+                    if status_str == 'ok':
+                        version_info = f" ({installed})" if installed else ""
+                        print(f"       [OK] {pkg_name}{version_info}")
+                    elif status_str == 'missing':
+                        print(f"       [MISSING] {pkg_name}")
+                    elif status_str == 'version mismatch':
+                        print(f"       [MISMATCH] {pkg_name} (requires {required}, installed: {installed})")
+
+                if not result['available'] and result['metadata']:
+                    install_cmd = result['metadata'].get_install_command()
+                    print(f"     Install: {install_cmd}")
+            else:
+                print("     Dependencies: None required")
+
+            print()
+
+    print(f"\nTotal files analyzed: {len(detection_results)}")
+    if any_issues:
+        unavailable_count = sum(1 for r in detection_results if not r['available'])
+        print(f"Files with unavailable converters: {unavailable_count}")
+        return 1
+    else:
+        print("All detected converters are available")
+        return 0
+
+
+def handle_list_formats_command(args: Optional[list[str]] = None) -> int:
+    """Handle list-formats command to show available converters.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'list-formats')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+    """
+    from all2md.converter_registry import registry
+    from all2md.dependencies import check_version_requirement, get_package_version
+
+    # Parse command line arguments for list-formats
+    specific_format = None
+    available_only = False
+    use_rich = False
+
+    if args:
+        for arg in args:
+            if arg in ('--help', '-h'):
+                print("""Usage: all2md list-formats [OPTIONS] [FORMAT]
+
+Show information about available document converters.
+
+Arguments:
+  FORMAT              Show details for specific format only
+
+Options:
+  --available-only    Show only formats with satisfied dependencies
+  --rich              Use rich terminal output with formatting
+  -h, --help         Show this help message
+
+Examples:
+  all2md list-formats                    # List all formats
+  all2md list-formats pdf                # Show details for PDF
+  all2md list-formats --available-only   # Only show usable formats
+""")
+                return 0
+            elif arg == '--available-only':
+                available_only = True
+            elif arg == '--rich':
+                use_rich = True
+            elif not arg.startswith('-'):
+                specific_format = arg
+
+    # Auto-discover converters
+    registry.auto_discover()
+
+    # Get all formats
+    formats = registry.list_formats()
+    if specific_format:
+        if specific_format not in formats:
+            print(f"Error: Format '{specific_format}' not found", file=sys.stderr)
+            print(f"Available formats: {', '.join(formats)}", file=sys.stderr)
+            return 1
+        formats = [specific_format]
+
+    # Gather format information
+    format_info_list = []
+    for format_name in formats:
+        metadata = registry.get_format_info(format_name)
+        if not metadata:
+            continue
+
+        # Check dependency status
+        all_available = True
+        dep_status = []
+
+        for pkg_name, version_spec in metadata.required_packages:
+            if version_spec:
+                meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
+                if not meets_req:
+                    all_available = False
+                    if installed_version:
+                        dep_status.append((pkg_name, version_spec, 'mismatch', installed_version))
+                    else:
+                        dep_status.append((pkg_name, version_spec, 'missing', None))
+                else:
+                    dep_status.append((pkg_name, version_spec, 'ok', installed_version))
+            else:
+                installed_version = get_package_version(pkg_name)
+                if installed_version:
+                    dep_status.append((pkg_name, version_spec, 'ok', installed_version))
+                else:
+                    all_available = False
+                    dep_status.append((pkg_name, version_spec, 'missing', None))
+
+        # Skip if filtering for available only
+        if available_only and not all_available:
+            continue
+
+        format_info_list.append({
+            'name': format_name,
+            'metadata': metadata,
+            'all_available': all_available,
+            'dep_status': dep_status,
+        })
+
+    # Display results
+    if use_rich:
+        try:
+            from rich.console import Console
+            from rich.panel import Panel
+            from rich.table import Table
+
+            console = Console()
+
+            if specific_format:
+                # Detailed view for specific format
+                info = format_info_list[0] if format_info_list else None
+                if info:
+                    metadata = info['metadata']
+
+                    # Create main panel
+                    content = []
+                    content.append(f"[bold]Format:[/bold] {info['name'].upper()}")
+                    content.append(f"[bold]Description:[/bold] {metadata.description or 'N/A'}")
+                    content.append(f"[bold]Extensions:[/bold] {', '.join(metadata.extensions) or 'N/A'}")
+                    content.append(f"[bold]MIME Types:[/bold] {', '.join(metadata.mime_types) or 'N/A'}")
+                    content.append(f"[bold]Converter Module:[/bold] {metadata.converter_module}")
+                    content.append(f"[bold]Priority:[/bold] {metadata.priority}")
+
+                    console.print(Panel("\n".join(content), title=f"{info['name'].upper()} Format Details"))
+
+                    # Dependencies table
+                    if info['dep_status']:
+                        dep_table = Table(title="Dependencies")
+                        dep_table.add_column("Package", style="cyan")
+                        dep_table.add_column("Required", style="yellow")
+                        dep_table.add_column("Status", style="magenta")
+                        dep_table.add_column("Installed", style="green")
+
+                        for pkg_name, version_spec, status, installed_version in info['dep_status']:
+                            status_icon = {
+                                'ok': '[green][OK] Available[/green]',
+                                'missing': '[red][X] Missing[/red]',
+                                'mismatch': '[yellow][!] Version Mismatch[/yellow]'
+                            }[status]
+
+                            dep_table.add_row(
+                                pkg_name,
+                                version_spec or 'any',
+                                status_icon,
+                                installed_version or 'N/A'
+                            )
+
+                        console.print(dep_table)
+
+                        # Show install command if needed
+                        if not info['all_available']:
+                            install_cmd = metadata.get_install_command()
+                            console.print(f"\n[yellow]Install with:[/yellow] {install_cmd}")
+                    else:
+                        console.print("[green]No dependencies required[/green]")
+
+            else:
+                # Summary table for all formats
+                table = Table(title=f"All2MD Supported Formats ({len(format_info_list)} formats)")
+                table.add_column("Format", style="cyan", no_wrap=True)
+                table.add_column("Extensions", style="yellow")
+                table.add_column("Status", style="magenta")
+                table.add_column("Dependencies", style="white")
+
+                for info in format_info_list:
+                    metadata = info['metadata']
+
+                    # Status indicator
+                    if info['all_available']:
+                        status = "[green][OK] Available[/green]"
+                    else:
+                        status = "[red][X] Unavailable[/red]"
+
+                    # Extensions
+                    ext_str = ", ".join(metadata.extensions[:4])
+                    if len(metadata.extensions) > 4:
+                        ext_str += f" +{len(metadata.extensions) - 4}"
+
+                    # Dependencies summary
+                    if info['dep_status']:
+                        ok_count = sum(1 for _, _, s, _ in info['dep_status'] if s == 'ok')
+                        total_count = len(info['dep_status'])
+                        dep_str = f"{ok_count}/{total_count}"
+                    else:
+                        dep_str = "none"
+
+                    table.add_row(
+                        info['name'].upper(),
+                        ext_str,
+                        status,
+                        dep_str
+                    )
+
+                console.print(table)
+                console.print("\n[dim]Use 'all2md list-formats <format>' for detailed information[/dim]")
+
+        except ImportError:
+            # Fall back to plain text
+            use_rich = False
+
+    if not use_rich:
+        # Plain text output
+        if specific_format:
+            info = format_info_list[0] if format_info_list else None
+            if info:
+                metadata = info['metadata']
+                print(f"\n{info['name'].upper()} Format")
+                print("=" * 60)
+                print(f"Description: {metadata.description or 'N/A'}")
+                print(f"Extensions: {', '.join(metadata.extensions) or 'N/A'}")
+                print(f"MIME Types: {', '.join(metadata.mime_types) or 'N/A'}")
+                print(f"Converter: {metadata.converter_module}")
+                print(f"Priority: {metadata.priority}")
+
+                if info['dep_status']:
+                    print("\nDependencies:")
+                    for pkg_name, version_spec, status, installed_version in info['dep_status']:
+                        status_str = {
+                            'ok': '[OK]',
+                            'missing': '[MISSING]',
+                            'mismatch': '[VERSION MISMATCH]'
+                        }[status]
+
+                        version_str = f" {version_spec}" if version_spec else ""
+                        installed_str = f" (installed: {installed_version})" if installed_version else ""
+
+                        print(f"  {status_str} {pkg_name}{version_str}{installed_str}")
+
+                    if not info['all_available']:
+                        install_cmd = metadata.get_install_command()
+                        print(f"\nInstall with: {install_cmd}")
+                else:
+                    print("\nNo dependencies required")
+        else:
+            print("\nAll2MD Supported Formats")
+            print("=" * 60)
+            for info in format_info_list:
+                metadata = info['metadata']
+                status = "[OK]" if info['all_available'] else "[X]"
+                ext_str = ", ".join(metadata.extensions[:4])
+                if len(metadata.extensions) > 4:
+                    ext_str += f" +{len(metadata.extensions) - 4}"
+
+                print(f"{status} {info['name'].upper():12} {ext_str}")
+
+            print(f"\nTotal: {len(format_info_list)} formats")
+            print("Use 'all2md list-formats <format>' for detailed information")
+
+    return 0
+
+
 def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int]:
     """Handle dependency management commands.
 
@@ -1118,6 +1661,10 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
 
     if not args:
         return None
+
+    # Check for list-formats command
+    if args[0] in ('list-formats', 'formats'):
+        return handle_list_formats_command(args[1:])
 
     # Check for dependency management commands
     if args[0] == 'check-deps':

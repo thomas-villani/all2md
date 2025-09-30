@@ -150,7 +150,6 @@ EXTENSION_TO_LANGUAGE: Dict[str, str] = {
     ".pm": "perl",
     # R
     ".r": "r",
-    ".R": "r",
     # Haskell
     ".hs": "haskell",
     # Erlang/Elixir
@@ -225,7 +224,6 @@ EXTENSION_TO_LANGUAGE: Dict[str, str] = {
     ".diff": "diff",
     ".patch": "diff",
     ".log": "log",
-    ".txt": "text",
 }
 
 

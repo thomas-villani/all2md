@@ -235,17 +235,38 @@ class ConverterRegistry:
             return converter_func, options_class
 
         except ImportError as e:
-            # Check which specific package failed
+            # Check which specific package failed and whether it's a version mismatch
             missing_packages = []
+            version_mismatches = []
 
             for pkg_name, version_spec in metadata.required_packages:
-                if not _check_package_installed(pkg_name):
-                    missing_packages.append((pkg_name, version_spec))
+                if version_spec:
+                    # Use version checking from dependencies module
+                    try:
+                        from all2md.dependencies import check_version_requirement
+                        meets_requirement, installed_version = check_version_requirement(pkg_name, version_spec)
 
-            if missing_packages:
+                        if not meets_requirement:
+                            if installed_version:
+                                # Package installed but wrong version
+                                version_mismatches.append((pkg_name, version_spec, installed_version))
+                            else:
+                                # Package not installed
+                                missing_packages.append((pkg_name, version_spec))
+                    except ImportError:
+                        # packaging module not available, fall back to simple check
+                        if not _check_package_installed(pkg_name):
+                            missing_packages.append((pkg_name, version_spec))
+                else:
+                    # No version requirement, just check if installed
+                    if not _check_package_installed(pkg_name):
+                        missing_packages.append((pkg_name, version_spec))
+
+            if missing_packages or version_mismatches:
                 raise DependencyError(
                     converter_name=metadata.format_name,
                     missing_packages=missing_packages,
+                    version_mismatches=version_mismatches,
                     install_command=metadata.get_install_command()
                 ) from e
             else:

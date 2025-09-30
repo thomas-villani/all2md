@@ -17,6 +17,68 @@ from all2md.cli.builder import DynamicCLIBuilder
 from all2md.exceptions import InputError, MarkdownConversionError
 
 
+def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply security preset configurations to options.
+
+    Parameters
+    ----------
+    parsed_args : argparse.Namespace
+        Parsed command line arguments
+    options : Dict[str, Any]
+        Current options dictionary
+
+    Returns
+    -------
+    Dict[str, Any]
+        Updated options with security presets applied
+
+    Notes
+    -----
+    Security presets set multiple options to secure defaults. Explicit CLI flags
+    can still override preset values if specified after the preset flag.
+    """
+    import sys
+
+    # Track which preset is being used (highest security wins)
+    preset_used = None
+
+    if parsed_args.strict_html_sanitize:
+        preset_used = "strict-html-sanitize"
+        # Strict HTML sanitization preset
+        options['strip_dangerous_elements'] = True
+        options['allow_remote_fetch'] = False
+        options['allow_local_files'] = False
+        options['allow_cwd_files'] = False
+
+    if parsed_args.safe_mode:
+        preset_used = "safe-mode"
+        # Balanced security for untrusted input
+        options['strip_dangerous_elements'] = True
+        options['allow_remote_fetch'] = True
+        options['require_https'] = True
+        options['allow_local_files'] = False
+        options['allow_cwd_files'] = False
+
+    if parsed_args.paranoid_mode:
+        preset_used = "paranoid-mode"
+        # Maximum security
+        options['strip_dangerous_elements'] = True
+        options['allow_remote_fetch'] = True
+        options['require_https'] = True
+        options['allowed_hosts'] = []  # Validate but allow all HTTPS hosts
+        options['allow_local_files'] = False
+        options['allow_cwd_files'] = False
+        options['max_attachment_size_bytes'] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
+        options['max_remote_asset_bytes'] = 5 * 1024 * 1024  # 5MB
+
+    # Show warning if preset is used
+    if preset_used:
+        print(f"Security preset applied: {preset_used}", file=sys.stderr)
+        print("Note: Individual security flags can override preset values if specified explicitly.", file=sys.stderr)
+
+    return options
+
+
 def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], str]:
     """Set up conversion options and validate arguments.
 
@@ -44,6 +106,9 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     builder = DynamicCLIBuilder()
     options = builder.map_args_to_options(parsed_args, json_options)
     format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
+
+    # Apply security presets if specified
+    options = apply_security_preset(parsed_args, options)
 
     return options, format_arg
 
@@ -137,7 +202,8 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
                     with console.pager(styles=True):
                         console.print(markdown_content)
                 except ImportError:
-                    print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+                    msg = "Warning: Rich library not installed. Install with: pip install all2md[rich]"
+                    print(msg, file=sys.stderr)
                     print(markdown_content)
             else:
                 print(markdown_content)
@@ -182,12 +248,17 @@ def process_multi_file(
     from all2md.cli import (
         convert_single_file,
         generate_output_path,
+        process_detect_only,
         process_dry_run,
         process_files_collated,
         process_files_simple,
         process_with_progress_bar,
         process_with_rich_output,
     )
+
+    # Handle detect-only mode
+    if parsed_args.detect_only:
+        return process_detect_only(files, parsed_args, format_arg)
 
     # Handle dry run mode
     if parsed_args.dry_run:
@@ -209,6 +280,7 @@ def process_multi_file(
         if output_path is None and parsed_args.pager:
             try:
                 from rich.console import Console
+
                 from all2md import to_markdown
 
                 # Convert the document

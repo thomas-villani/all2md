@@ -199,6 +199,9 @@ class DependencyError(ImportError, All2MdError):
         Name of the converter requiring dependencies
     missing_packages : list[tuple[str, str]]
         List of (package_name, version_spec) tuples for missing packages
+    version_mismatches : list[tuple[str, str, str]], optional
+        List of (package_name, required_version, installed_version) tuples
+        for packages with version mismatches
     install_command : str, optional
         Suggested pip install command to resolve the issue
     message : str, optional
@@ -210,6 +213,8 @@ class DependencyError(ImportError, All2MdError):
         The converter that has missing dependencies
     missing_packages : list[tuple[str, str]]
         Packages that need to be installed
+    version_mismatches : list[tuple[str, str, str]]
+        Packages with version mismatches
     install_command : str
         Command to install missing dependencies
     """
@@ -218,28 +223,54 @@ class DependencyError(ImportError, All2MdError):
             self,
             converter_name: str,
             missing_packages: list[tuple[str, str]],
+            version_mismatches: list[tuple[str, str, str]] | None = None,
             install_command: str = "",
             message: str | None = None
     ):
+        version_mismatches = version_mismatches or []
+
         if message is None:
-            pkg_list = ", ".join(
-                f"'{name}{spec}'" if spec else f"'{name}'"
-                for name, spec in missing_packages
-            )
-            message = (
-                f"{converter_name.upper()} format requires the following packages: {pkg_list}\n"
-            )
-            if install_command:
-                message += f"Install with: {install_command}"
-            else:
-                # Generate install command if not provided
-                packages_str = " ".join(
-                    f'"{name}{spec}"' if spec else name
+            message_parts = []
+
+            # Add missing packages section
+            if missing_packages:
+                pkg_list = ", ".join(
+                    f"'{name}{spec}'" if spec else f"'{name}'"
                     for name, spec in missing_packages
                 )
-                message += f"Install with: pip install {packages_str}"
+                message_parts.append(
+                    f"{converter_name.upper()} format requires the following packages: {pkg_list}"
+                )
+
+            # Add version mismatch section
+            if version_mismatches:
+                mismatch_details = []
+                for name, required, installed in version_mismatches:
+                    mismatch_details.append(
+                        f"'{name}' (requires {required}, but {installed} is installed)"
+                    )
+                mismatch_str = ", ".join(mismatch_details)
+                message_parts.append(
+                    f"{converter_name.upper()} format has version mismatches: {mismatch_str}"
+                )
+
+            message = "\n".join(message_parts)
+
+            # Add install command
+            if install_command:
+                message += f"\nInstall with: {install_command}"
+            else:
+                # Generate install command for all problematic packages
+                all_packages = missing_packages + [(name, req) for name, req, _ in version_mismatches]
+                if all_packages:
+                    packages_str = " ".join(
+                        f'"{name}{spec}"' if spec else name
+                        for name, spec in all_packages
+                    )
+                    message += f"\nInstall with: pip install --upgrade {packages_str}"
 
         super().__init__(message)
         self.converter_name = converter_name
         self.missing_packages = missing_packages
+        self.version_mismatches = version_mismatches
         self.install_command = install_command
