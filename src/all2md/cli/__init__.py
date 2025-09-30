@@ -124,6 +124,12 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        '--pager',
+        action=TrackingStoreTrueAction,
+        help='Display output using system pager for long documents (stdout only)'
+    )
+
+    parser.add_argument(
         '--progress',
         action=TrackingStoreTrueAction,
         help='Show progress bar for file conversions (automatically enabled for multiple files)'
@@ -1164,6 +1170,12 @@ def main(args: Optional[list[str]] = None) -> int:
 
     parser = create_parser()
     parsed_args = parser.parse_args(args)
+
+    # Check for ALL2MD_CONFIG_JSON environment variable if --options-json not provided
+    if not parsed_args.options_json:
+        env_config = os.environ.get('ALL2MD_CONFIG_JSON')
+        if env_config:
+            parsed_args.options_json = env_config
 
     # Handle --about flag
     if parsed_args.about:

@@ -308,9 +308,9 @@ class DynamicCLIBuilder:
 
                 if is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
-                    nested_prefix = f"{format_prefix}-{field.name}" if format_prefix else field.name
+                    nested_prefix = f"{format_prefix}-{self.snake_to_kebab(field.name)}" if format_prefix else self.snake_to_kebab(field.name)
                     self.add_options_class_arguments(
-                        parser,
+                        group,  # Use parent group instead of parser
                         field_type,
                         format_prefix=nested_prefix,
                         group_name=None  # Don't create separate groups for nested classes
@@ -412,9 +412,9 @@ class DynamicCLIBuilder:
 
                 if is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
-                    nested_prefix = f"{format_prefix}-{field.name}" if format_prefix else field.name
+                    nested_prefix = f"{format_prefix}-{self.snake_to_kebab(field.name)}" if format_prefix else self.snake_to_kebab(field.name)
                     self.add_format_specific_options(
-                        parser,
+                        group,  # Use parent group instead of parser
                         field_type,
                         format_prefix=nested_prefix,
                         group_name=None  # Don't create separate groups for nested classes

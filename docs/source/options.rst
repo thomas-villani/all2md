@@ -744,10 +744,7 @@ Command-line arguments have been updated to reflect the new structure:
 
 .. code-block:: bash
 
-   # Old
-   all2md webpage.html --html-allow-remote-fetch --html-require-https
-
-   # New
+   # CLI usage
    all2md webpage.html --html-network-allow-remote-fetch --html-network-require-https
 
 Benefits of the New Structure

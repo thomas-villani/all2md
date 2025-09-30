@@ -217,6 +217,27 @@ Processing and Output Control
       # Enhanced terminal output
       all2md document.pdf --rich
 
+``--pager``
+   Display output using system pager for long documents (stdout only). Uses the system's default pager (``less`` on Unix, ``more`` on Windows) or the pager specified in ``PAGER`` or ``MANPAGER`` environment variables.
+
+   .. note::
+
+      * Only applies to stdout output (not when using ``--out`` or ``--output-dir``)
+      * Requires the ``rich`` library (install with ``pip install all2md[rich]``)
+      * On Linux/macOS, set ``PAGER=less -r`` to enable ANSI color support in the pager
+
+   .. code-block:: bash
+
+      # View long document with pager
+      all2md long_document.pdf --pager
+
+      # Combine with other options
+      all2md report.pdf --pager --pdf-pages "0,1,2,3,4"
+
+      # Enable color support in pager (bash/zsh)
+      export PAGER="less -r"
+      all2md document.pdf --pager
+
 ``--progress``
    Show progress bar for file conversions (automatically enabled for multiple files).
 
@@ -404,7 +425,7 @@ HTML Options
 Network Security Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``--html-allow-remote-fetch``
+``--html-network-allow-remote-fetch``
    Allow fetching remote URLs for images and resources (base64/download modes).
 
    **Default:** Disabled (prevents SSRF attacks)
@@ -412,17 +433,17 @@ Network Security Options
    .. code-block:: bash
 
       # Enable remote fetching with security controls
-      all2md webpage.html --html-allow-remote-fetch --html-require-https --html-network-timeout 5
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-require-https --html-network-network-timeout 5
 
-``--html-allowed-hosts``
+``--html-network-allowed-hosts``
    Comma-separated list of allowed hostnames for remote fetching.
 
    .. code-block:: bash
 
       # Only allow specific hosts
-      all2md webpage.html --html-allow-remote-fetch --html-allowed-hosts "example.com,cdn.example.com"
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-allowed-hosts "example.com,cdn.example.com"
 
-``--html-require-https``
+``--html-network-require-https``
    Require HTTPS for all remote URL fetching.
 
    **Default:** Disabled
@@ -430,9 +451,9 @@ Network Security Options
    .. code-block:: bash
 
       # Force HTTPS for security
-      all2md webpage.html --html-allow-remote-fetch --html-require-https
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-require-https
 
-``--html-network-timeout``
+``--html-network-network-timeout``
    Timeout in seconds for remote URL fetching.
 
    **Default:** 10.0
@@ -440,17 +461,17 @@ Network Security Options
    .. code-block:: bash
 
       # Set 5-second timeout
-      all2md webpage.html --html-allow-remote-fetch --html-network-timeout 5
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-network-timeout 5
 
-``--html-max-image-size-bytes``
-   Maximum allowed size in bytes for downloaded images.
+``--html-network-max-remote-asset-bytes``
+   Maximum allowed size in bytes for downloaded remote assets.
 
    **Default:** 10485760 (10MB)
 
    .. code-block:: bash
 
-      # Limit images to 2MB
-      all2md webpage.html --html-allow-remote-fetch --html-max-image-size-bytes 2097152
+      # Limit remote assets to 2MB
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-max-remote-asset-bytes 2097152
 
 Global Network Control
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -470,11 +491,11 @@ Security Examples
 
    # Secure web scraping with allowlist
    all2md webpage.html \
-       --html-allow-remote-fetch \
-       --html-allowed-hosts "trusted-site.com" \
-       --html-require-https \
-       --html-network-timeout 5 \
-       --html-max-image-size-bytes 1048576 \
+       --html-network-allow-remote-fetch \
+       --html-network-allowed-hosts "trusted-site.com" \
+       --html-network-require-https \
+       --html-network-network-timeout 5 \
+       --html-network-max-remote-asset-bytes 1048576 \
        --attachment-mode download \
        --attachment-output-dir ./secure_images
 
@@ -980,6 +1001,22 @@ Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
 
 all2md supports setting default values for **all CLI options** using environment variables. This provides a convenient way to configure defaults for scripts or user preferences.
+
+**Configuration File via Environment Variable:**
+
+``ALL2MD_CONFIG_JSON``
+   Path to a JSON configuration file containing conversion options. This is equivalent to using ``--options-json`` on the command line. The CLI argument ``--options-json`` takes precedence over this environment variable if both are specified.
+
+   .. code-block:: bash
+
+      # Set default config file location
+      export ALL2MD_CONFIG_JSON="$HOME/.config/all2md/default.json"
+
+      # Now all commands use this config by default
+      all2md document.pdf
+
+      # Override with explicit flag
+      all2md document.pdf --options-json ./project-config.json
 
 **Naming Convention:**
 

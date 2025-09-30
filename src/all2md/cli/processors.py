@@ -129,7 +129,18 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
             output_path.write_text(markdown_content, encoding="utf-8")
             print(f"Converted stdin -> {output_path}")
         else:
-            print(markdown_content)
+            # Use pager if requested and outputting to stdout
+            if parsed_args.pager:
+                try:
+                    from rich.console import Console
+                    console = Console()
+                    with console.pager(styles=True):
+                        console.print(markdown_content)
+                except ImportError:
+                    print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+                    print(markdown_content)
+            else:
+                print(markdown_content)
 
         return 0
 
@@ -193,6 +204,28 @@ def process_multi_file(
             output_path.parent.mkdir(parents=True, exist_ok=True)
         elif parsed_args.output_dir:
             output_path = generate_output_path(file, Path(parsed_args.output_dir), False, None)
+
+        # Handle pager for stdout output
+        if output_path is None and parsed_args.pager:
+            try:
+                from rich.console import Console
+                from all2md import to_markdown
+
+                # Convert the document
+                markdown_content = to_markdown(file, format=format_arg, **options)
+
+                # Display with pager
+                console = Console()
+                with console.pager(styles=True):
+                    console.print(markdown_content)
+
+                return 0
+            except ImportError:
+                print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+                # Fall through to regular conversion
+            except (MarkdownConversionError, InputError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                return 1
 
         success, file_str, error = convert_single_file(file, output_path, options, format_arg, False)
 
