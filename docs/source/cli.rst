@@ -979,26 +979,89 @@ Aliases and Functions
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
 
-Set default options using environment variables:
+all2md supports setting default values for **all CLI options** using environment variables. This provides a convenient way to configure defaults for scripts or user preferences.
+
+**Naming Convention:**
+
+Environment variables use the pattern ``ALL2MD_<OPTION_NAME>`` where ``<OPTION_NAME>`` is the CLI argument name in uppercase with hyphens and dots replaced by underscores.
+
+**Examples:**
 
 .. code-block:: bash
 
-   # Set default attachment mode
+   # CLI argument: --output-dir
+   export ALL2MD_OUTPUT_DIR="./converted"
+
+   # CLI argument: --markdown-emphasis-symbol
+   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
+
+   # CLI argument: --pdf-pages (comma-separated)
+   export ALL2MD_PDF_PAGES="0,1,2"
+
+   # CLI argument: --parallel (integer)
+   export ALL2MD_PARALLEL="4"
+
+**Supported Value Types:**
+
+* **Strings:** Use the value directly
+* **Booleans:** Use ``true``, ``1``, ``yes``, or ``on`` for true; anything else for false
+* **Integers:** Provide numeric values (validated for positive integers where applicable)
+* **Lists:** Use comma-separated values (e.g., for ``--exclude`` or ``--pdf-pages``)
+
+**Complete Example Configuration:**
+
+.. code-block:: bash
+
+   # Universal attachment options
    export ALL2MD_ATTACHMENT_MODE="download"
    export ALL2MD_ATTACHMENT_OUTPUT_DIR="./attachments"
 
-   # Set default markdown formatting
-   export ALL2MD_EMPHASIS_SYMBOL="_"
-   export ALL2MD_BULLET_SYMBOLS="•◦▪"
+   # Markdown formatting
+   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
+   export ALL2MD_MARKDOWN_BULLET_SYMBOLS="•◦▪"
 
-   # Set default processing options
+   # Multi-file processing options
    export ALL2MD_RICH="true"
    export ALL2MD_PARALLEL="4"
    export ALL2MD_OUTPUT_DIR="./converted"
    export ALL2MD_SKIP_ERRORS="true"
    export ALL2MD_RECURSIVE="true"
+   export ALL2MD_PRESERVE_STRUCTURE="true"
 
-   # Use in script
-   all2md ./documents  # Uses environment defaults for rich output, parallel processing, etc.
+   # Format-specific options
+   export ALL2MD_PDF_DETECT_COLUMNS="false"
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="true"
+   export ALL2MD_PPTX_INCLUDE_SLIDE_NUMBERS="true"
+
+   # Exclusion patterns (comma-separated)
+   export ALL2MD_EXCLUDE="*.tmp,*.bak,__pycache__"
+
+**Precedence:**
+
+Command-line arguments always override environment variables:
+
+.. code-block:: bash
+
+   export ALL2MD_OUTPUT_DIR="./default"
+
+   # This will use "./override" instead of "./default"
+   all2md document.pdf --output-dir ./override
+
+**Use Cases:**
+
+1. **User Preferences:** Set your preferred defaults in ``.bashrc`` or ``.zshrc``
+2. **CI/CD Scripts:** Configure consistent behavior across pipeline stages
+3. **Docker Containers:** Set default configuration without modifying commands
+4. **Batch Processing:** Avoid repeating common options
+
+**Global Network Control:**
+
+For security-sensitive environments, use ``ALL2MD_DISABLE_NETWORK`` to globally disable all network operations:
+
+.. code-block:: bash
+
+   # Disable all network operations globally (overrides all other network settings)
+   export ALL2MD_DISABLE_NETWORK=1
+   all2md webpage.html  # Will skip all remote resources
 
 For complete option details and programmatic usage, see the :doc:`options` reference and Python API documentation.

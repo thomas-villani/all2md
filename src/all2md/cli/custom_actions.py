@@ -1,12 +1,15 @@
 """Custom argparse actions for improved CLI argument handling.
 
 This module provides custom actions that enhance argparse functionality
-for better argument tracking and nested namespace handling.
+for better argument tracking, nested namespace handling, and environment
+variable support.
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import argparse
+import logging
+import os
 from typing import Any, Optional, Sequence, Union
 
 
@@ -16,6 +19,8 @@ class TrackingStoreAction(argparse.Action):
     This action stores both the value and metadata about whether the argument
     was provided by the user, making it easier to distinguish between default
     values and user-provided values that happen to match the default.
+
+    Also supports environment variable defaults using the pattern ALL2MD_DEST_NAME.
     """
 
     def __init__(
@@ -56,6 +61,19 @@ class TrackingStoreAction(argparse.Action):
         metavar : Optional[Union[str, tuple[str, ...]]]
             Display name for the argument value
         """
+        # Check environment variable and set as default if present
+        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            # Apply type conversion if specified
+            try:
+                if type is not None:
+                    default = type(env_value)
+                else:
+                    default = env_value
+            except (ValueError, TypeError) as e:
+                logging.warning(f"Invalid environment variable {env_key}={env_value}: {e}")
+
         super().__init__(
             option_strings=option_strings,
             dest=dest,
@@ -99,7 +117,10 @@ class TrackingStoreAction(argparse.Action):
 
 
 class TrackingStoreTrueAction(argparse.Action):
-    """Custom store_true action that tracks whether the flag was explicitly provided."""
+    """Custom store_true action that tracks whether the flag was explicitly provided.
+
+    Also supports environment variable defaults using the pattern ALL2MD_DEST_NAME.
+    """
 
     def __init__(
         self,
@@ -124,6 +145,13 @@ class TrackingStoreTrueAction(argparse.Action):
         help : Optional[str]
             Help text for the argument
         """
+        # Check environment variable and set as default if present
+        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            # Convert env var to boolean
+            default = env_value.lower() in ('true', '1', 'yes', 'on')
+
         super().__init__(
             option_strings=option_strings,
             dest=dest,
@@ -163,7 +191,10 @@ class TrackingStoreTrueAction(argparse.Action):
 
 
 class TrackingStoreFalseAction(argparse.Action):
-    """Custom store_false action that tracks whether the flag was explicitly provided."""
+    """Custom store_false action that tracks whether the flag was explicitly provided.
+
+    Also supports environment variable defaults using the pattern ALL2MD_DEST_NAME.
+    """
 
     def __init__(
         self,
@@ -188,6 +219,14 @@ class TrackingStoreFalseAction(argparse.Action):
         help : Optional[str]
             Help text for the argument
         """
+        # Check environment variable and set as default if present
+        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            # Convert env var to boolean
+            # For store_false action, we keep the same logic as store_true
+            default = env_value.lower() in ('true', '1', 'yes', 'on')
+
         super().__init__(
             option_strings=option_strings,
             dest=dest,
@@ -224,6 +263,246 @@ class TrackingStoreFalseAction(argparse.Action):
         if not hasattr(namespace, '_provided_args'):
             namespace._provided_args = set()
         namespace._provided_args.add(self.dest)
+
+
+class TrackingAppendAction(argparse.Action):
+    """Custom append action that tracks explicitly provided arguments.
+
+    Also supports environment variable defaults using the pattern ALL2MD_DEST_NAME.
+    Environment values are split on commas.
+    """
+
+    def __init__(
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[list] = None,
+        type: Optional[Any] = None,
+        choices: Optional[Sequence[Any]] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None
+    ) -> None:
+        """Initialize the tracking append action.
+
+        Parameters
+        ----------
+        option_strings : Sequence[str]
+            The option strings for this action
+        dest : str
+            The attribute name to store the value
+        nargs : Optional[Union[int, str]]
+            Number of arguments to consume
+        const : Optional[Any]
+            Constant value for special cases
+        default : Optional[list]
+            Default value if not provided
+        type : Optional[Any]
+            Type conversion function
+        choices : Optional[Sequence[Any]]
+            Valid choices for the argument
+        required : bool
+            Whether this argument is required
+        help : Optional[str]
+            Help text for the argument
+        metavar : Optional[Union[str, tuple[str, ...]]]
+            Display name for the argument value
+        """
+        # Check environment variable and set as default if present
+        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            # Split on commas for append actions
+            default = [item.strip() for item in env_value.split(',')]
+
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=nargs,
+            const=const,
+            default=default,
+            type=type,
+            choices=choices,
+            required=required,
+            help=help,
+            metavar=metavar
+        )
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None
+    ) -> None:
+        """Append the value and mark as explicitly provided.
+
+        Parameters
+        ----------
+        parser : argparse.ArgumentParser
+            The parser instance
+        namespace : argparse.Namespace
+            The namespace to store values in
+        values : Union[str, Sequence[Any], None]
+            The parsed values
+        option_string : Optional[str]
+            The option string that was used
+        """
+        # Get existing list or create new one
+        items = getattr(namespace, self.dest, None)
+        if items is None:
+            items = []
+
+        # Append new value
+        items = items.copy() if isinstance(items, list) else []
+        items.append(values)
+        setattr(namespace, self.dest, items)
+
+        # Track that this argument was explicitly provided
+        if not hasattr(namespace, '_provided_args'):
+            namespace._provided_args = set()
+        namespace._provided_args.add(self.dest)
+
+
+class TrackingPositiveIntAction(argparse.Action):
+    """Action that validates positive integers with tracking and environment variable support."""
+
+    def __init__(
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[int] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None
+    ) -> None:
+        """Initialize the tracking positive int action.
+
+        Parameters
+        ----------
+        option_strings : Sequence[str]
+            The option strings for this action
+        dest : str
+            The attribute name to store the value
+        nargs : Optional[Union[int, str]]
+            Number of arguments to consume
+        const : Optional[Any]
+            Constant value for special cases
+        default : Optional[int]
+            Default value if not provided
+        required : bool
+            Whether this argument is required
+        help : Optional[str]
+            Help text for the argument
+        metavar : Optional[Union[str, tuple[str, ...]]]
+            Display name for the argument value
+        """
+        # Check environment variable and set as default if present
+        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            try:
+                ivalue = int(env_value)
+                if ivalue <= 0:
+                    logging.warning(f"Environment variable {env_key}: {env_value} is not a positive integer")
+                else:
+                    default = ivalue
+            except ValueError:
+                logging.warning(f"Environment variable {env_key}: {env_value} is not a valid integer")
+
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=nargs,
+            const=const,
+            default=default,
+            required=required,
+            help=help,
+            metavar=metavar
+        )
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None
+    ) -> None:
+        """Validate and convert to positive integer.
+
+        Parameters
+        ----------
+        parser : argparse.ArgumentParser
+            The parser instance
+        namespace : argparse.Namespace
+            The namespace to store values in
+        values : Union[str, Sequence[Any], None]
+            The parsed values
+        option_string : Optional[str]
+            The option string that was used
+        """
+        # Handle nargs='?' case where values can be None (use const)
+        if values is None:
+            setattr(namespace, self.dest, self.const)
+            if not hasattr(namespace, '_provided_args'):
+                namespace._provided_args = set()
+            namespace._provided_args.add(self.dest)
+            return
+
+        # Validate and convert to positive integer
+        try:
+            ivalue = int(values)
+            if ivalue <= 0:
+                parser.error(f"argument {option_string}: {values} is not a positive integer")
+            setattr(namespace, self.dest, ivalue)
+
+            # Track that this argument was explicitly provided
+            if not hasattr(namespace, '_provided_args'):
+                namespace._provided_args = set()
+            namespace._provided_args.add(self.dest)
+        except ValueError:
+            parser.error(f"argument {option_string}: {values} is not a valid integer")
+
+
+class DynamicVersionAction(argparse._VersionAction):
+    """Action that displays version information without requiring post-creation modification.
+
+    This replaces the need to modify parser._actions to update version strings.
+    """
+
+    def __init__(self, option_strings, version_callback=None, **kwargs):
+        """Initialize with a callback to get version dynamically.
+
+        Parameters
+        ----------
+        version_callback : callable, optional
+            Function that returns the version string when called
+        """
+        # Store callback and use placeholder version for parent
+        self.version_callback = version_callback
+
+        # Set default parameters for _VersionAction
+        if 'version' not in kwargs:
+            kwargs['version'] = "placeholder"
+        if 'dest' not in kwargs:
+            kwargs['dest'] = argparse.SUPPRESS
+        if 'default' not in kwargs:
+            kwargs['default'] = argparse.SUPPRESS
+
+        # Call parent constructor
+        super().__init__(option_strings, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        """Display version and exit."""
+        version = self.version
+        if self.version_callback:
+            version = self.version_callback()
+
+        parser.exit(message=f"{version}\n")
 
 
 def parse_dot_notation(dot_string: str, value: Any) -> dict:

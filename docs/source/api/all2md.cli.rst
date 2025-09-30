@@ -12,6 +12,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   all2md.cli.actions
+   all2md.cli.custom_actions
    all2md.cli.builder
    all2md.cli.processors

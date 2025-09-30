@@ -90,6 +90,22 @@ Using Options
    # Options map to CLI arguments with prefixes
    all2md document.pdf --pdf-pages "0,1,2" --attachment-mode download --markdown-emphasis-symbol "_"
 
+**Environment Variables:**
+
+All CLI options also support environment variable defaults. Use the pattern ``ALL2MD_<OPTION_NAME>`` where option names are converted to uppercase with hyphens and dots replaced by underscores:
+
+.. code-block:: bash
+
+   # Set defaults via environment variables
+   export ALL2MD_ATTACHMENT_MODE="download"
+   export ALL2MD_PDF_PAGES="0,1,2"
+   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
+
+   # CLI arguments override environment variables
+   all2md document.pdf  # Uses environment defaults
+
+See the :doc:`cli` reference for complete environment variable documentation.
+
 Shared Options Classes
 ----------------------
 

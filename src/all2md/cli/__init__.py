@@ -4,6 +4,13 @@ This module provides a simple CLI tool for converting documents to Markdown
 format using the all2md library. It supports all formats handled by the
 library and provides convenient options for common use cases.
 
+Environment Variable Support
+----------------------------
+All CLI options support environment variable defaults using the pattern
+ALL2MD_<OPTION_NAME> where option names are converted to uppercase with
+hyphens and dots replaced by underscores. CLI arguments always override
+environment variables.
+
 Examples
 --------
 Basic conversion:
@@ -33,7 +40,8 @@ Collate multiple files into one output:
 Use environment variables for defaults:
     $ export ALL2MD_RICH=true
     $ export ALL2MD_OUTPUT_DIR=./converted
-    $ all2md *.pdf  # Will use rich output and save to ./converted/
+    $ export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
+    $ all2md *.pdf  # Uses environment defaults
 """
 
 import argparse
@@ -98,11 +106,11 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
-    from all2md.cli.actions import (
-        EnvironmentAwareAction,
-        EnvironmentAwareAppendAction,
-        EnvironmentAwareBooleanAction,
-        PositiveIntAction,
+    from all2md.cli.custom_actions import (
+        TrackingStoreAction,
+        TrackingAppendAction,
+        TrackingStoreTrueAction,
+        TrackingPositiveIntAction,
     )
 
     builder = DynamicCLIBuilder()
@@ -111,32 +119,32 @@ def create_parser() -> argparse.ArgumentParser:
     # Add new CLI options for enhanced features
     parser.add_argument(
         '--rich',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Enable rich terminal output with formatting'
     )
 
     parser.add_argument(
         '--progress',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Show progress bar for file conversions (automatically enabled for multiple files)'
     )
 
     parser.add_argument(
         '--output-dir',
-        action=EnvironmentAwareAction,
+        action=TrackingStoreAction,
         type=str,
         help='Directory to save converted files (for multi-file processing)'
     )
 
     parser.add_argument(
         '--recursive', '-r',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Process directories recursively'
     )
 
     parser.add_argument(
         '--parallel', '-p',
-        action=PositiveIntAction,
+        action=TrackingPositiveIntAction,
         nargs='?',
         const=None,
         default=1,
@@ -145,25 +153,25 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         '--skip-errors',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Continue processing remaining files if one fails'
     )
 
     parser.add_argument(
         '--preserve-structure',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Preserve directory structure in output directory'
     )
 
     parser.add_argument(
         '--collate',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Combine multiple files into a single output (stdout or file)'
     )
 
     parser.add_argument(
         '--no-summary',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Disable summary output after processing multiple files'
     )
 
@@ -175,13 +183,13 @@ def create_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         '--dry-run',
-        action=EnvironmentAwareBooleanAction,
+        action=TrackingStoreTrueAction,
         help='Show what would be converted without actually processing files'
     )
 
     parser.add_argument(
         '--exclude',
-        action=EnvironmentAwareAppendAction,
+        action=TrackingAppendAction,
         metavar='PATTERN',
         help='Exclude files matching this glob pattern (can be specified multiple times)'
     )

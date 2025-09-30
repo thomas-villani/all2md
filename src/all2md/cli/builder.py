@@ -539,7 +539,7 @@ Examples:
         )
 
         # Version and about options
-        from all2md.cli.actions import DynamicVersionAction
+        from all2md.cli.custom_actions import DynamicVersionAction
 
         def get_version() -> str:
             """Get the version of all2md package."""

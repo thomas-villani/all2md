@@ -3,7 +3,8 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import argparse
-from unittest.mock import Mock
+import os
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -11,6 +12,9 @@ from all2md.cli.custom_actions import (
     TrackingStoreAction,
     TrackingStoreFalseAction,
     TrackingStoreTrueAction,
+    TrackingAppendAction,
+    TrackingPositiveIntAction,
+    DynamicVersionAction,
     merge_nested_dicts,
     parse_dot_notation,
 )
@@ -240,3 +244,141 @@ class TestIntegrationWithArgparse:
         # Check tracking
         assert "pdf.pages" in args._provided_args
         assert "markdown.emphasis" in args._provided_args
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestEnvironmentVariableSupport:
+    """Test environment variable support in tracking actions."""
+
+    def test_tracking_store_action_with_env_var(self):
+        """Test TrackingStoreAction reads from environment variables."""
+        with patch.dict(os.environ, {'ALL2MD_OUTPUT_DIR': '/tmp/output'}):
+            parser = argparse.ArgumentParser()
+            action = TrackingStoreAction(
+                option_strings=["--output-dir"],
+                dest="output_dir"
+            )
+            parser.add_argument("--output-dir", action=TrackingStoreAction, dest="output_dir")
+
+            # Parse without providing the argument
+            args = parser.parse_args([])
+
+            # Should use env var as default
+            assert args.output_dir == '/tmp/output'
+
+    def test_tracking_store_true_action_with_env_var(self):
+        """Test TrackingStoreTrueAction reads from environment variables."""
+        with patch.dict(os.environ, {'ALL2MD_RICH': 'true'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--rich", action=TrackingStoreTrueAction, dest="rich")
+
+            args = parser.parse_args([])
+
+            # Should use env var as default
+            assert args.rich is True
+
+    def test_tracking_store_true_action_env_var_false(self):
+        """Test TrackingStoreTrueAction handles false env var values."""
+        with patch.dict(os.environ, {'ALL2MD_RICH': 'false'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--rich", action=TrackingStoreTrueAction, dest="rich")
+
+            args = parser.parse_args([])
+
+            # Should use env var as default (false)
+            assert args.rich is False
+
+    def test_tracking_store_false_action_with_env_var(self):
+        """Test TrackingStoreFalseAction reads from environment variables."""
+        with patch.dict(os.environ, {'ALL2MD_FEATURE': 'true'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--no-feature", action=TrackingStoreFalseAction, dest="feature", default=True)
+
+            args = parser.parse_args([])
+
+            # Should use env var as default
+            assert args.feature is True
+
+    def test_tracking_append_action_with_env_var(self):
+        """Test TrackingAppendAction reads from environment variables."""
+        with patch.dict(os.environ, {'ALL2MD_EXCLUDE': '*.tmp,*.bak'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--exclude", action=TrackingAppendAction, dest="exclude")
+
+            args = parser.parse_args([])
+
+            # Should use env var as default (split on commas)
+            assert args.exclude == ['*.tmp', '*.bak']
+
+    def test_tracking_positive_int_action_with_env_var(self):
+        """Test TrackingPositiveIntAction reads from environment variables."""
+        with patch.dict(os.environ, {'ALL2MD_PARALLEL': '4'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--parallel", action=TrackingPositiveIntAction, dest="parallel")
+
+            args = parser.parse_args([])
+
+            # Should use env var as default
+            assert args.parallel == 4
+
+    def test_tracking_positive_int_action_invalid_env_var(self):
+        """Test TrackingPositiveIntAction handles invalid env var values."""
+        with patch.dict(os.environ, {'ALL2MD_PARALLEL': 'invalid'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--parallel", action=TrackingPositiveIntAction, dest="parallel", default=1)
+
+            args = parser.parse_args([])
+
+            # Should fall back to default
+            assert args.parallel == 1
+
+    def test_tracking_positive_int_action_negative_env_var(self):
+        """Test TrackingPositiveIntAction handles negative env var values."""
+        with patch.dict(os.environ, {'ALL2MD_PARALLEL': '-1'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--parallel", action=TrackingPositiveIntAction, dest="parallel", default=1)
+
+            args = parser.parse_args([])
+
+            # Should fall back to default
+            assert args.parallel == 1
+
+    def test_env_var_with_dots_in_dest(self):
+        """Test that dest names with dots are properly converted for env vars."""
+        with patch.dict(os.environ, {'ALL2MD_PDF_PAGES': '1,2,3'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--pdf-pages", action=TrackingStoreAction, dest="pdf.pages")
+
+            args = parser.parse_args([])
+
+            # Should use env var with dots converted to underscores
+            assert getattr(args, "pdf.pages") == '1,2,3'
+
+    def test_cli_arg_overrides_env_var(self):
+        """Test that explicit CLI arguments override environment variables."""
+        with patch.dict(os.environ, {'ALL2MD_OUTPUT_DIR': '/tmp/default'}):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--output-dir", action=TrackingStoreAction, dest="output_dir")
+
+            args = parser.parse_args(["--output-dir", "/tmp/override"])
+
+            # CLI arg should override env var
+            assert args.output_dir == '/tmp/override'
+            # Should be marked as provided
+            assert "output_dir" in args._provided_args
+
+    def test_dynamic_version_action(self):
+        """Test DynamicVersionAction."""
+        parser = argparse.ArgumentParser()
+
+        def get_version():
+            return "1.0.0"
+
+        parser.add_argument("--version", action=DynamicVersionAction, version_callback=get_version)
+
+        # Test that it exits with version message
+        with pytest.raises(SystemExit) as exc_info:
+            parser.parse_args(["--version"])
+
+        assert exc_info.value.code == 0
