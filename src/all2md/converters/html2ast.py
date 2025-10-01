@@ -502,6 +502,24 @@ class HtmlToAstConverter:
                     row_cells.append(TableCell(content=content))
                 rows.append(TableRow(cells=row_cells))
 
+        # Process tfoot rows (add them as regular data rows)
+        tfoot = node.find("tfoot")
+        if tfoot:
+            for tr in tfoot.find_all("tr", recursive=False):
+                row_cells = []
+                for td in tr.find_all(["td", "th"]):
+                    content = self._process_children_to_inline(td)
+                    row_cells.append(TableCell(content=content))
+                rows.append(TableRow(cells=row_cells))
+
+        # If no header was found but we have rows, use first row as header
+        if not header and rows:
+            header = TableRow(cells=rows[0].cells, is_header=True)
+            rows.pop(0)
+            # Set default alignments if none were set
+            if not alignments:
+                alignments = [None] * len(header.cells)
+
         return Table(header=header, rows=rows, alignments=alignments, caption=caption)
 
     def _process_strong_to_ast(self, node: Any) -> Strong:
@@ -806,8 +824,71 @@ class HtmlToAstConverter:
         """
         return html.unescape(text)
 
+    def _sanitize_language_identifier(self, language: str) -> str:
+        """Sanitize language identifier to prevent markdown injection attacks.
+
+        Code fence language identifiers must only contain safe characters to prevent
+        markdown injection via malicious HTML class attributes. This method validates
+        and sanitizes language strings by checking against a safe pattern of
+        alphanumeric characters, underscores, hyphens, and plus signs.
+
+        Parameters
+        ----------
+        language : str
+            Raw language identifier string to sanitize
+
+        Returns
+        -------
+        str
+            Sanitized language identifier, or empty string if invalid
+
+        Examples
+        --------
+        >>> self._sanitize_language_identifier("python")
+        'python'
+        >>> self._sanitize_language_identifier("c++")
+        'c++'
+        >>> self._sanitize_language_identifier("python\\nmalicious")
+        ''
+        >>> self._sanitize_language_identifier("python javascript")
+        ''
+
+        """
+        import logging
+
+        from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN
+
+        logger = logging.getLogger(__name__)
+
+        if not language:
+            return ""
+
+        # Strip whitespace
+        language = language.strip()
+
+        # Check length limit
+        if len(language) > MAX_LANGUAGE_IDENTIFIER_LENGTH:
+            logger.warning(
+                f"Language identifier exceeds maximum length ({MAX_LANGUAGE_IDENTIFIER_LENGTH}): {language[:50]}..."
+            )
+            return ""
+
+        # Validate against safe pattern
+        if not re.match(SAFE_LANGUAGE_IDENTIFIER_PATTERN, language):
+            logger.warning(
+                f"Blocked potentially dangerous language identifier containing invalid characters: {language[:50]}"
+            )
+            return ""
+
+        return language
+
     def _extract_language_from_attrs(self, node: Any) -> str:
         """Extract language identifier from HTML attributes.
+
+        Checks for language in:
+        - class attributes with patterns like language-xxx, lang-xxx, brush: xxx
+        - data-lang attributes
+        - child code elements' classes
 
         Parameters
         ----------
@@ -828,15 +909,33 @@ class HtmlToAstConverter:
             if isinstance(classes, str):
                 classes = [classes]
 
-            for cls in classes:
+            for idx, cls in enumerate(classes):
+                # Check for language-xxx pattern
                 if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    return match.group(1)
+                    return self._sanitize_language_identifier(match.group(1))
+                # Check for lang-xxx pattern
                 elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                    return match.group(1)
+                    return self._sanitize_language_identifier(match.group(1))
+                # Check for brush: xxx pattern - BeautifulSoup splits "brush: sql" into ["brush:", "sql"]
+                elif cls == "brush:" and idx + 1 < len(classes):
+                    # Next class is the language identifier
+                    return self._sanitize_language_identifier(classes[idx + 1])
+                elif match := re.match(r"brush:\s*([a-zA-Z0-9_+\-]+)", cls):
+                    # Fallback for cases where brush:lang is together without space
+                    return self._sanitize_language_identifier(match.group(1))
+                # Use the class as-is if it's a simple language name (only if we haven't found one yet)
+                elif (
+                    not language
+                    and cls
+                    and not cls.startswith("hljs")
+                    and not cls.startswith("highlight")
+                    and cls != "brush:"
+                ):
+                    language = cls
 
         # Check data-lang attribute
         if node.get("data-lang"):
-            return node.get("data-lang")
+            return self._sanitize_language_identifier(node.get("data-lang"))
 
         # Check child code element
         code_child = node.find("code")
@@ -847,9 +946,11 @@ class HtmlToAstConverter:
 
             for cls in classes:
                 if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    return match.group(1)
+                    return self._sanitize_language_identifier(match.group(1))
+                elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
+                    return self._sanitize_language_identifier(match.group(1))
 
-        return language
+        return self._sanitize_language_identifier(language)
 
     def _get_alignment(self, cell: Any) -> str | None:
         """Get table cell alignment.
@@ -889,6 +990,11 @@ class HtmlToAstConverter:
     def _sanitize_link_url(self, url: str) -> str:
         """Sanitize link URL to prevent XSS attacks.
 
+        This method validates URL schemes to prevent XSS attacks through
+        javascript:, data:, vbscript:, and other dangerous URL schemes.
+        Link scheme validation is performed regardless of the
+        strip_dangerous_elements setting to ensure defense-in-depth.
+
         Parameters
         ----------
         url : str
@@ -897,9 +1003,13 @@ class HtmlToAstConverter:
         Returns
         -------
         str
-            Sanitized URL
+            Sanitized URL, or empty string if the URL contains a dangerous scheme
 
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         if not url or not url.strip():
             return ""
 
@@ -914,16 +1024,40 @@ class HtmlToAstConverter:
             parsed = urlparse(url_lower)
             scheme = parsed.scheme.lower() if parsed.scheme else ""
         except Exception:
+            logger.warning(f"Failed to parse URL for scheme validation: {url}")
             return ""
+
+        # If no scheme detected, treat as relative URL
+        if not scheme:
+            # Check if it looks like a relative path without scheme
+            if not url_lower.startswith(("http://", "https://", "ftp://", "ftps://", "mailto:", "tel:", "sms:")):
+                # Could be a relative path like "page.html" or "path/to/page"
+                return url
 
         # Block dangerous schemes
         dangerous_schemes = {"javascript", "data", "vbscript"}
         if scheme in dangerous_schemes:
+            logger.warning(
+                f"Blocked link with potentially dangerous scheme '{scheme}:' "
+                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
+            )
             return ""
 
         # Allow safe schemes
         safe_schemes = {"http", "https", "mailto", "ftp", "ftps", "tel", "sms"}
         if scheme and scheme not in safe_schemes:
+            logger.warning(
+                f"Blocked link with unsupported scheme '{scheme}:' "
+                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
+            )
+            return ""
+
+        # If require_https is enabled, block non-https schemes (except mailto, tel, sms)
+        if self.options.network.require_https and scheme not in ("https", "mailto", "tel", "sms", ""):
+            logger.warning(
+                f"Blocked link with non-HTTPS scheme '{scheme}:' due to require_https setting "
+                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
+            )
             return ""
 
         return url

@@ -57,7 +57,7 @@ from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 logger = logging.getLogger(__name__)
 
-
+# TODO: remove, no longer needed
 def _collapse_output(text: str, limit: int | None, message: str) -> str:
     """Collapse a string if it exceeds a specified line limit."""
     if limit is None or not text:

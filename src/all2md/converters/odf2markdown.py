@@ -60,7 +60,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
+# deprecated: to be removed
 class OdfConverter:
     """Stateful converter for ODF documents."""
 
