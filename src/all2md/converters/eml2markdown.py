@@ -75,7 +75,7 @@ from typing import IO, Any, Union
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import InputError, MarkdownConversionError
-from all2md.options import EmlOptions
+from all2md.options import EmlOptions, MarkdownOptions
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
@@ -279,11 +279,11 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
 
         content_type = part.get_content_type()
 
-        if content_type == "text/plain":
+        if content_type == "text/plain" and options.include_plain_parts:
             content = _extract_part_content(part, options)
             if content.strip():
                 text_parts.append(content)
-        elif content_type == "text/html":
+        elif content_type == "text/html" and options.include_html_parts:
             content = _extract_part_content(part, options)
             if content.strip():
                 html_parts.append(content)
@@ -748,7 +748,11 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
                 attachments.append(processed_attachment)
 
     if attachments:
-        return "\n\n**Attachments:**\n" + "\n".join(attachments) + "\n"
+        if options.include_attach_section_heading:
+            # Format as heading (## Attachments by default)
+            return f"\n\n## {options.attach_section_title}\n\n" + "\n".join(attachments) + "\n"
+        else:
+            return "\n\n" + "\n".join(attachments) + "\n"
     return ""
 
 
@@ -1109,14 +1113,27 @@ def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions
             if "content" in msg:
                 msg["content"] = clean_message(msg["content"], options)
 
-        # Sort messages chronologically (older messages first)
-        messages.sort(key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc))
+        # Sort messages chronologically based on sort_order option
+        messages.sort(
+            key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+            reverse=(options.sort_order == "desc")
+        )
 
-        # Convert to Markdown format
-        result = format_email_chain_as_markdown(messages, options)
+        # Use AST-based conversion path
+        from all2md.converters.eml2ast import EmlToAstConverter
+        from all2md.ast import MarkdownRenderer
+
+        # Convert to AST
+        ast_converter = EmlToAstConverter(options)
+        ast_document = ast_converter.format_email_chain_as_ast(messages)
+
+        # Render AST to markdown
+        md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+        renderer = MarkdownRenderer(md_opts)
+        result = renderer.render(ast_document)
 
         # Prepend metadata if enabled
-        result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+        result = prepend_metadata_if_enabled(result.strip(), metadata, options.extract_metadata)
 
         return result
 

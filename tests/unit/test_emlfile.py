@@ -75,7 +75,8 @@ Hello world
     assert isinstance(md, str)
     assert "From: A <a@example.com>" in md
     assert "To: B <b@example.com>" in md
-    assert "Subject: Test Email" in md
+    # Subject is now shown as H1 heading by default (subject_as_h1=True)
+    assert "# Test Email" in md
     assert "Hello world" in md
 
 
@@ -93,7 +94,8 @@ File content here
     p.write_text(eml, encoding="utf-8")
     md = eml_to_markdown(str(p))
     assert isinstance(md, str)
-    assert "Subject: File Path Test" in md
+    # Subject is now shown as H1 heading by default (subject_as_h1=True)
+    assert "# File Path Test" in md
     assert "File content here" in md
 
 
@@ -121,7 +123,8 @@ Content-Type: text/html; charset="utf-8"
     f = StringIO(eml)
     md = eml_to_markdown(f)
     assert isinstance(md, str)
-    assert "Subject: HTML Only" in md
+    # Subject is now shown as H1 heading by default (subject_as_h1=True)
+    assert "# HTML Only" in md
     assert "<p>This is <b>HTML</b> content.</p>" in md
 
 
@@ -173,8 +176,9 @@ Original content line 2
     # Should contain both messages in chronological order (older first)
     assert "From: Original <orig@example.com>" in md
     assert "From: Top <top@example.com>" in md
-    assert "Subject: Re: Chain Example" in md
-    assert "Subject: Chain Example" in md
+    # Subjects are now shown as H1 headings by default (subject_as_h1=True)
+    assert "# Re: Chain Example" in md
+    assert "# Chain Example" in md
     assert "This is quoted" in md
     assert "Original content line 1" in md
     assert "Here is my message" in md
@@ -203,8 +207,8 @@ Quoted content
 """
     f = StringIO(eml)
     md = eml_to_markdown(f)
-    # Older message first
-    assert md.startswith("From: Original <orig@example.com>")
+    # Subject heading comes first now (subject_as_h1=True by default)
+    assert md.startswith("# Re: Chain Example")
     # cc line only in first block
     assert md.count("cc: CC <cc@example.com>") == 1
     assert "From: Top <top@example.com>" in md

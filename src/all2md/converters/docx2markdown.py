@@ -434,10 +434,11 @@ def _iter_block_items(
                     # Get image info
                     title = None
 
-                    if (t := run._element.xpath(".//wp:docPr/@descr")) or (
-                            t := run._element.xpath(".//wp:docPr/@title")
-                    ):
-                        title = t[0]
+                    if options.include_image_captions:
+                        if (t := run._element.xpath(".//wp:docPr/@descr")) or (
+                                t := run._element.xpath(".//wp:docPr/@title")
+                        ):
+                            title = t[0]
 
                     # Get image data and detected format
                     blip = pic.xpath(".//a:blip")[0]

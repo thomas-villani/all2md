@@ -455,12 +455,25 @@ def rtf_to_markdown(
     # Create attachment sequencer for consistent filename generation
     attachment_sequencer = create_attachment_sequencer()
 
-    converter = RtfConverter(options, attachment_sequencer)
-    converter._base_filename = base_filename  # Pass base filename to converter
-    markdown_content = converter.convert(doc)
+    # Use AST-based conversion path
+    from all2md.converters.rtf2ast import RtfToAstConverter
+    from all2md.ast import MarkdownRenderer
+
+    # Convert to AST
+    ast_converter = RtfToAstConverter(
+        options=options,
+        base_filename=base_filename,
+        attachment_sequencer=attachment_sequencer,
+    )
+    ast_document = ast_converter.convert_to_ast(doc)
+
+    # Render AST to markdown
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+    renderer = MarkdownRenderer(md_opts)
+    markdown_content = renderer.render(ast_document)
 
     # Prepend metadata if enabled
-    result = prepend_metadata_if_enabled(markdown_content, metadata, options.extract_metadata)
+    result = prepend_metadata_if_enabled(markdown_content.strip(), metadata, options.extract_metadata)
 
     return result
 

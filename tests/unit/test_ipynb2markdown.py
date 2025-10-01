@@ -218,7 +218,7 @@ class TestIpynbToMarkdown:
             assert result == expected
 
     @pytest.mark.unit
-    @patch('all2md.converters.ipynb2markdown.process_attachment')
+    @patch('all2md.converters.ipynb2ast.process_attachment')
     def test_execute_result_image_output(self, mock_process):
         mock_process.return_value = "![cell output](image.png)"
 
@@ -441,7 +441,7 @@ class TestIpynbToMarkdown:
             assert result == "```python\nprint('')\n```"
 
     @pytest.mark.unit
-    @patch('all2md.converters.ipynb2markdown.logger')
+    @patch('all2md.converters.ipynb2ast.logger')
     def test_invalid_base64_image_logs_warning(self, mock_logger):
         cells = [
             {
@@ -492,7 +492,7 @@ class TestIpynbToMarkdown:
             assert result == expected
 
     @pytest.mark.unit
-    @patch('all2md.converters.ipynb2markdown.process_attachment')
+    @patch('all2md.converters.ipynb2ast.process_attachment')
     def test_attachment_options_passed_to_process_attachment(self, mock_process):
         mock_process.return_value = "![cell output](image.png)"
 

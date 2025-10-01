@@ -63,10 +63,10 @@ class TestBasicSlides:
         converter = PptxToAstConverter()
         ast_doc = converter.convert_to_ast(prs)
 
-        # Should have heading for title
+        # Should have heading for title (level 2 by default)
         assert len(ast_doc.children) >= 1
         assert isinstance(ast_doc.children[0], Heading)
-        assert ast_doc.children[0].level == 1
+        assert ast_doc.children[0].level == 2
         assert isinstance(ast_doc.children[0].content[0], Text)
         assert ast_doc.children[0].content[0].content == "Slide Title"
 

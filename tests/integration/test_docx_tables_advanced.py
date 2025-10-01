@@ -58,8 +58,8 @@ class TestDocxTablesAdvanced:
         assert "| Group A | Item 1 | 100 |" in markdown
         assert "| Group B | Item 3 | 300 |" in markdown
 
-        # Check for separator row
-        assert "| --- | --- | --- |" in markdown or "|:---:|:---:|:---:|" in markdown
+        # Check for separator row (AST renderer uses no-space format)
+        assert "|---|---|---|" in markdown or "| --- | --- | --- |" in markdown or "|:---:|:---:|:---:|" in markdown
 
     def test_alignment_variations(self):
         """Test tables with different cell alignment settings."""

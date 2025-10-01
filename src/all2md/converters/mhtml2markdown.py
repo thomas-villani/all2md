@@ -399,6 +399,13 @@ def mhtml_to_markdown(
         attachment_output_dir=options.attachment_output_dir,
         attachment_base_url=options.attachment_base_url,
         markdown_options=options.markdown_options or MarkdownOptions(),
+        # Pass through HTML processing options
+        strip_comments=options.strip_comments,
+        links_as=options.links_as,
+        collapse_whitespace=options.collapse_whitespace,
+        br_handling=options.br_handling,
+        allowed_elements=options.allowed_elements,
+        allowed_attributes=options.allowed_attributes,
     )
 
     markdown_content = html_to_markdown(processed_html, options=html_options)

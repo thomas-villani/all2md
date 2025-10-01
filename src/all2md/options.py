@@ -395,6 +395,20 @@ class NetworkFetchOptions(_CloneMixin):
             "type": int
         }
     )
+    max_redirects: int = field(
+        default=5,
+        metadata={
+            "help": "Maximum number of HTTP redirects to follow",
+            "type": int
+        }
+    )
+    allowed_content_types: tuple[str, ...] | None = field(
+        default=("image/",),
+        metadata={
+            "help": "Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')",
+            "action": "append"
+        }
+    )
 
 
 @dataclass(frozen=True)
@@ -482,6 +496,27 @@ class BaseOptions(_CloneMixin):
             "help": "Maximum allowed size in bytes for any single asset/download (global limit)",
             "type": int
         }
+    )
+
+    # Advanced attachment handling options
+    attachment_filename_template: str = field(
+        default="{stem}_{type}{seq}.{ext}",
+        metadata={"help": "Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}"}
+    )
+    attachment_overwrite: str = field(
+        default="unique",
+        metadata={
+            "help": "File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'",
+            "choices": ["unique", "overwrite", "skip"]
+        }
+    )
+    attachment_deduplicate_by_hash: bool = field(
+        default=False,
+        metadata={"help": "Avoid saving duplicate attachments by content hash"}
+    )
+    attachments_footnotes_section: str | None = field(
+        default="Attachments",
+        metadata={"help": "Section title for footnote-style attachment references (None to disable)"}
     )
 
 
@@ -817,6 +852,39 @@ class DocxOptions(BaseOptions):
         }
     )
 
+    # Advanced DOCX options
+    include_footnotes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include footnotes in output",
+            "cli_name": "no-include-footnotes"
+        }
+    )
+    include_endnotes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include endnotes in output",
+            "cli_name": "no-include-endnotes"
+        }
+    )
+    include_comments: bool = field(
+        default=False,
+        metadata={"help": "Include document comments in output"}
+    )
+    include_image_captions: bool = field(
+        default=True,
+        metadata={
+            "help": "Include image captions/descriptions in output",
+            "cli_name": "no-include-image-captions"
+        }
+    )
+    list_numbering_style: str = field(
+        default="detect",
+        metadata={
+            "help": "List numbering style: detect, decimal, lowerroman, upperroman, loweralpha, upperalpha"
+        }
+    )
+
 
 @dataclass(frozen=True)
 class HtmlOptions(BaseOptions):
@@ -898,6 +966,41 @@ class HtmlOptions(BaseOptions):
         }
     )
 
+    # Advanced HTML processing options
+    strip_comments: bool = field(
+        default=False,
+        metadata={"help": "Remove HTML comments from output"}
+    )
+    links_as: str = field(
+        default="inline",
+        metadata={"help": "Link style: 'inline' or 'reference'"}
+    )
+    collapse_whitespace: bool = field(
+        default=True,
+        metadata={
+            "help": "Collapse multiple spaces/newlines into single spaces",
+            "cli_name": "no-collapse-whitespace"
+        }
+    )
+    br_handling: str = field(
+        default="newline",
+        metadata={"help": "How to handle <br> tags: 'newline' or 'space'"}
+    )
+    allowed_elements: tuple[str, ...] | None = field(
+        default=None,
+        metadata={
+            "help": "Whitelist of allowed HTML elements (if set, only these are processed)",
+            "action": "append"
+        }
+    )
+    allowed_attributes: tuple[str, ...] | None = field(
+        default=None,
+        metadata={
+            "help": "Whitelist of allowed HTML attributes (if set, only these are processed)",
+            "action": "append"
+        }
+    )
+
 
 @dataclass(frozen=True)
 class PptxOptions(BaseOptions):
@@ -937,6 +1040,23 @@ class PptxOptions(BaseOptions):
         default=DEFAULT_PAGE_SEPARATOR,
         metadata={
             "help": "Template for slide separators. Supports placeholders: {page_num}, {total_pages}."
+        }
+    )
+
+    # Advanced PPTX options
+    slides: str | None = field(
+        default=None,
+        metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)"}
+    )
+    charts_mode: str = field(
+        default="data",
+        metadata={"help": "Chart conversion mode: 'data' (tables), 'image' (screenshots), or 'both'"}
+    )
+    include_titles_as_h2: bool = field(
+        default=True,
+        metadata={
+            "help": "Include slide titles as H2 headings",
+            "cli_name": "no-include-titles-as-h2"
         }
     )
 
@@ -1054,6 +1174,44 @@ class EmlOptions(BaseOptions):
         }
     )
 
+    # Advanced EML options
+    sort_order: str = field(
+        default="asc",
+        metadata={"help": "Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)"}
+    )
+    subject_as_h1: bool = field(
+        default=True,
+        metadata={
+            "help": "Include subject line as H1 heading",
+            "cli_name": "no-subject-as-h1"
+        }
+    )
+    include_attach_section_heading: bool = field(
+        default=True,
+        metadata={
+            "help": "Include heading before attachments section",
+            "cli_name": "no-include-attach-section-heading"
+        }
+    )
+    attach_section_title: str = field(
+        default="Attachments",
+        metadata={"help": "Title for attachments section heading"}
+    )
+    include_html_parts: bool = field(
+        default=True,
+        metadata={
+            "help": "Include HTML content parts from emails",
+            "cli_name": "no-include-html-parts"
+        }
+    )
+    include_plain_parts: bool = field(
+        default=True,
+        metadata={
+            "help": "Include plain text content parts from emails",
+            "cli_name": "no-include-plain-parts"
+        }
+    )
+
 
 @dataclass(frozen=True)
 class RtfOptions(BaseOptions):
@@ -1078,6 +1236,19 @@ class IpynbOptions(BaseOptions):
 
     Parameters
     ----------
+    include_inputs : bool, default True
+        Whether to include cell input (source code) in output.
+    include_outputs : bool, default True
+        Whether to include cell outputs in the markdown.
+    show_execution_count : bool, default False
+        Whether to show execution counts for code cells.
+    output_types : list[str] or None, default ["stream", "execute_result", "display_data"]
+        Types of outputs to include. Valid types: "stream", "execute_result", "display_data", "error".
+        If None, includes all output types.
+    image_format : str, default "png"
+        Preferred image format for notebook outputs. Options: "png", "jpeg".
+    image_quality : int, default 85
+        JPEG quality setting (1-100) when converting images to JPEG format.
     truncate_long_outputs : int or None, default DEFAULT_TRUNCATE_OUTPUT_LINES
         Maximum number of lines for text outputs before truncating.
         If None, outputs are not truncated.
@@ -1085,6 +1256,39 @@ class IpynbOptions(BaseOptions):
         The message to place to indicate truncated output.
     """
 
+    include_inputs: bool = field(
+        default=True,
+        metadata={
+            "help": "Include cell input (source code) in output",
+            "cli_name": "no-include-inputs"
+        }
+    )
+    include_outputs: bool = field(
+        default=True,
+        metadata={
+            "help": "Include cell outputs in the markdown",
+            "cli_name": "no-include-outputs"
+        }
+    )
+    show_execution_count: bool = field(
+        default=False,
+        metadata={"help": "Show execution counts for code cells"}
+    )
+    output_types: tuple[str, ...] | None = field(
+        default=("stream", "execute_result", "display_data"),
+        metadata={
+            "help": "Types of outputs to include (stream, execute_result, display_data, error)",
+            "action": "append"
+        }
+    )
+    image_format: str = field(
+        default="png",
+        metadata={"help": "Preferred image format for notebook outputs (png, jpeg)"}
+    )
+    image_quality: int = field(
+        default=85,
+        metadata={"help": "JPEG quality setting (1-100) for image conversion"}
+    )
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
 
@@ -1169,6 +1373,41 @@ class MhtmlOptions(BaseOptions):
         }
     )
 
+    # HTML processing options (MHTML uses HTML conversion internally)
+    strip_comments: bool = field(
+        default=False,
+        metadata={"help": "Remove HTML comments from output"}
+    )
+    links_as: str = field(
+        default="inline",
+        metadata={"help": "Link style: 'inline' or 'reference'"}
+    )
+    collapse_whitespace: bool = field(
+        default=True,
+        metadata={
+            "help": "Collapse multiple spaces/newlines into single spaces",
+            "cli_name": "no-collapse-whitespace"
+        }
+    )
+    br_handling: str = field(
+        default="newline",
+        metadata={"help": "How to handle <br> tags: 'newline' or 'space'"}
+    )
+    allowed_elements: tuple[str, ...] | None = field(
+        default=None,
+        metadata={
+            "help": "Whitelist of allowed HTML elements (if set, only these are processed)",
+            "action": "append"
+        }
+    )
+    allowed_attributes: tuple[str, ...] | None = field(
+        default=None,
+        metadata={
+            "help": "Whitelist of allowed HTML attributes (if set, only these are processed)",
+            "action": "append"
+        }
+    )
+
 
 @dataclass(frozen=True)
 class SpreadsheetOptions(BaseOptions):
@@ -1232,6 +1471,24 @@ class SpreadsheetOptions(BaseOptions):
     header_detection_mode: str = "manual"
     auto_header_threshold: float = 0.7
     numeric_format_handling: str = "preserve"
+
+    # Cell formatting
+    preserve_newlines_in_cells: bool = field(
+        default=False,
+        metadata={"help": "Preserve line breaks within cells as <br> tags or newlines"}
+    )
+
+    # Empty row/column trimming
+    trim_empty: str = field(
+        default="trailing",
+        metadata={"help": "Trim empty rows/columns: none, leading, trailing, or both"}
+    )
+
+    # Header formatting
+    header_case: str = field(
+        default="preserve",
+        metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+    )
 
 
 @dataclass(frozen=True)

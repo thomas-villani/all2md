@@ -692,7 +692,7 @@ class MarkdownRenderer(NodeVisitor):
         alt = node.alt_text.replace('[', '\\[').replace(']', '\\]')
         if not node.url:
             # Alt-text only (no URL)
-            self._output.append(f'![{alt}]')
+            self._output.append(f'![{alt}]()')
         elif node.title:
             self._output.append(f'![{alt}]({node.url} "{node.title}")')
         else:

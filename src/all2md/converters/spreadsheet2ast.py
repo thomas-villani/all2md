@@ -25,7 +25,7 @@ from all2md.options import MarkdownOptions, SpreadsheetOptions
 logger = logging.getLogger(__name__)
 
 
-def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None) -> str:
+def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None, preserve_newlines: bool = False) -> str:
     """Convert any cell value to a safe string for AST Text node.
 
     Note: Markdown escaping is handled by the renderer, not here.
@@ -37,6 +37,8 @@ def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None) ->
         Cell value to sanitize
     md_options : MarkdownOptions | None
         Markdown options (currently unused, kept for compatibility)
+    preserve_newlines : bool
+        If True, preserve newlines as <br> tags; if False, replace with spaces
 
     Returns
     -------
@@ -49,13 +51,18 @@ def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None) ->
     else:
         s = str(text)
 
-    # Normalize whitespace/newlines inside cells
-    s = s.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    # Handle newlines based on preserve_newlines option
+    if preserve_newlines:
+        # Keep line breaks as <br> tags
+        s = s.replace("\r\n", "<br>").replace("\r", "<br>").replace("\n", "<br>")
+    else:
+        # Normalize whitespace/newlines inside cells
+        s = s.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
 
     return s
 
 
-def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | None = None) -> str:
+def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | None = None, preserve_newlines: bool = False) -> str:
     """Get cell text, checking for hyperlinks.
 
     Parameters
@@ -66,6 +73,8 @@ def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | Non
         Cell text value
     md_options : MarkdownOptions | None
         Markdown options
+    preserve_newlines : bool
+        Whether to preserve newlines in cells
 
     Returns
     -------
@@ -75,7 +84,7 @@ def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | Non
     """
     # TODO: Support hyperlinks in table cells via Link nodes
     # For now, just return sanitized text
-    return _sanitize_cell_text(text, md_options)
+    return _sanitize_cell_text(text, md_options, preserve_newlines)
 
 
 def _alignment_for_cell(cell: Any) -> str:
@@ -297,18 +306,26 @@ class SpreadsheetToAstConverter:
                     if coord and coord in merged_map and merged_map[coord] != coord:
                         out.append("")
                     else:
-                        out.append(_format_link_or_text(cell, cell.value, self.md_options))
+                        out.append(_format_link_or_text(cell, cell.value, self.md_options, self.options.preserve_newlines_in_cells))
                 str_rows.append(out)
 
-            # Trim completely empty trailing rows
-            while str_rows and all(c == "" for c in str_rows[-1]):
-                str_rows.pop()
+            # Trim empty rows based on trim_empty option
+            str_rows = self._trim_rows(str_rows)
 
             if not str_rows:
                 continue
 
+            # Trim empty columns based on trim_empty option
+            str_rows = self._trim_columns(str_rows)
+
+            if not str_rows or not any(str_rows):
+                continue
+
             header = str_rows[0]
             data = str_rows[1:] if len(str_rows) > 1 else []
+
+            # Apply header case transformation
+            header = self._transform_header_case(header)
 
             # Compute alignments from header cells
             alignments: list[str] = []
@@ -628,9 +645,20 @@ class SpreadsheetToAstConverter:
                 header = header[: self.options.max_cols]
                 data_rows = [row[: self.options.max_cols] for row in data_rows]
 
+            # Apply row/column trimming
+            all_rows = [header] + data_rows if header else data_rows
+            all_rows = self._trim_rows(all_rows)
+            all_rows = self._trim_columns(all_rows)
+
+            if not all_rows:
+                continue
+
             # Sanitize all cell content
-            header = [_sanitize_cell_text(cell, self.md_options) for cell in header]
-            data_rows = [[_sanitize_cell_text(cell, self.md_options) for cell in row] for row in data_rows]
+            header = [_sanitize_cell_text(cell, self.md_options, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
+            data_rows = [[_sanitize_cell_text(cell, self.md_options, self.options.preserve_newlines_in_cells) for cell in row] for row in all_rows[1:]]
+
+            # Apply header case transformation
+            header = self._transform_header_case(header)
 
             # Ensure all rows have same number of columns
             if header:
@@ -652,3 +680,103 @@ class SpreadsheetToAstConverter:
                 )
 
         return Document(children=children)
+
+    def _trim_rows(self, rows: list[list[str]]) -> list[list[str]]:
+        """Trim empty rows based on trim_empty option.
+
+        Parameters
+        ----------
+        rows : list[list[str]]
+            Rows to trim
+
+        Returns
+        -------
+        list[list[str]]
+            Trimmed rows
+
+        """
+        if not rows or self.options.trim_empty == "none":
+            return rows
+
+        # Trim leading empty rows
+        if self.options.trim_empty in ("leading", "both"):
+            while rows and all(c == "" for c in rows[0]):
+                rows.pop(0)
+
+        # Trim trailing empty rows
+        if self.options.trim_empty in ("trailing", "both"):
+            while rows and all(c == "" for c in rows[-1]):
+                rows.pop()
+
+        return rows
+
+    def _trim_columns(self, rows: list[list[str]]) -> list[list[str]]:
+        """Trim empty columns based on trim_empty option.
+
+        Parameters
+        ----------
+        rows : list[list[str]]
+            Rows to trim columns from
+
+        Returns
+        -------
+        list[list[str]]
+            Rows with trimmed columns
+
+        """
+        if not rows or self.options.trim_empty == "none":
+            return rows
+
+        if not rows[0]:
+            return rows
+
+        num_cols = len(rows[0])
+
+        # Find leading empty columns
+        leading_empty = 0
+        if self.options.trim_empty in ("leading", "both"):
+            for col_idx in range(num_cols):
+                if all(row[col_idx] == "" if col_idx < len(row) else True for row in rows):
+                    leading_empty += 1
+                else:
+                    break
+
+        # Find trailing empty columns
+        trailing_empty = 0
+        if self.options.trim_empty in ("trailing", "both"):
+            for col_idx in range(num_cols - 1, -1, -1):
+                if all(row[col_idx] == "" if col_idx < len(row) else True for row in rows):
+                    trailing_empty += 1
+                else:
+                    break
+
+        # Trim columns
+        if leading_empty > 0 or trailing_empty > 0:
+            end_col = num_cols - trailing_empty
+            return [row[leading_empty:end_col] for row in rows]
+
+        return rows
+
+    def _transform_header_case(self, header: list[str]) -> list[str]:
+        """Transform header case based on header_case option.
+
+        Parameters
+        ----------
+        header : list[str]
+            Header row
+
+        Returns
+        -------
+        list[str]
+            Transformed header
+
+        """
+        if self.options.header_case == "preserve":
+            return header
+        elif self.options.header_case == "title":
+            return [cell.title() for cell in header]
+        elif self.options.header_case == "upper":
+            return [cell.upper() for cell in header]
+        elif self.options.header_case == "lower":
+            return [cell.lower() for cell in header]
+        return header

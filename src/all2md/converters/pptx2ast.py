@@ -41,6 +41,77 @@ from all2md.options import PptxOptions
 logger = logging.getLogger(__name__)
 
 
+def parse_slide_ranges(slide_spec: str, total_slides: int) -> list[int]:
+    """Parse slide range specification into list of 0-based slide indices.
+
+    Supports various formats:
+    - "1-3" → [0, 1, 2]
+    - "5" → [4]
+    - "10-" → [9, 10, ..., total_slides-1]
+    - "1-3,5,10-" → combined ranges
+
+    Parameters
+    ----------
+    slide_spec : str
+        Slide range specification
+    total_slides : int
+        Total number of slides in presentation
+
+    Returns
+    -------
+    list of int
+        0-based slide indices
+
+    Examples
+    --------
+    >>> parse_slide_ranges("1-3,5", 10)
+    [0, 1, 2, 4]
+    >>> parse_slide_ranges("8-", 10)
+    [7, 8, 9]
+
+    """
+    slides = set()
+
+    # Split by comma to handle multiple ranges
+    parts = slide_spec.split(',')
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # Handle range (e.g., "1-3" or "10-")
+        if '-' in part:
+            range_parts = part.split('-', 1)
+            start_str = range_parts[0].strip()
+            end_str = range_parts[1].strip()
+
+            # Parse start (1-based to 0-based)
+            if start_str:
+                start = int(start_str) - 1
+            else:
+                start = 0
+
+            # Parse end (1-based to 0-based, or use total_slides if empty)
+            if end_str:
+                end = int(end_str) - 1
+            else:
+                end = total_slides - 1
+
+            # Add all slides in range
+            for s in range(start, end + 1):
+                if 0 <= s < total_slides:
+                    slides.add(s)
+        else:
+            # Single slide (1-based to 0-based)
+            slide = int(part) - 1
+            if 0 <= slide < total_slides:
+                slides.add(slide)
+
+    # Return sorted list
+    return sorted(slides)
+
+
 class PptxToAstConverter:
     """Convert PPTX to AST representation.
 
@@ -85,8 +156,21 @@ class PptxToAstConverter:
         """
         children: list[Node] = []
 
-        for i, slide in enumerate(prs.slides, 1):
-            self._current_slide_num = i
+        # Determine which slides to process
+        all_slides = list(prs.slides)
+        total_slides = len(all_slides)
+
+        if self.options.slides:
+            # Parse slide range specification
+            slide_indices = parse_slide_ranges(self.options.slides, total_slides)
+        else:
+            # Process all slides
+            slide_indices = list(range(total_slides))
+
+        # Process selected slides
+        for idx in slide_indices:
+            slide = all_slides[idx]
+            self._current_slide_num = idx + 1  # 1-based for display
             slide_nodes = self._process_slide_to_ast(slide)
             if slide_nodes:
                 children.extend(slide_nodes)
@@ -112,19 +196,19 @@ class PptxToAstConverter:
         """
         nodes: list[Node] = []
 
-        # Process slide title if present
-        if slide.shapes.title and slide.shapes.title.text.strip():
+        # Process slide title if present and enabled
+        if self.options.include_titles_as_h2 and slide.shapes.title and slide.shapes.title.text.strip():
             title_text = slide.shapes.title.text.strip()
             if self.options.include_slide_numbers:
                 title_text = f"Slide {self._current_slide_num}: {title_text}"
 
-            # Slide titles are level 1 headings
-            nodes.append(Heading(level=1, content=[Text(content=title_text)]))
+            # Slide titles are level 2 headings
+            nodes.append(Heading(level=2, content=[Text(content=title_text)]))
 
         # Process all shapes in the slide
         for shape in slide.shapes:
-            # Skip the title shape (already processed)
-            if shape == slide.shapes.title:
+            # Skip the title shape if it was already processed as a heading
+            if self.options.include_titles_as_h2 and shape == slide.shapes.title:
                 continue
 
             shape_nodes = self._process_shape_to_ast(shape)

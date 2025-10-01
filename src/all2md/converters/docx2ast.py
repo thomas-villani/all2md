@@ -143,6 +143,22 @@ class DocxToAstConverter:
                 children.append(final_list)
             self._list_stack = []
 
+        # Add footnotes, endnotes, and comments at the end if requested
+        if self.options.include_footnotes:
+            footnotes_nodes = self._process_footnotes(doc)
+            if footnotes_nodes:
+                children.extend(footnotes_nodes)
+
+        if self.options.include_endnotes:
+            endnotes_nodes = self._process_endnotes(doc)
+            if endnotes_nodes:
+                children.extend(endnotes_nodes)
+
+        if self.options.include_comments:
+            comments_nodes = self._process_comments(doc)
+            if comments_nodes:
+                children.extend(comments_nodes)
+
         return Document(children=children)
 
     def _process_paragraph_to_ast(self, paragraph: "Paragraph") -> Node | list[Node] | None:
@@ -539,3 +555,156 @@ class DocxToAstConverter:
             data_rows.append(TableRow(cells=row_cells))
 
         return AstTable(header=header_row, rows=data_rows)
+
+    def _process_footnotes(self, doc: "docx.document.Document") -> list[Node]:
+        """Process footnotes from document.
+
+        Parameters
+        ----------
+        doc : docx.document.Document
+            Document to extract footnotes from
+
+        Returns
+        -------
+        list[Node]
+            List of AST nodes for footnotes
+
+        """
+        nodes: list[Node] = []
+
+        try:
+            if hasattr(doc.part, 'footnotes_part'):
+                footnotes_part = doc.part.footnotes_part
+                if footnotes_part and hasattr(footnotes_part, 'element'):
+                    # Add section heading
+                    nodes.append(Heading(level=2, content=[Text(content="Footnotes")]))
+
+                    # Iterate over footnotes
+                    for footnote in footnotes_part.element.findall(
+                        './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}footnote'
+                    ):
+                        footnote_id = footnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                        # Skip special footnotes (separator, continuation separator)
+                        if footnote_id in ('-1', '0'):
+                            continue
+
+                        # Extract text from footnote paragraphs
+                        footnote_text_parts = []
+                        for p_elem in footnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
+                            for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
+                                if t_elem.text:
+                                    footnote_text_parts.append(t_elem.text)
+
+                        if footnote_text_parts:
+                            footnote_text = ' '.join(footnote_text_parts)
+                            nodes.append(AstParagraph(content=[
+                                Strong(content=[Text(content=f"[{footnote_id}]")]),
+                                Text(content=f" {footnote_text}")
+                            ]))
+        except Exception as e:
+            logger.debug(f"Could not process footnotes: {e}")
+
+        return nodes
+
+    def _process_endnotes(self, doc: "docx.document.Document") -> list[Node]:
+        """Process endnotes from document.
+
+        Parameters
+        ----------
+        doc : docx.document.Document
+            Document to extract endnotes from
+
+        Returns
+        -------
+        list[Node]
+            List of AST nodes for endnotes
+
+        """
+        nodes: list[Node] = []
+
+        try:
+            if hasattr(doc.part, 'endnotes_part'):
+                endnotes_part = doc.part.endnotes_part
+                if endnotes_part and hasattr(endnotes_part, 'element'):
+                    # Add section heading
+                    nodes.append(Heading(level=2, content=[Text(content="Endnotes")]))
+
+                    # Iterate over endnotes
+                    for endnote in endnotes_part.element.findall(
+                        './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}endnote'
+                    ):
+                        endnote_id = endnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                        # Skip special endnotes
+                        if endnote_id in ('-1', '0'):
+                            continue
+
+                        # Extract text from endnote paragraphs
+                        endnote_text_parts = []
+                        for p_elem in endnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
+                            for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
+                                if t_elem.text:
+                                    endnote_text_parts.append(t_elem.text)
+
+                        if endnote_text_parts:
+                            endnote_text = ' '.join(endnote_text_parts)
+                            nodes.append(AstParagraph(content=[
+                                Strong(content=[Text(content=f"[{endnote_id}]")]),
+                                Text(content=f" {endnote_text}")
+                            ]))
+        except Exception as e:
+            logger.debug(f"Could not process endnotes: {e}")
+
+        return nodes
+
+    def _process_comments(self, doc: "docx.document.Document") -> list[Node]:
+        """Process comments from document.
+
+        Parameters
+        ----------
+        doc : docx.document.Document
+            Document to extract comments from
+
+        Returns
+        -------
+        list[Node]
+            List of AST nodes for comments
+
+        """
+        nodes: list[Node] = []
+
+        try:
+            if hasattr(doc.part, 'comments_part'):
+                comments_part = doc.part.comments_part
+                if comments_part and hasattr(comments_part, 'element'):
+                    # Add section heading
+                    nodes.append(Heading(level=2, content=[Text(content="Comments")]))
+
+                    # Iterate over comments
+                    for comment in comments_part.element.findall(
+                        './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}comment'
+                    ):
+                        comment_id = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                        author = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author', 'Unknown')
+                        date = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}date', '')
+
+                        # Extract text from comment paragraphs
+                        comment_text_parts = []
+                        for p_elem in comment.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
+                            for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
+                                if t_elem.text:
+                                    comment_text_parts.append(t_elem.text)
+
+                        if comment_text_parts:
+                            comment_text = ' '.join(comment_text_parts)
+                            # Format: **[Comment ID]** Author (Date): Comment text
+                            header = f"[{comment_id}] {author}"
+                            if date:
+                                header += f" ({date})"
+                            nodes.append(AstParagraph(content=[
+                                Strong(content=[Text(content=header)]),
+                                Text(content=f": {comment_text}")
+                            ]))
+        except Exception as e:
+            logger.debug(f"Could not process comments: {e}")
+
+        return nodes

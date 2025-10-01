@@ -142,9 +142,13 @@ def _preprocess_html(
             )
 
             # Extract URL from markdown result to update the img tag
-            # process_attachment returns markdown like ![alt](url) or ![alt]
+            # process_attachment returns markdown like ![alt](url) or ![alt] or "" (skip mode)
             # We need to extract the URL and set it as the src attribute
-            if markdown_result.startswith("!["):
+            if not markdown_result or options.attachment_mode == "skip":
+                # Skip mode or empty result - remove the image tag
+                if hasattr(img_tag, 'decompose'):
+                    img_tag.decompose()
+            elif markdown_result.startswith("!["):
                 # Parse markdown to extract URL
                 # Pattern: ![alt](url) or ![alt](url "title") or ![alt]
                 url_match = re.search(r'!\[([^\]]*)\]\(([^)]+?)\)', markdown_result)
@@ -155,17 +159,10 @@ def _preprocess_html(
                     extracted_url = extracted_url.split('"')[0].strip()
                     if hasattr(img_tag, '__setitem__'):
                         img_tag["src"] = extracted_url
-                elif options.attachment_mode == "skip":
-                    # Skip mode - remove the image tag
-                    if hasattr(img_tag, 'decompose'):
-                        img_tag.decompose()
                 else:
                     # Alt-text only (no URL) - remove the image tag
                     if hasattr(img_tag, 'decompose'):
                         img_tag.decompose()
-            else:
-                # Unexpected format - keep original
-                pass
         else:
             logger.warning(f"Could not find image item for src: {src} (resolved to {resolved_path})")
 

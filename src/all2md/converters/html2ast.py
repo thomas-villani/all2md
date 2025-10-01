@@ -60,6 +60,7 @@ class HtmlToAstConverter:
         self.options = options or HtmlOptions()
         self._list_depth = 0
         self._in_code_block = False
+        self._heading_level_offset = 0
 
     def convert_to_ast(self, html_content: str) -> Document:
         """Convert HTML string to AST Document.
@@ -76,8 +77,14 @@ class HtmlToAstConverter:
 
         """
         from bs4 import BeautifulSoup
+        from bs4.element import Comment
 
         soup = BeautifulSoup(html_content, "html.parser")
+
+        # Strip comments if requested
+        if self.options.strip_comments:
+            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+                comment.extract()
 
         # Strip dangerous elements if requested
         if self.options.strip_dangerous_elements:
@@ -93,15 +100,34 @@ class HtmlToAstConverter:
             for element in elements_to_remove:
                 element.decompose()
 
+        # Apply whitelist filters if specified
+        if self.options.allowed_elements is not None:
+            elements_to_remove = []
+            for element in soup.find_all():
+                if hasattr(element, "name") and element.name not in self.options.allowed_elements:
+                    elements_to_remove.append(element)
+            for element in elements_to_remove:
+                # Unwrap instead of decompose to keep children
+                element.unwrap()
+
+        if self.options.allowed_attributes is not None:
+            for element in soup.find_all():
+                if hasattr(element, "attrs"):
+                    attrs_to_remove = [attr for attr in element.attrs if attr not in self.options.allowed_attributes]
+                    for attr in attrs_to_remove:
+                        del element.attrs[attr]
+
         # Build document children
         children: list[Node] = []
 
-        # Extract title if requested
+        # Extract title if requested - this will offset all headings by 1 level
         if self.options.extract_title:
             title_tag = soup.find("title")
             if title_tag and title_tag.string:
                 title_heading = Heading(level=1, content=[Text(content=title_tag.string.strip())])
                 children.append(title_heading)
+                # Demote all body headings by 1 level to make room for extracted title
+                self._heading_level_offset = 1
 
         # Process body or root element
         body = soup.find("body")
@@ -189,6 +215,13 @@ class HtmlToAstConverter:
         # Handle text nodes
         if isinstance(node, NavigableString):
             text = self._decode_entities(str(node))
+
+            # Apply whitespace collapsing if enabled
+            if self.options.collapse_whitespace:
+                # Collapse multiple spaces/newlines into single space
+                import re
+                text = re.sub(r'\s+', ' ', text)
+
             if text.strip():
                 return Text(content=text)
             return None
@@ -199,7 +232,11 @@ class HtmlToAstConverter:
 
         # Dispatch based on element type
         if node.name == "br":
-            return LineBreak(soft=False)
+            # Handle <br> based on br_handling option
+            if self.options.br_handling == "space":
+                return Text(content=" ")
+            else:  # "newline"
+                return LineBreak(soft=False)
         elif node.name == "hr":
             return ThematicBreak()
         elif node.name in ["p", "div"]:
@@ -268,6 +305,8 @@ class HtmlToAstConverter:
 
         """
         level = int(node.name[1])  # Extract number from h1, h2, etc.
+        # Apply heading level offset (for title extraction)
+        level = min(level + self._heading_level_offset, 6)  # Cap at h6
         content = self._process_children_to_inline(node)
         return Heading(level=level, content=content)
 
@@ -419,17 +458,19 @@ class HtmlToAstConverter:
         if caption_tag:
             caption = caption_tag.get_text().strip()
 
-        # Process thead
+        # Process thead - collect cells from ALL header rows
         thead = node.find("thead")
         if thead:
-            header_tr = thead.find("tr")
-            if header_tr:
-                header_cells = []
+            header_cells = []
+            # Find ALL <tr> elements in thead, not just the first one
+            for header_tr in thead.find_all("tr", recursive=False):
                 for th in header_tr.find_all(["th", "td"]):
                     content = self._process_children_to_inline(th)
                     alignment = self._get_alignment(th)
                     alignments.append(alignment)
                     header_cells.append(TableCell(content=content))
+
+            if header_cells:
                 header = TableRow(cells=header_cells, is_header=True)
 
         # Process tbody or direct rows

@@ -258,82 +258,22 @@ def ipynb_to_markdown(
     if options.extract_metadata:
         metadata = extract_ipynb_metadata(notebook)
 
-    output_parts = []
-    language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
+    # Use AST-based conversion path
+    from all2md.converters.ipynb2ast import IpynbToAstConverter
+    from all2md.ast import MarkdownRenderer
+    from all2md.options import MarkdownOptions
 
-    for i, cell in enumerate(notebook["cells"]):
-        cell_type = cell.get("cell_type")
-        cell_content = []
+    # Convert to AST
+    ast_converter = IpynbToAstConverter(notebook, options)
+    ast_document = ast_converter.convert_to_ast()
 
-        if cell_type == "markdown":
-            source = _get_source(cell)
-            cell_content.append(source)
-
-        elif cell_type == "code":
-            source = _get_source(cell)
-            if source.strip():
-                cell_content.append(f"```{language}\n{source}\n```")
-
-            # Process outputs
-            for j, output in enumerate(cell.get("outputs", [])):
-                output_md = ""
-                output_type = output.get("output_type")
-
-                if output_type == "stream":
-                    text = "".join(output.get("text", []))
-                    if text.strip():
-                        collapsed_text = _collapse_output(
-                            text,
-                            options.truncate_long_outputs,
-                            options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE
-                        )
-                        output_md = f"```\n{collapsed_text.strip()}\n```"
-
-                elif output_type in ("execute_result", "display_data"):
-                    data = output.get("data", {})
-                    image_handled = False
-                    for mime_type in IPYNB_SUPPORTED_IMAGE_MIMETYPES:
-                        if mime_type in data:
-                            b64_data = data[mime_type]
-                            try:
-                                image_bytes = base64.b64decode(b64_data)
-                                ext = mime_type.split("/")[-1].split("+")[0]
-                                filename = f"cell_{i + 1}_output_{j + 1}.{ext}"
-                                output_md = process_attachment(
-                                    attachment_data=image_bytes,
-                                    attachment_name=filename,
-                                    alt_text="cell output",
-                                    attachment_mode=options.attachment_mode,
-                                    attachment_output_dir=options.attachment_output_dir,
-                                    attachment_base_url=options.attachment_base_url,
-                                    is_image=True,
-                                    alt_text_mode=options.alt_text_mode,
-                                )
-                                image_handled = True
-                                break
-                            except (ValueError, TypeError) as e:
-                                logger.warning(f"Could not decode base64 image in cell {i + 1}: {e}")
-                                continue
-
-                    if not image_handled and "text/plain" in data:
-                        text = "".join(data["text/plain"])
-                        if text.strip():
-                            collapsed_text = _collapse_output(
-                                text, options.truncate_long_outputs,
-                                options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE
-                            )
-                            output_md = f"```\n{collapsed_text.strip()}\n```"
-
-                if output_md:
-                    cell_content.append(output_md)
-
-        if cell_content:
-            output_parts.append("\n\n".join(cell_content))
-
-    result = "\n\n".join(output_parts).strip()
+    # Render AST to markdown
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+    renderer = MarkdownRenderer(md_opts)
+    result = renderer.render(ast_document)
 
     # Prepend metadata if enabled
-    result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+    result = prepend_metadata_if_enabled(result.strip(), metadata, options.extract_metadata)
 
     return result
 

@@ -489,11 +489,21 @@ def odf_to_markdown(
     if options.extract_metadata:
         metadata = extract_odf_metadata(doc)
 
-    converter = OdfConverter(doc, options)
-    markdown_content = converter.convert()
+    # Use AST-based conversion path
+    from all2md.converters.odf2ast import OdfToAstConverter
+    from all2md.ast import MarkdownRenderer
+
+    # Convert to AST
+    ast_converter = OdfToAstConverter(doc, options)
+    ast_document = ast_converter.convert_to_ast()
+
+    # Render AST to markdown
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+    renderer = MarkdownRenderer(md_opts)
+    markdown_content = renderer.render(ast_document)
 
     # Prepend metadata if enabled
-    result = prepend_metadata_if_enabled(markdown_content, metadata, options.extract_metadata)
+    result = prepend_metadata_if_enabled(markdown_content.strip(), metadata, options.extract_metadata)
 
     return result
 
