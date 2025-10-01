@@ -104,7 +104,7 @@ class TestDynamicCLIBuilder:
 
         # Check PDF options mapping
         assert 'pages' in options
-        assert options['pages'] == [1, 2, 3]
+        assert options['pages'] == "1,2,3"
         assert options['password'] == 'secret'
         assert options['detect_columns'] is False
 

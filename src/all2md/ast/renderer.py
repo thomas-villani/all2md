@@ -499,7 +499,8 @@ class MarkdownRenderer(NodeVisitor):
                     # Fill remaining columns with default alignment
                     while len(alignments) < num_cols:
                         alignments.append('-' * max(3, col_widths[len(alignments)]))
-                    self._output.append('| ' + ' | '.join(alignments) + ' |')
+                    # Alignment row without spaces (for backward compatibility)
+                    self._output.append('|' + '|'.join(alignments) + '|')
         else:
             # Minimal spacing - no padding
             for i, row_cells in enumerate(rendered_rows):
@@ -526,7 +527,8 @@ class MarkdownRenderer(NodeVisitor):
                     while len(alignments) < num_cols:
                         alignments.append('---')
 
-                    self._output.append('| ' + ' | '.join(alignments) + ' |')
+                    # Alignment row without spaces (for backward compatibility)
+                    self._output.append('|' + '|'.join(alignments) + '|')
 
     def _render_table_as_html(self, node: Table) -> None:
         """Render a table as HTML when markdown tables are not supported.

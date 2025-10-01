@@ -384,10 +384,21 @@ def xlsx_to_markdown(
         if options.extract_metadata:
             metadata = extract_xlsx_metadata(wb)
 
-        result = _xlsx_to_markdown(wb, options)
+        # Use AST-based conversion path
+        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+        from all2md.ast import MarkdownRenderer
+
+        # Convert to AST
+        ast_converter = SpreadsheetToAstConverter(options=options)
+        ast_document = ast_converter.xlsx_to_ast(wb)
+
+        # Render AST to markdown
+        md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+        renderer = MarkdownRenderer(md_opts)
+        result = renderer.render(ast_document)
 
         # Prepend metadata if enabled
-        result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+        result = prepend_metadata_if_enabled(result.strip(), metadata, options.extract_metadata)
 
         return result
 
@@ -563,12 +574,24 @@ def csv_to_markdown(
         options: SpreadsheetOptions | None = None
 ) -> str:
     """Convert CSV to Markdown table."""
-    return _csv_or_tsv_to_markdown(
+    if options is None:
+        options = SpreadsheetOptions()
+
+    # Use AST-based conversion path
+    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+    from all2md.ast import MarkdownRenderer
+
+    ast_converter = SpreadsheetToAstConverter(options=options)
+    ast_document = ast_converter.csv_or_tsv_to_ast(
         input_data=input_data,
-        options=options,
         delimiter=",",
-        force_delimiter=False  # allow dialect/sniffer unless overridden by options
+        force_delimiter=False
     )
+
+    # Render AST to markdown
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+    renderer = MarkdownRenderer(md_opts)
+    return renderer.render(ast_document)
 
 
 def tsv_to_markdown(
@@ -576,16 +599,29 @@ def tsv_to_markdown(
         options: SpreadsheetOptions | None = None
 ) -> str:
     """Convert TSV to Markdown table."""
+    if options is None:
+        options = SpreadsheetOptions()
+
     # For TSV, default to tab delimiter and force it unless user enabled dialect detection explicitly
     force = True
     if options and options.detect_csv_dialect:
         force = False
-    return _csv_or_tsv_to_markdown(
+
+    # Use AST-based conversion path
+    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+    from all2md.ast import MarkdownRenderer
+
+    ast_converter = SpreadsheetToAstConverter(options=options)
+    ast_document = ast_converter.csv_or_tsv_to_ast(
         input_data=input_data,
-        options=options,
         delimiter="\t",
         force_delimiter=force
     )
+
+    # Render AST to markdown
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+    renderer = MarkdownRenderer(md_opts)
+    return renderer.render(ast_document)
 
 
 def _detect_csv_tsv_content(content: bytes) -> bool:
@@ -988,48 +1024,21 @@ def ods_to_markdown(
         if options.extract_metadata:
             metadata = _ods_extract_metadata(doc)
 
-        # Get all tables/sheets
-        body = doc.body
-        tables = list(body.getElementsByType(Table)) if body else []
+        # Use AST-based conversion path
+        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+        from all2md.ast import MarkdownRenderer
 
-        if not tables:
-            result = ""
-        else:
-            # Filter sheets based on options
-            sheet_names = [table.getAttribute("name") or f"Sheet{i+1}" for i, table in enumerate(tables)]
-            selected_tables = []
-            selected_names = []
+        # Convert to AST
+        ast_converter = SpreadsheetToAstConverter(options=options)
+        ast_document = ast_converter.ods_to_ast(doc)
 
-            if isinstance(options.sheets, list):
-                # Filter by exact names
-                for i, name in enumerate(sheet_names):
-                    if name in options.sheets:
-                        selected_tables.append(tables[i])
-                        selected_names.append(name)
-            elif isinstance(options.sheets, str):
-                # Filter by regex pattern
-                import re
-                pattern = re.compile(options.sheets)
-                for i, name in enumerate(sheet_names):
-                    if pattern.search(name):
-                        selected_tables.append(tables[i])
-                        selected_names.append(name)
-            else:
-                # Include all sheets
-                selected_tables = tables
-                selected_names = sheet_names
-
-            # Process each selected sheet
-            sections = []
-            for table, name in zip(selected_tables, selected_names, strict=False):
-                sheet_md = _ods_process_sheet(table, name, options)
-                if sheet_md.strip():
-                    sections.append(sheet_md)
-
-            result = "\n\n".join(sections)
+        # Render AST to markdown
+        md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+        renderer = MarkdownRenderer(md_opts)
+        result = renderer.render(ast_document)
 
         # Prepend metadata if enabled
-        result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+        result = prepend_metadata_if_enabled(result.strip(), metadata, options.extract_metadata)
 
         return result
 

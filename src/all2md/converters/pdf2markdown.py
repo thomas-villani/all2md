@@ -845,8 +845,17 @@ def extract_page_images(
 
             bbox = img_rects[0]  # Use first occurrence
 
-            # Process image using unified attachment handling
-            img_bytes = pix_rgb.tobytes("png")
+            # Determine image format and convert pixmap to bytes
+            img_format = options.image_format if options.image_format else "png"
+            img_extension = img_format  # "png" or "jpeg"
+
+            if img_format == "jpeg":
+                # Use JPEG with specified quality
+                quality = options.image_quality if options.image_quality else 90
+                img_bytes = pix_rgb.tobytes("jpeg", jpg_quality=quality)
+            else:
+                # Default to PNG
+                img_bytes = pix_rgb.tobytes("png")
 
             # Use sequencer if available, otherwise fall back to manual indexing
             if attachment_sequencer:
@@ -854,7 +863,7 @@ def extract_page_images(
                     base_stem=base_filename,
                     format_type="pdf",
                     page_num=page_num + 1,  # Convert to 1-based
-                    extension="png"
+                    extension=img_extension
                 )
             else:
                 from all2md.utils.attachments import generate_attachment_filename
@@ -863,7 +872,7 @@ def extract_page_images(
                     format_type="pdf",
                     page_num=page_num + 1,  # Convert to 1-based
                     sequence_num=img_idx + 1,
-                    extension="png"
+                    extension=img_extension
                 )
 
             image_path = process_attachment(
@@ -1134,6 +1143,122 @@ def extract_pdf_metadata(doc: "fitz.Document") -> DocumentMetadata:
     return metadata
 
 
+def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
+    """Parse page range specification into list of 0-based page indices.
+
+    Supports various formats:
+    - "1-3" → [0, 1, 2]
+    - "5" → [4]
+    - "10-" → [9, 10, ..., total_pages-1]
+    - "1-3,5,10-" → combined ranges
+
+    Parameters
+    ----------
+    page_spec : str
+        Page range specification
+    total_pages : int
+        Total number of pages in document
+
+    Returns
+    -------
+    list of int
+        0-based page indices
+
+    Examples
+    --------
+    >>> parse_page_ranges("1-3,5", 10)
+    [0, 1, 2, 4]
+    >>> parse_page_ranges("8-", 10)
+    [7, 8, 9]
+
+    """
+    pages = set()
+
+    # Split by comma to handle multiple ranges
+    parts = page_spec.split(',')
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # Handle range (e.g., "1-3" or "10-")
+        if '-' in part:
+            range_parts = part.split('-', 1)
+            start_str = range_parts[0].strip()
+            end_str = range_parts[1].strip()
+
+            # Parse start (1-based to 0-based)
+            if start_str:
+                start = int(start_str) - 1
+            else:
+                start = 0
+
+            # Parse end (1-based to 0-based, or use total_pages if empty)
+            if end_str:
+                end = int(end_str) - 1
+            else:
+                end = total_pages - 1
+
+            # Add all pages in range
+            for p in range(start, end + 1):
+                if 0 <= p < total_pages:
+                    pages.add(p)
+        else:
+            # Single page (1-based to 0-based)
+            page = int(part) - 1
+            if 0 <= page < total_pages:
+                pages.add(page)
+
+    # Return sorted list
+    return sorted(pages)
+
+
+def _expand_page_separators(markdown: str, options: PdfOptions) -> str:
+    """Expand PAGE_SEP markers with page separator template.
+
+    Replaces HTML comment markers like <!-- PAGE_SEP:1/10 --> with the
+    actual page separator template, expanding {page_num} and {total_pages} placeholders.
+
+    Parameters
+    ----------
+    markdown : str
+        Markdown text containing PAGE_SEP markers
+    options : PdfOptions
+        PDF options containing page_separator_template
+
+    Returns
+    -------
+    str
+        Markdown with expanded page separators
+
+    """
+    import re
+
+    # Pattern to match <!-- PAGE_SEP:N/T -->
+    pattern = r'<!-- PAGE_SEP:(\d+)/(\d+) -->'
+
+    def replace_sep(match):
+        page_num = match.group(1)
+        total_pages = match.group(2)
+
+        # Get template from options
+        template = options.page_separator_template
+
+        # Expand placeholders
+        separator = template.replace("{page_num}", page_num)
+        separator = separator.replace("{total_pages}", total_pages)
+
+        # If include_page_numbers is True and template doesn't have placeholders,
+        # append page numbers automatically
+        if options.include_page_numbers and "{page_num}" not in template and "{total_pages}" not in template:
+            separator = f"{separator}\nPage {page_num}/{total_pages}"
+
+        return f"\n{separator}\n"
+
+    return re.sub(pattern, replace_sep, markdown)
+
+
 def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], options: PdfOptions | None = None) -> str:
     """Convert PDF document to Markdown format.
 
@@ -1269,127 +1394,34 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
     # Get Markdown options (create default if not provided)
     md_options = options.markdown_options or MarkdownOptions()
 
-    hdr_prefix = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=options)
-    md_string = ""
+    # Create header identifier for font-based header detection
+    hdr_identifier = IdentifyHeaders(doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=options)
 
     # Create attachment sequencer for consistent filename generation
     attachment_sequencer = create_attachment_sequencer()
 
-    for pno in pages_to_use:
-        page = doc[pno]
+    # Use new AST-based conversion path
+    from all2md.converters.pdf2ast import PdfToAstConverter
+    from all2md.ast import MarkdownRenderer
 
-        # Extract images for all attachment modes except "skip"
-        page_images = []
-        if options.attachment_mode != "skip":
-            page_images = extract_page_images(page, pno, options, base_filename, attachment_sequencer)
+    # Convert PDF to AST
+    ast_converter = PdfToAstConverter(
+        options=options,
+        doc=doc,
+        base_filename=base_filename,
+        attachment_sequencer=attachment_sequencer,
+        hdr_identifier=hdr_identifier,
+    )
+    ast_document = ast_converter.convert_to_ast(doc, pages_to_use)
 
-        # 1. first locate all tables on page
-        tabs = page.find_tables()
+    # Render AST to markdown using MarkdownOptions
+    renderer = MarkdownRenderer(md_options)
+    markdown = renderer.render(ast_document)
 
-        # Use fallback table detection if enabled and no tables found
-        if options.enable_table_fallback_detection and not tabs.tables:
-            _fallback_rects = detect_tables_by_ruling_lines(page, options.table_ruling_line_threshold)
-            # Note: We can't create actual table objects from fallback detection,
-            # but we can mark these regions for special processing
-
-        # 2. make a list of table boundary boxes, sort by top-left corner.
-        # Must include the header bbox, which may be external.
-        tab_rects = sorted(
-            [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i) for i, t in enumerate(tabs.tables)],
-            key=lambda r: (r[0].y0, r[0].x0),
-        )
-
-        # 3. final list of all text and table rectangles
-        text_rects = []
-        # compute rectangles outside tables and fill final rect list
-        for i, (r, idx) in enumerate(tab_rects):
-            if i == 0:  # compute rect above all tables
-                tr = page.rect
-                tr.y1 = r.y0
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-                text_rects.append(("table", r, idx))
-                continue
-            # read previous rectangle in final list: always a table!
-            _, r0, idx0 = text_rects[-1]
-
-            # check if a non-empty text rect is fitting in between tables
-            tr = page.rect
-            tr.y0 = r0.y1
-            tr.y1 = r.y0
-            if not tr.is_empty:  # empty if two tables overlap vertically!
-                text_rects.append(("text", tr, 0))
-
-            text_rects.append(("table", r, idx))
-
-            # there may also be text below all tables
-            if i == len(tab_rects) - 1:
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-
-        if not text_rects:  # this will happen for table-free pages
-            text_rects.append(("text", page.rect, 0))
-        else:
-            rtype, r, idx = text_rects[-1]
-            if rtype == "table":
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-
-        # Add image placement markers if enabled
-        if page_images and options.image_placement_markers:
-            # Sort images by vertical position
-            page_images.sort(key=lambda img: img["bbox"].y0)
-
-            # Insert images at appropriate positions
-            combined_rects: list[tuple[str, fitz.Rect, Union[int, dict]]] = []
-            img_idx = 0
-
-            for rtype, r, idx in text_rects:
-                # Check if any images should be placed before this rect
-                while img_idx < len(page_images) and page_images[img_idx]["bbox"].y1 <= r.y0:
-                    img = page_images[img_idx]
-                    combined_rects.append(("image", img["bbox"], img))
-                    img_idx += 1
-
-                combined_rects.append((rtype, r, idx))
-
-            # Add remaining images
-            while img_idx < len(page_images):
-                img = page_images[img_idx]
-                combined_rects.append(("image", img["bbox"], img))
-                img_idx += 1
-
-            text_rects = combined_rects  # type: ignore[assignment]
-
-        # we have all rectangles and can start outputting their contents
-        for rtype, r, idx in text_rects:
-            if rtype == "text":  # a text rectangle
-                md_string += page_to_markdown(page, r, hdr_prefix, md_options, options)  # write MD content
-                md_string += "\n"
-            elif rtype == "table":  # a table rect
-                md_string += tabs[idx].to_markdown(clean=False)
-            elif rtype == "image":  # an image
-                img_info = idx  # type: ignore[assignment]  # In this case, idx contains the image info dict
-                if isinstance(img_info, dict):  # Type guard
-                    if img_info["path"].startswith("data:"):
-                        # Embedded base64 image
-                        md_string += f"![{img_info.get('caption', 'Image')}]({img_info['path']})\n"
-                    else:
-                        # File path
-                        md_string += f"![{img_info.get('caption', 'Image')}]({img_info['path']})\n"
-                    if img_info.get("caption"):
-                        md_string += f"*{img_info['caption']}*\n"
-                md_string += "\n"
-
-        # Add customizable page separator
-        separator = md_options.page_separator_template.replace("{page_num}", str(pno + 1))
-        md_string += f"\n{separator}\n\n"
+    # Post-process page separators: expand PAGE_SEP markers with template
+    markdown = _expand_page_separators(markdown, options)
 
     # Prepend metadata if enabled
-    md_string = prepend_metadata_if_enabled(md_string, metadata, options.extract_metadata)
+    markdown = prepend_metadata_if_enabled(markdown, metadata, options.extract_metadata)
 
-    return md_string
+    return markdown

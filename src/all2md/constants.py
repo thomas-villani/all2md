@@ -120,6 +120,18 @@ DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
 # Page separator constants
 DEFAULT_INCLUDE_PAGE_NUMBERS = False
 
+# Table detection mode constants
+DEFAULT_TABLE_DETECTION_MODE = "both"  # Options: "pymupdf", "ruling", "both", "none"
+
+# Image format constants
+DEFAULT_IMAGE_FORMAT = "png"  # Options: "png", "jpeg"
+DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
+
+# Header/footer trimming constants
+DEFAULT_TRIM_HEADERS_FOOTERS = False
+DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
+DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
+
 # =============================================================================
 # HTML to Markdown Constants
 # =============================================================================

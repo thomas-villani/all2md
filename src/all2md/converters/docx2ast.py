@@ -19,12 +19,8 @@ if TYPE_CHECKING:
     import docx.document
     from docx.table import Table
     from docx.text.paragraph import Paragraph
-
-# Make Hyperlink available while maintaining lazy loading
-try:
     from docx.text.hyperlink import Hyperlink
-except ImportError:
-    Hyperlink = None  # type: ignore
+
 
 from all2md.ast import (
     BlockQuote,
@@ -354,8 +350,9 @@ class DocxToAstConverter:
                 current_format = format_key
                 current_url = url
 
+            from docx.text.hyperlink import Hyperlink
             # Extract text
-            if Hyperlink is not None and isinstance(run_to_parse, Hyperlink):
+            if isinstance(run_to_parse, Hyperlink):
                 hyperlink_text = "".join(r.text for r in run_to_parse.runs)
                 current_text.append(hyperlink_text)
             else:
@@ -421,7 +418,8 @@ class DocxToAstConverter:
             URL if hyperlink, and the run to parse for text
 
         """
-        if Hyperlink is not None and isinstance(run, Hyperlink):
+        from docx.text.hyperlink import Hyperlink
+        if isinstance(run, Hyperlink):
             return run.address, run
         return None, run
 
@@ -441,8 +439,9 @@ class DocxToAstConverter:
             (bold, italic, underline, strike, subscript, superscript, is_hyperlink)
 
         """
+        from docx.text.hyperlink import Hyperlink
         # Handle Hyperlink object
-        if Hyperlink is not None and isinstance(run, Hyperlink):
+        if isinstance(run, Hyperlink):
             if run.runs:
                 first_run = run.runs[0]
                 return (

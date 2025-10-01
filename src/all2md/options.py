@@ -61,6 +61,13 @@ from .constants import (
     DEFAULT_HEADER_USE_FONT_WEIGHT,
     DEFAULT_IMAGE_PLACEMENT_MARKERS,
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
+    DEFAULT_INCLUDE_PAGE_NUMBERS,
+    DEFAULT_TABLE_DETECTION_MODE,
+    DEFAULT_IMAGE_FORMAT,
+    DEFAULT_IMAGE_QUALITY,
+    DEFAULT_TRIM_HEADERS_FOOTERS,
+    DEFAULT_HEADER_HEIGHT,
+    DEFAULT_FOOTER_HEIGHT,
     DEFAULT_LIST_INDENT_WIDTH,
     DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
     DEFAULT_MAX_DOWNLOAD_BYTES,
@@ -130,9 +137,6 @@ class MarkdownOptions(_CloneMixin):
         Symbol to use for emphasis/italic formatting in Markdown.
     bullet_symbols : str, default "\*-+"
         Characters to cycle through for nested bullet lists.
-    page_separator_template : str, default "\-\-\-\-\-"
-        Template for page separators. Supports placeholders like {page_num}, {page_count}.
-        Use plain text without placeholders for simple separators.
     list_indent_width : int, default 4
         Number of spaces to use for each level of list indentation.
     underline_mode : {"html", "markdown", "ignore"}, default "html"
@@ -204,13 +208,6 @@ class MarkdownOptions(_CloneMixin):
     bullet_symbols: str = field(
         default=DEFAULT_BULLET_SYMBOLS,
         metadata={"help": "Characters to cycle through for nested bullet lists"}
-    )
-    page_separator_template: str = field(
-        default=DEFAULT_PAGE_SEPARATOR,
-        metadata={
-            "help": "Template for page separators. Supports placeholders: {page_num}, {page_count}. "
-                    "Use plain text without placeholders for simple separators."
-        }
     )
     list_indent_width: int = field(
         default=DEFAULT_LIST_INDENT_WIDTH,
@@ -497,8 +494,9 @@ class PdfOptions(BaseOptions):
 
     Parameters
     ----------
-    pages : list[int] or None, default None
-        Specific page numbers to convert (0-based indexing).
+    pages : list[int], str, or None, default None
+        Pages to convert (1-based indexing, like "page 1, page 2").
+        Can be a list [1, 2, 3] or string range "1-3,5,10-".
         If None, converts all pages.
     password : str or None, default None
         Password for encrypted PDF documents.
@@ -546,14 +544,38 @@ class PdfOptions(BaseOptions):
     include_image_captions : bool, default True
         Try to extract image captions.
 
+    include_page_numbers : bool, default False
+        Include page numbers in output (automatically added to separator).
+    page_separator_template : str, default "-----"
+        Template for page separators between pages.
+        Supports placeholders: {page_num}, {total_pages}.
+
+    table_detection_mode : str, default "both"
+        Table detection strategy: "pymupdf", "ruling", "both", or "none".
+    image_format : str, default "png"
+        Output format for extracted images: "png" or "jpeg".
+    image_quality : int, default 90
+        JPEG quality (1-100, only used when image_format="jpeg").
+
+    trim_headers_footers : bool, default False
+        Remove repeated headers and footers from pages.
+    header_height : int, default 0
+        Height in points to trim from top of page (requires trim_headers_footers).
+    footer_height : int, default 0
+        Height in points to trim from bottom of page (requires trim_headers_footers).
+
     Examples
     --------
     Convert only pages 1-3 with base64 images:
-        >>> options = PdfOptions(pages=[0, 1, 2], attachment_mode="base64")
+        >>> options = PdfOptions(pages=[1, 2, 3], attachment_mode="base64")
+        >>> # Or using string range:
+        >>> options = PdfOptions(pages="1-3", attachment_mode="base64")
 
-    Convert with custom Markdown formatting:
-        >>> md_opts = MarkdownOptions(emphasis_symbol="_", page_separator="---")
-        >>> options = PdfOptions(markdown_options=md_opts)
+    Convert with custom page separators:
+        >>> options = PdfOptions(
+        ...     page_separator_template="--- Page {page_num} of {total_pages} ---",
+        ...     include_page_numbers=True
+        ... )
 
     Configure header detection:
         >>> options = PdfOptions(
@@ -563,11 +585,11 @@ class PdfOptions(BaseOptions):
         ... )
     """
 
-    pages: list[int] | None = field(
+    pages: list[int] | str | None = field(
         default=None,
         metadata={
-            "help": "Specific pages to convert (comma-separated, 0-based indexing)",
-            "type": "list_int"
+            "help": "Pages to convert. Supports ranges: '1-3,5,10-' or list like [1,2,3]. Always 1-based.",
+            "type": str
         }
     )
     password: str | None = field(
@@ -699,6 +721,68 @@ class PdfOptions(BaseOptions):
         metadata={
             "help": "Try to extract image captions",
             "cli_name": "no-include-image-captions"  # default=True, use --no-*
+        }
+    )
+
+    # Page number display and separators
+    include_page_numbers: bool = field(
+        default=DEFAULT_INCLUDE_PAGE_NUMBERS,
+        metadata={
+            "help": "Include page numbers in output (e.g., 'Page 1/10')"
+        }
+    )
+    page_separator_template: str = field(
+        default=DEFAULT_PAGE_SEPARATOR,
+        metadata={
+            "help": "Template for page separators. Supports placeholders: {page_num}, {total_pages}. "
+                    "Use plain text without placeholders for simple separators."
+        }
+    )
+
+    # Table detection mode
+    table_detection_mode: str = field(
+        default=DEFAULT_TABLE_DETECTION_MODE,
+        metadata={
+            "help": "Table detection strategy: 'pymupdf', 'ruling', 'both', or 'none'",
+            "choices": ["pymupdf", "ruling", "both", "none"]
+        }
+    )
+
+    # Image format options
+    image_format: str = field(
+        default=DEFAULT_IMAGE_FORMAT,
+        metadata={
+            "help": "Output format for extracted images: 'png' or 'jpeg'",
+            "choices": ["png", "jpeg"]
+        }
+    )
+    image_quality: int = field(
+        default=DEFAULT_IMAGE_QUALITY,
+        metadata={
+            "help": "JPEG quality (1-100, only used when image_format='jpeg')",
+            "type": int
+        }
+    )
+
+    # Header/footer trimming
+    trim_headers_footers: bool = field(
+        default=DEFAULT_TRIM_HEADERS_FOOTERS,
+        metadata={
+            "help": "Remove repeated headers and footers from pages"
+        }
+    )
+    header_height: int = field(
+        default=DEFAULT_HEADER_HEIGHT,
+        metadata={
+            "help": "Height in points to trim from top of page (requires trim_headers_footers)",
+            "type": int
+        }
+    )
+    footer_height: int = field(
+        default=DEFAULT_FOOTER_HEIGHT,
+        metadata={
+            "help": "Height in points to trim from bottom of page (requires trim_headers_footers)",
+            "type": int
         }
     )
 
@@ -847,6 +931,12 @@ class PptxOptions(BaseOptions):
         metadata={
             "help": "Include speaker notes from slides",
             "cli_name": "no-include-notes"
+        }
+    )
+    page_separator_template: str = field(
+        default=DEFAULT_PAGE_SEPARATOR,
+        metadata={
+            "help": "Template for slide separators. Supports placeholders: {page_num}, {total_pages}."
         }
     )
 

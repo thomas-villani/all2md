@@ -415,34 +415,29 @@ def sourcecode_to_markdown(
     except Exception as e:
         raise MarkdownConversionError(f"Failed to read source code: {e}") from e
 
-    # Detect language
-    if options.language_override:
-        language = options.language_override
-        logger.debug(f"Using language override: {language}")
-    elif options.detect_language and filename:
-        language = _detect_language_from_extension(filename)
-        logger.debug(f"Detected language from extension: {language}")
-    else:
-        language = "text"
-        logger.debug("Using default language: text")
+    # Use AST-based conversion path
+    from all2md.converters.sourcecode2ast import SourceCodeToAstConverter
+    from all2md.ast import MarkdownRenderer
 
-    # Format as Markdown code block
-    result = _format_sourcecode_content(
-        content=content,
-        language=language,
-        filename=os.path.basename(filename) if filename else None,
-        include_filename=options.include_filename,
-    )
+    # Convert to AST
+    ast_converter = SourceCodeToAstConverter(options=options)
+    ast_document = ast_converter.convert_to_ast(content, filename=filename)
+
+    # Render AST to markdown
+    from all2md.options import MarkdownOptions
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+    renderer = MarkdownRenderer(md_opts)
+    result = renderer.render(ast_document)
 
     # Create metadata
     metadata = DocumentMetadata(
         title=os.path.basename(filename) if filename else "Source Code",
-        language=language,
+        language=ast_document.children[0].language if ast_document.children else "text",
         custom={"format": "sourcecode"},
     )
 
     # Prepend metadata if enabled
-    result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)
+    result = prepend_metadata_if_enabled(result.strip(), metadata, options.extract_metadata)
 
     return result
 

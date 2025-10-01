@@ -105,20 +105,25 @@ def is_file_like(obj: Any) -> bool:
     return hasattr(obj, "read") and callable(obj.read)
 
 
-def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -> list[int] | None:
+def validate_page_range(pages: list[int] | str | None, max_pages: int | None = None) -> list[int] | None:
     """Validate and normalize a page range specification.
+
+    All page numbers are 1-based (like "page 1", "page 2") and converted to 0-based internally.
 
     Parameters
     ----------
-    pages : list[int] or None
-        List of 0-based page numbers to validate
+    pages : list[int], str, or None
+        Page specification (1-based):
+        - list[int]: List of page numbers [1, 2, 3]
+        - str: Page range string, e.g. "1-3,5,10-"
+        - None: Use all pages
     max_pages : int or None, optional
         Maximum number of pages available for validation
 
     Returns
     -------
     list[int] or None
-        Validated list of page numbers, or None if input was None
+        Validated list of 0-based page indices, or None if input was None
 
     Raises
     ------
@@ -127,23 +132,48 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
 
     Examples
     --------
-    >>> validate_page_range([0, 1, 2], max_pages=5)
+    >>> validate_page_range([1, 2, 3], max_pages=5)
     [0, 1, 2]
-    >>> validate_page_range([-1], max_pages=5)
+    >>> validate_page_range("1-3,5", max_pages=10)
+    [0, 1, 2, 4]
+    >>> validate_page_range("10-", max_pages=12)
+    [9, 10, 11]
+    >>> validate_page_range([0], max_pages=5)
     Traceback (most recent call last):
     ...
-    all2md.exceptions.InputError: Invalid page number: -1. Pages must be 0-based.
+    all2md.exceptions.InputError: Invalid page number: 0. Pages must be >= 1.
     """
     if pages is None:
         return None
 
+    # Handle string page ranges
+    if isinstance(pages, str):
+        if max_pages is None:
+            raise InputError(
+                "Cannot parse page range string without knowing document page count",
+                parameter_name="pages",
+                parameter_value=pages,
+            )
+        try:
+            # Import parse_page_ranges from pdf2markdown
+            from all2md.converters.pdf2markdown import parse_page_ranges
+            pages = parse_page_ranges(pages, max_pages)
+        except (ValueError, IndexError) as e:
+            raise InputError(
+                f"Invalid page range format: {str(e)}. Use format like '1-3,5,10-'",
+                parameter_name="pages",
+                parameter_value=pages,
+            ) from e
+
     if not isinstance(pages, list):
         raise InputError(
-            f"Pages must be a list of integers, got {type(pages).__name__}",
+            f"Pages must be a list of integers or a string range, got {type(pages).__name__}",
             parameter_name="pages",
             parameter_value=pages,
         )
 
+    # Convert from 1-based to 0-based and validate
+    converted_pages = []
     for page_num in pages:
         if not isinstance(page_num, int):
             raise InputError(
@@ -152,21 +182,24 @@ def validate_page_range(pages: list[int] | None, max_pages: int | None = None) -
                 parameter_value=pages,
             )
 
-        if page_num < 0:
+        if page_num < 1:
             raise InputError(
-                f"Invalid page number: {page_num}. Pages must be 0-based (>= 0).",
+                f"Invalid page number: {page_num}. Pages must be >= 1 (1-based indexing).",
                 parameter_name="pages",
                 parameter_value=pages,
             )
 
-        if max_pages is not None and page_num >= max_pages:
+        if max_pages is not None and page_num > max_pages:
             raise InputError(
-                f"Page number {page_num} is out of range. Document has {max_pages} pages (0-{max_pages - 1}).",
+                f"Page number {page_num} is out of range. Document has {max_pages} pages (1-{max_pages}).",
                 parameter_name="pages",
                 parameter_value=pages,
             )
 
-    return pages
+        # Convert to 0-based
+        converted_pages.append(page_num - 1)
+
+    return converted_pages
 
 
 def validate_and_convert_input(

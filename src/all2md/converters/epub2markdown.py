@@ -147,7 +147,6 @@ def _preprocess_html(
             if markdown_result.startswith("!["):
                 # Parse markdown to extract URL
                 # Pattern: ![alt](url) or ![alt](url "title") or ![alt]
-                import re
                 url_match = re.search(r'!\[([^\]]*)\]\(([^)]+?)\)', markdown_result)
                 if url_match:
                     # Found URL - update src attribute

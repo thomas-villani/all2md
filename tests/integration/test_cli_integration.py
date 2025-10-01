@@ -89,7 +89,7 @@ class TestCLIIntegration:
             kwargs = call_args[1]
 
             assert "pages" in kwargs
-            assert kwargs["pages"] == [1, 2]
+            assert kwargs["pages"] == "1,2"
             assert kwargs["password"] == "secret"
             assert kwargs["detect_columns"] is False
 
@@ -188,8 +188,6 @@ class TestCLIIntegration:
                     "_",
                     "--markdown-bullet-symbols",
                     "•→◦",
-                    "--markdown-page-separator",
-                    "=====",
                 ]
             )
 
@@ -201,7 +199,6 @@ class TestCLIIntegration:
 
             assert kwargs["emphasis_symbol"] == "_"
             assert kwargs["bullet_symbols"] == "•→◦"
-            assert kwargs["page_separator_template"] == "====="
 
     def test_file_not_found_error(self, capsys):
         """Test error handling when input file doesn't exist."""
