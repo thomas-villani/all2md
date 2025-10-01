@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.converters.pdf2markdown import IdentifyHeaders, detect_columns, page_to_markdown
+from all2md.converters.pdf2markdown import IdentifyHeaders, detect_columns, pdf_to_markdown
 from all2md.options import PdfOptions
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
@@ -95,12 +95,14 @@ class TestPdfLayoutAdvanced:
         assert len(columns) == 1
         assert len(columns[0]) == len(blocks)
 
+    # TODO: remove or refactor
     @patch('all2md.converters.pdf2markdown.fitz.open')
     def test_rotated_text_handling(self, mock_fitz_open):
         """Test handling of rotated text blocks."""
         # Mock PDF with rotated text
         mock_doc = Mock()
         mock_page = Mock()
+        mock_tables = Mock()
 
         # Simulate rotated text with different dir values
         rotated_span = {
@@ -127,6 +129,15 @@ class TestPdfLayoutAdvanced:
 
         mock_page.get_text.return_value = {"blocks": [mock_block1, mock_block2]}
         mock_page.get_links.return_value = []
+        mock_page.get_images.return_value = []
+        mock_page.get_drawings.return_value = []
+
+        mock_rect = Mock()
+        mock_rect.width = 200
+        mock_rect.height = 200
+        mock_page.rect = mock_rect
+        mock_tables.tables = []
+        mock_page.find_tables.return_value = mock_tables
         # Fix the magic method by configuring it properly
         mock_doc.__getitem__ = Mock(return_value=mock_page)
         mock_doc.page_count = 1
@@ -135,9 +146,7 @@ class TestPdfLayoutAdvanced:
         options = PdfOptions(handle_rotated_text=True)
 
         # This would be called by pdf_to_markdown internally
-        header_analyzer = IdentifyHeaders(mock_doc, options=options)
-        result = page_to_markdown(mock_page, None, header_analyzer, pdf_options=options)
-
+        result = pdf_to_markdown(mock_doc, options=options)
         # Should handle rotated text (currently rotated text may be filtered out)
         # The test verifies that the function runs without error with rotated text present
         assert "Normal Text" in result
