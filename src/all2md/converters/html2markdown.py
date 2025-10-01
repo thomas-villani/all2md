@@ -1398,41 +1398,31 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             except Exception as e:
                 logger.warning(f"Failed to extract HTML metadata: {e}")
 
-        # Prepare converter arguments, only passing non-None values
-        hash_headings = (
-            options.markdown_options.use_hash_headings
-            if options.markdown_options
-            else DEFAULT_USE_HASH_HEADINGS
+        # Use new AST-based conversion path
+        from all2md.converters.html2ast import HtmlToAstConverter
+        from all2md.ast import MarkdownRenderer, RenderOptions, GFMFlavor
+
+        # Convert HTML to AST
+        ast_converter = HtmlToAstConverter(options)
+        ast_document = ast_converter.convert_to_ast(html_content)
+
+        # Map options to RenderOptions
+        md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
+        render_options = RenderOptions(
+            flavor=GFMFlavor(),
+            escape_special=md_opts.escape_special,
+            emphasis_symbol=md_opts.emphasis_symbol,
+            bullet_symbols=md_opts.bullet_symbols,
+            list_indent_width=md_opts.list_indent_width,
+            underline_mode=md_opts.underline_mode,
+            superscript_mode=md_opts.superscript_mode,
+            subscript_mode=md_opts.subscript_mode,
+            use_hash_headings=md_opts.use_hash_headings,
         )
-        converter_kwargs = {
-            "hash_headings": hash_headings,
-            "extract_title": options.extract_title,
-            "convert_nbsp": options.convert_nbsp,
-            "strip_dangerous_elements": options.strip_dangerous_elements,
-            "detect_table_alignment": options.detect_table_alignment,
-            "preserve_nested_structure": options.preserve_nested_structure,
-            "markdown_options": options.markdown_options,
-            "attachment_mode": options.attachment_mode,
-            "attachment_output_dir": options.attachment_output_dir,
-            "attachment_base_url": options.attachment_base_url,
-            # Network security options
-            "allow_remote_fetch": options.network.allow_remote_fetch,
-            "allowed_hosts": options.network.allowed_hosts,
-            "require_https": options.network.require_https,
-            "network_timeout": options.network.network_timeout,
-            "max_image_size_bytes": options.network.max_remote_asset_bytes,
-            "max_download_bytes": options.max_asset_bytes,
-        }
 
-        # Only add emphasis_symbol and bullet_symbols if markdown_options exists
-        if options.markdown_options:
-            if options.markdown_options.emphasis_symbol is not None:
-                converter_kwargs["emphasis_symbol"] = options.markdown_options.emphasis_symbol
-            if options.markdown_options.bullet_symbols is not None:
-                converter_kwargs["bullet_symbols"] = options.markdown_options.bullet_symbols
-
-        converter = HTMLToMarkdown(**converter_kwargs)  # type: ignore[arg-type]
-        result = converter.convert(html_content)
+        # Render AST to markdown
+        renderer = MarkdownRenderer(render_options)
+        result = renderer.render(ast_document)
 
         # Prepend metadata if enabled
         result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)

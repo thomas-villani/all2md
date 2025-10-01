@@ -1,0 +1,661 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+# src/all2md/converters/html2ast.py
+"""HTML to AST converter.
+
+This module provides conversion from HTML documents to AST representation.
+It replaces direct markdown string generation with structured AST building,
+enabling multiple rendering strategies and improved testability.
+
+"""
+
+from __future__ import annotations
+
+import html
+import re
+from typing import Any
+from urllib.parse import urlparse
+
+from all2md.ast import (
+    BlockQuote,
+    Code,
+    CodeBlock,
+    Document,
+    Emphasis,
+    Heading,
+    HTMLBlock,
+    HTMLInline,
+    Image,
+    LineBreak,
+    Link,
+    List,
+    ListItem,
+    Node,
+    Paragraph,
+    Strong,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+    ThematicBreak,
+    Underline,
+)
+from all2md.options import HtmlOptions
+
+
+class HtmlToAstConverter:
+    """Convert HTML to AST representation.
+
+    This converter parses HTML using BeautifulSoup and builds an AST
+    that can be rendered to various markdown flavors.
+
+    Parameters
+    ----------
+    options : HtmlOptions or None, default = None
+        Conversion options
+
+    """
+
+    def __init__(self, options: HtmlOptions | None = None):
+        self.options = options or HtmlOptions()
+        self._list_depth = 0
+        self._in_code_block = False
+
+    def convert_to_ast(self, html_content: str) -> Document:
+        """Convert HTML string to AST Document.
+
+        Parameters
+        ----------
+        html_content : str
+            HTML content to convert
+
+        Returns
+        -------
+        Document
+            AST document node
+
+        """
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html_content, "html.parser")
+
+        # Strip dangerous elements if requested
+        if self.options.strip_dangerous_elements:
+            # Remove script and style tags
+            for tag in soup.find_all(['script', 'style']):
+                tag.decompose()
+
+        # Build document children
+        children: list[Node] = []
+
+        # Extract title if requested
+        if self.options.extract_title:
+            title_tag = soup.find("title")
+            if title_tag and title_tag.string:
+                title_heading = Heading(level=1, content=[Text(content=title_tag.string.strip())])
+                children.append(title_heading)
+
+        # Process body or root element
+        body = soup.find("body")
+        root = body if body else soup
+
+        for child in root.children:
+            nodes = self._process_node_to_ast(child)
+            if nodes:
+                if isinstance(nodes, list):
+                    children.extend(nodes)
+                else:
+                    children.append(nodes)
+
+        return Document(children=children)
+
+    def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
+        """Process a BeautifulSoup node to AST nodes.
+
+        Parameters
+        ----------
+        node : Any
+            BeautifulSoup node to process
+
+        Returns
+        -------
+        Node, list of Node, or None
+            Resulting AST node(s)
+
+        """
+        from bs4.element import NavigableString
+
+        # Handle text nodes
+        if isinstance(node, NavigableString):
+            text = self._decode_entities(str(node))
+            if text.strip():
+                return Text(content=text)
+            return None
+
+        # Handle nodes without name attribute
+        if not hasattr(node, "name"):
+            return None
+
+        # Dispatch based on element type
+        if node.name == "br":
+            return LineBreak(soft=False)
+        elif node.name == "hr":
+            return ThematicBreak()
+        elif node.name in ["p", "div"]:
+            return self._process_block_to_ast(node)
+        elif node.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
+            return self._process_heading_to_ast(node)
+        elif node.name in ["ul", "ol"]:
+            return self._process_list_to_ast(node)
+        elif node.name == "pre":
+            return self._process_code_block_to_ast(node)
+        elif node.name == "blockquote":
+            return self._process_blockquote_to_ast(node)
+        elif node.name == "table":
+            return self._process_table_to_ast(node)
+        elif node.name in ["strong", "b"]:
+            return self._process_strong_to_ast(node)
+        elif node.name in ["em", "i"]:
+            return self._process_emphasis_to_ast(node)
+        elif node.name == "code":
+            if self._in_code_block:
+                # Inside pre tag - just return text
+                return Text(content=node.get_text())
+            else:
+                return Code(content=node.get_text())
+        elif node.name == "a":
+            return self._process_link_to_ast(node)
+        elif node.name == "img":
+            return self._process_image_to_ast(node)
+        elif node.name == "u":
+            return self._process_underline_to_ast(node)
+        else:
+            # For unknown elements, process children
+            return self._process_children_to_inline(node)
+
+    def _process_block_to_ast(self, node: Any) -> Paragraph | None:
+        """Process block element (p, div) to Paragraph node.
+
+        Parameters
+        ----------
+        node : Any
+            Block element node
+
+        Returns
+        -------
+        Paragraph or None
+            Paragraph node if content exists
+
+        """
+        content = self._process_children_to_inline(node)
+        if content:
+            return Paragraph(content=content)
+        return None
+
+    def _process_heading_to_ast(self, node: Any) -> Heading:
+        """Process heading element to Heading node.
+
+        Parameters
+        ----------
+        node : Any
+            Heading element (h1-h6)
+
+        Returns
+        -------
+        Heading
+            Heading node
+
+        """
+        level = int(node.name[1])  # Extract number from h1, h2, etc.
+        content = self._process_children_to_inline(node)
+        return Heading(level=level, content=content)
+
+    def _process_list_to_ast(self, node: Any) -> List:
+        """Process list element to List node.
+
+        Parameters
+        ----------
+        node : Any
+            List element (ul or ol)
+
+        Returns
+        -------
+        List
+            List node with items
+
+        """
+        ordered = node.name == "ol"
+        items: list[ListItem] = []
+
+        for li in node.find_all("li", recursive=False):
+            item = self._process_list_item_to_ast(li)
+            if item:
+                items.append(item)
+
+        return List(ordered=ordered, items=items)
+
+    def _process_list_item_to_ast(self, node: Any) -> ListItem:
+        """Process list item element to ListItem node.
+
+        Parameters
+        ----------
+        node : Any
+            List item element (li)
+
+        Returns
+        -------
+        ListItem
+            List item node
+
+        """
+        from bs4.element import NavigableString
+
+        # Process children, separating inline content from nested lists
+        children: list[Node] = []
+        inline_content: list[Node] = []
+
+        for child in node.children:
+            if hasattr(child, "name") and child.name in ["ul", "ol"]:
+                # Nested list - first add accumulated inline content as paragraph
+                if inline_content:
+                    children.append(Paragraph(content=inline_content))
+                    inline_content = []
+                # Add nested list
+                nested_list = self._process_list_to_ast(child)
+                children.append(nested_list)
+            else:
+                # Inline content
+                inline_nodes = self._process_node_to_ast(child)
+                if inline_nodes:
+                    if isinstance(inline_nodes, list):
+                        inline_content.extend(inline_nodes)
+                    else:
+                        inline_content.append(inline_nodes)
+
+        # Add any remaining inline content
+        if inline_content:
+            children.append(Paragraph(content=inline_content))
+
+        return ListItem(children=children)
+
+    def _process_code_block_to_ast(self, node: Any) -> CodeBlock:
+        """Process pre element to CodeBlock node.
+
+        Parameters
+        ----------
+        node : Any
+            Pre element
+
+        Returns
+        -------
+        CodeBlock
+            Code block node
+
+        """
+        self._in_code_block = True
+        code = node.get_text()
+        self._in_code_block = False
+
+        # Decode HTML entities
+        code = html.unescape(code)
+
+        # Normalize line endings
+        lines = code.splitlines()
+        normalized_lines = [line.rstrip() for line in lines]
+        code = "\n".join(normalized_lines)
+
+        # Extract language
+        language = self._extract_language_from_attrs(node)
+
+        return CodeBlock(content=code, language=language if language else None)
+
+    def _process_blockquote_to_ast(self, node: Any) -> BlockQuote:
+        """Process blockquote element to BlockQuote node.
+
+        Parameters
+        ----------
+        node : Any
+            Blockquote element
+
+        Returns
+        -------
+        BlockQuote
+            Block quote node
+
+        """
+        children: list[Node] = []
+        for child in node.children:
+            ast_nodes = self._process_node_to_ast(child)
+            if ast_nodes:
+                if isinstance(ast_nodes, list):
+                    children.extend(ast_nodes)
+                else:
+                    children.append(ast_nodes)
+
+        return BlockQuote(children=children)
+
+    def _process_table_to_ast(self, node: Any) -> Table:
+        """Process table element to Table node.
+
+        Parameters
+        ----------
+        node : Any
+            Table element
+
+        Returns
+        -------
+        Table
+            Table node
+
+        """
+        header: TableRow | None = None
+        rows: list[TableRow] = []
+        alignments: list[str | None] = []
+        caption: str | None = None
+
+        # Process caption
+        caption_tag = node.find("caption")
+        if caption_tag:
+            caption = caption_tag.get_text().strip()
+
+        # Process thead
+        thead = node.find("thead")
+        if thead:
+            header_tr = thead.find("tr")
+            if header_tr:
+                header_cells = []
+                for th in header_tr.find_all(["th", "td"]):
+                    content = self._process_children_to_inline(th)
+                    alignment = self._get_alignment(th)
+                    alignments.append(alignment)
+                    header_cells.append(TableCell(content=content))
+                header = TableRow(cells=header_cells, is_header=True)
+
+        # Process tbody or direct rows
+        tbody = node.find("tbody")
+        row_container = tbody if tbody else node
+
+        for tr in row_container.find_all("tr", recursive=False):
+            # Skip if already processed in thead
+            if header and tr.parent.name == "thead":
+                continue
+
+            # Check if this row has th elements (header row without thead)
+            has_th = bool(tr.find("th"))
+
+            if has_th and not header:
+                # This is a header row
+                header_cells = []
+                for th in tr.find_all(["th", "td"]):
+                    content = self._process_children_to_inline(th)
+                    alignment = self._get_alignment(th)
+                    alignments.append(alignment)
+                    header_cells.append(TableCell(content=content))
+                header = TableRow(cells=header_cells, is_header=True)
+            else:
+                # This is a data row
+                row_cells = []
+                for td in tr.find_all(["td", "th"]):
+                    content = self._process_children_to_inline(td)
+                    row_cells.append(TableCell(content=content))
+                rows.append(TableRow(cells=row_cells))
+
+        return Table(header=header, rows=rows, alignments=alignments, caption=caption)
+
+    def _process_strong_to_ast(self, node: Any) -> Strong:
+        """Process strong/b element to Strong node.
+
+        Parameters
+        ----------
+        node : Any
+            Strong or b element
+
+        Returns
+        -------
+        Strong
+            Strong node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Strong(content=content)
+
+    def _process_emphasis_to_ast(self, node: Any) -> Emphasis:
+        """Process em/i element to Emphasis node.
+
+        Parameters
+        ----------
+        node : Any
+            Em or i element
+
+        Returns
+        -------
+        Emphasis
+            Emphasis node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Emphasis(content=content)
+
+    def _process_underline_to_ast(self, node: Any) -> Underline:
+        """Process u element to Underline node.
+
+        Parameters
+        ----------
+        node : Any
+            U element
+
+        Returns
+        -------
+        Underline
+            Underline node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Underline(content=content)
+
+    def _process_link_to_ast(self, node: Any) -> Link:
+        """Process a element to Link node.
+
+        Parameters
+        ----------
+        node : Any
+            A element
+
+        Returns
+        -------
+        Link
+            Link node
+
+        """
+        url = node.get("href", "")
+        title = node.get("title")
+        content = self._process_children_to_inline(node)
+
+        # Sanitize URL
+        url = self._sanitize_link_url(url)
+
+        return Link(url=url, content=content, title=title)
+
+    def _process_image_to_ast(self, node: Any) -> Image:
+        """Process img element to Image node.
+
+        Parameters
+        ----------
+        node : Any
+            Img element
+
+        Returns
+        -------
+        Image
+            Image node
+
+        """
+        url = node.get("src", "")
+        alt_text = node.get("alt", "")
+        title = node.get("title")
+
+        return Image(url=url, alt_text=alt_text, title=title)
+
+    def _process_children_to_inline(self, node: Any) -> list[Node]:
+        """Process node children to inline nodes.
+
+        Parameters
+        ----------
+        node : Any
+            Parent node
+
+        Returns
+        -------
+        list of Node
+            List of inline nodes
+
+        """
+        result: list[Node] = []
+
+        for child in node.children:
+            ast_nodes = self._process_node_to_ast(child)
+            if ast_nodes:
+                if isinstance(ast_nodes, list):
+                    result.extend(ast_nodes)
+                else:
+                    result.append(ast_nodes)
+
+        return result
+
+    def _decode_entities(self, text: str) -> str:
+        """Decode HTML entities in text.
+
+        Parameters
+        ----------
+        text : str
+            Text with HTML entities
+
+        Returns
+        -------
+        str
+            Decoded text
+
+        """
+        return html.unescape(text)
+
+    def _extract_language_from_attrs(self, node: Any) -> str:
+        """Extract language identifier from HTML attributes.
+
+        Parameters
+        ----------
+        node : Any
+            Code block node
+
+        Returns
+        -------
+        str
+            Language identifier
+
+        """
+        language = ""
+
+        # Check class attribute
+        if node.get("class"):
+            classes = node.get("class")
+            if isinstance(classes, str):
+                classes = [classes]
+
+            for cls in classes:
+                if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
+                    return match.group(1)
+                elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
+                    return match.group(1)
+
+        # Check data-lang attribute
+        if node.get("data-lang"):
+            return node.get("data-lang")
+
+        # Check child code element
+        code_child = node.find("code")
+        if code_child and code_child.get("class"):
+            classes = code_child.get("class")
+            if isinstance(classes, str):
+                classes = [classes]
+
+            for cls in classes:
+                if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
+                    return match.group(1)
+
+        return language
+
+    def _get_alignment(self, cell: Any) -> str | None:
+        """Get table cell alignment.
+
+        Parameters
+        ----------
+        cell : Any
+            Table cell element
+
+        Returns
+        -------
+        str or None
+            Alignment ('left', 'center', 'right') or None
+
+        """
+        # Check align attribute
+        align = cell.get("align", "").lower()
+        if align == "left":
+            return "left"
+        elif align == "center":
+            return "center"
+        elif align == "right":
+            return "right"
+
+        # Check CSS style
+        style = cell.get("style", "").lower()
+        if "text-align" in style:
+            if "left" in style:
+                return "left"
+            elif "center" in style:
+                return "center"
+            elif "right" in style:
+                return "right"
+
+        return None
+
+    def _sanitize_link_url(self, url: str) -> str:
+        """Sanitize link URL to prevent XSS attacks.
+
+        Parameters
+        ----------
+        url : str
+            URL to sanitize
+
+        Returns
+        -------
+        str
+            Sanitized URL
+
+        """
+        if not url or not url.strip():
+            return ""
+
+        url_lower = url.lower().strip()
+
+        # Preserve relative URLs
+        if url_lower.startswith(("#", "/", "./", "../", "?")):
+            return url
+
+        # Parse URL scheme
+        try:
+            parsed = urlparse(url_lower)
+            scheme = parsed.scheme.lower() if parsed.scheme else ""
+        except Exception:
+            return ""
+
+        # Block dangerous schemes
+        dangerous_schemes = {"javascript", "data", "vbscript"}
+        if scheme in dangerous_schemes:
+            return ""
+
+        # Allow safe schemes
+        safe_schemes = {"http", "https", "mailto", "ftp", "ftps", "tel", "sms"}
+        if scheme and scheme not in safe_schemes:
+            return ""
+
+        return url
