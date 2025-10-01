@@ -279,8 +279,15 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
             # Skip empty lists
             if isinstance(value, list) and not value:
                 continue
-            # Skip argparse sentinel values that aren't JSON serializable
+            # Skip sentinel values that aren't JSON serializable
+            # Check for dataclasses._MISSING_TYPE
             if hasattr(value, '__class__') and value.__class__.__name__ == '_MISSING_TYPE':
+                continue
+            # Check for plain object() sentinels (used for _UNSET in MarkdownOptions)
+            if type(value) is object:
+                continue
+            # Skip non-serializable types
+            if isinstance(value, (set, frozenset)):
                 continue
             # For boolean values, only include if they are explicitly False (user set a no- flag)
             # or True and not a default True value
