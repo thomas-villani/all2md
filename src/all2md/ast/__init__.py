@@ -86,6 +86,23 @@ from all2md.ast.renderer import MarkdownRenderer
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor
 
+# Serialization
+from all2md.ast.serialization import ast_to_dict, ast_to_json, dict_to_ast, json_to_ast
+
+# Transforms
+from all2md.ast.transforms import (
+    HeadingLevelTransformer,
+    LinkRewriter,
+    NodeCollector,
+    NodeTransformer,
+    TextReplacer,
+    clone_node,
+    extract_nodes,
+    filter_nodes,
+    merge_documents,
+    transform_nodes,
+)
+
 __all__ = [
     # Nodes
     "Node",
@@ -128,4 +145,20 @@ __all__ = [
     "ListBuilder",
     "TableBuilder",
     "DocumentBuilder",
+    # Serialization
+    "ast_to_dict",
+    "dict_to_ast",
+    "ast_to_json",
+    "json_to_ast",
+    # Transforms
+    "NodeTransformer",
+    "NodeCollector",
+    "clone_node",
+    "extract_nodes",
+    "filter_nodes",
+    "transform_nodes",
+    "merge_documents",
+    "HeadingLevelTransformer",
+    "LinkRewriter",
+    "TextReplacer",
 ]

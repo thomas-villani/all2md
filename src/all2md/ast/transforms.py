@@ -1,0 +1,729 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+# src/all2md/ast/transforms.py
+"""AST transformation and manipulation utilities.
+
+This module provides visitors and utilities for transforming and manipulating AST structures.
+It enables filtering nodes, applying transformations, cloning trees, and performing common
+document processing tasks.
+
+Examples
+--------
+Extract all headings from a document:
+
+    >>> from all2md.ast import transforms
+    >>> headings = transforms.extract_nodes(doc, Heading)
+    >>> for heading in headings:
+    ...     print(f"Level {heading.level}: {heading.content}")
+
+Remove all images from a document:
+
+    >>> filtered_doc = transforms.filter_nodes(doc, lambda n: not isinstance(n, Image))
+
+Change heading levels:
+
+    >>> transformer = transforms.HeadingLevelTransformer(offset=1)
+    >>> new_doc = transforms.transform_nodes(doc, transformer)
+
+"""
+
+from __future__ import annotations
+
+import copy
+from typing import Any, Callable, Type
+
+from all2md.ast.nodes import (
+    BlockQuote,
+    Code,
+    CodeBlock,
+    Document,
+    Emphasis,
+    Heading,
+    HTMLBlock,
+    HTMLInline,
+    Image,
+    LineBreak,
+    Link,
+    List,
+    ListItem,
+    Node,
+    Paragraph,
+    Strikethrough,
+    Strong,
+    Subscript,
+    Superscript,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+    ThematicBreak,
+    Underline,
+)
+from all2md.ast.visitors import NodeVisitor
+
+
+class NodeTransformer(NodeVisitor):
+    """Base class for transforming AST nodes.
+
+    Subclasses should implement visit_* methods that return modified nodes
+    or None to remove nodes. The transformer creates a new AST with the
+    transformations applied.
+
+    Examples
+    --------
+    >>> class UppercaseTransformer(NodeTransformer):
+    ...     def visit_text(self, node):
+    ...         return Text(content=node.content.upper())
+    >>>
+    >>> transformer = UppercaseTransformer()
+    >>> new_doc = transformer.transform(doc)
+
+    """
+
+    def transform(self, node: Node) -> Node | None:
+        """Transform an AST node.
+
+        Parameters
+        ----------
+        node : Node
+            Node to transform
+
+        Returns
+        -------
+        Node or None
+            Transformed node or None to remove
+
+        """
+        return node.accept(self)
+
+    def _transform_children(self, children: list[Node]) -> list[Node]:
+        """Transform a list of child nodes.
+
+        Parameters
+        ----------
+        children : list of Node
+            Children to transform
+
+        Returns
+        -------
+        list of Node
+            Transformed children (filtered for None values)
+
+        """
+        result = []
+        for child in children:
+            transformed = self.transform(child)
+            if transformed is not None:
+                result.append(transformed)
+        return result
+
+    def visit_document(self, node: Document) -> Document:
+        """Transform a Document node."""
+        return Document(
+            children=self._transform_children(node.children),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_heading(self, node: Heading) -> Heading:
+        """Transform a Heading node."""
+        return Heading(
+            level=node.level,
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_paragraph(self, node: Paragraph) -> Paragraph:
+        """Transform a Paragraph node."""
+        return Paragraph(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_code_block(self, node: CodeBlock) -> CodeBlock:
+        """Transform a CodeBlock node."""
+        return CodeBlock(
+            content=node.content,
+            language=node.language,
+            fence_char=node.fence_char,
+            fence_length=node.fence_length,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_block_quote(self, node: BlockQuote) -> BlockQuote:
+        """Transform a BlockQuote node."""
+        return BlockQuote(
+            children=self._transform_children(node.children),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_list(self, node: List) -> List:
+        """Transform a List node."""
+        return List(
+            ordered=node.ordered,
+            items=self._transform_children(node.items),  # type: ignore
+            start=node.start,
+            tight=node.tight,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_list_item(self, node: ListItem) -> ListItem:
+        """Transform a ListItem node."""
+        return ListItem(
+            children=self._transform_children(node.children),
+            task_status=node.task_status,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_table(self, node: Table) -> Table:
+        """Transform a Table node."""
+        return Table(
+            rows=self._transform_children(node.rows),  # type: ignore
+            header=self.transform(node.header) if node.header else None,  # type: ignore
+            alignments=node.alignments.copy(),
+            caption=node.caption,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_table_row(self, node: TableRow) -> TableRow:
+        """Transform a TableRow node."""
+        return TableRow(
+            cells=self._transform_children(node.cells),  # type: ignore
+            is_header=node.is_header,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_table_cell(self, node: TableCell) -> TableCell:
+        """Transform a TableCell node."""
+        return TableCell(
+            content=self._transform_children(node.content),
+            colspan=node.colspan,
+            rowspan=node.rowspan,
+            alignment=node.alignment,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_thematic_break(self, node: ThematicBreak) -> ThematicBreak:
+        """Transform a ThematicBreak node."""
+        return ThematicBreak(metadata=node.metadata.copy(), source_location=node.source_location)
+
+    def visit_html_block(self, node: HTMLBlock) -> HTMLBlock:
+        """Transform an HTMLBlock node."""
+        return HTMLBlock(
+            content=node.content, metadata=node.metadata.copy(), source_location=node.source_location
+        )
+
+    def visit_text(self, node: Text) -> Text:
+        """Transform a Text node."""
+        return Text(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
+
+    def visit_emphasis(self, node: Emphasis) -> Emphasis:
+        """Transform an Emphasis node."""
+        return Emphasis(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_strong(self, node: Strong) -> Strong:
+        """Transform a Strong node."""
+        return Strong(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_code(self, node: Code) -> Code:
+        """Transform a Code node."""
+        return Code(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
+
+    def visit_link(self, node: Link) -> Link:
+        """Transform a Link node."""
+        return Link(
+            url=node.url,
+            content=self._transform_children(node.content),
+            title=node.title,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_image(self, node: Image) -> Image:
+        """Transform an Image node."""
+        return Image(
+            url=node.url,
+            alt_text=node.alt_text,
+            title=node.title,
+            width=node.width,
+            height=node.height,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_line_break(self, node: LineBreak) -> LineBreak:
+        """Transform a LineBreak node."""
+        return LineBreak(soft=node.soft, metadata=node.metadata.copy(), source_location=node.source_location)
+
+    def visit_strikethrough(self, node: Strikethrough) -> Strikethrough:
+        """Transform a Strikethrough node."""
+        return Strikethrough(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_underline(self, node: Underline) -> Underline:
+        """Transform an Underline node."""
+        return Underline(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_superscript(self, node: Superscript) -> Superscript:
+        """Transform a Superscript node."""
+        return Superscript(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_subscript(self, node: Subscript) -> Subscript:
+        """Transform a Subscript node."""
+        return Subscript(
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_html_inline(self, node: HTMLInline) -> HTMLInline:
+        """Transform an HTMLInline node."""
+        return HTMLInline(
+            content=node.content, metadata=node.metadata.copy(), source_location=node.source_location
+        )
+
+
+class NodeCollector(NodeVisitor):
+    """Visitor that collects nodes matching a condition.
+
+    Parameters
+    ----------
+    predicate : callable or None, default = None
+        Function that takes a node and returns True to collect it
+
+    """
+
+    def __init__(self, predicate: Callable[[Node], bool] | None = None):
+        self.predicate = predicate or (lambda n: True)
+        self.collected: list[Node] = []
+
+    def _collect_if_match(self, node: Node) -> None:
+        """Collect node if it matches the predicate."""
+        if self.predicate(node):
+            self.collected.append(node)
+
+    def _visit_children(self, children: list[Node]) -> None:
+        """Visit all children nodes."""
+        for child in children:
+            child.accept(self)
+
+    def visit_document(self, node: Document) -> None:
+        """Visit a Document node."""
+        self._collect_if_match(node)
+        self._visit_children(node.children)
+
+    def visit_heading(self, node: Heading) -> None:
+        """Visit a Heading node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_paragraph(self, node: Paragraph) -> None:
+        """Visit a Paragraph node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_code_block(self, node: CodeBlock) -> None:
+        """Visit a CodeBlock node."""
+        self._collect_if_match(node)
+
+    def visit_block_quote(self, node: BlockQuote) -> None:
+        """Visit a BlockQuote node."""
+        self._collect_if_match(node)
+        self._visit_children(node.children)
+
+    def visit_list(self, node: List) -> None:
+        """Visit a List node."""
+        self._collect_if_match(node)
+        self._visit_children(node.items)  # type: ignore
+
+    def visit_list_item(self, node: ListItem) -> None:
+        """Visit a ListItem node."""
+        self._collect_if_match(node)
+        self._visit_children(node.children)
+
+    def visit_table(self, node: Table) -> None:
+        """Visit a Table node."""
+        self._collect_if_match(node)
+        if node.header:
+            node.header.accept(self)
+        self._visit_children(node.rows)  # type: ignore
+
+    def visit_table_row(self, node: TableRow) -> None:
+        """Visit a TableRow node."""
+        self._collect_if_match(node)
+        self._visit_children(node.cells)  # type: ignore
+
+    def visit_table_cell(self, node: TableCell) -> None:
+        """Visit a TableCell node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_thematic_break(self, node: ThematicBreak) -> None:
+        """Visit a ThematicBreak node."""
+        self._collect_if_match(node)
+
+    def visit_html_block(self, node: HTMLBlock) -> None:
+        """Visit an HTMLBlock node."""
+        self._collect_if_match(node)
+
+    def visit_text(self, node: Text) -> None:
+        """Visit a Text node."""
+        self._collect_if_match(node)
+
+    def visit_emphasis(self, node: Emphasis) -> None:
+        """Visit an Emphasis node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_strong(self, node: Strong) -> None:
+        """Visit a Strong node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_code(self, node: Code) -> None:
+        """Visit a Code node."""
+        self._collect_if_match(node)
+
+    def visit_link(self, node: Link) -> None:
+        """Visit a Link node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_image(self, node: Image) -> None:
+        """Visit an Image node."""
+        self._collect_if_match(node)
+
+    def visit_line_break(self, node: LineBreak) -> None:
+        """Visit a LineBreak node."""
+        self._collect_if_match(node)
+
+    def visit_strikethrough(self, node: Strikethrough) -> None:
+        """Visit a Strikethrough node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_underline(self, node: Underline) -> None:
+        """Visit an Underline node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_superscript(self, node: Superscript) -> None:
+        """Visit a Superscript node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_subscript(self, node: Subscript) -> None:
+        """Visit a Subscript node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_html_inline(self, node: HTMLInline) -> None:
+        """Visit an HTMLInline node."""
+        self._collect_if_match(node)
+
+
+# Utility functions
+
+
+def clone_node(node: Node) -> Node:
+    """Create a deep copy of an AST node.
+
+    Parameters
+    ----------
+    node : Node
+        Node to clone
+
+    Returns
+    -------
+    Node
+        Deep copy of the node
+
+    Examples
+    --------
+    >>> cloned_doc = clone_node(doc)
+    >>> cloned_doc is doc  # False
+    False
+
+    """
+    return copy.deepcopy(node)
+
+
+def extract_nodes(doc: Document, node_type: Type[Node] | None = None) -> list[Node]:
+    """Extract all nodes of a specific type from a document.
+
+    Parameters
+    ----------
+    doc : Document
+        Document to extract from
+    node_type : type or None, default = None
+        Node type to extract (None for all nodes)
+
+    Returns
+    -------
+    list of Node
+        All matching nodes
+
+    Examples
+    --------
+    >>> headings = extract_nodes(doc, Heading)
+    >>> images = extract_nodes(doc, Image)
+
+    """
+    predicate = (lambda n: isinstance(n, node_type)) if node_type else (lambda n: True)
+    collector = NodeCollector(predicate=predicate)
+    doc.accept(collector)
+    return collector.collected
+
+
+def filter_nodes(doc: Document, predicate: Callable[[Node], bool]) -> Document:
+    """Filter nodes from a document based on a condition.
+
+    Parameters
+    ----------
+    doc : Document
+        Document to filter
+    predicate : callable
+        Function that takes a node and returns True to keep it
+
+    Returns
+    -------
+    Document
+        New document with filtered nodes
+
+    Examples
+    --------
+    Remove all images:
+        >>> filtered_doc = filter_nodes(doc, lambda n: not isinstance(n, Image))
+
+    Keep only headings and paragraphs:
+        >>> filtered_doc = filter_nodes(doc, lambda n: isinstance(n, (Heading, Paragraph)))
+
+    """
+
+    class FilterTransformer(NodeTransformer):
+        def transform(self, node: Node) -> Node | None:
+            if not predicate(node):
+                return None
+            return super().transform(node)
+
+    transformer = FilterTransformer()
+    return transformer.transform(doc)  # type: ignore
+
+
+def transform_nodes(doc: Document, transformer: NodeTransformer) -> Document:
+    """Apply a transformation visitor to a document.
+
+    Parameters
+    ----------
+    doc : Document
+        Document to transform
+    transformer : NodeTransformer
+        Transformer to apply
+
+    Returns
+    -------
+    Document
+        Transformed document
+
+    Examples
+    --------
+    >>> transformer = HeadingLevelTransformer(offset=1)
+    >>> new_doc = transform_nodes(doc, transformer)
+
+    """
+    return transformer.transform(doc)  # type: ignore
+
+
+def merge_documents(docs: list[Document]) -> Document:
+    """Merge multiple documents into a single document.
+
+    Parameters
+    ----------
+    docs : list of Document
+        Documents to merge
+
+    Returns
+    -------
+    Document
+        Merged document with all children
+
+    Examples
+    --------
+    >>> merged = merge_documents([doc1, doc2, doc3])
+
+    """
+    all_children: list[Node] = []
+    merged_metadata: dict[str, Any] = {}
+
+    for doc in docs:
+        all_children.extend(doc.children)
+        merged_metadata.update(doc.metadata)
+
+    return Document(children=all_children, metadata=merged_metadata)
+
+
+# Specialized transformers
+
+
+class HeadingLevelTransformer(NodeTransformer):
+    """Transformer that adjusts heading levels by an offset.
+
+    Parameters
+    ----------
+    offset : int
+        Amount to shift heading levels (can be negative)
+    min_level : int, default = 1
+        Minimum allowed heading level
+    max_level : int, default = 6
+        Maximum allowed heading level
+
+    Examples
+    --------
+    >>> # Increase all heading levels by 1
+    >>> transformer = HeadingLevelTransformer(offset=1)
+    >>> new_doc = transformer.transform(doc)
+
+    """
+
+    def __init__(self, offset: int, min_level: int = 1, max_level: int = 6):
+        self.offset = offset
+        self.min_level = min_level
+        self.max_level = max_level
+
+    def visit_heading(self, node: Heading) -> Heading:
+        """Transform heading level."""
+        new_level = node.level + self.offset
+        new_level = max(self.min_level, min(self.max_level, new_level))
+        return Heading(
+            level=new_level,
+            content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+
+class LinkRewriter(NodeTransformer):
+    """Transformer that rewrites link URLs.
+
+    Parameters
+    ----------
+    url_mapper : callable
+        Function that takes a URL string and returns a new URL string
+
+    Examples
+    --------
+    >>> # Convert relative links to absolute
+    >>> def make_absolute(url):
+    ...     if url.startswith('/'):
+    ...         return f'https://example.com{url}'
+    ...     return url
+    >>> transformer = LinkRewriter(make_absolute)
+    >>> new_doc = transformer.transform(doc)
+
+    """
+
+    def __init__(self, url_mapper: Callable[[str], str]):
+        self.url_mapper = url_mapper
+
+    def visit_link(self, node: Link) -> Link:
+        """Rewrite link URL."""
+        return Link(
+            url=self.url_mapper(node.url),
+            content=self._transform_children(node.content),
+            title=node.title,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_image(self, node: Image) -> Image:
+        """Rewrite image URL."""
+        return Image(
+            url=self.url_mapper(node.url),
+            alt_text=node.alt_text,
+            title=node.title,
+            width=node.width,
+            height=node.height,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+
+class TextReplacer(NodeTransformer):
+    """Transformer that replaces text patterns.
+
+    Parameters
+    ----------
+    pattern : str
+        Pattern to search for
+    replacement : str
+        Replacement string
+    use_regex : bool, default = False
+        Whether to use regex matching
+
+    Examples
+    --------
+    >>> # Replace all occurrences of "foo" with "bar"
+    >>> transformer = TextReplacer("foo", "bar")
+    >>> new_doc = transformer.transform(doc)
+
+    """
+
+    def __init__(self, pattern: str, replacement: str, use_regex: bool = False):
+        self.pattern = pattern
+        self.replacement = replacement
+        self.use_regex = use_regex
+
+    def visit_text(self, node: Text) -> Text:
+        """Replace text content."""
+        if self.use_regex:
+            import re
+
+            new_content = re.sub(self.pattern, self.replacement, node.content)
+        else:
+            new_content = node.content.replace(self.pattern, self.replacement)
+
+        return Text(
+            content=new_content, metadata=node.metadata.copy(), source_location=node.source_location
+        )
+
+
+__all__ = [
+    "NodeTransformer",
+    "NodeCollector",
+    "clone_node",
+    "extract_nodes",
+    "filter_nodes",
+    "transform_nodes",
+    "merge_documents",
+    "HeadingLevelTransformer",
+    "LinkRewriter",
+    "TextReplacer",
+]

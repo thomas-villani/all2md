@@ -76,6 +76,9 @@ from all2md.options import (
 # Import converters to trigger registration
 from . import converters  # noqa: F401
 
+# Import AST module for advanced users
+from . import ast  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 
@@ -647,8 +650,168 @@ def to_markdown(
     return content.replace("\r\n", "\n")
 
 
+def to_ast(
+        input: Union[str, Path, IO[bytes], bytes],
+        *,
+        options: Optional[BaseOptions | MarkdownOptions] = None,
+        format: DocumentFormat = "auto",
+        flavor: Optional[str] = None,
+        **kwargs
+):
+    """Convert document to AST (Abstract Syntax Tree) format.
+
+    This function provides advanced users with direct access to the document AST,
+    enabling custom processing, transformation, and analysis of document structure.
+    The AST can be manipulated using utilities from `all2md.ast.transforms` and
+    serialized to JSON using `all2md.ast.serialization`.
+
+    Parameters
+    ----------
+    input : str, Path, IO[bytes], or bytes
+        Input data, which can be a file path, a file-like object, or raw bytes.
+    options : BaseOptions | MarkdownOptions, optional
+        A pre-configured options object for format-specific settings.
+        See the classes in `all2md.options` for details. When provided
+        alongside `kwargs`, the kwargs will override matching fields in
+        the options object, allowing for selective customization.
+    format : DocumentFormat, default "auto"
+        Explicitly specify the document format. If "auto", the format is
+        detected from the filename or content.
+    flavor : str, optional
+        Markdown flavor/dialect to use for rendering. Options: "gfm", "commonmark",
+        "multimarkdown", "pandoc", "kramdown", "markdown_plus".
+        If specified, takes precedence over flavor in options or kwargs.
+        Defaults to "gfm" if not specified anywhere.
+    kwargs : Any
+        Individual conversion options that override settings in the `options`
+        parameter. These are mapped to the appropriate format-specific
+        options class and take precedence over the same fields in `options`.
+
+    Returns
+    -------
+    Document
+        AST Document node representing the document structure
+
+    Raises
+    ------
+    FormatError
+        If the format cannot be detected or is unsupported
+    DependencyError
+        If required dependencies for the format are not installed
+    MarkdownConversionError
+        If conversion fails
+
+    Examples
+    --------
+    Get AST from a document:
+        >>> from all2md import to_ast
+        >>> ast_doc = to_ast("document.pdf")
+
+    Manipulate AST and convert to markdown:
+        >>> from all2md.ast import transforms, MarkdownRenderer
+        >>> ast_doc = to_ast("document.pdf")
+        >>> filtered_doc = transforms.filter_nodes(ast_doc, lambda n: not isinstance(n, Image))
+        >>> renderer = MarkdownRenderer()
+        >>> markdown = renderer.render(filtered_doc)
+
+    Extract specific nodes:
+        >>> from all2md.ast import transforms, Heading
+        >>> ast_doc = to_ast("document.docx")
+        >>> headings = transforms.extract_nodes(ast_doc, Heading)
+
+    Serialize to JSON:
+        >>> from all2md.ast import serialization
+        >>> ast_doc = to_ast("document.html")
+        >>> json_str = serialization.ast_to_json(ast_doc, indent=2)
+
+    """
+    from all2md.ast import Document
+
+    # Use the same format detection and options merging as to_markdown()
+    # Get the markdown string first, then parse it to AST
+    # For formats with native AST converters, use those directly
+
+    # Detect format
+    actual_format = format if format != "auto" else registry.detect_format(input)
+
+    # Get converter metadata
+    metadata = registry.get_format_info(actual_format)
+    if not metadata:
+        raise FormatError(f"Unknown format: {actual_format}")
+
+    # Check and prepare options (same logic as to_markdown())
+    final_options = _prepare_options(actual_format, options, flavor, kwargs)
+
+    # Map of formats to their AST converter functions
+    ast_converters = {
+        "pdf": "all2md.converters.pdf2ast.pdf_to_ast",
+        "docx": "all2md.converters.docx2ast.docx_to_ast",
+        "html": "all2md.converters.html2ast.html_to_ast",
+        "pptx": "all2md.converters.pptx2ast.pptx_to_ast",
+        "ipynb": "all2md.converters.ipynb2ast.ipynb_to_ast",
+        "eml": "all2md.converters.eml2ast.eml_to_ast",
+        "odf": "all2md.converters.odf2ast.odf_to_ast",
+        "rtf": "all2md.converters.rtf2ast.rtf_to_ast",
+        "sourcecode": "all2md.converters.sourcecode2ast.sourcecode_to_ast",
+        "spreadsheet": "all2md.converters.spreadsheet2ast.spreadsheet_to_ast",
+    }
+
+    converter_path = ast_converters.get(actual_format)
+
+    if converter_path:
+        # Load the AST converter function
+        module_path, func_name = converter_path.rsplit(".", 1)
+        try:
+            import importlib
+
+            module = importlib.import_module(module_path)
+            converter_func = getattr(module, func_name)
+        except (ImportError, AttributeError) as e:
+            raise FormatError(f"AST converter not available for format: {actual_format}") from e
+
+        # Call the converter
+        try:
+            if isinstance(input, (str, Path)):
+                ast_doc = converter_func(input, options=final_options)
+            elif isinstance(input, bytes):
+                if actual_format == "html":
+                    html_content = input.decode("utf-8", errors="replace")
+                    ast_doc = converter_func(html_content, options=final_options)
+                else:
+                    from io import BytesIO
+
+                    file = BytesIO(input)
+                    ast_doc = converter_func(file, options=final_options)
+            else:
+                # File-like object
+                file = input  # type: ignore
+                if actual_format == "html":
+                    file.seek(0)
+                    html_content = file.read().decode("utf-8", errors="replace")
+                    ast_doc = converter_func(html_content, options=final_options)
+                else:
+                    file.seek(0)
+                    ast_doc = converter_func(file, options=final_options)
+
+            return ast_doc
+
+        except DependencyError:
+            raise
+        except Exception as e:
+            raise MarkdownConversionError(f"AST conversion failed: {e}") from e
+
+    else:
+        # For formats without AST support, fall back to markdown conversion
+        # then parse the markdown to AST (future enhancement)
+        raise FormatError(
+            f"Direct AST conversion not yet supported for format: {actual_format}. "
+            f"Use to_markdown() instead."
+        )
+
+
 __all__ = [
     "to_markdown",
+    "to_ast",
     # Registry system
     "registry",
     # Type definitions
@@ -667,4 +830,6 @@ __all__ = [
     "MarkdownConversionError",
     "InputError",
     "DependencyError",
+    # AST module (for advanced users)
+    "ast",
 ]
