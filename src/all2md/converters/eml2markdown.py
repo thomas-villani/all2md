@@ -176,7 +176,7 @@ def _format_date(dt: datetime.datetime | None, options: EmlOptions) -> str:
     else:  # strftime mode
         return dt.strftime(options.date_strftime_pattern)
 
-
+# TODO: remove
 def format_email_chain_as_markdown(eml_chain: list[dict[str, Any]], options: EmlOptions | None = None) -> str:
     """Convert a list of email dictionaries to formatted Markdown string.
 
@@ -295,6 +295,7 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
         html_content = "\n\n".join(html_parts)
         if options.convert_html_to_markdown:
             # Convert HTML to Markdown
+            # TODO: use proper converter, not this internal one.
             return _convert_html_to_markdown(html_content, options)
         else:
             return html_content
@@ -344,7 +345,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
         except Exception:
             return ""
 
-
+# TODO: remove in lieu of proper html2markdown converter
 def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     """Convert HTML content to Markdown using html2markdown.
 

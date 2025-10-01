@@ -6,7 +6,7 @@ They use fixture-based testing instead of inline HTML for better maintainability
 
 import pytest
 
-from all2md.converters.html2markdown import HTMLToMarkdown
+from all2md.converters.html2markdown import html_to_markdown
 from tests.fixtures.generators.html_fixtures import create_html_with_tables
 from tests.utils import assert_markdown_valid
 
@@ -18,8 +18,7 @@ class TestHtmlTableParsing:
     def test_basic_table_structure_parsing(self):
         """Test parsing of basic table with thead, tbody structure."""
         html_content = create_html_with_tables()
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html_content)
+        markdown = html_to_markdown(html_content)
 
         assert_markdown_valid(markdown)
         # Should contain table headers
@@ -42,8 +41,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
         assert "Test Table Caption" in markdown
 
@@ -65,8 +63,7 @@ class TestHtmlTableParsing:
             </tbody>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should have header separator (various formats possible)
@@ -88,8 +85,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should still create table structure
@@ -117,8 +113,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should handle empty cells gracefully
@@ -142,8 +137,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Whitespace should be normalized
@@ -170,8 +164,7 @@ class TestHtmlTableFormatting:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should preserve formatting in cells
@@ -194,8 +187,7 @@ class TestHtmlTableFormatting:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should convert links properly in table cells
@@ -215,8 +207,7 @@ class TestHtmlTableFormatting:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should preserve code formatting in cells
@@ -243,8 +234,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
 
         # Should not crash and should produce some output
         assert isinstance(markdown, str)
@@ -269,8 +259,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should handle nested content appropriately
@@ -295,8 +284,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should handle entities and special chars
@@ -315,8 +303,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        converter = HTMLToMarkdown()
-        markdown = converter.convert(html)
+        markdown = html_to_markdown(html)
         assert_markdown_valid(markdown)
 
         # Should handle line breaks appropriately

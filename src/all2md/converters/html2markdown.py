@@ -187,7 +187,7 @@ CONVERTER_METADATA = ConverterMetadata(
     priority=5,
 )
 
-
+# Deprecated: to be removed this PR
 class HTMLToMarkdown:
     """HTML to Markdown Converter
 

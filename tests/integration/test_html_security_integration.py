@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
-from all2md.converters.html2markdown import HTMLToMarkdown, html_to_markdown
+from all2md.converters.html2markdown import html_to_markdown
 from all2md.options import EmlOptions, HtmlOptions, NetworkFetchOptions
 
 
@@ -406,8 +406,7 @@ class TestLinkSchemeSecurityIntegration:
         '''
 
         options = HtmlOptions(network=NetworkFetchOptions(require_https=True))
-        converter = HTMLToMarkdown(require_https=True)
-        result = converter.convert(html_content)
+        result = html_to_markdown(html_content, options=options)
 
         # HTTP and FTP should be blocked
         assert "[HTTP Link]()" in result
