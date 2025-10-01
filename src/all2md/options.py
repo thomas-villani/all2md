@@ -81,13 +81,29 @@ from .constants import (
     DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
     DEFAULT_URL_WRAPPERS,
     DEFAULT_USE_HASH_HEADINGS,
+    # Markdown rendering constants
+    DEFAULT_HEADING_LEVEL_OFFSET,
+    DEFAULT_CODE_FENCE_CHAR,
+    DEFAULT_CODE_FENCE_MIN,
+    DEFAULT_COLLAPSE_BLANK_LINES,
+    DEFAULT_LINK_STYLE,
+    DEFAULT_TABLE_PIPE_ESCAPE,
+    # Type literals
     AltTextMode,
     AttachmentMode,
+    CodeFenceChar,
     DateFormatMode,
     EmphasisSymbol,
+    FlavorType,
+    LinkStyleType,
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
+    UnsupportedInlineMode,
+    UnsupportedTableMode,
+    DEFAULT_FLAVOR,
+    DEFAULT_UNSUPPORTED_INLINE_MODE,
+    DEFAULT_UNSUPPORTED_TABLE_MODE,
 )
 
 
@@ -138,6 +154,37 @@ class MarkdownOptions(_CloneMixin):
         Whether to use # syntax for headings instead of underline style.
         When True, generates "# Heading" style. When False, generates
         "Heading\n=======" style for level 1 and "Heading\n-------" for levels 2+.
+    flavor : {"gfm", "commonmark", "markdown_plus"}, default "gfm"
+        Markdown flavor/dialect to use for output:
+        - "gfm": GitHub Flavored Markdown (tables, strikethrough, task lists)
+        - "commonmark": Strict CommonMark specification
+        - "markdown_plus": All extensions enabled (footnotes, definition lists, etc.)
+    unsupported_table_mode : {"drop", "ascii", "force", "html"}, default "force"
+        How to handle tables when the selected flavor doesn't support them:
+        - "drop": Skip table entirely
+        - "ascii": Render as ASCII art table
+        - "force": Render as pipe table anyway (may not be valid for flavor)
+        - "html": Render as HTML <table>
+    unsupported_inline_mode : {"plain", "force", "html"}, default "plain"
+        How to handle inline elements unsupported by the selected flavor:
+        - "plain": Render content without the unsupported formatting
+        - "force": Use markdown syntax anyway (may not be valid for flavor)
+        - "html": Use HTML tags (e.g., <u> for underline)
+    heading_level_offset : int, default 0
+        Shift all heading levels by this amount (positive or negative).
+        Useful when collating multiple documents into a parent document with existing structure.
+    code_fence_char : {"`", "~"}, default "`"
+        Character to use for code fences (backtick or tilde).
+    code_fence_min : int, default 3
+        Minimum length for code fences (typically 3).
+    collapse_blank_lines : bool, default True
+        Collapse multiple consecutive blank lines into at most 2 (normalizing whitespace).
+    link_style : {"inline", "reference"}, default "inline"
+        Link style to use:
+        - "inline": [text](url) style links
+        - "reference": [text][ref] style with reference definitions at end
+    table_pipe_escape : bool, default True
+        Whether to escape pipe characters (|) in table cell content.
     """
 
     escape_special: bool = field(
@@ -198,6 +245,99 @@ class MarkdownOptions(_CloneMixin):
         metadata={
             "help": "Use # syntax for headings instead of underline style",
             "cli_name": "no-use-hash-headings"  # default=True, use --no-*
+        }
+    )
+    flavor: FlavorType = field(
+        default=DEFAULT_FLAVOR,  # type: ignore[arg-type]
+        metadata={
+            "help": "Markdown flavor/dialect to use for output",
+            "choices": ["gfm", "commonmark", "markdown_plus"]
+        }
+    )
+    unsupported_table_mode: UnsupportedTableMode = field(
+        default=DEFAULT_UNSUPPORTED_TABLE_MODE,  # type: ignore[arg-type]
+        metadata={
+            "help": "How to handle tables when flavor doesn't support them: "
+                    "drop (skip entirely), ascii (render as ASCII art), "
+                    "force (render as pipe tables anyway), html (render as HTML table)",
+            "choices": ["drop", "ascii", "force", "html"]
+        }
+    )
+    unsupported_inline_mode: UnsupportedInlineMode = field(
+        default=DEFAULT_UNSUPPORTED_INLINE_MODE,  # type: ignore[arg-type]
+        metadata={
+            "help": "How to handle inline elements unsupported by flavor: "
+                    "plain (render content without formatting), "
+                    "force (use markdown syntax anyway), html (use HTML tags)",
+            "choices": ["plain", "force", "html"]
+        }
+    )
+    pad_table_cells: bool = field(
+        default=False,
+        metadata={
+            "help": "Pad table cells with spaces for visual alignment in source"
+        }
+    )
+    prefer_setext_headings: bool = field(
+        default=False,
+        metadata={
+            "help": "Prefer setext-style headings (underlines) for h1 and h2"
+        }
+    )
+    max_line_width: int | None = field(
+        default=None,
+        metadata={
+            "help": "Maximum line width for wrapping (None for no limit)",
+            "type": int
+        }
+    )
+    table_alignment_default: str = field(
+        default="left",
+        metadata={
+            "help": "Default alignment for table columns without explicit alignment",
+            "choices": ["left", "center", "right"]
+        }
+    )
+    heading_level_offset: int = field(
+        default=DEFAULT_HEADING_LEVEL_OFFSET,
+        metadata={
+            "help": "Shift all heading levels by this amount (useful when collating docs)",
+            "type": int
+        }
+    )
+    code_fence_char: CodeFenceChar = field(
+        default=DEFAULT_CODE_FENCE_CHAR,  # type: ignore[arg-type]
+        metadata={
+            "help": "Character to use for code fences (backtick or tilde)",
+            "choices": ["`", "~"]
+        }
+    )
+    code_fence_min: int = field(
+        default=DEFAULT_CODE_FENCE_MIN,
+        metadata={
+            "help": "Minimum length for code fences (typically 3)",
+            "type": int
+        }
+    )
+    collapse_blank_lines: bool = field(
+        default=DEFAULT_COLLAPSE_BLANK_LINES,
+        metadata={
+            "help": "Collapse multiple blank lines into at most 2 (normalize whitespace)",
+            "cli_name": "no-collapse-blank-lines"
+        }
+    )
+    link_style: LinkStyleType = field(
+        default=DEFAULT_LINK_STYLE,  # type: ignore[arg-type]
+        metadata={
+            "help": "Link style: inline [text](url) or reference [text][ref]",
+            "choices": ["inline", "reference"]
+        }
+    )
+    table_pipe_escape: bool = field(
+        default=DEFAULT_TABLE_PIPE_ESCAPE,
+        metadata={
+            "help": "Escape pipe characters in table cells",
+            "cli_name": "no-table-pipe-escape"
         }
     )
 

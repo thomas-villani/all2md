@@ -81,7 +81,7 @@ from all2md.ast.nodes import (
 )
 
 # Renderer and flavors
-from all2md.ast.renderer import MarkdownRenderer, RenderOptions
+from all2md.ast.renderer import MarkdownRenderer
 
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor
@@ -119,7 +119,6 @@ __all__ = [
     "ValidationVisitor",
     # Renderer
     "MarkdownRenderer",
-    "RenderOptions",
     # Flavors
     "MarkdownFlavor",
     "GFMFlavor",

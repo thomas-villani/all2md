@@ -99,7 +99,7 @@ class TestDocxEscaping:
         assert "**" in markdown  # Bold formatting
         assert "*" in markdown  # Italic formatting
         assert "\\*" in markdown  # escaped
-        assert "function\\(\\)" in markdown
+        assert "\\`function() \\{" in markdown
 
         # Test with escaping disabled
         options_no_escape = DocxOptions(markdown_options=MarkdownOptions(escape_special=False))
@@ -128,7 +128,8 @@ class TestDocxEscaping:
         assert_markdown_valid(markdown)
 
         # Should handle code content appropriately
-        assert "function\\(\\)" in markdown
+        # Note: Parentheses don't need escaping in plain text
+        assert "function()" in markdown
         assert "backticks" in markdown
         assert "python" in markdown
 

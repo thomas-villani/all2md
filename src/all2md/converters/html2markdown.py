@@ -1400,28 +1400,17 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
 
         # Use new AST-based conversion path
         from all2md.converters.html2ast import HtmlToAstConverter
-        from all2md.ast import MarkdownRenderer, RenderOptions, GFMFlavor
+        from all2md.ast import MarkdownRenderer
 
         # Convert HTML to AST
         ast_converter = HtmlToAstConverter(options)
         ast_document = ast_converter.convert_to_ast(html_content)
 
-        # Map options to RenderOptions
+        # Get MarkdownOptions (use provided or create default)
         md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
-        render_options = RenderOptions(
-            flavor=GFMFlavor(),
-            escape_special=md_opts.escape_special,
-            emphasis_symbol=md_opts.emphasis_symbol,
-            bullet_symbols=md_opts.bullet_symbols,
-            list_indent_width=md_opts.list_indent_width,
-            underline_mode=md_opts.underline_mode,
-            superscript_mode=md_opts.superscript_mode,
-            subscript_mode=md_opts.subscript_mode,
-            use_hash_headings=md_opts.use_hash_headings,
-        )
 
-        # Render AST to markdown
-        renderer = MarkdownRenderer(render_options)
+        # Render AST to markdown using MarkdownOptions directly
+        renderer = MarkdownRenderer(md_opts)
         result = renderer.render(ast_document)
 
         # Prepend metadata if enabled

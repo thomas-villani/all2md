@@ -85,6 +85,14 @@ class HtmlToAstConverter:
             for tag in soup.find_all(['script', 'style']):
                 tag.decompose()
 
+            # Remove elements with dangerous attributes
+            elements_to_remove = []
+            for element in soup.find_all():
+                if not self._sanitize_element(element):
+                    elements_to_remove.append(element)
+            for element in elements_to_remove:
+                element.decompose()
+
         # Build document children
         children: list[Node] = []
 
@@ -108,6 +116,59 @@ class HtmlToAstConverter:
                     children.append(nodes)
 
         return Document(children=children)
+
+    def _sanitize_element(self, element: Any) -> bool:
+        """Check if element should be removed for security reasons.
+
+        Parameters
+        ----------
+        element : Any
+            BeautifulSoup element to check
+
+        Returns
+        -------
+        bool
+            True if element should be kept, False if it should be removed
+
+        """
+        from urllib.parse import urlparse
+
+        from all2md.constants import DANGEROUS_HTML_ATTRIBUTES, DANGEROUS_HTML_ELEMENTS, DANGEROUS_SCHEMES
+
+        if not self.options.strip_dangerous_elements:
+            return True
+
+        if hasattr(element, "name"):
+            # Remove dangerous elements
+            if element.name in DANGEROUS_HTML_ELEMENTS:
+                return False
+
+            # Check for dangerous attributes
+            if element.attrs:
+                for attr_name, attr_value in element.attrs.items():
+                    if attr_name in DANGEROUS_HTML_ATTRIBUTES:
+                        return False
+
+                    # Enhanced URL scheme checking for href and src attributes
+                    if isinstance(attr_value, str):
+                        attr_value_lower = attr_value.lower().strip()
+
+                        # Check specific URL attributes for dangerous schemes
+                        if attr_name.lower() in ("href", "src", "action", "formaction"):
+                            # Parse URL to check scheme precisely
+                            parsed = urlparse(attr_value_lower)
+                            if parsed.scheme in ("javascript", "data", "vbscript", "about"):
+                                return False
+                            # Also check for scheme-less dangerous schemes
+                            if any(attr_value_lower.startswith(scheme) for scheme in DANGEROUS_SCHEMES):
+                                return False
+
+                        # Check for dangerous scheme content in other style-related attributes
+                        elif attr_name.lower() in ("style", "background", "expression"):
+                            if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
+                                return False
+
+        return True
 
     def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
         """Process a BeautifulSoup node to AST nodes.
@@ -471,6 +532,10 @@ class HtmlToAstConverter:
         title = node.get("title")
         content = self._process_children_to_inline(node)
 
+        # Resolve relative URLs
+        if url:
+            url = self._resolve_url(url)
+
         # Sanitize URL
         url = self._sanitize_link_url(url)
 
@@ -490,11 +555,173 @@ class HtmlToAstConverter:
             Image node
 
         """
-        url = node.get("src", "")
+        import logging
+        import os
+        from urllib.parse import urlparse
+
+        logger = logging.getLogger(__name__)
+
+        src = node.get("src", "")
         alt_text = node.get("alt", "")
         title = node.get("title")
 
-        return Image(url=url, alt_text=alt_text, title=title)
+        if not src:
+            return Image(url="", alt_text=alt_text, title=title)
+
+        # For skip mode, return empty URL
+        if self.options.attachment_mode == "skip":
+            logger.info(f"Skipping image (attachment_mode=skip): {src} (alt: {alt_text})")
+            return Image(url="", alt_text=alt_text, title=title)
+
+        # Resolve relative URLs
+        resolved_src = self._resolve_url(src)
+
+        # Current attachment mode (may change on error)
+        current_attachment_mode = self.options.attachment_mode
+
+        # Download image data if needed for base64 or download modes
+        image_data = None
+        if current_attachment_mode in ["base64", "download"]:
+            try:
+                image_data = self._download_image_data(resolved_src)
+            except Exception as e:
+                # Fall back to alt_text mode if download fails
+                logger.info(f"Image download failed for {resolved_src}, falling back to alt_text mode: {e}")
+                current_attachment_mode = "alt_text"
+
+        # Generate filename from URL or use generic name
+        parsed_url = urlparse(resolved_src)
+        filename = os.path.basename(parsed_url.path) or "image.png"
+
+        # For alt_text mode with a resolved URL, use the URL
+        if current_attachment_mode == "alt_text":
+            if resolved_src and resolved_src != src:
+                # URL was resolved, preserve it
+                return Image(url=resolved_src, alt_text=alt_text, title=title)
+            else:
+                # No URL or same as original, just use alt text
+                return Image(url=resolved_src, alt_text=alt_text, title=title)
+
+        # Process image using unified attachment handling
+        from all2md.utils.attachments import process_attachment
+
+        processed_markdown = process_attachment(
+            attachment_data=image_data,
+            attachment_name=filename,
+            alt_text=alt_text or title or filename,
+            attachment_mode=current_attachment_mode,
+            attachment_output_dir=self.options.attachment_output_dir,
+            attachment_base_url=self.options.attachment_base_url,
+            is_image=True,
+            alt_text_mode="default",
+        )
+
+        # Parse the markdown string to extract the URL
+        # process_attachment returns strings like:
+        # - ![alt](url) for base64/download
+        # - ![alt] for alt_text
+        final_url = self._extract_url_from_markdown_image(processed_markdown)
+
+        return Image(url=final_url, alt_text=alt_text, title=title)
+
+    def _resolve_url(self, url: str) -> str:
+        """Resolve relative URL to absolute URL if base URL is provided.
+
+        Parameters
+        ----------
+        url : str
+            URL to resolve
+
+        Returns
+        -------
+        str
+            Resolved absolute URL or original URL
+
+        """
+        from urllib.parse import urljoin, urlparse
+
+        if not self.options.attachment_base_url or urlparse(url).scheme:
+            return url
+        return urljoin(self.options.attachment_base_url, url)
+
+    def _download_image_data(self, url: str) -> bytes:
+        """Download image data from URL using secure network client.
+
+        Parameters
+        ----------
+        url : str
+            URL to download from
+
+        Returns
+        -------
+        bytes
+            Raw image data
+
+        Raises
+        ------
+        Exception
+            If download fails, URL is invalid, or security validation fails
+
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        from all2md.utils.network_security import NetworkSecurityError, fetch_image_securely, is_network_disabled
+
+        # Check global network disable flag
+        if is_network_disabled():
+            raise Exception("Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable")
+
+        # Check if remote fetching is allowed
+        if not self.options.network.allow_remote_fetch:
+            raise Exception(
+                "Remote URL fetching is disabled. Set allow_remote_fetch=True in NetworkFetchOptions to enable. "
+                "Warning: This may expose your application to SSRF attacks if used with untrusted input."
+            )
+
+        try:
+            # Use network options from HtmlOptions
+            return fetch_image_securely(
+                url=url,
+                allowed_hosts=self.options.network.allowed_hosts,
+                require_https=self.options.network.require_https,
+                max_size_bytes=self.options.network.max_remote_asset_bytes,
+                timeout=self.options.network.network_timeout,
+            )
+        except NetworkSecurityError as e:
+            logger.warning(f"Network security validation failed for {url}: {e}")
+            raise Exception(f"Network security validation failed: {e}") from e
+        except Exception as e:
+            logger.debug(f"Failed to download image from {url}: {e}")
+            raise Exception(f"Failed to download image from {url}: {e}") from e
+
+    def _extract_url_from_markdown_image(self, markdown_image: str) -> str:
+        """Extract URL from markdown image string.
+
+        Parameters
+        ----------
+        markdown_image : str
+            Markdown image string like ![alt](url) or ![alt]
+
+        Returns
+        -------
+        str
+            Extracted URL or empty string
+
+        """
+        # Match ![alt](url) or ![alt](url "title")
+        match = re.match(r'^!\[([^\]]*)\]\(([^)]+?)(?:\s+"[^"]*")?\)$', markdown_image)
+        if match:
+            return match.group(2)
+
+        # Match ![alt] (no URL)
+        alt_only_match = re.match(r'^!\[([^\]]*)\]$', markdown_image)
+        if alt_only_match:
+            return ""
+
+        # If it doesn't match expected format, return empty
+        return ""
 
     def _process_children_to_inline(self, node: Any) -> list[Node]:
         """Process node children to inline nodes.

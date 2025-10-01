@@ -676,43 +676,28 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
     if options.extract_metadata:
         metadata = extract_pptx_metadata(prs)
 
-    # Get Markdown options (create default if not provided) - currently not used in processing
-    # md_options = options.markdown_options or MarkdownOptions()
-
-    markdown_content = []
-    img_counter = {}  # Track image sequences across slides
+    # Use new AST-based conversion path
+    from all2md.converters.pptx2ast import PptxToAstConverter
+    from all2md.ast import MarkdownRenderer
+    from all2md.options import MarkdownOptions
 
     # Create attachment sequencer for consistent filename generation
     attachment_sequencer = create_attachment_sequencer()
 
-    for i, slide in enumerate(prs.slides, 1):
-        slide_content = []
+    # Convert PPTX to AST
+    ast_converter = PptxToAstConverter(
+        options=options,
+        base_filename=base_filename,
+        attachment_sequencer=attachment_sequencer,
+    )
+    ast_document = ast_converter.convert_to_ast(prs)
 
-        # Process slide title if present
-        if slide.shapes.title:
-            title_text = _process_text_frame(slide.shapes.title.text_frame, options.markdown_options, is_title=True)
-            if options.include_slide_numbers:
-                full_title = f"Slide {i}: {title_text.strip()}"
-            else:
-                full_title = title_text.strip()
+    # Get MarkdownOptions (use provided or create default)
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
 
-            use_hash = options.markdown_options.use_hash_headings if options.markdown_options else True
-            slide_content.append(format_markdown_heading(full_title, 1, use_hash))
-
-        # Process all shapes in the slide
-        for shape in slide.shapes:
-            shape_content = _process_shape(
-                shape, options, base_filename, i, img_counter, attachment_sequencer, slide.shapes.title
-            )
-            if shape_content:
-                slide_content.append(shape_content + "\n")
-
-        # Add slide content with spacing
-        if slide_content:
-            markdown_content.extend(slide_content)
-            markdown_content.append("\n---\n")  # Add separator between slides
-
-    result = "\n".join(markdown_content).strip()
+    # Render AST to markdown using MarkdownOptions directly
+    renderer = MarkdownRenderer(md_opts)
+    result = renderer.render(ast_document)
 
     # Prepend metadata if enabled
     result = prepend_metadata_if_enabled(result, metadata, options.extract_metadata)

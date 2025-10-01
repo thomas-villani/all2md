@@ -13,6 +13,7 @@ Tests cover:
 
 import pytest
 
+from all2md.options import MarkdownOptions
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -31,7 +32,6 @@ from all2md.ast import (
     ListItem,
     MarkdownRenderer,
     Paragraph,
-    RenderOptions,
     Strikethrough,
     Strong,
     Subscript,
@@ -103,7 +103,7 @@ class TestHeadingRendering:
         doc = Document(children=[
             Heading(level=1, content=[Text(content="Title")])
         ])
-        options = RenderOptions(use_hash_headings=False)
+        options = MarkdownOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "Title\n====="
@@ -113,7 +113,7 @@ class TestHeadingRendering:
         doc = Document(children=[
             Heading(level=2, content=[Text(content="Subtitle")])
         ])
-        options = RenderOptions(use_hash_headings=False)
+        options = MarkdownOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "Subtitle\n--------"
@@ -153,7 +153,7 @@ class TestInlineFormatting:
                 Emphasis(content=[Text(content="italic")])
             ])
         ])
-        options = RenderOptions(emphasis_symbol="_")
+        options = MarkdownOptions(emphasis_symbol="_")
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "_italic_"
@@ -218,7 +218,7 @@ class TestExtendedInlineFormatting:
                 Strikethrough(content=[Text(content="deleted")])
             ])
         ])
-        options = RenderOptions(flavor=GFMFlavor())
+        options = MarkdownOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "~~deleted~~"
@@ -230,7 +230,7 @@ class TestExtendedInlineFormatting:
                 Strikethrough(content=[Text(content="deleted")])
             ])
         ])
-        options = RenderOptions(flavor=CommonMarkFlavor())
+        options = MarkdownOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "<del>deleted</del>"
@@ -242,7 +242,7 @@ class TestExtendedInlineFormatting:
                 Underline(content=[Text(content="underlined")])
             ])
         ])
-        options = RenderOptions(underline_mode="html")
+        options = MarkdownOptions(underline_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "<u>underlined</u>"
@@ -254,7 +254,7 @@ class TestExtendedInlineFormatting:
                 Superscript(content=[Text(content="2")])
             ])
         ])
-        options = RenderOptions(superscript_mode="html")
+        options = MarkdownOptions(superscript_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "<sup>2</sup>"
@@ -266,7 +266,7 @@ class TestExtendedInlineFormatting:
                 Subscript(content=[Text(content="0")])
             ])
         ])
-        options = RenderOptions(subscript_mode="html")
+        options = MarkdownOptions(subscript_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert result == "<sub>0</sub>"
@@ -436,7 +436,7 @@ class TestLists:
                 )
             ])
         ])
-        options = RenderOptions(flavor=GFMFlavor())
+        options = MarkdownOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert "* [x]" in result
@@ -462,7 +462,7 @@ class TestTables:
         table = Table(header=header, rows=[row1], alignments=['left', 'right'])
 
         doc = Document(children=[table])
-        options = RenderOptions(flavor=GFMFlavor())
+        options = MarkdownOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
 
@@ -479,7 +479,7 @@ class TestTables:
         table = Table(header=header, rows=[])
 
         doc = Document(children=[table])
-        options = RenderOptions(flavor=CommonMarkFlavor())
+        options = MarkdownOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
 
@@ -602,7 +602,7 @@ class TestEscaping:
         doc = Document(children=[
             Paragraph(content=[Text(content="*asterisks* and [brackets]")])
         ])
-        options = RenderOptions(escape_special=True)
+        options = MarkdownOptions(escape_special=True)
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert "\\*" in result
@@ -613,7 +613,7 @@ class TestEscaping:
         doc = Document(children=[
             Paragraph(content=[Text(content="*asterisks*")])
         ])
-        options = RenderOptions(escape_special=False)
+        options = MarkdownOptions(escape_special=False)
         renderer = MarkdownRenderer(options)
         result = renderer.render(doc)
         assert "\\*" not in result

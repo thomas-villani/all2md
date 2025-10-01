@@ -65,9 +65,29 @@ EmphasisSymbol = Literal["*", "_"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 
+# Markdown flavor and unsupported element handling
+FlavorType = Literal["gfm", "commonmark", "markdown_plus"]
+UnsupportedTableMode = Literal["drop", "ascii", "force", "html"]
+UnsupportedInlineMode = Literal["plain", "force", "html"]
+LinkStyleType = Literal["inline", "reference"]
+CodeFenceChar = Literal["`", "~"]
+
 # Attachment handling defaults - defined here after AttachmentMode type
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
+
+# Flavor and unsupported element defaults
+DEFAULT_FLAVOR: FlavorType = "gfm"
+DEFAULT_UNSUPPORTED_TABLE_MODE: UnsupportedTableMode = "force"
+DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "plain"
+
+# Markdown rendering defaults
+DEFAULT_HEADING_LEVEL_OFFSET = 0
+DEFAULT_CODE_FENCE_CHAR: CodeFenceChar = "`"
+DEFAULT_CODE_FENCE_MIN = 3
+DEFAULT_COLLAPSE_BLANK_LINES = True
+DEFAULT_LINK_STYLE: LinkStyleType = "inline"
+DEFAULT_TABLE_PIPE_ESCAPE = True
 
 # =============================================================================
 # PDF-specific Constants

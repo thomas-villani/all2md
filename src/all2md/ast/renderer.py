@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.ast.flavors import GFMFlavor, MarkdownFlavor
+from all2md.ast.flavors import CommonMarkFlavor, GFMFlavor, MarkdownFlavor, MarkdownPlusFlavor
 from all2md.ast.nodes import (
     BlockQuote,
     Code,
@@ -50,57 +50,6 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 
 
-@dataclass
-class RenderOptions:
-    """Configuration options for markdown rendering.
-
-    This class contains all options that control how AST nodes are rendered
-    to markdown text. It maps to the existing MarkdownOptions for backward
-    compatibility.
-
-    Parameters
-    ----------
-    flavor : MarkdownFlavor, default = GFMFlavor()
-        Markdown dialect to use for rendering
-    escape_special : bool, default = True
-        Whether to escape special markdown characters
-    emphasis_symbol : {'*', '_'}, default = '*'
-        Symbol to use for emphasis (italic)
-    bullet_symbols : str, default = '*-+'
-        Characters to cycle through for nested bullet lists
-    list_indent_width : int, default = 4
-        Number of spaces per indentation level in lists
-    underline_mode : {'html', 'markdown', 'ignore'}, default = 'html'
-        How to render underlined text
-    superscript_mode : {'html', 'markdown', 'ignore'}, default = 'html'
-        How to render superscript text
-    subscript_mode : {'html', 'markdown', 'ignore'}, default = 'html'
-        How to render subscript text
-    use_hash_headings : bool, default = True
-        Use # style headings instead of underline style
-    max_line_width : int or None, default = None
-        Maximum line width (None for no limit)
-    prefer_setext_headings : bool, default = False
-        Prefer setext (underline) style for h1 and h2
-    table_alignment_default : {'left', 'center', 'right'}, default = 'left'
-        Default alignment for table columns
-
-    """
-
-    flavor: MarkdownFlavor = field(default_factory=GFMFlavor)
-    escape_special: bool = True
-    emphasis_symbol: Literal["*", "_"] = "*"
-    bullet_symbols: str = "*-+"
-    list_indent_width: int = 4
-    underline_mode: Literal["html", "markdown", "ignore"] = "html"
-    superscript_mode: Literal["html", "markdown", "ignore"] = "html"
-    subscript_mode: Literal["html", "markdown", "ignore"] = "html"
-    use_hash_headings: bool = True
-    max_line_width: int | None = None
-    prefer_setext_headings: bool = False
-    table_alignment_default: Literal["left", "center", "right"] = "left"
-
-
 class MarkdownRenderer(NodeVisitor):
     """Render AST nodes to markdown text.
 
@@ -110,30 +59,59 @@ class MarkdownRenderer(NodeVisitor):
 
     Parameters
     ----------
-    options : RenderOptions or None, default = None
-        Rendering configuration options
+    options : MarkdownOptions or None, default = None
+        Markdown formatting options (shared with converters)
 
     Examples
     --------
     Basic usage:
 
         >>> from all2md.ast import Document, Heading, Text, MarkdownRenderer
+        >>> from all2md.options import MarkdownOptions
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Title")])
         ... ])
-        >>> renderer = MarkdownRenderer()
+        >>> options = MarkdownOptions(flavor="gfm")
+        >>> renderer = MarkdownRenderer(options)
         >>> markdown = renderer.render(doc)
         >>> print(markdown)
         # Title
 
     """
 
-    def __init__(self, options: RenderOptions | None = None):
-        self.options = options or RenderOptions()
+    def __init__(self, options: "MarkdownOptions | None" = None):
+        # Import here to avoid circular dependency
+        from all2md.options import MarkdownOptions
+
+        self.options = options or MarkdownOptions()
+        self._flavor = self._get_flavor(self.options.flavor)
         self._output: list[str] = []
         self._indent_level: int = 0
         self._in_list: bool = False
         self._list_marker_stack: list[str] = []
+        self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
+        self._next_ref_id: int = 1
+
+    def _get_flavor(self, flavor_name: str) -> MarkdownFlavor:
+        """Get flavor instance from string name.
+
+        Parameters
+        ----------
+        flavor_name : str
+            Flavor name ("gfm", "commonmark", "markdown_plus")
+
+        Returns
+        -------
+        MarkdownFlavor
+            Flavor instance
+
+        """
+        flavors = {
+            "gfm": GFMFlavor(),
+            "commonmark": CommonMarkFlavor(),
+            "markdown_plus": MarkdownPlusFlavor(),
+        }
+        return flavors.get(flavor_name, GFMFlavor())
 
     def render(self, document: Document) -> str:
         """Render a document AST to markdown.
@@ -153,8 +131,17 @@ class MarkdownRenderer(NodeVisitor):
         self._indent_level = 0
         self._in_list = False
         self._list_marker_stack = []
+        self._link_references = {}
+        self._next_ref_id = 1
 
         document.accept(self)
+
+        # Append link references if using reference style
+        if self.options.link_style == "reference" and self._link_references:
+            self._output.append('\n\n')
+            for url, ref_id in sorted(self._link_references.items(), key=lambda x: x[1]):
+                self._output.append(f'[{ref_id}]: {url}\n')
+
         result = ''.join(self._output)
 
         return self._cleanup_output(result)
@@ -173,7 +160,8 @@ class MarkdownRenderer(NodeVisitor):
             Cleaned markdown text
 
         """
-        text = re.sub(r'\n{3,}', '\n\n', text)
+        if self.options.collapse_blank_lines:
+            text = re.sub(r'\n{3,}', '\n\n', text)
         text = text.rstrip()
         return text
 
@@ -283,14 +271,17 @@ class MarkdownRenderer(NodeVisitor):
         """
         content = self._render_inline_content(node.content)
 
+        # Apply heading level offset (clamped to valid range 1-6)
+        adjusted_level = max(1, min(6, node.level + self.options.heading_level_offset))
+
         # Use setext style if hash headings are disabled or prefer_setext is set for h1/h2
-        if (not self.options.use_hash_headings or self.options.prefer_setext_headings) and node.level <= 2:
-            underline_char = '=' if node.level == 1 else '-'
+        if (not self.options.use_hash_headings or self.options.prefer_setext_headings) and adjusted_level <= 2:
+            underline_char = '=' if adjusted_level == 1 else '-'
             underline = underline_char * len(content)
             self._output.append(f"{content}\n{underline}")
         else:
             # Use hash style for h3-h6 or when use_hash_headings is True
-            prefix = '#' * node.level
+            prefix = '#' * adjusted_level
             self._output.append(f"{prefix} {content}")
 
     def visit_paragraph(self, node: Paragraph) -> None:
@@ -315,7 +306,26 @@ class MarkdownRenderer(NodeVisitor):
             Code block to render
 
         """
-        fence = node.fence_char * node.fence_length
+        # Use fence char from options
+        fence_char = self.options.code_fence_char
+
+        # Calculate required fence length (at least code_fence_min, longer if needed)
+        fence_length = self.options.code_fence_min
+        # Check if code content contains fence sequences that would break parsing
+        if fence_char in node.content:
+            # Find longest sequence of fence_char in content
+            max_consecutive = 0
+            current_consecutive = 0
+            for char in node.content:
+                if char == fence_char:
+                    current_consecutive += 1
+                    max_consecutive = max(max_consecutive, current_consecutive)
+                else:
+                    current_consecutive = 0
+            # Use fence length that's longer than any sequence in content
+            fence_length = max(fence_length, max_consecutive + 1)
+
+        fence = fence_char * fence_length
         lang = node.language or ''
 
         self._output.append(f"{fence}{lang}\n")
@@ -390,7 +400,7 @@ class MarkdownRenderer(NodeVisitor):
         indent = self._current_indent()
         marker = self._list_marker_stack[-1] if self._list_marker_stack else '* '
 
-        if node.task_status and self.options.flavor.supports_task_lists():
+        if node.task_status and self._flavor.supports_task_lists():
             checkbox = '[x]' if node.task_status == 'checked' else '[ ]'
             marker = f"{marker}{checkbox} "
 
@@ -407,12 +417,17 @@ class MarkdownRenderer(NodeVisitor):
                 self._output = saved_output
                 self._output.append(child_content)
             else:
-                # Subsequent children are indented
-                self._indent_level += 1
-                child_indent = self._current_indent()
+                # Subsequent children (nested lists, paragraphs) are indented
+                # Use marker width for proper alignment
+                marker_width = len(marker)
+                child_indent = indent + (' ' * marker_width)
                 self._output.append(f"\n{child_indent}")
+
+                # Save and restore indent level for nested lists
+                saved_indent = self._indent_level
+                self._indent_level = len(indent + (' ' * marker_width)) // self.options.list_indent_width
                 child.accept(self)
-                self._indent_level -= 1
+                self._indent_level = saved_indent
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
@@ -427,7 +442,7 @@ class MarkdownRenderer(NodeVisitor):
         if node.caption:
             self._output.append(f"*{node.caption}*\n\n")
 
-        if not self.options.flavor.supports_tables():
+        if not self._flavor.supports_tables():
             self._render_table_as_html(node)
             return
 
@@ -444,46 +459,74 @@ class MarkdownRenderer(NodeVisitor):
             cells: list[str] = []
             for cell in row.cells:
                 content = self._render_inline_content(cell.content)
-                content = content.replace('|', '\\|')
+                if self.options.table_pipe_escape:
+                    content = content.replace('|', '\\|')
                 cells.append(content)
             rendered_rows.append(cells)
 
-        col_widths: list[int] = [0] * num_cols
-        for row_cells in rendered_rows:
-            for i, cell_content in enumerate(row_cells):
-                if i < num_cols:
-                    col_widths[i] = max(col_widths[i], len(cell_content))
+        if self.options.pad_table_cells:
+            # Calculate column widths and pad cells for alignment
+            col_widths: list[int] = [0] * num_cols
+            for row_cells in rendered_rows:
+                for i, cell_content in enumerate(row_cells):
+                    if i < num_cols:
+                        col_widths[i] = max(col_widths[i], len(cell_content))
 
-        for i, row_cells in enumerate(rendered_rows):
-            padded_cells: list[str] = []
-            for j, cell_content in enumerate(row_cells):
-                if j < num_cols:
-                    padded = cell_content.ljust(col_widths[j])
-                    padded_cells.append(padded)
-            self._output.append('| ' + ' | '.join(padded_cells) + ' |')
+            for i, row_cells in enumerate(rendered_rows):
+                if i > 0:
+                    self._output.append('\n')
+                padded_cells: list[str] = []
+                for j, cell_content in enumerate(row_cells):
+                    if j < num_cols:
+                        padded = cell_content.ljust(col_widths[j])
+                        padded_cells.append(padded)
+                self._output.append('| ' + ' | '.join(padded_cells) + ' |')
 
-            if i == 0 and node.header:
-                alignments = []
-                for j, alignment in enumerate(node.alignments if node.alignments else []):
-                    # Use exactly 3 dashes for alignment (markdown minimum)
-                    if alignment == 'center':
-                        alignments.append(':---:')
-                    elif alignment == 'right':
-                        alignments.append('---:')
-                    elif alignment == 'left':
-                        alignments.append(':---')
-                    else:
-                        # Default to left alignment
+                if i == 0 and node.header:
+                    self._output.append('\n')
+                    alignments = []
+                    for j, alignment in enumerate(node.alignments if node.alignments else []):
+                        if j >= num_cols:
+                            break
+                        if alignment == 'center':
+                            alignments.append(':' + '-' * max(3, col_widths[j]) + ':')
+                        elif alignment == 'right':
+                            alignments.append('-' * max(3, col_widths[j]) + ':')
+                        elif alignment == 'left':
+                            alignments.append(':' + '-' * max(3, col_widths[j]))
+                        else:
+                            alignments.append('-' * max(3, col_widths[j]))
+                    # Fill remaining columns with default alignment
+                    while len(alignments) < num_cols:
+                        alignments.append('-' * max(3, col_widths[len(alignments)]))
+                    self._output.append('| ' + ' | '.join(alignments) + ' |')
+        else:
+            # Minimal spacing - no padding
+            for i, row_cells in enumerate(rendered_rows):
+                if i > 0:
+                    self._output.append('\n')
+                self._output.append('| ' + ' | '.join(row_cells) + ' |')
+
+                if i == 0 and node.header:
+                    self._output.append('\n')
+                    alignments = []
+                    for j, alignment in enumerate(node.alignments if node.alignments else []):
+                        # Use exactly 3 dashes for alignment (markdown minimum)
+                        if alignment == 'center':
+                            alignments.append(':---:')
+                        elif alignment == 'right':
+                            alignments.append('---:')
+                        elif alignment == 'left':
+                            alignments.append(':---')
+                        else:
+                            # Default to left alignment
+                            alignments.append('---')
+
+                    # Fill remaining columns with default alignment
+                    while len(alignments) < num_cols:
                         alignments.append('---')
 
-                # Fill remaining columns with default alignment
-                while len(alignments) < num_cols:
-                    alignments.append('---')
-
-                self._output.append('\n|' + '|'.join(alignments) + '|')
-
-            if i < len(rendered_rows) - 1:
-                self._output.append('\n')
+                    self._output.append('| ' + ' | '.join(alignments) + ' |')
 
     def _render_table_as_html(self, node: Table) -> None:
         """Render a table as HTML when markdown tables are not supported.
@@ -619,10 +662,21 @@ class MarkdownRenderer(NodeVisitor):
 
         """
         content = self._render_inline_content(node.content)
-        if node.title:
-            self._output.append(f'[{content}]({node.url} "{node.title}")')
+
+        if self.options.link_style == "reference":
+            # Reference-style links: [text][ref]
+            # Get or create reference ID for this URL
+            if node.url not in self._link_references:
+                self._link_references[node.url] = self._next_ref_id
+                self._next_ref_id += 1
+            ref_id = self._link_references[node.url]
+            self._output.append(f'[{content}][{ref_id}]')
         else:
-            self._output.append(f'[{content}]({node.url})')
+            # Inline-style links: [text](url)
+            if node.title:
+                self._output.append(f'[{content}]({node.url} "{node.title}")')
+            else:
+                self._output.append(f'[{content}]({node.url})')
 
     def visit_image(self, node: Image) -> None:
         """Render an Image node.
@@ -634,7 +688,10 @@ class MarkdownRenderer(NodeVisitor):
 
         """
         alt = node.alt_text.replace('[', '\\[').replace(']', '\\]')
-        if node.title:
+        if not node.url:
+            # Alt-text only (no URL)
+            self._output.append(f'![{alt}]')
+        elif node.title:
             self._output.append(f'![{alt}]({node.url} "{node.title}")')
         else:
             self._output.append(f'![{alt}]({node.url})')
@@ -663,7 +720,7 @@ class MarkdownRenderer(NodeVisitor):
 
         """
         content = self._render_inline_content(node.content)
-        if self.options.flavor.supports_strikethrough():
+        if self._flavor.supports_strikethrough():
             self._output.append(f"~~{content}~~")
         else:
             self._output.append(f"<del>{content}</del>")

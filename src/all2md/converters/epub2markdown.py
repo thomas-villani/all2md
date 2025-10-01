@@ -130,7 +130,7 @@ def _preprocess_html(
             alt_attr = img_tag.get("alt", "")
             alt_text = str(alt_attr) if alt_attr else Path(image_name).stem
 
-            new_src = process_attachment(
+            markdown_result = process_attachment(
                 attachment_data=image_data,
                 attachment_name=image_name,
                 alt_text=alt_text,
@@ -140,13 +140,33 @@ def _preprocess_html(
                 is_image=True,
                 alt_text_mode=options.alt_text_mode,
             )
-            # If process_attachment returns a full markdown string, replace the tag entirely
-            if new_src.startswith("!["):
-                if hasattr(img_tag, 'replace_with'):
-                    img_tag.replace_with(new_src)
-            else:  # Otherwise, just update the src attribute
-                if hasattr(img_tag, '__setitem__'):
-                    img_tag["src"] = new_src
+
+            # Extract URL from markdown result to update the img tag
+            # process_attachment returns markdown like ![alt](url) or ![alt]
+            # We need to extract the URL and set it as the src attribute
+            if markdown_result.startswith("!["):
+                # Parse markdown to extract URL
+                # Pattern: ![alt](url) or ![alt](url "title") or ![alt]
+                import re
+                url_match = re.search(r'!\[([^\]]*)\]\(([^)]+?)\)', markdown_result)
+                if url_match:
+                    # Found URL - update src attribute
+                    extracted_url = url_match.group(2)
+                    # Remove title if present (e.g., 'url "title"' -> 'url')
+                    extracted_url = extracted_url.split('"')[0].strip()
+                    if hasattr(img_tag, '__setitem__'):
+                        img_tag["src"] = extracted_url
+                elif options.attachment_mode == "skip":
+                    # Skip mode - remove the image tag
+                    if hasattr(img_tag, 'decompose'):
+                        img_tag.decompose()
+                else:
+                    # Alt-text only (no URL) - remove the image tag
+                    if hasattr(img_tag, 'decompose'):
+                        img_tag.decompose()
+            else:
+                # Unexpected format - keep original
+                pass
         else:
             logger.warning(f"Could not find image item for src: {src} (resolved to {resolved_path})")
 

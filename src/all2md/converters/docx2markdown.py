@@ -652,107 +652,28 @@ def docx_to_markdown(
     if options.extract_metadata:
         metadata = extract_docx_metadata(doc)
 
-    # Get Markdown options (create default if not provided)
-    md_options = options.markdown_options or MarkdownOptions()
-
-    markdown_lines = []
-    list_stack: list[tuple[str, int, int]] = []  # Track nested lists: (type, level, current_number)
+    # Use new AST-based conversion path
+    from all2md.converters.docx2ast import DocxToAstConverter
+    from all2md.ast import MarkdownRenderer
 
     # Create attachment sequencer for consistent filename generation
     attachment_sequencer = create_attachment_sequencer()
 
-    for block in _iter_block_items(
-        doc, options=options, base_filename=base_filename, attachment_sequencer=attachment_sequencer
-    ):
-        if isinstance(block, Paragraph):
-            text = ""
+    # Convert DOCX to AST
+    ast_converter = DocxToAstConverter(
+        options=options,
+        doc=doc,
+        base_filename=base_filename,
+        attachment_sequencer=attachment_sequencer,
+    )
+    ast_document = ast_converter.convert_to_ast(doc)
 
-            # Skip empty paragraphs
-            if not block.text.strip():
-                markdown_lines.append("")
-                continue
+    # Get MarkdownOptions (use provided or create default)
+    md_opts = options.markdown_options if options.markdown_options else MarkdownOptions()
 
-            # Handle heading styles
-            style_name = block.style.name if block.style else ""
-            heading_match = re.match(r"Heading (\d+)", style_name)
-            if heading_match:
-                level = int(heading_match.group(1))
-                text = "#" * level + " " + block.text.strip()
-                markdown_lines.append(text)
-                continue
-
-            # Handle lists
-            list_type, level = _detect_list_level(block, doc)
-            if list_type:
-                # Close any deeper nested lists
-                while list_stack and list_stack[-1][1] > level:
-                    list_stack.pop()
-
-                # Check if we're continuing the same list type at this level
-                if list_stack and list_stack[-1][1] == level:
-                    if list_stack[-1][0] == list_type:
-                        # Continue numbering for numbered lists
-                        if list_type == "number":
-                            list_stack[-1] = (list_type, level, list_stack[-1][2] + 1)
-                    else:
-                        # Different list type at same level - start new list
-                        list_stack[-1] = (list_type, level, 1)
-                else:
-                    # Start new list
-                    while len(list_stack) > 0 and list_stack[-1][1] >= level:
-                        list_stack.pop()
-                    list_stack.append((list_type, level, 1))
-
-                # Calculate proper indentation
-                indent = ""
-                for _i, (lst_type, _lst_level, _) in enumerate(list_stack[:-1]):
-                    # Add 3 spaces for numbered lists, 2 for bullet lists
-                    indent += "   " if lst_type == "number" else "  "
-
-                # Add marker with proper numbering or bullet
-                bullet_symbols = md_options.bullet_symbols if md_options else "*-+"
-                if list_type == "number":
-                    marker = _format_list_marker(list_type, list_stack[-1][2], level, bullet_symbols)
-                else:
-                    marker = _format_list_marker(list_type, 1, level, bullet_symbols)
-
-                text = indent + marker + _process_paragraph_runs(block, md_options).strip()
-
-            else:
-                # Not a list - clear list stack
-                if list_stack:
-                    list_stack = []
-                    markdown_lines.append("")
-
-                text = _process_paragraph_runs(block, md_options)
-
-            if text:
-                markdown_lines.append(text)
-
-        elif isinstance(block, Table):
-            # Add spacing before table
-            if markdown_lines and markdown_lines[-1]:
-                markdown_lines.append("")
-
-            # Check if tables should be preserved
-            if options.preserve_tables:
-                # Convert and add table
-                markdown_lines.append(_convert_table_to_markdown(block, md_options))
-            else:
-                # Flatten table to paragraphs
-                for row in block.rows:
-                    for cell in row.cells:
-                        for paragraph in cell.paragraphs:
-                            text = _process_paragraph_runs(paragraph, md_options)
-                            if text.strip():
-                                markdown_lines.append(text)
-
-            # Add spacing after table
-            markdown_lines.append("")
-
-    # Clean up multiple blank lines
-    markdown = "\n\n".join(markdown_lines)
-    markdown = re.sub(r"\n{3,}", "\n\n", markdown)
+    # Render AST to markdown using MarkdownOptions directly
+    renderer = MarkdownRenderer(md_opts)
+    markdown = renderer.render(ast_document)
 
     # Prepend metadata if enabled
     markdown = prepend_metadata_if_enabled(markdown.strip(), metadata, options.extract_metadata)
