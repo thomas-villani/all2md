@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.converters.pdf2markdown import IdentifyHeaders, page_to_markdown
+from all2md.converters.pdf2markdown import IdentifyHeaders, pdf_to_markdown
 from all2md.options import PdfOptions
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
@@ -73,6 +73,8 @@ class TestPdfFormatting:
         """Test mapping of PDF font flags to Markdown emphasis."""
         mock_doc = Mock()
         mock_page = Mock()
+        mock_tables = Mock()
+        mock_rect = Mock()
 
         # Mock different formatting scenarios
         spans = [
@@ -118,14 +120,22 @@ class TestPdfFormatting:
 
         mock_page.get_text.return_value = {"blocks": mock_blocks}
         mock_page.get_links.return_value = []
+        mock_page.get_images.return_value = []
+        mock_page.get_drawings.return_value = []
+
+        mock_rect = Mock()
+        mock_rect.width = 200
+        mock_rect.height = 200
+        mock_page.rect = mock_rect
+        mock_tables.tables = []
+        mock_page.find_tables.return_value = mock_tables
 
         # Configure mock to support indexing
         mock_doc.__getitem__ = Mock(return_value=mock_page)
         mock_doc.page_count = 1
         mock_fitz_open.return_value = mock_doc
 
-        header_analyzer = IdentifyHeaders(mock_doc)
-        result = page_to_markdown(mock_page, None, header_analyzer)
+        result = pdf_to_markdown(mock_doc)
 
         assert_markdown_valid(result)
 
@@ -263,6 +273,8 @@ class TestPdfFormatting:
         """Test paragraphs with mixed formatting within same line."""
         mock_doc = Mock()
         mock_page = Mock()
+        mock_tables = Mock()
+        mock_rect = Mock()
 
         # Mock line with multiple spans having different formatting
         mixed_spans = [
@@ -308,14 +320,22 @@ class TestPdfFormatting:
 
         mock_page.get_text.return_value = {"blocks": [mock_block]}
         mock_page.get_links.return_value = []
+        mock_page.get_images.return_value = []
+        mock_page.get_drawings.return_value = []
+
+        mock_rect = Mock()
+        mock_rect.width = 200
+        mock_rect.height = 200
+        mock_page.rect = mock_rect
+        mock_tables.tables = []
+        mock_page.find_tables.return_value = mock_tables
 
         # Configure mock to support indexing
         mock_doc.__getitem__ = Mock(return_value=mock_page)
         mock_doc.page_count = 1
         mock_fitz_open.return_value = mock_doc
 
-        header_analyzer = IdentifyHeaders(mock_doc)
-        result = page_to_markdown(mock_page, None, header_analyzer)
+        result = pdf_to_markdown(mock_doc)
 
         assert_markdown_valid(result)
 

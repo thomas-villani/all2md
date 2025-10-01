@@ -204,23 +204,6 @@ def test_resolve_links_overlap():
     assert res == "[click](http://test)"
 
 
-@pytest.mark.unit
-def test_page_to_markdown_simple():
-    span = {"bbox": (0, 0, 5, 10), "size": 12.0, "text": "hello", "flags": 0}
-    line = {"bbox": (0, 0, 5, 10), "dir": (1, 0), "spans": [span]}
-    block = {"bbox": (0, 0, 100, 100), "lines": [line]}
-
-    class FakePage:
-        def get_links(self):
-            return []
-
-        def get_text(self, mode, **kwargs):
-            return {"blocks": [block]}
-
-    hdr_prefix = mod.IdentifyHeaders(type("D", (), {"page_count": 0, "__getitem__": lambda *a: None})())
-    out = mod.page_to_markdown(FakePage(), clip=None, hdr_prefix=hdr_prefix)
-    assert out == "\nhello\n\n"
-
 
 @pytest.mark.unit
 def test_pdf_to_markdown_no_tables(monkeypatch):
