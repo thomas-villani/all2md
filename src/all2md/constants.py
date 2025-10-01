@@ -66,7 +66,7 @@ AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 
 # Markdown flavor and unsupported element handling
-FlavorType = Literal["gfm", "commonmark", "markdown_plus"]
+FlavorType = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
 UnsupportedTableMode = Literal["drop", "ascii", "force", "html"]
 UnsupportedInlineMode = Literal["plain", "force", "html"]
 LinkStyleType = Literal["inline", "reference"]
@@ -78,8 +78,10 @@ DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 
 # Flavor and unsupported element defaults
 DEFAULT_FLAVOR: FlavorType = "gfm"
+# Use "force" as flavor-naive default (most markdown-like, works in most parsers)
+# Flavor-specific defaults are applied via get_flavor_defaults() when flavor is chosen
 DEFAULT_UNSUPPORTED_TABLE_MODE: UnsupportedTableMode = "force"
-DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "plain"
+DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "force"
 
 # Markdown rendering defaults
 DEFAULT_HEADING_LEVEL_OFFSET = 0

@@ -305,6 +305,10 @@ def _merge_options(
     elif isinstance(base_options, MarkdownOptions):
         options_instance = _create_options_from_kwargs(format, **kwargs)
 
+        # Handle case where format doesn't use options (returns None)
+        if options_instance is None:
+            return None
+
         if options_instance.markdown_options is None:
             options_instance = create_updated_options(options_instance, markdown_options=base_options)
         else:
@@ -401,6 +405,7 @@ def to_markdown(
         *,
         options: Optional[BaseOptions | MarkdownOptions] = None,
         format: DocumentFormat = "auto",
+        flavor: Optional[str] = None,
         **kwargs
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
@@ -421,6 +426,11 @@ def to_markdown(
     format : DocumentFormat, default "auto"
         Explicitly specify the document format. If "auto", the format is
         detected from the filename or content.
+    flavor : str, optional
+        Markdown flavor/dialect to use for output. Options: "gfm", "commonmark",
+        "multimarkdown", "pandoc", "kramdown", "markdown_plus".
+        If specified, takes precedence over flavor in options or kwargs.
+        Defaults to "gfm" if not specified anywhere.
     kwargs : Any
         Individual conversion options that override settings in the `options`
         parameter. These are mapped to the appropriate format-specific
@@ -492,7 +502,22 @@ def to_markdown(
 
     Mixed markdown and format-specific options:
         >>> to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_", bullet_symbols="•◦▪")
+
+    Specifying markdown flavor:
+        >>> markdown = to_markdown("document.pdf", flavor="commonmark")
+        >>> markdown = to_markdown("document.pdf", flavor="multimarkdown")
     """
+
+    # Handle flavor parameter priority: flavor param > kwargs > options
+    if flavor is not None:
+        # Flavor parameter takes highest priority
+        kwargs['flavor'] = flavor
+    elif 'flavor' not in kwargs and options is not None:
+        # Use flavor from options if not in kwargs
+        if isinstance(options, MarkdownOptions) and hasattr(options, 'flavor'):
+            kwargs.setdefault('flavor', options.flavor)
+        elif hasattr(options, 'markdown_options') and options.markdown_options is not None:
+            kwargs.setdefault('flavor', options.markdown_options.flavor)
 
     # Determine format first, before opening files
     if format != "auto":

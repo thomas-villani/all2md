@@ -19,7 +19,15 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.ast.flavors import CommonMarkFlavor, GFMFlavor, MarkdownFlavor, MarkdownPlusFlavor
+from all2md.ast.flavors import (
+    CommonMarkFlavor,
+    GFMFlavor,
+    KramdownFlavor,
+    MarkdownFlavor,
+    MarkdownPlusFlavor,
+    MultiMarkdownFlavor,
+    PandocFlavor,
+)
 from all2md.ast.nodes import (
     BlockQuote,
     Code,
@@ -98,7 +106,7 @@ class MarkdownRenderer(NodeVisitor):
         Parameters
         ----------
         flavor_name : str
-            Flavor name ("gfm", "commonmark", "markdown_plus")
+            Flavor name ("gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus")
 
         Returns
         -------
@@ -109,6 +117,9 @@ class MarkdownRenderer(NodeVisitor):
         flavors = {
             "gfm": GFMFlavor(),
             "commonmark": CommonMarkFlavor(),
+            "multimarkdown": MultiMarkdownFlavor(),
+            "pandoc": PandocFlavor(),
+            "kramdown": KramdownFlavor(),
             "markdown_plus": MarkdownPlusFlavor(),
         }
         return flavors.get(flavor_name, GFMFlavor())
@@ -442,9 +453,21 @@ class MarkdownRenderer(NodeVisitor):
         if node.caption:
             self._output.append(f"*{node.caption}*\n\n")
 
+        # Handle tables not supported by the flavor
         if not self._flavor.supports_tables():
-            self._render_table_as_html(node)
-            return
+            mode = self.options.unsupported_table_mode
+            if mode == "drop":
+                # Skip table entirely
+                return
+            elif mode == "ascii":
+                # Render as ASCII art
+                self._render_table_as_ascii(node)
+                return
+            elif mode == "html":
+                # Render as HTML
+                self._render_table_as_html(node)
+                return
+            # else: mode == "force", continue with pipe table rendering
 
         rows_to_render = [node.header] if node.header else []
         rows_to_render.extend(node.rows)
@@ -558,6 +581,65 @@ class MarkdownRenderer(NodeVisitor):
             self._output.append('  </tbody>\n')
 
         self._output.append('</table>')
+
+    def _render_table_as_ascii(self, node: Table) -> None:
+        """Render a table as ASCII art when markdown tables are not supported.
+
+        Parameters
+        ----------
+        node : Table
+            Table to render as ASCII art
+
+        """
+        rows_to_render = [node.header] if node.header else []
+        rows_to_render.extend(node.rows)
+
+        if not rows_to_render:
+            return
+
+        num_cols = len(rows_to_render[0].cells) if rows_to_render else 0
+
+        # Render all cells to determine column widths
+        rendered_rows: list[list[str]] = []
+        for row in rows_to_render:
+            cells: list[str] = []
+            for cell in row.cells:
+                content = self._render_inline_content(cell.content)
+                cells.append(content)
+            rendered_rows.append(cells)
+
+        # Calculate column widths
+        col_widths: list[int] = [0] * num_cols
+        for row_cells in rendered_rows:
+            for i, cell_content in enumerate(row_cells):
+                if i < num_cols:
+                    col_widths[i] = max(col_widths[i], len(cell_content))
+
+        # Build separator line
+        separator = '+' + '+'.join(['-' * (width + 2) for width in col_widths]) + '+'
+
+        # Render table
+        self._output.append(separator + '\n')
+        for i, row_cells in enumerate(rendered_rows):
+            # Render row
+            row_parts = []
+            for j, cell_content in enumerate(row_cells):
+                if j < num_cols:
+                    padded = cell_content.ljust(col_widths[j])
+                    row_parts.append(f' {padded} ')
+            self._output.append('|' + '|'.join(row_parts) + '|\n')
+
+            # Add separator after header or after each row
+            if i == 0 and node.header:
+                # Double separator after header
+                header_sep = '+' + '+'.join(['=' * (width + 2) for width in col_widths]) + '+'
+                self._output.append(header_sep + '\n')
+            elif i < len(rendered_rows) - 1:
+                # Single separator between rows
+                self._output.append(separator + '\n')
+
+        # Final separator
+        self._output.append(separator)
 
     def visit_table_row(self, node: TableRow) -> None:
         """Render a TableRow node.
@@ -725,7 +807,16 @@ class MarkdownRenderer(NodeVisitor):
         if self._flavor.supports_strikethrough():
             self._output.append(f"~~{content}~~")
         else:
-            self._output.append(f"<del>{content}</del>")
+            mode = self.options.unsupported_inline_mode
+            if mode == "plain":
+                # Strip formatting, render content only
+                self._output.append(content)
+            elif mode == "force":
+                # Use markdown syntax anyway
+                self._output.append(f"~~{content}~~")
+            else:  # mode == "html"
+                # Use HTML tags
+                self._output.append(f"<del>{content}</del>")
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.

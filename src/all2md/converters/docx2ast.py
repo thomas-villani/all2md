@@ -15,6 +15,11 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+
+from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
+from all2md.converters.docx2markdown import logger
+from all2md.utils.attachments import extract_docx_image_data, process_attachment
+
 if TYPE_CHECKING:
     import docx.document
     from docx.table import Table
@@ -23,8 +28,6 @@ if TYPE_CHECKING:
 
 
 from all2md.ast import (
-    BlockQuote,
-    Code,
     Document,
     Emphasis,
     Heading,
@@ -34,7 +37,6 @@ from all2md.ast import (
     ListItem,
     Node,
     Paragraph as AstParagraph,
-    SourceLocation,
     Strikethrough,
     Strong,
     Subscript,
@@ -104,7 +106,6 @@ class DocxToAstConverter:
         children: list[Node] = []
 
         # Import here to avoid circular dependencies
-        from all2md.converters.docx2markdown import _iter_block_items
         from docx.table import Table
         from docx.text.paragraph import Paragraph
 
@@ -196,7 +197,6 @@ class DocxToAstConverter:
             return Heading(level=level, content=content)
 
         # Handle lists
-        from all2md.converters.docx2markdown import _detect_list_level
 
         list_type, level = _detect_list_level(paragraph, self.doc)
         if list_type:
@@ -708,3 +708,267 @@ class DocxToAstConverter:
             logger.debug(f"Could not process comments: {e}")
 
         return nodes
+
+
+def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[str, str]]:
+    """Extract and cache numbering definitions from document.
+
+    Returns a mapping of numId -> {level -> format_type} where format_type is 'bullet' or 'decimal'.
+    """
+    numbering_defs: dict[str, dict[str, str]] = {}
+
+    if not hasattr(doc, '_part') or not hasattr(doc._part, 'numbering_part'):
+        return numbering_defs
+
+    numbering_part = doc._part.numbering_part
+    if not numbering_part:
+        return numbering_defs
+
+    try:
+        numbering_xml = numbering_part._element
+
+        # First, collect abstract numbering definitions
+        abstract_nums = {}
+        for elem in numbering_xml.iter():
+            if elem.tag.endswith('abstractNum'):
+                abstract_num_id = elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId')
+                if abstract_num_id:
+                    levels = {}
+                    for level_elem in elem.iter():
+                        if level_elem.tag.endswith('lvl'):
+                            level_id = level_elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl')
+                            if level_id is not None:
+                                for child in level_elem.iter():
+                                    if child.tag.endswith('numFmt'):
+                                        fmt_val = child.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                                        if fmt_val:
+                                            # Map Word numbering formats to our types
+                                            if fmt_val in ('bullet', 'none'):
+                                                levels[level_id] = 'bullet'
+                                            elif fmt_val in (
+                                                'decimal', 'lowerLetter', 'upperLetter', 'lowerRoman', 'upperRoman'
+                                            ):
+                                                levels[level_id] = 'number'
+                                            break
+                    if levels:
+                        abstract_nums[abstract_num_id] = levels
+
+        # Then, map number IDs to abstract numbers
+        for elem in numbering_xml.iter():
+            if elem.tag.endswith('num'):
+                num_id = elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId')
+                if num_id:
+                    for child in elem.iter():
+                        if child.tag.endswith('abstractNumId'):
+                            abs_id = child.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                            if abs_id in abstract_nums:
+                                numbering_defs[num_id] = abstract_nums[abs_id]
+                            break
+
+    except Exception as e:
+        logger.debug(f"Error parsing numbering definitions: {e}")
+
+    return numbering_defs
+
+
+def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" = None) -> tuple[str | None, int]:
+    """Detect the list level of a paragraph based on its style, numbering, and indentation.
+
+    Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth
+    """
+    # Check for Word native numbering properties first (works for all list styles including "List Paragraph")
+    if hasattr(paragraph, "_p") and paragraph._p is not None:
+        try:
+            # Check for numPr (numbering properties) element
+            num_pr = paragraph._p.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numPr")
+            if num_pr is not None:
+                # Get numbering level (Word uses 0-based indexing, we use 1-based)
+                ilvl_elem = num_pr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl")
+                level = (
+                    int(ilvl_elem.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "0")) + 1
+                    if ilvl_elem is not None
+                    else 1
+                )
+
+                # Get numbering ID to determine list type
+                num_id_elem = num_pr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId")
+                if num_id_elem is not None:
+                    num_id = num_id_elem.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+
+                    # Look up the numbering definition if document is available
+                    if doc and num_id:
+                        numbering_defs = _get_numbering_definitions(doc)
+                        if num_id in numbering_defs:
+                            # Get the format for this level (use level-1 since Word is 0-based)
+                            level_key = str(level - 1)
+                            if level_key in numbering_defs[num_id]:
+                                return numbering_defs[num_id][level_key], level
+                            # If specific level not found, use level 0 as fallback
+                            elif '0' in numbering_defs[num_id]:
+                                return numbering_defs[num_id]['0'], level
+
+                    # Fallback: detect type from paragraph text pattern
+                    text = paragraph.text.strip()
+                    if re.match(r"^\d+[.)]", text) or re.match(r"^[a-zA-Z][.)]", text):
+                        return "number", level
+                    else:
+                        return "bullet", level
+        except Exception:
+            pass
+
+    # Check for built-in list styles
+    style_name = paragraph.style.name if paragraph.style else None
+    if not style_name:
+        return None, 0
+
+    base_type = None
+    style_level = 1
+
+    # Handle "List Paragraph" style - check for numbering properties above
+    if style_name == "List Paragraph":
+        # If we got here, numbering properties weren't found or processed
+        # This might be a list paragraph without proper numbering - treat as bullet by default
+        return "bullet", 1
+    elif match := re.match(r"List\s*Bullet\s?(?P<level>\d+)?", style_name, re.I):
+        base_type = "bullet"
+        style_level = int(match.group("level") or 1)
+    elif match := re.match(r"List\s*Number\s?(?P<level>\d+)?", style_name, re.I):
+        base_type = "number"
+        style_level = int(match.group("level") or 1)
+
+    # Check indentation level for additional nesting
+    indent_level = 0
+    try:
+        indent = paragraph.paragraph_format.left_indent
+        if indent:
+            # Convert Pt to level (assume DEFAULT_INDENTATION_PT_PER_LEVEL per level)
+            indent_level = int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
+    except AttributeError:
+        pass
+
+    # If we have a list style, combine with indentation
+    if base_type:
+        final_level = max(style_level, style_level + indent_level)
+        return base_type, final_level
+
+    # Check indentation level for paragraphs without list styles
+    if indent_level > 0:
+        # Try to detect if numbered based on paragraph text
+        if re.match(r"^\d+[.)]", paragraph.text.strip()):
+            return "number", indent_level
+        return "bullet", indent_level
+
+    return None, 0
+
+
+def _iter_block_items(
+    parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer=None
+) -> Any:
+    """
+    Generate a sequence of Paragraph and Table elements in order, handling images.
+    """
+    import docx.document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    parent_elm = parent.element.body if isinstance(parent, docx.document.Document) else parent._element
+
+    for child in parent_elm.iterchildren():
+        if child.tag.endswith("tbl"):
+            yield Table(child, parent)
+        elif child.tag.endswith("p"):
+            paragraph = Paragraph(child, parent)
+
+            # Check if paragraph contains an image
+            has_image = False
+            img_data = []
+
+            for run in paragraph.runs:
+                for pic in run._element.findall(
+                        ".//pic:pic",
+                        {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
+                ):
+                    has_image = True
+
+                    # Get image info
+                    title = None
+
+                    if options.include_image_captions:
+                        if (t := run._element.xpath(".//wp:docPr/@descr")) or (
+                                t := run._element.xpath(".//wp:docPr/@title")
+                        ):
+                            title = t[0]
+
+                    # Get image data and detected format
+                    blip = pic.xpath(".//a:blip")[0]
+                    blip_rId = blip.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
+                    raw_image_data, detected_extension = extract_docx_image_data(parent, blip_rId)
+
+                    # Handle pre-formatted data URIs (for backward compatibility with tests)
+                    if isinstance(raw_image_data, str):
+                        # This is already a formatted URI, use it directly
+                        processed_image = f"![{title or 'image'}]({raw_image_data})"
+                        img_data.append((title or "image", processed_image))
+                        continue
+                    elif not isinstance(raw_image_data, (bytes, type(None))):
+                        logger.warning(f"Invalid image data type for image '{title or 'unnamed'}', skipping")
+                        raw_image_data = None
+
+                    # Use detected extension or fallback to png
+                    extension = detected_extension or "png"
+
+                    # Log format detection result
+                    if detected_extension:
+                        logger.debug(f"Detected image format: {detected_extension}")
+                    else:
+                        logger.debug("No image format detected, using PNG as fallback")
+
+                    # Process image using unified attachment handling
+                    # Use sequencer if available, otherwise fall back to manual counting
+                    if attachment_sequencer:
+                        image_filename, _ = attachment_sequencer(
+                            base_stem=base_filename,
+                            format_type="general",
+                            extension=extension
+                        )
+                    else:
+                        from all2md.utils.attachments import generate_attachment_filename
+                        image_filename = generate_attachment_filename(
+                            base_stem=base_filename,
+                            format_type="general",
+                            sequence_num=len(img_data) + 1,
+                            extension=extension
+                        )
+                    processed_image = process_attachment(
+                        attachment_data=raw_image_data,
+                        attachment_name=image_filename,
+                        alt_text=title or "image",
+                        attachment_mode=options.attachment_mode,
+                        attachment_output_dir=options.attachment_output_dir,
+                        attachment_base_url=options.attachment_base_url,
+                        is_image=True,
+                        alt_text_mode=options.alt_text_mode,
+                    )
+
+                    img_data.append((title, processed_image))
+
+            if has_image and img_data:
+                # Create a new paragraph with default style for each image
+                from docx.oxml.shared import OxmlElement
+
+                for _title, processed_image in img_data:
+                    p = OxmlElement("w:p")
+                    r = OxmlElement("w:r")
+                    t = OxmlElement("w:t")
+
+                    # The processed_image already contains the proper markdown
+                    t.text = processed_image
+
+                    r.append(t)
+                    p.append(r)
+
+                    clean_paragraph = Paragraph(p, parent)
+                    clean_paragraph.style = parent.styles["Normal"]
+                    yield clean_paragraph
+            elif not has_image:
+                yield paragraph

@@ -22,8 +22,11 @@ Options Classes
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
-from typing import Any, Optional, Self, Union
+from dataclasses import MISSING, dataclass, field, fields, replace
+from typing import Any, Literal, Optional, Self, Union
+
+# Sentinel value to detect when user didn't explicitly set unsupported modes
+_UNSET = object()
 
 from .constants import (
     DEFAULT_ALLOW_CWD_FILES,
@@ -122,6 +125,11 @@ class _CloneMixin:
 @dataclass(frozen=True)
 class MarkdownOptions(_CloneMixin):
     r"""Common Markdown formatting options used across conversion modules.
+
+    When a flavor is specified, default values for unsupported_table_mode and
+    unsupported_inline_mode are automatically set to flavor-appropriate values
+    unless explicitly overridden. This is handled via the __new__ method to
+    apply flavor-aware defaults before instance creation.
 
     This dataclass contains settings that control how Markdown output is
     formatted and structured. These options are used by multiple conversion
@@ -248,11 +256,11 @@ class MarkdownOptions(_CloneMixin):
         default=DEFAULT_FLAVOR,  # type: ignore[arg-type]
         metadata={
             "help": "Markdown flavor/dialect to use for output",
-            "choices": ["gfm", "commonmark", "markdown_plus"]
+            "choices": ["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
         }
     )
-    unsupported_table_mode: UnsupportedTableMode = field(
-        default=DEFAULT_UNSUPPORTED_TABLE_MODE,  # type: ignore[arg-type]
+    unsupported_table_mode: UnsupportedTableMode | Literal[_UNSET] = field(  # type: ignore[valid-type]
+        default=_UNSET,  # type: ignore[arg-type]
         metadata={
             "help": "How to handle tables when flavor doesn't support them: "
                     "drop (skip entirely), ascii (render as ASCII art), "
@@ -260,8 +268,8 @@ class MarkdownOptions(_CloneMixin):
             "choices": ["drop", "ascii", "force", "html"]
         }
     )
-    unsupported_inline_mode: UnsupportedInlineMode = field(
-        default=DEFAULT_UNSUPPORTED_INLINE_MODE,  # type: ignore[arg-type]
+    unsupported_inline_mode: UnsupportedInlineMode | Literal[_UNSET] = field(  # type: ignore[valid-type]
+        default=_UNSET,  # type: ignore[arg-type]
         metadata={
             "help": "How to handle inline elements unsupported by flavor: "
                     "plain (render content without formatting), "
@@ -337,6 +345,22 @@ class MarkdownOptions(_CloneMixin):
             "cli_name": "no-table-pipe-escape"
         }
     )
+
+    def __post_init__(self):
+        """Apply flavor-aware defaults after initialization.
+
+        If unsupported_table_mode or unsupported_inline_mode are unset
+        (sentinel value), apply flavor-appropriate defaults.
+        """
+        flavor_defaults = get_flavor_defaults(self.flavor)
+
+        # Apply flavor defaults for any fields that are still unset
+        if self.unsupported_table_mode is _UNSET:
+            object.__setattr__(self, 'unsupported_table_mode',
+                             flavor_defaults['unsupported_table_mode'])
+        if self.unsupported_inline_mode is _UNSET:
+            object.__setattr__(self, 'unsupported_inline_mode',
+                             flavor_defaults['unsupported_inline_mode'])
 
 
 @dataclass(frozen=True)
@@ -1537,6 +1561,203 @@ class SourceCodeOptions(BaseOptions):
             "cli_name": "include-filename"
         }
     )
+
+
+def validate_flavor_compatibility(
+    flavor: FlavorType,
+    options: MarkdownOptions,
+) -> list[str]:
+    """Validate option compatibility with markdown flavor and return warnings.
+
+    This function checks if the provided options are compatible with the
+    selected markdown flavor's capabilities. It returns a list of warning
+    messages for incompatible configurations but does not raise errors,
+    allowing users to override flavor defaults when desired.
+
+    Parameters
+    ----------
+    flavor : FlavorType
+        The markdown flavor to validate against.
+    options : MarkdownOptions
+        The markdown options to validate.
+
+    Returns
+    -------
+    list[str]
+        List of warning messages for incompatible configurations.
+        Empty list if all options are compatible.
+
+    Examples
+    --------
+    Validate CommonMark with table-related options:
+        >>> md_opts = MarkdownOptions(flavor="commonmark", pad_table_cells=True)
+        >>> warnings = validate_flavor_compatibility("commonmark", md_opts)
+        >>> # Will warn if unsupported_table_mode is "drop" with pad_table_cells=True
+
+    No warnings for compatible configuration:
+        >>> md_opts = MarkdownOptions(flavor="gfm", pad_table_cells=True)
+        >>> warnings = validate_flavor_compatibility("gfm", md_opts)
+        >>> len(warnings)
+        0
+
+    Notes
+    -----
+    Common warning scenarios:
+
+    - Using `pad_table_cells=True` when flavor doesn't support tables
+      AND `unsupported_table_mode="drop"`
+    - Setting table-specific options with CommonMark unless using
+      `unsupported_table_mode="force"` or `"html"`
+    """
+    from all2md.ast.flavors import (
+        CommonMarkFlavor,
+        GFMFlavor,
+        KramdownFlavor,
+        MarkdownPlusFlavor,
+        MultiMarkdownFlavor,
+        PandocFlavor,
+    )
+
+    warnings: list[str] = []
+
+    # Get flavor instance
+    flavor_map = {
+        "gfm": GFMFlavor(),
+        "commonmark": CommonMarkFlavor(),
+        "multimarkdown": MultiMarkdownFlavor(),
+        "pandoc": PandocFlavor(),
+        "kramdown": KramdownFlavor(),
+        "markdown_plus": MarkdownPlusFlavor(),
+    }
+    flavor_obj = flavor_map.get(flavor, GFMFlavor())
+
+    # Check table-related options
+    if not flavor_obj.supports_tables():
+        if options.unsupported_table_mode == "drop":
+            if options.pad_table_cells:
+                warnings.append(
+                    f"Flavor '{flavor}' does not support tables and "
+                    f"unsupported_table_mode='drop', but pad_table_cells=True. "
+                    f"Tables will be dropped entirely, making pad_table_cells ineffective."
+                )
+        elif options.unsupported_table_mode == "force":
+            warnings.append(
+                f"Flavor '{flavor}' does not support tables natively, but "
+                f"unsupported_table_mode='force' will render pipe tables anyway. "
+                f"The output may not be valid {flavor} markdown."
+            )
+
+    # Check strikethrough with CommonMark
+    if flavor == "commonmark" and options.unsupported_inline_mode == "force":
+        warnings.append(
+            f"Flavor 'commonmark' does not support strikethrough. "
+            f"Using unsupported_inline_mode='force' will render ~~text~~ "
+            f"which is not valid CommonMark."
+        )
+
+    # Check task lists with flavors that don't support them
+    if not flavor_obj.supports_task_lists():
+        if options.unsupported_inline_mode == "force":
+            warnings.append(
+                f"Flavor '{flavor}' does not support task lists. "
+                f"Using unsupported_inline_mode='force' will render [ ] checkboxes "
+                f"which may not be supported."
+            )
+
+    return warnings
+
+
+def get_flavor_defaults(flavor: FlavorType) -> dict[str, Any]:
+    """Get default option values appropriate for a markdown flavor.
+
+    This function returns recommended default values for
+    `unsupported_table_mode` and `unsupported_inline_mode` based on
+    the specified markdown flavor's capabilities.
+
+    Parameters
+    ----------
+    flavor : FlavorType
+        The markdown flavor to get defaults for.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary with default option values for the flavor, including:
+        - unsupported_table_mode: How to handle tables unsupported by flavor
+        - unsupported_inline_mode: How to handle inline elements unsupported by flavor
+
+    Examples
+    --------
+    Get defaults for CommonMark (strict spec):
+        >>> defaults = get_flavor_defaults("commonmark")
+        >>> defaults["unsupported_table_mode"]
+        'html'
+
+    Get defaults for GFM (supports most features):
+        >>> defaults = get_flavor_defaults("gfm")
+        >>> defaults["unsupported_table_mode"]
+        'html'
+
+    Notes
+    -----
+    The global defaults are "html" for both modes to ensure backward compatibility
+    and universal fallback. These flavor-specific defaults provide *optimized*
+    settings for each flavor:
+
+    - **CommonMark**: Strict spec, use HTML for unsupported features
+        - unsupported_table_mode: "html" (tables not in spec)
+        - unsupported_inline_mode: "html" (strikethrough, etc. not in spec)
+
+    - **GFM**: Most features supported, but use HTML for unsupported
+        - unsupported_table_mode: "html" (tables supported, but HTML is safer)
+        - unsupported_inline_mode: "html" (footnotes not supported)
+
+    - **MultiMarkdown**: Tables and footnotes supported, use HTML for unsupported
+        - unsupported_table_mode: "html" (tables supported, but HTML is safer)
+        - unsupported_inline_mode: "html" (task lists not supported)
+
+    - **Pandoc/Kramdown**: Comprehensive support, force everything
+        - unsupported_table_mode: "force" (all table types supported)
+        - unsupported_inline_mode: "force" (most inline elements supported)
+
+    - **MarkdownPlus**: Everything enabled, always force
+        - unsupported_table_mode: "force"
+        - unsupported_inline_mode: "force"
+    """
+    # CommonMark: strict spec, use HTML for unsupported features
+    if flavor == "commonmark":
+        return {
+            "unsupported_table_mode": "html",
+            "unsupported_inline_mode": "html",
+        }
+
+    # MultiMarkdown: tables/footnotes supported, but not task lists/strikethrough
+    elif flavor == "multimarkdown":
+        return {
+            "unsupported_table_mode": "html",  # Tables supported, HTML for safety
+            "unsupported_inline_mode": "html",  # Task lists not supported
+        }
+
+    # Pandoc and Kramdown: comprehensive support, force everything
+    elif flavor in ("pandoc", "kramdown"):
+        return {
+            "unsupported_table_mode": "force",
+            "unsupported_inline_mode": "force",
+        }
+
+    # MarkdownPlus: everything enabled, always force
+    elif flavor == "markdown_plus":
+        return {
+            "unsupported_table_mode": "force",
+            "unsupported_inline_mode": "force",
+        }
+
+    # GFM (default): most features supported, use HTML for safety
+    else:  # "gfm" or unknown
+        return {
+            "unsupported_table_mode": "html",  # Tables supported, HTML for safety
+            "unsupported_inline_mode": "html",  # Footnotes not supported
+        }
 
 
 def create_updated_options(options: Any, **kwargs: Any) -> Any:

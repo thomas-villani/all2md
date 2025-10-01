@@ -11,6 +11,9 @@ Supported Flavors
 -----------------
 - CommonMark: Strict CommonMark specification
 - GFM (GitHub Flavored Markdown): CommonMark plus GitHub extensions
+- MultiMarkdown: CommonMark plus MultiMarkdown extensions (footnotes, tables, etc.)
+- Pandoc: Pandoc-flavored Markdown with extensive extensions
+- Kramdown: Kramdown-flavored Markdown (Ruby Markdown processor)
 - MarkdownPlus: All extensions enabled
 
 """
@@ -325,6 +328,335 @@ class GFMFlavor(MarkdownFlavor):
 
     def supports_math(self) -> bool:
         """GFM supports math blocks with $$ delimiters.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+
+class MultiMarkdownFlavor(MarkdownFlavor):
+    """MultiMarkdown flavor.
+
+    This flavor implements the MultiMarkdown specification which extends
+    CommonMark with:
+    - Pipe tables
+    - Footnotes
+    - Definition lists
+    - Math blocks
+    - Citations
+    - Abbreviations
+
+    MultiMarkdown does not include task lists or autolinks by default.
+
+    References
+    ----------
+    MultiMarkdown: https://fletcherpenney.net/multimarkdown/
+
+    """
+
+    @property
+    def name(self) -> str:
+        """Get the flavor name.
+
+        Returns
+        -------
+        str
+            'MultiMarkdown'
+
+        """
+        return "MultiMarkdown"
+
+    def supports_tables(self) -> bool:
+        """MultiMarkdown supports pipe tables.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_task_lists(self) -> bool:
+        """MultiMarkdown does not support task lists.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_strikethrough(self) -> bool:
+        """MultiMarkdown does not support strikethrough in standard spec.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_autolinks(self) -> bool:
+        """MultiMarkdown supports basic autolinks (angle brackets).
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_footnotes(self) -> bool:
+        """MultiMarkdown supports footnotes.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_definition_lists(self) -> bool:
+        """MultiMarkdown supports definition lists.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_math(self) -> bool:
+        """MultiMarkdown supports math blocks with LaTeX syntax.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+
+class PandocFlavor(MarkdownFlavor):
+    """Pandoc Markdown flavor.
+
+    This flavor implements Pandoc's extended Markdown syntax, which is
+    one of the most feature-rich markdown dialects:
+    - All GFM features (tables, strikethrough, task lists)
+    - Footnotes
+    - Definition lists
+    - Math blocks (inline and display)
+    - Superscript and subscript
+    - Fenced divs
+    - Attributes on elements
+    - And many more extensions
+
+    References
+    ----------
+    Pandoc Markdown: https://pandoc.org/MANUAL.html#pandocs-markdown
+
+    """
+
+    @property
+    def name(self) -> str:
+        """Get the flavor name.
+
+        Returns
+        -------
+        str
+            'Pandoc'
+
+        """
+        return "Pandoc"
+
+    def supports_tables(self) -> bool:
+        """Pandoc supports multiple table formats.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_task_lists(self) -> bool:
+        """Pandoc supports task lists.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_strikethrough(self) -> bool:
+        """Pandoc supports strikethrough.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_autolinks(self) -> bool:
+        """Pandoc supports autolinks.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_footnotes(self) -> bool:
+        """Pandoc supports footnotes.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_definition_lists(self) -> bool:
+        """Pandoc supports definition lists.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_math(self) -> bool:
+        """Pandoc supports math with TeX syntax.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+
+class KramdownFlavor(MarkdownFlavor):
+    """Kramdown Markdown flavor.
+
+    This flavor implements Kramdown (Ruby Markdown processor) syntax:
+    - All GFM features (tables, strikethrough, task lists)
+    - Footnotes
+    - Definition lists
+    - Math blocks with $$ delimiters
+    - Attributes on elements
+    - Automatic ID generation for headers
+
+    Kramdown is similar to GFM but adds footnotes and some other extensions.
+
+    References
+    ----------
+    Kramdown: https://kramdown.gettalong.org/
+
+    """
+
+    @property
+    def name(self) -> str:
+        """Get the flavor name.
+
+        Returns
+        -------
+        str
+            'Kramdown'
+
+        """
+        return "Kramdown"
+
+    def supports_tables(self) -> bool:
+        """Kramdown supports pipe tables.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_task_lists(self) -> bool:
+        """Kramdown supports task lists (GFM-style).
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_strikethrough(self) -> bool:
+        """Kramdown supports strikethrough.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_autolinks(self) -> bool:
+        """Kramdown supports autolinks.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_footnotes(self) -> bool:
+        """Kramdown supports footnotes.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_definition_lists(self) -> bool:
+        """Kramdown supports definition lists.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_math(self) -> bool:
+        """Kramdown supports math blocks with $$ delimiters.
 
         Returns
         -------
