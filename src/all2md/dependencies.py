@@ -173,13 +173,13 @@ def check_version_requirement(
         return True, installed_version
 
 
-def get_all_dependencies() -> Dict[str, List[Tuple[str, str]]]:
+def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
     """Get all dependencies for all converters from the registry.
 
     Returns
     -------
     dict
-        Mapping of format names to required packages
+        Mapping of format names to required packages as (install_name, import_name, version_spec) tuples
     """
     # Ensure auto-discovery has been performed before listing formats
     registry.auto_discover()
@@ -208,7 +208,7 @@ def check_all_dependencies() -> Dict[str, Dict[str, bool]]:
 
     for format_name, packages in all_deps.items():
         format_status = {}
-        for package_name, version_spec in packages:
+        for package_name, _import_name, version_spec in packages:
             if version_spec:
                 meets, _ = check_version_requirement(package_name, version_spec)
                 format_status[package_name] = meets
@@ -238,7 +238,7 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
         return []
 
     missing = []
-    for package_name, version_spec in metadata.required_packages:
+    for package_name, _import_name, version_spec in metadata.required_packages:
         if version_spec:
             meets, _ = check_version_requirement(package_name, version_spec)
             if not meets:
@@ -375,8 +375,8 @@ def suggest_minimal_install() -> str:
     for format_name in common_formats:
         metadata = registry.get_format_info(format_name)
         if metadata and metadata.required_packages:
-            for package in metadata.required_packages:
-                common_packages.add(package)
+            for install_name, _import_name, version_spec in metadata.required_packages:
+                common_packages.add((install_name, version_spec))
 
     return generate_install_command(sorted(common_packages))
 
@@ -393,8 +393,8 @@ def suggest_full_install() -> str:
     all_packages = set()
 
     for packages in all_deps.values():
-        for package in packages:
-            all_packages.add(package)
+        for install_name, _import_name, version_spec in packages:
+            all_packages.add((install_name, version_spec))
 
     return generate_install_command(sorted(all_packages))
 

@@ -470,7 +470,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.epub2markdown",
     converter_function="epub_to_markdown",
-    required_packages=[("ebooklib", ""), ("beautifulsoup4", "")],
+    required_packages=[("ebooklib", "ebooklib", ""), ("beautifulsoup4", "bs4", "")],
     import_error_message=(
         "EPUB conversion requires 'ebooklib' and 'beautifulsoup4'. "
         "Install with: pip install ebooklib beautifulsoup4"

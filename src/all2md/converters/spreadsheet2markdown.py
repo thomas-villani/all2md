@@ -721,7 +721,7 @@ CONVERTER_METADATA = SpreadsheetConverterMetadata(
     content_detector=_detect_csv_tsv_content,
     converter_module="all2md.converters.spreadsheet2markdown",
     converter_function="spreadsheet_to_markdown",
-    required_packages=[("openpyxl", ""), ("odfpy", "")],  # Conditionally required based on format
+    required_packages=[("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")],  # Conditionally required based on format
     import_error_message="Spreadsheet conversion requires dependencies: 'openpyxl' for XLSX, "
                         "'odfpy' for ODS. Install with: pip install openpyxl odfpy",
     options_class="SpreadsheetOptions",

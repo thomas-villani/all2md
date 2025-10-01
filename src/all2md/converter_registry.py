@@ -23,54 +23,24 @@ from .exceptions import DependencyError, FormatError
 logger = logging.getLogger(__name__)
 
 
-def _check_package_installed(package_name: str) -> bool:
+def _check_package_installed(import_name: str) -> bool:
     """Check if a package is installed and importable.
 
     Parameters
     ----------
-    package_name : str
-        Name of the package to check
+    import_name : str
+        Name to use in import statement (e.g., 'docx' for python-docx package)
 
     Returns
     -------
     bool
         True if package is installed and importable
     """
-    # Mapping from package names to their actual import names
-    # Many packages have different install names vs import names
-    package_import_map = {
-        'python-docx': 'docx',
-        'beautifulsoup4': 'bs4',
-        'python-pptx': 'pptx',
-        'odfpy': 'odf',
-        'pillow': 'PIL',
-        'pyyaml': 'yaml',
-        # Add more mappings as needed
-    }
-
-    # Determine the correct import name
-    import_names_to_try = []
-
-    # First try the mapped name if it exists
-    if package_name.lower() in package_import_map:
-        import_names_to_try.append(package_import_map[package_name.lower()])
-
-    # Then try replacing hyphens with underscores
-    if '-' in package_name:
-        import_names_to_try.append(package_name.replace("-", "_"))
-
-    # Finally try the original package name
-    import_names_to_try.append(package_name)
-
-    # Try each possible import name
-    for import_name in import_names_to_try:
-        try:
-            importlib.import_module(import_name)
-            return True
-        except ImportError:
-            continue
-
-    return False
+    try:
+        importlib.import_module(import_name)
+        return True
+    except ImportError:
+        return False
 
 
 def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[type]:
@@ -239,7 +209,7 @@ class ConverterRegistry:
             missing_packages = []
             version_mismatches = []
 
-            for pkg_name, version_spec in metadata.required_packages:
+            for pkg_name, import_name, version_spec in metadata.required_packages:
                 if version_spec:
                     # Use version checking from dependencies module
                     try:
@@ -255,11 +225,11 @@ class ConverterRegistry:
                                 missing_packages.append((pkg_name, version_spec))
                     except ImportError:
                         # packaging module not available, fall back to simple check
-                        if not _check_package_installed(pkg_name):
+                        if not _check_package_installed(import_name):
                             missing_packages.append((pkg_name, version_spec))
                 else:
                     # No version requirement, just check if installed
-                    if not _check_package_installed(pkg_name):
+                    if not _check_package_installed(import_name):
                         missing_packages.append((pkg_name, version_spec))
 
             if missing_packages or version_mismatches:
@@ -505,8 +475,8 @@ class ConverterRegistry:
             # Use context-aware dependency checking if available
             required_packages = metadata.get_required_packages_for_content(content)
 
-            for pkg_name, _ in required_packages:
-                if not _check_package_installed(pkg_name):
+            for pkg_name, import_name, _ in required_packages:
+                if not _check_package_installed(import_name):
                     format_missing.append(pkg_name)
 
             if format_missing:

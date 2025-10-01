@@ -281,7 +281,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.rtf2markdown",
     converter_function="rtf_to_markdown",
-    required_packages=[("pyth3", "")],
+    required_packages=[("pyth3", "pyth", "")],
     import_error_message="RTF conversion requires 'pyth3'. Install with: pip install pyth3",
     options_class="RtfOptions",
     description="Convert Rich Text Format documents to Markdown",

@@ -397,58 +397,6 @@ class TestHyperlinks:
 
 
 @pytest.mark.unit
-class TestImageParsing:
-    """Tests for image markdown parsing."""
-
-    def test_parse_full_markdown_image(self) -> None:
-        """Test parsing complete markdown image with URL."""
-        converter = DocxToAstConverter()
-
-        img_node = converter._parse_markdown_image("![Alt text](https://example.com/image.png)")
-        assert isinstance(img_node, Image)
-        assert img_node.alt_text == "Alt text"
-        assert img_node.url == "https://example.com/image.png"
-        assert img_node.title is None
-
-    def test_parse_image_with_title(self) -> None:
-        """Test parsing image with title."""
-        converter = DocxToAstConverter()
-
-        img_node = converter._parse_markdown_image('![Alt](url.png "Title")')
-        assert isinstance(img_node, Image)
-        assert img_node.alt_text == "Alt"
-        assert img_node.url == "url.png"
-        assert img_node.title == "Title"
-
-    def test_parse_alt_text_only_image(self) -> None:
-        """Test parsing image with only alt text (no URL)."""
-        converter = DocxToAstConverter()
-
-        img_node = converter._parse_markdown_image("![Alt text only]")
-        assert isinstance(img_node, Image)
-        assert img_node.alt_text == "Alt text only"
-        assert img_node.url == ""
-        assert img_node.title is None
-
-    def test_parse_base64_image(self) -> None:
-        """Test parsing base64 data URI image."""
-        converter = DocxToAstConverter()
-
-        img_node = converter._parse_markdown_image("![image](data:image/png;base64,iVBORw0KGgo=)")
-        assert isinstance(img_node, Image)
-        assert img_node.alt_text == "image"
-        assert img_node.url.startswith("data:image/png;base64,")
-
-    def test_invalid_image_markdown(self) -> None:
-        """Test that invalid markdown returns None."""
-        converter = DocxToAstConverter()
-
-        assert converter._parse_markdown_image("Not an image") is None
-        assert converter._parse_markdown_image("[wrong](format)") is None
-        assert converter._parse_markdown_image("![missing paren") is None
-
-
-@pytest.mark.unit
 class TestFormattingKey:
     """Tests for run formatting key generation."""
 

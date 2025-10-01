@@ -11,14 +11,34 @@ enabling multiple rendering strategies and improved testability.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import re
 from typing import TYPE_CHECKING, Any
 
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
-from all2md.converters.docx2markdown import logger
 from all2md.utils.attachments import extract_docx_image_data, process_attachment
+
+
+@dataclass
+class ImageData:
+    """Structured representation of image data from DOCX.
+
+    Parameters
+    ----------
+    url : str
+        Image URL or data URI
+    alt_text : str
+        Alternative text for the image
+    title : str or None
+        Optional title for the image
+    """
+
+    url: str
+    alt_text: str
+    title: str | None = None
+
 
 if TYPE_CHECKING:
     import docx.document
@@ -115,7 +135,11 @@ class DocxToAstConverter:
             base_filename=self.base_filename,
             attachment_sequencer=self.attachment_sequencer,
         ):
-            if isinstance(block, Paragraph):
+            if isinstance(block, ImageData):
+                # Handle ImageData objects directly
+                image_node = Image(url=block.url, alt_text=block.alt_text, title=block.title)
+                children.append(AstParagraph(content=[image_node]))
+            elif isinstance(block, Paragraph):
                 nodes = self._process_paragraph_to_ast(block)
                 if nodes:
                     if isinstance(nodes, list):
@@ -176,15 +200,8 @@ class DocxToAstConverter:
             Resulting AST node(s)
 
         """
-        # Check if paragraph contains image markdown (from _iter_block_items)
-        text = paragraph.text.strip()
-        if text and re.match(r'^!\[.*?\](?:\(.*?\))?$', text):
-            # This is an image paragraph - process it
-            img_node = self._parse_markdown_image(text)
-            if img_node:
-                return AstParagraph(content=[img_node])
-
         # Skip empty paragraphs
+        text = paragraph.text.strip()
         if not text:
             return None
 
@@ -383,15 +400,6 @@ class DocxToAstConverter:
             if not text:
                 continue
 
-            # Check if this is a markdown image (from _iter_block_items processing)
-            is_markdown_image = re.match(r'^!\[.*?\](?:\(.*?\))?$', text.strip())
-            if is_markdown_image:
-                # Parse markdown image into AST Image node
-                img_node = self._parse_markdown_image(text.strip())
-                if img_node:
-                    result.append(img_node)
-                continue
-
             # Build inline nodes with formatting
             inline_node: Node = Text(content=text)
 
@@ -482,35 +490,6 @@ class DocxToAstConverter:
             is_hyperlink,
         )
 
-    def _parse_markdown_image(self, markdown_image: str) -> Image | None:
-        """Parse a markdown image string into an Image node.
-
-        Parameters
-        ----------
-        markdown_image : str
-            Markdown image string like ![alt](url), ![alt](data:...), or ![alt]
-
-        Returns
-        -------
-        Image or None
-            Image node if parsed successfully
-
-        """
-        # Parse markdown image format: ![alt](url) or ![alt text](url "title")
-        match = re.match(r'^!\[([^\]]*)\]\(([^)]+?)(?:\s+"([^"]+)")?\)$', markdown_image)
-        if match:
-            alt_text = match.group(1)
-            url = match.group(2)
-            title = match.group(3)
-            return Image(url=url, alt_text=alt_text, title=title)
-
-        # Handle alt-text only format: ![alt]
-        alt_only_match = re.match(r'^!\[([^\]]*)\]$', markdown_image)
-        if alt_only_match:
-            alt_text = alt_only_match.group(1)
-            return Image(url="", alt_text=alt_text, title=None)
-
-        return None
 
     def _process_table_to_ast(self, table: "Table") -> AstTable | None:
         """Process a DOCX table to AST Table node.
@@ -907,8 +886,7 @@ def _iter_block_items(
                     # Handle pre-formatted data URIs (for backward compatibility with tests)
                     if isinstance(raw_image_data, str):
                         # This is already a formatted URI, use it directly
-                        processed_image = f"![{title or 'image'}]({raw_image_data})"
-                        img_data.append((title or "image", processed_image))
+                        img_data.append(ImageData(url=raw_image_data, alt_text=title or "image", title=title))
                         continue
                     elif not isinstance(raw_image_data, (bytes, type(None))):
                         logger.warning(f"Invalid image data type for image '{title or 'unnamed'}', skipping")
@@ -939,7 +917,7 @@ def _iter_block_items(
                             sequence_num=len(img_data) + 1,
                             extension=extension
                         )
-                    processed_image = process_attachment(
+                    processed_image_url = process_attachment(
                         attachment_data=raw_image_data,
                         attachment_name=image_filename,
                         alt_text=title or "image",
@@ -950,25 +928,11 @@ def _iter_block_items(
                         alt_text_mode=options.alt_text_mode,
                     )
 
-                    img_data.append((title, processed_image))
+                    img_data.append(ImageData(url=processed_image_url, alt_text=title or "image", title=title))
 
             if has_image and img_data:
-                # Create a new paragraph with default style for each image
-                from docx.oxml.shared import OxmlElement
-
-                for _title, processed_image in img_data:
-                    p = OxmlElement("w:p")
-                    r = OxmlElement("w:r")
-                    t = OxmlElement("w:t")
-
-                    # The processed_image already contains the proper markdown
-                    t.text = processed_image
-
-                    r.append(t)
-                    p.append(r)
-
-                    clean_paragraph = Paragraph(p, parent)
-                    clean_paragraph.style = parent.styles["Normal"]
-                    yield clean_paragraph
+                # Yield ImageData objects directly
+                for image_data in img_data:
+                    yield image_data
             elif not has_image:
                 yield paragraph

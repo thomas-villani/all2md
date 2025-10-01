@@ -88,7 +88,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.pdf2markdown",
     converter_function="pdf_to_markdown",
-    required_packages=[("pymupdf", ">=1.26.4")],
+    required_packages=[("pymupdf", "fitz", ">=1.26.4")],
     optional_packages=[],
     import_error_message=(
         "PDF conversion requires 'pymupdf' version 1.26.4 or later. "

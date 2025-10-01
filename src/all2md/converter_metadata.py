@@ -36,9 +36,12 @@ class ConverterMetadata:
         Full module path (e.g., "all2md.converters.pdf2markdown")
     converter_function : str
         Function name within the module (e.g., "pdf_to_markdown")
-    required_packages : list[tuple[str, str]]
-        Required packages as (package_name, version_spec) tuples
-        e.g., [("pymupdf", ">=1.26.4"), ("Pillow", ">=9.0.0")]
+    required_packages : list[tuple[str, str, str]]
+        Required packages as (install_name, import_name, version_spec) tuples.
+        The install_name is the package name for pip install, import_name is
+        the name used in Python import statements, and version_spec is the
+        version requirement (can be empty string for no requirement).
+        e.g., [("pymupdf", "fitz", ">=1.26.4"), ("Pillow", "PIL", ">=9.0.0")]
     optional_packages : list[tuple[str, str]]
         Optional packages that enhance functionality
     import_error_message : str
@@ -62,7 +65,7 @@ class ConverterMetadata:
     content_detector: Optional[Callable[[bytes], bool]] = None
     converter_module: str = ""
     converter_function: str = ""
-    required_packages: list[tuple[str, str]] = field(default_factory=list)
+    required_packages: list[tuple[str, str, str]] = field(default_factory=list)
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
     options_class: Optional[Union[str, type]] = None
@@ -81,7 +84,7 @@ class ConverterMetadata:
             return ""
 
         packages = []
-        for pkg_name, version_spec in self.required_packages:
+        for pkg_name, _import_name, version_spec in self.required_packages:
             if version_spec:
                 # Handle different version specifier formats
                 if version_spec.startswith((">=", "<=", "==", "!=", "~=", ">")):
@@ -155,7 +158,7 @@ class ConverterMetadata:
 
         return False
 
-    def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str]]:
+    def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str, str]]:
         """Get required packages for specific content, allowing context-aware dependency checking.
 
         Some converters may have different dependency requirements based on the actual
@@ -169,8 +172,8 @@ class ConverterMetadata:
 
         Returns
         -------
-        list[tuple[str, str]]
-            Required packages as (package_name, version_spec) tuples for this content
+        list[tuple[str, str, str]]
+            Required packages as (install_name, import_name, version_spec) tuples for this content
         """
         # Default implementation returns all required packages
         # Subclasses or specific converters can override this logic

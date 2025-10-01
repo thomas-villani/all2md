@@ -7,8 +7,13 @@ authors = [
     { name = "Thomas.Villani", email = "thomas.villani@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = [
-]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = [{ include = "all2md", from = "src" }]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**", "pyproject.toml", "README.md", "LICENSE"]
 
 [tool.hatch.metadata]
 include = [

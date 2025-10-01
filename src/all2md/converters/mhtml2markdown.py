@@ -426,7 +426,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.mhtml2markdown",
     converter_function="mhtml_to_markdown",
-    required_packages=[("beautifulsoup4", "")],
+    required_packages=[("beautifulsoup4", "bs4", "")],
     import_error_message="MHTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4",
     options_class="MhtmlOptions",
     description="Convert MHTML web archives to Markdown",

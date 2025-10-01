@@ -715,7 +715,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.pptx2markdown",
     converter_function="pptx_to_markdown",
-    required_packages=[("python-pptx", "")],
+    required_packages=[("python-pptx", "pptx", "")],
     import_error_message="PPTX conversion requires 'python-pptx'. Install with: pip install python-pptx",
     options_class="PptxOptions",
     description="Convert PowerPoint presentations to Markdown",

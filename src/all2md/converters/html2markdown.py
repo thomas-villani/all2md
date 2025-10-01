@@ -179,7 +179,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.html2markdown",
     converter_function="html_to_markdown",
-    required_packages=[("beautifulsoup4", "")],
+    required_packages=[("beautifulsoup4", "bs4", "")],
     optional_packages=[],
     import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
     options_class="HtmlOptions",

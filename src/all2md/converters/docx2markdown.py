@@ -91,7 +91,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     converter_module="all2md.converters.docx2markdown",
     converter_function="docx_to_markdown",
-    required_packages=[("python-docx", "")],
+    required_packages=[("python-docx", "docx", "")],
     optional_packages=[],
     import_error_message=(
         "DOCX conversion requires 'python-docx'. "

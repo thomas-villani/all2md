@@ -487,6 +487,12 @@ def to_markdown(
     Basic conversion with auto-detection:
         >>> markdown = to_markdown("document.pdf")
 
+    Converting an in-memory BytesIO object:
+        >>> from io import BytesIO
+        >>> with open("document.pdf", "rb") as f:
+        ...     data = BytesIO(f.read())
+        >>> markdown = to_markdown(data)
+
     Using pre-configured options:
         >>> pdf_opts = PdfOptions(pages=[0, 1, 2], attachment_mode="download")
         >>> markdown = to_markdown("document.pdf", options=pdf_opts)
@@ -496,12 +502,26 @@ def to_markdown(
         >>> markdown = to_markdown("doc.pdf", options=base_opts, attachment_mode="base64")
         # Uses base64 mode but keeps column detection enabled
 
+    Format-specific options - PDF with page selection:
+        >>> markdown = to_markdown("document.pdf", pages=[0, 1, 2])
+        >>> markdown = to_markdown("large.pdf", pages=range(10, 20))
+
+    Format-specific options - PowerPoint with notes:
+        >>> markdown = to_markdown("presentation.pptx", include_notes=True)
+        >>> markdown = to_markdown("slides.pptx", include_notes=True, include_comments=True)
+
+    Format-specific options - DOCX with metadata:
+        >>> markdown = to_markdown("document.docx", extract_metadata=True)
+
+    Format-specific options - HTML with network resources:
+        >>> markdown = to_markdown("page.html", allow_remote_fetch=True, max_fetch_size_mb=10)
+
     Using MarkdownOptions directly:
         >>> md_opts = MarkdownOptions(emphasis_symbol="_", bullet_symbols="•◦▪")
         >>> markdown = to_markdown("document.pdf", options=md_opts)
 
     Mixed markdown and format-specific options:
-        >>> to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_", bullet_symbols="•◦▪")
+        >>> markdown = to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_", bullet_symbols="•◦▪")
 
     Specifying markdown flavor:
         >>> markdown = to_markdown("document.pdf", flavor="commonmark")
