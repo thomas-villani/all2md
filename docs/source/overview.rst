@@ -62,11 +62,23 @@ Core Components
    │   ├── custom_actions.py       # Core CLI actions and commands
    │   ├── builder.py       # Argument parser construction
    │   └── processors.py    # File processing and batch operations
+   ├── ast/                 # Abstract Syntax Tree module
+   │   ├── __init__.py      # AST public API
+   │   ├── nodes.py         # AST node definitions
+   │   ├── visitors.py      # Visitor pattern for traversal
+   │   ├── renderer.py      # Markdown rendering from AST
+   │   ├── flavors.py       # Markdown flavor support
+   │   ├── builder.py       # AST construction helpers
+   │   ├── transforms.py    # AST transformation utilities
+   │   └── serialization.py # JSON serialization
    ├── converters/          # Format-specific conversion modules
    │   ├── __init__.py
-   │   ├── pdf2markdown.py
-   │   ├── docx2markdown.py
-   │   ├── html2markdown.py
+   │   ├── pdf2markdown.py  # Direct PDF → Markdown
+   │   ├── pdf2ast.py       # PDF → AST
+   │   ├── docx2markdown.py # Direct DOCX → Markdown
+   │   ├── docx2ast.py      # DOCX → AST
+   │   ├── html2markdown.py # Direct HTML → Markdown
+   │   ├── html2ast.py      # HTML → AST
    │   ├── eml2markdown.py
    │   ├── pptx2markdown.py
    │   ├── ipynb2markdown.py
@@ -132,6 +144,69 @@ You can use the ``list-formats`` CLI command to explore which formats are suppor
    all2md list-formats --available-only
 
 This is particularly useful when diagnosing format detection issues or verifying that required dependencies are installed.
+
+AST Architecture
+~~~~~~~~~~~~~~~~
+
+all2md includes a powerful Abstract Syntax Tree (AST) module that separates document parsing from rendering. This enables:
+
+* **Advanced document analysis**: Extract structure, count elements, generate statistics
+* **Programmatic transformation**: Modify documents before rendering
+* **Multiple output formats**: Render same AST to different Markdown flavors
+* **Persistent storage**: Save/load document structure as JSON
+
+**Two Conversion Paths:**
+
+1. **Direct Path**: ``to_markdown()`` - Document → Markdown (faster, simpler)
+2. **AST Path**: ``to_ast()`` - Document → AST → Markdown (flexible, powerful)
+
+.. code-block:: python
+
+   from all2md import to_markdown, to_ast
+   from all2md.ast import MarkdownRenderer, GFMFlavor
+
+   # Direct conversion (simple)
+   markdown = to_markdown('document.pdf')
+
+   # AST conversion (advanced)
+   doc_ast = to_ast('document.pdf')
+
+   # Analyze structure
+   from all2md.ast import NodeVisitor, Heading
+   class HeadingExtractor(NodeVisitor):
+       def __init__(self):
+           self.headings = []
+       def visit_heading(self, node: Heading):
+           self.headings.append(node)
+
+   extractor = HeadingExtractor()
+   extractor.visit(doc_ast)
+   print(f"Found {len(extractor.headings)} headings")
+
+   # Transform AST
+   from all2md.ast import HeadingLevelTransformer
+   transformer = HeadingLevelTransformer(offset=1)
+   transformed = transformer.transform(doc_ast)
+
+   # Render to GitHub Flavored Markdown
+   renderer = MarkdownRenderer(flavor=GFMFlavor())
+   gfm_markdown = renderer.render(transformed)
+
+**AST Node Types:**
+
+* **Block nodes**: Document, Heading, Paragraph, CodeBlock, Table, List, etc.
+* **Inline nodes**: Text, Strong, Emphasis, Link, Image, Code, etc.
+* **Structural**: TableRow, TableCell, ListItem, BlockQuote
+
+**Key AST Capabilities:**
+
+* **Visitors**: Traverse AST to extract information (``NodeVisitor``)
+* **Transformers**: Modify AST nodes (``NodeTransformer``)
+* **Serialization**: Save/load as JSON (``ast_to_json``, ``json_to_ast``)
+* **Builders**: Construct complex structures (``TableBuilder``, ``ListBuilder``)
+* **Flavors**: Render to CommonMark, GFM, or custom dialects
+
+For complete AST documentation, see :doc:`ast_guide`.
 
 Converter Architecture
 ~~~~~~~~~~~~~~~~~~~~~~

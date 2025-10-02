@@ -995,10 +995,6 @@ class HtmlOptions(BaseOptions):
         default=False,
         metadata={"help": "Remove HTML comments from output"}
     )
-    links_as: str = field(
-        default="inline",
-        metadata={"help": "Link style: 'inline' or 'reference'"}
-    )
     collapse_whitespace: bool = field(
         default=True,
         metadata={
@@ -1401,10 +1397,6 @@ class MhtmlOptions(BaseOptions):
     strip_comments: bool = field(
         default=False,
         metadata={"help": "Remove HTML comments from output"}
-    )
-    links_as: str = field(
-        default="inline",
-        metadata={"help": "Link style: 'inline' or 'reference'"}
     )
     collapse_whitespace: bool = field(
         default=True,

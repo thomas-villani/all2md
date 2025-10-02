@@ -51,7 +51,6 @@ The all2md options system uses a clear inheritance structure that separates univ
 3. **MarkdownOptions** contains common Markdown formatting settings and can be embedded in any format-specific options via the ``markdown_options`` field:
 
    - Text formatting (emphasis symbols, bullet styles)
-   - Page separators and numbering
    - Special character handling
 
 **Options Merging Logic:**
@@ -778,6 +777,471 @@ All options classes are frozen dataclasses for thread safety. Use ``create_updat
    # Original options unchanged
    print(options.pages)      # [1, 2]
    print(new_options.pages)  # [1, 2, 3, 4]
+
+JSON Configuration Deep Dive
+-----------------------------
+
+Complete JSON Configuration Examples
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+JSON configuration files provide a reusable way to specify complex options:
+
+**Basic JSON Configuration:**
+
+.. code-block:: json
+
+   {
+     "attachment_mode": "download",
+     "attachment_output_dir": "./images",
+     "extract_metadata": true,
+     "markdown.emphasis_symbol": "_",
+     "markdown.use_hash_headings": true
+   }
+
+.. code-block:: bash
+
+   all2md document.pdf --options-json config.json
+
+**Format-Specific Configuration:**
+
+.. code-block:: json
+
+   {
+     "pdf.pages": [0, 1, 2, 3, 4],
+     "pdf.detect_columns": true,
+     "pdf.enable_table_fallback_detection": true,
+     "pdf.merge_hyphenated_words": true,
+     "attachment_mode": "base64"
+   }
+
+.. code-block:: bash
+
+   all2md report.pdf --options-json pdf-config.json
+
+Nested Options in JSON
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Nested dataclass options use dot notation in JSON:
+
+**Network Security Configuration:**
+
+.. code-block:: json
+
+   {
+     "html.network.allow_remote_fetch": true,
+     "html.network.allowed_hosts": ["cdn.example.com", "images.example.org"],
+     "html.network.require_https": true,
+     "html.network.network_timeout": 5.0,
+     "html.network.max_remote_asset_bytes": 2097152
+   }
+
+**Local File Security Configuration:**
+
+.. code-block:: json
+
+   {
+     "html.local_files.allow_local_files": false,
+     "html.local_files.allow_cwd_files": true,
+     "mhtml.local_files.local_file_allowlist": ["/safe/dir", "/public/images"],
+     "mhtml.local_files.local_file_denylist": ["/etc", "/home"]
+   }
+
+**Combined Security Configuration:**
+
+.. code-block:: json
+
+   {
+     "html.strip_dangerous_elements": true,
+     "html.network.allow_remote_fetch": true,
+     "html.network.allowed_hosts": ["trusted-cdn.com"],
+     "html.network.require_https": true,
+     "html.local_files.allow_local_files": false,
+     "attachment_mode": "skip"
+   }
+
+Multi-Value Fields (Lists)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Lists like ``allowed_hosts`` or ``pages`` are specified as JSON arrays:
+
+.. code-block:: json
+
+   {
+     "pdf.pages": [0, 1, 2, 3, 4, 5],
+     "html.network.allowed_hosts": [
+       "cdn.jsdelivr.net",
+       "unpkg.com",
+       "fonts.googleapis.com"
+     ],
+     "spreadsheet.sheets": ["Summary", "Data", "Analysis"],
+     "eml.url_wrappers": [
+       "safelinks.protection.outlook.com",
+       "urldefense.com",
+       "scanner.example.org"
+     ]
+   }
+
+Complete Multi-Format Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A comprehensive configuration for multiple formats:
+
+.. code-block:: json
+
+   {
+     "attachment_mode": "download",
+     "attachment_output_dir": "./extracted_media",
+     "extract_metadata": true,
+
+     "markdown.emphasis_symbol": "_",
+     "markdown.bullet_symbols": "•◦▪",
+     "markdown.use_hash_headings": true,
+
+     "pdf.detect_columns": true,
+     "pdf.enable_table_fallback_detection": true,
+     "pdf.merge_hyphenated_words": true,
+     "pdf.header_percentile_threshold": 75,
+
+     "html.strip_dangerous_elements": true,
+     "html.detect_table_alignment": true,
+     "html.network.allow_remote_fetch": true,
+     "html.network.allowed_hosts": ["cdn.example.com"],
+     "html.network.require_https": true,
+     "html.local_files.allow_local_files": false,
+
+     "docx.preserve_tables": true,
+
+     "pptx.include_slide_numbers": true,
+     "pptx.include_notes": true,
+
+     "eml.include_headers": true,
+     "eml.clean_quotes": true,
+     "eml.convert_html_to_markdown": true,
+
+     "spreadsheet.include_sheet_titles": true,
+     "spreadsheet.max_rows": 1000,
+     "spreadsheet.max_cols": 50
+   }
+
+Save this as ``comprehensive-config.json`` and use:
+
+.. code-block:: bash
+
+   all2md document.pdf --options-json comprehensive-config.json
+   all2md webpage.html --options-json comprehensive-config.json
+   all2md spreadsheet.xlsx --options-json comprehensive-config.json
+
+Environment Variables Guide
+----------------------------
+
+Overview
+~~~~~~~~
+
+All CLI options can be set via environment variables using the pattern:
+
+.. code-block:: text
+
+   ALL2MD_<OPTION_NAME>
+
+Where ``<OPTION_NAME>`` is the option with:
+
+* Uppercase letters
+* Hyphens and dots replaced by underscores
+* Format prefixes included for format-specific options
+
+Precedence Order
+~~~~~~~~~~~~~~~~
+
+Configuration values are resolved in this order (later overrides earlier):
+
+1. **Environment variables** (lowest priority)
+2. **JSON configuration files** (``--options-json``)
+3. **Command-line arguments** (highest priority)
+
+.. code-block:: bash
+
+   # Environment variable sets default
+   export ALL2MD_ATTACHMENT_MODE="base64"
+
+   # JSON config overrides environment
+   echo '{"attachment_mode": "download"}' > config.json
+
+   # CLI argument overrides everything
+   all2md doc.pdf --options-json config.json --attachment-mode skip
+   # Result: attachment_mode = "skip"
+
+Universal Options
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Attachment handling
+   export ALL2MD_ATTACHMENT_MODE="download"
+   export ALL2MD_ATTACHMENT_OUTPUT_DIR="./images"
+   export ALL2MD_ATTACHMENT_BASE_URL="https://example.com"
+
+   # Metadata extraction
+   export ALL2MD_EXTRACT_METADATA="true"
+
+   # Format override
+   export ALL2MD_FORMAT="pdf"
+
+Markdown Options
+~~~~~~~~~~~~~~~~
+
+Use ``ALL2MD_MARKDOWN_`` prefix:
+
+.. code-block:: bash
+
+   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
+   export ALL2MD_MARKDOWN_BULLET_SYMBOLS="•◦▪"
+   export ALL2MD_MARKDOWN_USE_HASH_HEADINGS="true"
+   export ALL2MD_MARKDOWN_ESCAPE_SPECIAL="false"
+   export ALL2MD_MARKDOWN_LIST_INDENT_WIDTH="4"
+
+PDF Options
+~~~~~~~~~~~
+
+Use ``ALL2MD_PDF_`` prefix:
+
+.. code-block:: bash
+
+   export ALL2MD_PDF_PAGES="0,1,2,3,4"
+   export ALL2MD_PDF_DETECT_COLUMNS="true"
+   export ALL2MD_PDF_ENABLE_TABLE_FALLBACK_DETECTION="true"
+   export ALL2MD_PDF_MERGE_HYPHENATED_WORDS="true"
+   export ALL2MD_PDF_HEADER_PERCENTILE_THRESHOLD="75"
+
+HTML Options
+~~~~~~~~~~~~
+
+Use ``ALL2MD_HTML_`` prefix:
+
+.. code-block:: bash
+
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="true"
+   export ALL2MD_HTML_EXTRACT_TITLE="true"
+   export ALL2MD_HTML_DETECT_TABLE_ALIGNMENT="true"
+
+Nested Options (Network Security)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For nested dataclass options, extend the prefix with the nested field name:
+
+.. code-block:: bash
+
+   # HtmlOptions.network.* fields
+   export ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH="true"
+   export ALL2MD_HTML_NETWORK_ALLOWED_HOSTS="cdn.example.com,images.example.org"
+   export ALL2MD_HTML_NETWORK_REQUIRE_HTTPS="true"
+   export ALL2MD_HTML_NETWORK_NETWORK_TIMEOUT="10.0"
+   export ALL2MD_HTML_NETWORK_MAX_REMOTE_ASSET_BYTES="5242880"
+
+Nested Options (Local File Security)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # HtmlOptions.local_files.* fields
+   export ALL2MD_HTML_LOCAL_FILES_ALLOW_LOCAL_FILES="false"
+   export ALL2MD_HTML_LOCAL_FILES_ALLOW_CWD_FILES="true"
+   export ALL2MD_HTML_LOCAL_FILES_LOCAL_FILE_ALLOWLIST="/safe/dir,/public"
+   export ALL2MD_HTML_LOCAL_FILES_LOCAL_FILE_DENYLIST="/etc,/home"
+
+Other Format Options
+~~~~~~~~~~~~~~~~~~~~
+
+**PowerPoint:**
+
+.. code-block:: bash
+
+   export ALL2MD_PPTX_INCLUDE_SLIDE_NUMBERS="true"
+   export ALL2MD_PPTX_INCLUDE_NOTES="false"
+
+**Email:**
+
+.. code-block:: bash
+
+   export ALL2MD_EML_INCLUDE_HEADERS="true"
+   export ALL2MD_EML_CLEAN_QUOTES="true"
+   export ALL2MD_EML_CONVERT_HTML_TO_MARKDOWN="true"
+   export ALL2MD_EML_DATE_FORMAT_MODE="iso8601"
+
+**Spreadsheet:**
+
+.. code-block:: bash
+
+   export ALL2MD_SPREADSHEET_INCLUDE_SHEET_TITLES="true"
+   export ALL2MD_SPREADSHEET_MAX_ROWS="1000"
+   export ALL2MD_SPREADSHEET_MAX_COLS="50"
+   export ALL2MD_SPREADSHEET_RENDER_FORMULAS="true"
+
+**Jupyter Notebooks:**
+
+.. code-block:: bash
+
+   export ALL2MD_IPYNB_TRUNCATE_LONG_OUTPUTS="100"
+   export ALL2MD_IPYNB_TRUNCATE_OUTPUT_MESSAGE="... output truncated ..."
+
+List-Valued Environment Variables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For options that accept lists (like ``allowed_hosts`` or ``pages``), use comma-separated values:
+
+.. code-block:: bash
+
+   # Pages as comma-separated numbers
+   export ALL2MD_PDF_PAGES="0,1,2,3,4,5"
+
+   # Hosts as comma-separated domains
+   export ALL2MD_HTML_NETWORK_ALLOWED_HOSTS="cdn.example.com,images.example.org,fonts.googleapis.com"
+
+   # Sheets as comma-separated names
+   export ALL2MD_SPREADSHEET_SHEETS="Summary,Data,Analysis"
+
+   # File paths as comma-separated paths
+   export ALL2MD_HTML_LOCAL_FILES_LOCAL_FILE_ALLOWLIST="/var/www/images,/opt/app/public"
+
+Boolean Environment Variables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Boolean values can be specified as:
+
+* ``"true"``, ``"True"``, ``"1"``, ``"yes"``, ``"on"`` → ``True``
+* ``"false"``, ``"False"``, ``"0"``, ``"no"``, ``"off"`` → ``False``
+
+.. code-block:: bash
+
+   # All equivalent ways to enable a boolean option
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="true"
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="True"
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="1"
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="yes"
+
+   # All equivalent ways to disable a boolean option
+   export ALL2MD_PDF_DETECT_COLUMNS="false"
+   export ALL2MD_PDF_DETECT_COLUMNS="False"
+   export ALL2MD_PDF_DETECT_COLUMNS="0"
+   export ALL2MD_PDF_DETECT_COLUMNS="no"
+
+Complete Environment Variable Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Production configuration via environment variables:
+
+.. code-block:: bash
+
+   #!/bin/bash
+   # production-config.sh
+
+   # Universal settings
+   export ALL2MD_ATTACHMENT_MODE="skip"
+   export ALL2MD_EXTRACT_METADATA="false"
+
+   # Markdown formatting
+   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
+   export ALL2MD_MARKDOWN_USE_HASH_HEADINGS="true"
+
+   # PDF processing
+   export ALL2MD_PDF_DETECT_COLUMNS="true"
+   export ALL2MD_PDF_ENABLE_TABLE_FALLBACK_DETECTION="true"
+   export ALL2MD_PDF_MERGE_HYPHENATED_WORDS="true"
+
+   # HTML security (strict)
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="true"
+   export ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH="false"
+   export ALL2MD_HTML_LOCAL_FILES_ALLOW_LOCAL_FILES="false"
+
+   # PowerPoint
+   export ALL2MD_PPTX_INCLUDE_SLIDE_NUMBERS="true"
+   export ALL2MD_PPTX_INCLUDE_NOTES="false"
+
+   # Now run all2md with these defaults
+   all2md "$@"
+
+Usage:
+
+.. code-block:: bash
+
+   # Source configuration
+   source production-config.sh
+
+   # Or use directly
+   ./production-config.sh document.pdf --out output.md
+
+Development vs Production Configurations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Development (permissive):**
+
+.. code-block:: bash
+
+   # dev-config.sh
+   export ALL2MD_ATTACHMENT_MODE="download"
+   export ALL2MD_ATTACHMENT_OUTPUT_DIR="./dev-images"
+   export ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH="true"
+   export ALL2MD_HTML_NETWORK_ALLOWED_HOSTS=""  # All hosts allowed
+   export ALL2MD_HTML_LOCAL_FILES_ALLOW_LOCAL_FILES="true"
+   export ALL2MD_EXTRACT_METADATA="true"
+
+**Production (strict):**
+
+.. code-block:: bash
+
+   # prod-config.sh
+   export ALL2MD_ATTACHMENT_MODE="skip"
+   export ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH="false"
+   export ALL2MD_HTML_LOCAL_FILES_ALLOW_LOCAL_FILES="false"
+   export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS="true"
+   export ALL2MD_EXTRACT_METADATA="false"
+
+   # Global network disable for safety
+   export ALL2MD_DISABLE_NETWORK="1"
+
+Docker Environment Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use environment variables in Docker:
+
+.. code-block:: dockerfile
+
+   # Dockerfile
+   FROM python:3.12
+   RUN pip install all2md[pdf,html,docx]
+
+   # Set production defaults
+   ENV ALL2MD_ATTACHMENT_MODE=skip
+   ENV ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH=false
+   ENV ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS=true
+
+.. code-block:: bash
+
+   # docker-compose.yml
+   services:
+     all2md:
+       image: all2md:latest
+       environment:
+         - ALL2MD_ATTACHMENT_MODE=skip
+         - ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH=false
+         - ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS=true
+       volumes:
+         - ./documents:/documents
+
+Debugging Configuration
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Check which configuration values are active:
+
+.. code-block:: bash
+
+   # Show all ALL2MD_* environment variables
+   env | grep ^ALL2MD_
+
+   # Test with verbose output (if supported)
+   all2md document.pdf --debug
+
+   # Override for single invocation
+   ALL2MD_ATTACHMENT_MODE=base64 all2md document.pdf
 
 Migration Guide
 ---------------

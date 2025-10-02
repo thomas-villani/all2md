@@ -94,8 +94,10 @@ User Guide
    installation
    quickstart
    overview
+   ast_guide
    formats
    options
+   security
    cli
    recipes
    plugins

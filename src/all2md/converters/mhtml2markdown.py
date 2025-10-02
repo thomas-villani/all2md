@@ -401,7 +401,6 @@ def mhtml_to_markdown(
         markdown_options=options.markdown_options or MarkdownOptions(),
         # Pass through HTML processing options
         strip_comments=options.strip_comments,
-        links_as=options.links_as,
         collapse_whitespace=options.collapse_whitespace,
         br_handling=options.br_handling,
         allowed_elements=options.allowed_elements,

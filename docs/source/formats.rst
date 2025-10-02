@@ -640,29 +640,50 @@ Plain Text and Code Files
 
 **File Extensions:** 200+ text formats including ``.txt``, ``.py``, ``.js``, ``.md``, ``.json``, ``.xml``, ``.yaml``, ``.cfg``, etc.
 
-**Dependencies:** Built-in
+**Dependencies:** Built-in (no external dependencies required)
 
-**Technology:** Built-in text processing with encoding detection
+**Technology:** ``sourcecode_to_markdown`` converter with automatic language detection
 
-Comprehensive support for text-based files with intelligent formatting.
+The sourcecode converter wraps text and code files in properly formatted Markdown fenced code blocks with automatic syntax highlighting identifiers.
 
 **Basic Usage:**
 
 .. code-block:: python
 
    from all2md import to_markdown
+   from all2md.converters.sourcecode2markdown import sourcecode_to_markdown
 
-   # Convert any text file
+   # Automatic conversion with language detection
    markdown = to_markdown('script.py')
-   markdown = to_markdown('config.json')
-   markdown = to_markdown('README.txt')
+   # Output: ```python\ndef hello():\n    print("Hello")\n```
 
-**Text Processing Features:**
+   # Direct converter access
+   markdown = sourcecode_to_markdown('config.json')
+   # Output: ```json\n{"key": "value"}\n```
 
-* **Encoding Detection:** Automatic character encoding detection
-* **Format Preservation:** Maintains code formatting and structure
-* **Syntax Detection:** Identifies file types for appropriate formatting
-* **Large File Handling:** Efficient processing of large text files
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options import SourceCodeOptions
+
+   # Include filename and override language
+   options = SourceCodeOptions(
+       include_filename=True,        # Add filename as comment
+       language_override='python'    # Force specific language
+   )
+
+   markdown = to_markdown('script.txt', options=options)
+
+**Key Features:**
+
+* **Automatic Language Detection:** Detects programming language from file extension
+* **200+ Language Support:** Python, JavaScript, TypeScript, Java, C/C++, Go, Rust, Ruby, PHP, and many more
+* **Syntax Highlighting:** Generates GitHub-style language identifiers for proper rendering
+* **Encoding Detection:** Handles various text encodings automatically
+* **Format Preservation:** Maintains original code formatting and structure
+* **Filename Inclusion:** Optionally includes source filename as a comment
 
 Format Detection
 ----------------
@@ -870,6 +891,326 @@ Valid format strings for the ``format`` parameter:
 * ``'spreadsheet'`` - Excel/CSV/TSV files
 * ``'image'`` - Image files (limited support)
 * ``'txt'`` - Plain text (fallback)
+
+Format Detection Deep Dive
+---------------------------
+
+Understanding Detection Priority
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+all2md uses a multi-layered detection strategy with clear priority ordering. Understanding this helps you predict and control conversion behavior.
+
+**Detection Priority (highest to lowest):**
+
+1. **Explicit format parameter** - Always honored when specified
+2. **Filename extension** - Primary automatic detection method
+3. **MIME type** - Secondary verification for files
+4. **Content analysis (magic bytes)** - For file objects without filenames
+5. **Fallback to text** - Last resort for unknown formats
+
+Format Detection Truth Table
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Complete behavior matrix showing how detection works in different scenarios:
+
+.. list-table:: Format Detection Behavior
+   :header-rows: 1
+   :widths: 20 20 20 20 20
+
+   * - Input Type
+     - Has Filename?
+     - Has Extension?
+     - Detection Method
+     - Fallback
+   * - ``Path("/doc.pdf")``
+     - Yes
+     - Yes (``.pdf``)
+     - Extension → PDF
+     - N/A
+   * - ``Path("/doc")``
+     - Yes
+     - No
+     - MIME → Content
+     - Text
+   * - ``"document.pdf"``
+     - Yes
+     - Yes (``.pdf``)
+     - Extension → PDF
+     - N/A
+   * - ``BytesIO(data)``
+     - No
+     - No
+     - Content analysis
+     - Text
+   * - ``open("file.pdf", "rb")``
+     - Yes (from handle)
+     - Yes (``.pdf``)
+     - Extension → PDF
+     - N/A
+   * - ``format="pdf"``
+     - N/A
+     - N/A
+     - Explicit (always used)
+     - Error if wrong
+
+Extension to Format Mapping
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+How file extensions map to converters (order matters for multi-extension support):
+
+**Priority 1: Specialized Binary Formats**
+
+.. code-block:: text
+
+   .pdf          → pdf (PDF documents)
+   .docx         → docx (Word documents)
+   .pptx         → pptx (PowerPoint)
+   .xlsx         → spreadsheet (Excel)
+   .epub         → epub (E-books)
+   .rtf          → rtf (Rich Text)
+   .ipynb        → ipynb (Jupyter)
+
+   .odt, .odp    → odf (OpenDocument)
+   .html, .htm   → html (HTML)
+   .mhtml, .mht  → mhtml (Web archives)
+   .eml          → eml (Email)
+
+**Priority 2: Text-Based Formats**
+
+.. code-block:: text
+
+   .csv          → spreadsheet (CSV)
+   .tsv          → spreadsheet (TSV)
+   .md, .markdown → txt (text/sourcecode)
+   .txt          → txt (plain text)
+
+   .py, .js, .java, .cpp, .rs, .go, ...  → sourcecode (200+ extensions)
+
+**Priority 3: Images**
+
+.. code-block:: text
+
+   .png, .jpg, .jpeg, .gif  → image (embedded/referenced only)
+
+MIME Type Detection
+~~~~~~~~~~~~~~~~~~~
+
+For files with unreliable extensions, MIME type provides verification:
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   import mimetypes
+
+   # MIME type is checked as secondary validation
+   file = "document.unknown"
+
+   # all2md checks:
+   # 1. Extension (.unknown) → No match
+   # 2. MIME type → application/pdf → PDF converter
+   # 3. Content → Confirms PDF magic bytes (%PDF)
+
+   markdown = to_markdown(file)  # Detected as PDF
+
+**MIME to Format Mapping:**
+
+.. code-block:: text
+
+   application/pdf                 → pdf
+   application/vnd.openxmlformats-officedocument.wordprocessingml.document → docx
+   application/vnd.openxmlformats-officedocument.presentationml.presentation → pptx
+   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet → spreadsheet
+   text/html                       → html
+   message/rfc822                  → eml
+   application/epub+zip            → epub
+   text/csv                        → spreadsheet
+   application/x-ipynb+json        → ipynb
+
+Content Analysis (Magic Bytes)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When filename/MIME are unavailable, content is analyzed:
+
+.. code-block:: python
+
+   from io import BytesIO
+   from all2md import to_markdown
+
+   # Binary data without filename
+   pdf_bytes = b'%PDF-1.4\n...'  # PDF magic bytes
+   file_obj = BytesIO(pdf_bytes)
+
+   # Detected by content analysis
+   markdown = to_markdown(file_obj)  # Detected as PDF
+
+**Magic Byte Patterns:**
+
+.. code-block:: text
+
+   %PDF                    → PDF
+   PK\x03\x04 + [Content_Types].xml → DOCX/PPTX/XLSX (Office Open XML)
+   PK\x03\x04 + mimetype   → EPUB/ODT/ODP (ZIP-based)
+   {\rtf                   → RTF
+   <html or <!DOCTYPE      → HTML
+   {                       → JSON (potential IPYNB)
+
+Detection for File Objects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Special handling for file-like objects:
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Scenario 1: File object with .name attribute
+   with open("document.pdf", "rb") as f:
+       # Detection: f.name → "document.pdf" → Extension .pdf → PDF
+       markdown = to_markdown(f)
+
+   # Scenario 2: BytesIO without filename
+   from io import BytesIO
+
+   data = get_document_bytes()  # Unknown format
+   file_obj = BytesIO(data)
+   # Detection: No filename → Content analysis → Magic bytes
+   markdown = to_markdown(file_obj)
+
+   # Scenario 3: Explicit format for file object
+   file_obj = BytesIO(pdf_bytes)
+   markdown = to_markdown(file_obj, format='pdf')  # Always PDF
+
+Fallback Behavior
+~~~~~~~~~~~~~~~~~
+
+When detection fails, all2md falls back gracefully:
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Unknown extension, no magic bytes match
+   unknown_file = "data.xyz"
+
+   try:
+       # Attempts: Extension (.xyz) → None
+       #          MIME type → None
+       #          Content → No match
+       #          Fallback → Try text/sourcecode converter
+       markdown = to_markdown(unknown_file)
+   except FormatError as e:
+       print(f"Could not detect format: {e}")
+
+**Fallback Chain:**
+
+1. Try extension-based detection
+2. Try MIME type detection
+3. Try content analysis
+4. Try text/sourcecode converter (assumes UTF-8 text)
+5. Raise ``FormatError`` if all fail
+
+Converter Priority Rules
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+When multiple converters could handle a format:
+
+**Rule 1: Most Specific Wins**
+
+.. code-block:: python
+
+   # .xlsx → spreadsheet converter (not odf, even though technically ZIP)
+   # .csv  → spreadsheet converter (not text)
+   # .ipynb → ipynb converter (not json/text)
+
+**Rule 2: Binary Before Text**
+
+.. code-block:: python
+
+   # PDF bytes → pdf converter (not text)
+   # Word bytes → docx converter (not text)
+
+**Rule 3: Registered Extensions**
+
+.. code-block:: python
+
+   # .md → sourcecode converter (registered)
+   # .markdown → sourcecode converter (registered)
+   # Not → markdown parser (to avoid recursion)
+
+Detection Flow Diagram
+~~~~~~~~~~~~~~~~~~~~~~
+
+Simplified decision flow:
+
+.. code-block:: text
+
+   Input
+     ├─ format="explicit"? ──→ Use specified converter
+     ├─ Has filename?
+     │   ├─ Extension match? ──→ Use extension-based converter
+     │   └─ MIME type match? ──→ Use MIME-based converter
+     ├─ File object/bytes?
+     │   └─ Magic bytes match? ──→ Use content-based converter
+     └─ Fallback
+         ├─ Try text/sourcecode ──→ UTF-8 text in code block
+         └─ Raise FormatError
+
+Troubleshooting Detection
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem: Wrong format detected**
+
+.. code-block:: python
+
+   # Force correct format
+   markdown = to_markdown("file.dat", format="pdf")
+
+**Problem: File object not detected**
+
+.. code-block:: python
+
+   # Give file object a name attribute
+   import io
+
+   class NamedBytesIO(io.BytesIO):
+       def __init__(self, data, name):
+           super().__init__(data)
+           self.name = name
+
+   file_obj = NamedBytesIO(pdf_bytes, "document.pdf")
+   markdown = to_markdown(file_obj)  # Now detects from .name
+
+**Problem: Unexpected fallback to text**
+
+.. code-block:: python
+
+   # Check what's being detected
+   from all2md.converter_registry import registry
+
+   detected = registry.detect_format("mysterious_file.xyz")
+   print(f"Detected as: {detected}")
+
+   # Use explicit format if detection is wrong
+   markdown = to_markdown("mysterious_file.xyz", format="pdf")
+
+**Problem: Want to skip detection**
+
+.. code-block:: python
+
+   # Directly call converter (advanced)
+   from all2md.converters.pdf2markdown import pdf_to_markdown
+
+   markdown = pdf_to_markdown("file.xyz")  # Bypass detection
+
+Detection Best Practices
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. **Use descriptive filenames with correct extensions** when possible
+2. **Specify ``format`` explicitly** for ambiguous inputs
+3. **Provide file.name attribute** for file-like objects when known
+4. **Handle ``FormatError``** for unknown formats gracefully
+5. **Test detection** with your specific file types
+6. **Use content validation** after conversion for critical applications
 
 Format-Specific Error Handling
 ------------------------------

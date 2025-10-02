@@ -125,7 +125,7 @@ Common Use Cases
 
 .. code-block:: python
 
-   from all2md import to_markdown, MarkdownOptions
+   from all2md import to_markdown, PdfOptions, MarkdownOptions
 
    # Use underscores for emphasis and custom bullets
    md_options = MarkdownOptions(
@@ -134,8 +134,9 @@ Common Use Cases
        use_hash_headings=True
    )
 
-   # Apply to any converter
-   markdown = to_markdown('document.pdf', markdown_options=md_options)
+   # Nest MarkdownOptions within format-specific options
+   options = PdfOptions(markdown_options=md_options)
+   markdown = to_markdown('document.pdf', options=options)
 
 .. code-block:: bash
 
@@ -145,9 +146,36 @@ Common Use Cases
 4. Batch Processing
 ~~~~~~~~~~~~~~~~~~~
 
+all2md provides powerful built-in batch processing features for converting multiple files efficiently.
+
+**Command Line (Recommended):**
+
+.. code-block:: bash
+
+   # Convert all PDFs in a directory
+   all2md *.pdf --output-dir ./markdown
+
+   # Recursively process all files in a directory tree
+   all2md ./documents --recursive --output-dir ./converted
+
+   # Parallel processing with automatic CPU detection
+   all2md *.pdf --parallel --output-dir ./markdown
+
+   # Preserve directory structure in output
+   all2md ./docs --recursive --preserve-structure --output-dir ./markdown
+
+   # Combine multiple files into a single output
+   all2md chapter_*.pdf --collate --out book.md
+
+   # Exclude specific patterns
+   all2md ./project --recursive --exclude "*.tmp" --exclude "__pycache__" --output-dir ./markdown
+
+**Python API (Manual Approach):**
+
+For programmatic control, you can process files manually:
+
 .. code-block:: python
 
-   import os
    from pathlib import Path
    from all2md import to_markdown
 
@@ -160,15 +188,14 @@ Common Use Cases
        if file_path.is_file():
            try:
                markdown = to_markdown(str(file_path))
-
                output_file = output_dir / f"{file_path.stem}.md"
+
                with open(output_file, 'w', encoding='utf-8') as f:
                    f.write(markdown)
 
-               print(f"✓ Converted {file_path.name} -> {output_file.name}")
-
+               print(f"✓ Converted {file_path.name}")
            except Exception as e:
-               print(f"✗ Failed to convert {file_path.name}: {e}")
+               print(f"✗ Failed: {file_path.name}: {e}")
 
 5. Working with File Objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -265,14 +292,71 @@ Error Handling
    except InputError as e:
        print(f"Input error: {e}")
 
+Advanced: Working with AST
+--------------------------
+
+For advanced use cases, all2md provides an Abstract Syntax Tree (AST) API that enables document analysis and transformation:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import NodeVisitor, Heading, MarkdownRenderer
+
+   # Convert to AST instead of Markdown
+   doc_ast = to_ast('document.pdf')
+
+   # Extract all headings
+   class HeadingExtractor(NodeVisitor):
+       def __init__(self):
+           self.headings = []
+
+       def visit_heading(self, node: Heading):
+           # Extract heading text
+           text = ''.join(
+               child.content for child in node.content
+               if hasattr(child, 'content') and isinstance(child.content, str)
+           )
+           self.headings.append(f"{'#' * node.level} {text}")
+           self.generic_visit(node)
+
+   # Use the visitor
+   extractor = HeadingExtractor()
+   extractor.visit(doc_ast)
+
+   print("Document Headings:")
+   for heading in extractor.headings:
+       print(f"  {heading}")
+
+   # Transform the AST (e.g., increase heading levels)
+   from all2md.ast import HeadingLevelTransformer
+
+   transformer = HeadingLevelTransformer(offset=1)  # H1 → H2, H2 → H3, etc.
+   transformed_ast = transformer.transform(doc_ast)
+
+   # Render to Markdown
+   renderer = MarkdownRenderer()
+   markdown = renderer.render(transformed_ast)
+
+**Why use the AST?**
+
+* Analyze document structure without parsing Markdown text
+* Transform documents programmatically (change headings, rewrite links, etc.)
+* Render same document to different Markdown flavors
+* Extract specific elements (headings, links, tables, code blocks)
+
+For complete AST documentation, see :doc:`ast_guide`.
+
 Next Steps
 ----------
 
 Now that you've got the basics down:
 
 1. **Explore formats**: See :doc:`formats` for detailed examples of each supported format
-2. **Learn the CLI**: Check out :doc:`cli` for all command-line options
-3. **Dive into options**: Visit :doc:`options` for complete configuration reference
-4. **Get help**: See :doc:`troubleshooting` for common issues and solutions
+2. **Work with AST**: Visit :doc:`ast_guide` for advanced document manipulation
+3. **Learn the CLI**: Check out :doc:`cli` for all command-line options
+4. **Dive into options**: Visit :doc:`options` for complete configuration reference
+5. **Secure your conversions**: See :doc:`security` for SSRF protection and security best practices
+6. **Try recipes**: Check out :doc:`recipes` for real-world examples and patterns
+7. **Get help**: See :doc:`troubleshooting` for common issues and solutions
 
 You're ready to start converting documents! 🚀

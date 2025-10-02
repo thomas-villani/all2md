@@ -1,0 +1,524 @@
+Security
+========
+
+all2md includes comprehensive security features to protect against common vulnerabilities when processing documents, especially from untrusted sources. This guide covers network security, local file access controls, and best practices for secure document conversion.
+
+.. contents::
+   :local:
+   :depth: 2
+
+Overview
+--------
+
+When processing documents from untrusted sources, several security risks must be addressed:
+
+* **Server-Side Request Forgery (SSRF)**: Malicious documents may reference internal network resources
+* **Local File Access**: Documents may attempt to access sensitive local files via ``file://`` URLs
+* **Resource Exhaustion**: Large or malicious files can consume excessive memory or processing time
+* **Archive Bombs**: Compressed files may expand to consume disk space or memory
+
+all2md provides defense mechanisms for all these scenarios through configurable security options and built-in protections.
+
+Network Security (SSRF Protection)
+-----------------------------------
+
+Understanding SSRF Risks
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Server-Side Request Forgery occurs when a document converter fetches remote resources (like images in HTML or PDF files) without proper validation. Attackers can exploit this to:
+
+* Scan internal networks and services
+* Access cloud metadata endpoints (AWS, Azure, GCP)
+* Exfiltrate data to external servers
+* Bypass firewall restrictions
+
+NetworkFetchOptions
+~~~~~~~~~~~~~~~~~~~
+
+all2md provides ``NetworkFetchOptions`` to control remote resource fetching:
+
+.. code-block:: python
+
+   from all2md import to_markdown, HtmlOptions
+   from all2md.options import NetworkFetchOptions
+
+   # Safe configuration: block all remote fetching
+   safe_config = HtmlOptions(
+       network=NetworkFetchOptions(
+           allow_remote_fetch=False  # Block all network requests
+       )
+   )
+
+   # Selective allowlisting: only allow specific trusted domains
+   allowlist_config = HtmlOptions(
+       network=NetworkFetchOptions(
+           allow_remote_fetch=True,
+           allowed_hosts=["cdn.example.com", "images.example.org"],
+           require_https=True  # Force HTTPS for all requests
+       )
+   )
+
+   # With size and timeout limits
+   limited_config = HtmlOptions(
+       network=NetworkFetchOptions(
+           allow_remote_fetch=True,
+           allowed_hosts=["trusted-cdn.com"],
+           require_https=True,
+           network_timeout=5.0,  # 5 second timeout
+           max_remote_asset_bytes=2*1024*1024  # 2MB limit
+       )
+   )
+
+Allowlist Semantics
+~~~~~~~~~~~~~~~~~~~
+
+The ``allowed_hosts`` field has three distinct behaviors:
+
+.. list-table:: Allowlist Behavior
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - allowed_hosts Value
+     - Behavior
+     - Use Case
+   * - ``None`` (default)
+     - All hosts allowed
+     - Development, trusted sources
+   * - ``[]`` (empty list)
+     - All hosts blocked
+     - Maximum security
+   * - ``["host1", "host2"]``
+     - Only specified hosts allowed
+     - Controlled external resources
+
+**Examples:**
+
+.. code-block:: python
+
+   # Allow all hosts (default, least secure)
+   NetworkFetchOptions(
+       allow_remote_fetch=True,
+       allowed_hosts=None
+   )
+
+   # Block all hosts (equivalent to allow_remote_fetch=False)
+   NetworkFetchOptions(
+       allow_remote_fetch=True,
+       allowed_hosts=[]
+   )
+
+   # Allow only specific CDNs
+   NetworkFetchOptions(
+       allow_remote_fetch=True,
+       allowed_hosts=["cdn.jsdelivr.net", "unpkg.com"]
+   )
+
+HTTPS Enforcement
+~~~~~~~~~~~~~~~~~
+
+The ``require_https`` option forces all remote fetches to use HTTPS:
+
+.. code-block:: python
+
+   # Reject HTTP, only allow HTTPS
+   network_opts = NetworkFetchOptions(
+       allow_remote_fetch=True,
+       require_https=True  # Blocks http:// URLs
+   )
+
+   html_opts = HtmlOptions(network=network_opts)
+   markdown = to_markdown("webpage.html", options=html_opts)
+
+Size and Timeout Limits
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Protect against resource exhaustion with limits:
+
+.. code-block:: python
+
+   network_opts = NetworkFetchOptions(
+       allow_remote_fetch=True,
+       network_timeout=10.0,  # Timeout after 10 seconds
+       max_remote_asset_bytes=5*1024*1024  # 5MB max per asset (default: 20MB)
+   )
+
+Global Network Disable
+~~~~~~~~~~~~~~~~~~~~~~
+
+For maximum security, disable all network access globally using the environment variable:
+
+.. code-block:: bash
+
+   # Disable all network fetching regardless of options
+   export ALL2MD_DISABLE_NETWORK=1
+
+   # Now all network requests will be blocked
+   all2md webpage.html  # Won't fetch any remote images
+
+This is useful in production environments where you want to ensure no network requests occur.
+
+Network Security Configuration Table
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Quick reference for ``HtmlOptions.network.*`` settings:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Option
+     - Default
+     - Description
+   * - ``allow_remote_fetch``
+     - ``True``
+     - Master switch for remote fetching
+   * - ``allowed_hosts``
+     - ``None``
+     - Host allowlist (``None`` = all, ``[]`` = none, list = specific)
+   * - ``require_https``
+     - ``False``
+     - Require HTTPS for all remote requests
+   * - ``network_timeout``
+     - ``30.0``
+     - Timeout in seconds for network requests
+   * - ``max_remote_asset_bytes``
+     - ``20971520``
+     - Max download size per asset (20MB default)
+
+Local File Access Security
+---------------------------
+
+Controlling file:// URLs
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Documents may reference local files using ``file://`` URLs. This can expose sensitive system files:
+
+.. code-block:: python
+
+   from all2md import HtmlOptions
+   from all2md.options import LocalFileAccessOptions
+
+   # Block all local file access (recommended for untrusted input)
+   safe_config = HtmlOptions(
+       local_files=LocalFileAccessOptions(
+           allow_local_files=False
+       )
+   )
+
+   # Allow only specific directories
+   selective_config = HtmlOptions(
+       local_files=LocalFileAccessOptions(
+           allow_local_files=True,
+           local_file_allowlist=["/safe/public/images", "/var/www/assets"],
+           local_file_denylist=["/etc", "/home", "/root"]
+       )
+   )
+
+   # Allow current working directory only
+   cwd_only_config = HtmlOptions(
+       local_files=LocalFileAccessOptions(
+           allow_local_files=False,
+           allow_cwd_files=True  # Only files in CWD
+       )
+   )
+
+Directory Allowlist/Denylist
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Control which directories can be accessed:
+
+.. code-block:: python
+
+   local_opts = LocalFileAccessOptions(
+       allow_local_files=True,
+       # Explicitly allowed directories
+       local_file_allowlist=[
+           "/app/public/images",
+           "/tmp/uploads"
+       ],
+       # Explicitly blocked directories (takes precedence)
+       local_file_denylist=[
+           "/etc",
+           "/home",
+           "/root",
+           "/var/secrets"
+       ]
+   )
+
+**Precedence Rules:**
+
+1. Denylist is checked first - if path matches, access is denied
+2. If allowlist is provided, path must match an allowed directory
+3. If no allowlist and not denied, access is granted (when ``allow_local_files=True``)
+
+Archive Security
+----------------
+
+ZIP Bomb Protection
+~~~~~~~~~~~~~~~~~~~
+
+all2md includes protection against ZIP bombs and other malicious archives:
+
+.. code-block:: python
+
+   from all2md.utils.security import validate_zip_archive
+
+   # Validate before processing
+   try:
+       validate_zip_archive(
+           archive_path="suspicious.epub",  # EPUB files are ZIP archives
+           max_uncompressed_size=100*1024*1024,  # 100MB limit
+           max_compression_ratio=100  # Flag if compression > 100:1
+       )
+       # Safe to process
+       markdown = to_markdown("suspicious.epub")
+   except SecurityError as e:
+       print(f"Archive validation failed: {e}")
+
+The validation checks:
+
+* Total uncompressed size limit
+* Individual file size limits
+* Compression ratio (detects bombs)
+* Directory traversal in file names
+
+CLI Security Presets
+--------------------
+
+The CLI provides security presets for common use cases:
+
+Strict HTML Sanitization
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Remove all potentially dangerous HTML elements:
+
+.. code-block:: bash
+
+   # Strip scripts, styles, and other dangerous elements
+   all2md webpage.html --strict-html-sanitize
+
+This enables ``HtmlOptions.strip_dangerous_elements=True`` which removes:
+
+* ``<script>`` tags
+* ``<style>`` tags
+* Event handlers (onclick, onload, etc.)
+* ``<iframe>`` and ``<embed>`` tags
+
+Safe Mode
+~~~~~~~~~
+
+Balanced security for general use:
+
+.. code-block:: bash
+
+   # Enable safe mode
+   all2md document.html --safe-mode
+
+Safe mode enables:
+
+* HTML sanitization (``strip_dangerous_elements=True``)
+* HTTPS enforcement (``require_https=True``)
+* Blocks local file access (``allow_local_files=False``)
+* Allows CWD files only (``allow_cwd_files=True``)
+
+Paranoid Mode
+~~~~~~~~~~~~~
+
+Maximum security for untrusted input:
+
+.. code-block:: bash
+
+   # Maximum security lockdown
+   all2md untrusted.html --paranoid-mode
+
+Paranoid mode enables:
+
+* All safe mode protections
+* Blocks ALL network requests (``allow_remote_fetch=False``)
+* Blocks ALL local files including CWD (``allow_cwd_files=False``)
+* Strict timeouts and size limits
+* Attachment mode set to ``skip`` (no file writes)
+
+Security Best Practices
+-----------------------
+
+Web Application Integration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When integrating all2md into a web application:
+
+.. code-block:: python
+
+   from all2md import to_markdown, HtmlOptions, PdfOptions
+   from all2md.options import NetworkFetchOptions, LocalFileAccessOptions
+   import tempfile
+   import os
+
+   def convert_uploaded_document(file_data: bytes, filename: str) -> str:
+       """Safely convert user-uploaded document."""
+
+       # Validate file size
+       MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+       if len(file_data) > MAX_FILE_SIZE:
+           raise ValueError("File too large")
+
+       # Determine file type
+       ext = os.path.splitext(filename)[1].lower()
+
+       # Configure security options
+       if ext in ['.html', '.htm', '.mhtml']:
+           options = HtmlOptions(
+               strip_dangerous_elements=True,
+               network=NetworkFetchOptions(
+                   allow_remote_fetch=False  # Block SSRF
+               ),
+               local_files=LocalFileAccessOptions(
+                   allow_local_files=False  # Block local file access
+               ),
+               attachment_mode='skip'  # Don't download any files
+           )
+       else:
+           # PDF, DOCX, etc. - use safe defaults
+           options = PdfOptions(
+               attachment_mode='skip'  # No downloads
+           )
+
+       # Process in temporary file
+       with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+           tmp.write(file_data)
+           tmp_path = tmp.name
+
+       try:
+           markdown = to_markdown(tmp_path, options=options)
+
+           # Limit output size (prevent DoS)
+           MAX_OUTPUT = 1024 * 1024  # 1MB
+           if len(markdown) > MAX_OUTPUT:
+               markdown = markdown[:MAX_OUTPUT] + "\n\n[Output truncated]"
+
+           return markdown
+       finally:
+           os.unlink(tmp_path)
+
+Processing Untrusted HTML
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+HTML documents are particularly risky. Always use strict settings:
+
+.. code-block:: python
+
+   from all2md import to_markdown, HtmlOptions
+   from all2md.options import NetworkFetchOptions, LocalFileAccessOptions
+
+   # Maximum security HTML processing
+   untrusted_html_options = HtmlOptions(
+       extract_title=True,
+       strip_dangerous_elements=True,
+       network=NetworkFetchOptions(
+           allow_remote_fetch=False  # No network access
+       ),
+       local_files=LocalFileAccessOptions(
+           allow_local_files=False,
+           allow_cwd_files=False
+       ),
+       attachment_mode='skip'
+   )
+
+   markdown = to_markdown(untrusted_html, options=untrusted_html_options)
+
+Content from Known Sources
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For trusted sources, you can relax restrictions:
+
+.. code-block:: python
+
+   # Processing internal documentation
+   trusted_options = HtmlOptions(
+       network=NetworkFetchOptions(
+           allow_remote_fetch=True,
+           allowed_hosts=["internal-cdn.company.com"],  # Company CDN only
+           require_https=True
+       ),
+       local_files=LocalFileAccessOptions(
+           allow_local_files=True,
+           local_file_allowlist=["/company/docs/images"]
+       ),
+       attachment_mode='download',
+       attachment_output_dir='./downloaded_images'
+   )
+
+Batch Processing
+~~~~~~~~~~~~~~~~
+
+When processing multiple files, validate before conversion:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from all2md import to_markdown
+   from all2md.utils.security import validate_zip_archive
+
+   def safe_batch_convert(files: list[Path]) -> dict:
+       results = {}
+
+       for file_path in files:
+           try:
+               # Validate ZIP-based formats
+               if file_path.suffix in ['.epub', '.docx', '.pptx', '.xlsx']:
+                   validate_zip_archive(
+                       str(file_path),
+                       max_uncompressed_size=100*1024*1024
+                   )
+
+               # Convert with safe options
+               markdown = to_markdown(
+                   file_path,
+                   attachment_mode='skip',  # No downloads
+                   extract_metadata=False    # Avoid metadata exploits
+               )
+               results[str(file_path)] = {"success": True, "content": markdown}
+
+           except Exception as e:
+               results[str(file_path)] = {"success": False, "error": str(e)}
+
+       return results
+
+Security Checklist
+------------------
+
+When processing documents from untrusted sources, ensure:
+
+**Network Security:**
+
+- [ ] Set ``allow_remote_fetch=False`` or use strict allowlist
+- [ ] Enable ``require_https=True`` if fetching allowed
+- [ ] Set reasonable ``network_timeout`` values
+- [ ] Limit ``max_remote_asset_bytes`` appropriately
+- [ ] Consider ``ALL2MD_DISABLE_NETWORK`` environment variable in production
+
+**Local File Security:**
+
+- [ ] Set ``allow_local_files=False`` for untrusted input
+- [ ] Use ``local_file_allowlist`` for known safe directories
+- [ ] Add sensitive paths to ``local_file_denylist``
+- [ ] Carefully consider ``allow_cwd_files`` based on your threat model
+
+**Content Security:**
+
+- [ ] Enable ``strip_dangerous_elements`` for HTML
+- [ ] Set ``attachment_mode='skip'`` to prevent file writes
+- [ ] Validate file sizes before processing
+- [ ] Limit output size to prevent DoS
+- [ ] Validate archives before extraction
+
+**Production Deployment:**
+
+- [ ] Process uploads in isolated temporary directories
+- [ ] Run converter with minimal privileges
+- [ ] Set resource limits (memory, CPU, disk)
+- [ ] Monitor for unusual activity or errors
+- [ ] Log security-relevant events
+- [ ] Keep all2md and dependencies updated
+
+For format-specific security considerations, see the :doc:`formats` guide. For configuration details, see the :doc:`options` reference.
