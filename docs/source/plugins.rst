@@ -94,11 +94,11 @@ Create a ``ConverterMetadata`` object that describes your converter:
         converter_module="all2md_myformat.converter",
         converter_function="myformat_to_markdown",
         required_packages=[
-            ("myformat-parser", ">=1.0.0"),
-            ("some-dependency", ""),
+            ("myformat-parser", "myformat_parser", ">=1.0.0"),
+            ("some-dependency", "some_dep", ""),
         ],
         optional_packages=[
-            ("advanced-feature", ">=2.0"),
+            ("advanced-feature", "advanced_feature", ">=2.0"),
         ],
         import_error_message=(
             "MyFormat conversion requires 'myformat-parser' version 1.0.0 or later. "

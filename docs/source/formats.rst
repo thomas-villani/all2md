@@ -198,7 +198,7 @@ HTML Documents
 
 **File Extensions:** ``.html``, ``.htm``
 
-**Dependencies:** ``pip install all2md[html]`` (included in base)
+**Dependencies:** ``pip install all2md[html]``
 
 **Technology:** BeautifulSoup4 for robust HTML parsing
 
@@ -509,7 +509,7 @@ Legacy document format support with formatting preservation.
 **RTF-Specific Features:**
 
 * **Formatting Preservation:** Maintains bold, italic, and other formatting
-* **Table Support:** Converts RTF tables to Markdown
+* **Tables:** Not supported by the current RTF parser (pyth). Table-like content appears as plain paragraphs
 * **Character Encoding:** Handles various RTF encodings
 * **Legacy Compatibility:** Supports older RTF versions
 

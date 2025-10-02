@@ -249,6 +249,58 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
     return missing
 
 
+def get_missing_dependencies_for_file(
+    format_name: str,
+    input_file: Optional[str] = None
+) -> List[Tuple[str, str]]:
+    """Get list of missing dependencies for a specific format and file.
+
+    This function uses context-aware dependency checking to accurately determine
+    which packages are needed for a specific file. This is especially useful for
+    formats like spreadsheets where different file types (XLSX vs ODS) require
+    different dependencies.
+
+    Parameters
+    ----------
+    format_name : str
+        Format to check dependencies for
+    input_file : str, optional
+        Path to the input file for context-aware checking
+
+    Returns
+    -------
+    list
+        List of (package_name, version_spec) tuples for missing packages
+    """
+    # Get metadata for the specific format
+    metadata = registry.get_format_info(format_name)
+    if not metadata:
+        return []
+
+    # Use context-aware dependency checking if file is provided
+    if input_file:
+        required_packages = metadata.get_required_packages_for_content(
+            content=None,
+            input_data=input_file
+        )
+    else:
+        required_packages = metadata.required_packages
+
+    if not required_packages:
+        return []
+
+    missing = []
+    for package_name, _import_name, version_spec in required_packages:
+        if version_spec:
+            meets, _ = check_version_requirement(package_name, version_spec)
+            if not meets:
+                missing.append((package_name, version_spec))
+        elif not check_package_installed(package_name):
+            missing.append((package_name, version_spec))
+
+    return missing
+
+
 def generate_install_command(packages: List[Tuple[str, str]]) -> str:
     """Generate pip install command for packages.
 

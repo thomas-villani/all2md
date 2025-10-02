@@ -278,7 +278,7 @@ Processing and Output Control
       all2md long_document.pdf --pager
 
       # Combine with other options
-      all2md report.pdf --pager --pdf-pages "0,1,2,3,4"
+      all2md report.pdf --pager --pdf-pages "1,2,3,4,5"
 
       # Enable color support in pager (bash/zsh)
       export PAGER="less -r"
@@ -388,18 +388,21 @@ PDF Options
 ~~~~~~~~~~~
 
 ``--pdf-pages``
-   Specific pages to convert using comma-separated, 0-based indexing.
+   Specific pages to convert (1-based indexing). Supports lists and ranges: "1,2,3", "1-3,5", "10-".
 
    .. code-block:: bash
 
       # Convert first 3 pages
-      all2md document.pdf --pdf-pages "0,1,2"
+      all2md document.pdf --pdf-pages "1,2,3"
 
-      # Convert pages 1, 5, and 10 (0-based)
-      all2md document.pdf --pdf-pages "0,4,9"
+      # Convert pages 1, 5, and 10
+      all2md document.pdf --pdf-pages "1,5,10"
 
-      # Single page
-      all2md document.pdf --pdf-pages "0"
+      # Convert page range 1-3 and page 5
+      all2md document.pdf --pdf-pages "1-3,5"
+
+      # Convert from page 10 to end
+      all2md document.pdf --pdf-pages "10-"
 
 ``--pdf-password``
    Password for encrypted PDF documents.
@@ -595,9 +598,19 @@ For common security scenarios, all2md provides convenient preset flags that conf
 
    **Applies the following settings:**
       * All settings from ``--safe-mode``
-      * ``allowed_hosts=[]`` - Validates all HTTPS hosts (allows all by default)
+      * ``allowed_hosts=[]`` - Denies all remote hosts by default (use ``--html-network-allowed-hosts`` to add specific trusted hosts)
       * ``max_attachment_size_bytes=5242880`` - Reduces max size to 5MB (from default 20MB)
       * ``max_remote_asset_bytes=5242880`` - Reduces max remote asset size to 5MB
+
+   .. note::
+
+      **Host Allowlist Semantics:**
+
+      * ``allowed_hosts=[]`` (empty list) - Blocks ALL remote hosts
+      * ``allowed_hosts=None`` (not set) - Allows all hosts subject to other constraints (HTTPS requirement, size limits, etc.)
+      * ``allowed_hosts=["example.com"]`` (specific hosts) - Only allows listed hosts
+
+      In paranoid mode, you must explicitly add trusted hosts using ``--html-network-allowed-hosts`` to allow any remote fetching.
 
    .. code-block:: bash
 
@@ -993,7 +1006,7 @@ Install missing dependencies for a specific format:
    all2md install-deps pptx
 
    # Install all missing dependencies
-   all2md install-deps all
+   all2md install-deps
 
    # Show help for install command
    all2md install-deps --help
@@ -1271,7 +1284,7 @@ Advanced PDF Processing
 .. code-block:: bash
 
    # Process specific pages with custom formatting
-   all2md large_document.pdf --pdf-pages "0,1,2,5,10" --markdown-emphasis-symbol "_"
+   all2md large_document.pdf --pdf-pages "1,2,3,6,11" --markdown-emphasis-symbol "_"
 
    # Handle encrypted PDF
    all2md encrypted.pdf --pdf-password "secret" --attachment-mode download
@@ -1472,8 +1485,8 @@ Environment variables use the pattern ``ALL2MD_<OPTION_NAME>`` where ``<OPTION_N
    # CLI argument: --markdown-emphasis-symbol
    export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
 
-   # CLI argument: --pdf-pages (comma-separated)
-   export ALL2MD_PDF_PAGES="0,1,2"
+   # CLI argument: --pdf-pages (comma-separated, 1-based)
+   export ALL2MD_PDF_PAGES="1,2,3"
 
    # CLI argument: --parallel (integer)
    export ALL2MD_PARALLEL="4"

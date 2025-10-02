@@ -577,15 +577,37 @@ Examples:
         # Start with JSON options if provided, processing dot notation keys
         options = {}
         if json_options:
+            # Import helpers for dot notation parsing
+            from all2md.cli.custom_actions import parse_dot_notation, merge_nested_dicts
+
             # Process JSON options that may contain dot notation keys
+            nested_config = {}
             for key, value in json_options.items():
                 if '.' in key:
-                    # Extract the field name from dot notation (e.g., "pdf.pages" -> "pages")
-                    field_name = key.split('.', 1)[1]
-                    options[field_name] = value
+                    # Parse full dot notation into nested dict
+                    # e.g., "html.network.allowed_hosts" -> {'html': {'network': {'allowed_hosts': ...}}}
+                    parsed = parse_dot_notation(key, value)
+                    nested_config = merge_nested_dicts(nested_config, parsed)
                 else:
-                    # Direct field name
+                    # Direct field name (no nesting)
                     options[key] = value
+
+            # Flatten nested config into options dict
+            # This handles format-specific and nested dataclass fields
+            for format_key, format_opts in nested_config.items():
+                if isinstance(format_opts, dict):
+                    # Recursively flatten nested dicts
+                    for nested_key, nested_value in format_opts.items():
+                        if isinstance(nested_value, dict):
+                            # Further nested (e.g., html.network.* fields)
+                            for field_key, field_value in nested_value.items():
+                                options[field_key] = field_value
+                        else:
+                            # One level nested (e.g., pdf.pages)
+                            options[nested_key] = nested_value
+                else:
+                    # Top-level value
+                    options[format_key] = format_opts
         args_dict = vars(parsed_args)
 
         # Get the set of explicitly provided arguments

@@ -473,7 +473,8 @@ class ConverterRegistry:
             format_missing = []
 
             # Use context-aware dependency checking if available
-            required_packages = metadata.get_required_packages_for_content(content)
+            # Pass both content sample and original input_data for accurate detection
+            required_packages = metadata.get_required_packages_for_content(content, input_data)
 
             for pkg_name, import_name, _ in required_packages:
                 if not _check_package_installed(import_name):

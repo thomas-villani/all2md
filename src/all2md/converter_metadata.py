@@ -7,7 +7,8 @@ requirements, and registration information for the plugin registry system.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from pathlib import Path
+from typing import IO, Callable, Optional, Union
 
 
 @dataclass
@@ -158,7 +159,11 @@ class ConverterMetadata:
 
         return False
 
-    def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str, str]]:
+    def get_required_packages_for_content(
+        self,
+        content: Optional[bytes] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+    ) -> list[tuple[str, str, str]]:
         """Get required packages for specific content, allowing context-aware dependency checking.
 
         Some converters may have different dependency requirements based on the actual
@@ -168,7 +173,11 @@ class ConverterMetadata:
         Parameters
         ----------
         content : bytes, optional
-            File content to analyze for dependency requirements
+            File content sample (may be partial) to analyze for dependency requirements
+        input_data : various types, optional
+            Original input data (path, file object, or bytes) for more accurate detection.
+            When provided, implementations can access the full file instead of relying
+            on potentially truncated content samples.
 
         Returns
         -------
@@ -176,7 +185,7 @@ class ConverterMetadata:
             Required packages as (install_name, import_name, version_spec) tuples for this content
         """
         # Default implementation returns all required packages
-        # Subclasses or specific converters can override this logic
+        # Subclasses or specific converters can override this logic to use input_data
         return self.required_packages
 
 

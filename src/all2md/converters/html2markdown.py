@@ -100,10 +100,24 @@ HTML sanitization is complex, and new attack vectors are discovered regularly.
 Always use defense-in-depth strategies and consider the security requirements of your
 specific use case.
 
+Encoding Handling
+-----------------
+HTML files are read with the following encoding fallback strategy:
+
+1. **UTF-8** (default): Attempts to read as UTF-8
+2. **UTF-8-sig**: Falls back to UTF-8 with BOM handling if UTF-8 fails
+3. **chardet** (optional): If chardet is installed, attempts auto-detection
+4. **Latin-1** (fallback): Final fallback that never fails but may produce mojibake
+
+For best results with non-UTF-8 HTML files:
+- Convert files to UTF-8 before processing, or
+- Install chardet for automatic encoding detection: pip install chardet
+
 Dependencies
 ------------
 - beautifulsoup4: For HTML parsing and DOM manipulation
 - re: For pattern matching and text processing
+- chardet (optional): For automatic encoding detection of non-UTF-8 files
 
 Examples
 --------
@@ -165,6 +179,76 @@ from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata, prepend_metadata_if_enabled
 
 logger = logging.getLogger(__name__)
+
+
+def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
+    """Read HTML file with multiple encoding fallback strategies.
+
+    Tries encodings in order: UTF-8, UTF-8-sig, chardet (if available), Latin-1.
+
+    Parameters
+    ----------
+    file_path : Union[str, Path]
+        Path to HTML file
+
+    Returns
+    -------
+    str
+        File content as string
+
+    Raises
+    ------
+    MarkdownConversionError
+        If file cannot be read with any encoding
+    """
+    encodings_to_try = ["utf-8", "utf-8-sig"]
+
+    # Try chardet if available
+    chardet_encoding = None
+    try:
+        import chardet
+        with open(str(file_path), "rb") as f:
+            raw_data = f.read()
+        detection = chardet.detect(raw_data)
+        if detection and detection.get("encoding"):
+            chardet_encoding = detection["encoding"]
+            logger.debug(f"chardet detected encoding: {chardet_encoding}")
+    except ImportError:
+        logger.debug("chardet not available for encoding detection")
+    except Exception as e:
+        logger.debug(f"chardet detection failed: {e}")
+
+    # Add chardet result to try list if detected
+    if chardet_encoding and chardet_encoding.lower() not in [e.lower() for e in encodings_to_try]:
+        encodings_to_try.append(chardet_encoding)
+
+    # Add latin-1 as final fallback (never fails but may produce mojibake)
+    encodings_to_try.append("latin-1")
+
+    # Try each encoding
+    last_error = None
+    for encoding in encodings_to_try:
+        try:
+            with open(str(file_path), "r", encoding=encoding) as f:
+                content = f.read()
+            logger.debug(f"Successfully read HTML file with encoding: {encoding}")
+            return content
+        except UnicodeDecodeError as e:
+            logger.debug(f"Failed to read with {encoding}: {e}")
+            last_error = e
+            continue
+        except Exception as e:
+            logger.debug(f"Error reading with {encoding}: {e}")
+            last_error = e
+            continue
+
+    # If we get here, all encodings failed (should not happen with latin-1 fallback)
+    raise MarkdownConversionError(
+        f"Failed to read HTML file with any encoding: {last_error}",
+        conversion_stage="file_reading",
+        original_error=last_error
+    )
+
 
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
@@ -366,9 +450,19 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
     -----
     - Automatically detects whether string input is file path or HTML content
     - Supports both text and binary file-like objects
-    - Handles UTF-8 encoding for file inputs
+    - Uses encoding fallback for file inputs: UTF-8 → UTF-8-sig → chardet (if installed) → Latin-1
     - Preserves HTML structure including tables, lists, and formatting
     - Configurable heading styles and list formatting
+
+    Encoding Handling
+    -----------------
+    When reading HTML files from disk, the converter tries multiple encodings:
+    1. UTF-8 (most common for modern HTML)
+    2. UTF-8-sig (handles UTF-8 files with BOM)
+    3. chardet auto-detection (if chardet package is installed)
+    4. Latin-1 fallback (never fails but may produce incorrect characters)
+
+    For best results with non-UTF-8 files, install chardet: pip install chardet
     """
     # Handle backward compatibility and merge options
     if options is None:
@@ -379,10 +473,9 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
     if isinstance(input_data, str):
         # Check if it's a file path or HTML content
         if is_path_like(input_data) and os.path.exists(str(input_data)):
-            # It's a file path - read the file
+            # It's a file path - read the file with encoding fallback
             try:
-                with open(str(input_data), "r", encoding="utf-8") as f:
-                    html_content = f.read()
+                html_content = _read_html_file_with_encoding_fallback(input_data)
             except Exception as e:
                 raise MarkdownConversionError(
                     f"Failed to read HTML file: {str(e)}", conversion_stage="file_reading", original_error=e
@@ -398,9 +491,8 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             )
 
             if input_type == "path":
-                # Read from file path
-                with open(str(doc_input), "r", encoding="utf-8") as f:
-                    html_content = f.read()
+                # Read from file path with encoding fallback
+                html_content = _read_html_file_with_encoding_fallback(doc_input)
             elif input_type == "file":
                 # Read from file-like object
                 html_content = doc_input.read()

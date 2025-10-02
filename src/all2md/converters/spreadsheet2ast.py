@@ -365,14 +365,28 @@ class SpreadsheetToAstConverter:
         input_data : Union[str, Path, IO[bytes], IO[str]]
             Input data
         delimiter : str | None
-            Delimiter character
+            Delimiter character to use (e.g., ',' for CSV, '\\t' for TSV)
         force_delimiter : bool
-            Force using the delimiter
+            If True, forces use of the specified delimiter without dialect detection.
+            For TSV files, this defaults to True (forces tab delimiter) unless
+            options.detect_csv_dialect is explicitly enabled.
 
         Returns
         -------
         Document
             AST document with table node
+
+        Notes
+        -----
+        Delimiter handling behavior:
+        - If options.csv_delimiter is set: Uses that delimiter regardless
+        - If force_delimiter=True: Uses specified delimiter without detection
+        - If options.detect_csv_dialect=True: Attempts automatic dialect detection
+        - Otherwise: Uses specified delimiter or defaults to Excel dialect
+
+        For TSV files called via tsv_to_markdown(), force_delimiter is True by
+        default to ensure tab (\\t) delimiter is used, unless detect_csv_dialect
+        is explicitly enabled in options.
 
         """
         from all2md.utils.inputs import validate_and_convert_input

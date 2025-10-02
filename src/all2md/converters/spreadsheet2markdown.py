@@ -48,18 +48,15 @@ Dependencies
 
 from __future__ import annotations
 
-import csv
 import io
 import logging
-import re
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Union
+from typing import IO, Any, Optional, Union
 
-from all2md.constants import TABLE_ALIGNMENT_MAPPING
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, SpreadsheetOptions
-from all2md.utils.inputs import escape_markdown_special, format_markdown_heading, validate_and_convert_input
+from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import (
     SPREADSHEET_FIELD_MAPPING,
     DocumentMetadata,
@@ -73,7 +70,11 @@ logger = logging.getLogger(__name__)
 class SpreadsheetConverterMetadata(ConverterMetadata):
     """Specialized metadata for spreadsheet converter with smart dependency checking."""
 
-    def get_required_packages_for_content(self, content: Optional[bytes] = None) -> list[tuple[str, str]]:
+    def get_required_packages_for_content(
+        self,
+        content: Optional[bytes] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+    ) -> list[tuple[str, str, str]]:
         """Get required packages based on detected spreadsheet format.
 
         For XLSX files, openpyxl is required. For ODS files, odfpy is required.
@@ -82,52 +83,72 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
         Parameters
         ----------
         content : bytes, optional
-            File content to analyze for format detection
+            File content sample (may be partial) to analyze for format detection
+        input_data : various types, optional
+            Original input data (path, file object, or bytes) for accurate detection
 
         Returns
         -------
-        list[tuple[str, str]]
-            Required packages for the detected format
+        list[tuple[str, str, str]]
+            Required packages for the detected format as (install_name, import_name, version_spec) tuples
         """
+        # If we have input_data, use it for accurate detection (can access full file)
+        if input_data is not None:
+            detected_format = _detect_spreadsheet_format(input_data)
+            if detected_format == "xlsx":
+                return [("openpyxl", "openpyxl", "")]
+            elif detected_format == "ods":
+                return [("odfpy", "odf", "")]
+            elif detected_format in ("csv", "tsv"):
+                return []  # CSV/TSV don't need additional packages
+
+        # Fall back to content-based detection if no input_data
         if content is None:
             # If no content provided, assume worst case (both XLSX and ODS possible)
-            return [("openpyxl", ""), ("odfpy", "")]
+            return [("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")]
 
         # Check if it's a ZIP file (could be XLSX or ODS)
         if content.startswith(b'PK\x03\x04'):
-            # Try to determine if it's ODS or XLSX
-            try:
-                import io
-                import zipfile
+            # Check if content is large enough for ZIP operations (need more than just header)
+            # ZIP files have central directory at the end, so need sufficient content
+            # Minimum viable ZIP is about 22 bytes (for empty archive), but realistic files need more
+            MIN_ZIP_SIZE = 100  # Minimum bytes needed for reliable ZIP inspection
 
-                with zipfile.ZipFile(io.BytesIO(content), 'r') as zf:
-                    file_list = zf.namelist()
-                    # ODS files contain mimetype file with opendocument.spreadsheet
-                    if 'mimetype' in file_list:
-                        try:
-                            mimetype = zf.read('mimetype').decode('utf-8', errors='ignore').strip()
-                            if 'opendocument.spreadsheet' in mimetype:
-                                return [("odfpy", "")]
-                        except Exception:
-                            pass
-                    # XLSX files contain [Content_Types].xml and xl/ directory
-                    if '[Content_Types].xml' in file_list or any(f.startswith('xl/') for f in file_list):
-                        return [("openpyxl", "")]
-                    # If we find META-INF/manifest.xml but no clear XLSX markers, likely ODS
-                    if 'META-INF/manifest.xml' in file_list:
-                        return [("odfpy", "")]
-            except Exception:
-                pass
+            if len(content) >= MIN_ZIP_SIZE:
+                # Try to determine if it's ODS or XLSX by opening ZIP
+                try:
+                    import zipfile
 
-            # Default to XLSX for ZIP files if we can't determine
-            return [("openpyxl", "")]
+                    with zipfile.ZipFile(io.BytesIO(content), 'r') as zf:
+                        file_list = zf.namelist()
+                        # ODS files contain mimetype file with opendocument.spreadsheet
+                        if 'mimetype' in file_list:
+                            try:
+                                mimetype = zf.read('mimetype').decode('utf-8', errors='ignore').strip()
+                                if 'opendocument.spreadsheet' in mimetype:
+                                    return [("odfpy", "odf", "")]
+                            except Exception:
+                                pass
+                        # XLSX files contain [Content_Types].xml and xl/ directory
+                        if '[Content_Types].xml' in file_list or any(f.startswith('xl/') for f in file_list):
+                            return [("openpyxl", "openpyxl", "")]
+                        # If we find META-INF/manifest.xml but no clear XLSX markers, likely ODS
+                        if 'META-INF/manifest.xml' in file_list:
+                            return [("odfpy", "odf", "")]
+                except Exception:
+                    # ZIP open failed (possibly truncated), be conservative
+                    pass
+
+            # Content is too short or ZIP open failed - be conservative
+            # Return both packages since we can't reliably distinguish
+            return [("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")]
 
         # Check if it's CSV/TSV via content detection
         if _detect_csv_tsv_content(content):
             return []  # CSV/TSV don't need additional packages
 
         # If we can't determine, assume XLSX for safety
-        return [("openpyxl", "")]
+        return [("openpyxl", "openpyxl", "")]
 
 
 
@@ -210,8 +231,8 @@ def xlsx_to_markdown(
             metadata = extract_xlsx_metadata(wb)
 
         # Use AST-based conversion path
-        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
         from all2md.ast import MarkdownRenderer
+        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
 
         # Convert to AST
         ast_converter = SpreadsheetToAstConverter(options=options)
@@ -284,8 +305,8 @@ def csv_to_markdown(
         options = SpreadsheetOptions()
 
     # Use AST-based conversion path
-    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
     from all2md.ast import MarkdownRenderer
+    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
 
     ast_converter = SpreadsheetToAstConverter(options=options)
     ast_document = ast_converter.csv_or_tsv_to_ast(
@@ -304,7 +325,43 @@ def tsv_to_markdown(
         input_data: Union[str, Path, IO[bytes], IO[str]],
         options: SpreadsheetOptions | None = None
 ) -> str:
-    """Convert TSV to Markdown table."""
+    """Convert TSV to Markdown table.
+
+    By default, TSV files are parsed with tab (\\t) as the delimiter without
+    dialect detection. Dialect detection only runs if options.detect_csv_dialect
+    is explicitly set to True.
+
+    Parameters
+    ----------
+    input_data : Union[str, Path, IO[bytes], IO[str]]
+        TSV file to convert
+    options : SpreadsheetOptions | None, default None
+        Conversion options. Note: TSV forces tab delimiter unless
+        detect_csv_dialect=True is set.
+
+    Returns
+    -------
+    str
+        Markdown representation of the TSV table
+
+    Notes
+    -----
+    TSV delimiter behavior:
+    - Default: Forces tab (\\t) delimiter
+    - With detect_csv_dialect=True: Attempts automatic dialect detection
+    - With csv_delimiter set: Uses specified delimiter (overrides default)
+
+    Examples
+    --------
+    Default TSV conversion (forces tab delimiter):
+
+        >>> tsv_to_markdown("data.tsv")
+
+    With explicit dialect detection:
+
+        >>> options = SpreadsheetOptions(detect_csv_dialect=True)
+        >>> tsv_to_markdown("data.tsv", options)
+    """
     if options is None:
         options = SpreadsheetOptions()
 
@@ -314,8 +371,8 @@ def tsv_to_markdown(
         force = False
 
     # Use AST-based conversion path
-    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
     from all2md.ast import MarkdownRenderer
+    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
 
     ast_converter = SpreadsheetToAstConverter(options=options)
     ast_document = ast_converter.csv_or_tsv_to_ast(
@@ -481,8 +538,8 @@ def ods_to_markdown(
             metadata = _ods_extract_metadata(doc)
 
         # Use AST-based conversion path
-        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
         from all2md.ast import MarkdownRenderer
+        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
 
         # Convert to AST
         ast_converter = SpreadsheetToAstConverter(options=options)
@@ -508,7 +565,7 @@ def ods_to_markdown(
         ) from e
 
 
-def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str]]) -> str:
+def _detect_spreadsheet_format(input_data: Union[str, Path, IO[bytes], IO[str], bytes]) -> str:
     """Detect spreadsheet format from input data.
 
     Returns

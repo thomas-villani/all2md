@@ -307,6 +307,7 @@ class TestEnhancedDryRun:
         mock_metadata = Mock()
         mock_metadata.extensions = ['.pdf']
         mock_metadata.required_packages = []
+        mock_metadata.get_required_packages_for_content = Mock(return_value=[])
 
         mock_registry.get_format_info = Mock(return_value=mock_metadata)
 

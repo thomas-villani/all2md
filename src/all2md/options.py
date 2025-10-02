@@ -477,7 +477,7 @@ class LocalFileAccessOptions(_CloneMixin):
         default=DEFAULT_ALLOW_CWD_FILES,
         metadata={
             "help": "Allow local files from current working directory and subdirectories",
-            "cli_name": "no-allow-cwd-files"  # default=True, use --no-*
+            "cli_name": "allow-cwd-files"  # default=False, use store_true
         }
     )
 

@@ -54,6 +54,48 @@ from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_footnote_label(attachment_name: str) -> str:
+    """Sanitize attachment name for use as a Markdown footnote label.
+
+    Footnote labels in Markdown cannot contain spaces or many special
+    characters without breaking rendering. This function creates a safe
+    label by normalizing the attachment name.
+
+    Parameters
+    ----------
+    attachment_name : str
+        Original attachment filename
+
+    Returns
+    -------
+    str
+        Sanitized footnote label safe for Markdown
+
+    Examples
+    --------
+    >>> _sanitize_footnote_label("my image.png")
+    'my_image'
+    >>> _sanitize_footnote_label("file (1).jpg")
+    'file_1'
+    >>> _sanitize_footnote_label("document%20name.pdf")
+    'document_20name'
+    """
+    if not attachment_name:
+        return "attachment"
+
+    # Use existing sanitization logic to normalize the filename
+    safe_name = sanitize_attachment_filename(attachment_name)
+
+    # Remove file extension to create a cleaner label
+    label = Path(safe_name).stem
+
+    # Ensure we have something meaningful
+    if not label or label == '.':
+        label = "attachment"
+
+    return label
+
+
 def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
     """Sanitize an attachment filename for secure file system storage.
 
@@ -274,8 +316,9 @@ def process_attachment(
             if alt_text_mode == "strict_markdown":
                 return f"![{alt_text or attachment_name}](#)"
             elif alt_text_mode == "footnote":
-                # Use footnote format for accessibility
-                return f"![{alt_text or attachment_name}][^{attachment_name}]"
+                # Use footnote format for accessibility with sanitized label
+                footnote_label = _sanitize_footnote_label(attachment_name)
+                return f"![{alt_text or attachment_name}][^{footnote_label}]"
             else:  # "default" mode
                 return f"![{alt_text or attachment_name}]"
         else:
@@ -284,7 +327,8 @@ def process_attachment(
             elif alt_text_mode == "strict_markdown":
                 return f"[{attachment_name}](#)"
             elif alt_text_mode == "footnote":
-                return f"[{attachment_name}][^{attachment_name}]"
+                footnote_label = _sanitize_footnote_label(attachment_name)
+                return f"[{attachment_name}][^{footnote_label}]"
             else:  # "default" mode
                 return f"[{attachment_name}]"
 
@@ -322,7 +366,8 @@ def process_attachment(
                 if alt_text_mode == "strict_markdown":
                     return f"![{alt_text or attachment_name}](#)"
                 elif alt_text_mode == "footnote":
-                    return f"![{alt_text or attachment_name}][^{attachment_name}]"
+                    footnote_label = _sanitize_footnote_label(attachment_name)
+                    return f"![{alt_text or attachment_name}][^{footnote_label}]"
                 else:
                     return f"![{alt_text or attachment_name}]"
             else:
@@ -331,7 +376,8 @@ def process_attachment(
                 elif alt_text_mode == "strict_markdown":
                     return f"[{attachment_name}](#)"
                 elif alt_text_mode == "footnote":
-                    return f"[{attachment_name}][^{attachment_name}]"
+                    footnote_label = _sanitize_footnote_label(attachment_name)
+                    return f"[{attachment_name}][^{footnote_label}]"
                 else:
                     return f"[{attachment_name}]"
 
@@ -357,7 +403,8 @@ def process_attachment(
                     if alt_text_mode == "strict_markdown":
                         return f"![{alt_text or attachment_name}](#)"
                     elif alt_text_mode == "footnote":
-                        return f"![{alt_text or attachment_name}][^{attachment_name}]"
+                        footnote_label = _sanitize_footnote_label(attachment_name)
+                        return f"![{alt_text or attachment_name}][^{footnote_label}]"
                     else:
                         return f"![{alt_text or attachment_name}]"
                 else:
@@ -366,7 +413,8 @@ def process_attachment(
                     elif alt_text_mode == "strict_markdown":
                         return f"[{attachment_name}](#)"
                     elif alt_text_mode == "footnote":
-                        return f"[{attachment_name}][^{attachment_name}]"
+                        footnote_label = _sanitize_footnote_label(attachment_name)
+                        return f"[{attachment_name}][^{footnote_label}]"
                     else:
                         return f"[{attachment_name}]"
 
@@ -392,7 +440,8 @@ def process_attachment(
         if alt_text_mode == "strict_markdown":
             return f"![{alt_text or attachment_name}](#)"
         elif alt_text_mode == "footnote":
-            return f"![{alt_text or attachment_name}][^{attachment_name}]"
+            footnote_label = _sanitize_footnote_label(attachment_name)
+            return f"![{alt_text or attachment_name}][^{footnote_label}]"
         else:  # "default" mode
             return f"![{alt_text or attachment_name}]"
     else:
@@ -401,7 +450,8 @@ def process_attachment(
         elif alt_text_mode == "strict_markdown":
             return f"[{attachment_name}](#)"
         elif alt_text_mode == "footnote":
-            return f"[{attachment_name}][^{attachment_name}]"
+            footnote_label = _sanitize_footnote_label(attachment_name)
+            return f"[{attachment_name}][^{footnote_label}]"
         else:  # "default" mode
             return f"[{attachment_name}]"
 

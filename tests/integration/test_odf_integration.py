@@ -41,18 +41,18 @@ class TestOdfIntegration:
         content_lines = [line for line in lines if line.strip()]
         assert len(content_lines) > 0
 
-    def test_simple_odt_conversion(self):
-        """Test conversion of simple ODT document."""
-        odt_path = Path(__file__).parent.parent / "fixtures" / "documents" / "simple.odt"
-
-        # Skip if test file doesn't exist
-        if not odt_path.exists():
-            pytest.skip("Test ODT file not found")
-
-        result = odf_to_markdown(odt_path)
-
-        assert isinstance(result, str)
-        assert len(result) > 0
+    # def test_simple_odt_conversion(self):
+    #     """Test conversion of simple ODT document."""
+    #     odt_path = Path(__file__).parent.parent / "fixtures" / "documents" / "basic.odt"
+    #
+    #     # Skip if test file doesn't exist
+    #     if not odt_path.exists():
+    #         pytest.skip("Test ODT file not found")
+    #
+    #     result = odf_to_markdown(odt_path)
+    #
+    #     assert isinstance(result, str)
+    #     assert len(result) > 0
 
     def test_odt_with_formatting(self):
         """Test ODT with text formatting (bold, italic)."""

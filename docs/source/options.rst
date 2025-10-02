@@ -88,7 +88,7 @@ Using Options
 .. code-block:: bash
 
    # Options map to CLI arguments with prefixes
-   all2md document.pdf --pdf-pages "0,1,2" --attachment-mode download --markdown-emphasis-symbol "_"
+   all2md document.pdf --pdf-pages "1,2,3" --attachment-mode download --markdown-emphasis-symbol "_"
 
 **Environment Variables:**
 
@@ -98,7 +98,7 @@ All CLI options also support environment variable defaults. Use the pattern ``AL
 
    # Set defaults via environment variables
    export ALL2MD_ATTACHMENT_MODE="download"
-   export ALL2MD_PDF_PAGES="0,1,2"
+   export ALL2MD_PDF_PAGES="1,2,3"
    export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
 
    # CLI arguments override environment variables
@@ -254,7 +254,6 @@ Common Markdown formatting options used across all conversion modules.
        escape_special=True,           # Escape Markdown special characters
        emphasis_symbol="*",           # Use asterisks for emphasis
        bullet_symbols="*-+",          # Bullet symbols for nested lists
-       page_separator_template="-----", # Page separator template
        use_hash_headings=True,        # Use # syntax for headings (default)
        list_indent_width=4,           # Spaces per list level
        underline_mode="html",         # How to handle underlined text
@@ -434,6 +433,19 @@ Configuration for HTML document conversion with security and network features.
        markdown_options=md_options,    # Pass Markdown formatting options
        attachment_mode="download"      # Download images locally
    )
+
+.. note::
+
+   **Deprecated Field:** The ``links_as`` field in ``HtmlOptions`` is deprecated and not used by the HTML converter. To control link style (inline vs reference), use ``MarkdownOptions.link_style`` instead:
+
+   .. code-block:: python
+
+      # Correct way to set link style
+      md_opts = MarkdownOptions(link_style="reference")
+      html_opts = HtmlOptions(markdown_options=md_opts)
+
+      # Not used (deprecated)
+      html_opts = HtmlOptions(links_as="reference")  # This has no effect
 
 PptxOptions
 ~~~~~~~~~~~
@@ -667,17 +679,18 @@ You can combine different option types for complex conversions:
    # Custom Markdown formatting
    md_opts = MarkdownOptions(
        emphasis_symbol="_",
-       bullet_symbols="•◦▪",
-       page_separator_template="=== PAGE {page_num} =="
+       bullet_symbols="•◦▪"
    )
 
-   # PDF options with custom Markdown
+   # PDF options with custom Markdown and page separators
    pdf_opts = PdfOptions(
-       pages=[0, 1, 2, 3, 4],
+       pages=[1, 2, 3, 4, 5],
        detect_columns=True,
        enable_table_fallback_detection=True,
        attachment_mode="download",
        attachment_output_dir="./pdf_images",
+       page_separator_template="=== PAGE {page_num} ===",
+       include_page_numbers=True,
        markdown_options=md_opts
    )
 
@@ -732,7 +745,7 @@ Options can be loaded from JSON files for reusable configurations:
      "attachment_output_dir": "./attachments",
      "markdown.emphasis_symbol": "_",
      "pdf.detect_columns": true,
-     "pdf.pages": [0, 1, 2],
+     "pdf.pages": [1, 2, 3],
      "pdf.enable_table_fallback_detection": true,
      "html.strip_dangerous_elements": true,
      "html.network.allow_remote_fetch": false,
@@ -754,17 +767,17 @@ All options classes are frozen dataclasses for thread safety. Use ``create_updat
    from all2md.options import PdfOptions
 
    # Original options
-   options = PdfOptions(pages=[0, 1])
+   options = PdfOptions(pages=[1, 2])
 
    # Create updated version
    new_options = options.create_updated(
-       pages=[0, 1, 2, 3],
+       pages=[1, 2, 3, 4],
        attachment_mode="base64"
    )
 
    # Original options unchanged
-   print(options.pages)      # [0, 1]
-   print(new_options.pages)  # [0, 1, 2, 3]
+   print(options.pages)      # [1, 2]
+   print(new_options.pages)  # [1, 2, 3, 4]
 
 Migration Guide
 ---------------
@@ -801,16 +814,22 @@ Field Name Changes
 
 .. code-block:: python
 
-   # Old
+   # Old (page separators in MarkdownOptions)
    MarkdownOptions(
        page_separator="-----",
        page_separator_format="Page {page_num}",
        include_page_numbers=True
    )
 
-   # New
-   MarkdownOptions(
-       page_separator_template="Page {page_num}"  # Unified template
+   # New (page separators moved to format-specific options)
+   PdfOptions(
+       page_separator_template="Page {page_num}",
+       include_page_numbers=True
+   )
+
+   # For PowerPoint slides
+   PptxOptions(
+       page_separator_template="--- Slide {page_num} ---"
    )
 
 Network Security Options

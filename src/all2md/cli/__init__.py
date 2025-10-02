@@ -602,11 +602,21 @@ def process_with_rich_output(
             console=console
     ) as progress:
 
-        if args.parallel and args.parallel != 1:
+        # Check if parallel processing is enabled
+        # parallel can be: 1 (default, sequential), None (--parallel without value, auto CPU count), or N (explicit worker count)
+        use_parallel = (
+            (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
+            (isinstance(args.parallel, int) and args.parallel != 1)
+        )
+
+        if use_parallel:
             # Parallel processing
             task_id = progress.add_task("[cyan]Converting files...", total=len(files))
 
-            max_workers = args.parallel if args.parallel else None
+            # Auto-detect CPU count if --parallel was provided without a value (None)
+            # Otherwise use the explicit worker count
+            import os
+            max_workers = args.parallel if args.parallel else os.cpu_count()
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
 
@@ -1104,24 +1114,31 @@ def process_dry_run(
         # Get converter metadata
         converter_metadata = registry.get_format_info(detected_format)
 
-        # Check if converter is available
+        # Check if converter is available using context-aware dependency checking
         converter_available = True
         dependency_issues = []
-        if converter_metadata and converter_metadata.required_packages:
-            for pkg_name, version_spec in converter_metadata.required_packages:
-                if version_spec:
-                    meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
-                    if not meets_req:
-                        converter_available = False
-                        if installed_version:
-                            dependency_issues.append(f"{pkg_name} (version mismatch)")
-                        else:
+        if converter_metadata:
+            # Use context-aware checking to get accurate dependency requirements for this file
+            required_packages = converter_metadata.get_required_packages_for_content(
+                content=None,
+                input_data=str(file)
+            )
+
+            if required_packages:
+                for pkg_name, _import_name, version_spec in required_packages:
+                    if version_spec:
+                        meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
+                        if not meets_req:
+                            converter_available = False
+                            if installed_version:
+                                dependency_issues.append(f"{pkg_name} (version mismatch)")
+                            else:
+                                dependency_issues.append(f"{pkg_name} (missing)")
+                    else:
+                        from all2md.dependencies import check_package_installed
+                        if not check_package_installed(pkg_name):
+                            converter_available = False
                             dependency_issues.append(f"{pkg_name} (missing)")
-                else:
-                    from all2md.dependencies import check_package_installed
-                    if not check_package_installed(pkg_name):
-                        converter_available = False
-                        dependency_issues.append(f"{pkg_name} (missing)")
 
         file_info_list.append({
             'file': file,
@@ -1233,7 +1250,13 @@ def process_dry_run(
         print(f"  Format: {args.format}")
     if args.recursive:
         print("  Recursive directory processing: enabled")
-    if args.parallel and args.parallel != 1:
+    # Check if parallel was explicitly provided
+    parallel_provided = hasattr(args, '_provided_args') and 'parallel' in args._provided_args
+    if parallel_provided and args.parallel is None:
+        import os
+        worker_count = os.cpu_count() or 'auto'
+        print(f"  Parallel processing: {worker_count} workers (auto-detected)")
+    elif isinstance(args.parallel, int) and args.parallel != 1:
         print(f"  Parallel processing: {args.parallel} workers")
     if args.preserve_structure:
         print("  Preserve directory structure: enabled")
@@ -1311,26 +1334,29 @@ def process_detect_only(
         dependency_status = []
 
         if converter_metadata and converter_metadata.required_packages:
-            for pkg_name, version_spec in converter_metadata.required_packages:
+            # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
+            for install_name, import_name, version_spec in converter_metadata.required_packages:
                 if version_spec:
-                    meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
+                    # Use install_name for version checking (pip/metadata lookup)
+                    meets_req, installed_version = check_version_requirement(install_name, version_spec)
                     if not meets_req:
                         converter_available = False
                         any_issues = True
                         if installed_version:
-                            dependency_status.append((pkg_name, 'version mismatch', installed_version, version_spec))
+                            dependency_status.append((install_name, 'version mismatch', installed_version, version_spec))
                         else:
-                            dependency_status.append((pkg_name, 'missing', None, version_spec))
+                            dependency_status.append((install_name, 'missing', None, version_spec))
                     else:
-                        dependency_status.append((pkg_name, 'ok', installed_version, version_spec))
+                        dependency_status.append((install_name, 'ok', installed_version, version_spec))
                 else:
                     from all2md.dependencies import check_package_installed
-                    if not check_package_installed(pkg_name):
+                    # Use import_name for import checking
+                    if not check_package_installed(import_name):
                         converter_available = False
                         any_issues = True
-                        dependency_status.append((pkg_name, 'missing', None, None))
+                        dependency_status.append((install_name, 'missing', None, None))
                     else:
-                        dependency_status.append((pkg_name, 'ok', None, None))
+                        dependency_status.append((install_name, 'ok', None, None))
 
         detection_results.append({
             'file': file,
@@ -1504,24 +1530,27 @@ Examples:
         all_available = True
         dep_status = []
 
-        for pkg_name, version_spec in metadata.required_packages:
+        # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
+        for install_name, import_name, version_spec in metadata.required_packages:
             if version_spec:
-                meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
+                # Use install_name for version checking (pip/metadata lookup)
+                meets_req, installed_version = check_version_requirement(install_name, version_spec)
                 if not meets_req:
                     all_available = False
                     if installed_version:
-                        dep_status.append((pkg_name, version_spec, 'mismatch', installed_version))
+                        dep_status.append((install_name, version_spec, 'mismatch', installed_version))
                     else:
-                        dep_status.append((pkg_name, version_spec, 'missing', None))
+                        dep_status.append((install_name, version_spec, 'missing', None))
                 else:
-                    dep_status.append((pkg_name, version_spec, 'ok', installed_version))
+                    dep_status.append((install_name, version_spec, 'ok', installed_version))
             else:
-                installed_version = get_package_version(pkg_name)
+                # Use install_name for version lookup (consistent with version checking)
+                installed_version = get_package_version(install_name)
                 if installed_version:
-                    dep_status.append((pkg_name, version_spec, 'ok', installed_version))
+                    dep_status.append((install_name, version_spec, 'ok', installed_version))
                 else:
                     all_available = False
-                    dep_status.append((pkg_name, version_spec, 'missing', None))
+                    dep_status.append((install_name, version_spec, 'missing', None))
 
         # Skip if filtering for available only
         if available_only and not all_available:

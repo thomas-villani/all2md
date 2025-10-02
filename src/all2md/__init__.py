@@ -646,8 +646,8 @@ def to_markdown(
                 except Exception as e:
                     raise MarkdownConversionError("Could not decode file as UTF-8") from e
 
-    # Fix windows newlines and return
-    return content.replace("\r\n", "\n")
+    # Normalize all line endings to \n
+    return content.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def to_ast(

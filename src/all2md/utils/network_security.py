@@ -256,6 +256,10 @@ def create_secure_http_client(
     instead of fragile transport subclassing. Validates all requests including
     redirects using stable httpx APIs.
 
+    The redirect limit is enforced using two complementary mechanisms:
+    1. Primary check: Validates response.history length (standard httpx API)
+    2. Secondary check: Tracks hop count explicitly via request.extensions for defense-in-depth
+
     Parameters
     ----------
     timeout : float, default 10.0
@@ -275,7 +279,12 @@ def create_secure_http_client(
     import httpx
 
     def validate_request_url(request: Any) -> None:
-        """Event hook to validate URLs before each request."""
+        """Event hook to validate URLs before each request.
+
+        Also tracks redirect hop count in request.extensions for
+        additional enforcement beyond response.history validation.
+        """
+        # Validate URL security
         try:
             validate_url_security(
                 str(request.url),
@@ -286,13 +295,39 @@ def create_secure_http_client(
             # Re-raise to abort the request
             raise
 
+        # Track redirect count in extensions for defense-in-depth
+        # Initialize or increment hop counter
+        if 'redirect_count' not in request.extensions:
+            request.extensions['redirect_count'] = 0
+        else:
+            request.extensions['redirect_count'] += 1
+
+        # Secondary enforcement: Check hop counter
+        redirect_count = request.extensions['redirect_count']
+        if redirect_count > max_redirects:
+            raise NetworkSecurityError(
+                f"Too many redirects (hop count): {redirect_count} > {max_redirects}"
+            )
+
     def validate_response_redirects(response: Any) -> None:
-        """Event hook to validate redirect chains."""
-        # Check redirect count
+        """Event hook to validate redirect chains.
+
+        Uses dual validation: both response.history (primary) and
+        request.extensions hop count (secondary defense-in-depth).
+        """
+        # Primary check: Validate response history length
         if len(response.history) > max_redirects:
             raise NetworkSecurityError(
-                f"Too many redirects: {len(response.history)} > {max_redirects}"
+                f"Too many redirects (history): {len(response.history)} > {max_redirects}"
             )
+
+        # Secondary check: Validate hop counter from request extensions
+        if hasattr(response, 'request') and response.request:
+            redirect_count = response.request.extensions.get('redirect_count', 0)
+            if redirect_count > max_redirects:
+                raise NetworkSecurityError(
+                    f"Too many redirects (hop count): {redirect_count} > {max_redirects}"
+                )
 
         # Validate each URL in the redirect history
         for redirect_response in response.history:

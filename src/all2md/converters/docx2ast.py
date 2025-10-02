@@ -928,7 +928,8 @@ def _iter_block_items(
                         alt_text_mode=options.alt_text_mode,
                     )
 
-                    img_data.append(ImageData(url=processed_image_url, alt_text=title or "image", title=title))
+                    if processed_image_url:
+                        img_data.append(ImageData(url=processed_image_url, alt_text=title or "image", title=title))
 
             if has_image and img_data:
                 # Yield ImageData objects directly
