@@ -1564,6 +1564,101 @@ class SourceCodeOptions(BaseOptions):
     )
 
 
+@dataclass(frozen=True)
+class MarkdownParserOptions(BaseOptions):
+    """Configuration options for Markdown-to-AST parsing.
+
+    This dataclass contains settings specific to parsing Markdown documents
+    into AST representation, supporting various Markdown flavors and extensions.
+
+    Parameters
+    ----------
+    flavor : {"gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"}, default "gfm"
+        Markdown flavor to parse. Determines which extensions are enabled.
+    parse_tables : bool, default True
+        Whether to parse table syntax (GFM pipe tables).
+    parse_footnotes : bool, default True
+        Whether to parse footnote references and definitions.
+    parse_math : bool, default True
+        Whether to parse inline ($...$) and block ($$...$$) math.
+    parse_task_lists : bool, default True
+        Whether to parse task list checkboxes (- [ ] and - [x]).
+    parse_definition_lists : bool, default True
+        Whether to parse definition lists (term : definition).
+    parse_strikethrough : bool, default True
+        Whether to parse strikethrough syntax (~~text~~).
+    strict_parsing : bool, default False
+        Whether to raise errors on invalid/ambiguous markdown syntax.
+        When False, attempts to recover gracefully.
+    preserve_html : bool, default True
+        Whether to preserve raw HTML in the AST (HTMLBlock/HTMLInline nodes).
+        When False, HTML is stripped.
+    """
+
+    flavor: FlavorType = field(
+        default=DEFAULT_FLAVOR,  # type: ignore[arg-type]
+        metadata={
+            "help": "Markdown flavor to parse (determines enabled extensions)",
+            "choices": ["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
+        }
+    )
+    parse_tables: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse table syntax (GFM pipe tables)",
+            "cli_name": "no-parse-tables"
+        }
+    )
+    parse_footnotes: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse footnote references and definitions",
+            "cli_name": "no-parse-footnotes"
+        }
+    )
+    parse_math: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse inline and block math ($...$ and $$...$$)",
+            "cli_name": "no-parse-math"
+        }
+    )
+    parse_task_lists: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse task list checkboxes (- [ ] and - [x])",
+            "cli_name": "no-parse-task-lists"
+        }
+    )
+    parse_definition_lists: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse definition lists (term : definition)",
+            "cli_name": "no-parse-definition-lists"
+        }
+    )
+    parse_strikethrough: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse strikethrough syntax (~~text~~)",
+            "cli_name": "no-parse-strikethrough"
+        }
+    )
+    strict_parsing: bool = field(
+        default=False,
+        metadata={
+            "help": "Raise errors on invalid markdown syntax (vs. graceful recovery)"
+        }
+    )
+    preserve_html: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve raw HTML in AST (HTMLBlock/HTMLInline nodes)",
+            "cli_name": "no-preserve-html"
+        }
+    )
+
+
 def validate_flavor_compatibility(
     flavor: FlavorType,
     options: MarkdownOptions,

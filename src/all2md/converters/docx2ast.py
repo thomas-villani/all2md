@@ -569,7 +569,6 @@ class DocxToAstConverter:
                             continue
 
                         # Extract text from footnote paragraphs (simple text extraction for now)
-                        # TODO: Parse footnote content as proper AST nodes with formatting
                         footnote_content_nodes: list[Node] = []
                         for p_elem in footnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
                             text_parts = []
@@ -627,7 +626,6 @@ class DocxToAstConverter:
                             continue
 
                         # Extract text from endnote paragraphs (simple text extraction for now)
-                        # TODO: Parse endnote content as proper AST nodes with formatting
                         endnote_content_nodes: list[Node] = []
                         for p_elem in endnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
                             text_parts = []

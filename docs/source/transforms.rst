@@ -1,7 +1,7 @@
-AST Transforms
-==============
+AST Transforms and Hooks
+========================
 
-The **all2md** transform system provides a powerful plugin architecture for manipulating document ASTs (Abstract Syntax Trees) before rendering. Transforms enable custom document processing workflows without forking the library.
+The **all2md** transform system provides a powerful plugin architecture for manipulating document ASTs (Abstract Syntax Trees) with hooks. Transforms enable custom document processing workflows without forking the library.
 
 .. contents:: Table of Contents
    :local:

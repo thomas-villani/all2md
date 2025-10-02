@@ -95,6 +95,7 @@ from all2md.options import (
     HtmlOptions,
     IpynbOptions,
     MarkdownOptions,
+    MarkdownParserOptions,
     MhtmlOptions,
     OdfOptions,
     PdfOptions,
@@ -144,7 +145,8 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
         "odf": OdfOptions,
         "epub": EpubOptions,
         "sourcecode": SourceCodeOptions,
-        "spreadsheet": SpreadsheetOptions
+        "spreadsheet": SpreadsheetOptions,
+        "markdown": MarkdownParserOptions
     }
     return format_to_class.get(format)
 
@@ -844,6 +846,7 @@ def to_ast(
         "rtf": "all2md.converters.rtf2ast.rtf_to_ast",
         "sourcecode": "all2md.converters.sourcecode2ast.sourcecode_to_ast",
         "spreadsheet": "all2md.converters.spreadsheet2ast.spreadsheet_to_ast",
+        "markdown": "all2md.converters.markdown2ast.markdown_to_ast",
     }
 
     converter_path = ast_converters.get(actual_format)
@@ -862,11 +865,20 @@ def to_ast(
         # Call the converter
         try:
             if isinstance(input, (str, Path)):
-                ast_doc = converter_func(input, options=final_options)
+                # For markdown, read file content as string
+                if actual_format == "markdown":
+                    if isinstance(input, Path):
+                        markdown_content = input.read_text(encoding="utf-8")
+                    else:
+                        # Assume string is a path
+                        markdown_content = Path(input).read_text(encoding="utf-8")
+                    ast_doc = converter_func(markdown_content, options=final_options)
+                else:
+                    ast_doc = converter_func(input, options=final_options)
             elif isinstance(input, bytes):
-                if actual_format == "html":
-                    html_content = input.decode("utf-8", errors="replace")
-                    ast_doc = converter_func(html_content, options=final_options)
+                if actual_format in ("html", "markdown"):
+                    content = input.decode("utf-8", errors="replace")
+                    ast_doc = converter_func(content, options=final_options)
                 else:
                     from io import BytesIO
 
@@ -875,10 +887,10 @@ def to_ast(
             else:
                 # File-like object
                 file = input  # type: ignore
-                if actual_format == "html":
+                if actual_format in ("html", "markdown"):
                     file.seek(0)
-                    html_content = file.read().decode("utf-8", errors="replace")
-                    ast_doc = converter_func(html_content, options=final_options)
+                    content = file.read().decode("utf-8", errors="replace")
+                    ast_doc = converter_func(content, options=final_options)
                 else:
                     file.seek(0)
                     ast_doc = converter_func(file, options=final_options)

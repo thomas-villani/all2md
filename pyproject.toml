@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [tool.hatch.build.targets.wheel]
-packages = [{ include = "all2md", from = "src" }]
+packages = ["src/all2md"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/**", "pyproject.toml", "README.md", "LICENSE"]
@@ -43,12 +43,14 @@ html = [
 all = [
     "beautifulsoup4>=4.13.5",
     "httpx>=0.28.1",
+    "mistune>=3.0.0",
     "odfpy>=1.4.1",
     "openpyxl>=3.1.5",
     "pymupdf>=1.26.4",
     "pyth3>=0.7",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
+    "reportlab>=4.0.0",
 ]
 dev = [
     "mypy>=1.18.2",
@@ -68,6 +70,12 @@ cli_extras = [
 ]
 spreadsheet = [
     "openpyxl>=3.1.5",
+]
+markdown = [
+    "mistune>=3.0.0",
+]
+pdf_render = [
+    "reportlab>=4.0.0",
 ]
 
 
