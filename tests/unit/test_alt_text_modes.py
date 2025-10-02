@@ -86,7 +86,7 @@ class TestAltTextModes:
         assert result == "[document.pdf](#)"
 
     def test_footnote_mode_images(self):
-        """Test footnote mode for images uses footnote reference."""
+        """Test footnote mode for images uses footnote reference with sanitized label (no extension)."""
         result = process_attachment(
             attachment_data=None,
             attachment_name="test.png",
@@ -95,10 +95,11 @@ class TestAltTextModes:
             alt_text_mode="footnote",
             is_image=True
         )
-        assert result == "![Test Image][^test.png]"
+        # Footnote labels are sanitized and extension is removed for cleaner references
+        assert result == "![Test Image][^test]"
 
     def test_footnote_mode_files(self):
-        """Test footnote mode for files uses footnote reference."""
+        """Test footnote mode for files uses footnote reference with sanitized label (no extension)."""
         result = process_attachment(
             attachment_data=None,
             attachment_name="document.pdf",
@@ -107,7 +108,8 @@ class TestAltTextModes:
             alt_text_mode="footnote",
             is_image=False
         )
-        assert result == "[document.pdf][^document.pdf]"
+        # Footnote labels are sanitized and extension is removed for cleaner references
+        assert result == "[document.pdf][^document]"
 
     def test_alt_text_fallback_uses_filename(self):
         """Test that empty alt_text falls back to filename."""

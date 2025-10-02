@@ -24,8 +24,13 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -34,6 +39,8 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     Strikethrough,
@@ -488,6 +495,125 @@ class NodeVisitor(ABC):
         """
         pass
 
+    @abstractmethod
+    def visit_footnote_reference(self, node: "FootnoteReference") -> Any:
+        """Visit a FootnoteReference node.
+
+        Parameters
+        ----------
+        node : FootnoteReference
+            The footnote reference node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_math_inline(self, node: "MathInline") -> Any:
+        """Visit a MathInline node.
+
+        Parameters
+        ----------
+        node : MathInline
+            The inline math node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_footnote_definition(self, node: "FootnoteDefinition") -> Any:
+        """Visit a FootnoteDefinition node.
+
+        Parameters
+        ----------
+        node : FootnoteDefinition
+            The footnote definition node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_definition_list(self, node: "DefinitionList") -> Any:
+        """Visit a DefinitionList node.
+
+        Parameters
+        ----------
+        node : DefinitionList
+            The definition list node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_definition_term(self, node: "DefinitionTerm") -> Any:
+        """Visit a DefinitionTerm node.
+
+        Parameters
+        ----------
+        node : DefinitionTerm
+            The definition term node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_definition_description(self, node: "DefinitionDescription") -> Any:
+        """Visit a DefinitionDescription node.
+
+        Parameters
+        ----------
+        node : DefinitionDescription
+            The definition description node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_math_block(self, node: "MathBlock") -> Any:
+        """Visit a MathBlock node.
+
+        Parameters
+        ----------
+        node : MathBlock
+            The math block node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
     def generic_visit(self, node: Node) -> Any:
         """Fallback visitor for unhandled node types.
 
@@ -654,4 +780,41 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_html_inline(self, node: HTMLInline) -> None:
         """Validate an HTMLInline node."""
+        pass
+
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
+        """Validate a FootnoteReference node."""
+        if not node.identifier:
+            self._add_error("FootnoteReference must have an identifier")
+
+    def visit_math_inline(self, node: MathInline) -> None:
+        """Validate a MathInline node."""
+        pass
+
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
+        """Validate a FootnoteDefinition node."""
+        if not node.identifier:
+            self._add_error("FootnoteDefinition must have an identifier")
+        for child in node.content:
+            child.accept(self)
+
+    def visit_definition_list(self, node: DefinitionList) -> None:
+        """Validate a DefinitionList node."""
+        for term, descriptions in node.items:
+            term.accept(self)
+            for desc in descriptions:
+                desc.accept(self)
+
+    def visit_definition_term(self, node: DefinitionTerm) -> None:
+        """Validate a DefinitionTerm node."""
+        for child in node.content:
+            child.accept(self)
+
+    def visit_definition_description(self, node: DefinitionDescription) -> None:
+        """Validate a DefinitionDescription node."""
+        for child in node.content:
+            child.accept(self)
+
+    def visit_math_block(self, node: MathBlock) -> None:
+        """Validate a MathBlock node."""
         pass

@@ -32,8 +32,13 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -42,6 +47,8 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     Strikethrough,
@@ -885,3 +892,177 @@ class MarkdownRenderer(NodeVisitor):
 
         """
         self._output.append(node.content)
+
+    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+        """Render a FootnoteReference node.
+
+        Parameters
+        ----------
+        node : FootnoteReference
+            Footnote reference to render
+
+        """
+        if self._flavor.supports_footnotes():
+            self._output.append(f"[^{node.identifier}]")
+        else:
+            mode = self.options.unsupported_inline_mode
+            if mode == "plain":
+                pass
+            elif mode == "force":
+                self._output.append(f"[^{node.identifier}]")
+            else:
+                self._output.append(f"<sup>{node.identifier}</sup>")
+
+    def visit_math_inline(self, node: "MathInline") -> None:
+        """Render a MathInline node.
+
+        Parameters
+        ----------
+        node : MathInline
+            Inline math to render
+
+        """
+        if self._flavor.supports_math():
+            self._output.append(f"${node.content}$")
+        else:
+            mode = self.options.unsupported_inline_mode
+            if mode == "plain":
+                self._output.append(node.content)
+            elif mode == "force":
+                self._output.append(f"${node.content}$")
+            else:
+                self._output.append(f"<code>{node.content}</code>")
+
+    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+        """Render a FootnoteDefinition node.
+
+        Parameters
+        ----------
+        node : FootnoteDefinition
+            Footnote definition to render
+
+        """
+        if self._flavor.supports_footnotes():
+            self._output.append(f"[^{node.identifier}]: ")
+            for i, child in enumerate(node.content):
+                saved_output = self._output
+                self._output = []
+                child.accept(self)
+                child_content = ''.join(self._output)
+                self._output = saved_output
+                if i == 0:
+                    self._output.append(child_content)
+                else:
+                    indent_lines = child_content.split('\n')
+                    self._output.append('\n    ' + '\n    '.join(indent_lines))
+        else:
+            mode = self.options.unsupported_table_mode
+            if mode == "drop":
+                return
+            elif mode == "html":
+                self._output.append(f'<div id="fn-{node.identifier}">')
+                for child in node.content:
+                    child.accept(self)
+                self._output.append('</div>')
+            else:
+                self._output.append(f"[^{node.identifier}]: ")
+                for child in node.content:
+                    child.accept(self)
+
+    def visit_definition_list(self, node: "DefinitionList") -> None:
+        """Render a DefinitionList node.
+
+        Parameters
+        ----------
+        node : DefinitionList
+            Definition list to render
+
+        """
+        if not self._flavor.supports_definition_lists():
+            mode = self.options.unsupported_table_mode
+            if mode == "drop":
+                return
+            elif mode == "html":
+                self._output.append('<dl>\n')
+                for term, descriptions in node.items:
+                    self._output.append('  <dt>')
+                    term_content = self._render_inline_content(term.content)
+                    self._output.append(term_content)
+                    self._output.append('</dt>\n')
+                    for desc in descriptions:
+                        self._output.append('  <dd>')
+                        for child in desc.content:
+                            child.accept(self)
+                        self._output.append('</dd>\n')
+                self._output.append('</dl>')
+                return
+        for i, (term, descriptions) in enumerate(node.items):
+            if i > 0:
+                self._output.append('\n')
+            term_content = self._render_inline_content(term.content)
+            self._output.append(term_content)
+            for desc in descriptions:
+                self._output.append('\n: ')
+                for j, child in enumerate(desc.content):
+                    if j > 0:
+                        self._output.append('\n    ')
+                    saved_output = self._output
+                    self._output = []
+                    child.accept(self)
+                    child_content = ''.join(self._output)
+                    self._output = saved_output
+                    if j > 0:
+                        indent_lines = child_content.split('\n')
+                        self._output.append('\n    '.join(indent_lines))
+                    else:
+                        self._output.append(child_content)
+
+    def visit_definition_term(self, node: "DefinitionTerm") -> None:
+        """Render a DefinitionTerm node.
+
+        Parameters
+        ----------
+        node : DefinitionTerm
+            Definition term to render
+
+        """
+        pass
+
+    def visit_definition_description(self, node: "DefinitionDescription") -> None:
+        """Render a DefinitionDescription node.
+
+        Parameters
+        ----------
+        node : DefinitionDescription
+            Definition description to render
+
+        """
+        pass
+
+    def visit_math_block(self, node: "MathBlock") -> None:
+        """Render a MathBlock node.
+
+        Parameters
+        ----------
+        node : MathBlock
+            Math block to render
+
+        """
+        if self._flavor.supports_math():
+            self._output.append("$$\n")
+            self._output.append(node.content)
+            if not node.content.endswith('\n'):
+                self._output.append('\n')
+            self._output.append("$$")
+        else:
+            mode = self.options.unsupported_table_mode
+            if mode == "drop":
+                return
+            elif mode == "html":
+                self._output.append(f'<div class="math">\n{node.content}\n</div>')
+            else:
+                self._output.append("$$\n")
+                self._output.append(node.content)
+                if not node.content.endswith('\n'):
+                    self._output.append('\n')
+                self._output.append("$$")

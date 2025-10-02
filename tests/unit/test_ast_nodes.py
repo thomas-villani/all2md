@@ -17,8 +17,13 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -27,6 +32,8 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     SourceLocation,
@@ -465,4 +472,98 @@ class TestValidationVisitor:
 
         visitor = ValidationVisitor(strict=True)
         doc.accept(visitor)
+        assert len(visitor.errors) == 0
+
+
+@pytest.mark.unit
+class TestExtendedMarkdownNodes:
+    """Tests for extended Markdown AST nodes (footnotes, math, definition lists)."""
+
+    def test_footnote_reference(self):
+        """Test creating a footnote reference node."""
+        ref = FootnoteReference(identifier="1")
+        assert ref.identifier == "1"
+
+        class TestVisitor:
+            def visit_footnote_reference(self, node):
+                return f"[^{node.identifier}]"
+
+        visitor = TestVisitor()
+        result = ref.accept(visitor)
+        assert result == "[^1]"
+
+    def test_footnote_definition(self):
+        """Test creating a footnote definition node."""
+        defn = FootnoteDefinition(
+            identifier="1",
+            content=[Paragraph(content=[Text(content="Footnote text here")])]
+        )
+        assert defn.identifier == "1"
+        assert len(defn.content) == 1
+        assert isinstance(defn.content[0], Paragraph)
+
+    def test_math_inline(self):
+        """Test creating an inline math node."""
+        math = MathInline(content="E=mc^2")
+        assert math.content == "E=mc^2"
+
+    def test_math_block(self):
+        """Test creating a math block node."""
+        math = MathBlock(content="\\sum_{i=1}^{n} x_i")
+        assert math.content == "\\sum_{i=1}^{n} x_i"
+
+    def test_definition_list(self):
+        """Test creating a definition list."""
+        term1 = DefinitionTerm(content=[Text(content="Term 1")])
+        desc1 = DefinitionDescription(content=[Paragraph(content=[Text(content="Description 1")])])
+        desc2 = DefinitionDescription(content=[Paragraph(content=[Text(content="Description 2")])])
+
+        dl = DefinitionList(items=[
+            (term1, [desc1, desc2])
+        ])
+
+        assert len(dl.items) == 1
+        assert dl.items[0][0] == term1
+        assert len(dl.items[0][1]) == 2
+
+    def test_definition_term(self):
+        """Test creating a definition term."""
+        term = DefinitionTerm(content=[Text(content="API")])
+        assert len(term.content) == 1
+        assert isinstance(term.content[0], Text)
+
+    def test_definition_description(self):
+        """Test creating a definition description."""
+        desc = DefinitionDescription(content=[
+            Paragraph(content=[Text(content="Application Programming Interface")])
+        ])
+        assert len(desc.content) == 1
+        assert isinstance(desc.content[0], Paragraph)
+
+    def test_footnote_validation(self):
+        """Test validation of footnote nodes."""
+        # Valid footnote reference
+        ref = FootnoteReference(identifier="1")
+        visitor = ValidationVisitor(strict=True)
+        visitor.visit_footnote_reference(ref)
+        assert len(visitor.errors) == 0
+
+        # Invalid footnote reference (empty identifier)
+        ref_invalid = FootnoteReference.__new__(FootnoteReference)
+        ref_invalid.identifier = ""
+        ref_invalid.metadata = {}
+        ref_invalid.source_location = None
+
+        visitor2 = ValidationVisitor(strict=False)
+        visitor2.visit_footnote_reference(ref_invalid)
+        assert len(visitor2.errors) > 0
+
+    def test_definition_list_validation(self):
+        """Test validation of definition lists."""
+        term = DefinitionTerm(content=[Text(content="Term")])
+        desc = DefinitionDescription(content=[Paragraph(content=[Text(content="Desc")])])
+        dl = DefinitionList(items=[(term, [desc])])
+
+        visitor = ValidationVisitor(strict=True)
+        visitor.visit_definition_list(dl)
         assert len(visitor.errors) == 0

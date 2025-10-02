@@ -48,9 +48,13 @@ if TYPE_CHECKING:
 
 
 from all2md.ast import (
+    BlockQuote,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
+    HTMLBlock,
     Image,
     Link,
     List,
@@ -536,7 +540,7 @@ class DocxToAstConverter:
         return AstTable(header=header_row, rows=data_rows)
 
     def _process_footnotes(self, doc: "docx.document.Document") -> list[Node]:
-        """Process footnotes from document.
+        """Process footnotes from document using FootnoteDefinition nodes.
 
         Parameters
         ----------
@@ -546,7 +550,7 @@ class DocxToAstConverter:
         Returns
         -------
         list[Node]
-            List of AST nodes for footnotes
+            List of FootnoteDefinition AST nodes
 
         """
         nodes: list[Node] = []
@@ -555,9 +559,6 @@ class DocxToAstConverter:
             if hasattr(doc.part, 'footnotes_part'):
                 footnotes_part = doc.part.footnotes_part
                 if footnotes_part and hasattr(footnotes_part, 'element'):
-                    # Add section heading
-                    nodes.append(Heading(level=2, content=[Text(content="Footnotes")]))
-
                     # Iterate over footnotes
                     for footnote in footnotes_part.element.findall(
                         './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}footnote'
@@ -567,26 +568,37 @@ class DocxToAstConverter:
                         if footnote_id in ('-1', '0'):
                             continue
 
-                        # Extract text from footnote paragraphs
-                        footnote_text_parts = []
+                        # Extract text from footnote paragraphs (simple text extraction for now)
+                        # TODO: Parse footnote content as proper AST nodes with formatting
+                        footnote_content_nodes: list[Node] = []
                         for p_elem in footnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
+                            text_parts = []
                             for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
                                 if t_elem.text:
-                                    footnote_text_parts.append(t_elem.text)
+                                    text_parts.append(t_elem.text)
 
-                        if footnote_text_parts:
-                            footnote_text = ' '.join(footnote_text_parts)
-                            nodes.append(AstParagraph(content=[
-                                Strong(content=[Text(content=f"[{footnote_id}]")]),
-                                Text(content=f" {footnote_text}")
-                            ]))
+                            if text_parts:
+                                footnote_text = ' '.join(text_parts)
+                                footnote_content_nodes.append(
+                                    AstParagraph(content=[Text(content=footnote_text)])
+                                )
+
+                        if footnote_content_nodes:
+                            # Create FootnoteDefinition node
+                            nodes.append(FootnoteDefinition(
+                                identifier=footnote_id,
+                                content=footnote_content_nodes
+                            ))
         except Exception as e:
             logger.debug(f"Could not process footnotes: {e}")
 
         return nodes
 
     def _process_endnotes(self, doc: "docx.document.Document") -> list[Node]:
-        """Process endnotes from document.
+        """Process endnotes from document using FootnoteDefinition nodes.
+
+        Note: Endnotes are treated as footnotes in the AST since they have
+        the same structure and rendering format.
 
         Parameters
         ----------
@@ -596,7 +608,7 @@ class DocxToAstConverter:
         Returns
         -------
         list[Node]
-            List of AST nodes for endnotes
+            List of FootnoteDefinition AST nodes
 
         """
         nodes: list[Node] = []
@@ -605,9 +617,6 @@ class DocxToAstConverter:
             if hasattr(doc.part, 'endnotes_part'):
                 endnotes_part = doc.part.endnotes_part
                 if endnotes_part and hasattr(endnotes_part, 'element'):
-                    # Add section heading
-                    nodes.append(Heading(level=2, content=[Text(content="Endnotes")]))
-
                     # Iterate over endnotes
                     for endnote in endnotes_part.element.findall(
                         './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}endnote'
@@ -617,26 +626,40 @@ class DocxToAstConverter:
                         if endnote_id in ('-1', '0'):
                             continue
 
-                        # Extract text from endnote paragraphs
-                        endnote_text_parts = []
+                        # Extract text from endnote paragraphs (simple text extraction for now)
+                        # TODO: Parse endnote content as proper AST nodes with formatting
+                        endnote_content_nodes: list[Node] = []
                         for p_elem in endnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
+                            text_parts = []
                             for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
                                 if t_elem.text:
-                                    endnote_text_parts.append(t_elem.text)
+                                    text_parts.append(t_elem.text)
 
-                        if endnote_text_parts:
-                            endnote_text = ' '.join(endnote_text_parts)
-                            nodes.append(AstParagraph(content=[
-                                Strong(content=[Text(content=f"[{endnote_id}]")]),
-                                Text(content=f" {endnote_text}")
-                            ]))
+                            if text_parts:
+                                endnote_text = ' '.join(text_parts)
+                                endnote_content_nodes.append(
+                                    AstParagraph(content=[Text(content=endnote_text)])
+                                )
+
+                        if endnote_content_nodes:
+                            # Create FootnoteDefinition node
+                            # Use 'end' prefix to distinguish from regular footnotes
+                            nodes.append(FootnoteDefinition(
+                                identifier=f"end{endnote_id}",
+                                content=endnote_content_nodes
+                            ))
         except Exception as e:
             logger.debug(f"Could not process endnotes: {e}")
 
         return nodes
 
     def _process_comments(self, doc: "docx.document.Document") -> list[Node]:
-        """Process comments from document.
+        """Process comments from document with configurable rendering modes.
+
+        Supports three rendering modes via options.comment_mode:
+        - 'html': Render as HTML comments (<!-- Comment: text -->)
+        - 'blockquote': Render as blockquotes with attribution
+        - 'ignore': Skip comments entirely
 
         Parameters
         ----------
@@ -650,14 +673,16 @@ class DocxToAstConverter:
 
         """
         nodes: list[Node] = []
+        mode = self.options.comment_mode
+
+        # Skip if mode is ignore
+        if mode == "ignore":
+            return nodes
 
         try:
             if hasattr(doc.part, 'comments_part'):
                 comments_part = doc.part.comments_part
                 if comments_part and hasattr(comments_part, 'element'):
-                    # Add section heading
-                    nodes.append(Heading(level=2, content=[Text(content="Comments")]))
-
                     # Iterate over comments
                     for comment in comments_part.element.findall(
                         './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}comment'
@@ -675,14 +700,31 @@ class DocxToAstConverter:
 
                         if comment_text_parts:
                             comment_text = ' '.join(comment_text_parts)
-                            # Format: **[Comment ID]** Author (Date): Comment text
-                            header = f"[{comment_id}] {author}"
-                            if date:
-                                header += f" ({date})"
-                            nodes.append(AstParagraph(content=[
-                                Strong(content=[Text(content=header)]),
-                                Text(content=f": {comment_text}")
-                            ]))
+
+                            if mode == "html":
+                                # Render as HTML comment
+                                header = f"Comment by {author}"
+                                if date:
+                                    header += f" on {date}"
+                                html_comment = f"<!-- {header}: {comment_text} -->"
+                                nodes.append(HTMLBlock(content=html_comment))
+
+                            elif mode == "blockquote":
+                                # Render as blockquote with attribution
+                                # Create attribution line
+                                header = f"[{comment_id}] {author}"
+                                if date:
+                                    header += f" ({date})"
+
+                                # Build blockquote content
+                                blockquote_content = [
+                                    AstParagraph(content=[Text(content=comment_text)]),
+                                    AstParagraph(content=[
+                                        Emphasis(content=[Text(content=f"— {header}")])
+                                    ])
+                                ]
+                                nodes.append(BlockQuote(children=blockquote_content))
+
         except Exception as e:
             logger.debug(f"Could not process comments: {e}")
 

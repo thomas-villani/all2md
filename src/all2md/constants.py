@@ -64,6 +64,7 @@ SubscriptMode = Literal["html", "markdown", "ignore"]
 EmphasisSymbol = Literal["*", "_"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
+CommentMode = Literal["html", "blockquote", "ignore"]
 
 # Markdown flavor and unsupported element handling
 FlavorType = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
@@ -75,6 +76,7 @@ CodeFenceChar = Literal["`", "~"]
 # Attachment handling defaults - defined here after AttachmentMode type
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
+DEFAULT_COMMENT_MODE: CommentMode = "blockquote"
 
 # Flavor and unsupported element defaults
 DEFAULT_FLAVOR: FlavorType = "gfm"

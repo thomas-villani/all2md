@@ -129,7 +129,8 @@ class TestListFormatsCommand:
         mock_metadata.mime_types = ['application/pdf']
         mock_metadata.converter_module = "all2md.converters.pdf2markdown"
         mock_metadata.priority = 100
-        mock_metadata.required_packages = [("pymupdf", ">=1.24.0")]
+        # required_packages is a list of (install_name, import_name, version_spec) tuples
+        mock_metadata.required_packages = [("pymupdf", "fitz", ">=1.24.0")]
 
         mock_registry.get_format_info = Mock(return_value=mock_metadata)
         mock_check_version.return_value = (True, "1.24.0")
@@ -321,6 +322,8 @@ class TestEnhancedDryRun:
         args.recursive = False
         args.parallel = 1
         args.exclude = None
+        # Add _provided_args to avoid TypeError when checking 'in' operator
+        args._provided_args = set()
 
         # Create a temporary test file
         import tempfile

@@ -43,6 +43,7 @@ from .constants import (
     DEFAULT_CLEAN_QUOTES,
     DEFAULT_CLEAN_WRAPPED_URLS,
     DEFAULT_COLUMN_GAP_THRESHOLD,
+    DEFAULT_COMMENT_MODE,
     DEFAULT_CONVERT_HTML_TO_MARKDOWN,
     DEFAULT_CONVERT_NBSP,
     DEFAULT_DATE_FORMAT_MODE,
@@ -102,6 +103,7 @@ from .constants import (
     AltTextMode,
     AttachmentMode,
     CodeFenceChar,
+    CommentMode,
     DateFormatMode,
     EmphasisSymbol,
     FlavorType,
@@ -894,6 +896,13 @@ class DocxOptions(BaseOptions):
     include_comments: bool = field(
         default=False,
         metadata={"help": "Include document comments in output"}
+    )
+    comment_mode: CommentMode = field(
+        default=DEFAULT_COMMENT_MODE,
+        metadata={
+            "help": "How to render comments: html (HTML comments), blockquote (quoted blocks), ignore (skip)",
+            "choices": ["html", "blockquote", "ignore"]
+        }
     )
     include_image_captions: bool = field(
         default=True,

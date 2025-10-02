@@ -849,6 +849,8 @@ class TestNewEnhancedCLIFeatures:
             args.recursive = False
             args.parallel = 1
             args.exclude = None
+            # Add _provided_args to avoid TypeError when checking 'in' operator
+            args._provided_args = set()
 
             # Capture output
             captured_output = StringIO()
@@ -898,6 +900,8 @@ class TestNewEnhancedCLIFeatures:
             args.recursive = False
             args.parallel = 1
             args.exclude = None
+            # Add _provided_args to avoid TypeError when checking 'in' operator
+            args._provided_args = set()
 
             # Test with rich available
             with patch('rich.console.Console') as mock_console:

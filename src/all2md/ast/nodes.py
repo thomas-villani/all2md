@@ -1097,3 +1097,282 @@ class HTMLInline(Node):
 
         """
         return visitor.visit_html_inline(self)
+
+
+@dataclass
+class FootnoteReference(Node):
+    """Footnote reference node (inline).
+
+    Represents an inline reference to a footnote, typically rendered as [^id].
+    This is used with flavors that support footnotes (e.g., MultiMarkdown, Pandoc).
+
+    Parameters
+    ----------
+    identifier : str
+        Footnote identifier (e.g., "1", "note1")
+    metadata : dict, default = empty dict
+        Footnote reference metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    identifier: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this footnote reference.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_footnote_reference method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_footnote_reference(self)
+
+        """
+        return visitor.visit_footnote_reference(self)
+
+
+@dataclass
+class MathInline(Node):
+    """Inline math node.
+
+    Represents inline mathematical content, typically rendered with $ delimiters.
+    Supported by GFM, Pandoc, Kramdown, and MarkdownPlus flavors.
+
+    Parameters
+    ----------
+    content : str
+        LaTeX math content (without delimiters)
+    metadata : dict, default = empty dict
+        Math metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    content: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this inline math.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_math_inline method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_math_inline(self)
+
+        """
+        return visitor.visit_math_inline(self)
+
+
+# ============================================================================
+# Extended Block Nodes (Markdown Extensions)
+# ============================================================================
+
+
+@dataclass
+class FootnoteDefinition(Node):
+    """Footnote definition node (block).
+
+    Represents a footnote definition, typically rendered as [^id]: content.
+    Used with MultiMarkdown, Pandoc, Kramdown, and MarkdownPlus flavors.
+
+    Parameters
+    ----------
+    identifier : str
+        Footnote identifier matching a FootnoteReference
+    content : list of Node, default = empty list
+        Block-level content of the footnote
+    metadata : dict, default = empty dict
+        Footnote definition metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    identifier: str
+    content: list[Node] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this footnote definition.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_footnote_definition method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_footnote_definition(self)
+
+        """
+        return visitor.visit_footnote_definition(self)
+
+
+@dataclass
+class DefinitionList(Node):
+    """Definition list node (block).
+
+    Represents a definition list containing terms and their descriptions.
+    Supported by MultiMarkdown, Pandoc, Kramdown, and MarkdownPlus flavors.
+
+    Parameters
+    ----------
+    items : list of tuple, default = empty list
+        List of (DefinitionTerm, list[DefinitionDescription]) tuples
+    metadata : dict, default = empty dict
+        Definition list metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this definition list.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_definition_list method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_definition_list(self)
+
+        """
+        return visitor.visit_definition_list(self)
+
+
+@dataclass
+class DefinitionTerm(Node):
+    """Definition term node (block).
+
+    Represents a term in a definition list.
+
+    Parameters
+    ----------
+    content : list of Node, default = empty list
+        Inline content of the term
+    metadata : dict, default = empty dict
+        Term metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    content: list[Node] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this definition term.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_definition_term method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_definition_term(self)
+
+        """
+        return visitor.visit_definition_term(self)
+
+
+@dataclass
+class DefinitionDescription(Node):
+    """Definition description node (block).
+
+    Represents a description/definition in a definition list.
+
+    Parameters
+    ----------
+    content : list of Node, default = empty list
+        Block-level content of the description
+    metadata : dict, default = empty dict
+        Description metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    content: list[Node] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this definition description.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_definition_description method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_definition_description(self)
+
+        """
+        return visitor.visit_definition_description(self)
+
+
+@dataclass
+class MathBlock(Node):
+    """Math block node.
+
+    Represents a block of mathematical content, typically rendered with $$ delimiters.
+    Supported by GFM, MultiMarkdown, Pandoc, Kramdown, and MarkdownPlus flavors.
+
+    Parameters
+    ----------
+    content : str
+        LaTeX math content (without delimiters)
+    metadata : dict, default = empty dict
+        Math block metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    content: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this math block.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_math_block method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_math_block(self)
+
+        """
+        return visitor.visit_math_block(self)
