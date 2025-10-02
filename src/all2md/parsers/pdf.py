@@ -15,10 +15,11 @@ import logging
 import re
 import string
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Union, Callable, Optional
 
 from all2md import MarkdownOptions, PdfOptions
-from all2md.utils.attachments import process_attachment
+from all2md.parsers.pdf2markdown import SPACES
+from all2md.utils.attachments import process_attachment, create_attachment_sequencer
 
 if TYPE_CHECKING:
     import fitz
@@ -37,21 +38,19 @@ from all2md.ast import (
     TableCell,
     TableRow,
     Text,
-)
-from all2md.ast import (
-    Paragraph as AstParagraph,
-)
-from all2md.ast import (
     Table as AstTable,
+    Paragraph as AstParagraph, HTMLBlock,
 )
+
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
-    DEFAULT_OVERLAP_THRESHOLD_PX,
+    DEFAULT_OVERLAP_THRESHOLD_PX, PDF_MIN_PYMUPDF_VERSION,
 )
+from all2md.exceptions import InputError, DependencyError, MarkdownConversionError, PasswordProtectedError
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import PdfOptions
 from all2md.parsers.base import BaseParser
-from all2md.utils.inputs import escape_markdown_special
+from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import (
     PDF_FIELD_MAPPING,
     DocumentMetadata,
@@ -63,834 +62,28 @@ logger = logging.getLogger(__name__)
 # Used to check relevance of text pieces
 SPACES = set(string.whitespace)
 
+def _check_pymupdf_version() -> None:
+    """Check that PyMuPDF version meets minimum requirements.
 
-class PdfToAstConverter(BaseParser):
-    """Convert PDF to AST representation.
-
-    This converter parses PDF documents using PyMuPDF and builds an AST
-    that can be rendered to various markdown flavors.
-
-    Parameters
-    ----------
-    options : PdfOptions or None, default = None
-        Conversion options
-    doc : fitz.Document
-        PDF document to convert
-    base_filename : str
-        Base filename for image attachments
-    attachment_sequencer : callable or None
-        Sequencer for generating attachment filenames
-    hdr_identifier : IdentifyHeaders or None
-        Header identification object for determining header levels
-
+    Raises
+    ------
+    MarkdownConversionError
+        If PyMuPDF version is too old
     """
-
-    def __init__(
-        self,
-        options: PdfOptions | None = None,
-        doc: "fitz.Document | None" = None,
-        base_filename: str = "document",
-        attachment_sequencer: Any = None,
-        hdr_identifier: Any = None,
-    ):
-        super().__init__(options or PdfOptions())
-        self.doc = doc
-        self.base_filename = base_filename
-        self.attachment_sequencer = attachment_sequencer
-        self.hdr_identifier = hdr_identifier
-        self._current_page_num = 0
-
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
-        """Parse PDF document into AST.
-
-        This method handles loading the PDF file and converting it to AST.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            PDF file to parse
-
-        Returns
-        -------
-        Document
-            AST document node
-
-        """
+    try:
         import fitz
-
-        # Load the document if not already loaded
-        if isinstance(input_data, fitz.Document):
-            doc = input_data
-        else:
-            doc = fitz.open(input_data)
-
-        # Determine pages to use
-        pages_to_use = self.options.pages if self.options.pages else range(doc.page_count)
-
-        return self.convert_to_ast(doc, pages_to_use)
-
-    def extract_metadata(self, document: "fitz.Document") -> DocumentMetadata:
-        """Extract metadata from PDF document.
-
-        Extracts standard metadata fields from a PDF document including title,
-        author, subject, keywords, creation date, modification date, and creator
-        application information. Also preserves any custom metadata fields that
-        are not part of the standard set.
-
-        Parameters
-        ----------
-        document : fitz.Document
-            PyMuPDF document object to extract metadata from
-
-        Returns
-        -------
-        DocumentMetadata
-            Extracted metadata including standard fields (title, author, dates, etc.)
-            and any custom fields found in the PDF. Returns empty DocumentMetadata
-            if no metadata is available.
-
-        Notes
-        -----
-        - PDF date strings in format 'D:YYYYMMDDHHmmSS' are parsed into datetime objects
-        - Empty or whitespace-only metadata values are ignored
-        - Internal PDF fields (format, trapped, encryption) are excluded
-        - Unknown metadata fields are stored in the custom dictionary
-
-        """
-        # PyMuPDF provides metadata as a dictionary
-        pdf_meta = document.metadata if hasattr(document, 'metadata') else {}
-
-        if not pdf_meta:
-            return DocumentMetadata()
-
-        # Create custom handlers for PDF-specific field processing
-        def handle_pdf_dates(meta_dict: dict[str, Any], field_names: list[str]) -> Any:
-            """Handle PDF date fields with special parsing."""
-            for field_name in field_names:
-                if field_name in meta_dict:
-                    date_val = meta_dict[field_name]
-                    if date_val and str(date_val).strip():
-                        return self._parse_pdf_date(str(date_val).strip())
-            return None
-
-        # Custom field mapping for PDF dates
-        pdf_mapping = PDF_FIELD_MAPPING.copy()
-        pdf_mapping.update({
-            'creation_date': ['creationDate', 'CreationDate'],
-            'modification_date': ['modDate', 'ModDate'],
-        })
-
-        # Custom handlers for special fields
-        custom_handlers = {
-            'creation_date': handle_pdf_dates,
-            'modification_date': handle_pdf_dates,
-        }
-
-        # Use the utility function for standard extraction
-        metadata = extract_dict_metadata(pdf_meta, pdf_mapping)
-
-        # Apply custom handlers for date fields
-        for field_name, handler in custom_handlers.items():
-            if field_name in pdf_mapping:
-                value = handler(pdf_meta, pdf_mapping[field_name])
-                if value:
-                    setattr(metadata, field_name, value)
-
-        # Store any additional PDF-specific metadata in custom fields
-        processed_keys = set()
-        for field_names in pdf_mapping.values():
-            if isinstance(field_names, list):
-                processed_keys.update(field_names)
-            else:
-                processed_keys.add(field_names)
-
-        # Skip internal PDF fields
-        internal_fields = {'format', 'trapped', 'encryption'}
-
-        for key, value in pdf_meta.items():
-            if key not in processed_keys and key not in internal_fields:
-                if value and str(value).strip():
-                    metadata.custom[key] = value
-
-        return metadata
-
-    def _parse_pdf_date(self, date_str: str) -> str:
-        """Parse PDF date format into a readable string.
-
-        Converts PDF date strings from the internal format 'D:YYYYMMDDHHmmSS'
-        into datetime objects for standardized date handling.
-
-        Parameters
-        ----------
-        date_str : str
-            PDF date string in format 'D:YYYYMMDDHHmmSS' with optional timezone
-
-        Returns
-        -------
-        str
-            Parsed datetime object or original string if parsing fails
-
-        Notes
-        -----
-        Handles both UTC (Z suffix) and timezone offset formats.
-        Returns original string if format is unrecognized.
-
-        """
-        if not date_str or not date_str.startswith('D:'):
-            return date_str
-
-        try:
-            from datetime import datetime
-            # Remove D: prefix and parse
-            clean_date = date_str[2:]
-            if 'Z' in clean_date:
-                clean_date = clean_date.replace('Z', '+0000')
-            # Basic parsing - format is YYYYMMDDHHmmSS
-            if len(clean_date) >= 8:
-                year = int(clean_date[0:4])
-                month = int(clean_date[4:6])
-                day = int(clean_date[6:8])
-                return datetime(year, month, day)
-        except (ValueError, IndexError):
-            pass
-        return date_str
-
-    def convert_to_ast(self, doc: "fitz.Document", pages_to_use: range | list[int]) -> Document:
-        """Convert PDF document to AST Document.
-
-        Parameters
-        ----------
-        doc : fitz.Document
-            PDF document to convert
-        pages_to_use : range or list of int
-            Pages to process
-
-        Returns
-        -------
-        Document
-            AST document node
-
-        """
-        from all2md.ast import HTMLBlock
-
-        self.doc = doc
-        self._total_pages = len(list(pages_to_use))
-        children: list[Node] = []
-
-        pages_list = list(pages_to_use)
-        for idx, pno in enumerate(pages_list):
-            self._current_page_num = pno
-            page = doc[pno]
-            page_nodes = self._process_page_to_ast(page, pno)
-            if page_nodes:
-                children.extend(page_nodes)
-
-            # Add page separator between pages (but not after the last page)
-            if idx < len(pages_list) - 1:
-                # Add special marker for page separator
-                # Format: <!-- PAGE_SEP:{page_num}/{total_pages} -->
-                sep_marker = f"<!-- PAGE_SEP:{pno + 1}/{self._total_pages} -->"
-                children.append(HTMLBlock(content=sep_marker))
-
-        # Extract and attach metadata
-        metadata = self.extract_metadata(doc)
-        return Document(children=children, metadata=metadata.to_dict())
-
-    def _process_page_to_ast(self, page: "fitz.Page", page_num: int) -> list[Node]:
-        """Process a PDF page to AST nodes.
-
-        Parameters
-        ----------
-        page : fitz.Page
-            PDF page to process
-        page_num : int
-            Page number (0-based)
-
-        Returns
-        -------
-        list of Node
-            List of AST nodes representing the page
-
-        """
-        import fitz
-
-        nodes: list[Node] = []
-
-        # Extract images for all attachment modes except "skip"
-        page_images = []
-        if self.options.attachment_mode != "skip":
-            page_images = extract_page_images(
-                page, page_num, self.options, self.base_filename, self.attachment_sequencer
+        min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
+        if fitz.pymupdf_version_tuple < min_version:
+            raise DependencyError(
+                converter_name="pdf",
+                version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
             )
+    except ImportError as e:
+        raise DependencyError(
+            converter_name="pdf",
+            missing_packages=[("pymupdf", PDF_MIN_PYMUPDF_VERSION)]
+        ) from e
 
-        # 1. Locate all tables on page based on table_detection_mode
-        tabs = None
-        mode = self.options.table_detection_mode.lower()
-
-        if mode == "none":
-            # No table detection
-            class EmptyTables:
-                tables = []
-            tabs = EmptyTables()
-        elif mode == "pymupdf":
-            # Only use PyMuPDF table detection
-            tabs = page.find_tables()
-        elif mode == "ruling":
-            # Only use ruling line detection (fallback method)
-            _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
-            # Fallback detection returns rects but not actual table objects we can use
-            # For now, just use empty tables (future: could convert rects to table objects)
-            class EmptyTables:
-                tables = []
-            tabs = EmptyTables()
-        else:  # "both" or default
-            # Use PyMuPDF first, fallback to ruling if needed
-            tabs = page.find_tables()
-            if self.options.enable_table_fallback_detection and not tabs.tables:
-                _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
-
-        # 2. Make a list of table boundary boxes, sort by top-left corner
-        tab_rects = sorted(
-            [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i) for i, t in enumerate(tabs.tables)],
-            key=lambda r: (r[0].y0, r[0].x0),
-        )
-
-        # 3. Final list of all text and table rectangles
-        text_rects = []
-        # Compute rectangles outside tables and fill final rect list
-        for i, (r, idx) in enumerate(tab_rects):
-            if i == 0:  # Compute rect above all tables
-                tr = page.rect
-                tr.y1 = r.y0
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-                text_rects.append(("table", r, idx))
-                continue
-            # Read previous rectangle in final list: always a table
-            _, r0, idx0 = text_rects[-1]
-
-            # Check if a non-empty text rect is fitting in between tables
-            tr = page.rect
-            tr.y0 = r0.y1
-            tr.y1 = r.y0
-            if not tr.is_empty:  # Empty if two tables overlap vertically
-                text_rects.append(("text", tr, 0))
-
-            text_rects.append(("table", r, idx))
-
-            # There may also be text below all tables
-            if i == len(tab_rects) - 1:
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-
-        if not text_rects:  # This will happen for table-free pages
-            text_rects.append(("text", page.rect, 0))
-        else:
-            rtype, r, idx = text_rects[-1]
-            if rtype == "table":
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-
-        # Add image placement markers if enabled
-        if page_images and self.options.image_placement_markers:
-            # Sort images by vertical position
-            page_images.sort(key=lambda img: img["bbox"].y0)
-
-            # Insert images at appropriate positions
-            combined_rects: list[tuple[str, fitz.Rect, int | dict]] = []
-            img_idx = 0
-
-            for rtype, r, idx in text_rects:
-                # Check if any images should be placed before this rect
-                while img_idx < len(page_images) and page_images[img_idx]["bbox"].y1 <= r.y0:
-                    img = page_images[img_idx]
-                    combined_rects.append(("image", img["bbox"], img))
-                    img_idx += 1
-
-                combined_rects.append((rtype, r, idx))
-
-            # Add remaining images
-            while img_idx < len(page_images):
-                img = page_images[img_idx]
-                combined_rects.append(("image", img["bbox"], img))
-                img_idx += 1
-
-            text_rects = combined_rects  # type: ignore[assignment]
-
-        # Process all rectangles and convert to AST nodes
-        for rtype, r, idx in text_rects:
-            if rtype == "text":  # A text rectangle
-                text_nodes = self._process_text_region_to_ast(page, r, page_num)
-                if text_nodes:
-                    nodes.extend(text_nodes)
-            elif rtype == "table":  # A table rect
-                table_node = self._process_table_to_ast(tabs[idx], page_num)
-                if table_node:
-                    nodes.append(table_node)
-            elif rtype == "image":  # An image
-                # idx contains image info dict in this case
-                if isinstance(idx, dict):  # Type guard
-                    img_node = self._create_image_node(idx, page_num)
-                    if img_node:
-                        nodes.append(img_node)
-
-        return nodes
-
-    def _process_text_region_to_ast(
-        self, page: "fitz.Page", clip: "fitz.Rect", page_num: int
-    ) -> list[Node]:
-        """Process a text region to AST nodes.
-
-        Parameters
-        ----------
-        page : fitz.Page
-            PDF page
-        clip : fitz.Rect
-            Clipping rectangle for text extraction
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        list of Node
-            List of AST nodes (paragraphs, headings, code blocks)
-
-        """
-        import fitz
-
-        nodes: list[Node] = []
-
-        # Extract URL type links on page
-        try:
-            links = [line for line in page.get_links() if line["kind"] == 2]
-        except (AttributeError, Exception):
-            links = []
-
-        # Extract text blocks
-        try:
-            # Build flags: always include TEXTFLAGS_TEXT, conditionally add TEXT_DEHYPHENATE
-            text_flags = fitz.TEXTFLAGS_TEXT
-            if self.options.merge_hyphenated_words:
-                text_flags |= fitz.TEXT_DEHYPHENATE
-
-            blocks = page.get_text(
-                "dict",
-                clip=clip,
-                flags=text_flags,
-                sort=False,
-            )["blocks"]
-        except (AttributeError, KeyError, Exception):
-            # If extraction fails (e.g., in tests), return empty
-            return []
-
-        # Filter out headers/footers if trim_headers_footers is enabled
-        if self.options.trim_headers_footers:
-            blocks = self._filter_headers_footers(blocks, page)
-
-        # Apply column detection if enabled
-        if self.options.detect_columns:
-            columns: list[list[dict]] = detect_columns(blocks, self.options.column_gap_threshold)
-            # Process blocks column by column for proper reading order
-            blocks_to_process = []
-            for column in columns:
-                # Sort blocks within column by y-coordinate (top to bottom)
-                column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-                blocks_to_process.extend(column_sorted)
-        else:
-            blocks_to_process = blocks
-
-        # Track if we're in a code block
-        in_code_block = False
-        code_block_lines: list[str] = []
-
-        for block in blocks_to_process:  # Iterate textblocks
-            previous_y = 0
-
-            for line in block["lines"]:  # Iterate lines in block
-                # Handle rotated text if enabled, otherwise skip non-horizontal lines
-                if line["dir"][1] != 0:  # Non-horizontal lines
-                    if self.options.handle_rotated_text:
-                        rotated_text = handle_rotated_text(line, self.options.markdown_options)
-                        if rotated_text.strip():
-                            # Add as paragraph
-                            nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
-                    continue
-
-                spans = list(line["spans"])
-                if not spans:
-                    continue
-
-                this_y = line["bbox"][3]  # Current bottom coord
-
-                # Check for still being on same line
-                same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
-
-                # Are all spans in line in a mono-spaced font?
-                all_mono = all(s["flags"] & 8 for s in spans)
-
-                # Compute text of the line
-                text = "".join([s["text"] for s in spans])
-
-                if not same_line:
-                    previous_y = this_y
-
-                # Handle monospace text (code blocks)
-                if all_mono:
-                    if not in_code_block:
-                        in_code_block = True
-                    # Add line to code block
-                    # Compute approximate indentation
-                    delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (spans[0]["size"] * 0.5))
-                    code_block_lines.append(" " * delta + text)
-                    continue
-
-                # If we were in a code block and now we're not, finalize it
-                if in_code_block:
-                    code_content = "\n".join(code_block_lines)
-                    nodes.append(
-                        CodeBlock(
-                            content=code_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1)
-                        )
-                    )
-                    in_code_block = False
-                    code_block_lines = []
-
-                # Process non-monospace text
-                # Check if first span is a header
-                first_span = spans[0]
-                header_level = 0
-                if self.hdr_identifier:
-                    header_level = self.hdr_identifier.get_header_level(first_span)
-
-                if header_level > 0:
-                    # This is a heading
-                    inline_content = self._process_text_spans_to_inline(spans, links, page_num)
-                    if inline_content:
-                        nodes.append(
-                            Heading(
-                                level=header_level,
-                                content=inline_content,
-                                source_location=SourceLocation(format="pdf", page=page_num + 1)
-                            )
-                        )
-                else:
-                    # Regular paragraph
-                    inline_content = self._process_text_spans_to_inline(spans, links, page_num)
-                    if inline_content:
-                        nodes.append(
-                            AstParagraph(
-                                content=inline_content,
-                                source_location=SourceLocation(format="pdf", page=page_num + 1)
-                            )
-                        )
-
-        # Finalize any remaining code block
-        if in_code_block and code_block_lines:
-            code_content = "\n".join(code_block_lines)
-            nodes.append(
-                CodeBlock(
-                    content=code_content,
-                    source_location=SourceLocation(format="pdf", page=page_num + 1)
-                )
-            )
-
-        return nodes
-
-    def _process_text_spans_to_inline(
-        self, spans: list[dict], links: list[dict], page_num: int
-    ) -> list[Node]:
-        """Process text spans to inline AST nodes.
-
-        Parameters
-        ----------
-        spans : list of dict
-            Text spans from PyMuPDF
-        links : list of dict
-            Links on the page
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        list of Node
-            List of inline AST nodes
-
-        """
-        result: list[Node] = []
-
-        for span in spans:
-            span_text = span["text"].strip()
-            if not span_text:
-                continue
-
-            # Check for list bullets before treating as monospace
-            is_list_bullet = span_text in ['-', 'o', '•', '◦', '▪'] and len(span_text) == 1
-
-            # Decode font properties
-            mono = span["flags"] & 8
-            bold = span["flags"] & 16
-            italic = span["flags"] & 2
-
-            # Check for links
-            link_url = self._resolve_link_for_span(links, span)
-
-            # Build the inline node
-            if mono and not is_list_bullet:
-                # Inline code
-                inline_node: Node = Code(content=span_text)
-            else:
-                # Regular text with optional formatting
-                # Escape markdown special characters if enabled
-                if self.options.markdown_options and self.options.markdown_options.escape_special:
-                    span_text = escape_markdown_special(span_text)
-
-                # Replace special characters
-                span_text = (
-                    span_text.replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace(chr(0xF0B7), "-")
-                    .replace(chr(0xB7), "-")
-                    .replace(chr(8226), "-")
-                    .replace(chr(9679), "-")
-                )
-
-                inline_node = Text(content=span_text)
-
-                # Apply formatting layers
-                if bold:
-                    inline_node = Strong(content=[inline_node])
-                if italic:
-                    inline_node = Emphasis(content=[inline_node])
-
-            # Wrap in link if URL present
-            if link_url:
-                inline_node = Link(url=link_url, content=[inline_node])
-
-            result.append(inline_node)
-
-        return result
-
-    def _resolve_link_for_span(self, links: list[dict], span: dict) -> str | None:
-        """Resolve link URL for a text span.
-
-        Parameters
-        ----------
-        links : list of dict
-            Links on the page
-        span : dict
-            Text span
-
-        Returns
-        -------
-        str or None
-            Link URL if span is part of a link
-
-        """
-        if not links or not span.get("text"):
-            return None
-
-        import fitz
-        bbox = fitz.Rect(span["bbox"])
-
-        # Find all links that overlap with this span
-        for link in links:
-            hot = link["from"]  # The hot area of the link
-            overlap = hot & bbox
-            bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
-            if abs(overlap) >= bbox_area:
-                return link.get("uri")
-
-        return None
-
-    def _process_table_to_ast(self, table: Any, page_num: int) -> AstTable | None:
-        """Process a PyMuPDF table to AST Table node.
-
-        Parameters
-        ----------
-        table : PyMuPDF Table
-            Table object from find_tables()
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        AstTable or None
-            Table node if table has content
-
-        """
-        # PyMuPDF's table has to_markdown() method
-        # We'll parse the markdown output to extract table structure
-        # Alternative: Extract cells directly from table object
-
-        try:
-            # Get table as markdown
-            table_md = table.to_markdown(clean=False)
-            if not table_md:
-                return None
-
-            # Parse the markdown table to extract structure
-            lines = table_md.strip().split('\n')
-            if len(lines) < 2:  # Need at least header and separator
-                return None
-
-            # Parse header row (first line)
-            header_line = lines[0]
-            header_cells_text = self._parse_markdown_table_row(header_line)
-
-            # Skip separator line (second line)
-            # Parse data rows (remaining lines)
-            data_rows_text = []
-            for line in lines[2:]:
-                if line.strip():
-                    row_cells = self._parse_markdown_table_row(line)
-                    if row_cells:
-                        data_rows_text.append(row_cells)
-
-            # Build AST table
-            header_cells = [TableCell(content=[Text(content=cell)]) for cell in header_cells_text]
-            header_row = TableRow(cells=header_cells, is_header=True)
-
-            data_rows = []
-            for row_cells in data_rows_text:
-                cells = [TableCell(content=[Text(content=cell)]) for cell in row_cells]
-                data_rows.append(TableRow(cells=cells))
-
-            return AstTable(
-                header=header_row,
-                rows=data_rows,
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
-            )
-
-        except Exception as e:
-            logger.debug(f"Failed to process table: {e}")
-            return None
-
-    def _parse_markdown_table_row(self, row_line: str) -> list[str]:
-        """Parse a markdown table row into cell contents.
-
-        Parameters
-        ----------
-        row_line : str
-            Markdown table row (e.g., "| cell1 | cell2 |")
-
-        Returns
-        -------
-        list of str
-            Cell contents
-
-        """
-        # Remove leading/trailing pipes and split
-        row_line = row_line.strip()
-        if row_line.startswith('|'):
-            row_line = row_line[1:]
-        if row_line.endswith('|'):
-            row_line = row_line[:-1]
-
-        cells = [cell.strip() for cell in row_line.split('|')]
-        return cells
-
-    def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
-        """Create an image node from image info.
-
-        Parameters
-        ----------
-        img_info : dict
-            Image information dict with 'path' and 'caption' keys
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        AstParagraph or None
-            Paragraph containing the image node
-
-        """
-        try:
-            # Create Image node
-            img_node = Image(
-                url=img_info["path"],
-                alt_text=img_info.get("caption") or "Image",
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
-            )
-
-            # Wrap in paragraph
-            return AstParagraph(
-                content=[img_node],
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
-            )
-
-        except Exception as e:
-            logger.debug(f"Failed to create image node: {e}")
-            return None
-
-    def _filter_headers_footers(self, blocks: list[dict], page: "fitz.Page") -> list[dict]:
-        """Filter out text blocks in header/footer zones.
-
-        Parameters
-        ----------
-        blocks : list of dict
-            Text blocks from PyMuPDF
-        page : fitz.Page
-            PDF page
-
-        Returns
-        -------
-        list of dict
-            Filtered blocks excluding headers and footers
-
-        """
-        if not self.options.trim_headers_footers:
-            return blocks
-
-        page_height = page.rect.height
-        header_zone = self.options.header_height
-        footer_zone = self.options.footer_height
-
-        filtered_blocks = []
-        for block in blocks:
-            bbox = block.get("bbox")
-            if not bbox:
-                filtered_blocks.append(block)
-                continue
-
-            # Check if block is in header zone (top of page)
-            if header_zone > 0 and bbox[1] < header_zone:
-                continue  # Skip this block
-
-            # Check if block is in footer zone (bottom of page)
-            if footer_zone > 0 and bbox[3] > (page_height - footer_zone):
-                continue  # Skip this block
-
-            filtered_blocks.append(block)
-
-        return filtered_blocks
-
-
-# Converter metadata for registration
-CONVERTER_METADATA = ConverterMetadata(
-    format_name="pdf",
-    extensions=[".pdf"],
-    mime_types=["application/pdf"],
-    magic_bytes=[
-        (b"%PDF", 0),
-    ],
-    parser_class="PdfToAstConverter",
-    renderer_class=None,
-    required_packages=[("pymupdf", "fitz", ">=1.26.4")],
-    optional_packages=[],
-    import_error_message=(
-        "PDF conversion requires 'PyMuPDF'. "
-        "Install with: pip install pymupdf"
-    ),
-    options_class="PdfOptions",
-    description="Convert PDF documents to Markdown with table detection",
-    priority=10
-)
 
 
 def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[dict]]:
@@ -1391,3 +584,1110 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
                         table_rects.append(table_rect)
 
     return table_rects
+
+
+class IdentifyHeaders:
+    """Compute data for identifying header text based on font size analysis.
+
+    This class analyzes font sizes across document pages to identify which
+    font sizes should be treated as headers versus body text. It creates
+    a mapping from font sizes to Markdown header levels (# ## ### etc.).
+
+    Parameters
+    ----------
+    doc : fitz.Document
+        PDF document to analyze
+    pages : list[int], range, or None, optional
+        Pages to analyze for font size distribution. If None, analyzes all pages.
+    body_limit : float or None, optional
+        Font size threshold below which text is considered body text.
+        If None, uses the most frequent font size as body text baseline.
+    options : PdfOptions or None, optional
+        PDF conversion options containing header detection parameters.
+
+    Attributes
+    ----------
+    header_id : dict[int, str]
+        Mapping from font size to markdown header prefix string
+    options : PdfOptions
+        PDF conversion options used for header detection
+    """
+
+    def __init__(
+            self,
+            doc,  # PyMuPDF Document object
+            pages: list[int] | range | None = None,
+            body_limit: float | None = None,
+            options: PdfOptions | None = None,
+    ) -> None:
+        """Initialize header identification by analyzing font sizes.
+
+        Reads all text spans from specified pages and builds a frequency
+        distribution of font sizes. Uses this to determine which font sizes
+        should be treated as headers versus body text.
+
+        Parameters
+        ----------
+        doc : fitz.Document
+            PDF document to analyze
+        pages : list[int], range, or None, optional
+            Pages to analyze for font size distribution. If None, analyzes all pages.
+        body_limit : float or None, optional
+            Font size threshold below which text is considered body text.
+            If None, uses the most frequent font size as body text baseline.
+        options : PdfOptions or None, optional
+            PDF conversion options containing header detection parameters.
+        """
+        self.options = options or PdfOptions()
+
+        # Determine pages to sample for header analysis
+        if self.options.header_sample_pages is not None:
+            if isinstance(self.options.header_sample_pages, int):
+                # Sample first N pages
+                pages_to_sample = list(range(min(self.options.header_sample_pages, doc.page_count)))
+            else:
+                # Use specific page list
+                pages_to_sample = [p for p in self.options.header_sample_pages if p < doc.page_count]
+        elif pages is not None:
+            pages_to_sample = pages if isinstance(pages, list) else list(pages)
+        else:
+            pages_to_sample = list(range(doc.page_count))
+
+        pages_to_use: list[int] = pages_to_sample
+        fontsizes: dict[int, int] = {}
+        fontweight_sizes: dict[int, int] = {}  # Track bold font sizes
+        allcaps_sizes: dict[int, int] = {}  # Track all-caps text sizes
+        import fitz
+        for pno in pages_to_use:
+            page = doc[pno]
+            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+            for span in [  # look at all non-empty horizontal spans
+                s
+                for b in blocks
+                for line in b["lines"]
+                for s in line["spans"]
+                if not SPACES.issuperset(s["text"]) and line["dir"] == (1, 0)
+            ]:
+                fontsz = round(span["size"])
+                text = span["text"].strip()
+                text_len = len(text)
+
+                # Track font size occurrences
+                count = fontsizes.get(fontsz, 0) + text_len
+                fontsizes[fontsz] = count
+
+                # Track bold text if enabled
+                if self.options.header_use_font_weight and (span["flags"] & 16):  # Bold flag
+                    fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
+
+                # Track all-caps text if enabled
+                if self.options.header_use_all_caps and text.isupper() and text.isalpha():
+                    allcaps_sizes[fontsz] = allcaps_sizes.get(fontsz, 0) + text_len
+
+        # maps a fontsize to a string of multiple # header tag characters
+        self.header_id = {}
+        self.bold_header_sizes = set()  # Track which sizes are headers due to bold
+        self.allcaps_header_sizes = set()  # Track which sizes are headers due to all-caps
+
+        # Apply allowlist/denylist filters
+        if self.options.header_size_denylist:
+            for size in self.options.header_size_denylist:
+                fontsizes.pop(round(size), None)
+
+        # Filter by minimum occurrences
+        if self.options.header_min_occurrences > 0:
+            fontsizes = {k: v for k, v in fontsizes.items() if v >= self.options.header_min_occurrences}
+
+        # If not provided, choose the most frequent font size as body text.
+        # If no text at all on all pages, just use 12
+        if body_limit is None:
+            temp = sorted(
+                fontsizes.items(),
+                key=lambda i: i[1],
+                reverse=True,
+            )
+            body_limit = temp[0][0] if temp else 12
+
+        # Get header sizes based on percentile threshold and minimum font size ratio
+        if self.options.header_percentile_threshold and fontsizes:
+            sorted_sizes = sorted(fontsizes.keys(), reverse=True)
+            percentile_idx = int(len(sorted_sizes) * (1 - self.options.header_percentile_threshold / 100))
+            percentile_threshold = sorted_sizes[max(0, percentile_idx - 1)] if percentile_idx > 0 else sorted_sizes[0]
+            # Apply both percentile and font size ratio filters
+            min_header_size = body_limit * self.options.header_font_size_ratio
+            sizes = [s for s in sorted_sizes if s >= percentile_threshold and s >= min_header_size]
+        else:
+            # Apply font size ratio filter even without percentile threshold
+            min_header_size = body_limit * self.options.header_font_size_ratio
+            sizes = sorted([f for f in fontsizes if f >= min_header_size], reverse=True)
+
+        # Add sizes from allowlist
+        if self.options.header_size_allowlist:
+            for size in self.options.header_size_allowlist:
+                rounded_size = round(size)
+                if rounded_size not in sizes and rounded_size > body_limit:
+                    sizes.append(rounded_size)
+            sizes = sorted(sizes, reverse=True)
+
+        # Add bold and all-caps sizes as potential headers (but still respect font size ratio)
+        min_header_size = body_limit * self.options.header_font_size_ratio
+        if self.options.header_use_font_weight:
+            for size in fontweight_sizes:
+                if size not in sizes and size >= min_header_size:
+                    sizes.append(size)
+                    self.bold_header_sizes.add(size)
+
+        if self.options.header_use_all_caps:
+            for size in allcaps_sizes:
+                if size not in sizes and size >= min_header_size:
+                    sizes.append(size)
+                    self.allcaps_header_sizes.add(size)
+
+        sizes = sorted(set(sizes), reverse=True)
+
+        # make the header tag dictionary
+        for i, size in enumerate(sizes):
+            level = min(i + 1, 6)  # Limit to h6
+            # Store level information for later formatting
+            self.header_id[size] = level
+
+    def get_header_level(self, span: dict) -> int:
+        """Return header level for a text span, or 0 if not a header.
+
+        Analyzes the font size of a text span and returns the corresponding
+        header level (1-6) or 0 if the span should be treated as body text.
+        Includes content-based validation to reduce false positives.
+
+        Parameters
+        ----------
+        span : dict
+            Text span dictionary from PyMuPDF extraction containing 'size' key
+
+        Returns
+        -------
+        int
+            Header level (1-6) or 0 if not a header
+        """
+        fontsize = round(span["size"])  # compute fontsize
+        level = self.header_id.get(fontsize, 0)
+
+        # Check for additional header indicators if no size-based header found
+        if not level and self.options:
+            text = span.get("text", "").strip()
+
+            # Check for bold header
+            if self.options.header_use_font_weight and (span.get("flags", 0) & 16):
+                if fontsize in self.bold_header_sizes:
+                    level = self.header_id.get(fontsize, 0)
+
+            # Check for all-caps header
+            if self.options.header_use_all_caps and text.isupper() and text.isalpha():
+                if fontsize in self.allcaps_header_sizes:
+                    level = self.header_id.get(fontsize, 0)
+
+        # Apply content-based validation if we detected a potential header
+        if level > 0:
+            text = span.get("text", "").strip()
+
+            # Skip if text is too long to be a realistic header
+            if len(text) > self.options.header_max_line_length:
+                return 0
+
+            # Skip if text is mostly whitespace or empty
+            if not text or len(text.strip()) == 0:
+                return 0
+
+            # Skip if text looks like a paragraph (ends with typical sentence punctuation and is long)
+            if len(text) > 50 and text.endswith(('.', '!', '?')):
+                return 0
+
+        return level
+
+
+
+class PdfToAstConverter(BaseParser):
+    """Convert PDF to AST representation.
+
+    This converter parses PDF documents using PyMuPDF and builds an AST
+    that can be rendered to various markdown flavors.
+
+    Parameters
+    ----------
+    options : PdfOptions or None, default = None
+        Conversion options
+
+    """
+
+    def __init__(
+        self,
+        options: PdfOptions | None = None
+    ):
+        options = options or PdfOptions()
+        super().__init__(options)
+        self.options: PdfOptions = options
+        self._hdr_identifier: Optional[IdentifyHeaders] = None
+
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse PDF document into AST.
+
+        This method handles loading the PDF file and converting it to AST.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            PDF file to parse
+
+        Returns
+        -------
+        Document
+            AST document node
+
+        """
+        try:
+            import fitz
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="pdf",
+                missing_packages=[("pymupdf", f">={PDF_MIN_PYMUPDF_VERSION}")],
+            ) from e
+        _check_pymupdf_version()
+
+        # Validate and convert input
+        doc_input, input_type = validate_and_convert_input(
+            input_data, supported_types=["path-like", "file-like (BytesIO)", "fitz.Document objects"]
+        )
+
+        # Open document based on input type
+        try:
+            if input_type == "path":
+                doc = fitz.open(filename=str(doc_input))
+            elif input_type in ("file", "bytes"):
+                doc = fitz.open(stream=doc_input, filetype="pdf")
+                # Handle different file-like object types
+                # if hasattr(doc_input, 'name') and hasattr(doc_input, 'read'):
+                #     # For file objects that have a name attribute (like BufferedReader from open()),
+                #     # use the filename approach which is more memory efficient
+                #     doc = fitz.open(filename=doc_input.name)
+                # elif hasattr(doc_input, 'read'):
+                #     # For file-like objects without name (like BytesIO), read the content
+                #     doc = fitz.open(stream=doc_input, filetype="pdf")
+                # else:
+                #     # For bytes objects
+                #     doc = fitz.open(stream=doc_input)
+            elif input_type == "object":
+                if isinstance(doc_input, fitz.Document) or (
+                        hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
+                ):
+                    doc = doc_input
+                else:
+                    raise InputError(
+                        f"Expected fitz.Document object, got {type(doc_input).__name__}",
+                        parameter_name="input_data",
+                        parameter_value=doc_input,
+                    )
+            else:
+                raise InputError(
+                    f"Unsupported input type: {input_type}", parameter_name="input_data", parameter_value=doc_input
+                )
+        except Exception as e:
+            if "password" in str(e).lower() or "encrypt" in str(e).lower():
+                filename = str(input_data) if isinstance(input_data, (str, Path)) else None
+                raise PasswordProtectedError(filename=filename) from e
+            else:
+                raise InputError(
+                    f"Failed to open PDF document: {e!r}", parameter_name="input_data", parameter_value=input_data,
+                    original_error=e
+                ) from e
+
+        # Validate page range
+        try:
+            validated_pages = validate_page_range(self.options.pages, doc.page_count)
+            pages_to_use: range | list[int] = validated_pages if validated_pages else range(doc.page_count)
+        except Exception as e:
+            raise InputError(
+                f"Invalid page range: {str(e)}", parameter_name="pdf.pages", parameter_value=self.options.pages
+            ) from e
+
+        # Extract base filename for standardized attachment naming
+        if input_type == "path" and isinstance(doc_input, (str, Path)):
+            base_filename = Path(doc_input).stem
+        else:
+            # For non-file inputs, use a default name
+            base_filename = "document"
+
+
+        self._hdr_identifier = IdentifyHeaders(doc,
+                                               pages=pages_to_use if isinstance(pages_to_use, list) else None,
+                                               options=self.options)
+        # Determine pages to use
+        pages_to_use = self.options.pages if self.options.pages else range(doc.page_count)
+
+        return self.convert_to_ast(doc, pages_to_use, base_filename)
+
+    def extract_metadata(self, document: "fitz.Document") -> DocumentMetadata:
+        """Extract metadata from PDF document.
+
+        Extracts standard metadata fields from a PDF document including title,
+        author, subject, keywords, creation date, modification date, and creator
+        application information. Also preserves any custom metadata fields that
+        are not part of the standard set.
+
+        Parameters
+        ----------
+        document : fitz.Document
+            PyMuPDF document object to extract metadata from
+
+        Returns
+        -------
+        DocumentMetadata
+            Extracted metadata including standard fields (title, author, dates, etc.)
+            and any custom fields found in the PDF. Returns empty DocumentMetadata
+            if no metadata is available.
+
+        Notes
+        -----
+        - PDF date strings in format 'D:YYYYMMDDHHmmSS' are parsed into datetime objects
+        - Empty or whitespace-only metadata values are ignored
+        - Internal PDF fields (format, trapped, encryption) are excluded
+        - Unknown metadata fields are stored in the custom dictionary
+
+        """
+        # PyMuPDF provides metadata as a dictionary
+        pdf_meta = document.metadata if hasattr(document, 'metadata') else {}
+
+        if not pdf_meta:
+            return DocumentMetadata()
+
+        # Create custom handlers for PDF-specific field processing
+        def handle_pdf_dates(meta_dict: dict[str, Any], field_names: list[str]) -> Any:
+            """Handle PDF date fields with special parsing."""
+            for field_name in field_names:
+                if field_name in meta_dict:
+                    date_val = meta_dict[field_name]
+                    if date_val and str(date_val).strip():
+                        return self._parse_pdf_date(str(date_val).strip())
+            return None
+
+        # Custom field mapping for PDF dates
+        pdf_mapping = PDF_FIELD_MAPPING.copy()
+        pdf_mapping.update({
+            'creation_date': ['creationDate', 'CreationDate'],
+            'modification_date': ['modDate', 'ModDate'],
+        })
+
+        # Custom handlers for special fields
+        custom_handlers = {
+            'creation_date': handle_pdf_dates,
+            'modification_date': handle_pdf_dates,
+        }
+
+        # Use the utility function for standard extraction
+        metadata = extract_dict_metadata(pdf_meta, pdf_mapping)
+
+        # Apply custom handlers for date fields
+        for field_name, handler in custom_handlers.items():
+            if field_name in pdf_mapping:
+                value = handler(pdf_meta, pdf_mapping[field_name])
+                if value:
+                    setattr(metadata, field_name, value)
+
+        # Store any additional PDF-specific metadata in custom fields
+        processed_keys = set()
+        for field_names in pdf_mapping.values():
+            if isinstance(field_names, list):
+                processed_keys.update(field_names)
+            else:
+                processed_keys.add(field_names)
+
+        # Skip internal PDF fields
+        internal_fields = {'format', 'trapped', 'encryption'}
+
+        for key, value in pdf_meta.items():
+            if key not in processed_keys and key not in internal_fields:
+                if value and str(value).strip():
+                    metadata.custom[key] = value
+
+        return metadata
+
+    def _parse_pdf_date(self, date_str: str) -> str:
+        """Parse PDF date format into a readable string.
+
+        Converts PDF date strings from the internal format 'D:YYYYMMDDHHmmSS'
+        into datetime objects for standardized date handling.
+
+        Parameters
+        ----------
+        date_str : str
+            PDF date string in format 'D:YYYYMMDDHHmmSS' with optional timezone
+
+        Returns
+        -------
+        str
+            Parsed datetime object or original string if parsing fails
+
+        Notes
+        -----
+        Handles both UTC (Z suffix) and timezone offset formats.
+        Returns original string if format is unrecognized.
+
+        """
+        if not date_str or not date_str.startswith('D:'):
+            return date_str
+
+        try:
+            from datetime import datetime
+            # Remove D: prefix and parse
+            clean_date = date_str[2:]
+            if 'Z' in clean_date:
+                clean_date = clean_date.replace('Z', '+0000')
+            # Basic parsing - format is YYYYMMDDHHmmSS
+            if len(clean_date) >= 8:
+                year = int(clean_date[0:4])
+                month = int(clean_date[4:6])
+                day = int(clean_date[6:8])
+                return datetime(year, month, day)
+        except (ValueError, IndexError):
+            pass
+        return date_str
+
+    def convert_to_ast(self, doc: "fitz.Document", pages_to_use: range | list[int], base_filename: str) -> Document:
+        """Convert PDF document to AST Document.
+
+        Parameters
+        ----------
+        doc : fitz.Document
+            PDF document to convert
+        pages_to_use : range or list of int
+            Pages to process
+
+        Returns
+        -------
+        Document
+            AST document node
+
+        """
+
+        total_pages = len(list(pages_to_use))
+        children: list[Node] = []
+
+        attachment_sequencer = create_attachment_sequencer()
+
+        pages_list = list(pages_to_use)
+        for idx, pno in enumerate(pages_list):
+            page = doc[pno]
+            page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer)
+            if page_nodes:
+                children.extend(page_nodes)
+
+            # Add page separator between pages (but not after the last page)
+            if idx < len(pages_list) - 1:
+                # Add special marker for page separator
+                # Format: <!-- PAGE_SEP:{page_num}/{total_pages} -->
+                sep_marker = f"<!-- PAGE_SEP:{pno + 1}/{total_pages} -->"
+                children.append(HTMLBlock(content=sep_marker))
+
+        # Extract and attach metadata
+        metadata = self.extract_metadata(doc)
+        return Document(children=children, metadata=metadata.to_dict())
+
+    def _process_page_to_ast(self,
+                             page: "fitz.Page",
+                             page_num: int,
+                             base_filename: str,
+                             attachment_sequencer: Callable[[str, str], tuple[str, int]]) -> list[Node]:
+        """Process a PDF page to AST nodes.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page to process
+        page_num : int
+            Page number (0-based)
+
+        Returns
+        -------
+        list of Node
+            List of AST nodes representing the page
+
+        """
+        import fitz
+
+        nodes: list[Node] = []
+
+        # Extract images for all attachment modes except "skip"
+        page_images = []
+        if self.options.attachment_mode != "skip":
+            page_images = extract_page_images(
+                page, page_num, self.options, base_filename, attachment_sequencer
+            )
+
+        # 1. Locate all tables on page based on table_detection_mode
+        tabs = None
+        mode = self.options.table_detection_mode.lower()
+
+        if mode == "none":
+            # No table detection
+            class EmptyTables:
+                tables = []
+            tabs = EmptyTables()
+        elif mode == "pymupdf":
+            # Only use PyMuPDF table detection
+            tabs = page.find_tables()
+        elif mode == "ruling":
+            # Only use ruling line detection (fallback method)
+            _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
+            # Fallback detection returns rects but not actual table objects we can use
+            # For now, just use empty tables (future: could convert rects to table objects)
+            class EmptyTables:
+                tables = []
+            tabs = EmptyTables()
+        else:  # "both" or default
+            # Use PyMuPDF first, fallback to ruling if needed
+            tabs = page.find_tables()
+            if self.options.enable_table_fallback_detection and not tabs.tables:
+                _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
+
+        # 2. Make a list of table boundary boxes, sort by top-left corner
+        tab_rects = sorted(
+            [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i) for i, t in enumerate(tabs.tables)],
+            key=lambda r: (r[0].y0, r[0].x0),
+        )
+
+        # 3. Final list of all text and table rectangles
+        text_rects = []
+        # Compute rectangles outside tables and fill final rect list
+        for i, (r, idx) in enumerate(tab_rects):
+            if i == 0:  # Compute rect above all tables
+                tr = page.rect
+                tr.y1 = r.y0
+                if not tr.is_empty:
+                    text_rects.append(("text", tr, 0))
+                text_rects.append(("table", r, idx))
+                continue
+            # Read previous rectangle in final list: always a table
+            _, r0, idx0 = text_rects[-1]
+
+            # Check if a non-empty text rect is fitting in between tables
+            tr = page.rect
+            tr.y0 = r0.y1
+            tr.y1 = r.y0
+            if not tr.is_empty:  # Empty if two tables overlap vertically
+                text_rects.append(("text", tr, 0))
+
+            text_rects.append(("table", r, idx))
+
+            # There may also be text below all tables
+            if i == len(tab_rects) - 1:
+                tr = page.rect
+                tr.y0 = r.y1
+                if not tr.is_empty:
+                    text_rects.append(("text", tr, 0))
+
+        if not text_rects:  # This will happen for table-free pages
+            text_rects.append(("text", page.rect, 0))
+        else:
+            rtype, r, idx = text_rects[-1]
+            if rtype == "table":
+                tr = page.rect
+                tr.y0 = r.y1
+                if not tr.is_empty:
+                    text_rects.append(("text", tr, 0))
+
+        # Add image placement markers if enabled
+        if page_images and self.options.image_placement_markers:
+            # Sort images by vertical position
+            page_images.sort(key=lambda img: img["bbox"].y0)
+
+            # Insert images at appropriate positions
+            combined_rects: list[tuple[str, fitz.Rect, int | dict]] = []
+            img_idx = 0
+
+            for rtype, r, idx in text_rects:
+                # Check if any images should be placed before this rect
+                while img_idx < len(page_images) and page_images[img_idx]["bbox"].y1 <= r.y0:
+                    img = page_images[img_idx]
+                    combined_rects.append(("image", img["bbox"], img))
+                    img_idx += 1
+
+                combined_rects.append((rtype, r, idx))
+
+            # Add remaining images
+            while img_idx < len(page_images):
+                img = page_images[img_idx]
+                combined_rects.append(("image", img["bbox"], img))
+                img_idx += 1
+
+            text_rects = combined_rects  # type: ignore[assignment]
+
+        # Process all rectangles and convert to AST nodes
+        for rtype, r, idx in text_rects:
+            if rtype == "text":  # A text rectangle
+                text_nodes = self._process_text_region_to_ast(page, r, page_num)
+                if text_nodes:
+                    nodes.extend(text_nodes)
+            elif rtype == "table":  # A table rect
+                table_node = self._process_table_to_ast(tabs[idx], page_num)
+                if table_node:
+                    nodes.append(table_node)
+            elif rtype == "image":  # An image
+                # idx contains image info dict in this case
+                if isinstance(idx, dict):  # Type guard
+                    img_node = self._create_image_node(idx, page_num)
+                    if img_node:
+                        nodes.append(img_node)
+
+        return nodes
+
+    def _process_text_region_to_ast(
+        self, page: "fitz.Page", clip: "fitz.Rect", page_num: int
+    ) -> list[Node]:
+        """Process a text region to AST nodes.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page
+        clip : fitz.Rect
+            Clipping rectangle for text extraction
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        list of Node
+            List of AST nodes (paragraphs, headings, code blocks)
+
+        """
+        import fitz
+
+        nodes: list[Node] = []
+
+        # Extract URL type links on page
+        try:
+            links = [line for line in page.get_links() if line["kind"] == 2]
+        except (AttributeError, Exception):
+            links = []
+
+        # Extract text blocks
+        try:
+            # Build flags: always include TEXTFLAGS_TEXT, conditionally add TEXT_DEHYPHENATE
+            text_flags = fitz.TEXTFLAGS_TEXT
+            if self.options.merge_hyphenated_words:
+                text_flags |= fitz.TEXT_DEHYPHENATE
+
+            blocks = page.get_text(
+                "dict",
+                clip=clip,
+                flags=text_flags,
+                sort=False,
+            )["blocks"]
+        except (AttributeError, KeyError, Exception):
+            # If extraction fails (e.g., in tests), return empty
+            return []
+
+        # Filter out headers/footers if trim_headers_footers is enabled
+        if self.options.trim_headers_footers:
+            blocks = self._filter_headers_footers(blocks, page)
+
+        # Apply column detection if enabled
+        if self.options.detect_columns:
+            columns: list[list[dict]] = detect_columns(blocks, self.options.column_gap_threshold)
+            # Process blocks column by column for proper reading order
+            blocks_to_process = []
+            for column in columns:
+                # Sort blocks within column by y-coordinate (top to bottom)
+                column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+                blocks_to_process.extend(column_sorted)
+        else:
+            blocks_to_process = blocks
+
+        # Track if we're in a code block
+        in_code_block = False
+        code_block_lines: list[str] = []
+
+        for block in blocks_to_process:  # Iterate textblocks
+            previous_y = 0
+
+            for line in block["lines"]:  # Iterate lines in block
+                # Handle rotated text if enabled, otherwise skip non-horizontal lines
+                if line["dir"][1] != 0:  # Non-horizontal lines
+                    if self.options.handle_rotated_text:
+                        rotated_text = handle_rotated_text(line, self.options.markdown_options)
+                        if rotated_text.strip():
+                            # Add as paragraph
+                            nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+                    continue
+
+                spans = list(line["spans"])
+                if not spans:
+                    continue
+
+                this_y = line["bbox"][3]  # Current bottom coord
+
+                # Check for still being on same line
+                same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
+
+                # Are all spans in line in a mono-spaced font?
+                all_mono = all(s["flags"] & 8 for s in spans)
+
+                # Compute text of the line
+                text = "".join([s["text"] for s in spans])
+
+                if not same_line:
+                    previous_y = this_y
+
+                # Handle monospace text (code blocks)
+                if all_mono:
+                    if not in_code_block:
+                        in_code_block = True
+                    # Add line to code block
+                    # Compute approximate indentation
+                    delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (spans[0]["size"] * 0.5))
+                    code_block_lines.append(" " * delta + text)
+                    continue
+
+                # If we were in a code block and now we're not, finalize it
+                if in_code_block:
+                    code_content = "\n".join(code_block_lines)
+                    nodes.append(
+                        CodeBlock(
+                            content=code_content,
+                            source_location=SourceLocation(format="pdf", page=page_num + 1)
+                        )
+                    )
+                    in_code_block = False
+                    code_block_lines = []
+
+                # Process non-monospace text
+                # Check if first span is a header
+                first_span = spans[0]
+                header_level = 0
+                if self._hdr_identifier:
+                    header_level = self._hdr_identifier.get_header_level(first_span)
+
+                if header_level > 0:
+                    # This is a heading
+                    inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                    if inline_content:
+                        nodes.append(
+                            Heading(
+                                level=header_level,
+                                content=inline_content,
+                                source_location=SourceLocation(format="pdf", page=page_num + 1)
+                            )
+                        )
+                else:
+                    # Regular paragraph
+                    inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                    if inline_content:
+                        nodes.append(
+                            AstParagraph(
+                                content=inline_content,
+                                source_location=SourceLocation(format="pdf", page=page_num + 1)
+                            )
+                        )
+
+        # Finalize any remaining code block
+        if in_code_block and code_block_lines:
+            code_content = "\n".join(code_block_lines)
+            nodes.append(
+                CodeBlock(
+                    content=code_content,
+                    source_location=SourceLocation(format="pdf", page=page_num + 1)
+                )
+            )
+
+        return nodes
+
+    def _process_text_spans_to_inline(
+        self, spans: list[dict], links: list[dict], page_num: int
+    ) -> list[Node]:
+        """Process text spans to inline AST nodes.
+
+        Parameters
+        ----------
+        spans : list of dict
+            Text spans from PyMuPDF
+        links : list of dict
+            Links on the page
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        list of Node
+            List of inline AST nodes
+
+        """
+        result: list[Node] = []
+
+        for span in spans:
+            span_text = span["text"].strip()
+            if not span_text:
+                continue
+
+            # Check for list bullets before treating as monospace
+            is_list_bullet = span_text in ['-', 'o', '•', '◦', '▪'] and len(span_text) == 1
+
+            # Decode font properties
+            mono = span["flags"] & 8
+            bold = span["flags"] & 16
+            italic = span["flags"] & 2
+
+            # Check for links
+            link_url = self._resolve_link_for_span(links, span)
+
+            # Build the inline node
+            if mono and not is_list_bullet:
+                # Inline code
+                inline_node: Node = Code(content=span_text)
+            else:
+                # Regular text with optional formatting
+                # Escape markdown special characters if enabled
+                if self.options.markdown_options and self.options.markdown_options.escape_special:
+                    span_text = escape_markdown_special(span_text)
+
+                # Replace special characters
+                span_text = (
+                    span_text.replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace(chr(0xF0B7), "-")
+                    .replace(chr(0xB7), "-")
+                    .replace(chr(8226), "-")
+                    .replace(chr(9679), "-")
+                )
+
+                inline_node = Text(content=span_text)
+
+                # Apply formatting layers
+                if bold:
+                    inline_node = Strong(content=[inline_node])
+                if italic:
+                    inline_node = Emphasis(content=[inline_node])
+
+            # Wrap in link if URL present
+            if link_url:
+                inline_node = Link(url=link_url, content=[inline_node])
+
+            result.append(inline_node)
+
+        return result
+
+    def _resolve_link_for_span(self, links: list[dict], span: dict) -> str | None:
+        """Resolve link URL for a text span.
+
+        Parameters
+        ----------
+        links : list of dict
+            Links on the page
+        span : dict
+            Text span
+
+        Returns
+        -------
+        str or None
+            Link URL if span is part of a link
+
+        """
+        if not links or not span.get("text"):
+            return None
+
+        import fitz
+        bbox = fitz.Rect(span["bbox"])
+
+        # Find all links that overlap with this span
+        for link in links:
+            hot = link["from"]  # The hot area of the link
+            overlap = hot & bbox
+            bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
+            if abs(overlap) >= bbox_area:
+                return link.get("uri")
+
+        return None
+
+    def _process_table_to_ast(self, table: Any, page_num: int) -> AstTable | None:
+        """Process a PyMuPDF table to AST Table node.
+
+        Parameters
+        ----------
+        table : PyMuPDF Table
+            Table object from find_tables()
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        AstTable or None
+            Table node if table has content
+
+        """
+        # PyMuPDF's table has to_markdown() method
+        # We'll parse the markdown output to extract table structure
+        # Alternative: Extract cells directly from table object
+        # TODO: switch to extracting directly, reprocessing is silly.
+
+        try:
+            # Get table as markdown
+            table_md = table.to_markdown(clean=False)
+            if not table_md:
+                return None
+
+            # Parse the markdown table to extract structure
+            lines = table_md.strip().split('\n')
+            if len(lines) < 2:  # Need at least header and separator
+                return None
+
+            # Parse header row (first line)
+            header_line = lines[0]
+            header_cells_text = self._parse_markdown_table_row(header_line)
+
+            # Skip separator line (second line)
+            # Parse data rows (remaining lines)
+            data_rows_text = []
+            for line in lines[2:]:
+                if line.strip():
+                    row_cells = self._parse_markdown_table_row(line)
+                    if row_cells:
+                        data_rows_text.append(row_cells)
+
+            # Build AST table
+            header_cells = [TableCell(content=[Text(content=cell)]) for cell in header_cells_text]
+            header_row = TableRow(cells=header_cells, is_header=True)
+
+            data_rows = []
+            for row_cells in data_rows_text:
+                cells = [TableCell(content=[Text(content=cell)]) for cell in row_cells]
+                data_rows.append(TableRow(cells=cells))
+
+            return AstTable(
+                header=header_row,
+                rows=data_rows,
+                source_location=SourceLocation(format="pdf", page=page_num + 1)
+            )
+
+        except Exception as e:
+            logger.debug(f"Failed to process table: {e}")
+            return None
+
+    def _parse_markdown_table_row(self, row_line: str) -> list[str]:
+        """Parse a markdown table row into cell contents.
+
+        Parameters
+        ----------
+        row_line : str
+            Markdown table row (e.g., "| cell1 | cell2 |")
+
+        Returns
+        -------
+        list of str
+            Cell contents
+
+        """
+        # Remove leading/trailing pipes and split
+        row_line = row_line.strip()
+        if row_line.startswith('|'):
+            row_line = row_line[1:]
+        if row_line.endswith('|'):
+            row_line = row_line[:-1]
+
+        cells = [cell.strip() for cell in row_line.split('|')]
+        return cells
+
+    def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
+        """Create an image node from image info.
+
+        Parameters
+        ----------
+        img_info : dict
+            Image information dict with 'path' and 'caption' keys
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        AstParagraph or None
+            Paragraph containing the image node
+
+        """
+        try:
+            # Create Image node
+            img_node = Image(
+                url=img_info["path"],
+                alt_text=img_info.get("caption") or "Image",
+                source_location=SourceLocation(format="pdf", page=page_num + 1)
+            )
+
+            # Wrap in paragraph
+            return AstParagraph(
+                content=[img_node],
+                source_location=SourceLocation(format="pdf", page=page_num + 1)
+            )
+
+        except Exception as e:
+            logger.debug(f"Failed to create image node: {e}")
+            return None
+
+    def _filter_headers_footers(self, blocks: list[dict], page: "fitz.Page") -> list[dict]:
+        """Filter out text blocks in header/footer zones.
+
+        Parameters
+        ----------
+        blocks : list of dict
+            Text blocks from PyMuPDF
+        page : fitz.Page
+            PDF page
+
+        Returns
+        -------
+        list of dict
+            Filtered blocks excluding headers and footers
+
+        """
+        if not self.options.trim_headers_footers:
+            return blocks
+
+        page_height = page.rect.height
+        header_zone = self.options.header_height
+        footer_zone = self.options.footer_height
+
+        filtered_blocks = []
+        for block in blocks:
+            bbox = block.get("bbox")
+            if not bbox:
+                filtered_blocks.append(block)
+                continue
+
+            # Check if block is in header zone (top of page)
+            if header_zone > 0 and bbox[1] < header_zone:
+                continue  # Skip this block
+
+            # Check if block is in footer zone (bottom of page)
+            if footer_zone > 0 and bbox[3] > (page_height - footer_zone):
+                continue  # Skip this block
+
+            filtered_blocks.append(block)
+
+        return filtered_blocks
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="pdf",
+    extensions=[".pdf"],
+    mime_types=["application/pdf"],
+    magic_bytes=[
+        (b"%PDF", 0),
+    ],
+    parser_class=PdfToAstConverter,
+    renderer_class=None,
+    required_packages=[("pymupdf", "fitz", ">=1.26.4")],
+    optional_packages=[],
+    import_error_message=(
+        "PDF conversion requires 'PyMuPDF'. "
+        "Install with: pip install pymupdf"
+    ),
+    options_class=PdfOptions,
+    description="Convert PDF documents to Markdown with table detection",
+    priority=10
+)
+

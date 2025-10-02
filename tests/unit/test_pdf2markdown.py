@@ -36,7 +36,7 @@ def test_identify_headers_empty_doc():
         def __getitem__(self, i):
             raise IndexError
 
-    hdr = mod.IdentifyHeaders(EmptyDoc())
+    hdr = all2md.parsers.pdf.IdentifyHeaders(EmptyDoc())
     assert hdr.header_id == {}
     assert hdr.get_header_level({"size": 15}) == 0
     assert hdr.get_header_level({"size": 100}) == 0
@@ -45,7 +45,7 @@ def test_identify_headers_empty_doc():
 @pytest.mark.unit
 def test_identify_headers_mapping():
     doc = FakeDocIdent()
-    hdr = mod.IdentifyHeaders(doc)
+    hdr = all2md.parsers.pdf.IdentifyHeaders(doc)
     assert hdr.header_id.get(20) == 1  # Level 1 heading
     assert hdr.get_header_level({"size": 20.0, "flags": 0, "text": "test"}) == 1
     assert hdr.get_header_level({"size": 12.0, "flags": 0, "text": "test"}) == 0
@@ -88,7 +88,7 @@ def test_header_detection_with_font_weight():
     """Test header detection using font weight."""
     doc = FakeDocIdent()
     options = PdfOptions(header_use_font_weight=True, header_use_all_caps=False)
-    hdr = mod.IdentifyHeaders(doc, options=options)
+    hdr = all2md.parsers.pdf.IdentifyHeaders(doc, options=options)
     # The implementation would need to check for bold flag
     assert hdr.header_id is not None
 
@@ -101,7 +101,7 @@ def test_header_detection_with_percentile():
         header_percentile_threshold=80,  # Top 20% of sizes
         header_min_occurrences=1,
     )
-    hdr = mod.IdentifyHeaders(doc, options=options)
+    hdr = all2md.parsers.pdf.IdentifyHeaders(doc, options=options)
     assert hdr.header_id.get(20) == 1  # Large font should be level 1 header
 
 
@@ -113,7 +113,7 @@ def test_header_detection_with_allowlist():
         header_size_allowlist=[14.0, 16.0],  # Force these sizes to be headers
         header_min_occurrences=0,
     )
-    hdr = mod.IdentifyHeaders(doc, options=options)
+    hdr = all2md.parsers.pdf.IdentifyHeaders(doc, options=options)
     # 14 and 16 should be treated as headers even if not frequent
     assert hdr.header_id.get(14) is not None or hdr.header_id.get(16) is not None
 
@@ -126,7 +126,7 @@ def test_header_detection_with_denylist():
         header_size_denylist=[20.0],  # Prevent this size from being a header
         header_min_occurrences=0,
     )
-    hdr = mod.IdentifyHeaders(doc, options=options)
+    hdr = all2md.parsers.pdf.IdentifyHeaders(doc, options=options)
     # 20 should not be a header even though it's larger
     assert hdr.header_id.get(20) is None or hdr.header_id.get(20) == ""
 

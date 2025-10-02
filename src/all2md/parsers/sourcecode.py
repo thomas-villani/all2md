@@ -236,7 +236,7 @@ CONVERTER_METADATA = ConverterMetadata(
         "application/x-shellscript",
     ],
     magic_bytes=[],  # No specific magic bytes - rely on extension detection
-    parser_class="SourceCodeToAstConverter",
+    parser_class=SourceCodeToAstConverter,
     renderer_class=None,
     required_packages=[],  # No external dependencies
     optional_packages=[],

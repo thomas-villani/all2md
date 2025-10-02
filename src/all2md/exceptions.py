@@ -164,7 +164,6 @@ class MarkdownConversionError(All2MdError):
 
     This exception is raised when the conversion process encounters
     an error that prevents successful completion, such as:
-    - Corrupt or malformed input files
     - Missing required data or metadata
     - Internal processing errors
     - Memory or resource constraints
@@ -187,6 +186,8 @@ class MarkdownConversionError(All2MdError):
     def __init__(self, message: str, conversion_stage: str | None = None, original_error: Exception | None = None):
         super().__init__(message, original_error)
         self.conversion_stage = conversion_stage
+
+
 
 
 class DependencyError(ImportError, All2MdError):
@@ -277,3 +278,15 @@ class DependencyError(ImportError, All2MdError):
         self.missing_packages = missing_packages
         self.version_mismatches = version_mismatches
         self.install_command = install_command
+
+
+class SecurityError(All2MdError):
+    pass
+
+class NetworkSecurityError(All2MdError):
+    """Raised when a network security violation is detected."""
+    pass
+
+class ZipFileSecurityError(All2MdError):
+    """Raised when a zip file security violation is detected."""
+    pass

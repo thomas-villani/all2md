@@ -60,12 +60,8 @@ from typing import IO, TYPE_CHECKING, Union
 if TYPE_CHECKING:
     import docx
     import docx.document
-
-# Make Hyperlink available for testing while maintaining lazy loading
-try:
     from docx.text.hyperlink import Hyperlink
-except ImportError:
-    Hyperlink = None  # type: ignore
+
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MarkdownConversionError
@@ -103,38 +99,7 @@ CONVERTER_METADATA = ConverterMetadata(
 )
 
 
-def extract_docx_metadata(doc: "docx.document.Document") -> DocumentMetadata:
-    """Extract metadata from DOCX document.
-
-    Parameters
-    ----------
-    doc : docx.document.Document
-        python-docx Document object
-
-    Returns
-    -------
-    DocumentMetadata
-        Extracted metadata
-    """
-    if not hasattr(doc, 'core_properties'):
-        return DocumentMetadata()
-
-    props = doc.core_properties
-
-    # Use the utility function for standard metadata extraction
-    metadata = map_properties_to_metadata(props, OFFICE_FIELD_MAPPING)
-
-    # Add DOCX-specific custom metadata
-    custom_properties = ['last_modified_by', 'revision', 'version', 'comments']
-    for prop_name in custom_properties:
-        if hasattr(props, prop_name):
-            value = getattr(props, prop_name)
-            if value:
-                metadata.custom[prop_name] = value
-
-    return metadata
-
-
+# Deprecated: to be removed very soon
 def docx_to_markdown(
         input_data: Union[str, Path, "docx.document.Document", IO[bytes]], options: DocxOptions | None = None
 ) -> str:
@@ -237,23 +202,20 @@ def docx_to_markdown(
         ) from e
 
     # Extract metadata if requested
-    metadata = None
-    if options.extract_metadata:
-        metadata = extract_docx_metadata(doc)
+    # metadata = None
+    # if options.extract_metadata:
+    #     metadata = extract_docx_metadata(doc)
 
     # Use new AST-based conversion path
     from all2md.parsers.docx import DocxToAstConverter
     from all2md.ast import MarkdownRenderer
 
     # Create attachment sequencer for consistent filename generation
-    attachment_sequencer = create_attachment_sequencer()
+    # attachment_sequencer = create_attachment_sequencer()
 
     # Convert DOCX to AST
     ast_converter = DocxToAstConverter(
-        options=options,
-        doc=doc,
-        base_filename=base_filename,
-        attachment_sequencer=attachment_sequencer,
+        options=options
     )
     ast_document = ast_converter.convert_to_ast(doc)
 

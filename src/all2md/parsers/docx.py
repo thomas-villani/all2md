@@ -17,9 +17,12 @@ from pathlib import Path
 import re
 from typing import IO, TYPE_CHECKING, Any, Union
 
-
+from all2md import InputError
+from all2md.utils.security import validate_zip_archive
+from all2md.exceptions import MarkdownConversionError
+from all2md.exceptions import DependencyError
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
-from all2md.utils.attachments import extract_docx_image_data, process_attachment
+from all2md.utils.attachments import extract_docx_image_data, process_attachment, create_attachment_sequencer
 from all2md.utils.metadata import (
     OFFICE_FIELD_MAPPING,
     DocumentMetadata,
@@ -105,22 +108,22 @@ class DocxToAstConverter(BaseParser):
 
     def __init__(
         self,
-        options: DocxOptions | None = None,
-        doc: "docx.document.Document | None" = None,
-        base_filename: str = "document",
-        attachment_sequencer: Any = None,
+        options: DocxOptions | None = None
     ):
-        super().__init__(options or DocxOptions())
-        self.doc = doc
-        self.base_filename = base_filename
-        self.attachment_sequencer = attachment_sequencer
+        options = options or DocxOptions()
+        super().__init__(options)
+        self.options: DocxOptions = options
+
+        # Internally used to stash info between functions
         self._list_stack: list[tuple[str, int, list[ListItem]]] = []  # (type, level, items)
         self._numbering_defs: dict[str, dict[str, str]] | None = None
+
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse DOCX document into AST.
 
         This method handles loading the DOCX file and converting it to AST.
+        Performs security validation, dependency checking, and error handling.
 
         Parameters
         ----------
@@ -132,16 +135,57 @@ class DocxToAstConverter(BaseParser):
         Document
             AST document node
 
+        Raises
+        ------
+        DependencyError
+            If python-docx is not installed
+        MarkdownConversionError
+            If document loading or archive validation fails
+        InputError
+            If ZIP archive fails security validation
+
         """
-        import docx
+        # Import dependencies with error handling
+        try:
+            import docx
+            import docx.document
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="docx",
+                missing_packages=[("python-docx", "")],
+            ) from e
 
-        # Load the document if not already loaded
-        if isinstance(input_data, docx.document.Document):
-            doc = input_data
-        else:
-            doc = docx.Document(input_data)
+        base_filename = "document"
 
-        return self.convert_to_ast(doc)
+        # Extract base filename from input_data if it's a Path/str
+        if isinstance(input_data, (str, Path)):
+            base_filename = Path(input_data).stem
+        elif not hasattr(input_data, 'read'):
+            # For non-file inputs that aren't file-like, keep existing base_filename
+            pass
+
+        # Validate ZIP archive security for file-based inputs
+        if isinstance(input_data, (str, Path)):
+            # Raises a security error if found
+            validate_zip_archive(input_data)
+
+        # Load the document with error handling
+        try:
+            if isinstance(input_data, docx.document.Document):
+                doc = input_data
+            elif isinstance(input_data, Path):
+                doc = docx.Document(str(input_data))
+            else:
+                doc = docx.Document(input_data)
+        except Exception as e:
+            raise InputError(
+                f"Failed to open DOCX document: {str(e)}",
+                parameter_name="input_data",
+                parameter_value=input_data,
+                original_error=e
+            ) from e
+
+        return self.convert_to_ast(doc, base_filename)
 
     def extract_metadata(self, document: "docx.document.Document") -> DocumentMetadata:
         """Extract metadata from DOCX document.
@@ -182,7 +226,7 @@ class DocxToAstConverter(BaseParser):
 
         return metadata
 
-    def convert_to_ast(self, doc: "docx.document.Document") -> Document:
+    def convert_to_ast(self, doc: "docx.document.Document", base_filename) -> Document:
         """Convert DOCX document to AST Document.
 
         Parameters
@@ -196,7 +240,6 @@ class DocxToAstConverter(BaseParser):
             AST document node
 
         """
-        self.doc = doc
         self._numbering_defs = None  # Will be loaded lazily if needed
         self._list_stack = []
 
@@ -209,15 +252,15 @@ class DocxToAstConverter(BaseParser):
         for block in _iter_block_items(
             doc,
             options=self.options,
-            base_filename=self.base_filename,
-            attachment_sequencer=self.attachment_sequencer,
+            base_filename=base_filename,
+            attachment_sequencer=create_attachment_sequencer(),
         ):
             if isinstance(block, ImageData):
                 # Handle ImageData objects directly
                 image_node = Image(url=block.url, alt_text=block.alt_text, title=block.title)
                 children.append(AstParagraph(content=[image_node]))
             elif isinstance(block, Paragraph):
-                nodes = self._process_paragraph_to_ast(block)
+                nodes = self._process_paragraph_to_ast(block, doc)
                 if nodes:
                     if isinstance(nodes, list):
                         children.extend(nodes)
@@ -256,22 +299,29 @@ class DocxToAstConverter(BaseParser):
             if endnotes_nodes:
                 children.extend(endnotes_nodes)
 
+        # TODO: should comments be inline instead?
         if self.options.include_comments:
             comments_nodes = self._process_comments(doc)
             if comments_nodes:
                 children.extend(comments_nodes)
 
-        # Extract and attach metadata
-        metadata = self.extract_metadata(doc)
-        return Document(children=children, metadata=metadata.to_dict())
+        # Extract and attach metadata if requested
+        metadata_dict = {}
+        if self.options.extract_metadata:
+            metadata = self.extract_metadata(doc)
+            metadata_dict = metadata.to_dict()
 
-    def _process_paragraph_to_ast(self, paragraph: "Paragraph") -> Node | list[Node] | None:
+        return Document(children=children, metadata=metadata_dict)
+
+    def _process_paragraph_to_ast(self, paragraph: "Paragraph", doc) -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
 
         Parameters
         ----------
         paragraph : Paragraph
             DOCX paragraph to process
+        doc : docx.document.Document
+            The document being processed (needed for heading match)
 
         Returns
         -------
@@ -294,7 +344,7 @@ class DocxToAstConverter(BaseParser):
 
         # Handle lists
 
-        list_type, level = _detect_list_level(paragraph, self.doc)
+        list_type, level = _detect_list_level(paragraph, doc)
         if list_type:
             # This paragraph is part of a list
             # We'll accumulate list items and return them when list ends
@@ -1062,7 +1112,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature (docx is ZIP-based)
     ],
-    parser_class="DocxToAstConverter",
+    parser_class=DocxToAstConverter,
     renderer_class=None,
     required_packages=[("python-docx", "docx", "")],
     optional_packages=[],
@@ -1070,7 +1120,7 @@ CONVERTER_METADATA = ConverterMetadata(
         "DOCX conversion requires 'python-docx'. "
         "Install with: pip install python-docx"
     ),
-    options_class="DocxOptions",
+    options_class=DocxOptions,
     description="Convert Microsoft Word DOCX documents to Markdown",
     priority=8
 )

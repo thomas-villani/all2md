@@ -153,7 +153,7 @@ AAABJ RU5ErkJggg==" alt="inline">
         )
 
         with patch('all2md.utils.network_security.fetch_image_securely') as mock_fetch:
-            from all2md.utils.network_security import NetworkSecurityError
+            from all2md.exceptions import NetworkSecurityError
             mock_fetch.side_effect = NetworkSecurityError("Response too large")
 
             result = html_to_markdown(html_content, options)
@@ -220,7 +220,7 @@ class TestSecurityErrorHandling:
         options = HtmlOptions(network=NetworkFetchOptions(allow_remote_fetch=True), attachment_mode="base64")
 
         with patch('all2md.utils.network_security.fetch_image_securely') as mock_fetch:
-            from all2md.utils.network_security import NetworkSecurityError
+            from all2md.exceptions import NetworkSecurityError
             mock_fetch.side_effect = NetworkSecurityError("Simulated security error")
 
             result = html_to_markdown(html_content, options)

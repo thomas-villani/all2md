@@ -9,11 +9,12 @@ It replaces direct markdown string generation with structured AST building.
 """
 
 from __future__ import annotations
-
+from typing import TYPE_CHECKING
 import logging
 from pathlib import Path
 from typing import IO, Any, Union
 
+from all2md import InputError
 from all2md.ast import (
     Code,
     Document,
@@ -34,9 +35,15 @@ from all2md.ast import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import OdfOptions
+from all2md.exceptions import DependencyError, MarkdownConversionError
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.security import validate_zip_archive
+
+if TYPE_CHECKING:
+    import odf
+    import odf.opendocument
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +62,19 @@ class OdfToAstConverter(BaseParser):
     """
 
     def __init__(self, options: OdfOptions | None = None):
-        super().__init__(options or OdfOptions())
-        from odf.namespaces import DRAWNS, STYLENS, TEXTNS
+        options = options or OdfOptions()
+        super().__init__(options)
+        self.options: OdfOptions = options
+        
+        try:
+            from odf.namespaces import DRAWNS, STYLENS, TEXTNS
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="odf",
+                missing_packages=[("odfpy", "")],
+            ) from e
 
-        self.doc = None
-        self.list_level = 0
+        self._list_level = 0
 
         # Namespace constants
         self.TEXTNS = TEXTNS
@@ -87,40 +102,33 @@ class OdfToAstConverter(BaseParser):
             If required dependencies are not installed
 
         """
-        from odf import opendocument
-
-        from all2md.exceptions import MarkdownConversionError
-        from all2md.utils.security import validate_zip_archive
+        try:
+            from odf import opendocument
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="odf",
+                missing_packages=[("odfpy", "")],
+            ) from e
+        
 
         # Validate ZIP archive security for file-based inputs
         if isinstance(input_data, (str, Path)) and Path(input_data).exists():
-            try:
-                validate_zip_archive(input_data)
-            except Exception as e:
-                raise MarkdownConversionError(
-                    f"ODF archive failed security validation: {str(e)}",
-                    conversion_stage="archive_validation",
-                    original_error=e
-                ) from e
+            validate_zip_archive(input_data)
+            
 
         try:
-            self.doc = opendocument.load(input_data)
-        except ImportError as e:
-            raise MarkdownConversionError(
-                "odfpy library is required for ODF conversion. Install with: pip install odfpy",
-                conversion_stage="dependency_check",
-                original_error=e,
-            ) from e
+            doc = opendocument.load(input_data)
         except Exception as e:
-            raise MarkdownConversionError(
-                f"Failed to open ODF document: {str(e)}",
-                conversion_stage="document_opening",
+            raise InputError(
+                f"Failed to open ODF document: {e!r}",
+                parameter_name="input_data",
+                parameter_value=input_data,
                 original_error=e
             ) from e
 
-        return self.convert_to_ast()
+        return self.convert_to_ast(doc)
 
-    def convert_to_ast(self) -> Document:
+    def convert_to_ast(self, doc: "odf.opendocument.OpenDocument") -> Document:
         """Convert ODF document to AST Document.
 
         Returns
@@ -132,16 +140,16 @@ class OdfToAstConverter(BaseParser):
         children: list[Node] = []
 
         # For ODT, content is in doc.text. For ODP, it's in doc.presentation
-        content_root = getattr(self.doc, 'text', None) or getattr(self.doc, 'presentation', None)
+        content_root = getattr(doc, 'text', None) or getattr(doc, 'presentation', None)
 
         # Extract metadata
-        metadata = self.extract_metadata(self.doc)
+        metadata = self.extract_metadata(doc)
 
         if not content_root:
             return Document(children=[], metadata=metadata.to_dict())
 
         for element in content_root.childNodes:
-            node = self._process_element(element)
+            node = self._process_element(element, doc)
             if node:
                 if isinstance(node, list):
                     children.extend(node)
@@ -150,13 +158,15 @@ class OdfToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _process_element(self, element: Any) -> Node | list[Node] | None:
+    def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
         """Process an ODF element to AST node(s).
 
         Parameters
         ----------
         element : Any
             ODF element to process
+        doc : odf.opendocument.OpenDocument
+            The document to process
 
         Returns
         -------
@@ -172,25 +182,27 @@ class OdfToAstConverter(BaseParser):
         qname = element.qname
 
         if qname == (self.TEXTNS, "p"):
-            return self._process_paragraph(element)
+            return self._process_paragraph(element, doc)
         elif qname == (self.TEXTNS, "h"):
-            return self._process_heading(element)
+            return self._process_heading(element, doc)
         elif qname == (self.TEXTNS, "list"):
-            return self._process_list(element)
+            return self._process_list(element, doc)
         elif qname[0] == "urn:oasis:names:tc:opendocument:xmlns:table:1.0" and qname[1] == "table":
-            return self._process_table(element)
+            return self._process_table(element, doc)
         elif qname == (self.DRAWNS, "frame"):
-            return self._process_image(element)
+            return self._process_image(element, doc)
 
         return None
 
-    def _process_text_runs(self, element: Any) -> list[Node]:
+    def _process_text_runs(self, element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:
         """Process text runs within an element, handling formatting.
 
         Parameters
         ----------
         element : Any
             ODF element containing text runs
+        doc : odf.opendocument.OpenDocument
+            The document to process
 
         Returns
         -------
@@ -210,10 +222,10 @@ class OdfToAstConverter(BaseParser):
                 qname = node.qname
                 if qname == (self.TEXTNS, "span"):
                     # Text with formatting
-                    inner_nodes = self._process_text_runs(node)
+                    inner_nodes = self._process_text_runs(node, doc)
                     # Check style for formatting
                     style_name = node.getAttribute("stylename")
-                    if style_name and self.doc:
+                    if style_name and doc:
                         # Apply formatting based on style
                         # For now, wrap in formatting nodes if we detect common patterns
                         text_content = "".join(
@@ -267,13 +279,15 @@ class OdfToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any) -> Paragraph | None:
+    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
         ----------
         p : odf.text.P
             Paragraph element
+        doc : odf.opendocument.OpenDocument
+            The document to process
 
         Returns
         -------
@@ -281,19 +295,21 @@ class OdfToAstConverter(BaseParser):
             AST paragraph node
 
         """
-        content = self._process_text_runs(p)
+        content = self._process_text_runs(p, doc)
         if not content:
             return None
 
         return Paragraph(content=content)
 
-    def _process_heading(self, h: Any) -> Heading:
+    def _process_heading(self, h: Any, doc: "odf.opendocument.OpenDocument") -> Heading:
         """Convert heading element to AST Heading.
 
         Parameters
         ----------
         h : odf.text.H
             Heading element
+        doc : odf.opendocument.OpenDocument
+            The document to process
 
         Returns
         -------
@@ -302,16 +318,18 @@ class OdfToAstConverter(BaseParser):
 
         """
         level = int(h.getAttribute("outlinelevel") or 1)
-        content = self._process_text_runs(h)
+        content = self._process_text_runs(h, doc)
         return Heading(level=level, content=content)
 
-    def _process_list(self, lst: Any) -> List:
+    def _process_list(self, lst: Any, doc: "odf.opendocument.OpenDocument") -> List:
         """Convert list element to AST List.
 
         Parameters
         ----------
         lst : odf.text.List
             List element
+        doc : odf.opendocument.OpenDocument
+            The document to process
 
         Returns
         -------
@@ -319,7 +337,7 @@ class OdfToAstConverter(BaseParser):
             AST list node
 
         """
-        self.list_level += 1
+        self._list_level += 1
         items: list[ListItem] = []
 
         # Detect if it's ordered
@@ -333,20 +351,21 @@ class OdfToAstConverter(BaseParser):
             for element in item.childNodes:
                 if hasattr(element, "qname"):
                     if element.qname == (self.TEXTNS, "p"):
-                        para = self._process_paragraph(element)
+                        para = self._process_paragraph(element, doc)
                         if para:
                             item_children.append(para)
                     elif element.qname == (self.TEXTNS, "list"):
-                        nested_list = self._process_list(element)
+                        nested_list = self._process_list(element, doc)
                         item_children.append(nested_list)
 
             if item_children:
                 items.append(ListItem(children=item_children))
 
-        self.list_level -= 1
+        self._list_level -= 1
         return List(ordered=is_ordered, items=items)
 
-    def _is_ordered_list(self, lst: Any) -> bool:
+    @staticmethod
+    def _is_ordered_list(lst: Any) -> bool:
         """Detect if a list is ordered (numbered).
 
         Parameters
@@ -369,13 +388,16 @@ class OdfToAstConverter(BaseParser):
                 return True
         return False
 
-    def _process_table(self, tbl: Any) -> Table | None:
+    def _process_table(self, tbl: Any, doc: "odf.opendocument.OpenDocument") -> Table | None:
         """Convert table element to AST Table.
 
         Parameters
         ----------
         tbl : odf.table.Table
             Table element
+        doc : odf.opendocument.OpenDocument
+            The document to process
+
 
         Returns
         -------
@@ -396,7 +418,7 @@ class OdfToAstConverter(BaseParser):
         header_cells = rows_elements[0].getElementsByType(table.TableCell)
         header_row = TableRow(
             cells=[
-                TableCell(content=self._process_text_runs(cell), alignment="center")
+                TableCell(content=self._process_text_runs(cell, doc), alignment="center")
                 for cell in header_cells
             ],
             is_header=True,
@@ -409,7 +431,7 @@ class OdfToAstConverter(BaseParser):
             data_rows.append(
                 TableRow(
                     cells=[
-                        TableCell(content=self._process_text_runs(cell), alignment="left")
+                        TableCell(content=self._process_text_runs(cell, doc), alignment="left")
                         for cell in data_cells
                     ],
                     is_header=False,
@@ -418,13 +440,16 @@ class OdfToAstConverter(BaseParser):
 
         return Table(header=header_row, rows=data_rows, alignments=["left"] * len(header_cells))
 
-    def _process_image(self, frame: Any) -> Image | None:
+    def _process_image(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Image | None:
         """Extract and process an image.
 
         Parameters
         ----------
         frame : odf.draw.Frame
             Frame element containing image
+        doc : odf.opendocument.OpenDocument
+            The document to process
+
 
         Returns
         -------
@@ -444,7 +469,7 @@ class OdfToAstConverter(BaseParser):
 
         try:
             # odfpy stores parts in a dict-like object
-            image_data = self.doc.getPart(href)
+            image_data = doc.getPart(href)
         except KeyError:
             logger.warning(f"Image not found in ODF package: {href}")
             return None
@@ -466,7 +491,7 @@ class OdfToAstConverter(BaseParser):
         # Parse markdown result to extract URL
         import re
 
-        match = re.match(r"!\[([^\]]*)\](?:\(([^)]+)\))?", markdown_result)
+        match = re.match(r"!\[([^]]*)](?:\(([^)]+)\))?", markdown_result)
         if match:
             alt_text = match.group(1) or "image"
             url = match.group(2) or ""
@@ -597,12 +622,11 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),
     ],
-    converter_module="all2md.parsers.odf",
-    parser_class="OdfToAstConverter",
+    parser_class=OdfToAstConverter,
     renderer_class=None,
     required_packages=[("odfpy", "odf", "")],
     import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",
-    options_class="OdfOptions",
+    options_class=OdfOptions,
     description="Convert OpenDocument files to Markdown",
     priority=4
 )

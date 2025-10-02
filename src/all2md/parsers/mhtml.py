@@ -9,16 +9,14 @@ single-file web archives and builds an AST representation.
 
 from __future__ import annotations
 
-import base64
 import email
-import re
 from email import policy
 from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import InputError, MarkdownConversionError, DependencyError
 from all2md.options import MhtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
@@ -40,8 +38,10 @@ class MhtmlToAstConverter(BaseParser):
     """
 
     def __init__(self, options: MhtmlOptions | None = None):
-        super().__init__(options or MhtmlOptions())
-        self.html_parser = HtmlToAstConverter(self.options.html_options)
+        options = options or MhtmlOptions()
+        super().__init__(options)
+        self.options: MhtmlOptions = options
+        self._html_parser = HtmlToAstConverter(self.options)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse MHTML file into an AST Document.
@@ -62,6 +62,14 @@ class MhtmlToAstConverter(BaseParser):
             If parsing fails due to invalid MHTML format
 
         """
+        try:
+            import bs4
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="mhtml",
+                missing_packages=[("bs4", "")],
+            ) from e
+
         # Parse MHTML message
         try:
             doc_input, input_type = validate_and_convert_input(
@@ -93,7 +101,7 @@ class MhtmlToAstConverter(BaseParser):
             )
 
         # Convert HTML to AST
-        doc = self.html_parser.convert_to_ast(html_content)
+        doc = self._html_parser.convert_to_ast(html_content)
 
         # Extract and attach metadata
         metadata = self.extract_metadata(msg, html_content)
@@ -201,12 +209,18 @@ class MhtmlToAstConverter(BaseParser):
         return metadata
 
 
-# Converter metadata for registry
 CONVERTER_METADATA = ConverterMetadata(
     format_name="mhtml",
-    display_name="MHTML",
-    file_extensions=[".mht", ".mhtml"],
-    mime_types=["message/rfc822", "multipart/related"],
-    description="MHTML web archive format",
-    parser_class="all2md.parsers.mhtml.MhtmlToAstConverter",
+    extensions=[".mhtml", ".mht"],
+    mime_types=["multipart/related", "message/rfc822"],
+    magic_bytes=[
+        (b"MIME-Version:", 0),
+    ],
+    parser_class=MhtmlToAstConverter,
+    renderer_class=None,
+    required_packages=[("beautifulsoup4", "bs4", "")],
+    import_error_message="MHTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4",
+    options_class=MhtmlOptions,
+    description="Convert MHTML web archives to Markdown",
+    priority=5
 )

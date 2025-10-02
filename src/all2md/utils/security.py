@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Union
 from urllib.parse import urlparse
 
-from all2md.exceptions import InputError
+from all2md.exceptions import InputError, ZipFileSecurityError
 
 
 def validate_local_file_access(
@@ -153,8 +153,10 @@ def validate_zip_archive(
 
     Raises
     ------
-    InputError
+    ZipFileSecurityError
         If the archive fails security validation
+    InputError
+        If the archive cannot be read for some other reason
 
     Examples
     --------
@@ -170,7 +172,7 @@ def validate_zip_archive(
 
             # Check number of entries
             if len(entries) > max_entries:
-                raise InputError(
+                raise ZipFileSecurityError(
                     f"ZIP archive contains too many entries: {len(entries)} > {max_entries}"
                 )
 
@@ -180,7 +182,7 @@ def validate_zip_archive(
             for entry in entries:
                 # Check for path traversal attempts
                 if '..' in entry.filename or entry.filename.startswith('/'):
-                    raise InputError(
+                    raise ZipFileSecurityError(
                         f"ZIP archive contains suspicious path: {entry.filename}"
                     )
 
@@ -190,7 +192,7 @@ def validate_zip_archive(
 
                 # Check total uncompressed size
                 if total_uncompressed > max_uncompressed_size:
-                    raise InputError(
+                    raise ZipFileSecurityError(
                         f"ZIP archive uncompressed size too large: "
                         f"{total_uncompressed / (1024 * 1024):.1f}MB > "
                         f"{max_uncompressed_size / (1024 * 1024):.1f}MB"
@@ -200,7 +202,7 @@ def validate_zip_archive(
             if total_compressed > 0:
                 compression_ratio = total_uncompressed / total_compressed
                 if compression_ratio > max_compression_ratio:
-                    raise InputError(
+                    raise ZipFileSecurityError(
                         f"ZIP archive has suspicious compression ratio: {compression_ratio:.1f}:1"
                     )
 

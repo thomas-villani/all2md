@@ -115,7 +115,7 @@ from .constants import (
     UnsupportedTableMode,
     DEFAULT_FLAVOR,
     DEFAULT_UNSUPPORTED_INLINE_MODE,
-    DEFAULT_UNSUPPORTED_TABLE_MODE,
+    DEFAULT_UNSUPPORTED_TABLE_MODE, DEFAULT_INCLUDE_METADATA_FRONTMATTER,
 )
 
 
@@ -347,8 +347,8 @@ class MarkdownOptions(_CloneMixin):
             "cli_name": "no-table-pipe-escape"
         }
     )
-    extract_metadata: bool = field(
-        default=DEFAULT_EXTRACT_METADATA,
+    metadata_frontmatter: bool = field(
+        default=DEFAULT_INCLUDE_METADATA_FRONTMATTER,
         metadata={
             "help": "Render document metadata as YAML frontmatter"
         }
@@ -1007,8 +1007,11 @@ class HtmlOptions(BaseOptions):
 
     # Advanced HTML processing options
     strip_comments: bool = field(
-        default=False,
-        metadata={"help": "Remove HTML comments from output"}
+        default=True,
+        metadata={
+            "help": "Remove HTML comments from output",
+            "cli_name": "no-strip-comments"
+        },
     )
     collapse_whitespace: bool = field(
         default=True,
@@ -1381,9 +1384,14 @@ class EpubOptions(BaseOptions):
         }
     )
 
+    html_options: HtmlOptions | None = field(
+        default=None,
+        metadata={"exclude_from_cli": True}  # Special field, handled separately
+    )
+
 
 @dataclass(frozen=True)
-class MhtmlOptions(BaseOptions):
+class MhtmlOptions(HtmlOptions):
     """Configuration options for MHTML-to-Markdown conversion.
 
     This dataclass contains settings specific to MHTML file processing,
@@ -1391,53 +1399,9 @@ class MhtmlOptions(BaseOptions):
 
     Parameters
     ----------
-    local_files : LocalFileAccessOptions
-        Local file access security settings.
-
-    Other Parameters
-    ----------------
-    Inherited from BaseOptions
+    Inherited from HtmlOptions
     """
-
-    # Local file access options
-    local_files: LocalFileAccessOptions = field(
-        default_factory=LocalFileAccessOptions,
-        metadata={
-            "help": "Local file access security settings",
-            "exclude_from_cli": True  # Handled via flattened fields
-        }
-    )
-
-    # HTML processing options (MHTML uses HTML conversion internally)
-    strip_comments: bool = field(
-        default=False,
-        metadata={"help": "Remove HTML comments from output"}
-    )
-    collapse_whitespace: bool = field(
-        default=True,
-        metadata={
-            "help": "Collapse multiple spaces/newlines into single spaces",
-            "cli_name": "no-collapse-whitespace"
-        }
-    )
-    br_handling: str = field(
-        default="newline",
-        metadata={"help": "How to handle <br> tags: 'newline' or 'space'"}
-    )
-    allowed_elements: tuple[str, ...] | None = field(
-        default=None,
-        metadata={
-            "help": "Whitelist of allowed HTML elements (if set, only these are processed)",
-            "action": "append"
-        }
-    )
-    allowed_attributes: tuple[str, ...] | None = field(
-        default=None,
-        metadata={
-            "help": "Whitelist of allowed HTML attributes (if set, only these are processed)",
-            "action": "append"
-        }
-    )
+    pass
 
 
 @dataclass(frozen=True)

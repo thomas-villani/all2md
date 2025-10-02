@@ -19,7 +19,6 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from all2md.utils.network_security import (
-    NetworkSecurityError,
     _is_private_or_reserved_ip,
     _resolve_hostname_to_ips,
     _validate_hostname_allowlist,
@@ -27,6 +26,7 @@ from all2md.utils.network_security import (
     is_network_disabled,
     validate_url_security,
 )
+from all2md.exceptions import NetworkSecurityError
 
 
 class TestPrivateIPValidation:

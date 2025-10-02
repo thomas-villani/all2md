@@ -63,6 +63,7 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
+from all2md.options import MarkdownOptions
 from all2md.ast.visitors import NodeVisitor
 from all2md.converter_metadata import ConverterMetadata
 from all2md.renderers.base import BaseRenderer
@@ -97,13 +98,12 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
     """
 
-    def __init__(self, options: "MarkdownOptions | None" = None):
+    def __init__(self, options: MarkdownOptions | None = None):
         # Import here to avoid circular dependency
-        from all2md.options import MarkdownOptions
-
         # Initialize BaseRenderer
-        BaseRenderer.__init__(self, options or MarkdownOptions())
-
+        options = options or MarkdownOptions()
+        BaseRenderer.__init__(self, options)
+        self.options: MarkdownOptions = options
         self._flavor = self._get_flavor(self.options.flavor)
         self._output: list[str] = []
         self._indent_level: int = 0
@@ -112,7 +112,8 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
         self._next_ref_id: int = 1
 
-    def _get_flavor(self, flavor_name: str) -> MarkdownFlavor:
+    @staticmethod
+    def _get_flavor(flavor_name: str) -> MarkdownFlavor:
         """Get flavor instance from string name.
 
         Parameters
@@ -279,7 +280,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
         """
         # Render metadata as YAML frontmatter if present and enabled
-        if self.options.extract_metadata and node.metadata:
+        if self.options.metadata_frontmatter and node.metadata:
             self._render_yaml_frontmatter(node.metadata)
             self._output.append('\n\n')
 

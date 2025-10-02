@@ -10,14 +10,14 @@ extracts HTML content from chapters, and builds an AST representation.
 from __future__ import annotations
 
 import os
-import re
 import tempfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import IO, Any, Union
 
+from all2md import InputError
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import MarkdownConversionError
+from all2md.exceptions import MarkdownConversionError, ZipFileSecurityError
 from all2md.options import EpubOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
@@ -39,7 +39,9 @@ class EpubToAstConverter(BaseParser):
     """
 
     def __init__(self, options: EpubOptions | None = None):
-        super().__init__(options or EpubOptions())
+        options = options or EpubOptions()
+        super().__init__(options)
+        self.options: EpubOptions = options
         self.html_parser = HtmlToAstConverter(self.options.html_options)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -74,32 +76,28 @@ class EpubToAstConverter(BaseParser):
 
         # Handle file-like objects by creating a temporary file
         temp_file = None
-        try:
-            if hasattr(input_data, 'read') and hasattr(input_data, 'seek'):
-                input_data.seek(0)
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
-                temp_file.write(input_data.read())
-                temp_file.close()
-                epub_path = temp_file.name
-            else:
-                epub_path = str(input_data)
+        book = None
 
-            # Validate ZIP archive security
-            if not hasattr(input_data, 'read') and Path(epub_path).exists():
-                try:
-                    validate_zip_archive(epub_path)
-                except Exception as e:
-                    raise MarkdownConversionError(
-                        f"EPUB archive failed security validation: {str(e)}",
-                        conversion_stage="archive_validation",
-                        original_error=e
-                    ) from e
+        if hasattr(input_data, 'read') and hasattr(input_data, 'seek'):
+            input_data.seek(0)
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+            temp_file.write(input_data.read())
+            temp_file.close()
+            epub_path = temp_file.name
+        else:
+            epub_path = str(input_data)
+
+        # Validate ZIP archive security
+        if not hasattr(input_data, 'read') and Path(epub_path).exists():
+            validate_zip_archive(epub_path)
+
+
+        try:
 
             book = epub.read_epub(epub_path)
-
+        except (MarkdownConversionError, ZipFileSecurityError, InputError):
+            raise
         except Exception as e:
-            if isinstance(e, MarkdownConversionError):
-                raise
             raise MarkdownConversionError(
                 f"Failed to read or parse EPUB file: {e!r}",
                 conversion_stage="document_opening",
@@ -112,14 +110,18 @@ class EpubToAstConverter(BaseParser):
                 except OSError:
                     pass
 
-        # Convert to AST
-        doc = self.convert_to_ast(book)
-
-        # Extract and attach metadata
-        metadata = self.extract_metadata(book)
-        doc.metadata = metadata.to_dict()
-
-        return doc
+        if book:
+            # Convert to AST
+            doc = self.convert_to_ast(book)
+            # Extract and attach metadata
+            metadata = self.extract_metadata(book)
+            doc.metadata = metadata.to_dict()
+            return doc
+        else:
+            raise MarkdownConversionError(
+                f"Failed to read or parse EPUB file: no file read.",
+                conversion_stage="document_opening",
+            )
 
     def convert_to_ast(self, book: Any) -> Document:
         """Convert EPUB book to AST Document.
@@ -240,9 +242,20 @@ class EpubToAstConverter(BaseParser):
 # Converter metadata for registry
 CONVERTER_METADATA = ConverterMetadata(
     format_name="epub",
-    display_name="EPUB",
-    file_extensions=[".epub"],
+    extensions=[".epub"],
     mime_types=["application/epub+zip"],
     description="Electronic Publication (EPUB) format",
     parser_class="all2md.parsers.epub.EpubToAstConverter",
+    renderer_class=None,
+    magic_bytes=[
+        (b"PK\x03\x04", 0),  # ZIP signature
+    ],
+    required_packages=[("ebooklib", "ebooklib", "")],
+    optional_packages=[],
+    import_error_message=(
+        "ePub conversion requires 'ebooklib'. "
+        "Install with: pip install ebooklib"
+    ),
+    options_class="EpubOptions",
+    priority=8
 )

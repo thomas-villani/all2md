@@ -8,14 +8,11 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.util import Inches
 
 from all2md.parsers.pptx2markdown import (
-    _process_paragraph_format,
-    _process_run_format,
-    _process_shape,
-    _process_table,
-    _process_text_frame,
     create_test_presentation,
     pptx_to_markdown,
 )
+from all2md.parsers.pptx import _process_paragraph_format, _process_run_format, _process_text_frame, _process_table, \
+    _process_shape
 from all2md.utils.attachments import extract_pptx_image_data
 
 

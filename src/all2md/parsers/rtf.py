@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Union, TYPE_CHECKING
 
 from all2md.ast import (
     Document,
@@ -27,11 +27,16 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import MarkdownConversionError
+from all2md.exceptions import DependencyError, InputError
 from all2md.options import RtfOptions
 from all2md.parsers.base import BaseParser
-from all2md.utils.attachments import process_attachment
+from all2md.utils.attachments import process_attachment, create_attachment_sequencer
+from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+
+if TYPE_CHECKING:
+    import pyth
+    import pyth.document
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +60,7 @@ class RtfToAstConverter(BaseParser):
 
     def __init__(
         self,
-        options: RtfOptions | None = None,
-        base_filename: str = "document",
-        attachment_sequencer: Any = None,
+        options: RtfOptions | None = None
     ):
         super().__init__(options or RtfOptions())
 
@@ -76,13 +79,15 @@ class RtfToAstConverter(BaseParser):
             self.PythText = PythText
             self.PythImage = PythImage
             self.PythDocument = PythDocument
-        except ImportError:
-            # Will fail when actually trying to convert
-            pass
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="rtf",
+                missing_packages=[("pyth3", "")],
+            ) from e
 
-        self.base_filename = base_filename
-        self.attachment_sequencer = attachment_sequencer
-        self.list_stack: list[tuple[str, int, int]] = []  # (type, level, number)
+        self._base_filename = "document"
+        self._attachment_sequencer = create_attachment_sequencer()
+        self._list_stack: list[tuple[str, int, int]] = []  # (type, level, number)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse RTF input into an AST Document.
@@ -106,50 +111,42 @@ class RtfToAstConverter(BaseParser):
         # Lazy import of pyth dependencies
         try:
             from pyth.plugins.rtf15.reader import Rtf15Reader
-        except ImportError:
-            raise MarkdownConversionError(
-                "pyth library is required for RTF conversion. Install with: pip install pyth3",
-                conversion_stage="dependency_check",
-            )
-
-        # Handle different input types
-        import io
-
-        try:
-            if isinstance(input_data, bytes):
-                # Convert bytes to file-like object
-                file_obj = io.BytesIO(input_data)
-                pyth_doc = Rtf15Reader.read(file_obj)
-            elif isinstance(input_data, (str, Path)):
-                # File path
-                with open(input_data, "rb") as f:
-                    pyth_doc = Rtf15Reader.read(f)
-                if not self.base_filename or self.base_filename == "document":
-                    self.base_filename = Path(input_data).stem
-            elif hasattr(input_data, "read"):
-                # File-like object
-                if isinstance(input_data, io.TextIOBase):
-                    raise MarkdownConversionError("RTF input stream must be binary, not text.")
-                pyth_doc = Rtf15Reader.read(input_data)
-                # Try to extract filename from file object
-                if hasattr(input_data, "name") and input_data.name not in (None, "unknown"):
-                    if not self.base_filename or self.base_filename == "document":
-                        self.base_filename = Path(input_data.name).stem
-            else:
-                raise MarkdownConversionError(
-                    f"Unsupported input type for RTF parsing: {type(input_data)}"
-                )
-        except Exception as e:
-            if isinstance(e, MarkdownConversionError):
-                raise
-            raise MarkdownConversionError(
-                f"Failed to parse RTF document: {e}",
-                conversion_stage="document_parsing",
-                original_error=e,
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="rtf",
+                missing_packages=[("pyth3", "")],
             ) from e
 
+        doc = None
+        try:
+            doc_input, input_type = validate_and_convert_input(
+                input_data, supported_types=["path-like", "file-like"]
+            )
+            if input_type == "path":
+                with open(doc_input, "rb") as f:
+                    doc = Rtf15Reader.read(f)
+                base_filename = Path(doc_input).stem
+            elif input_type in ("file", "bytes"):    
+                doc = Rtf15Reader.read(doc_input)
+                # Try to get filename from file object's name attribute
+                if hasattr(doc_input, 'name') and doc_input.name not in (None, 'unknown'):
+                    base_filename = Path(doc_input.name).stem
+                else:
+                    base_filename = "document"
+            else:
+                raise InputError(f"Unsupported input type for RTF conversion: {type(doc_input)}")
+
+        except InputError as e:
+            raise e
+        except Exception as e:
+            raise InputError(
+                f"Failed to read or parse RTF document: {e!r}",
+                original_error=e,
+            ) from e
+        
+        self._base_filename = base_filename
         # Convert pyth document to AST
-        return self.convert_to_ast(pyth_doc)
+        return self.convert_to_ast(doc)
 
     def convert_to_ast(self, pyth_doc: Any) -> Document:
         """Convert pyth Document to AST Document.
@@ -329,7 +326,7 @@ class RtfToAstConverter(BaseParser):
 
         return text_node
 
-    def _process_image(self, image: Any) -> Image | None:
+    def _process_image(self, image: "pyth.document.Image") -> Image | None:
         """Process pyth Image object to AST Image node.
 
         Parameters
@@ -343,18 +340,16 @@ class RtfToAstConverter(BaseParser):
             AST image node
 
         """
-        if not hasattr(image, "data") or not image.data:
+        if not hasattr(image, "content") or not image.content:
             return None
 
-        image_data = image.data
+        image_data = image.content
 
         # Generate standardized image filename
-        if self.attachment_sequencer:
-            filename, _ = self.attachment_sequencer(
-                base_stem=self.base_filename, format_type="general", extension="png"
-            )
-        else:
-            filename = f"{self.base_filename}_image.png"
+
+        filename, _ = self._attachment_sequencer(
+            base_stem=self._base_filename, format_type="general", extension="png"
+        )
 
         # Process attachment using unified handler
         try:
@@ -373,7 +368,7 @@ class RtfToAstConverter(BaseParser):
             # Format: ![alt](url) or ![alt]
             import re
 
-            match = re.match(r"!\[([^\]]*)\](?:\(([^)]+)\))?", markdown_result)
+            match = re.match(r"!\[([^]]*)](?:\(([^)]+)\))?", markdown_result)
             if match:
                 alt_text = match.group(1) or "Image"
                 url = match.group(2) or ""
@@ -384,12 +379,12 @@ class RtfToAstConverter(BaseParser):
 
         return None
 
-    def extract_metadata(self, document: Any) -> DocumentMetadata:
+    def extract_metadata(self, document: "pyth.document.Document") -> DocumentMetadata:
         """Extract metadata from RTF document.
 
         Parameters
         ----------
-        document : Document
+        document : pyth.document.Document
             Parsed RTF document from pyth
 
         Returns
@@ -494,12 +489,11 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"{\\rtf", 0),
     ],
-    converter_module="all2md.parsers.rtf",
-    parser_class="RtfToAstConverter",
+    parser_class=RtfToAstConverter,
     renderer_class=None,
     required_packages=[("pyth3", "pyth", "")],
     import_error_message="RTF conversion requires 'pyth3'. Install with: pip install pyth3",
-    options_class="RtfOptions",
+    options_class=RtfOptions,
     description="Convert Rich Text Format documents to Markdown",
     priority=4,
 )

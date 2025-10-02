@@ -11,13 +11,13 @@ enabling multiple rendering strategies and improved testability.
 
 from __future__ import annotations
 
+import os
 import html
 import re
 from pathlib import Path
 from typing import IO, Any, Union
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
-from all2md import MarkdownConversionError
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -42,11 +42,17 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.constants import (DANGEROUS_HTML_ATTRIBUTES, DANGEROUS_HTML_ELEMENTS, DANGEROUS_SCHEMES,
+                              MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN)
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import HtmlOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
-from urllib.parse import urljoin, urlparse
+from all2md.exceptions import InputError, MarkdownConversionError, DependencyError, NetworkSecurityError
+from all2md.utils.inputs import is_path_like, validate_and_convert_input
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -167,9 +173,16 @@ class HtmlToAstConverter(BaseParser):
             If input data is invalid or inaccessible
 
         """
-        import os
-        from all2md.exceptions import InputError, MarkdownConversionError
-        from all2md.utils.inputs import is_path_like, validate_and_convert_input
+        try:
+            import bs4
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="html",
+                missing_packages=[("bs4", "")],
+            ) from e
+
+        if self.options.attachment_mode not in ("skip", "alt_text"):
+            pass
 
         # Determine if input_data is HTML content or a file path/object
         html_content = ""
@@ -180,8 +193,8 @@ class HtmlToAstConverter(BaseParser):
                 try:
                     html_content = _read_html_file_with_encoding_fallback(input_data)
                 except Exception as e:
-                    raise MarkdownConversionError(
-                        f"Failed to read HTML file: {str(e)}", conversion_stage="file_reading", original_error=e
+                    raise InputError(
+                        f"Failed to read HTML file: {e!r}", original_error=e
                     ) from e
             else:
                 # It's HTML content as a string
@@ -191,9 +204,8 @@ class HtmlToAstConverter(BaseParser):
             try:
                 html_content = input_data.decode("utf-8")
             except UnicodeDecodeError as e:
-                raise MarkdownConversionError(
-                    f"Failed to decode HTML bytes as UTF-8: {str(e)}",
-                    conversion_stage="decoding",
+                raise InputError(
+                    f"Failed to decode HTML bytes as UTF-8: {e!r}",
                     original_error=e
                 ) from e
         else:
@@ -221,9 +233,8 @@ class HtmlToAstConverter(BaseParser):
                 if isinstance(e, (InputError, MarkdownConversionError)):
                     raise
                 else:
-                    raise MarkdownConversionError(
-                        f"Failed to process HTML input: {str(e)}",
-                        conversion_stage="input_processing",
+                    raise InputError(
+                        f"Failed to process HTML input: {e!r}",
                         original_error=e
                     ) from e
 
@@ -465,9 +476,6 @@ class HtmlToAstConverter(BaseParser):
             True if element should be kept, False if it should be removed
 
         """
-        from urllib.parse import urlparse
-
-        from all2md.constants import DANGEROUS_HTML_ATTRIBUTES, DANGEROUS_HTML_ELEMENTS, DANGEROUS_SCHEMES
 
         if not self.options.strip_dangerous_elements:
             return True
@@ -527,7 +535,6 @@ class HtmlToAstConverter(BaseParser):
             # Apply whitespace collapsing if enabled
             if self.options.collapse_whitespace:
                 # Collapse multiple spaces/newlines into single space
-                import re
                 text = re.sub(r'\s+', ' ', text)
 
             if text.strip():
@@ -921,11 +928,6 @@ class HtmlToAstConverter(BaseParser):
             Image node
 
         """
-        import logging
-        import os
-        from urllib.parse import urlparse
-
-        logger = logging.getLogger(__name__)
 
         src = node.get("src", "")
         alt_text = node.get("alt", "")
@@ -967,9 +969,6 @@ class HtmlToAstConverter(BaseParser):
             else:
                 # No URL or same as original, just use alt text
                 return Image(url=resolved_src, alt_text=alt_text, title=title)
-
-        # Process image using unified attachment handling
-        from all2md.utils.attachments import process_attachment
 
         processed_markdown = process_attachment(
             attachment_data=image_data,
@@ -1028,11 +1027,6 @@ class HtmlToAstConverter(BaseParser):
             If download fails, URL is invalid, or security validation fails
 
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-        from all2md.utils.network_security import NetworkSecurityError, fetch_image_securely, is_network_disabled
 
         # Check global network disable flag
         if is_network_disabled():
@@ -1160,12 +1154,6 @@ class HtmlToAstConverter(BaseParser):
         ''
 
         """
-        import logging
-
-        from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN
-
-        logger = logging.getLogger(__name__)
-
         if not language:
             return ""
 
@@ -1312,9 +1300,6 @@ class HtmlToAstConverter(BaseParser):
             Sanitized URL, or empty string if the URL contains a dangerous scheme
 
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         if not url or not url.strip():
             return ""
@@ -1380,14 +1365,12 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"<html", 0),
         (b"<HTML", 0),
     ],
-    converter_module="",
-    converter_function="",
-    parser_class="HtmlToAstConverter",
+    parser_class=HtmlToAstConverter,
     renderer_class=None,
     required_packages=[("beautifulsoup4", "bs4", "")],
     optional_packages=[],
     import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
-    options_class="HtmlOptions",
+    options_class=HtmlOptions,
     description="Convert HTML documents to Markdown",
     priority=5,
 )

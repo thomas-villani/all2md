@@ -187,115 +187,6 @@ CONVERTER_METADATA = ConverterMetadata(
 )
 
 
-def extract_html_metadata(soup: Any) -> DocumentMetadata:
-    """Extract metadata from HTML document.
-
-    Parameters
-    ----------
-    soup : BeautifulSoup
-        Parsed HTML document
-
-    Returns
-    -------
-    DocumentMetadata
-        Extracted metadata
-    """
-    metadata = DocumentMetadata()
-
-    # Extract from head section if available
-    head = soup.find("head")
-    if head:
-        # Extract title
-        title_tag = head.find("title")
-        if title_tag and title_tag.string:
-            metadata.title = title_tag.string.strip()
-
-        # Extract meta tags
-        meta_tags = head.find_all("meta")
-        for meta in meta_tags:
-            # Get meta name/property and content
-            meta_name = meta.get("name", "").lower() or meta.get("property", "").lower()
-            content = meta.get("content", "").strip()
-
-            if not meta_name or not content:
-                continue
-
-            # Map common meta tags to standard fields
-            if meta_name in ["author", "dc.creator", "creator"]:
-                metadata.author = content
-            elif meta_name in ["description", "dc.description", "og:description", "twitter:description"]:
-                if not metadata.subject:  # Only set if not already set
-                    metadata.subject = content
-            elif meta_name in ["keywords", "dc.subject"]:
-                # Split keywords by comma or semicolon
-                import re
-
-                metadata.keywords = [k.strip() for k in re.split("[,;]", content) if k.strip()]
-            elif meta_name in ["language", "dc.language", "og:locale"]:
-                metadata.language = content
-            elif meta_name in ["generator", "application-name"]:
-                metadata.creator = content
-            elif meta_name in ["dc.date", "article:published_time", "publish_date"]:
-                metadata.custom["published_date"] = content
-            elif meta_name in ["article:modified_time", "last-modified", "dc.modified"]:
-                metadata.custom["modified_date"] = content
-            elif meta_name in ["og:title", "twitter:title"]:
-                if not metadata.title:  # Only set if not already set from <title>
-                    metadata.title = content
-            elif meta_name in ["article:author", "twitter:creator"]:
-                if not metadata.author:  # Only set if not already set
-                    metadata.author = content
-            elif meta_name in ["og:type", "article:section"]:
-                metadata.category = content
-            elif meta_name == "viewport":
-                metadata.custom["viewport"] = content
-            elif meta_name in ["og:url", "canonical"]:
-                metadata.custom["url"] = content
-            elif meta_name in ["robots", "googlebot"]:
-                metadata.custom["robots"] = content
-
-        # Check for charset
-        charset_meta = head.find("meta", {"charset": True})
-        if charset_meta:
-            metadata.custom["charset"] = charset_meta.get("charset")
-        else:
-            # Try http-equiv Content-Type
-            content_type_meta = head.find("meta", {"http-equiv": "Content-Type"})
-            if content_type_meta:
-                content = content_type_meta.get("content", "")
-                if "charset=" in content:
-                    charset = content.split("charset=")[-1].strip()
-                    metadata.custom["charset"] = charset
-
-        # Extract link tags for additional metadata
-        link_tags = head.find_all("link")
-        for link in link_tags:
-            rel = link.get("rel", [])
-            if isinstance(rel, list):
-                rel = " ".join(rel)
-
-            if "canonical" in rel:
-                metadata.custom["canonical_url"] = link.get("href")
-            elif "author" in rel:
-                if not metadata.author:
-                    metadata.author = link.get("href", "").replace("mailto:", "")
-
-    # Extract Open Graph data if not already captured
-    if not metadata.title:
-        og_title = soup.find("meta", property="og:title")
-        if og_title:
-            metadata.title = og_title.get("content", "").strip()
-
-    # Extract from body if head data is missing
-    if not metadata.title:
-        # Try to find first h1 as title
-        h1 = soup.find("h1")
-        if h1:
-            metadata.title = h1.get_text(strip=True)
-
-    return metadata
-
-
 def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: HtmlOptions | None = None) -> str:
     """Convert HTML to Markdown format.
 
@@ -392,8 +283,8 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             try:
                 html_content = _read_html_file_with_encoding_fallback(input_data)
             except Exception as e:
-                raise MarkdownConversionError(
-                    f"Failed to read HTML file: {str(e)}", conversion_stage="file_reading", original_error=e
+                raise InputError(
+                    f"Failed to read HTML file: {str(e)}", original_error=e
                 ) from e
         else:
             # It's HTML content as a string
@@ -423,21 +314,21 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
             if isinstance(e, (InputError, MarkdownConversionError)):
                 raise
             else:
-                raise MarkdownConversionError(
-                    f"Failed to process HTML input: {str(e)}", conversion_stage="input_processing", original_error=e
+                raise InputError(
+                    f"Failed to process HTML input: {e!r}", original_error=e
                 ) from e
 
     try:
         # Extract metadata if requested
         metadata = None
-        if options.extract_metadata:
-            try:
-                from bs4 import BeautifulSoup
-
-                soup = BeautifulSoup(html_content, "html.parser")
-                metadata = extract_html_metadata(soup)
-            except Exception as e:
-                logger.warning(f"Failed to extract HTML metadata: {e}")
+        # if options.extract_metadata:
+        #     try:
+        #         from bs4 import BeautifulSoup
+        #
+        #         soup = BeautifulSoup(html_content, "html.parser")
+        #         metadata = extract_html_metadata(soup)
+        #     except Exception as e:
+        #         logger.warning(f"Failed to extract HTML metadata: {e!r}")
 
         # Use new AST-based conversion path
         from all2md.parsers.html import HtmlToAstConverter

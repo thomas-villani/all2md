@@ -18,17 +18,19 @@ import re
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Union
 
+from all2md import DependencyError, InputError
 from all2md.ast import Document, Emphasis, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.constants import TABLE_ALIGNMENT_MAPPING
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MarkdownOptions, SpreadsheetOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
 
-def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None, preserve_newlines: bool = False) -> str:
+def _sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
     """Convert any cell value to a safe string for AST Text node.
 
     Note: Markdown escaping is handled by the renderer, not here.
@@ -38,8 +40,6 @@ def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None, pr
     ----------
     text : Any
         Cell value to sanitize
-    md_options : MarkdownOptions | None
-        Markdown options (currently unused, kept for compatibility)
     preserve_newlines : bool
         If True, preserve newlines as <br> tags; if False, replace with spaces
 
@@ -65,7 +65,7 @@ def _sanitize_cell_text(text: Any, md_options: MarkdownOptions | None = None, pr
     return s
 
 
-def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | None = None, preserve_newlines: bool = False) -> str:
+def _format_link_or_text(cell: Any, text: str, preserve_newlines: bool = False) -> str:
     """Get cell text, checking for hyperlinks.
 
     Parameters
@@ -74,8 +74,6 @@ def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | Non
         Cell object (openpyxl)
     text : str
         Cell text value
-    md_options : MarkdownOptions | None
-        Markdown options
     preserve_newlines : bool
         Whether to preserve newlines in cells
 
@@ -87,7 +85,7 @@ def _format_link_or_text(cell: Any, text: str, md_options: MarkdownOptions | Non
     """
     # TODO: Support hyperlinks in table cells via Link nodes
     # For now, just return sanitized text
-    return _sanitize_cell_text(text, md_options, preserve_newlines)
+    return _sanitize_cell_text(text, preserve_newlines)
 
 
 def _alignment_for_cell(cell: Any) -> str:
@@ -248,9 +246,9 @@ class SpreadsheetToAstConverter(BaseParser):
     """
 
     def __init__(self, options: SpreadsheetOptions | None = None):
-        super().__init__(options or SpreadsheetOptions())
-        self.options = self.options or SpreadsheetOptions()
-        self.md_options = self.options.markdown_options or MarkdownOptions()
+        options = options or SpreadsheetOptions()
+        super().__init__()
+        self.options: SpreadsheetOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse the input spreadsheet into an AST.
@@ -281,8 +279,6 @@ class SpreadsheetToAstConverter(BaseParser):
             If input data is invalid or inaccessible
 
         """
-        from all2md.exceptions import DependencyError, InputError, MarkdownConversionError
-        from all2md.utils.inputs import validate_and_convert_input
 
         # Detect format
         detected_format = self._detect_format(input_data)
@@ -338,9 +334,8 @@ class SpreadsheetToAstConverter(BaseParser):
         except (DependencyError, InputError):
             raise
         except Exception as e:
-            raise MarkdownConversionError(
-                f"Failed to parse spreadsheet: {e}",
-                conversion_stage="parsing",
+            raise InputError(
+                f"Failed to parse spreadsheet: {e!r}",
                 original_error=e
             ) from e
 
@@ -471,7 +466,6 @@ class SpreadsheetToAstConverter(BaseParser):
 
             # Add sheet title if requested
             if self.options.include_sheet_titles:
-                use_hash = self.md_options.use_hash_headings
                 # Create heading node
                 children.append(Heading(level=2, content=[Text(content=sname)]))
 
@@ -497,7 +491,7 @@ class SpreadsheetToAstConverter(BaseParser):
                     if coord and coord in merged_map and merged_map[coord] != coord:
                         out.append("")
                     else:
-                        out.append(_format_link_or_text(cell, cell.value, self.md_options, self.options.preserve_newlines_in_cells))
+                        out.append(_format_link_or_text(cell, cell.value, self.options.preserve_newlines_in_cells))
                 str_rows.append(out)
 
             # Trim empty rows based on trim_empty option
@@ -670,10 +664,10 @@ class SpreadsheetToAstConverter(BaseParser):
 
         # Sanitize cells
         if self.options.has_header:
-            header = [_sanitize_cell_text(c, self.md_options).lstrip("\ufeff") for c in header]
+            header = [_sanitize_cell_text(c).lstrip("\ufeff") for c in header]
         else:
-            header = [_sanitize_cell_text(c, self.md_options) for c in header]
-        data_rows = [[_sanitize_cell_text(c, self.md_options) for c in r] for r in data_rows]
+            header = [_sanitize_cell_text(c) for c in header]
+        data_rows = [[_sanitize_cell_text(c) for c in r] for r in data_rows]
 
         # Alignments default to center
         alignments = ["center"] * len(header)
@@ -865,8 +859,11 @@ class SpreadsheetToAstConverter(BaseParser):
                 continue
 
             # Sanitize all cell content
-            header = [_sanitize_cell_text(cell, self.md_options, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
-            data_rows = [[_sanitize_cell_text(cell, self.md_options, self.options.preserve_newlines_in_cells) for cell in row] for row in all_rows[1:]]
+            header = [_sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
+            data_rows = [
+                [_sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
+                 for row in all_rows[1:]
+            ]
 
             # Apply header case transformation
             header = self._transform_header_case(header)

@@ -52,6 +52,8 @@ import string
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
+from all2md.parsers.pdf import IdentifyHeaders
+
 if TYPE_CHECKING:
     import fitz
 
@@ -107,239 +109,18 @@ def _check_pymupdf_version() -> None:
         import fitz
         min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
         if fitz.pymupdf_version_tuple < min_version:
-            raise ImportError(
+            raise DependencyError(
                 f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
                 f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
             )
     except ImportError as e:
-        if "fitz" in str(e) or "No module" in str(e):
-            from all2md.exceptions import DependencyError
-            raise DependencyError(
-                converter_name="pdf",
-                missing_packages=[("pymupdf", f">={PDF_MIN_PYMUPDF_VERSION}")],
-            ) from e
-        raise
+        raise DependencyError(
+            f"PyMuPDF version {PDF_MIN_PYMUPDF_VERSION} or later is required, "
+            f"but {'.'.join(map(str, fitz.pymupdf_version_tuple))} is installed."
+        )
 
 
 SPACES = set(string.whitespace)  # used to check relevance of text pieces
-
-
-class IdentifyHeaders:
-    """Compute data for identifying header text based on font size analysis.
-
-    This class analyzes font sizes across document pages to identify which
-    font sizes should be treated as headers versus body text. It creates
-    a mapping from font sizes to Markdown header levels (# ## ### etc.).
-
-    Parameters
-    ----------
-    doc : fitz.Document
-        PDF document to analyze
-    pages : list[int], range, or None, optional
-        Pages to analyze for font size distribution. If None, analyzes all pages.
-    body_limit : float or None, optional
-        Font size threshold below which text is considered body text.
-        If None, uses the most frequent font size as body text baseline.
-    options : PdfOptions or None, optional
-        PDF conversion options containing header detection parameters.
-
-    Attributes
-    ----------
-    header_id : dict[int, str]
-        Mapping from font size to markdown header prefix string
-    options : PdfOptions
-        PDF conversion options used for header detection
-    """
-
-    def __init__(
-            self,
-            doc,  # PyMuPDF Document object
-            pages: list[int] | range | None = None,
-            body_limit: float | None = None,
-            options: PdfOptions | None = None,
-    ) -> None:
-        """Initialize header identification by analyzing font sizes.
-
-        Reads all text spans from specified pages and builds a frequency
-        distribution of font sizes. Uses this to determine which font sizes
-        should be treated as headers versus body text.
-
-        Parameters
-        ----------
-        doc : fitz.Document
-            PDF document to analyze
-        pages : list[int], range, or None, optional
-            Pages to analyze for font size distribution. If None, analyzes all pages.
-        body_limit : float or None, optional
-            Font size threshold below which text is considered body text.
-            If None, uses the most frequent font size as body text baseline.
-        options : PdfOptions or None, optional
-            PDF conversion options containing header detection parameters.
-        """
-        self.options = options or PdfOptions()
-
-        # Determine pages to sample for header analysis
-        if self.options.header_sample_pages is not None:
-            if isinstance(self.options.header_sample_pages, int):
-                # Sample first N pages
-                pages_to_sample = list(range(min(self.options.header_sample_pages, doc.page_count)))
-            else:
-                # Use specific page list
-                pages_to_sample = [p for p in self.options.header_sample_pages if p < doc.page_count]
-        elif pages is not None:
-            pages_to_sample = pages if isinstance(pages, list) else list(pages)
-        else:
-            pages_to_sample = list(range(doc.page_count))
-
-        pages_to_use: list[int] = pages_to_sample
-        fontsizes: dict[int, int] = {}
-        fontweight_sizes: dict[int, int] = {}  # Track bold font sizes
-        allcaps_sizes: dict[int, int] = {}  # Track all-caps text sizes
-        import fitz
-        for pno in pages_to_use:
-            page = doc[pno]
-            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
-            for span in [  # look at all non-empty horizontal spans
-                s
-                for b in blocks
-                for line in b["lines"]
-                for s in line["spans"]
-                if not SPACES.issuperset(s["text"]) and line["dir"] == (1, 0)
-            ]:
-                fontsz = round(span["size"])
-                text = span["text"].strip()
-                text_len = len(text)
-
-                # Track font size occurrences
-                count = fontsizes.get(fontsz, 0) + text_len
-                fontsizes[fontsz] = count
-
-                # Track bold text if enabled
-                if self.options.header_use_font_weight and (span["flags"] & 16):  # Bold flag
-                    fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
-
-                # Track all-caps text if enabled
-                if self.options.header_use_all_caps and text.isupper() and text.isalpha():
-                    allcaps_sizes[fontsz] = allcaps_sizes.get(fontsz, 0) + text_len
-
-        # maps a fontsize to a string of multiple # header tag characters
-        self.header_id = {}
-        self.bold_header_sizes = set()  # Track which sizes are headers due to bold
-        self.allcaps_header_sizes = set()  # Track which sizes are headers due to all-caps
-
-        # Apply allowlist/denylist filters
-        if self.options.header_size_denylist:
-            for size in self.options.header_size_denylist:
-                fontsizes.pop(round(size), None)
-
-        # Filter by minimum occurrences
-        if self.options.header_min_occurrences > 0:
-            fontsizes = {k: v for k, v in fontsizes.items() if v >= self.options.header_min_occurrences}
-
-        # If not provided, choose the most frequent font size as body text.
-        # If no text at all on all pages, just use 12
-        if body_limit is None:
-            temp = sorted(
-                fontsizes.items(),
-                key=lambda i: i[1],
-                reverse=True,
-            )
-            body_limit = temp[0][0] if temp else 12
-
-        # Get header sizes based on percentile threshold and minimum font size ratio
-        if self.options.header_percentile_threshold and fontsizes:
-            sorted_sizes = sorted(fontsizes.keys(), reverse=True)
-            percentile_idx = int(len(sorted_sizes) * (1 - self.options.header_percentile_threshold / 100))
-            percentile_threshold = sorted_sizes[max(0, percentile_idx - 1)] if percentile_idx > 0 else sorted_sizes[0]
-            # Apply both percentile and font size ratio filters
-            min_header_size = body_limit * self.options.header_font_size_ratio
-            sizes = [s for s in sorted_sizes if s >= percentile_threshold and s >= min_header_size]
-        else:
-            # Apply font size ratio filter even without percentile threshold
-            min_header_size = body_limit * self.options.header_font_size_ratio
-            sizes = sorted([f for f in fontsizes if f >= min_header_size], reverse=True)
-
-        # Add sizes from allowlist
-        if self.options.header_size_allowlist:
-            for size in self.options.header_size_allowlist:
-                rounded_size = round(size)
-                if rounded_size not in sizes and rounded_size > body_limit:
-                    sizes.append(rounded_size)
-            sizes = sorted(sizes, reverse=True)
-
-        # Add bold and all-caps sizes as potential headers (but still respect font size ratio)
-        min_header_size = body_limit * self.options.header_font_size_ratio
-        if self.options.header_use_font_weight:
-            for size in fontweight_sizes:
-                if size not in sizes and size >= min_header_size:
-                    sizes.append(size)
-                    self.bold_header_sizes.add(size)
-
-        if self.options.header_use_all_caps:
-            for size in allcaps_sizes:
-                if size not in sizes and size >= min_header_size:
-                    sizes.append(size)
-                    self.allcaps_header_sizes.add(size)
-
-        sizes = sorted(set(sizes), reverse=True)
-
-        # make the header tag dictionary
-        for i, size in enumerate(sizes):
-            level = min(i + 1, 6)  # Limit to h6
-            # Store level information for later formatting
-            self.header_id[size] = level
-
-    def get_header_level(self, span: dict) -> int:
-        """Return header level for a text span, or 0 if not a header.
-
-        Analyzes the font size of a text span and returns the corresponding
-        header level (1-6) or 0 if the span should be treated as body text.
-        Includes content-based validation to reduce false positives.
-
-        Parameters
-        ----------
-        span : dict
-            Text span dictionary from PyMuPDF extraction containing 'size' key
-
-        Returns
-        -------
-        int
-            Header level (1-6) or 0 if not a header
-        """
-        fontsize = round(span["size"])  # compute fontsize
-        level = self.header_id.get(fontsize, 0)
-
-        # Check for additional header indicators if no size-based header found
-        if not level and self.options:
-            text = span.get("text", "").strip()
-
-            # Check for bold header
-            if self.options.header_use_font_weight and (span.get("flags", 0) & 16):
-                if fontsize in self.bold_header_sizes:
-                    level = self.header_id.get(fontsize, 0)
-
-            # Check for all-caps header
-            if self.options.header_use_all_caps and text.isupper() and text.isalpha():
-                if fontsize in self.allcaps_header_sizes:
-                    level = self.header_id.get(fontsize, 0)
-
-        # Apply content-based validation if we detected a potential header
-        if level > 0:
-            text = span.get("text", "").strip()
-
-            # Skip if text is too long to be a realistic header
-            if len(text) > self.options.header_max_line_length:
-                return 0
-
-            # Skip if text is mostly whitespace or empty
-            if not text or len(text.strip()) == 0:
-                return 0
-
-            # Skip if text looks like a paragraph (ends with typical sentence punctuation and is long)
-            if len(text) > 50 and text.endswith(('.', '!', '?')):
-                return 0
-
-        return level
 
 
 def _parse_pdf_date(date_str: str) -> str:

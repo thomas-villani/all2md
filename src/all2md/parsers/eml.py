@@ -805,7 +805,10 @@ class EmlToAstConverter(BaseParser):
     """
 
     def __init__(self, options: EmlOptions | None = None):
-        super().__init__(options or EmlOptions())
+        options = options or EmlOptions()
+        super().__init__(options)
+        self.options: EmlOptions = options
+
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse EML file into an AST Document.
@@ -860,13 +863,14 @@ class EmlToAstConverter(BaseParser):
                     parameter_value=input_data,
                 )
         except Exception as e:
-            if isinstance(e, (InputError, MarkdownConversionError)):
+            if isinstance(e, InputError):
                 raise
             else:
-                raise MarkdownConversionError(
-                    f"Failed to parse email data: {str(e)}",
-                    conversion_stage="email_parsing",
-                    original_error=e
+                raise InputError(
+                    f"Failed to parse email data: {e!r}",
+                    original_error=e,
+                    parameter_name="input_data",
+                    parameter_value=input_data,
                 ) from e
 
         # Parse the message content
@@ -1108,8 +1112,7 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"To:", 0),
         (b"Subject:", 0),
     ],
-    converter_module="all2md.parsers.eml",
-    parser_class="EmlToAstConverter",
+    parser_class=EmlToAstConverter,
     renderer_class=None,
     required_packages=[],
     options_class="EmlOptions",

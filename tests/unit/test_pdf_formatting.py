@@ -2,7 +2,8 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.parsers.pdf2markdown import IdentifyHeaders, pdf_to_markdown
+from all2md.parsers.pdf2markdown import pdf_to_markdown
+from all2md.parsers.pdf import IdentifyHeaders
 from all2md.options import PdfOptions
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 

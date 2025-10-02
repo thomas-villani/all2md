@@ -68,9 +68,9 @@ class IpynbToAstConverter(BaseParser):
     """
 
     def __init__(self, options: IpynbOptions | None = None):
-        super().__init__(options or IpynbOptions())
-        self.notebook: dict[str, Any] | None = None
-        self.language: str = "python"
+        options = options or IpynbOptions()
+        super().__init__(options)
+        self.options: IpynbOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Jupyter Notebook input into an AST.
@@ -93,18 +93,20 @@ class IpynbToAstConverter(BaseParser):
             If parsing fails
 
         """
+
+
         try:
             # Load the notebook JSON
             if isinstance(input_data, (str, Path)):
                 with open(input_data, "r", encoding="utf-8") as f:
-                    self.notebook = json.load(f)
+                    notebook = json.load(f)
             elif isinstance(input_data, bytes):
-                self.notebook = json.loads(input_data.decode("utf-8"))
+                notebook = json.loads(input_data.decode("utf-8"))
             elif hasattr(input_data, "read"):
                 content = input_data.read()
                 if isinstance(content, bytes):
                     content = content.decode("utf-8")
-                self.notebook = json.loads(content)
+                notebook = json.loads(content)
             else:
                 raise InputError(f"Unsupported input type: {type(input_data).__name__}")
 
@@ -122,16 +124,16 @@ class IpynbToAstConverter(BaseParser):
                 original_error=e,
             ) from e
 
-        if "cells" not in self.notebook or not isinstance(self.notebook["cells"], list):
+        if "cells" not in notebook or not isinstance(notebook["cells"], list):
             raise InputError("Invalid notebook format: 'cells' key is missing or not a list.")
 
         # Extract language from notebook metadata
-        self.language = self.notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
+        language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
 
         # Convert to AST
-        return self.convert_to_ast()
+        return self.convert_to_ast(notebook, language)
 
-    def convert_to_ast(self) -> Document:
+    def convert_to_ast(self, notebook: dict, language: str) -> Document:
         """Convert notebook to AST Document.
 
         Returns
@@ -140,7 +142,7 @@ class IpynbToAstConverter(BaseParser):
             AST document node
 
         """
-        if self.notebook is None:
+        if notebook is None:
             raise MarkdownConversionError(
                 "No notebook data loaded. Call parse() first.",
                 conversion_stage="ast_conversion",
@@ -148,17 +150,17 @@ class IpynbToAstConverter(BaseParser):
 
         children: list[Node] = []
 
-        cells = self.notebook.get("cells", [])
+        cells = notebook.get("cells", [])
         for i, cell in enumerate(cells):
-            cell_nodes = self._process_cell(cell, cell_index=i)
+            cell_nodes = self._process_cell(cell, cell_index=i, language=language)
             if cell_nodes:
                 children.extend(cell_nodes)
 
         # Extract and attach metadata
-        metadata = self.extract_metadata(self.notebook)
+        metadata = self.extract_metadata(notebook)
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _process_cell(self, cell: dict[str, Any], cell_index: int) -> list[Node]:
+    def _process_cell(self, cell: dict[str, Any], cell_index: int, language: str) -> list[Node]:
         """Process a notebook cell to AST nodes.
 
         Parameters
@@ -198,7 +200,7 @@ class IpynbToAstConverter(BaseParser):
                         # Prepend execution count as a comment
                         code_content = f"# In [{execution_count}]:\n{code_content}"
 
-                nodes.append(CodeBlock(language=self.language, content=code_content))
+                nodes.append(CodeBlock(language=language, content=code_content))
 
             # Process outputs if enabled
             if self.options.include_outputs:

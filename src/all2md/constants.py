@@ -53,6 +53,7 @@ DEFAULT_USE_HASH_HEADINGS = True
 DEFAULT_EXTRACT_TITLE = False
 DEFAULT_SLIDE_NUMBERS = False
 DEFAULT_EXTRACT_METADATA = False
+DEFAULT_INCLUDE_METADATA_FRONTMATTER = False
 
 # =============================================================================
 # Supported Format Types

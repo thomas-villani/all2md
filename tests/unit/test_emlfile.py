@@ -5,58 +5,7 @@ import pytest
 
 from all2md import InputError
 from all2md.parsers.eml2markdown import eml_to_markdown
-from all2md.parsers.eml import format_email_chain_as_markdown
 
-
-@pytest.mark.unit
-def test_format_email_chain_as_markdown_basic():
-    items = [
-        {
-            "from": "a@example.com",
-            "to": "b@example.com",
-            "date": datetime.datetime(2023, 1, 1, 10, 0, tzinfo=datetime.UTC),
-            "subject": "Subj1",
-            "content": "Hello",
-            "cc": "c@example.com",
-        },
-        {
-            "from": "x@example.com",
-            "to": "y@example.com",
-            "date": datetime.datetime(2023, 1, 2, 11, 30, tzinfo=datetime.UTC),
-            "subject": "Subj2",
-            "content": "World",
-        },
-    ]
-    expected = ""
-    expected += "From: a@example.com\n"
-    expected += "To: b@example.com\n"
-    expected += "cc: c@example.com\n"
-    expected += "Date: 01/01/23 10:00\n"
-    expected += "Subject: Subj1\n"
-    expected += "Hello\n"
-    expected += "---\n"
-    expected += "From: x@example.com\n"
-    expected += "To: y@example.com\n"
-    expected += "Date: 01/02/23 11:30\n"
-    expected += "Subject: Subj2\n"
-    expected += "World\n"
-    expected += "---\n"
-    assert format_email_chain_as_markdown(items) == expected
-
-
-@pytest.mark.unit
-def test_format_email_chain_as_markdown_no_cc():
-    items = [
-        {
-            "from": "foo",
-            "to": "bar",
-            "date": datetime.datetime(2022, 12, 31, 23, 59, tzinfo=datetime.UTC),
-            "subject": "Year End",
-            "content": "Bye",
-        },
-    ]
-    result = format_email_chain_as_markdown(items)
-    assert "cc:" not in result
 
 
 @pytest.mark.unit

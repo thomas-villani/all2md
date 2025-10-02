@@ -12,8 +12,15 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
+
+from all2md import DependencyError, PptxOptions
+from all2md.exceptions import ZipFileSecurityError, InputError
+from all2md.parsers.pptx2markdown import logger
+from all2md.utils.inputs import validate_and_convert_input, parse_page_ranges, format_special_text
+from all2md.utils.security import validate_zip_archive
 
 if TYPE_CHECKING:
     from pptx.presentation import Presentation
@@ -37,7 +44,8 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md.utils.attachments import process_attachment
+from all2md.utils.attachments import process_attachment, extract_pptx_image_data, create_attachment_sequencer, \
+    generate_attachment_filename
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import PptxOptions
 from all2md.parsers.base import BaseParser
@@ -45,76 +53,6 @@ from all2md.utils.metadata import OFFICE_FIELD_MAPPING, DocumentMetadata, map_pr
 
 logger = logging.getLogger(__name__)
 
-
-def parse_slide_ranges(slide_spec: str, total_slides: int) -> list[int]:
-    """Parse slide range specification into list of 0-based slide indices.
-
-    Supports various formats:
-    - "1-3" → [0, 1, 2]
-    - "5" → [4]
-    - "10-" → [9, 10, ..., total_slides-1]
-    - "1-3,5,10-" → combined ranges
-
-    Parameters
-    ----------
-    slide_spec : str
-        Slide range specification
-    total_slides : int
-        Total number of slides in presentation
-
-    Returns
-    -------
-    list of int
-        0-based slide indices
-
-    Examples
-    --------
-    >>> parse_slide_ranges("1-3,5", 10)
-    [0, 1, 2, 4]
-    >>> parse_slide_ranges("8-", 10)
-    [7, 8, 9]
-
-    """
-    slides = set()
-
-    # Split by comma to handle multiple ranges
-    parts = slide_spec.split(',')
-
-    for part in parts:
-        part = part.strip()
-        if not part:
-            continue
-
-        # Handle range (e.g., "1-3" or "10-")
-        if '-' in part:
-            range_parts = part.split('-', 1)
-            start_str = range_parts[0].strip()
-            end_str = range_parts[1].strip()
-
-            # Parse start (1-based to 0-based)
-            if start_str:
-                start = int(start_str) - 1
-            else:
-                start = 0
-
-            # Parse end (1-based to 0-based, or use total_slides if empty)
-            if end_str:
-                end = int(end_str) - 1
-            else:
-                end = total_slides - 1
-
-            # Add all slides in range
-            for s in range(start, end + 1):
-                if 0 <= s < total_slides:
-                    slides.add(s)
-        else:
-            # Single slide (1-based to 0-based)
-            slide = int(part) - 1
-            if 0 <= slide < total_slides:
-                slides.add(slide)
-
-    # Return sorted list
-    return sorted(slides)
 
 
 class PptxToAstConverter(BaseParser):
@@ -127,23 +65,21 @@ class PptxToAstConverter(BaseParser):
     ----------
     options : PptxOptions or None, default = None
         Conversion options
-    base_filename : str
-        Base filename for image attachments
-    attachment_sequencer : callable or None
-        Sequencer for generating attachment filenames
 
     """
 
     def __init__(
         self,
-        options: PptxOptions | None = None,
-        base_filename: str = "presentation",
-        attachment_sequencer: Any = None,
+        options: PptxOptions | None = None
     ):
-        super().__init__(options or PptxOptions())
-        self.base_filename = base_filename
-        self.attachment_sequencer = attachment_sequencer
+        options = options or PptxOptions()
+        super().__init__(options)
+        self.options: PptxOptions = options
+        
         self._current_slide_num = 0
+        self._base_filename = "presentation"
+        self._attachment_sequencer = create_attachment_sequencer()
+
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse PPTX input into an AST Document.
@@ -169,15 +105,18 @@ class PptxToAstConverter(BaseParser):
             If python-pptx is not installed
 
         """
-        from pptx import Presentation
+        try:
+            from pptx import Presentation
+            from pptx.presentation import Presentation as PresentationType
 
-        from all2md.exceptions import MarkdownConversionError
-        from all2md.utils.inputs import validate_and_convert_input
-        from all2md.utils.security import validate_zip_archive
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="pptx",
+                missing_packages=[("python-pptx", ">=1.0.2")],
+            ) from e
 
         # Validate and convert input
         try:
-            from pptx.presentation import Presentation as PresentationType
 
             doc_input, input_type = validate_and_convert_input(
                 input_data, supported_types=["path-like", "file-like", "pptx.Presentation objects"]
@@ -185,14 +124,7 @@ class PptxToAstConverter(BaseParser):
 
             # Validate ZIP archive security for file-based inputs
             if input_type in ("path", "file") and not isinstance(doc_input, PresentationType):
-                try:
-                    validate_zip_archive(doc_input if input_type == "path" else input_data)
-                except Exception as e:
-                    raise MarkdownConversionError(
-                        f"PPTX archive failed security validation: {str(e)}",
-                        conversion_stage="archive_validation",
-                        original_error=e
-                    ) from e
+                validate_zip_archive(doc_input if input_type == "path" else input_data)
 
             # Open presentation based on input type
             if input_type == "object" and isinstance(doc_input, PresentationType):
@@ -200,23 +132,22 @@ class PptxToAstConverter(BaseParser):
             else:
                 prs = Presentation(doc_input)
 
-            # Extract base filename for standardized attachment naming
-            if input_type == "path" and isinstance(doc_input, (str, Path)):
-                self.base_filename = Path(doc_input).stem
+        except ZipFileSecurityError:
+            raise
 
         except Exception as e:
-            if "python-pptx" in str(e).lower() or "pptx" in str(e).lower():
-                raise MarkdownConversionError(
-                    "python-pptx library is required for PPTX conversion. Install with: pip install python-pptx",
-                    conversion_stage="dependency_check",
-                    original_error=e,
-                ) from e
-            else:
-                raise MarkdownConversionError(
-                    f"Failed to open PPTX presentation: {str(e)}",
-                    conversion_stage="document_opening",
-                    original_error=e
-                ) from e
+            raise InputError(
+                f"Failed to open PPTX presentation: {e!r}",
+                parameter_name="input_data",
+                parameter_value=input_data,
+                original_error=e
+            ) from e
+
+        # Extract base filename for standardized attachment naming
+        if input_type == "path" and isinstance(doc_input, (str, Path)):
+            self._base_filename = Path(doc_input).stem
+        else:
+            self._base_filename = "presentation"
 
         # Convert PPTX to AST
         return self.convert_to_ast(prs)
@@ -243,7 +174,7 @@ class PptxToAstConverter(BaseParser):
 
         if self.options.slides:
             # Parse slide range specification
-            slide_indices = parse_slide_ranges(self.options.slides, total_slides)
+            slide_indices = parse_page_ranges(self.options.slides, total_slides)
         else:
             # Process all slides
             slide_indices = list(range(total_slides))
@@ -329,8 +260,210 @@ class PptxToAstConverter(BaseParser):
         if hasattr(shape, "image"):
             return self._process_image_to_ast(shape)
 
+        from pptx.shapes.graphfrm import GraphicFrame
+        if isinstance(shape, GraphicFrame) and hasattr(shape, "chart"):
+            return self._process_chart_to_ast(shape.chart)
+
         # For other shapes, skip or handle as needed
         return None
+
+    def _process_chart_to_ast(self, chart) -> AstTable | None:
+        """Process a PPTX chart to AST Table node.
+
+        Parameters
+        ----------
+        chart : Chart
+            PPTX chart to convert
+
+        Returns
+        -------
+        AstTable or None
+            Table node representing chart data
+
+        """
+        from pptx.enum.chart import XL_CHART_TYPE
+
+        # Check if this is a scatter plot (XY chart)
+        try:
+            chart_type = chart.chart_type
+            is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER
+        except Exception:
+            is_scatter = False
+
+        if is_scatter:
+            # Process scatter plot as X/Y table
+            return self._process_scatter_chart_to_table(chart)
+        else:
+            # Process standard chart as category/series table
+            return self._process_standard_chart_to_table(chart)
+
+    def _process_scatter_chart_to_table(self, chart) -> AstTable | None:
+        """Process scatter plot to AST Table with X/Y rows.
+
+        For each series, creates two rows (X and Y values) with point numbers as columns.
+
+        Parameters
+        ----------
+        chart : Chart
+            PPTX scatter chart
+
+        Returns
+        -------
+        AstTable or None
+            Table with X/Y rows for each series
+
+        """
+        all_rows: list[TableRow] = []
+        max_points = 0
+
+        # First pass: collect all series data and determine max points
+        series_data: list[tuple[str, list[float], list[float]]] = []
+
+        for series in chart.series:
+            try:
+                x_values: list[float] = []
+                y_values: list[float] = []
+
+                # Try to extract X and Y values from series XML
+                if hasattr(series, '_element'):
+                    element = series._element
+                    ns = {'c': 'http://schemas.openxmlformats.org/drawingml/2006/chart'}
+
+                    # Extract X values
+                    x_val_ref = element.find('.//c:xVal', ns)
+                    if x_val_ref is not None:
+                        num_cache = x_val_ref.find('.//c:numCache', ns)
+                        if num_cache is not None:
+                            pt_elements = num_cache.findall('.//c:pt', ns)
+                            for pt in pt_elements:
+                                v_element = pt.find('c:v', ns)
+                                if v_element is not None and v_element.text:
+                                    x_values.append(float(v_element.text))
+
+                    # Extract Y values
+                    y_val_ref = element.find('.//c:yVal', ns)
+                    if y_val_ref is not None:
+                        num_cache = y_val_ref.find('.//c:numCache', ns)
+                        if num_cache is not None:
+                            pt_elements = num_cache.findall('.//c:pt', ns)
+                            for pt in pt_elements:
+                                v_element = pt.find('c:v', ns)
+                                if v_element is not None and v_element.text:
+                                    y_values.append(float(v_element.text))
+
+                # Only add if we have both X and Y values of equal length
+                if x_values and y_values and len(x_values) == len(y_values):
+                    series_data.append((series.name or "Series", x_values, y_values))
+                    max_points = max(max_points, len(x_values))
+                elif hasattr(series, 'values') and series.values:
+                    # Fallback: use Y values only with sequential X values
+                    y_values = list(series.values)
+                    x_values = list(range(len(y_values)))
+                    series_data.append((series.name or "Series", x_values, y_values))
+                    max_points = max(max_points, len(y_values))
+
+            except Exception:
+                # Skip series that can't be processed
+                continue
+
+        if not series_data:
+            return None
+
+        # Create header row with point numbers
+        header_cells = [TableCell(content=[Text(content="Series")])]
+        for i in range(max_points):
+            header_cells.append(TableCell(content=[Text(content=f"Point {i+1}")]))
+        header_row = TableRow(cells=header_cells, is_header=True)
+
+        # Create data rows (X and Y for each series)
+        for series_name, x_values, y_values in series_data:
+            # X row
+            x_cells = [TableCell(content=[Text(content=f"{series_name} X")])]
+            for val in x_values:
+                x_cells.append(TableCell(content=[Text(content=str(val))]))
+            all_rows.append(TableRow(cells=x_cells))
+
+            # Y row
+            y_cells = [TableCell(content=[Text(content=f"{series_name} Y")])]
+            for val in y_values:
+                y_cells.append(TableCell(content=[Text(content=str(val))]))
+            all_rows.append(TableRow(cells=y_cells))
+
+        return AstTable(header=header_row, rows=all_rows)
+
+    def _process_standard_chart_to_table(self, chart) -> AstTable | None:
+        """Process standard chart (bar, column, line, pie) to AST Table.
+
+        Creates table with categories as columns and series as rows.
+
+        Parameters
+        ----------
+        chart : Chart
+            PPTX chart (non-scatter)
+
+        Returns
+        -------
+        AstTable or None
+            Table with categories as headers and series as rows
+
+        """
+        # Extract categories (x-axis)
+        categories: list[str] = []
+        try:
+            if hasattr(chart, 'plots') and chart.plots:
+                categories = [
+                    cat.label if hasattr(cat, "label") else str(cat)
+                    for cat in chart.plots[0].categories
+                    if hasattr(cat, "label") or cat
+                ]
+        except Exception:
+            pass
+
+        # Extract series data
+        series_rows: list[tuple[str, list[Any]]] = []
+        for series in chart.series:
+            try:
+                if hasattr(series, 'values') and series.values:
+                    values = list(series.values)
+                    series_name = series.name or "Series"
+                    series_rows.append((series_name, values))
+            except Exception:
+                # Skip series that can't be processed
+                continue
+
+        if not series_rows:
+            return None
+
+        # Determine number of columns from data
+        num_cols = max(len(values) for _, values in series_rows) if series_rows else 0
+
+        if num_cols == 0:
+            return None
+
+        # Create header row
+        header_cells = [TableCell(content=[Text(content="Category")])]
+        if categories and len(categories) == num_cols:
+            # Use actual category names
+            for cat in categories:
+                header_cells.append(TableCell(content=[Text(content=str(cat))]))
+        else:
+            # Use generic column numbers
+            for i in range(num_cols):
+                header_cells.append(TableCell(content=[Text(content=f"Col {i+1}")]))
+
+        header_row = TableRow(cells=header_cells, is_header=True)
+
+        # Create data rows for each series
+        data_rows: list[TableRow] = []
+        for series_name, values in series_rows:
+            row_cells = [TableCell(content=[Text(content=series_name)])]
+            for val in values:
+                # Convert value to string, handling None
+                val_str = str(val) if val is not None else ""
+                row_cells.append(TableCell(content=[Text(content=val_str)]))
+            data_rows.append(TableRow(cells=row_cells))
+
+        return AstTable(header=header_row, rows=data_rows)
 
     def _process_text_frame_to_ast(self, frame: "TextFrame") -> list[Node] | None:
         """Process a text frame to AST nodes.
@@ -346,8 +479,6 @@ class PptxToAstConverter(BaseParser):
             List of AST nodes (paragraphs, lists, etc.)
 
         """
-        # Import here to avoid circular dependencies
-        from all2md.parsers.pptx2markdown import _analyze_slide_context, _detect_list_item
 
         nodes: list[Node] = []
         slide_context = _analyze_slide_context(frame)
@@ -549,8 +680,6 @@ class PptxToAstConverter(BaseParser):
             Image node if image can be processed
 
         """
-        # Import here to avoid circular dependencies
-        from all2md.parsers.pptx2markdown import extract_pptx_image_data
 
         try:
             # Extract image data
@@ -560,16 +689,15 @@ class PptxToAstConverter(BaseParser):
                 return None
 
             # Use sequencer if available
-            if self.attachment_sequencer:
-                image_filename, _ = self.attachment_sequencer(
-                    base_stem=self.base_filename,
+            if self._attachment_sequencer:
+                image_filename, _ = self._attachment_sequencer(
+                    base_stem=self._base_filename,
                     format_type="general",
                     extension=extension or "png"
                 )
             else:
-                from all2md.utils.attachments import generate_attachment_filename
                 image_filename = generate_attachment_filename(
-                    base_stem=self.base_filename,
+                    base_stem=self._base_filename,
                     format_type="general",
                     sequence_num=self._current_slide_num,
                     extension=extension or "png"
@@ -588,8 +716,7 @@ class PptxToAstConverter(BaseParser):
             )
 
             # Parse the markdown image string
-            import re
-            match = re.match(r'^!\[([^\]]*)\](?:\(([^)]+)\))?$', processed_image)
+            match = re.match(r'^!\[([^]]*)](?:\(([^)]+)\))?$', processed_image)
             if match:
                 alt_text = match.group(1)
                 url = match.group(2) or ""
@@ -647,12 +774,159 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
-    converter_module="all2md.parsers.pptx",
-    parser_class="PptxToAstConverter",
+    parser_class=PptxToAstConverter,
     renderer_class=None,
     required_packages=[("python-pptx", "pptx", "")],
     import_error_message="PPTX conversion requires 'python-pptx'. Install with: pip install python-pptx",
-    options_class="PptxOptions",
+    options_class=PptxOptions,
     description="Convert PowerPoint presentations to Markdown",
     priority=7
 )
+
+
+def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]:
+    """Detect list formatting using XML element inspection.
+
+    Parameters
+    ----------
+    paragraph : Any
+        The paragraph object to inspect
+
+    Returns
+    -------
+    tuple[str | None, str | None]
+        (list_type, list_style) where list_type is "bullet" or "number"
+    """
+    try:
+        # Access paragraph properties XML element
+        if not hasattr(paragraph, '_p') or paragraph._p is None:
+            return None, None
+
+        pPr = paragraph._p.pPr
+        if pPr is None:
+            return None, None
+
+        # Check for bullet character element
+        bu_char = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buChar')
+        if bu_char is not None:
+            char = bu_char.get('char', '•')
+            return "bullet", char
+
+        # Check for auto numbering element
+        bu_auto_num = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buAutoNum')
+        if bu_auto_num is not None:
+            num_type = bu_auto_num.get('type', 'arabicPeriod')
+            return "number", num_type
+
+        # Check for bullet font (indicates some form of bullet formatting)
+        bu_font = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buFont')
+        if bu_font is not None:
+            return "bullet", "default"
+
+    except Exception:
+        # Fall back gracefully if XML parsing fails
+        pass
+
+    return None, None
+
+
+def _detect_list_item(paragraph: Any, slide_context: dict | None = None) -> tuple[bool, str]:
+    """Detect if a paragraph is a list item and determine the list type.
+
+    Uses XML-based detection first, then falls back to heuristics.
+
+    Parameters
+    ----------
+    paragraph : Any
+        The paragraph object to analyze
+    slide_context : dict, optional
+        Context about the slide to help with detection
+
+    Returns
+    -------
+    tuple[bool, str]
+        (is_list_item, list_type) where list_type is "bullet" or "number"
+    """
+    # First try XML-based detection for proper list formatting
+    xml_list_type, xml_list_style = _detect_list_formatting_xml(paragraph)
+    if xml_list_type:
+        return True, xml_list_type
+
+    # Fall back to level-based detection
+    if not hasattr(paragraph, 'level') or paragraph.level is None:
+        return False, "bullet"
+
+    level = paragraph.level
+    if level > 0:
+        # Use slide context to help determine list type for indented items
+        if slide_context and slide_context.get('has_numbered_list', False):
+            return True, "number"
+        return True, "bullet"
+
+    # For level 0, use heuristics as last resort
+    text = paragraph.text.strip() if hasattr(paragraph, 'text') else ""
+    if not text:
+        return False, "bullet"
+
+    # Check for explicit numbered list patterns in text
+    if re.match(r'^\d+[\.\)]\s', text):
+        return True, "number"
+
+    # Check if this looks like a numbered list item based on context
+    if (slide_context and slide_context.get('has_numbered_list', False) and
+        ('item' in text.lower() or 'first' in text.lower() or
+         'second' in text.lower() or 'third' in text.lower())):
+        return True, "number"
+
+    # Use heuristics for bullet lists - shorter text that doesn't look like a title/header
+    words = text.split()
+    if len(words) <= 8 and not text.endswith(('.', '!', '?', ':')):
+        # Additional checks to avoid false positives
+        if not (text.lower().startswith(('slide', 'title', 'chapter')) or
+                len(words) <= 3 and text.istitle()):
+            return True, "bullet"
+
+    return False, "bullet"
+
+
+def _analyze_slide_context(frame: Any) -> dict:
+    """Analyze the text frame to understand the slide context for better list detection.
+
+    Parameters
+    ----------
+    frame : Any
+        The text frame to analyze
+
+    Returns
+    -------
+    dict
+        Context information about the slide
+    """
+    context = {
+        'has_numbered_list': False,
+        'paragraph_count': 0,
+        'max_level': 0
+    }
+
+    for paragraph in frame.paragraphs:
+        if not paragraph.text.strip():
+            continue
+
+        context['paragraph_count'] += 1
+
+        # Track maximum indentation level
+        level = getattr(paragraph, 'level', 0) or 0
+        context['max_level'] = max(context['max_level'], level)
+
+        # Check if any paragraph looks like a numbered list
+        text = paragraph.text.strip()
+        if (re.match(r'^\d+[\.\)]\s', text) or
+            'numbered' in text.lower() or
+            'first item' in text.lower() or
+            'second item' in text.lower() or
+            'third item' in text.lower()):
+            context['has_numbered_list'] = True
+
+    return context
+
+

@@ -40,12 +40,9 @@ import socket
 from typing import Any
 from urllib.parse import urlparse
 
+from all2md.exceptions import NetworkSecurityError
+
 logger = logging.getLogger(__name__)
-
-
-class NetworkSecurityError(Exception):
-    """Raised when a network security violation is detected."""
-    pass
 
 
 def _is_private_or_reserved_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -477,7 +474,7 @@ def fetch_image_securely(
         allowed_hosts: list[str] | None = None,
         require_https: bool = False,
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
-        timeout: float = 10.0
+        timeout: float = 30.0
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 
