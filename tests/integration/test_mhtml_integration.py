@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.converters.mhtml2markdown import mhtml_to_markdown
+from all2md.parsers.mhtml2markdown import mhtml_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, MhtmlOptions
 from tests.fixtures.generators.mhtml_fixtures import (

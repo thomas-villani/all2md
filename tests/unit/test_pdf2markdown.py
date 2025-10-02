@@ -3,7 +3,7 @@ import tempfile
 import fitz
 import pytest
 
-from all2md.converters import pdf2markdown as mod
+from all2md.parsers import pdf2markdown as mod
 from all2md.options import MarkdownOptions, PdfOptions
 
 

@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/pdf2ast.py
+# src/all2md/parsers/pdf.py
 """PDF to AST converter.
 
 This module provides conversion from PDF documents to AST representation.
@@ -151,7 +151,7 @@ class PdfToAstConverter:
         # Extract images for all attachment modes except "skip"
         page_images = []
         if self.options.attachment_mode != "skip":
-            from all2md.converters.pdf2markdown import extract_page_images
+            from all2md.parsers.pdf2markdown import extract_page_images
             page_images = extract_page_images(
                 page, page_num, self.options, self.base_filename, self.attachment_sequencer
             )
@@ -170,7 +170,7 @@ class PdfToAstConverter:
             tabs = page.find_tables()
         elif mode == "ruling":
             # Only use ruling line detection (fallback method)
-            from all2md.converters.pdf2markdown import detect_tables_by_ruling_lines
+            from all2md.parsers.pdf2markdown import detect_tables_by_ruling_lines
             _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
             # Fallback detection returns rects but not actual table objects we can use
             # For now, just use empty tables (future: could convert rects to table objects)
@@ -181,7 +181,7 @@ class PdfToAstConverter:
             # Use PyMuPDF first, fallback to ruling if needed
             tabs = page.find_tables()
             if self.options.enable_table_fallback_detection and not tabs.tables:
-                from all2md.converters.pdf2markdown import detect_tables_by_ruling_lines
+                from all2md.parsers.pdf2markdown import detect_tables_by_ruling_lines
                 _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
 
         # 2. Make a list of table boundary boxes, sort by top-left corner
@@ -328,7 +328,7 @@ class PdfToAstConverter:
 
         # Apply column detection if enabled
         if self.options.detect_columns:
-            from all2md.converters.pdf2markdown import detect_columns
+            from all2md.parsers.pdf2markdown import detect_columns
             columns: list[list[dict]] = detect_columns(blocks, self.options.column_gap_threshold)
             # Process blocks column by column for proper reading order
             blocks_to_process = []
@@ -350,7 +350,7 @@ class PdfToAstConverter:
                 # Handle rotated text if enabled, otherwise skip non-horizontal lines
                 if line["dir"][1] != 0:  # Non-horizontal lines
                     if self.options.handle_rotated_text:
-                        from all2md.converters.pdf2markdown import handle_rotated_text
+                        from all2md.parsers.pdf2markdown import handle_rotated_text
                         rotated_text = handle_rotated_text(line, self.options.markdown_options)
                         if rotated_text.strip():
                             # Add as paragraph

@@ -1,5 +1,5 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
-# src/all2md/converters/eml2markdown.py
+# src/all2md/parsers/eml2markdown.py
 """Email file (EML) parsing and conversion module.
 
 This module provides comprehensive email parsing capabilities for EML files,
@@ -51,7 +51,7 @@ Examples
 --------
 Parse a single email file:
 
-    >>> from all2md.converters.eml2markdown import eml_to_markdown
+    >>> from all2md.parsers.eml2markdown import eml_to_markdown
     >>> with open('message.eml', 'r') as f:
     ...     result = eml_to_markdown(f)
     >>> print(result)
@@ -362,7 +362,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         Converted Markdown content.
     """
     try:
-        from all2md.converters.html2markdown import html_to_markdown
+        from all2md.parsers.html2markdown import html_to_markdown
         from all2md.options import HtmlOptions, MarkdownOptions
 
         # Create MarkdownOptions with default hash headings if not provided
@@ -1121,7 +1121,7 @@ def eml_to_markdown(input_data: Union[str, Path, IO[bytes]], options: EmlOptions
         )
 
         # Use AST-based conversion path
-        from all2md.converters.eml2ast import EmlToAstConverter
+        from all2md.parsers.eml import EmlToAstConverter
         from all2md.ast import MarkdownRenderer
 
         # Convert to AST
@@ -1158,7 +1158,7 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"To:", 0),
         (b"Subject:", 0),
     ],
-    converter_module="all2md.converters.eml2markdown",
+    converter_module="all2md.parsers.eml2markdown",
     converter_function="eml_to_markdown",
     required_packages=[],
     options_class="EmlOptions",

@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/sourcecode2markdown.py
+# src/all2md/parsers/sourcecode2markdown.py
 """Source code to Markdown conversion module.
 
 This module provides conversion of source code files to Markdown format by
@@ -49,7 +49,7 @@ Examples
 --------
 Basic usage with automatic language detection:
 
-    >>> from all2md.converters.sourcecode2markdown import sourcecode_to_markdown
+    >>> from all2md.parsers.sourcecode2markdown import sourcecode_to_markdown
     >>> result = sourcecode_to_markdown('script.py')
     >>> print(result)
     ```python
@@ -416,7 +416,7 @@ def sourcecode_to_markdown(
         raise MarkdownConversionError(f"Failed to read source code: {e}") from e
 
     # Use AST-based conversion path
-    from all2md.converters.sourcecode2ast import SourceCodeToAstConverter
+    from all2md.parsers.sourcecode import SourceCodeToAstConverter
     from all2md.ast import MarkdownRenderer
 
     # Convert to AST
@@ -473,12 +473,12 @@ CONVERTER_METADATA = ConverterMetadata(
         "application/x-shellscript",
     ],
     magic_bytes=[],  # No specific magic bytes - rely on extension detection
-    converter_module="all2md.converters.sourcecode2markdown",
+    converter_module="all2md.parsers.sourcecode2markdown",
     converter_function="sourcecode_to_markdown",
     required_packages=[],  # No external dependencies
     optional_packages=[],
     import_error_message="",  # No dependencies required
     options_class="SourceCodeOptions",
     description="Convert source code files to Markdown with syntax highlighting",
-    priority=1,  # Lower priority than specialized converters, higher than txt fallback
+    priority=1,  # Lower priority than specialized parsers, higher than txt fallback
 )

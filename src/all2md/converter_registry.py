@@ -1,6 +1,6 @@
 """Converter registry for dynamic converter management.
 
-This module implements a registry pattern for converters, enabling:
+This module implements a registry pattern for parsers, enabling:
 - Lazy loading of converter modules
 - Dynamic converter discovery and registration
 - Proper dependency error handling
@@ -92,9 +92,9 @@ def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[
 
 
 class ConverterRegistry:
-    """Registry for managing document converters.
+    """Registry for managing document parsers.
 
-    This class provides a central registry for all converters, handling:
+    This class provides a central registry for all parsers, handling:
     - Converter registration and discovery
     - Format detection from files/content
     - Lazy loading of converter modules
@@ -105,7 +105,7 @@ class ConverterRegistry:
     _instance : ConverterRegistry or None
         Singleton instance of the registry
     _converters : dict
-        Registered converters by format name
+        Registered parsers by format name
     _initialized : bool
         Whether auto-discovery has been run
     """
@@ -486,24 +486,24 @@ class ConverterRegistry:
         return missing
 
     def auto_discover(self) -> None:
-        """Auto-discover and register converters from multiple sources.
+        """Auto-discover and register parsers from multiple sources.
 
         This method:
-        1. Scans the converters directory for Python modules with CONVERTER_METADATA
+        1. Scans the parsers directory for Python modules with CONVERTER_METADATA
         2. Discovers plugins via entry points from installed packages
 
-        This enables a true plug-and-play system for both internal and external converters.
+        This enables a true plug-and-play system for both internal and external parsers.
         """
         if self._initialized:
             return
 
-        # Discover internal converter modules by scanning the converters package
+        # Discover internal converter modules by scanning the parsers package
         converter_modules = self._discover_converter_modules()
 
         for module_name in converter_modules:
             try:
                 # Import the module
-                module_path = f"all2md.converters.{module_name}"
+                module_path = f"all2md.parsers.{module_name}"
                 module = importlib.import_module(module_path)
 
                 # Look for CONVERTER_METADATA in the module
@@ -522,21 +522,21 @@ class ConverterRegistry:
         self._initialized = True
 
     def _discover_converter_modules(self) -> List[str]:
-        """Discover converter modules by scanning the converters package directory.
+        """Discover converter modules by scanning the parsers package directory.
 
         Returns
         -------
         List[str]
-            List of module names found in the converters package
+            List of module names found in the parsers package
         """
         converter_modules = []
 
         try:
-            # Import the converters package to get its path
-            import all2md.converters as converters_package
+            # Import the parsers package to get its path
+            import all2md.parsers as converters_package
             converters_path = Path(converters_package.__file__).parent
 
-            # Scan for Python files in the converters directory
+            # Scan for Python files in the parsers directory
             for file_path in converters_path.glob("*.py"):
                 module_name = file_path.stem
 
@@ -548,19 +548,19 @@ class ConverterRegistry:
 
         except Exception as e:
             logger.warning(f"Failed to discover converter modules: {e}")
-            # Fallback to empty list - no converters will be registered
+            # Fallback to empty list - no parsers will be registered
 
         return converter_modules
 
     def _discover_plugins(self) -> None:
         """Discover and register third-party converter plugins via entry points.
 
-        This method scans for installed packages that define converters
-        via the 'all2md.converters' entry point group.
+        This method scans for installed packages that define parsers
+        via the 'all2md.parsers' entry point group.
         """
         try:
-            # Discover entry points for the all2md.converters group
-            entry_points = importlib.metadata.entry_points(group="all2md.converters")
+            # Discover entry points for the all2md.parsers group
+            entry_points = importlib.metadata.entry_points(group="all2md.parsers")
 
             for entry_point in entry_points:
                 try:

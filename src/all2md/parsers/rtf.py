@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/rtf2ast.py
+# src/all2md/parsers/rtf.py
 """RTF to AST converter.
 
 This module provides conversion from RTF documents (via pyth) to AST representation.

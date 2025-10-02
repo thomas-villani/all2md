@@ -36,7 +36,7 @@ from all2md.ast import (
     Text,
     Underline,
 )
-from all2md.converters.odf2ast import OdfToAstConverter
+from all2md.parsers.odf import OdfToAstConverter
 from all2md.options import OdfOptions
 
 

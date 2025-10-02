@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/html2markdown.py
+# src/all2md/parsers/html2markdown.py
 """HTML to Markdown conversion module.
 
 This module provides comprehensive HTML to Markdown conversion capabilities with
@@ -123,7 +123,7 @@ Examples
 --------
 Basic HTML string conversion:
 
-    >>> from all2md.converters.html2markdown import html_to_markdown
+    >>> from all2md.parsers.html2markdown import html_to_markdown
     >>> html = '<h1>Title</h1><p>Content with <strong>bold</strong> text.</p>'
     >>> markdown = html_to_markdown(html)
     >>> print(markdown)
@@ -261,7 +261,7 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"<html", 0),
         (b"<HTML", 0),
     ],
-    converter_module="all2md.converters.html2markdown",
+    converter_module="all2md.parsers.html2markdown",
     converter_function="html_to_markdown",
     required_packages=[("beautifulsoup4", "bs4", "")],
     optional_packages=[],
@@ -525,7 +525,7 @@ def html_to_markdown(input_data: Union[str, Path, IO[str], IO[bytes]], options: 
                 logger.warning(f"Failed to extract HTML metadata: {e}")
 
         # Use new AST-based conversion path
-        from all2md.converters.html2ast import HtmlToAstConverter
+        from all2md.parsers.html import HtmlToAstConverter
         from all2md.ast import MarkdownRenderer
 
         # Convert HTML to AST

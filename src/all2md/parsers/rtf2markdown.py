@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/rtf2markdown.py
+# src/all2md/parsers/rtf2markdown.py
 
 """Rich Text Format (RTF) to Markdown conversion module.
 
@@ -249,7 +249,7 @@ def rtf_to_markdown(
     attachment_sequencer = create_attachment_sequencer()
 
     # Use AST-based conversion path
-    from all2md.converters.rtf2ast import RtfToAstConverter
+    from all2md.parsers.rtf import RtfToAstConverter
     from all2md.ast import MarkdownRenderer
 
     # Convert to AST
@@ -279,7 +279,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"{\\rtf", 0),
     ],
-    converter_module="all2md.converters.rtf2markdown",
+    converter_module="all2md.parsers.rtf2markdown",
     converter_function="rtf_to_markdown",
     required_packages=[("pyth3", "pyth", "")],
     import_error_message="RTF conversion requires 'pyth3'. Install with: pip install pyth3",

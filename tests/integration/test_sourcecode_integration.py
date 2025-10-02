@@ -196,7 +196,7 @@ print(fibonacci(10))"""
                 temp_path = f.name
 
             try:
-                # Explicitly use sourcecode format to bypass other converters
+                # Explicitly use sourcecode format to bypass other parsers
                 result = to_markdown(temp_path, format="sourcecode")
                 assert result.startswith(f"```{expected_lang}\n"), f"Failed for {filename}: expected {expected_lang}"
                 assert content in result

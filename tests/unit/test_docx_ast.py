@@ -35,7 +35,7 @@ from all2md.ast import (
     Text,
     Underline,
 )
-from all2md.converters.docx2ast import DocxToAstConverter
+from all2md.parsers.docx import DocxToAstConverter
 from all2md.options import DocxOptions
 
 

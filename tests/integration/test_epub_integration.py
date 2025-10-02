@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.converters.epub2markdown import epub_to_markdown
+from all2md.parsers.epub2markdown import epub_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, MarkdownOptions
 from tests.fixtures.generators.epub_fixtures import (

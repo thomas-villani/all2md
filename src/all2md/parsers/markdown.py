@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/markdown2ast.py
+# src/all2md/parsers/markdown.py
 """Markdown to AST converter.
 
 This module provides conversion from Markdown documents to AST representation
@@ -645,7 +645,7 @@ def markdown_to_ast(
 
     Examples
     --------
-    >>> from all2md.converters.markdown2ast import markdown_to_ast
+    >>> from all2md.parsers.markdown2ast import markdown_to_ast
     >>> doc = markdown_to_ast("# Hello\\n\\nWorld")
     >>> len(doc.children)
     2

@@ -3,7 +3,7 @@
 import pytest
 
 from all2md import HtmlOptions
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.parsers.html2markdown import html_to_markdown
 from tests.utils import assert_markdown_valid
 
 

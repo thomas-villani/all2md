@@ -26,7 +26,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.converters.markdown2ast import MarkdownToAstConverter, markdown_to_ast
+from all2md.parsers.markdown import MarkdownToAstConverter, markdown_to_ast
 from all2md.options import MarkdownParserOptions
 
 

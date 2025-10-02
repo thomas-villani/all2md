@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     import ebooklib
 
 from all2md.converter_metadata import ConverterMetadata
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.parsers.html2markdown import html_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import EpubOptions, HtmlOptions, MarkdownOptions
 from all2md.utils.attachments import process_attachment
@@ -468,7 +468,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
-    converter_module="all2md.converters.epub2markdown",
+    converter_module="all2md.parsers.epub2markdown",
     converter_function="epub_to_markdown",
     required_packages=[("ebooklib", "ebooklib", ""), ("beautifulsoup4", "bs4", "")],
     import_error_message=(

@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/spreadsheet2markdown.py
+# src/all2md/parsers/spreadsheet2markdown.py
 
 """Spreadsheet (XLSX/ODS/CSV/TSV) to Markdown conversion module.
 
@@ -232,7 +232,7 @@ def xlsx_to_markdown(
 
         # Use AST-based conversion path
         from all2md.ast import MarkdownRenderer
-        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+        from all2md.parsers.spreadsheet import SpreadsheetToAstConverter
 
         # Convert to AST
         ast_converter = SpreadsheetToAstConverter(options=options)
@@ -306,7 +306,7 @@ def csv_to_markdown(
 
     # Use AST-based conversion path
     from all2md.ast import MarkdownRenderer
-    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+    from all2md.parsers.spreadsheet import SpreadsheetToAstConverter
 
     ast_converter = SpreadsheetToAstConverter(options=options)
     ast_document = ast_converter.csv_or_tsv_to_ast(
@@ -372,7 +372,7 @@ def tsv_to_markdown(
 
     # Use AST-based conversion path
     from all2md.ast import MarkdownRenderer
-    from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+    from all2md.parsers.spreadsheet import SpreadsheetToAstConverter
 
     ast_converter = SpreadsheetToAstConverter(options=options)
     ast_document = ast_converter.csv_or_tsv_to_ast(
@@ -539,7 +539,7 @@ def ods_to_markdown(
 
         # Use AST-based conversion path
         from all2md.ast import MarkdownRenderer
-        from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+        from all2md.parsers.spreadsheet import SpreadsheetToAstConverter
 
         # Convert to AST
         ast_converter = SpreadsheetToAstConverter(options=options)
@@ -776,7 +776,7 @@ CONVERTER_METADATA = SpreadsheetConverterMetadata(
         (b"PK\x03\x04", 0),  # ZIP signature for XLSX and ODS
     ],
     content_detector=_detect_csv_tsv_content,
-    converter_module="all2md.converters.spreadsheet2markdown",
+    converter_module="all2md.parsers.spreadsheet2markdown",
     converter_function="spreadsheet_to_markdown",
     required_packages=[("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")],  # Conditionally required based on format
     import_error_message="Spreadsheet conversion requires dependencies: 'openpyxl' for XLSX, "

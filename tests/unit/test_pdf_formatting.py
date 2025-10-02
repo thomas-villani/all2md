@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.converters.pdf2markdown import IdentifyHeaders, pdf_to_markdown
+from all2md.parsers.pdf2markdown import IdentifyHeaders, pdf_to_markdown
 from all2md.options import PdfOptions
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
@@ -68,7 +68,7 @@ class TestPdfFormatting:
         assert bold_italic_span["flags"] & 16  # Bold flag set
         assert bold_italic_span["flags"] & 2  # Italic flag set
 
-    @patch('all2md.converters.pdf2markdown.fitz.open')
+    @patch('all2md.parsers.pdf2markdown.fitz.open')
     def test_emphasis_mapping_to_markdown(self, mock_fitz_open):
         """Test mapping of PDF font flags to Markdown emphasis."""
         mock_doc = Mock()
@@ -268,7 +268,7 @@ class TestPdfFormatting:
         # The proportional_span is defined for documentation purposes
         assert "Courier" in monospace_span.get("font", "")
 
-    @patch('all2md.converters.pdf2markdown.fitz.open')
+    @patch('all2md.parsers.pdf2markdown.fitz.open')
     def test_mixed_formatting_in_paragraph(self, mock_fitz_open):
         """Test paragraphs with mixed formatting within same line."""
         mock_doc = Mock()

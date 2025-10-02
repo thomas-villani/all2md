@@ -43,7 +43,7 @@ DEFAULT_BULLETED_LIST_INDENT = 24
 # =============================================================================
 
 
-# Attachment handling (unified across all converters) - defined after AttachmentMode type
+# Attachment handling (unified across all parsers) - defined after AttachmentMode type
 DEFAULT_ATTACHMENT_OUTPUT_DIR = None
 DEFAULT_ATTACHMENT_BASE_URL = None
 

@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 from all2md.ast import Document, Heading, Paragraph, Table, TableCell, TableRow, Text
-from all2md.converters.spreadsheet2ast import SpreadsheetToAstConverter
+from all2md.parsers.spreadsheet import SpreadsheetToAstConverter
 from all2md.options import SpreadsheetOptions
 
 

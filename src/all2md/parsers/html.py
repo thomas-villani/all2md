@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/html2ast.py
+# src/all2md/parsers/html.py
 """HTML to AST converter.
 
 This module provides conversion from HTML documents to AST representation.

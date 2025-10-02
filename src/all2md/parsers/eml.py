@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/eml2ast.py
+# src/all2md/parsers/eml.py
 """Email (EML) to AST converter.
 
 This module provides conversion from email messages to AST representation.

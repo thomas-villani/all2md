@@ -20,7 +20,7 @@ import json
 import pytest
 
 from all2md.ast import CodeBlock, Document, HTMLInline, Image, Paragraph, Text
-from all2md.converters.ipynb2ast import IpynbToAstConverter
+from all2md.parsers.ipynb import IpynbToAstConverter
 from all2md.options import IpynbOptions
 
 

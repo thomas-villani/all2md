@@ -1103,7 +1103,7 @@ def process_dry_run(
     if args.preserve_structure and len(files) > 0:
         base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
 
-    # Auto-discover converters for format detection
+    # Auto-discover parsers for format detection
     registry.auto_discover()
 
     print("DRY RUN MODE - Showing what would be processed")
@@ -1310,7 +1310,7 @@ def process_detect_only(
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement
 
-    # Auto-discover converters
+    # Auto-discover parsers
     registry.auto_discover()
 
     print("DETECT-ONLY MODE - Format Detection Results")
@@ -1466,15 +1466,15 @@ def process_detect_only(
     if any_issues:
         from all2md.constants import EXIT_DEPENDENCY_ERROR
         unavailable_count = sum(1 for r in detection_results if not r['available'])
-        print(f"Files with unavailable converters: {unavailable_count}")
+        print(f"Files with unavailable parsers: {unavailable_count}")
         return EXIT_DEPENDENCY_ERROR
     else:
-        print("All detected converters are available")
+        print("All detected parsers are available")
         return 0
 
 
 def handle_list_formats_command(args: Optional[list[str]] = None) -> int:
-    """Handle list-formats command to show available converters.
+    """Handle list-formats command to show available parsers.
 
     Parameters
     ----------
@@ -1499,7 +1499,7 @@ def handle_list_formats_command(args: Optional[list[str]] = None) -> int:
             if arg in ('--help', '-h'):
                 print("""Usage: all2md list-formats [OPTIONS] [FORMAT]
 
-Show information about available document converters.
+Show information about available document parsers.
 
 Arguments:
   FORMAT              Show details for specific format only
@@ -1522,7 +1522,7 @@ Examples:
             elif not arg.startswith('-'):
                 specific_format = arg
 
-    # Auto-discover converters
+    # Auto-discover parsers
     registry.auto_discover()
 
     # Get all formats

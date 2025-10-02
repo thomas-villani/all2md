@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/markdown2markdown.py
+# src/all2md/parsers/markdown2markdown.py
 """Markdown to Markdown converter (passthrough with optional re-rendering).
 
 This module registers the markdown format in the converter registry, enabling
@@ -61,7 +61,7 @@ CONVERTER_METADATA = ConverterMetadata(
     extensions=[".md", ".markdown", ".mdown", ".mkd", ".mkdn"],
     mime_types=["text/markdown", "text/x-markdown"],
     magic_bytes=[],  # Markdown has no magic bytes
-    converter_module="all2md.converters.markdown2markdown",
+    converter_module="all2md.parsers.markdown2markdown",
     converter_function="markdown_to_markdown",
     required_packages=[("mistune", "mistune", "")],
     optional_packages=[],

@@ -34,7 +34,7 @@ from all2md.ast import (
     Text,
     Underline,
 )
-from all2md.converters.pptx2ast import PptxToAstConverter
+from all2md.parsers.pptx import PptxToAstConverter
 from all2md.options import PptxOptions
 
 

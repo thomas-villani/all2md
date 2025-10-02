@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/ipynb2ast.py
+# src/all2md/parsers/ipynb.py
 """Jupyter Notebook to AST converter.
 
 This module provides conversion from Jupyter Notebooks to AST representation.

@@ -7,7 +7,7 @@ default values, and a clean API for configuring conversion behavior.
 
 Each converter module has its own Options dataclass with module-specific
 parameters, plus a shared MarkdownOptions class for common Markdown formatting
-settings that apply across multiple converters.
+settings that apply across multiple parsers.
 
 Options Classes
 ---------------

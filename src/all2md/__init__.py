@@ -6,7 +6,7 @@ Excel (XLSX), Jupyter Notebooks (IPYNB), EPUB e-books, images, and 200+ text fil
 intelligent content extraction and formatting preservation.
 
 The library uses a modular architecture where the main `to_markdown()` function
-automatically detects file types and routes to appropriate specialized converters.
+automatically detects file types and routes to appropriate specialized parsers.
 Each converter module handles specific format requirements while maintaining
 consistent Markdown output with support for tables, images, and complex formatting.
 
@@ -106,8 +106,8 @@ from all2md.options import (
     create_updated_options,
 )
 
-# Import converters to trigger registration
-from . import converters  # noqa: F401
+# Import parsers to trigger registration
+from . import parsers  # noqa: F401
 
 # Import AST module for advanced users
 from . import ast  # noqa: F401
@@ -680,7 +680,7 @@ def to_markdown(
                 with open(input, 'r', encoding='utf-8', errors='replace') as f:
                     content = converter_func(f.read(), options=final_options)
             else:
-                # Most converters can handle filename/path directly
+                # Most parsers can handle filename/path directly
                 content = converter_func(input, options=final_options)
 
         elif isinstance(input, bytes):
@@ -821,7 +821,7 @@ def to_ast(
 
     # Use the same format detection and options merging as to_markdown()
     # Get the markdown string first, then parse it to AST
-    # For formats with native AST converters, use those directly
+    # For formats with native AST parsers, use those directly
 
     # Detect format
     actual_format = format if format != "auto" else registry.detect_format(input)
@@ -836,17 +836,17 @@ def to_ast(
 
     # Map of formats to their AST converter functions
     ast_converters = {
-        "pdf": "all2md.converters.pdf2ast.pdf_to_ast",
-        "docx": "all2md.converters.docx2ast.docx_to_ast",
-        "html": "all2md.converters.html2ast.html_to_ast",
-        "pptx": "all2md.converters.pptx2ast.pptx_to_ast",
-        "ipynb": "all2md.converters.ipynb2ast.ipynb_to_ast",
-        "eml": "all2md.converters.eml2ast.eml_to_ast",
-        "odf": "all2md.converters.odf2ast.odf_to_ast",
-        "rtf": "all2md.converters.rtf2ast.rtf_to_ast",
-        "sourcecode": "all2md.converters.sourcecode2ast.sourcecode_to_ast",
-        "spreadsheet": "all2md.converters.spreadsheet2ast.spreadsheet_to_ast",
-        "markdown": "all2md.converters.markdown2ast.markdown_to_ast",
+        "pdf": "all2md.parsers.pdf.pdf_to_ast",
+        "docx": "all2md.parsers.docx.docx_to_ast",
+        "html": "all2md.parsers.html.html_to_ast",
+        "pptx": "all2md.parsers.pptx.pptx_to_ast",
+        "ipynb": "all2md.parsers.ipynb.ipynb_to_ast",
+        "eml": "all2md.parsers.eml.eml_to_ast",
+        "odf": "all2md.parsers.odf.odf_to_ast",
+        "rtf": "all2md.parsers.rtf.rtf_to_ast",
+        "sourcecode": "all2md.parsers.sourcecode.sourcecode_to_ast",
+        "spreadsheet": "all2md.parsers.spreadsheet.spreadsheet_to_ast",
+        "markdown": "all2md.parsers.markdown.markdown_to_ast",
     }
 
     converter_path = ast_converters.get(actual_format)

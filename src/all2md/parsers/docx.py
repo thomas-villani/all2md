@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/docx2ast.py
+# src/all2md/parsers/docx.py
 """DOCX to AST converter.
 
 This module provides conversion from Microsoft Word DOCX documents to AST representation.

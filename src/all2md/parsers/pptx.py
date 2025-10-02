@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/pptx2ast.py
+# src/all2md/parsers/pptx.py
 """PPTX to AST converter.
 
 This module provides conversion from Microsoft PowerPoint presentations to AST representation.
@@ -264,7 +264,7 @@ class PptxToAstConverter:
 
         """
         # Import here to avoid circular dependencies
-        from all2md.converters.pptx2markdown import _analyze_slide_context, _detect_list_item
+        from all2md.parsers.pptx2markdown import _analyze_slide_context, _detect_list_item
 
         nodes: list[Node] = []
         slide_context = _analyze_slide_context(frame)
@@ -467,7 +467,7 @@ class PptxToAstConverter:
 
         """
         # Import here to avoid circular dependencies
-        from all2md.converters.pptx2markdown import extract_pptx_image_data
+        from all2md.parsers.pptx2markdown import extract_pptx_image_data
         from all2md.utils.attachments import process_attachment
 
         try:

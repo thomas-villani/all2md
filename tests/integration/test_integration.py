@@ -1,4 +1,4 @@
-"""Integration tests for all2md converters."""
+"""Integration tests for all2md parsers."""
 
 import tempfile
 from io import BytesIO

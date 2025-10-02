@@ -2,7 +2,7 @@
 
 import docx
 
-from all2md.converters.docx2markdown import docx_to_markdown
+from all2md.parsers.docx2markdown import docx_to_markdown
 from all2md.options import DocxOptions, MarkdownOptions
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 

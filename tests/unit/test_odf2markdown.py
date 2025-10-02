@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.converters.odf2markdown import extract_odf_metadata, odf_to_markdown
+from all2md.parsers.odf2markdown import extract_odf_metadata, odf_to_markdown
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import OdfOptions
 from all2md.utils.metadata import DocumentMetadata
@@ -264,7 +264,7 @@ class TestOdfMetadataExtraction:
         """Test metadata extraction when no meta section exists."""
         self.mock_doc.meta = None
 
-        with patch('all2md.converters.odf2markdown.hasattr', return_value=False):
+        with patch('all2md.parsers.odf2markdown.hasattr', return_value=False):
             metadata = extract_odf_metadata(self.mock_doc)
 
         assert isinstance(metadata, DocumentMetadata)
@@ -288,7 +288,7 @@ class TestOdfMetadataExtraction:
         self.mock_doc.body = mock_body
         self.mock_doc.meta = None
 
-        with patch('all2md.converters.odf2markdown.hasattr', side_effect=lambda obj, attr: attr in ['body']):
+        with patch('all2md.parsers.odf2markdown.hasattr', side_effect=lambda obj, attr: attr in ['body']):
             metadata = extract_odf_metadata(self.mock_doc)
 
         assert metadata.custom['page_count'] == 3
@@ -301,7 +301,7 @@ class TestOdfMetadataExtraction:
         self.mock_doc.meta = None
         self.mock_doc.body = None
 
-        with patch('all2md.converters.odf2markdown.hasattr', side_effect=lambda obj, attr: attr == 'mimetype'):
+        with patch('all2md.parsers.odf2markdown.hasattr', side_effect=lambda obj, attr: attr == 'mimetype'):
             metadata = extract_odf_metadata(self.mock_doc)
 
         assert metadata.custom['document_type'] == 'presentation'
@@ -312,7 +312,7 @@ class TestOdfMetadataExtraction:
         self.mock_doc.meta = None
         self.mock_doc.body = None
 
-        with patch('all2md.converters.odf2markdown.hasattr', side_effect=lambda obj, attr: attr == 'mimetype'):
+        with patch('all2md.parsers.odf2markdown.hasattr', side_effect=lambda obj, attr: attr == 'mimetype'):
             metadata = extract_odf_metadata(self.mock_doc)
 
         assert metadata.custom['document_type'] == 'text'
@@ -328,12 +328,12 @@ class TestOdfMetadataExtraction:
             mock_doc.meta.getElementsByType = Mock(return_value=[])
             mock_load.return_value = mock_doc
 
-            with patch('all2md.converters.odf2markdown.extract_odf_metadata') as mock_extract:
+            with patch('all2md.parsers.odf2markdown.extract_odf_metadata') as mock_extract:
                 mock_metadata = DocumentMetadata()
                 mock_metadata.title = "Test Document"
                 mock_extract.return_value = mock_metadata
 
-                with patch('all2md.converters.odf2markdown.prepend_metadata_if_enabled') as mock_prepend:
+                with patch('all2md.parsers.odf2markdown.prepend_metadata_if_enabled') as mock_prepend:
                     mock_prepend.return_value = "---\ntitle: Test Document\n---\n\nContent"
 
                     result = odf_to_markdown("test.odt", options)
@@ -352,7 +352,7 @@ class TestOdfMetadataExtraction:
             mock_doc.text.childNodes = []
             mock_load.return_value = mock_doc
 
-            with patch('all2md.converters.odf2markdown.extract_odf_metadata') as mock_extract:
+            with patch('all2md.parsers.odf2markdown.extract_odf_metadata') as mock_extract:
                 result = odf_to_markdown("test.odt", options)
 
                 mock_extract.assert_not_called()

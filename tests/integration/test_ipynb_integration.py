@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.converters.ipynb2markdown import ipynb_to_markdown
+from all2md.parsers.ipynb2markdown import ipynb_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import IpynbOptions, MarkdownOptions
 

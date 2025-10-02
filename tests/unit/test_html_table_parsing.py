@@ -6,7 +6,7 @@ They use fixture-based testing instead of inline HTML for better maintainability
 
 import pytest
 
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.parsers.html2markdown import html_to_markdown
 from tests.fixtures.generators.html_fixtures import create_html_with_tables
 from tests.utils import assert_markdown_valid
 

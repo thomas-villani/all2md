@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.parsers.html2markdown import html_to_markdown
 from all2md.options import EmlOptions, HtmlOptions, NetworkFetchOptions
 
 
@@ -167,7 +167,7 @@ class TestEmlConverterSecurityInheritance:
 
     def test_eml_security_settings_passed_to_html(self):
         """Test that EML security settings are passed to HTML converter."""
-        from all2md.converters.eml2markdown import _convert_html_to_markdown
+        from all2md.parsers.eml2markdown import _convert_html_to_markdown
 
         html_content = '<img src="https://example.com/image.png" alt="test">'
 
@@ -181,7 +181,7 @@ class TestEmlConverterSecurityInheritance:
             )
         )
 
-        with patch('all2md.converters.html2markdown.html_to_markdown') as mock_html_convert:
+        with patch('all2md.parsers.html2markdown.html_to_markdown') as mock_html_convert:
             mock_html_convert.return_value = "![test](https://example.com/image.png)"
 
             _convert_html_to_markdown(html_content, options)
@@ -196,7 +196,7 @@ class TestEmlConverterSecurityInheritance:
 
     def test_eml_default_security_blocks_remote_fetch(self):
         """Test that EML default security settings block remote fetching."""
-        from all2md.converters.eml2markdown import _convert_html_to_markdown
+        from all2md.parsers.eml2markdown import _convert_html_to_markdown
 
         html_content = '<img src="https://example.com/image.png" alt="test">'
 

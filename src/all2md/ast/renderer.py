@@ -75,7 +75,7 @@ class MarkdownRenderer(NodeVisitor):
     Parameters
     ----------
     options : MarkdownOptions or None, default = None
-        Markdown formatting options (shared with converters)
+        Markdown formatting options (shared with parsers)
 
     Examples
     --------

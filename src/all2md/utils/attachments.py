@@ -2,7 +2,7 @@
 
 This module provides common functions for handling attachments (images and files)
 across all conversion modules in the all2md library. It implements the unified
-AttachmentMode system with consistent behavior across different converters.
+AttachmentMode system with consistent behavior across different parsers.
 
 The attachment handling modes are:
 - "skip": Remove attachments completely
@@ -544,7 +544,7 @@ def generate_attachment_filename(
         sequence_num: int = 1,
         extension: str = "png"
 ) -> str:
-    """Generate standardized attachment filenames across all converters.
+    """Generate standardized attachment filenames across all parsers.
 
     Parameters
     ----------

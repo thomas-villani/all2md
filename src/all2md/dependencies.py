@@ -174,7 +174,7 @@ def check_version_requirement(
 
 
 def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
-    """Get all dependencies for all converters from the registry.
+    """Get all dependencies for all parsers from the registry.
 
     Returns
     -------

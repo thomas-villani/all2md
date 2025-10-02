@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/pptx2markdown.py
+# src/all2md/parsers/pptx2markdown.py
 
 """PowerPoint presentation to Markdown conversion module.
 
@@ -54,7 +54,7 @@ Examples
 --------
 Basic presentation conversion:
 
-    >>> from all2md.converters.pptx2markdown import pptx_to_markdown
+    >>> from all2md.parsers.pptx2markdown import pptx_to_markdown
     >>> with open('presentation.pptx', 'rb') as f:
     ...     markdown = pptx_to_markdown(f)
     >>> print(markdown)
@@ -677,7 +677,7 @@ def pptx_to_markdown(input_data: Union[str, Path, IO[bytes]], options: PptxOptio
         metadata = extract_pptx_metadata(prs)
 
     # Use new AST-based conversion path
-    from all2md.converters.pptx2ast import PptxToAstConverter
+    from all2md.parsers.pptx import PptxToAstConverter
     from all2md.ast import MarkdownRenderer
     from all2md.options import MarkdownOptions
 
@@ -713,7 +713,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
-    converter_module="all2md.converters.pptx2markdown",
+    converter_module="all2md.parsers.pptx2markdown",
     converter_function="pptx_to_markdown",
     required_packages=[("python-pptx", "pptx", "")],
     import_error_message="PPTX conversion requires 'python-pptx'. Install with: pip install python-pptx",

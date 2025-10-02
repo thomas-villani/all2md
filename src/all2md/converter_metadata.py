@@ -34,7 +34,7 @@ class ConverterMetadata:
         Custom content-based detection function that receives file content bytes
         and returns True if this converter should handle the content
     converter_module : str
-        Full module path (e.g., "all2md.converters.pdf2markdown")
+        Full module path (e.g., "all2md.parsers.pdf2markdown")
     converter_function : str
         Function name within the module (e.g., "pdf_to_markdown")
     required_packages : list[tuple[str, str, str]]
@@ -166,8 +166,8 @@ class ConverterMetadata:
     ) -> list[tuple[str, str, str]]:
         """Get required packages for specific content, allowing context-aware dependency checking.
 
-        Some converters may have different dependency requirements based on the actual
-        content they're processing. This method allows converters to specify
+        Some parsers may have different dependency requirements based on the actual
+        content they're processing. This method allows parsers to specify
         context-specific dependencies.
 
         Parameters
@@ -185,7 +185,7 @@ class ConverterMetadata:
             Required packages as (install_name, import_name, version_spec) tuples for this content
         """
         # Default implementation returns all required packages
-        # Subclasses or specific converters can override this logic to use input_data
+        # Subclasses or specific parsers can override this logic to use input_data
         return self.required_packages
 
 

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.converters.odf2markdown import odf_to_markdown
+from all2md.parsers.odf2markdown import odf_to_markdown
 from all2md.options import MarkdownOptions, OdfOptions
 
 

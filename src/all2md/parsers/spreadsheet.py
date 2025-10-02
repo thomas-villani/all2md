@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/spreadsheet2ast.py
+# src/all2md/parsers/spreadsheet.py
 """Spreadsheet to AST converter.
 
 This module provides conversion from spreadsheet formats (XLSX, ODS, CSV, TSV)

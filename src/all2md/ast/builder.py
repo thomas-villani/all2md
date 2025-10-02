@@ -5,7 +5,7 @@
 
 This module provides helper classes that simplify the construction of
 complex AST structures like nested lists and tables. These builders
-handle the bookkeeping of nesting and structure, allowing converters
+handle the bookkeeping of nesting and structure, allowing parsers
 to focus on content extraction.
 
 """

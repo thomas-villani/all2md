@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/odf2markdown.py
+# src/all2md/parsers/odf2markdown.py
 """OpenDocument to Markdown conversion module.
 
 This module provides functionality to convert OpenDocument Text (ODT) and
@@ -28,7 +28,7 @@ Examples
 --------
 Basic conversion:
 
-    >>> from all2md.converters.odf2markdown import odf_to_markdown
+    >>> from all2md.parsers.odf2markdown import odf_to_markdown
     >>> with open('document.odt', 'rb') as f:
     ...     markdown = odf_to_markdown(f)
     >>> print(markdown)
@@ -239,7 +239,7 @@ def odf_to_markdown(
         metadata = extract_odf_metadata(doc)
 
     # Use AST-based conversion path
-    from all2md.converters.odf2ast import OdfToAstConverter
+    from all2md.parsers.odf import OdfToAstConverter
     from all2md.ast import MarkdownRenderer
 
     # Convert to AST
@@ -265,7 +265,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
-    converter_module="all2md.converters.odf2markdown",
+    converter_module="all2md.parsers.odf2markdown",
     converter_function="odf_to_markdown",
     required_packages=[("odfpy", "odf", "")],
     import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",

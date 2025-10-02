@@ -5,7 +5,7 @@ import base64
 import docx
 import pytest
 
-from all2md.converters import docx2markdown as md
+from all2md.parsers import docx2markdown as md
 
 
 @pytest.mark.integration

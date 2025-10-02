@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from io import StringIO
 
-from all2md.converters.eml2markdown import eml_to_markdown
+from all2md.parsers.eml2markdown import eml_to_markdown
 from all2md.options import EmlOptions
 from tests.utils import MINIMAL_PNG_BYTES, assert_markdown_valid
 

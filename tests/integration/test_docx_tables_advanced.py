@@ -4,7 +4,7 @@ import docx
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from all2md.converters.docx2markdown import docx_to_markdown
+from all2md.parsers.docx2markdown import docx_to_markdown
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 

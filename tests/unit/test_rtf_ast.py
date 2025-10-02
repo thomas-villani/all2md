@@ -22,7 +22,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from all2md.ast import Document, Emphasis, List, ListItem, Paragraph, Strong, Text, Underline
-from all2md.converters.rtf2ast import RtfToAstConverter
+from all2md.parsers.rtf import RtfToAstConverter
 from all2md.options import RtfOptions
 
 

@@ -17,8 +17,8 @@ def _setup_test_imports():
     try:
         import fitz
 
-        import all2md.converters.pdf2markdown
-        all2md.converters.pdf2markdown.fitz = fitz
+        import all2md.parsers.pdf2markdown
+        all2md.parsers.pdf2markdown.fitz = fitz
     except ImportError:
         # If fitz isn't available, that's ok - tests that need it will skip
         pass

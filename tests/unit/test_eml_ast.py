@@ -19,7 +19,7 @@ import datetime
 import pytest
 
 from all2md.ast import Document, Heading, HTMLInline, Paragraph, Text, ThematicBreak
-from all2md.converters.eml2ast import EmlToAstConverter
+from all2md.parsers.eml import EmlToAstConverter
 from all2md.options import EmlOptions
 
 

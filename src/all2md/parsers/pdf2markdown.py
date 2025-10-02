@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/pdf2markdown.py
+# src/all2md/parsers/pdf2markdown.py
 """PDF to Markdown conversion module.
 
 This module provides advanced PDF parsing with table detection using PyMuPDF.
@@ -30,7 +30,7 @@ Examples
 --------
 Basic PDF conversion:
 
-    >>> from all2md.converters.pdf2markdown import pdf_to_markdown
+    >>> from all2md.parsers.pdf2markdown import pdf_to_markdown
     >>> markdown_content = pdf_to_markdown("document.pdf")
 
 Convert specific pages with options:
@@ -86,7 +86,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"%PDF", 0),  # PDF signature
     ],
-    converter_module="all2md.converters.pdf2markdown",
+    converter_module="all2md.parsers.pdf2markdown",
     converter_function="pdf_to_markdown",
     required_packages=[("pymupdf", "fitz", ">=1.26.4")],
     optional_packages=[],
@@ -1209,7 +1209,7 @@ def pdf_to_markdown(input_data: Union[str, Path, IO[bytes], "fitz.Document"], op
     attachment_sequencer = create_attachment_sequencer()
 
     # Use new AST-based conversion path
-    from all2md.converters.pdf2ast import PdfToAstConverter
+    from all2md.parsers.pdf import PdfToAstConverter
     from all2md.ast import MarkdownRenderer
 
     # Convert PDF to AST

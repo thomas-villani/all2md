@@ -156,7 +156,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
             )
         try:
             # Import parse_page_ranges from pdf2markdown
-            from all2md.converters.pdf2markdown import parse_page_ranges
+            from all2md.parsers.pdf2markdown import parse_page_ranges
             pages = parse_page_ranges(pages, max_pages)
         except (ValueError, IndexError) as e:
             raise InputError(

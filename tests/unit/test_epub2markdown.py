@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from all2md.converters.epub2markdown import (
+from all2md.parsers.epub2markdown import (
     _build_toc_map,
     _preprocess_html,
     _slugify,
@@ -201,7 +201,7 @@ class TestEpubToMarkdown:
         # Test with include_toc=True
         options = EpubOptions(include_toc=True)
 
-        with patch('all2md.converters.epub2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.epub2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test\n\nContent"
 
             result = epub_to_markdown("test.epub", options=options)

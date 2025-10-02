@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/mhtml2markdown.py
+# src/all2md/parsers/mhtml2markdown.py
 """MHTML single-file web archive to Markdown conversion module.
 
 This module provides functionality to convert MHTML files (.mht, .mhtml)
@@ -31,7 +31,7 @@ Examples
 --------
 Basic conversion from a file path:
 
-    >>> from all2md.converters.mhtml2markdown import mhtml_to_markdown
+    >>> from all2md.parsers.mhtml2markdown import mhtml_to_markdown
     >>> markdown = mhtml_to_markdown('archive.mht')
     >>> print(markdown)
 
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     pass
 
 from all2md.converter_metadata import ConverterMetadata
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.parsers.html2markdown import html_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import HtmlOptions, MarkdownOptions, MhtmlOptions
 from all2md.utils.inputs import validate_and_convert_input
@@ -423,7 +423,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"MIME-Version:", 0),
     ],
-    converter_module="all2md.converters.mhtml2markdown",
+    converter_module="all2md.parsers.mhtml2markdown",
     converter_function="mhtml_to_markdown",
     required_packages=[("beautifulsoup4", "bs4", "")],
     import_error_message="MHTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4",

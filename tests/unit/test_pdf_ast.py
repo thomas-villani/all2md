@@ -22,7 +22,7 @@ from unittest.mock import Mock, MagicMock
 import pytest
 
 from all2md.ast import CodeBlock, Document, Heading, Image, Paragraph, Table, Text
-from all2md.converters.pdf2ast import PdfToAstConverter
+from all2md.parsers.pdf import PdfToAstConverter
 from all2md.options import PdfOptions
 
 

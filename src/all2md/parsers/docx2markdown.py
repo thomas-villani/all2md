@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/docx2markdown.py
+# src/all2md/parsers/docx2markdown.py
 """Word document to Markdown conversion module.
 
 This module provides functionality to convert Microsoft Word documents (DOCX format)
@@ -42,7 +42,7 @@ Examples
 --------
 Basic conversion:
 
-    >>> from all2md.converters.docx2markdown import docx_to_markdown
+    >>> from all2md.parsers.docx2markdown import docx_to_markdown
     >>> with open('document.docx', 'rb') as f:
     ...     markdown = docx_to_markdown(f)
     >>> print(markdown)
@@ -89,7 +89,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature (docx is ZIP-based)
     ],
-    converter_module="all2md.converters.docx2markdown",
+    converter_module="all2md.parsers.docx2markdown",
     converter_function="docx_to_markdown",
     required_packages=[("python-docx", "docx", "")],
     optional_packages=[],
@@ -242,7 +242,7 @@ def docx_to_markdown(
         metadata = extract_docx_metadata(doc)
 
     # Use new AST-based conversion path
-    from all2md.converters.docx2ast import DocxToAstConverter
+    from all2md.parsers.docx import DocxToAstConverter
     from all2md.ast import MarkdownRenderer
 
     # Create attachment sequencer for consistent filename generation

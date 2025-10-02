@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/odf2ast.py
+# src/all2md/parsers/odf.py
 """ODF to AST converter.
 
 This module provides conversion from ODF documents (ODT, ODP) to AST representation.

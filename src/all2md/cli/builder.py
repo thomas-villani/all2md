@@ -615,7 +615,7 @@ Examples:
             group_name="Common Markdown formatting options"
         )
 
-        # Auto-discover converters and add their options
+        # Auto-discover parsers and add their options
         registry.auto_discover()
 
         for format_name in registry.list_formats():
@@ -698,7 +698,7 @@ Examples:
         # Get the set of explicitly provided arguments
         provided_args = getattr(parsed_args, '_provided_args', set())
 
-        # Auto-discover converters to get their options classes for validation
+        # Auto-discover parsers to get their options classes for validation
         registry.auto_discover()
 
         # Collect all options classes for field validation

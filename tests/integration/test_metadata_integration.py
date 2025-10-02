@@ -1,4 +1,4 @@
-"""Integration tests for metadata extraction across all converters."""
+"""Integration tests for metadata extraction across all parsers."""
 
 import json
 from io import BytesIO

@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/ipynb2markdown.py
+# src/all2md/parsers/ipynb2markdown.py
 
 """Jupyter Notebook to Markdown conversion module.
 
@@ -30,7 +30,7 @@ Examples
 --------
 Basic conversion from a file path:
 
-    >>> from all2md.converters.ipynb2markdown import ipynb_to_markdown
+    >>> from all2md.parsers.ipynb2markdown import ipynb_to_markdown
     >>> markdown = ipynb_to_markdown('notebook.ipynb')
     >>> print(markdown)
 
@@ -259,7 +259,7 @@ def ipynb_to_markdown(
         metadata = extract_ipynb_metadata(notebook)
 
     # Use AST-based conversion path
-    from all2md.converters.ipynb2ast import IpynbToAstConverter
+    from all2md.parsers.ipynb import IpynbToAstConverter
     from all2md.ast import MarkdownRenderer
     from all2md.options import MarkdownOptions
 
@@ -287,7 +287,7 @@ CONVERTER_METADATA = ConverterMetadata(
         (b'{"cells":', 0),
         (b'{ "cells":', 0),
     ],
-    converter_module="all2md.converters.ipynb2markdown",
+    converter_module="all2md.parsers.ipynb2markdown",
     converter_function="ipynb_to_markdown",
     required_packages=[],
     options_class="IpynbOptions",

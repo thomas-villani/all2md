@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.converters.sourcecode2markdown import (
+from all2md.parsers.sourcecode2markdown import (
     EXTENSION_TO_LANGUAGE,
     _detect_language_from_extension,
     _format_sourcecode_content,

@@ -9,7 +9,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from all2md.converters.mhtml2markdown import extract_mhtml_metadata, mhtml_to_markdown
+from all2md.parsers.mhtml2markdown import extract_mhtml_metadata, mhtml_to_markdown
 from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import MarkdownOptions, MhtmlOptions
 from all2md.utils.metadata import DocumentMetadata
@@ -39,7 +39,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test Document\n\nSimple content with **bold** text."
 
             result = mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -63,7 +63,7 @@ Content-Type: text/html; charset=utf-8
         with patch('os.path.exists', return_value=True):
             with patch('os.path.isfile', return_value=True):
                 with patch('builtins.open', mock_open(read_data=mhtml_content)):
-                    with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+                    with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
                         mock_html_to_md.return_value = "# Test"
 
                         result = mhtml_to_markdown("test.mht")
@@ -120,7 +120,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test with Image\n\n![Test Image](data:image/png;base64,...)"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -165,7 +165,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
             )
         )
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "![File Image](data:image/png;base64,...)"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
@@ -199,7 +199,7 @@ iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAA
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "![File Image]"
 
             # Use default options (should block file:// URLs)
@@ -240,7 +240,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "Cleaned content"
 
             result = mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -277,7 +277,7 @@ Content-Type: text/html; charset=utf-8
             markdown_options=md_options
         )
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
@@ -304,7 +304,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """.encode('utf-8')
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Café & Résumé"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -325,7 +325,7 @@ Content-Type: text/html
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# No Charset"
 
             result = mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -367,7 +367,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# First HTML"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -394,7 +394,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "Content with images"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -426,7 +426,7 @@ class TestMhtmlErrorHandling:
         invalid_content = b"Not a valid email/MIME message"
 
         # This should still work as email.message_from_bytes is quite forgiving
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown'):
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown'):
             with pytest.raises(MarkdownConversionError) as exc_info:
                 mhtml_to_markdown(io.BytesIO(invalid_content))
 
@@ -451,7 +451,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# BytesIO Test"
 
             result = mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -486,7 +486,7 @@ Content-Type: text/html; charset=utf-8
 --test-boundary--
 """
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "List content"
 
             mhtml_to_markdown(io.BytesIO(mhtml_content))
@@ -693,10 +693,10 @@ Content-Type: text/html; charset=utf-8
 
         options = MhtmlOptions(extract_metadata=True)
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test Content"
 
-            with patch('all2md.converters.mhtml2markdown.prepend_metadata_if_enabled') as mock_prepend:
+            with patch('all2md.parsers.mhtml2markdown.prepend_metadata_if_enabled') as mock_prepend:
                 mock_prepend.return_value = "---\ntitle: Test MHTML Document\n---\n\n# Test Content"
 
                 result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
@@ -721,10 +721,10 @@ Content-Type: text/html; charset=utf-8
 
         options = MhtmlOptions(extract_metadata=False)
 
-        with patch('all2md.converters.mhtml2markdown.html_to_markdown') as mock_html_to_md:
+        with patch('all2md.parsers.mhtml2markdown.html_to_markdown') as mock_html_to_md:
             mock_html_to_md.return_value = "# Test"
 
-            with patch('all2md.converters.mhtml2markdown.extract_mhtml_metadata') as mock_extract:
+            with patch('all2md.parsers.mhtml2markdown.extract_mhtml_metadata') as mock_extract:
                 result = mhtml_to_markdown(io.BytesIO(mhtml_content), options=options)
 
                 mock_extract.assert_not_called()

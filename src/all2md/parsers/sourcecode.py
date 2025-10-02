@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/converters/sourcecode2ast.py
+# src/all2md/parsers/sourcecode.py
 """Source code to AST converter.
 
 This module provides conversion from source code files to AST representation.
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Language mapping for file extensions to GitHub-style language identifiers
 # Imported from sourcecode2markdown for consistency
-from all2md.converters.sourcecode2markdown import EXTENSION_TO_LANGUAGE, _detect_language_from_extension
+from all2md.parsers.sourcecode2markdown import EXTENSION_TO_LANGUAGE, _detect_language_from_extension
 
 
 class SourceCodeToAstConverter:

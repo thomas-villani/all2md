@@ -1,6 +1,6 @@
 import pytest
 
-from all2md.converters.html2markdown import html_to_markdown
+from all2md.parsers.html2markdown import html_to_markdown
 from all2md.options import HtmlOptions, MarkdownOptions
 
 
