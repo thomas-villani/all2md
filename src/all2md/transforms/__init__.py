@@ -65,6 +65,9 @@ from __future__ import annotations
 from .hooks import HookCallable, HookContext, HookManager, HookPoint, HookTarget, NodeType
 from .metadata import ParameterSpec, TransformMetadata
 
+# Pipeline
+from .pipeline import HookAwareVisitor, Pipeline, render
+
 # Registry
 from .registry import TransformRegistry, registry
 
@@ -85,4 +88,8 @@ __all__ = [
     "HookPoint",
     "NodeType",
     "HookTarget",
+    # Pipeline
+    "Pipeline",
+    "HookAwareVisitor",
+    "render",
 ]
