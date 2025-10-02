@@ -11,13 +11,19 @@ It replaces direct markdown string generation with structured AST building.
 from __future__ import annotations
 
 import base64
+import json
 import logging
-from typing import Any
+from pathlib import Path
+from typing import IO, Any, Union
 
 from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph, Text
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
+from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import InputError, MarkdownConversionError
 from all2md.options import IpynbOptions
+from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
+from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +54,7 @@ def _collapse_output(text: str, limit: int | None, message: str) -> str:
     return text
 
 
-class IpynbToAstConverter:
+class IpynbToAstConverter(BaseParser):
     """Convert Jupyter Notebooks to AST representation.
 
     This converter processes notebook JSON and builds an AST
@@ -56,17 +62,74 @@ class IpynbToAstConverter:
 
     Parameters
     ----------
-    notebook : dict
-        Parsed notebook JSON
     options : IpynbOptions or None
         Conversion options
 
     """
 
-    def __init__(self, notebook: dict[str, Any], options: IpynbOptions | None = None):
-        self.notebook = notebook
-        self.options = options or IpynbOptions()
-        self.language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
+    def __init__(self, options: IpynbOptions | None = None):
+        super().__init__(options or IpynbOptions())
+        self.notebook: dict[str, Any] | None = None
+        self.language: str = "python"
+
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse Jupyter Notebook input into an AST.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The input notebook to parse
+
+        Returns
+        -------
+        Document
+            AST Document node
+
+        Raises
+        ------
+        InputError
+            If the input is not valid notebook JSON
+        MarkdownConversionError
+            If parsing fails
+
+        """
+        try:
+            # Load the notebook JSON
+            if isinstance(input_data, (str, Path)):
+                with open(input_data, "r", encoding="utf-8") as f:
+                    self.notebook = json.load(f)
+            elif isinstance(input_data, bytes):
+                self.notebook = json.loads(input_data.decode("utf-8"))
+            elif hasattr(input_data, "read"):
+                content = input_data.read()
+                if isinstance(content, bytes):
+                    content = content.decode("utf-8")
+                self.notebook = json.loads(content)
+            else:
+                raise InputError(f"Unsupported input type: {type(input_data).__name__}")
+
+        except json.JSONDecodeError as e:
+            raise InputError(
+                "Input is not a valid JSON file. Ensure it is a proper .ipynb notebook.",
+                original_error=e,
+            ) from e
+        except Exception as e:
+            if isinstance(e, InputError):
+                raise
+            raise MarkdownConversionError(
+                f"Failed to read or parse Jupyter Notebook: {e}",
+                conversion_stage="input_processing",
+                original_error=e,
+            ) from e
+
+        if "cells" not in self.notebook or not isinstance(self.notebook["cells"], list):
+            raise InputError("Invalid notebook format: 'cells' key is missing or not a list.")
+
+        # Extract language from notebook metadata
+        self.language = self.notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
+
+        # Convert to AST
+        return self.convert_to_ast()
 
     def convert_to_ast(self) -> Document:
         """Convert notebook to AST Document.
@@ -77,6 +140,12 @@ class IpynbToAstConverter:
             AST document node
 
         """
+        if self.notebook is None:
+            raise MarkdownConversionError(
+                "No notebook data loaded. Call parse() first.",
+                conversion_stage="ast_conversion",
+            )
+
         children: list[Node] = []
 
         cells = self.notebook.get("cells", [])
@@ -85,7 +154,9 @@ class IpynbToAstConverter:
             if cell_nodes:
                 children.extend(cell_nodes)
 
-        return Document(children=children)
+        # Extract and attach metadata
+        metadata = self.extract_metadata(self.notebook)
+        return Document(children=children, metadata=metadata.to_dict())
 
     def _process_cell(self, cell: dict[str, Any], cell_index: int) -> list[Node]:
         """Process a notebook cell to AST nodes.
@@ -240,3 +311,134 @@ class IpynbToAstConverter:
                     return CodeBlock(language="", content=collapsed_text.strip())
 
         return None
+
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from Jupyter notebook.
+
+        Parameters
+        ----------
+        document : dict
+            Parsed notebook JSON structure
+
+        Returns
+        -------
+        DocumentMetadata
+            Extracted metadata
+
+        """
+        metadata = DocumentMetadata()
+
+        # Extract notebook metadata
+        nb_metadata = document.get('metadata', {})
+
+        # Common notebook metadata fields
+        if 'title' in nb_metadata:
+            metadata.title = nb_metadata['title']
+
+        # Kernel information
+        kernel_info = nb_metadata.get('kernelspec', {})
+        if kernel_info:
+            language = kernel_info.get('language', '')
+            if language:
+                metadata.language = language
+            kernel_name = kernel_info.get('display_name', kernel_info.get('name', ''))
+            if kernel_name:
+                metadata.custom['kernel'] = kernel_name
+
+        # Language info
+        lang_info = nb_metadata.get('language_info', {})
+        if lang_info:
+            if not metadata.language:
+                metadata.language = lang_info.get('name', '')
+            version = lang_info.get('version', '')
+            if version:
+                metadata.custom['language_version'] = version
+
+        # Authors (if present in metadata)
+        authors = nb_metadata.get('authors', [])
+        if authors:
+            if isinstance(authors, list) and authors:
+                # Take first author as primary
+                first_author = authors[0]
+                if isinstance(first_author, dict):
+                    metadata.author = first_author.get('name', '')
+                else:
+                    metadata.author = str(first_author)
+                # Store all authors in custom
+                if len(authors) > 1:
+                    metadata.custom['authors'] = authors
+            elif isinstance(authors, str):
+                metadata.author = authors
+
+        # Creation/modification dates
+        if 'created' in nb_metadata:
+            metadata.creation_date = nb_metadata['created']
+        if 'modified' in nb_metadata:
+            metadata.modification_date = nb_metadata['modified']
+
+        # Notebook format version
+        nbformat = document.get('nbformat', '')
+        nbformat_minor = document.get('nbformat_minor', '')
+        if nbformat:
+            metadata.custom['notebook_format'] = f"{nbformat}.{nbformat_minor}" if nbformat_minor else str(nbformat)
+
+        # Cell count
+        cells = document.get('cells', [])
+        if cells:
+            metadata.custom['cell_count'] = len(cells)
+            # Count by cell type
+            code_cells = sum(1 for cell in cells if cell.get('cell_type') == 'code')
+            markdown_cells = sum(1 for cell in cells if cell.get('cell_type') == 'markdown')
+            if code_cells:
+                metadata.custom['code_cells'] = code_cells
+            if markdown_cells:
+                metadata.custom['markdown_cells'] = markdown_cells
+
+        # Custom notebook metadata (Jupyter extensions often add metadata)
+        for key, value in nb_metadata.items():
+            if key not in ['kernelspec', 'language_info', 'authors', 'title', 'created', 'modified']:
+                # Only include simple types in custom metadata
+                if isinstance(value, (str, int, float, bool)):
+                    metadata.custom[f'notebook_{key}'] = value
+                elif isinstance(value, (list, dict)) and key in ['tags', 'keywords']:
+                    # Special handling for tags/keywords
+                    if key == 'tags' or key == 'keywords':
+                        if isinstance(value, list):
+                            metadata.keywords = value
+                        else:
+                            metadata.custom[key] = value
+
+        # If no title, try to extract from first markdown cell
+        if not metadata.title and cells:
+            for cell in cells:
+                if cell.get('cell_type') == 'markdown':
+                    source = self._get_source(cell)
+                    lines = source.strip().split('\n')
+                    for line in lines:
+                        if line.strip().startswith('#'):
+                            # Found a header, use as title
+                            metadata.title = line.lstrip('#').strip()
+                            break
+                    if metadata.title:
+                        break
+
+        return metadata
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="ipynb",
+    extensions=[".ipynb"],
+    mime_types=["application/json"],
+    magic_bytes=[
+        (b'{"cells":', 0),
+        (b'{ "cells":', 0),
+    ],
+    converter_module="all2md.parsers.ipynb",
+    parser_class="IpynbToAstConverter",
+    renderer_class=None,
+    required_packages=[],
+    options_class="IpynbOptions",
+    description="Convert Jupyter Notebooks to Markdown",
+    priority=7
+)

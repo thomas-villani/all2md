@@ -12,7 +12,8 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 import re
-from typing import Any
+from pathlib import Path
+from typing import IO, Any, Union
 
 from all2md.ast import (
     BlockQuote,
@@ -45,10 +46,13 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
+from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MarkdownParserOptions
+from all2md.parsers.base import BaseParser
+from all2md.utils.metadata import DocumentMetadata
 
 
-class MarkdownToAstConverter:
+class MarkdownToAstConverter(BaseParser):
     """Convert Markdown to AST representation.
 
     This converter uses mistune to parse Markdown and builds an AST that
@@ -65,27 +69,31 @@ class MarkdownToAstConverter:
     Basic parsing:
 
         >>> converter = MarkdownToAstConverter()
-        >>> doc = converter.convert_to_ast("# Hello\\n\\nThis is **bold**.")
+        >>> doc = converter.parse("# Hello\\n\\nThis is **bold**.")
 
     With options:
 
         >>> options = MarkdownParserOptions(flavor="gfm", parse_tables=True)
         >>> converter = MarkdownToAstConverter(options)
-        >>> doc = converter.convert_to_ast(markdown_text)
+        >>> doc = converter.parse(markdown_text)
 
     """
 
     def __init__(self, options: MarkdownParserOptions | None = None):
-        self.options = options or MarkdownParserOptions()
+        super().__init__(options or MarkdownParserOptions())
         self._footnote_definitions: dict[str, list[Node]] = {}
 
-    def convert_to_ast(self, markdown_content: str) -> Document:
-        """Convert Markdown string to AST Document.
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse Markdown input into AST Document.
 
         Parameters
         ----------
-        markdown_content : str
-            Markdown content to parse
+        input_data : str, Path, IO[bytes], or bytes
+            Markdown input to parse. Can be:
+            - File path (str or Path)
+            - File-like object in binary mode
+            - Raw markdown bytes
+            - Markdown string
 
         Returns
         -------
@@ -93,6 +101,9 @@ class MarkdownToAstConverter:
             AST document node
 
         """
+        # Load markdown content from various input types
+        markdown_content = self._load_markdown_content(input_data)
+
         try:
             import mistune
         except ImportError as e:
@@ -136,7 +147,43 @@ class MarkdownToAstConverter:
                     content=content
                 ))
 
-        return Document(children=children)
+        # Extract and attach metadata
+        metadata = self.extract_metadata(markdown_content)
+        return Document(children=children, metadata=metadata.to_dict())
+
+    def _load_markdown_content(self, input_data: Union[str, Path, IO[bytes], bytes]) -> str:
+        """Load markdown content from various input types.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            Input data to load
+
+        Returns
+        -------
+        str
+            Markdown content as string
+
+        """
+        if isinstance(input_data, bytes):
+            return input_data.decode("utf-8", errors="replace")
+        elif isinstance(input_data, Path):
+            return input_data.read_text(encoding="utf-8")
+        elif isinstance(input_data, str):
+            # Could be file path or markdown content
+            path = Path(input_data)
+            if path.exists() and path.is_file():
+                return path.read_text(encoding="utf-8")
+            else:
+                # Assume it's markdown content
+                return input_data
+        else:
+            # File-like object
+            input_data.seek(0)
+            content_bytes = input_data.read()
+            if isinstance(content_bytes, bytes):
+                return content_bytes.decode("utf-8", errors="replace")
+            return content_bytes
 
     def _process_tokens(self, tokens: list[dict[str, Any]]) -> list[Node]:
         """Process a list of mistune tokens into AST nodes.
@@ -621,6 +668,28 @@ class MarkdownToAstConverter:
 
         return None
 
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from Markdown document.
+
+        Parameters
+        ----------
+        document : Any
+            Parsed Markdown document (AST or raw text)
+
+        Returns
+        -------
+        DocumentMetadata
+            Empty metadata (Markdown doesn't have standard metadata)
+
+        Notes
+        -----
+        Markdown files do not have a standardized metadata format in the
+        core specification. Some flavors support YAML frontmatter, but that
+        is handled separately in the parsing pipeline, not here.
+
+        """
+        return DocumentMetadata()
+
 
 def markdown_to_ast(
     markdown_content: str,
@@ -645,11 +714,27 @@ def markdown_to_ast(
 
     Examples
     --------
-    >>> from all2md.parsers.markdown2ast import markdown_to_ast
+    >>> from all2md.parsers.markdown import markdown_to_ast
     >>> doc = markdown_to_ast("# Hello\\n\\nWorld")
     >>> len(doc.children)
     2
 
     """
     converter = MarkdownToAstConverter(options)
-    return converter.convert_to_ast(markdown_content)
+    return converter.parse(markdown_content)
+
+
+# Converter metadata for registry auto-discovery
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="markdown",
+    extensions=[".md", ".markdown", ".mdown", ".mkd", ".mkdn"],
+    mime_types=["text/markdown", "text/x-markdown"],
+    magic_bytes=[],
+    converter_module="all2md.parsers.markdown",
+    parser_class="MarkdownToAstConverter",
+    renderer_class="all2md.renderers.markdown.MarkdownRenderer",
+    required_packages=[("mistune", "mistune", ">=3.0.0")],
+    optional_packages=[],
+    import_error_message="Markdown parsing requires 'mistune'. Install with: pip install 'all2md[markdown]'",
+    options_class="MarkdownParserOptions",
+)

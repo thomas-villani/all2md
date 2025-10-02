@@ -156,7 +156,6 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
             )
         try:
             # Import parse_page_ranges from pdf2markdown
-            from all2md.parsers.pdf2markdown import parse_page_ranges
             pages = parse_page_ranges(pages, max_pages)
         except (ValueError, IndexError) as e:
             raise InputError(
@@ -457,3 +456,74 @@ def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str
 
         underline = underline_char * len(text)
         return f"{text}\n{underline}\n\n"
+
+
+def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
+    """Parse page range specification into list of 0-based page indices.
+
+    Supports various formats:
+    - "1-3" → [0, 1, 2]
+    - "5" → [4]
+    - "10-" → [9, 10, ..., total_pages-1]
+    - "1-3,5,10-" → combined ranges
+
+    Parameters
+    ----------
+    page_spec : str
+        Page range specification
+    total_pages : int
+        Total number of pages in document
+
+    Returns
+    -------
+    list of int
+        0-based page indices
+
+    Examples
+    --------
+    >>> parse_page_ranges("1-3,5", 10)
+    [0, 1, 2, 4]
+    >>> parse_page_ranges("8-", 10)
+    [7, 8, 9]
+
+    """
+    pages = set()
+
+    # Split by comma to handle multiple ranges
+    parts = page_spec.split(',')
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # Handle range (e.g., "1-3" or "10-")
+        if '-' in part:
+            range_parts = part.split('-', 1)
+            start_str = range_parts[0].strip()
+            end_str = range_parts[1].strip()
+
+            # Parse start (1-based to 0-based)
+            if start_str:
+                start = int(start_str) - 1
+            else:
+                start = 0
+
+            # Parse end (1-based to 0-based, or use total_pages if empty)
+            if end_str:
+                end = int(end_str) - 1
+            else:
+                end = total_pages - 1
+
+            # Add all pages in range
+            for p in range(start, end + 1):
+                if 0 <= p < total_pages:
+                    pages.add(p)
+        else:
+            # Single page (1-based to 0-based)
+            page = int(part) - 1
+            if 0 <= page < total_pages:
+                pages.add(page)
+
+    # Return sorted list
+    return sorted(pages)

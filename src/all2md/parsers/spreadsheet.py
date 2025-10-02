@@ -20,7 +20,10 @@ from typing import IO, Any, Iterable, Optional, Union
 
 from all2md.ast import Document, Emphasis, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.constants import TABLE_ALIGNMENT_MAPPING
+from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MarkdownOptions, SpreadsheetOptions
+from all2md.parsers.base import BaseParser
+from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +234,7 @@ def _map_merged_cells(sheet: Any) -> dict[str, str]:
     return merged_map
 
 
-class SpreadsheetToAstConverter:
+class SpreadsheetToAstConverter(BaseParser):
     """Convert spreadsheet formats to AST representation.
 
     This converter handles XLSX, ODS, CSV, and TSV formats by building
@@ -245,8 +248,193 @@ class SpreadsheetToAstConverter:
     """
 
     def __init__(self, options: SpreadsheetOptions | None = None):
-        self.options = options or SpreadsheetOptions()
+        super().__init__(options or SpreadsheetOptions())
+        self.options = self.options or SpreadsheetOptions()
         self.md_options = self.options.markdown_options or MarkdownOptions()
+
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse the input spreadsheet into an AST.
+
+        This method detects the spreadsheet format (XLSX, ODS, CSV, TSV) and
+        routes to the appropriate parsing method.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The input spreadsheet to parse. Can be:
+            - File path (str or Path)
+            - File-like object in binary mode
+            - Raw document bytes
+
+        Returns
+        -------
+        Document
+            AST Document node representing the parsed spreadsheet structure
+
+        Raises
+        ------
+        MarkdownConversionError
+            If parsing fails due to invalid format or corruption
+        DependencyError
+            If required dependencies are not installed
+        InputError
+            If input data is invalid or inaccessible
+
+        """
+        from all2md.exceptions import DependencyError, InputError, MarkdownConversionError
+        from all2md.utils.inputs import validate_and_convert_input
+
+        # Detect format
+        detected_format = self._detect_format(input_data)
+
+        try:
+            if detected_format == "xlsx":
+                # Import openpyxl
+                try:
+                    import openpyxl
+                except ImportError as e:
+                    raise DependencyError(
+                        converter_name="xlsx",
+                        missing_packages=[("openpyxl", "")]
+                    ) from e
+
+                # Load workbook
+                doc_input, input_type = validate_and_convert_input(
+                    input_data, supported_types=["path-like", "file-like", "bytes"], require_binary=True
+                )
+                wb = openpyxl.load_workbook(doc_input, data_only=self.options.render_formulas)
+                return self.xlsx_to_ast(wb)
+
+            elif detected_format == "ods":
+                # Import odfpy
+                try:
+                    from odf import opendocument
+                except ImportError as e:
+                    raise DependencyError(
+                        converter_name="ods",
+                        missing_packages=[("odfpy", "")]
+                    ) from e
+
+                # Load ODS document
+                doc_input, input_type = validate_and_convert_input(
+                    input_data, supported_types=["path-like", "file-like", "bytes"], require_binary=True
+                )
+                doc = opendocument.load(doc_input)
+                return self.ods_to_ast(doc)
+
+            elif detected_format == "csv":
+                return self.csv_or_tsv_to_ast(input_data, delimiter=",", force_delimiter=False)
+
+            elif detected_format == "tsv":
+                force = True
+                if self.options.detect_csv_dialect:
+                    force = False
+                return self.csv_or_tsv_to_ast(input_data, delimiter="\t", force_delimiter=force)
+
+            else:
+                # Fallback to CSV
+                return self.csv_or_tsv_to_ast(input_data, delimiter=",", force_delimiter=False)
+
+        except (DependencyError, InputError):
+            raise
+        except Exception as e:
+            raise MarkdownConversionError(
+                f"Failed to parse spreadsheet: {e}",
+                conversion_stage="parsing",
+                original_error=e
+            ) from e
+
+    def _detect_format(self, input_data: Union[str, Path, IO[bytes], bytes]) -> str:
+        """Detect spreadsheet format from input data.
+
+        Parameters
+        ----------
+        input_data : Union[str, Path, IO[bytes], bytes]
+            Input data to analyze
+
+        Returns
+        -------
+        str
+            Format name: "xlsx", "ods", "csv", or "tsv"
+
+        """
+        # If it's a path, check extension first
+        if isinstance(input_data, (str, Path)):
+            path = Path(input_data)
+            ext = path.suffix.lower()
+            if ext == ".xlsx":
+                return "xlsx"
+            elif ext == ".ods":
+                return "ods"
+            elif ext == ".csv":
+                return "csv"
+            elif ext == ".tsv":
+                return "tsv"
+
+        # Check if file object has a name attribute
+        elif hasattr(input_data, 'name'):
+            filename = getattr(input_data, 'name', None)
+            if filename:
+                path = Path(filename)
+                ext = path.suffix.lower()
+                if ext == ".xlsx":
+                    return "xlsx"
+                elif ext == ".ods":
+                    return "ods"
+                elif ext == ".csv":
+                    return "csv"
+                elif ext == ".tsv":
+                    return "tsv"
+
+        # Try content-based detection
+        try:
+            sample: bytes = b""
+            if hasattr(input_data, 'read') and not isinstance(input_data, (str, Path)):
+                pos = getattr(input_data, 'tell', lambda: 0)()
+                try:
+                    input_data.seek(0)
+                    sample_data = input_data.read(1024)
+                    input_data.seek(pos)
+                    if isinstance(sample_data, bytes):
+                        sample = sample_data
+                    elif isinstance(sample_data, str):
+                        sample = sample_data.encode('utf-8', errors='ignore')
+                except Exception:
+                    pass
+            elif isinstance(input_data, bytes):
+                sample = input_data[:1024]
+            elif isinstance(input_data, (str, Path)):
+                try:
+                    with open(str(input_data), 'rb') as f:
+                        sample = f.read(1024)
+                except Exception:
+                    pass
+
+            # Check for ZIP-based formats (XLSX or ODS)
+            if sample.startswith(b'PK\x03\x04'):
+                return "xlsx"  # Default to XLSX for ZIP files
+
+            # Check for CSV/TSV patterns
+            try:
+                text_sample = sample.decode('utf-8', errors='ignore')
+                lines = text_sample.split('\n')[:5]
+                non_empty_lines = [line for line in lines if line.strip()]
+
+                if len(non_empty_lines) >= 2:
+                    comma_count = sum(line.count(',') for line in non_empty_lines)
+                    tab_count = sum(line.count('\t') for line in non_empty_lines)
+
+                    if tab_count >= len(non_empty_lines):
+                        return "tsv"
+                    elif comma_count >= len(non_empty_lines):
+                        return "csv"
+            except UnicodeDecodeError:
+                pass
+        except Exception:
+            pass
+
+        # Default fallback to CSV
+        return "csv"
 
     def xlsx_to_ast(self, workbook: Any) -> Document:
         """Convert an openpyxl workbook to AST Document.
@@ -264,6 +452,9 @@ class SpreadsheetToAstConverter:
         """
         children = []
 
+        # Extract metadata
+        metadata = self.extract_metadata(workbook)
+
         # Select sheets
         sheet_names: list[str] = list(workbook.sheetnames)
         if isinstance(self.options.sheets, list):
@@ -273,7 +464,7 @@ class SpreadsheetToAstConverter:
             sheet_names = [n for n in sheet_names if pattern.search(n)]
 
         if not sheet_names:
-            return Document(children=[])
+            return Document(children=[], metadata=metadata.to_dict())
 
         for sname in sheet_names:
             sheet = workbook[sname]
@@ -350,7 +541,7 @@ class SpreadsheetToAstConverter:
                     Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
                 )
 
-        return Document(children=children)
+        return Document(children=children, metadata=metadata.to_dict())
 
     def csv_or_tsv_to_ast(
         self,
@@ -439,6 +630,9 @@ class SpreadsheetToAstConverter:
         for r in reader:
             rows.append(r)
 
+        # Extract metadata (CSV/TSV have no structured metadata)
+        metadata = self.extract_metadata(None)
+
         # Drop leading/trailing fully empty rows
         def is_empty(row: list[str]) -> bool:
             return all((not (c or "").strip()) for c in row)
@@ -449,7 +643,7 @@ class SpreadsheetToAstConverter:
             rows.pop()
 
         if not rows:
-            return Document(children=[])
+            return Document(children=[], metadata=metadata.to_dict())
 
         # Handle header
         if self.options.has_header:
@@ -461,7 +655,7 @@ class SpreadsheetToAstConverter:
                 header = [f"Column {i+1}" for i in range(num_cols)]
                 data_rows = rows
             else:
-                return Document(children=[])
+                return Document(children=[], metadata=metadata.to_dict())
 
         # Truncate columns
         if self.options.max_cols is not None:
@@ -494,7 +688,7 @@ class SpreadsheetToAstConverter:
                 Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
             )
 
-        return Document(children=children)
+        return Document(children=children, metadata=metadata.to_dict())
 
     def _read_text_stream_for_csv(self, input_data: Any) -> io.StringIO:
         """Read binary or text input and return a StringIO for CSV parsing.
@@ -559,11 +753,14 @@ class SpreadsheetToAstConverter:
 
         children = []
 
+        # Extract metadata
+        metadata = self.extract_metadata(doc)
+
         body = doc.body
         tables = list(body.getElementsByType(OdfTable)) if body else []
 
         if not tables:
-            return Document(children=[])
+            return Document(children=[], metadata=metadata.to_dict())
 
         # Filter sheets based on options
         sheet_names = [table.getAttribute("name") or f"Sheet{i+1}" for i, table in enumerate(tables)]
@@ -693,7 +890,7 @@ class SpreadsheetToAstConverter:
                     Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
                 )
 
-        return Document(children=children)
+        return Document(children=children, metadata=metadata.to_dict())
 
     def _trim_rows(self, rows: list[list[str]]) -> list[list[str]]:
         """Trim empty rows based on trim_empty option.
@@ -794,3 +991,164 @@ class SpreadsheetToAstConverter:
         elif self.options.header_case == "lower":
             return [cell.lower() for cell in header]
         return header
+
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from spreadsheet document.
+
+        Parameters
+        ----------
+        document : Any
+            Spreadsheet document (workbook, ODS doc, etc.)
+
+        Returns
+        -------
+        DocumentMetadata
+            Empty metadata (spreadsheets don't have standard metadata in this context)
+
+        Notes
+        -----
+        While spreadsheet formats like XLSX and ODS can contain metadata
+        (author, title, etc.), this is typically accessed during the
+        parsing phase. The document object passed here is already processed
+        into tables, so metadata extraction is not applicable at this stage.
+
+        For format-specific metadata extraction, see the individual
+        parsing methods (xlsx_to_ast, ods_to_ast) which could be extended
+        to capture metadata during the initial file loading.
+
+        """
+        return DocumentMetadata()
+
+
+def _detect_csv_tsv_content(content: bytes) -> bool:
+    """Content-based detector for CSV/TSV formats.
+
+    This function is used by the registry to detect CSV/TSV files
+    based on content patterns when file extensions are not available.
+
+    Parameters
+    ----------
+    content : bytes
+        File content to analyze
+
+    Returns
+    -------
+    bool
+        True if content appears to be CSV or TSV
+
+    """
+    try:
+        content_str = content.decode('utf-8', errors='ignore')
+        non_empty_lines = [line.strip() for line in content_str.split('\n') if line.strip()]
+
+        if len(non_empty_lines) >= 2:
+            comma_count = sum(line.count(',') for line in non_empty_lines)
+            tab_count = sum(line.count('\t') for line in non_empty_lines)
+
+            if comma_count >= len(non_empty_lines):
+                logger.debug(f"CSV pattern detected: {comma_count} commas in {len(non_empty_lines)} lines")
+                return True
+            elif tab_count >= len(non_empty_lines):
+                logger.debug(f"TSV pattern detected: {tab_count} tabs in {len(non_empty_lines)} lines")
+                return True
+    except UnicodeDecodeError:
+        pass
+
+    return False
+
+
+class SpreadsheetConverterMetadata(ConverterMetadata):
+    """Specialized metadata for spreadsheet converter with smart dependency checking."""
+
+    def get_required_packages_for_content(
+        self,
+        content: Optional[bytes] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+    ) -> list[tuple[str, str, str]]:
+        """Get required packages based on detected spreadsheet format.
+
+        For XLSX files, openpyxl is required. For ODS files, odfpy is required.
+        For CSV/TSV files, no additional packages are needed beyond the standard library.
+
+        Parameters
+        ----------
+        content : bytes, optional
+            File content sample (may be partial) to analyze for format detection
+        input_data : various types, optional
+            Original input data (path, file object, or bytes) for accurate detection
+
+        Returns
+        -------
+        list[tuple[str, str, str]]
+            Required packages for the detected format as (install_name, import_name, version_spec) tuples
+
+        """
+        if input_data is not None:
+            converter = SpreadsheetToAstConverter()
+            detected_format = converter._detect_format(input_data)
+            if detected_format == "xlsx":
+                return [("openpyxl", "openpyxl", "")]
+            elif detected_format == "ods":
+                return [("odfpy", "odf", "")]
+            elif detected_format in ("csv", "tsv"):
+                return []
+
+        if content is None:
+            return [("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")]
+
+        if content.startswith(b'PK\x03\x04'):
+            MIN_ZIP_SIZE = 100
+
+            if len(content) >= MIN_ZIP_SIZE:
+                try:
+                    import zipfile
+
+                    with zipfile.ZipFile(io.BytesIO(content), 'r') as zf:
+                        file_list = zf.namelist()
+                        if 'mimetype' in file_list:
+                            try:
+                                mimetype = zf.read('mimetype').decode('utf-8', errors='ignore').strip()
+                                if 'opendocument.spreadsheet' in mimetype:
+                                    return [("odfpy", "odf", "")]
+                            except Exception:
+                                pass
+                        if '[Content_Types].xml' in file_list or any(f.startswith('xl/') for f in file_list):
+                            return [("openpyxl", "openpyxl", "")]
+                        if 'META-INF/manifest.xml' in file_list:
+                            return [("odfpy", "odf", "")]
+                except Exception:
+                    pass
+
+            return [("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")]
+
+        if _detect_csv_tsv_content(content):
+            return []
+
+        return [("openpyxl", "openpyxl", "")]
+
+
+CONVERTER_METADATA = SpreadsheetConverterMetadata(
+    format_name="spreadsheet",
+    extensions=[".xlsx", ".ods", ".csv", ".tsv"],
+    mime_types=[
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "text/csv",
+        "application/csv",
+        "text/tab-separated-values"
+    ],
+    magic_bytes=[
+        (b"PK\x03\x04", 0),
+    ],
+    content_detector=_detect_csv_tsv_content,
+    parser_class="SpreadsheetToAstConverter",
+    renderer_class=None,
+    converter_module="all2md.parsers.spreadsheet2markdown",
+    converter_function="spreadsheet_to_markdown",
+    required_packages=[("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")],
+    import_error_message="Spreadsheet conversion requires dependencies: 'openpyxl' for XLSX, "
+                        "'odfpy' for ODS. Install with: pip install openpyxl odfpy",
+    options_class="SpreadsheetOptions",
+    description="Convert spreadsheets (XLSX, ODS, CSV, TSV) to Markdown tables",
+    priority=5
+)

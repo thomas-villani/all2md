@@ -263,8 +263,10 @@ def ipynb_to_markdown(
     from all2md.ast import MarkdownRenderer
     from all2md.options import MarkdownOptions
 
-    # Convert to AST
-    ast_converter = IpynbToAstConverter(notebook, options)
+    # Convert to AST - load the notebook into the parser
+    ast_converter = IpynbToAstConverter(options)
+    ast_converter.notebook = notebook
+    ast_converter.language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
     ast_document = ast_converter.convert_to_ast()
 
     # Render AST to markdown

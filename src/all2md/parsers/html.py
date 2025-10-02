@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import html
 import re
-from typing import Any
+from pathlib import Path
+from typing import IO, Any, Union
 from urllib.parse import urlparse
 
+from all2md import MarkdownConversionError
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -40,10 +42,86 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.converter_metadata import ConverterMetadata
 from all2md.options import HtmlOptions
+from all2md.parsers.base import BaseParser
+from all2md.utils.metadata import DocumentMetadata
+from urllib.parse import urljoin, urlparse
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class HtmlToAstConverter:
+def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
+    """Read HTML file with multiple encoding fallback strategies.
+
+    Tries encodings in order: UTF-8, UTF-8-sig, chardet (if available), Latin-1.
+
+    Parameters
+    ----------
+    file_path : Union[str, Path]
+        Path to HTML file
+
+    Returns
+    -------
+    str
+        File content as string
+
+    Raises
+    ------
+    MarkdownConversionError
+        If file cannot be read with any encoding
+    """
+    encodings_to_try = ["utf-8", "utf-8-sig"]
+
+    # Try chardet if available
+    chardet_encoding = None
+    try:
+        import chardet
+        with open(str(file_path), "rb") as f:
+            raw_data = f.read()
+        detection = chardet.detect(raw_data)
+        if detection and detection.get("encoding"):
+            chardet_encoding = detection["encoding"]
+            logger.debug(f"chardet detected encoding: {chardet_encoding}")
+    except ImportError:
+        logger.debug("chardet not available for encoding detection")
+    except Exception as e:
+        logger.debug(f"chardet detection failed: {e}")
+
+    # Add chardet result to try list if detected
+    if chardet_encoding and chardet_encoding.lower() not in [e.lower() for e in encodings_to_try]:
+        encodings_to_try.append(chardet_encoding)
+
+    # Add latin-1 as final fallback (never fails but may produce mojibake)
+    encodings_to_try.append("latin-1")
+
+    # Try each encoding
+    last_error = None
+    for encoding in encodings_to_try:
+        try:
+            with open(str(file_path), "r", encoding=encoding) as f:
+                content = f.read()
+            logger.debug(f"Successfully read HTML file with encoding: {encoding}")
+            return content
+        except UnicodeDecodeError as e:
+            logger.debug(f"Failed to read with {encoding}: {e}")
+            last_error = e
+            continue
+        except Exception as e:
+            logger.debug(f"Error reading with {encoding}: {e}")
+            last_error = e
+            continue
+
+    # If we get here, all encodings failed (should not happen with latin-1 fallback)
+    raise MarkdownConversionError(
+        f"Failed to read HTML file with any encoding: {last_error}",
+        conversion_stage="file_reading",
+        original_error=last_error
+    )
+
+
+class HtmlToAstConverter(BaseParser):
     """Convert HTML to AST representation.
 
     This converter parses HTML using BeautifulSoup and builds an AST
@@ -57,10 +135,100 @@ class HtmlToAstConverter:
     """
 
     def __init__(self, options: HtmlOptions | None = None):
-        self.options = options or HtmlOptions()
+        options = options or HtmlOptions()
+        super().__init__(options)
+        self.options: HtmlOptions = options
         self._list_depth = 0
         self._in_code_block = False
         self._heading_level_offset = 0
+
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse HTML document into an AST.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The input HTML document to parse. Can be:
+            - File path (str or Path)
+            - File-like object in binary mode
+            - Raw HTML bytes
+            - HTML string content
+
+        Returns
+        -------
+        Document
+            AST Document node representing the parsed HTML structure
+
+        Raises
+        ------
+        MarkdownConversionError
+            If parsing fails due to invalid HTML or corruption
+        InputError
+            If input data is invalid or inaccessible
+
+        """
+        import os
+        from all2md.exceptions import InputError, MarkdownConversionError
+        from all2md.utils.inputs import is_path_like, validate_and_convert_input
+
+        # Determine if input_data is HTML content or a file path/object
+        html_content = ""
+        if isinstance(input_data, str):
+            # Check if it's a file path or HTML content
+            if is_path_like(input_data) and os.path.exists(str(input_data)):
+                # It's a file path - read the file with encoding fallback
+                try:
+                    html_content = _read_html_file_with_encoding_fallback(input_data)
+                except Exception as e:
+                    raise MarkdownConversionError(
+                        f"Failed to read HTML file: {str(e)}", conversion_stage="file_reading", original_error=e
+                    ) from e
+            else:
+                # It's HTML content as a string
+                html_content = input_data
+        elif isinstance(input_data, bytes):
+            # Decode bytes as UTF-8
+            try:
+                html_content = input_data.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise MarkdownConversionError(
+                    f"Failed to decode HTML bytes as UTF-8: {str(e)}",
+                    conversion_stage="decoding",
+                    original_error=e
+                ) from e
+        else:
+            # Use validate_and_convert_input for other types
+            try:
+                doc_input, input_type = validate_and_convert_input(
+                    input_data, supported_types=["path-like", "file-like", "HTML strings"]
+                )
+
+                if input_type == "path":
+                    # Read from file path with encoding fallback
+                    html_content = _read_html_file_with_encoding_fallback(doc_input)
+                elif input_type == "file":
+                    # Read from file-like object
+                    html_content = doc_input.read()
+                    if isinstance(html_content, bytes):
+                        html_content = html_content.decode("utf-8")
+                else:
+                    raise InputError(
+                        f"Unsupported input type for HTML conversion: {type(input_data).__name__}",
+                        parameter_name="input_data",
+                        parameter_value=input_data,
+                    )
+            except Exception as e:
+                if isinstance(e, (InputError, MarkdownConversionError)):
+                    raise
+                else:
+                    raise MarkdownConversionError(
+                        f"Failed to process HTML input: {str(e)}",
+                        conversion_stage="input_processing",
+                        original_error=e
+                    ) from e
+
+        # Convert the HTML content to AST
+        return self.convert_to_ast(html_content)
 
     def convert_to_ast(self, html_content: str) -> Document:
         """Convert HTML string to AST Document.
@@ -141,7 +309,147 @@ class HtmlToAstConverter:
                 else:
                     children.append(nodes)
 
-        return Document(children=children)
+        # Extract and attach metadata
+        metadata = self.extract_metadata(soup)
+        return Document(children=children, metadata=metadata.to_dict())
+
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from HTML document.
+
+        This method extracts metadata from the parsed HTML document, including
+        title, author, description, keywords, and other standard metadata fields
+        from HTML head section meta tags and Open Graph properties.
+
+        Parameters
+        ----------
+        document : BeautifulSoup
+            Parsed HTML document (BeautifulSoup object)
+
+        Returns
+        -------
+        DocumentMetadata
+            Extracted metadata including title, author, subject, keywords, language,
+            creator, category, and custom fields. Returns empty DocumentMetadata if
+            no metadata is available.
+
+        Notes
+        -----
+        This method extracts metadata from:
+        - <title> tag in HTML head
+        - <meta> tags with various name/property attributes
+        - <link> tags with rel attributes
+        - Open Graph (og:*) and Twitter Card (twitter:*) meta tags
+        - Dublin Core (dc.*) meta tags
+        - Article meta tags (article:*)
+
+        The method maps common meta tag names to standardized DocumentMetadata
+        fields and stores unmapped tags in the custom dictionary.
+
+        Examples
+        --------
+        >>> from bs4 import BeautifulSoup
+        >>> html = '<html><head><title>My Page</title><meta name="author" content="John Doe"></head></html>'
+        >>> soup = BeautifulSoup(html, "html.parser")
+        >>> converter = HtmlToAstConverter()
+        >>> metadata = converter.extract_metadata(soup)
+        >>> metadata.title
+        'My Page'
+        >>> metadata.author
+        'John Doe'
+
+        """
+        metadata = DocumentMetadata()
+
+        # Extract from head section if available
+        head = document.find("head")
+        if head:
+            # Extract title
+            title_tag = head.find("title")
+            if title_tag and title_tag.string:
+                metadata.title = title_tag.string.strip()
+
+            # Extract meta tags
+            meta_tags = head.find_all("meta")
+            for meta in meta_tags:
+                # Get meta name/property and content
+                meta_name = meta.get("name", "").lower() or meta.get("property", "").lower()
+                content = meta.get("content", "").strip()
+
+                if not meta_name or not content:
+                    continue
+
+                # Map common meta tags to standard fields
+                if meta_name in ["author", "dc.creator", "creator"]:
+                    metadata.author = content
+                elif meta_name in ["description", "dc.description", "og:description", "twitter:description"]:
+                    if not metadata.subject:  # Only set if not already set
+                        metadata.subject = content
+                elif meta_name in ["keywords", "dc.subject"]:
+                    # Split keywords by comma or semicolon
+                    metadata.keywords = [k.strip() for k in re.split("[,;]", content) if k.strip()]
+                elif meta_name in ["language", "dc.language", "og:locale"]:
+                    metadata.language = content
+                elif meta_name in ["generator", "application-name"]:
+                    metadata.creator = content
+                elif meta_name in ["dc.date", "article:published_time", "publish_date"]:
+                    metadata.custom["published_date"] = content
+                elif meta_name in ["article:modified_time", "last-modified", "dc.modified"]:
+                    metadata.custom["modified_date"] = content
+                elif meta_name in ["og:title", "twitter:title"]:
+                    if not metadata.title:  # Only set if not already set from <title>
+                        metadata.title = content
+                elif meta_name in ["article:author", "twitter:creator"]:
+                    if not metadata.author:  # Only set if not already set
+                        metadata.author = content
+                elif meta_name in ["og:type", "article:section"]:
+                    metadata.category = content
+                elif meta_name == "viewport":
+                    metadata.custom["viewport"] = content
+                elif meta_name in ["og:url", "canonical"]:
+                    metadata.custom["url"] = content
+                elif meta_name in ["robots", "googlebot"]:
+                    metadata.custom["robots"] = content
+
+            # Check for charset
+            charset_meta = head.find("meta", {"charset": True})
+            if charset_meta:
+                metadata.custom["charset"] = charset_meta.get("charset")
+            else:
+                # Try http-equiv Content-Type
+                content_type_meta = head.find("meta", {"http-equiv": "Content-Type"})
+                if content_type_meta:
+                    content = content_type_meta.get("content", "")
+                    if "charset=" in content:
+                        charset = content.split("charset=")[-1].strip()
+                        metadata.custom["charset"] = charset
+
+            # Extract link tags for additional metadata
+            link_tags = head.find_all("link")
+            for link in link_tags:
+                rel = link.get("rel", [])
+                if isinstance(rel, list):
+                    rel = " ".join(rel)
+
+                if "canonical" in rel:
+                    metadata.custom["canonical_url"] = link.get("href")
+                elif "author" in rel:
+                    if not metadata.author:
+                        metadata.author = link.get("href", "").replace("mailto:", "")
+
+        # Extract Open Graph data if not already captured
+        if not metadata.title:
+            og_title = document.find("meta", property="og:title")
+            if og_title:
+                metadata.title = og_title.get("content", "").strip()
+
+        # Extract from body if head data is missing
+        if not metadata.title:
+            # Try to find first h1 as title
+            h1 = document.find("h1")
+            if h1:
+                metadata.title = h1.get_text(strip=True)
+
+        return metadata
 
     def _sanitize_element(self, element: Any) -> bool:
         """Check if element should be removed for security reasons.
@@ -348,7 +656,6 @@ class HtmlToAstConverter:
             List item node
 
         """
-        from bs4.element import NavigableString
 
         # Process children, separating inline content from nested lists
         children: list[Node] = []
@@ -697,7 +1004,6 @@ class HtmlToAstConverter:
             Resolved absolute URL or original URL
 
         """
-        from urllib.parse import urljoin, urlparse
 
         if not self.options.attachment_base_url or urlparse(url).scheme:
             return url
@@ -775,7 +1081,7 @@ class HtmlToAstConverter:
             return match.group(2)
 
         # Match ![alt] (no URL)
-        alt_only_match = re.match(r'^!\[([^\]]*)\]$', markdown_image)
+        alt_only_match = re.match(r'^!\[([^]]*)]$', markdown_image)
         if alt_only_match:
             return ""
 
@@ -1061,3 +1367,28 @@ class HtmlToAstConverter:
             return ""
 
         return url
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="html",
+    extensions=[".html", ".htm", ".xhtml"],
+    mime_types=["text/html", "application/xhtml+xml"],
+    magic_bytes=[
+        (b"<!DOCTYPE html", 0),
+        (b"<!doctype html", 0),
+        (b"<html", 0),
+        (b"<HTML", 0),
+    ],
+    converter_module="",
+    converter_function="",
+    parser_class="HtmlToAstConverter",
+    renderer_class=None,
+    required_packages=[("beautifulsoup4", "bs4", "")],
+    optional_packages=[],
+    import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
+    options_class="HtmlOptions",
+    description="Convert HTML documents to Markdown",
+    priority=5,
+)
+

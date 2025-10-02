@@ -668,40 +668,29 @@ def to_markdown(
 
     # Process input based on detected/specified format using registry
     try:
-        # Get converter function from registry
-        converter_func, options_class = registry.get_converter(actual_format)
+        # Use new parser->renderer pattern
+        # Get parser class from registry
+        parser_class = registry.get_parser(actual_format)
 
-        # Now handle the actual input
-        if isinstance(input, (str, Path)):
-            # Pass filename directly to converter - let it handle file opening
-            # This is more efficient and preserves filename context
-            if actual_format == "html":
-                # HTML converter expects string content
-                with open(input, 'r', encoding='utf-8', errors='replace') as f:
-                    content = converter_func(f.read(), options=final_options)
-            else:
-                # Most parsers can handle filename/path directly
-                content = converter_func(input, options=final_options)
+        # Instantiate parser with options
+        parser = parser_class(options=final_options)
 
-        elif isinstance(input, bytes):
-            # Create BytesIO for bytes input
-            file = BytesIO(input)
-            if actual_format == "html":
-                html_content = input.decode("utf-8", errors="replace")
-                content = converter_func(html_content, options=final_options)
-            else:
-                content = converter_func(file, options=final_options)
+        # Parse input to AST
+        ast_doc = parser.parse(input)
 
+        # Extract MarkdownOptions for rendering
+        if isinstance(final_options, MarkdownOptions):
+            markdown_options = final_options
+        elif final_options and hasattr(final_options, 'markdown_options') and final_options.markdown_options:
+            markdown_options = final_options.markdown_options
         else:
-            # File-like object
-            file = input  # type: ignore
-            if actual_format == "html":
-                file.seek(0)
-                html_content = file.read().decode("utf-8", errors="replace")
-                content = converter_func(html_content, options=final_options)
-            else:
-                file.seek(0)
-                content = converter_func(file, options=final_options)
+            # Create default MarkdownOptions
+            markdown_options = MarkdownOptions()
+
+        # Render AST to markdown
+        from all2md.renderers.markdown import MarkdownRenderer
+        renderer = MarkdownRenderer(options=markdown_options)
+        content = renderer.render_to_string(ast_doc)
 
     except DependencyError:
         # Re-raise dependency errors as-is
@@ -911,9 +900,149 @@ def to_ast(
         )
 
 
+def from_markdown(
+        markdown: str,
+        target_format: str,
+        output: Union[str, Path],
+        *,
+        options: Optional[BaseOptions | MarkdownOptions] = None,
+        **kwargs
+) -> None:
+    """Convert Markdown to a target document format.
+
+    This function enables bidirectional conversion by parsing Markdown into AST
+    and rendering it to various output formats.
+
+    Parameters
+    ----------
+    markdown : str
+        Markdown content to convert
+    target_format : str
+        Target format (e.g., "docx", "pdf", "html")
+    output : str or Path
+        Output file path
+    options : BaseOptions | MarkdownOptions, optional
+        Pre-configured options object for the target format
+    kwargs : Any
+        Additional format-specific options
+
+    Raises
+    ------
+    FormatError
+        If target format is not supported or has no renderer
+    DependencyError
+        If required dependencies are not installed
+    MarkdownConversionError
+        If conversion fails
+
+    Examples
+    --------
+    Convert Markdown to DOCX:
+        >>> from_markdown("# Hello\\n\\nWorld", "docx", "output.docx")
+
+    With options:
+        >>> from all2md.options import DocxOptions
+        >>> opts = DocxOptions(preserve_tables=True)
+        >>> from_markdown(markdown_text, "docx", "output.docx", options=opts)
+
+    """
+    # Parse markdown to AST
+    from all2md.parsers.markdown import MarkdownToAstConverter
+    from all2md.options import MarkdownParserOptions
+
+    parser = MarkdownToAstConverter(MarkdownParserOptions())
+    doc_ast = parser.parse(markdown)
+
+    # Get renderer for target format
+    try:
+        renderer_class = registry.get_renderer(target_format)
+    except FormatError:
+        raise FormatError(
+            f"No renderer available for format '{target_format}'. "
+            f"Only markdown format is currently supported for rendering."
+        )
+
+    # Prepare options for renderer
+    final_options = _prepare_options(target_format, options, None, kwargs)
+
+    # Create renderer and render
+    renderer = renderer_class(final_options)
+    renderer.render(doc_ast, output)
+
+
+def convert(
+        source: Union[str, Path, IO[bytes], bytes],
+        target_format: str,
+        output: Union[str, Path],
+        *,
+        options: Optional[BaseOptions | MarkdownOptions] = None,
+        format: DocumentFormat = "auto",
+        **kwargs
+) -> None:
+    """Convert a document from one format to another.
+
+    This is a general-purpose conversion function that handles
+    format-to-format conversion via the AST intermediate representation.
+
+    Parameters
+    ----------
+    source : str, Path, IO[bytes], or bytes
+        Source document (file path, file-like object, or bytes)
+    target_format : str
+        Target format (e.g., "markdown", "docx", "pdf")
+    output : str or Path
+        Output file path
+    options : BaseOptions | MarkdownOptions, optional
+        Pre-configured options object
+    format : DocumentFormat, default "auto"
+        Source format (auto-detected if not specified)
+    kwargs : Any
+        Additional conversion options
+
+    Raises
+    ------
+    FormatError
+        If source/target format is not supported
+    DependencyError
+        If required dependencies are not installed
+    MarkdownConversionError
+        If conversion fails
+
+    Examples
+    --------
+    Convert PDF to DOCX:
+        >>> convert("input.pdf", "docx", "output.docx")
+
+    Convert HTML to Markdown file:
+        >>> convert("page.html", "markdown", "output.md")
+
+    With format hint:
+        >>> convert(data_bytes, "markdown", "output.md", format="html")
+
+    """
+    # Detect source format
+    actual_format = format if format != "auto" else registry.detect_format(source)
+
+    # Parse source to AST
+    parser_class = registry.get_parser(actual_format)
+    parser_options = _prepare_options(actual_format, options, None, kwargs)
+    parser = parser_class(parser_options)
+    doc_ast = parser.parse(source)
+
+    # Get renderer for target format
+    renderer_class = registry.get_renderer(target_format)
+    renderer_options = _prepare_options(target_format, options, None, kwargs)
+    renderer = renderer_class(renderer_options)
+
+    # Render to output
+    renderer.render(doc_ast, output)
+
+
 __all__ = [
     "to_markdown",
     "to_ast",
+    "from_markdown",
+    "convert",
     # Registry system
     "registry",
     # Type definitions

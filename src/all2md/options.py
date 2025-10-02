@@ -347,6 +347,12 @@ class MarkdownOptions(_CloneMixin):
             "cli_name": "no-table-pipe-escape"
         }
     )
+    extract_metadata: bool = field(
+        default=DEFAULT_EXTRACT_METADATA,
+        metadata={
+            "help": "Render document metadata as YAML frontmatter"
+        }
+    )
 
     def __post_init__(self):
         """Apply flavor-aware defaults after initialization.

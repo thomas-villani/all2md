@@ -243,7 +243,8 @@ def odf_to_markdown(
     from all2md.ast import MarkdownRenderer
 
     # Convert to AST
-    ast_converter = OdfToAstConverter(doc, options)
+    ast_converter = OdfToAstConverter(options)
+    ast_converter.doc = doc
     ast_document = ast_converter.convert_to_ast()
 
     # Render AST to markdown

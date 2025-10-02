@@ -11,7 +11,8 @@ It replaces direct markdown string generation with structured AST building.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from pathlib import Path
+from typing import IO, Any, Union
 
 from all2md.ast import (
     Document,
@@ -25,13 +26,17 @@ from all2md.ast import (
     Text,
     Underline,
 )
+from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import MarkdownConversionError
 from all2md.options import RtfOptions
+from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
+from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
 
-class RtfToAstConverter:
+class RtfToAstConverter(BaseParser):
     """Convert RTF documents (pyth Document) to AST representation.
 
     This converter processes pyth Document objects and builds an AST
@@ -54,6 +59,8 @@ class RtfToAstConverter:
         base_filename: str = "document",
         attachment_sequencer: Any = None,
     ):
+        super().__init__(options or RtfOptions())
+
         # Import pyth types for use in converter methods
         try:
             from pyth.document import Document as PythDocument
@@ -73,10 +80,76 @@ class RtfToAstConverter:
             # Will fail when actually trying to convert
             pass
 
-        self.options = options or RtfOptions()
         self.base_filename = base_filename
         self.attachment_sequencer = attachment_sequencer
         self.list_stack: list[tuple[str, int, int]] = []  # (type, level, number)
+
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse RTF input into an AST Document.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            RTF document to parse
+
+        Returns
+        -------
+        Document
+            AST Document node
+
+        Raises
+        ------
+        MarkdownConversionError
+            If parsing fails or required dependencies are missing
+
+        """
+        # Lazy import of pyth dependencies
+        try:
+            from pyth.plugins.rtf15.reader import Rtf15Reader
+        except ImportError:
+            raise MarkdownConversionError(
+                "pyth library is required for RTF conversion. Install with: pip install pyth3",
+                conversion_stage="dependency_check",
+            )
+
+        # Handle different input types
+        import io
+
+        try:
+            if isinstance(input_data, bytes):
+                # Convert bytes to file-like object
+                file_obj = io.BytesIO(input_data)
+                pyth_doc = Rtf15Reader.read(file_obj)
+            elif isinstance(input_data, (str, Path)):
+                # File path
+                with open(input_data, "rb") as f:
+                    pyth_doc = Rtf15Reader.read(f)
+                if not self.base_filename or self.base_filename == "document":
+                    self.base_filename = Path(input_data).stem
+            elif hasattr(input_data, "read"):
+                # File-like object
+                if isinstance(input_data, io.TextIOBase):
+                    raise MarkdownConversionError("RTF input stream must be binary, not text.")
+                pyth_doc = Rtf15Reader.read(input_data)
+                # Try to extract filename from file object
+                if hasattr(input_data, "name") and input_data.name not in (None, "unknown"):
+                    if not self.base_filename or self.base_filename == "document":
+                        self.base_filename = Path(input_data.name).stem
+            else:
+                raise MarkdownConversionError(
+                    f"Unsupported input type for RTF parsing: {type(input_data)}"
+                )
+        except Exception as e:
+            if isinstance(e, MarkdownConversionError):
+                raise
+            raise MarkdownConversionError(
+                f"Failed to parse RTF document: {e}",
+                conversion_stage="document_parsing",
+                original_error=e,
+            ) from e
+
+        # Convert pyth document to AST
+        return self.convert_to_ast(pyth_doc)
 
     def convert_to_ast(self, pyth_doc: Any) -> Document:
         """Convert pyth Document to AST Document.
@@ -92,8 +165,11 @@ class RtfToAstConverter:
             AST document node
 
         """
+        # Extract metadata
+        metadata = self.extract_metadata(pyth_doc)
+
         if not pyth_doc or not hasattr(pyth_doc, "content"):
-            return Document(children=[])
+            return Document(children=[], metadata=metadata.to_dict())
 
         children: list[Node] = []
         for elem in pyth_doc.content:
@@ -104,7 +180,7 @@ class RtfToAstConverter:
                 else:
                     children.append(node)
 
-        return Document(children=children)
+        return Document(children=children, metadata=metadata.to_dict())
 
     def _process_element(self, element: Any) -> Node | list[Node] | None:
         """Dispatch element processing to the appropriate method.
@@ -307,3 +383,123 @@ class RtfToAstConverter:
             logger.warning(f"Failed to process image: {e}")
 
         return None
+
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from RTF document.
+
+        Parameters
+        ----------
+        document : Document
+            Parsed RTF document from pyth
+
+        Returns
+        -------
+        DocumentMetadata
+            Extracted metadata
+
+        """
+        # Import pyth types for isinstance checks
+        from pyth.document import Image, List, ListEntry, Paragraph, Text
+
+        metadata = DocumentMetadata()
+
+        # RTF documents parsed by pyth have limited metadata access
+        # Most RTF metadata is not easily accessible through the pyth library
+        # We can extract some basic document statistics and content analysis
+
+        if not document or not document.content:
+            return metadata
+
+        # Count different element types
+        paragraph_count = 0
+        list_count = 0
+        image_count = 0
+        text_content = []
+
+        def analyze_element(element: Any) -> None:
+            nonlocal paragraph_count, list_count, image_count
+
+            if isinstance(element, Paragraph):
+                paragraph_count += 1
+                # Extract text content for analysis
+                for item in element.content or []:
+                    if isinstance(item, Text):
+                        if isinstance(item.content, list):
+                            text_content.extend(item.content)
+                        else:
+                            text_content.append(str(item.content))
+                    elif isinstance(item, Image):
+                        image_count += 1
+            elif isinstance(element, List):
+                list_count += 1
+                # Recursively analyze list content
+                for entry in element.content or []:
+                    analyze_element(entry)
+            elif isinstance(element, ListEntry):
+                # Analyze list entry content
+                for item in element.content or []:
+                    analyze_element(item)
+
+        # Analyze all document content
+        for element in document.content:
+            analyze_element(element)
+
+        # Set document statistics
+        if paragraph_count > 0:
+            metadata.custom['paragraph_count'] = paragraph_count
+
+        if list_count > 0:
+            metadata.custom['list_count'] = list_count
+
+        if image_count > 0:
+            metadata.custom['image_count'] = image_count
+
+        # Analyze text content
+        if text_content:
+            full_text = ' '.join(str(t) for t in text_content if t)
+
+            # Word count
+            words = full_text.split()
+            if words:
+                metadata.custom['word_count'] = len(words)
+
+            # Character count
+            if full_text.strip():
+                metadata.custom['character_count'] = len(full_text.strip())
+
+            # Try to extract title from first significant text
+            # Look for title-like content (short first line or heading)
+            text_lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+            if text_lines:
+                first_line = text_lines[0]
+                # If the first line is reasonably short and looks like a title
+                if len(first_line) < 100 and not first_line.endswith('.'):
+                    # Check if it's likely a title (short, no sentence ending)
+                    words_in_first = first_line.split()
+                    if 1 <= len(words_in_first) <= 15:  # Reasonable title length
+                        metadata.title = first_line
+
+        # RTF document type
+        metadata.custom['document_type'] = 'rtf'
+        metadata.custom['format'] = 'Rich Text Format'
+
+        return metadata
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="rtf",
+    extensions=[".rtf"],
+    mime_types=["application/rtf", "text/rtf"],
+    magic_bytes=[
+        (b"{\\rtf", 0),
+    ],
+    converter_module="all2md.parsers.rtf",
+    parser_class="RtfToAstConverter",
+    renderer_class=None,
+    required_packages=[("pyth3", "pyth", "")],
+    import_error_message="RTF conversion requires 'pyth3'. Install with: pip install pyth3",
+    options_class="RtfOptions",
+    description="Convert Rich Text Format documents to Markdown",
+    priority=4,
+)

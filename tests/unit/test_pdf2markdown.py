@@ -3,6 +3,7 @@ import tempfile
 import fitz
 import pytest
 
+import all2md.parsers.pdf
 from all2md.parsers import pdf2markdown as mod
 from all2md.options import MarkdownOptions, PdfOptions
 
@@ -54,7 +55,7 @@ def test_identify_headers_mapping():
 def test_resolve_links_no_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": "X"}
     link = {"from": fitz.Rect(50, 50, 60, 60), "uri": "u"}  # Link is completely outside span
-    assert mod.resolve_links([link], span) is None
+    assert all2md.parsers.pdf.resolve_links([link], span) is None
 
 
 @pytest.mark.unit
@@ -62,7 +63,7 @@ def test_resolve_links_partial_overlap():
     """Test link resolution with partial overlap."""
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for more info"}
     link = {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://example.com"}
-    result = mod.resolve_links([link], span)
+    result = all2md.parsers.pdf.resolve_links([link], span)
     assert result is not None
     assert "[Click here]" in result or "http://example.com" in result
 
@@ -75,7 +76,7 @@ def test_resolve_links_multiple_links():
         {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
         {"from": fitz.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
     ]
-    result = mod.resolve_links(links, span)
+    result = all2md.parsers.pdf.resolve_links(links, span)
     assert result is not None
     # Should contain both links
     assert "link1.com" in result
@@ -140,7 +141,7 @@ def test_detect_columns():
         {"bbox": [50, 250, 250, 350]},  # Left column, bottom
         {"bbox": [300, 250, 500, 350]},  # Right column, bottom
     ]
-    columns = mod.detect_columns(blocks, column_gap_threshold=30)
+    columns = all2md.parsers.pdf.detect_columns(blocks, column_gap_threshold=30)
     assert len(columns) == 2  # Should detect 2 columns
     assert len(columns[0]) == 2  # Each column should have 2 blocks
     assert len(columns[1]) == 2
@@ -153,7 +154,7 @@ def test_detect_columns_single_column():
         {"bbox": [50, 100, 500, 200]},
         {"bbox": [50, 250, 500, 350]},
     ]
-    columns = mod.detect_columns(blocks)
+    columns = all2md.parsers.pdf.detect_columns(blocks)
     assert len(columns) == 1  # Should detect single column
 
 
@@ -169,7 +170,7 @@ def test_detect_tables_by_ruling_lines():
         def get_drawings(self):
             return []
 
-    tables = mod.detect_tables_by_ruling_lines(MockPage())
+    tables = all2md.parsers.pdf.detect_tables_by_ruling_lines(MockPage())
     assert tables == []  # No tables in empty page
 
 
@@ -200,7 +201,7 @@ def test_image_extraction_options():
 def test_resolve_links_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": " click "}
     link = {"from": fitz.Rect(0, 0, 10, 10), "uri": "http://test"}
-    res = mod.resolve_links([link], span)
+    res = all2md.parsers.pdf.resolve_links([link], span)
     assert res == "[click](http://test)"
 
 

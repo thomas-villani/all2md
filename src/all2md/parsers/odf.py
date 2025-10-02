@@ -11,7 +11,8 @@ It replaces direct markdown string generation with structured AST building.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from pathlib import Path
+from typing import IO, Any, Union
 
 from all2md.ast import (
     Code,
@@ -31,13 +32,16 @@ from all2md.ast import (
     Text,
     Underline,
 )
+from all2md.converter_metadata import ConverterMetadata
 from all2md.options import OdfOptions
+from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
+from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
 
-class OdfToAstConverter:
+class OdfToAstConverter(BaseParser):
     """Convert ODF documents to AST representation.
 
     This converter processes ODF documents (ODT, ODP) and builds an AST
@@ -45,24 +49,76 @@ class OdfToAstConverter:
 
     Parameters
     ----------
-    doc : odf.opendocument.OpenDocumentText or OpenDocumentPresentation
-        ODF document object
     options : OdfOptions or None
         Conversion options
 
     """
 
-    def __init__(self, doc: Any, options: OdfOptions | None = None):
+    def __init__(self, options: OdfOptions | None = None):
+        super().__init__(options or OdfOptions())
         from odf.namespaces import DRAWNS, STYLENS, TEXTNS
 
-        self.doc = doc
-        self.options = options or OdfOptions()
+        self.doc = None
         self.list_level = 0
 
         # Namespace constants
         self.TEXTNS = TEXTNS
         self.DRAWNS = DRAWNS
         self.STYLENS = STYLENS
+
+    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+        """Parse ODF document into an AST.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The input ODF document to parse
+
+        Returns
+        -------
+        Document
+            AST Document node representing the parsed document structure
+
+        Raises
+        ------
+        MarkdownConversionError
+            If parsing fails due to invalid format or corruption
+        DependencyError
+            If required dependencies are not installed
+
+        """
+        from odf import opendocument
+
+        from all2md.exceptions import MarkdownConversionError
+        from all2md.utils.security import validate_zip_archive
+
+        # Validate ZIP archive security for file-based inputs
+        if isinstance(input_data, (str, Path)) and Path(input_data).exists():
+            try:
+                validate_zip_archive(input_data)
+            except Exception as e:
+                raise MarkdownConversionError(
+                    f"ODF archive failed security validation: {str(e)}",
+                    conversion_stage="archive_validation",
+                    original_error=e
+                ) from e
+
+        try:
+            self.doc = opendocument.load(input_data)
+        except ImportError as e:
+            raise MarkdownConversionError(
+                "odfpy library is required for ODF conversion. Install with: pip install odfpy",
+                conversion_stage="dependency_check",
+                original_error=e,
+            ) from e
+        except Exception as e:
+            raise MarkdownConversionError(
+                f"Failed to open ODF document: {str(e)}",
+                conversion_stage="document_opening",
+                original_error=e
+            ) from e
+
+        return self.convert_to_ast()
 
     def convert_to_ast(self) -> Document:
         """Convert ODF document to AST Document.
@@ -77,8 +133,12 @@ class OdfToAstConverter:
 
         # For ODT, content is in doc.text. For ODP, it's in doc.presentation
         content_root = getattr(self.doc, 'text', None) or getattr(self.doc, 'presentation', None)
+
+        # Extract metadata
+        metadata = self.extract_metadata(self.doc)
+
         if not content_root:
-            return Document(children=[])
+            return Document(children=[], metadata=metadata.to_dict())
 
         for element in content_root.childNodes:
             node = self._process_element(element)
@@ -88,7 +148,7 @@ class OdfToAstConverter:
                 else:
                     children.append(node)
 
-        return Document(children=children)
+        return Document(children=children, metadata=metadata.to_dict())
 
     def _process_element(self, element: Any) -> Node | list[Node] | None:
         """Process an ODF element to AST node(s).
@@ -413,3 +473,136 @@ class OdfToAstConverter:
             return Image(url=url, alt_text=alt_text, title=None)
 
         return None
+
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from ODF document.
+
+        Parameters
+        ----------
+        document : opendocument.OpenDocument
+            ODF document object from odfpy
+
+        Returns
+        -------
+        DocumentMetadata
+            Extracted metadata
+
+        """
+        metadata = DocumentMetadata()
+
+        # Access document metadata
+        if hasattr(document, 'meta'):
+            meta = document.meta
+
+            # Extract Dublin Core metadata
+            if hasattr(meta, 'getElementsByType'):
+                from odf.dc import Creator, Description, Language, Subject, Title
+                from odf.meta import CreationDate, Generator, InitialCreator, Keyword
+
+                # Title
+                titles = meta.getElementsByType(Title)
+                if titles:
+                    metadata.title = str(titles[0]).strip()
+
+                # Creator/Author
+                creators = meta.getElementsByType(Creator)
+                if creators:
+                    metadata.author = str(creators[0]).strip()
+                else:
+                    # Try initial creator
+                    initial_creators = meta.getElementsByType(InitialCreator)
+                    if initial_creators:
+                        metadata.author = str(initial_creators[0]).strip()
+
+                # Description/Subject
+                descriptions = meta.getElementsByType(Description)
+                if descriptions:
+                    metadata.subject = str(descriptions[0]).strip()
+                else:
+                    subjects = meta.getElementsByType(Subject)
+                    if subjects:
+                        metadata.subject = str(subjects[0]).strip()
+
+                # Keywords
+                keywords = meta.getElementsByType(Keyword)
+                if keywords:
+                    # ODF can have multiple keyword elements
+                    keyword_list = []
+                    for kw in keywords:
+                        kw_text = str(kw).strip()
+                        if kw_text:
+                            # Split by common delimiters
+                            import re
+                            parts = [k.strip() for k in re.split('[,;]', kw_text) if k.strip()]
+                            keyword_list.extend(parts)
+                    if keyword_list:
+                        metadata.keywords = keyword_list
+
+                # Creation date
+                creation_dates = meta.getElementsByType(CreationDate)
+                if creation_dates:
+                    metadata.creation_date = str(creation_dates[0]).strip()
+
+                # Generator (application)
+                generators = meta.getElementsByType(Generator)
+                if generators:
+                    metadata.creator = str(generators[0]).strip()
+
+                # Language
+                languages = meta.getElementsByType(Language)
+                if languages:
+                    metadata.language = str(languages[0]).strip()
+
+        # Document type and statistics
+        if hasattr(document, 'mimetype'):
+            doc_type = 'presentation' if 'presentation' in document.mimetype else 'text'
+            metadata.custom['document_type'] = doc_type
+
+        # Count pages/slides if it's a presentation
+        if hasattr(document, 'body'):
+            try:
+                from odf.draw import Page
+                pages = document.body.getElementsByType(Page)
+                if pages:
+                    metadata.custom['page_count'] = len(pages)
+            except Exception:
+                pass
+
+            # Count paragraphs for text documents
+            try:
+                from odf.text import P
+                paragraphs = document.body.getElementsByType(P)
+                if paragraphs:
+                    metadata.custom['paragraph_count'] = len(paragraphs)
+            except Exception:
+                pass
+
+            # Count tables
+            try:
+                from odf.table import Table
+                tables = document.body.getElementsByType(Table)
+                if tables:
+                    metadata.custom['table_count'] = len(tables)
+            except Exception:
+                pass
+
+        return metadata
+
+
+# Converter metadata for registration
+CONVERTER_METADATA = ConverterMetadata(
+    format_name="odf",
+    extensions=[".odt", ".odp"],
+    mime_types=["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.presentation"],
+    magic_bytes=[
+        (b"PK\x03\x04", 0),
+    ],
+    converter_module="all2md.parsers.odf",
+    parser_class="OdfToAstConverter",
+    renderer_class=None,
+    required_packages=[("odfpy", "odf", "")],
+    import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",
+    options_class="OdfOptions",
+    description="Convert OpenDocument files to Markdown",
+    priority=4
+)

@@ -88,7 +88,7 @@ from all2md.ast.nodes import (
 )
 
 # Renderer and flavors
-from all2md.ast.renderer import MarkdownRenderer
+from all2md.renderers.markdown import MarkdownRenderer
 
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor

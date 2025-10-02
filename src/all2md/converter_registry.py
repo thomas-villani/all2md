@@ -91,6 +91,106 @@ def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[
         return None
 
 
+def _load_parser_class(parser_class_spec: Union[str, type, None], format_name: str) -> Optional[type]:
+    """Load parser class from various specifications.
+
+    Parameters
+    ----------
+    parser_class_spec : Union[str, type, None]
+        Parser class specification. Can be:
+        - Simple class name (e.g., "DocxParser") - looks in all2md.parsers.{format}
+        - Fully qualified name (e.g., "myplugin.parsers.MyParser")
+        - Direct class reference
+        - None
+    format_name : str
+        Format name for default module lookup
+
+    Returns
+    -------
+    Optional[type]
+        The loaded parser class or None
+    """
+    if parser_class_spec is None:
+        return None
+    elif isinstance(parser_class_spec, type):
+        # Direct class reference
+        return parser_class_spec
+    elif isinstance(parser_class_spec, str):
+        # String specification
+        # Check if it contains a dot (fully qualified)
+        if '.' in parser_class_spec:
+            # Parse module and class name
+            module_path, class_name = parser_class_spec.rsplit('.', 1)
+            try:
+                module = importlib.import_module(module_path)
+                return getattr(module, class_name)
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Could not load parser class '{parser_class_spec}': {e}")
+                return None
+        else:
+            # Simple name - look in all2md.parsers.{format}
+            try:
+                module_path = f"all2md.parsers.{format_name}"
+                module = importlib.import_module(module_path)
+                return getattr(module, parser_class_spec, None)
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Parser class '{parser_class_spec}' not found in {module_path}: {e}")
+                return None
+    else:
+        logger.warning(f"Invalid parser_class specification type: {type(parser_class_spec)}")
+        return None
+
+
+def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_name: str) -> Optional[type]:
+    """Load renderer class from various specifications.
+
+    Parameters
+    ----------
+    renderer_class_spec : Union[str, type, None]
+        Renderer class specification. Can be:
+        - Simple class name (e.g., "DocxRenderer") - looks in all2md.renderers.{format}
+        - Fully qualified name (e.g., "myplugin.renderers.MyRenderer")
+        - Direct class reference
+        - None
+    format_name : str
+        Format name for default module lookup
+
+    Returns
+    -------
+    Optional[type]
+        The loaded renderer class or None
+    """
+    if renderer_class_spec is None:
+        return None
+    elif isinstance(renderer_class_spec, type):
+        # Direct class reference
+        return renderer_class_spec
+    elif isinstance(renderer_class_spec, str):
+        # String specification
+        # Check if it contains a dot (fully qualified)
+        if '.' in renderer_class_spec:
+            # Parse module and class name
+            module_path, class_name = renderer_class_spec.rsplit('.', 1)
+            try:
+                module = importlib.import_module(module_path)
+                return getattr(module, class_name)
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Could not load renderer class '{renderer_class_spec}': {e}")
+                return None
+        else:
+            # Simple name - look in all2md.renderers.{format}
+            try:
+                module_path = f"all2md.renderers.{format_name}"
+                module = importlib.import_module(module_path)
+                return getattr(module, renderer_class_spec, None)
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Renderer class '{renderer_class_spec}' not found in {module_path}: {e}")
+                return None
+    else:
+        logger.warning(f"Invalid renderer_class specification type: {type(renderer_class_spec)}")
+        return None
+
+
 class ConverterRegistry:
     """Registry for managing document parsers.
 
@@ -248,6 +348,86 @@ class ConverterRegistry:
                 f"Converter function '{metadata.converter_function}' "
                 f"not found in module '{metadata.converter_module}'"
             ) from e
+
+    def get_parser(self, format_name: str) -> type:
+        """Get parser class for a format.
+
+        Parameters
+        ----------
+        format_name : str
+            Format name to get parser for
+
+        Returns
+        -------
+        type
+            Parser class (subclass of BaseParser)
+
+        Raises
+        ------
+        FormatError
+            If format not registered or parser not available
+        DependencyError
+            If required dependencies not installed
+
+        """
+        if format_name not in self._converters:
+            available = list(self._converters.keys())
+            raise FormatError(
+                format_type=format_name,
+                supported_formats=available
+            )
+
+        metadata = self._converters[format_name]
+
+        # Try to load the parser class
+        parser_class = _load_parser_class(metadata.parser_class, format_name)
+
+        if parser_class is None:
+            raise FormatError(
+                f"No parser available for format '{format_name}'. "
+                f"Parser class specification: {metadata.parser_class}"
+            )
+
+        return parser_class
+
+    def get_renderer(self, format_name: str) -> type:
+        """Get renderer class for a format.
+
+        Parameters
+        ----------
+        format_name : str
+            Format name to get renderer for
+
+        Returns
+        -------
+        type
+            Renderer class (subclass of BaseRenderer)
+
+        Raises
+        ------
+        FormatError
+            If format not registered or renderer not available
+
+        """
+        if format_name not in self._converters:
+            available = list(self._converters.keys())
+            raise FormatError(
+                format_type=format_name,
+                supported_formats=available
+            )
+
+        metadata = self._converters[format_name]
+
+        # Try to load the renderer class
+        renderer_class = _load_renderer_class(metadata.renderer_class, format_name)
+
+        if renderer_class is None:
+            raise FormatError(
+                f"No renderer available for format '{format_name}'. "
+                f"Renderer class specification: {metadata.renderer_class}"
+            )
+
+        return renderer_class
 
     def detect_format(
             self,

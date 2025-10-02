@@ -33,10 +33,24 @@ class ConverterMetadata:
     content_detector : Callable[[bytes], bool], optional
         Custom content-based detection function that receives file content bytes
         and returns True if this converter should handle the content
+    parser_class : Union[str, type, None], optional
+        Parser class specification. Can be:
+        - Simple class name (e.g., "DocxParser") - looks in all2md.parsers.{format}
+        - Fully qualified name (e.g., "myplugin.parsers.MyParser")
+        - Direct class reference (e.g., MyParserClass)
+        - None for no parser
+    renderer_class : Union[str, type, None], optional
+        Renderer class specification. Can be:
+        - Simple class name (e.g., "DocxRenderer") - looks in all2md.renderers.{format}
+        - Fully qualified name (e.g., "myplugin.renderers.MyRenderer")
+        - Direct class reference (e.g., MyRendererClass)
+        - None for no renderer
     converter_module : str
-        Full module path (e.g., "all2md.parsers.pdf2markdown")
+        DEPRECATED: Full module path (e.g., "all2md.parsers.pdf2markdown")
+        Use parser_class instead
     converter_function : str
-        Function name within the module (e.g., "pdf_to_markdown")
+        DEPRECATED: Function name within the module (e.g., "pdf_to_markdown")
+        Use parser_class instead
     required_packages : list[tuple[str, str, str]]
         Required packages as (install_name, import_name, version_spec) tuples.
         The install_name is the package name for pip install, import_name is
@@ -64,6 +78,8 @@ class ConverterMetadata:
     mime_types: list[str] = field(default_factory=list)
     magic_bytes: list[tuple[bytes, int]] = field(default_factory=list)
     content_detector: Optional[Callable[[bytes], bool]] = None
+    parser_class: Optional[Union[str, type]] = None
+    renderer_class: Optional[Union[str, type]] = None
     converter_module: str = ""
     converter_function: str = ""
     required_packages: list[tuple[str, str, str]] = field(default_factory=list)
