@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import IO, Union, Any
+from typing import IO, Union, Any, Dict
 
 from all2md.ast import CodeBlock, Document
 from all2md.converter_metadata import ConverterMetadata
@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # Language mapping for file extensions to GitHub-style language identifiers
 # Imported from sourcecode2markdown for consistency
-from all2md.parsers.sourcecode2markdown import EXTENSION_TO_LANGUAGE, _detect_language_from_extension
 
 
 class SourceCodeToAstConverter(BaseParser):
@@ -206,6 +205,152 @@ class SourceCodeToAstConverter(BaseParser):
 
 
 # Converter metadata for registration
+EXTENSION_TO_LANGUAGE: Dict[str, str] = {
+    # Python
+    ".py": "python",
+    ".pyx": "python",
+    ".pyi": "python",
+    # JavaScript/TypeScript
+    ".js": "javascript",
+    ".mjs": "javascript",
+    ".cjs": "javascript",
+    ".jsx": "jsx",
+    ".ts": "typescript",
+    ".tsx": "tsx",
+    # Web technologies
+    ".html": "html",
+    ".htm": "html",
+    ".xhtml": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".sass": "sass",
+    ".less": "less",
+    # C/C++
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".cxx": "cpp",
+    ".cc": "cpp",
+    ".hpp": "cpp",
+    ".hxx": "cpp",
+    ".hh": "cpp",
+    # Java/JVM languages
+    ".java": "java",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
+    ".scala": "scala",
+    ".groovy": "groovy",
+    # C#/.NET
+    ".cs": "csharp",
+    ".fs": "fsharp",
+    ".vb": "vbnet",
+    # Go
+    ".go": "go",
+    # Rust
+    ".rs": "rust",
+    # Swift
+    ".swift": "swift",
+    # Objective-C (Note: .m handled specially due to MATLAB conflict)
+    ".m": "objective-c",
+    ".mm": "objective-cpp",
+    # PHP
+    ".php": "php",
+    # Ruby
+    ".rb": "ruby",
+    ".gemspec": "ruby",
+    ".rake": "ruby",
+    # Shell scripting
+    ".sh": "bash",
+    ".bash": "bash",
+    ".zsh": "zsh",
+    ".fish": "fish",
+    ".csh": "csh",
+    ".ksh": "ksh",
+    ".ps1": "powershell",
+    ".bat": "batch",
+    ".cmd": "batch",
+    # Lua
+    ".lua": "lua",
+    # Perl
+    ".pl": "perl",
+    ".pm": "perl",
+    # R
+    ".r": "r",
+    # Haskell
+    ".hs": "haskell",
+    # Erlang/Elixir
+    ".erl": "erlang",
+    ".hrl": "erlang",
+    ".ex": "elixir",
+    ".exs": "elixir",
+    # Lisp family
+    ".lisp": "lisp",
+    ".el": "elisp",
+    ".clj": "clojure",
+    # Functional languages
+    ".elm": "elm",
+    ".ml": "ocaml",
+    ".f": "fortran",
+    ".f90": "fortran",
+    ".f95": "fortran",
+    ".for": "fortran",
+    # Data/Config formats
+    ".json": "json",
+    ".json5": "json5",
+    ".jsonld": "json",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".toml": "toml",
+    ".ini": "ini",
+    ".conf": "ini",
+    ".cfg": "ini",
+    ".properties": "properties",
+    # Markup
+    ".xml": "xml",
+    ".xsd": "xml",
+    ".wsdl": "xml",
+    ".svg": "xml",
+    ".rss": "xml",
+    ".atom": "xml",
+    ".plist": "xml",
+    ".xaml": "xml",
+    ".md": "markdown",
+    ".markdown": "markdown",
+    ".mdown": "markdown",
+    ".mkd": "markdown",
+    ".mkdn": "markdown",
+    ".mdwn": "markdown",
+    ".mdx": "mdx",
+    ".rst": "rst",
+    ".textile": "textile",
+    ".adoc": "asciidoc",
+    ".asciidoc": "asciidoc",
+    # SQL
+    ".sql": "sql",
+    # Docker
+    ".dockerfile": "dockerfile",
+    # GraphQL
+    ".graphql": "graphql",
+    ".gql": "graphql",
+    # Protocol Buffers
+    ".proto": "protobuf",
+    # Terraform
+    ".tf": "hcl",
+    ".hcl": "hcl",
+    # Nix
+    ".nix": "nix",
+    # Vim
+    ".vim": "vim",
+    # Git
+    ".gitignore": "gitignore",
+    ".gitattributes": "gitattributes",
+    # Others
+    ".tex": "latex",
+    ".bib": "bibtex",
+    ".diff": "diff",
+    ".patch": "diff",
+    ".log": "log",
+}
 CONVERTER_METADATA = ConverterMetadata(
     format_name="sourcecode",
     extensions=EXTENSION_TO_LANGUAGE.keys(),
@@ -245,3 +390,51 @@ CONVERTER_METADATA = ConverterMetadata(
     description="Convert source code files to Markdown with syntax highlighting",
     priority=1,  # Lower priority than specialized parsers, higher than txt fallback
 )
+
+
+def _detect_language_from_extension(filename: str) -> str:
+    """Detect programming language from file extension.
+
+    Parameters
+    ----------
+    filename : str
+        Filename or path to analyze
+
+    Returns
+    -------
+    str
+        Language identifier for syntax highlighting, defaults to 'text'
+    """
+    if not filename:
+        return "text"
+
+    # Get file extension (lowercase)
+    _, ext = os.path.splitext(filename.lower())
+
+    # Handle special cases
+    basename = os.path.basename(filename).lower()
+
+    # Special files without extensions
+    special_files = {
+        "dockerfile": "dockerfile",
+        "jenkinsfile": "groovy",
+        "makefile": "makefile",
+        "rakefile": "ruby",
+        "gemfile": "ruby",
+        "vagrantfile": "ruby",
+        "cmakelists.txt": "cmake",
+    }
+
+    if basename in special_files:
+        return special_files[basename]
+
+    # Handle .m extension ambiguity (Objective-C vs MATLAB)
+    if ext == ".m":
+        # Simple heuristic: if filename contains "matlab" or common MATLAB patterns, use matlab
+        if "matlab" in basename or basename.startswith("script") or basename.startswith("function"):
+            return "matlab"
+        else:
+            return "objective-c"
+
+    # Look up extension in mapping
+    return EXTENSION_TO_LANGUAGE.get(ext, "text")

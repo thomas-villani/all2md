@@ -620,7 +620,7 @@ Examples:
 
         for format_name in registry.list_formats():
             try:
-                _, options_class = registry.get_converter(format_name)
+                options_class = registry.get_options_class(format_name)
                 if options_class and is_dataclass(options_class):
                     # Create group name
                     group_name = f"{format_name.upper()} options"
@@ -712,7 +712,7 @@ Examples:
         # Add converter-specific options
         for format_name in registry.list_formats():
             try:
-                _, options_class = registry.get_converter(format_name)
+                options_class = registry.get_options_class(format_name)
                 if options_class and is_dataclass(options_class):
                     options_classes[format_name] = options_class
             except Exception:

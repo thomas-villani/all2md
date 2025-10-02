@@ -899,9 +899,9 @@ def to_ast(
             f"Use to_markdown() instead."
         )
 
-
+# TODO: should also allow `markdown` to be a path or file.
 def from_markdown(
-        markdown: str,
+        markdown: Union[str, Path, IO[bytes], IO[str]],
         target_format: str,
         output: Union[str, Path],
         *,
@@ -972,13 +972,13 @@ def from_markdown(
 
 def convert(
         source: Union[str, Path, IO[bytes], bytes],
-        target_format: str,
-        output: Union[str, Path],
+        output: Union[str, Path, None] = None,
         *,
         options: Optional[BaseOptions | MarkdownOptions] = None,
-        format: DocumentFormat = "auto",
+        source_format: DocumentFormat = "auto",
+        target_format: DocumentFormat = "auto",
         **kwargs
-) -> None:
+) -> None | IO[bytes]:
     """Convert a document from one format to another.
 
     This is a general-purpose conversion function that handles
@@ -988,13 +988,13 @@ def convert(
     ----------
     source : str, Path, IO[bytes], or bytes
         Source document (file path, file-like object, or bytes)
-    target_format : str
-        Target format (e.g., "markdown", "docx", "pdf")
     output : str or Path
         Output file path
     options : BaseOptions | MarkdownOptions, optional
         Pre-configured options object
-    format : DocumentFormat, default "auto"
+    target_format : DocumentFormat, default "auto"
+        Target format (e.g., "markdown", "docx", "pdf")
+    source_format : DocumentFormat, default "auto"
         Source format (auto-detected if not specified)
     kwargs : Any
         Additional conversion options
@@ -1021,7 +1021,7 @@ def convert(
 
     """
     # Detect source format
-    actual_format = format if format != "auto" else registry.detect_format(source)
+    actual_format = source_format if source_format != "auto" else registry.detect_format(source)
 
     # Parse source to AST
     parser_class = registry.get_parser(actual_format)

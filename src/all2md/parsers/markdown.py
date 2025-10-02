@@ -731,7 +731,6 @@ CONVERTER_METADATA = ConverterMetadata(
     extensions=[".md", ".markdown", ".mdown", ".mkd", ".mkdn"],
     mime_types=["text/markdown", "text/x-markdown"],
     magic_bytes=[],
-    converter_module="all2md.parsers.markdown",
     parser_class="MarkdownToAstConverter",
     renderer_class="all2md.renderers.markdown.MarkdownRenderer",
     required_packages=[("mistune", "mistune", ">=3.0.0")],

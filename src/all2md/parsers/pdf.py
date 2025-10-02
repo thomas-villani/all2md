@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union, Callable, Optional
 
 from all2md import MarkdownOptions, PdfOptions
-from all2md.parsers.pdf2markdown import SPACES
 from all2md.utils.attachments import process_attachment, create_attachment_sequencer
 
 if TYPE_CHECKING:

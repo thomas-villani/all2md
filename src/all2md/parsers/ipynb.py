@@ -436,7 +436,6 @@ CONVERTER_METADATA = ConverterMetadata(
         (b'{"cells":', 0),
         (b'{ "cells":', 0),
     ],
-    converter_module="all2md.parsers.ipynb",
     parser_class="IpynbToAstConverter",
     renderer_class=None,
     required_packages=[],

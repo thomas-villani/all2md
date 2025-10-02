@@ -8,11 +8,10 @@ from pathlib import Path
 import pytest
 
 from all2md.parsers.sourcecode2markdown import (
-    EXTENSION_TO_LANGUAGE,
-    _detect_language_from_extension,
     _format_sourcecode_content,
     sourcecode_to_markdown,
 )
+from all2md.parsers.sourcecode import EXTENSION_TO_LANGUAGE, _detect_language_from_extension
 from all2md.exceptions import MarkdownConversionError
 from all2md.options import SourceCodeOptions
 

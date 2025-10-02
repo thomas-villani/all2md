@@ -262,28 +262,23 @@ class ConverterRegistry:
             return True
         return False
 
-    def get_converter(
-            self,
-            format_name: str
-    ) -> Tuple[Callable, Optional[type]]:
-        """Get converter function and options class for a format.
+    def get_options_class(self, format_name: str) -> Optional[type]:
+        """Get options class for a format.
 
         Parameters
         ----------
         format_name : str
-            Format name to get converter for
+            Format name to get options class for
 
         Returns
         -------
-        tuple
-            (converter_function, options_class)
+        type or None
+            Options class or None if format has no options
 
         Raises
         ------
         FormatError
             If format not registered
-        DependencyError
-            If required dependencies not installed
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
@@ -293,61 +288,7 @@ class ConverterRegistry:
             )
 
         metadata = self._converters[format_name]
-
-        # Try to import the converter module
-        try:
-            module = importlib.import_module(metadata.converter_module)
-            converter_func = getattr(module, metadata.converter_function)
-
-            # Try to get options class if specified
-            options_class = _load_options_class(metadata.options_class)
-
-            return converter_func, options_class
-
-        except ImportError as e:
-            # Check which specific package failed and whether it's a version mismatch
-            missing_packages = []
-            version_mismatches = []
-
-            for pkg_name, import_name, version_spec in metadata.required_packages:
-                if version_spec:
-                    # Use version checking from dependencies module
-                    try:
-                        from all2md.dependencies import check_version_requirement
-                        meets_requirement, installed_version = check_version_requirement(pkg_name, version_spec)
-
-                        if not meets_requirement:
-                            if installed_version:
-                                # Package installed but wrong version
-                                version_mismatches.append((pkg_name, version_spec, installed_version))
-                            else:
-                                # Package not installed
-                                missing_packages.append((pkg_name, version_spec))
-                    except ImportError:
-                        # packaging module not available, fall back to simple check
-                        if not _check_package_installed(import_name):
-                            missing_packages.append((pkg_name, version_spec))
-                else:
-                    # No version requirement, just check if installed
-                    if not _check_package_installed(import_name):
-                        missing_packages.append((pkg_name, version_spec))
-
-            if missing_packages or version_mismatches:
-                raise DependencyError(
-                    converter_name=metadata.format_name,
-                    missing_packages=missing_packages,
-                    version_mismatches=version_mismatches,
-                    install_command=metadata.get_install_command()
-                ) from e
-            else:
-                # Re-raise if it's not a dependency issue
-                raise
-
-        except AttributeError as e:
-            raise FormatError(
-                f"Converter function '{metadata.converter_function}' "
-                f"not found in module '{metadata.converter_module}'"
-            ) from e
+        return _load_options_class(metadata.options_class)
 
     def get_parser(self, format_name: str) -> type:
         """Get parser class for a format.
