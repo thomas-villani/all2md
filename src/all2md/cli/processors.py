@@ -17,6 +17,80 @@ from all2md.cli.builder import DynamicCLIBuilder
 from all2md.exceptions import InputError, MarkdownConversionError
 
 
+def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
+    """Build transform instances from CLI arguments.
+
+    Parameters
+    ----------
+    parsed_args : argparse.Namespace
+        Parsed CLI arguments
+
+    Returns
+    -------
+    Optional[list]
+        List of transform instances (in order) or None if no transforms
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If transform is unknown or required parameters are missing
+    """
+    if not hasattr(parsed_args, 'transforms') or not parsed_args.transforms:
+        return None
+
+    try:
+        from all2md.transforms import registry as transform_registry
+    except ImportError:
+        # Transform system not available
+        return None
+
+    # Ensure discovery has happened
+    transform_registry.discover_plugins()
+
+    transform_instances = []
+
+    for transform_name in parsed_args.transforms:
+        try:
+            metadata = transform_registry.get_metadata(transform_name)
+        except ValueError as e:
+            print(f"Error: Unknown transform '{transform_name}'", file=sys.stderr)
+            print(f"Use 'all2md list-transforms' to see available transforms", file=sys.stderr)
+            raise argparse.ArgumentTypeError(f"Unknown transform: {transform_name}") from e
+
+        # Extract parameters from CLI args
+        params = {}
+        for param_name, param_spec in metadata.parameters.items():
+            if param_spec.cli_flag:
+                # Convert CLI flag to arg name: --heading-offset → heading_offset
+                arg_name = param_spec.cli_flag.lstrip('-').replace('-', '_')
+
+                if hasattr(parsed_args, arg_name):
+                    value = getattr(parsed_args, arg_name)
+                    # Only include non-default values
+                    if value is not None and value != param_spec.default:
+                        params[param_name] = value
+
+        # Validate required parameters
+        for param_name, param_spec in metadata.parameters.items():
+            if param_spec.required and param_name not in params:
+                print(f"Error: Transform '{transform_name}' requires parameter: {param_name}", file=sys.stderr)
+                if param_spec.cli_flag:
+                    print(f"Use {param_spec.cli_flag} to specify this parameter", file=sys.stderr)
+                raise argparse.ArgumentTypeError(
+                    f"Transform '{transform_name}' missing required parameter: {param_name}"
+                )
+
+        # Create transform instance
+        try:
+            transform = metadata.create_instance(**params)
+            transform_instances.append(transform)
+        except Exception as e:
+            print(f"Error creating transform '{transform_name}': {e}", file=sys.stderr)
+            raise argparse.ArgumentTypeError(f"Failed to create transform: {transform_name}") from e
+
+    return transform_instances
+
+
 def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, Any]) -> Dict[str, Any]:
     """Apply security preset configurations to options.
 
@@ -89,8 +163,8 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
     return options
 
 
-def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], str]:
-    """Set up conversion options and validate arguments.
+def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], str, Optional[list]]:
+    """Set up conversion options and build transforms.
 
     Parameters
     ----------
@@ -99,13 +173,13 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
 
     Returns
     -------
-    Tuple[Dict[str, Any], str]
-        Tuple of (options_dict, format_arg)
+    Tuple[Dict[str, Any], str, Optional[list]]
+        Tuple of (options_dict, format_arg, transforms)
 
     Raises
     ------
     argparse.ArgumentTypeError
-        If options JSON file cannot be loaded
+        If options JSON file cannot be loaded or transform building fails
     """
     # Load options from JSON file if specified
     json_options = None
@@ -120,7 +194,10 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     # Apply security presets if specified
     options = apply_security_preset(parsed_args, options)
 
-    return options, format_arg
+    # Build transform instances if --transform was used
+    transforms = build_transform_instances(parsed_args)
+
+    return options, format_arg, transforms
 
 
 def validate_arguments(parsed_args: argparse.Namespace, files: Optional[List[Path]] = None) -> bool:
@@ -163,7 +240,12 @@ def validate_arguments(parsed_args: argparse.Namespace, files: Optional[List[Pat
     return True
 
 
-def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], format_arg: str) -> int:
+def process_stdin(
+        parsed_args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None
+) -> int:
     """Process input from stdin.
 
     Parameters
@@ -174,6 +256,8 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform instances to apply
 
     Returns
     -------
@@ -195,7 +279,7 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_source, format=format_arg, **options)
+        markdown_content = to_markdown(input_source, format=format_arg, transforms=transforms, **options)
 
         # Output the result
         if parsed_args.out:
@@ -239,9 +323,12 @@ def process_stdin(parsed_args: argparse.Namespace, options: Dict[str, Any], form
 
 
 def process_multi_file(
-        files: List[Path], parsed_args: argparse.Namespace,
-        options: Dict[str, Any], format_arg: str
-        ) -> int:
+        files: List[Path],
+        parsed_args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None
+) -> int:
     """Process multiple files with appropriate output handling.
 
     Parameters
@@ -254,6 +341,8 @@ def process_multi_file(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform instances to apply
 
     Returns
     -------
@@ -301,7 +390,7 @@ def process_multi_file(
                 from all2md import to_markdown
 
                 # Convert the document
-                markdown_content = to_markdown(file, format=format_arg, **options)
+                markdown_content = to_markdown(file, format=format_arg, transforms=transforms, **options)
 
                 # Display with pager
                 console = Console()
@@ -323,7 +412,7 @@ def process_multi_file(
                     print(f"Error: {e}", file=sys.stderr)
                 return exit_code
 
-        exit_code, file_str, error = convert_single_file(file, output_path, options, format_arg, False)
+        exit_code, file_str, error = convert_single_file(file, output_path, options, format_arg, transforms, False)
 
         if exit_code == 0:
             if output_path:
@@ -335,13 +424,13 @@ def process_multi_file(
 
     # Process multiple files or with special output
     if parsed_args.collate:
-        return process_files_collated(files, parsed_args, options, format_arg)
+        return process_files_collated(files, parsed_args, options, format_arg, transforms)
     elif parsed_args.rich:
-        return process_with_rich_output(files, parsed_args, options, format_arg)
+        return process_with_rich_output(files, parsed_args, options, format_arg, transforms)
     elif parsed_args.progress or len(files) > 1:
-        return process_with_progress_bar(files, parsed_args, options, format_arg)
+        return process_with_progress_bar(files, parsed_args, options, format_arg, transforms)
     else:
-        return process_files_simple(files, parsed_args, options, format_arg)
+        return process_files_simple(files, parsed_args, options, format_arg, transforms)
 
 
 def load_options_from_json(json_file_path: str) -> dict:

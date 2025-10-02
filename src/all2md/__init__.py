@@ -403,12 +403,63 @@ def _merge_options(
 # Main conversion function starts here
 
 
+def _prepare_options(
+        actual_format: DocumentFormat,
+        options: Optional[BaseOptions | MarkdownOptions],
+        flavor: Optional[str],
+        kwargs: dict
+) -> Optional[BaseOptions | MarkdownOptions]:
+    """Prepare final options by handling flavor and merging options with kwargs.
+
+    Parameters
+    ----------
+    actual_format : DocumentFormat
+        The detected/specified document format
+    options : BaseOptions | MarkdownOptions, optional
+        Pre-configured options object
+    flavor : str, optional
+        Markdown flavor to use
+    kwargs : dict
+        Additional keyword arguments
+
+    Returns
+    -------
+    BaseOptions | MarkdownOptions, optional
+        Final merged options
+    """
+    # Handle flavor parameter priority: flavor param > kwargs > options
+    if flavor is not None:
+        # Flavor parameter takes highest priority
+        kwargs['flavor'] = flavor
+    elif 'flavor' not in kwargs and options is not None:
+        # Use flavor from options if not in kwargs
+        if isinstance(options, MarkdownOptions) and hasattr(options, 'flavor'):
+            kwargs.setdefault('flavor', options.flavor)
+        elif hasattr(options, 'markdown_options') and options.markdown_options is not None:
+            kwargs.setdefault('flavor', options.markdown_options.flavor)
+
+    # Merge options
+    if options is not None and kwargs:
+        # Merge provided options with kwargs (kwargs override)
+        return _merge_options(options, actual_format, **kwargs)
+    elif options is not None:
+        # Use provided options as-is
+        return options
+    elif kwargs:
+        # Create options from kwargs only
+        return _create_options_from_kwargs(actual_format, **kwargs)
+    else:
+        # No options provided
+        return None
+
+
 def to_markdown(
         input: Union[str, Path, IO[bytes], bytes],
         *,
         options: Optional[BaseOptions | MarkdownOptions] = None,
         format: DocumentFormat = "auto",
         flavor: Optional[str] = None,
+        transforms: Optional[list] = None,
         **kwargs
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
@@ -434,6 +485,10 @@ def to_markdown(
         "multimarkdown", "pandoc", "kramdown", "markdown_plus".
         If specified, takes precedence over flavor in options or kwargs.
         Defaults to "gfm" if not specified anywhere.
+    transforms : list, optional
+        List of AST transforms to apply before rendering. Can be transform names
+        (strings) or NodeTransformer instances. Transforms are applied in order.
+        See `all2md.transforms` for available transforms.
     kwargs : Any
         Individual conversion options that override settings in the `options`
         parameter. These are mapped to the appropriate format-specific
@@ -531,17 +586,6 @@ def to_markdown(
         >>> markdown = to_markdown("document.pdf", flavor="multimarkdown")
     """
 
-    # Handle flavor parameter priority: flavor param > kwargs > options
-    if flavor is not None:
-        # Flavor parameter takes highest priority
-        kwargs['flavor'] = flavor
-    elif 'flavor' not in kwargs and options is not None:
-        # Use flavor from options if not in kwargs
-        if isinstance(options, MarkdownOptions) and hasattr(options, 'flavor'):
-            kwargs.setdefault('flavor', options.flavor)
-        elif hasattr(options, 'markdown_options') and options.markdown_options is not None:
-            kwargs.setdefault('flavor', options.markdown_options.flavor)
-
     # Determine format first, before opening files
     if format != "auto":
         # Format explicitly specified
@@ -560,19 +604,30 @@ def to_markdown(
         actual_format = registry.detect_format(file, hint=None)
         # Registry already logs the detection method
 
-    # Create or merge options based on parameters
-    if options is not None and kwargs:
-        # Merge provided options with kwargs (kwargs override)
-        final_options = _merge_options(options, actual_format, **kwargs)
-    elif options is not None:
-        # Use provided options as-is
-        final_options = options
-    elif kwargs:
-        # Create options from kwargs only
-        final_options = _create_options_from_kwargs(actual_format, **kwargs)
-    else:
-        # No options provided
-        final_options = None
+    # Prepare final options (handles flavor and merging)
+    final_options = _prepare_options(actual_format, options, flavor, kwargs)
+
+    # If transforms are provided, use AST pipeline instead of direct conversion
+    if transforms:
+        # Import transform pipeline
+        from all2md.transforms import render as render_with_transforms
+
+        # Convert to AST first
+        ast_doc = to_ast(input, options=final_options, format=actual_format)
+
+        # Extract MarkdownOptions for rendering
+        if isinstance(final_options, MarkdownOptions):
+            markdown_options = final_options
+        elif final_options and hasattr(final_options, 'markdown_options'):
+            markdown_options = final_options.markdown_options
+        else:
+            markdown_options = None
+
+        # Apply transforms and render
+        content = render_with_transforms(ast_doc, transforms=transforms, options=markdown_options)
+
+        # Normalize line endings and return
+        return content.replace("\r\n", "\n").replace("\r", "\n")
 
     # Process input based on detected/specified format using registry
     try:

@@ -427,6 +427,88 @@ class DynamicCLIBuilder:
             parser, options_class, format_prefix, group_name, exclude_base_fields=True
         )
 
+    def add_transform_arguments(self, parser: argparse.ArgumentParser) -> None:
+        """Add transform-related CLI arguments.
+
+        Adds --transform flag and dynamic transform parameter arguments based
+        on discovered transforms and their metadata.
+
+        Parameters
+        ----------
+        parser : ArgumentParser
+            Parser to add transform arguments to
+        """
+        try:
+            from all2md.transforms import registry as transform_registry
+        except ImportError:
+            # Transform system not available, skip
+            return
+
+        # Discover all transforms
+        transform_registry.discover_plugins()
+
+        # Add --transform flag (repeatable, ordered)
+        parser.add_argument(
+            '--transform', '-t',
+            action='append',
+            dest='transforms',
+            metavar='NAME',
+            help='Apply transform to AST before rendering (repeatable, order matters). '
+                 'Use "all2md list-transforms" to see available transforms.'
+        )
+
+        # Create transform options group if we have transforms
+        transform_names = transform_registry.list_transforms()
+        if not transform_names:
+            return
+
+        transform_group = parser.add_argument_group('Transform options')
+
+        # For each transform, add parameter arguments based on ParameterSpec
+        for transform_name in transform_names:
+            try:
+                metadata = transform_registry.get_metadata(transform_name)
+
+                for param_name, param_spec in metadata.parameters.items():
+                    if not param_spec.cli_flag:
+                        continue
+
+                    # Build argparse kwargs from ParameterSpec
+                    kwargs = {
+                        'help': param_spec.help or f'{param_name} parameter for {transform_name}',
+                    }
+
+                    # Set type and action based on parameter type
+                    if param_spec.type == bool:
+                        # Boolean parameters use store_true/store_false
+                        if param_spec.default is False:
+                            kwargs['action'] = 'store_true'
+                        else:
+                            kwargs['action'] = 'store_false'
+                    elif param_spec.type == int:
+                        kwargs['type'] = int
+                    elif param_spec.type == str:
+                        kwargs['type'] = str
+                    elif param_spec.type == list:
+                        kwargs['nargs'] = '+'
+                        if param_spec.default is not None:
+                            kwargs['default'] = param_spec.default
+
+                    # Add choices if specified
+                    if param_spec.choices:
+                        kwargs['choices'] = param_spec.choices
+
+                    # Add default if not an action and default is set
+                    if 'action' not in kwargs and param_spec.default is not None:
+                        kwargs['default'] = param_spec.default
+
+                    # Add the argument
+                    transform_group.add_argument(param_spec.cli_flag, **kwargs)
+
+            except Exception as e:
+                # Skip problematic transforms
+                print(f"Warning: Could not add CLI args for transform {transform_name}: {e}")
+
     def build_parser(self) -> argparse.ArgumentParser:
         """Build the complete argument parser with dynamic arguments.
 
@@ -552,6 +634,9 @@ Examples:
                     )
             except Exception as e:
                 print(f"Warning: Could not process converter {format_name}: {e}")
+
+        # Add transform arguments (after format-specific options)
+        self.add_transform_arguments(parser)
 
         self.parser = parser
         return parser

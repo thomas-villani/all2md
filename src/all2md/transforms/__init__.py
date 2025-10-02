@@ -71,6 +71,32 @@ from .pipeline import HookAwareVisitor, Pipeline, render
 # Registry
 from .registry import TransformRegistry, registry
 
+# Built-in transforms
+from .builtin import (
+    AddConversionTimestampTransform,
+    AddHeadingIdsTransform,
+    CalculateWordCountTransform,
+    HeadingOffsetTransform,
+    LinkRewriterTransform,
+    RemoveBoilerplateTextTransform,
+    RemoveImagesTransform,
+    RemoveNodesTransform,
+    TextReplacerTransform,
+)
+
+# Built-in transform metadata (for advanced users)
+from ._builtin_metadata import (
+    ADD_HEADING_IDS_METADATA,
+    ADD_TIMESTAMP_METADATA,
+    HEADING_OFFSET_METADATA,
+    LINK_REWRITER_METADATA,
+    REMOVE_BOILERPLATE_METADATA,
+    REMOVE_IMAGES_METADATA,
+    REMOVE_NODES_METADATA,
+    TEXT_REPLACER_METADATA,
+    WORD_COUNT_METADATA,
+)
+
 # Version info
 __version__ = "0.1.0"
 
@@ -92,4 +118,24 @@ __all__ = [
     "Pipeline",
     "HookAwareVisitor",
     "render",
+    # Built-in Transforms
+    "RemoveImagesTransform",
+    "RemoveNodesTransform",
+    "HeadingOffsetTransform",
+    "LinkRewriterTransform",
+    "TextReplacerTransform",
+    "AddHeadingIdsTransform",
+    "RemoveBoilerplateTextTransform",
+    "AddConversionTimestampTransform",
+    "CalculateWordCountTransform",
+    # Built-in Metadata
+    "REMOVE_IMAGES_METADATA",
+    "REMOVE_NODES_METADATA",
+    "HEADING_OFFSET_METADATA",
+    "LINK_REWRITER_METADATA",
+    "TEXT_REPLACER_METADATA",
+    "ADD_HEADING_IDS_METADATA",
+    "REMOVE_BOILERPLATE_METADATA",
+    "ADD_TIMESTAMP_METADATA",
+    "WORD_COUNT_METADATA",
 ]

@@ -447,6 +447,7 @@ def convert_single_file(
         output_path: Optional[Path],
         options: Dict[str, Any],
         format_arg: str,
+        transforms: Optional[list] = None,
         show_progress: bool = False
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown.
@@ -461,6 +462,8 @@ def convert_single_file(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform instances to apply
     show_progress : bool
         Whether to show progress
 
@@ -473,7 +476,7 @@ def convert_single_file(
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, format=format_arg, **options)
+        markdown_content = to_markdown(input_path, format=format_arg, transforms=transforms, **options)
 
         # Output the result
         if output_path:
@@ -497,6 +500,7 @@ def convert_single_file_for_collation(
         input_path: Path,
         options: Dict[str, Any],
         format_arg: str,
+        transforms: Optional[list] = None,
         file_separator: str = "\n\n---\n\n"
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown for collation.
@@ -509,6 +513,8 @@ def convert_single_file_for_collation(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform instances to apply
     file_separator : str
         Separator to add between files
 
@@ -521,7 +527,7 @@ def convert_single_file_for_collation(
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, format=format_arg, **options)
+        markdown_content = to_markdown(input_path, format=format_arg, transforms=transforms, **options)
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"
@@ -543,7 +549,8 @@ def process_with_rich_output(
         files: List[Path],
         args: argparse.Namespace,
         options: Dict[str, Any],
-        format_arg: str
+        format_arg: str,
+        transforms: Optional[list] = None
 ) -> int:
     """Process files with rich terminal output.
 
@@ -557,6 +564,8 @@ def process_with_rich_output(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform instances to apply
 
     Returns
     -------
@@ -666,6 +675,7 @@ def process_with_rich_output(
                             output_path,
                             options,
                             format_arg,
+                            transforms,
                             False
                         )
                         futures[future] = (file, output_path)
@@ -729,6 +739,7 @@ def process_with_rich_output(
                         output_path,
                         options,
                         format_arg,
+                        transforms,
                         False
                     )
 
@@ -767,7 +778,8 @@ def process_with_progress_bar(
         files: List[Path],
         args: argparse.Namespace,
         options: Dict[str, Any],
-        format_arg: str
+        format_arg: str,
+        transforms: Optional[list] = None
 ) -> int:
     """Process files with tqdm progress bar.
 
@@ -821,6 +833,7 @@ def process_with_progress_bar(
                 output_path,
                 options,
                 format_arg,
+                transforms,
                 False
             )
 
@@ -844,7 +857,8 @@ def process_files_simple(
         files: List[Path],
         args: argparse.Namespace,
         options: Dict[str, Any],
-        format_arg: str
+        format_arg: str,
+        transforms: Optional[list] = None
 ) -> int:
     """Process files without progress indicators.
 
@@ -887,6 +901,7 @@ def process_files_simple(
             output_path,
             options,
             format_arg,
+            transforms,
             False
         )
 
@@ -906,7 +921,8 @@ def process_files_collated(
         files: List[Path],
         args: argparse.Namespace,
         options: Dict[str, Any],
-        format_arg: str
+        format_arg: str,
+        transforms: Optional[list] = None
 ) -> int:
     """Process files and collate them into a single output.
 
@@ -950,7 +966,7 @@ def process_files_collated(
         """
         nonlocal max_exit_code
         exit_code, content, error = convert_single_file_for_collation(
-            file, options, format_arg, file_separator
+            file, options, format_arg, transforms, file_separator
         )
         if exit_code == EXIT_SUCCESS:
             collated_content.append(content)
@@ -1715,6 +1731,165 @@ Examples:
     return 0
 
 
+def handle_list_transforms_command(args: Optional[list[str]] = None) -> int:
+    """Handle list-transforms command.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Additional arguments
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+    """
+    try:
+        from all2md.transforms import registry as transform_registry
+    except ImportError:
+        print("Error: Transform system not available", file=sys.stderr)
+        return 1
+
+    # Parse options
+    specific_transform = None
+    use_rich = False
+
+    if args:
+        for arg in args:
+            if arg in ('--help', '-h'):
+                print("""Usage: all2md list-transforms [OPTIONS] [TRANSFORM]
+
+Show available AST transforms.
+
+Arguments:
+  TRANSFORM          Show details for specific transform
+
+Options:
+  --rich            Use rich terminal output
+  -h, --help        Show this help message
+
+Examples:
+  all2md list-transforms                    # List all transforms
+  all2md list-transforms heading-offset     # Show details for specific transform
+  all2md list-transforms --rich             # Use rich output
+""")
+                return 0
+            elif arg == '--rich':
+                use_rich = True
+            elif not arg.startswith('-'):
+                specific_transform = arg
+
+    # Discover transforms
+    transform_registry.discover_plugins()
+    transforms = transform_registry.list_transforms()
+
+    if specific_transform:
+        if specific_transform not in transforms:
+            print(f"Error: Transform '{specific_transform}' not found", file=sys.stderr)
+            print(f"Available: {', '.join(transforms)}", file=sys.stderr)
+            return 1
+        transforms = [specific_transform]
+
+    # Display transforms
+    if use_rich:
+        try:
+            from rich.console import Console
+            from rich.panel import Panel
+            from rich.table import Table
+
+            console = Console()
+
+            if specific_transform:
+                # Detailed view
+                metadata = transform_registry.get_metadata(specific_transform)
+
+                content = []
+                content.append(f"[bold]Name:[/bold] {metadata.name}")
+                content.append(f"[bold]Description:[/bold] {metadata.description}")
+                content.append(f"[bold]Priority:[/bold] {metadata.priority}")
+                if metadata.dependencies:
+                    content.append(f"[bold]Dependencies:[/bold] {', '.join(metadata.dependencies)}")
+                if metadata.tags:
+                    content.append(f"[bold]Tags:[/bold] {', '.join(metadata.tags)}")
+
+                console.print(Panel("\n".join(content), title=f"Transform: {metadata.name}"))
+
+                # Parameters table
+                if metadata.parameters:
+                    table = Table(title="Parameters")
+                    table.add_column("Name", style="cyan")
+                    table.add_column("Type", style="yellow")
+                    table.add_column("Default", style="green")
+                    table.add_column("CLI Flag", style="magenta")
+                    table.add_column("Description", style="white")
+
+                    for name, spec in metadata.parameters.items():
+                        type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
+                        table.add_row(
+                            name,
+                            type_str,
+                            str(spec.default) if spec.default is not None else 'None',
+                            spec.cli_flag or 'N/A',
+                            spec.help or ''
+                        )
+
+                    console.print(table)
+            else:
+                # Summary table
+                table = Table(title=f"Available Transforms ({len(transforms)})")
+                table.add_column("Name", style="cyan")
+                table.add_column("Description", style="white")
+                table.add_column("Tags", style="yellow")
+
+                for name in transforms:
+                    metadata = transform_registry.get_metadata(name)
+                    table.add_row(
+                        metadata.name,
+                        metadata.description,
+                        ', '.join(metadata.tags) if metadata.tags else ''
+                    )
+
+                console.print(table)
+        except ImportError:
+            use_rich = False
+
+    if not use_rich:
+        # Plain text output
+        if specific_transform:
+            metadata = transform_registry.get_metadata(specific_transform)
+            print(f"\n{metadata.name}")
+            print("=" * 60)
+            print(f"Description: {metadata.description}")
+            print(f"Priority: {metadata.priority}")
+            if metadata.dependencies:
+                print(f"Dependencies: {', '.join(metadata.dependencies)}")
+            if metadata.tags:
+                print(f"Tags: {', '.join(metadata.tags)}")
+
+            if metadata.parameters:
+                print("\nParameters:")
+                for name, spec in metadata.parameters.items():
+                    type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
+                    default_str = f"(default: {spec.default})" if spec.default is not None else ""
+                    cli_str = f"  CLI: {spec.cli_flag}" if spec.cli_flag else ""
+                    print(f"  {name} ({type_str}) {default_str}")
+                    if spec.help:
+                        print(f"    {spec.help}")
+                    if cli_str:
+                        print(cli_str)
+        else:
+            print("\nAvailable Transforms")
+            print("=" * 60)
+            for name in transforms:
+                metadata = transform_registry.get_metadata(name)
+                tags_str = f" [{', '.join(metadata.tags)}]" if metadata.tags else ""
+                print(f"  {metadata.name:20} {metadata.description}{tags_str}")
+            print(f"\nTotal: {len(transforms)} transforms")
+            print("Use 'all2md list-transforms <transform>' for details")
+
+    return 0
+
+
 def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int]:
     """Handle dependency management commands.
 
@@ -1737,6 +1912,10 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
     # Check for list-formats command
     if args[0] in ('list-formats', 'formats'):
         return handle_list_formats_command(args[1:])
+
+    # Check for list-transforms command
+    if args[0] in ('list-transforms', 'transforms'):
+        return handle_list_transforms_command(args[1:])
 
     # Check for dependency management commands
     if args[0] == 'check-deps':
@@ -1839,7 +2018,7 @@ def main(args: Optional[list[str]] = None) -> int:
         from all2md.constants import EXIT_INPUT_ERROR
         # Set up options and validate
         try:
-            options, format_arg = setup_and_validate_options(parsed_args)
+            options, format_arg, transforms = setup_and_validate_options(parsed_args)
         except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)
             return EXIT_INPUT_ERROR
@@ -1848,7 +2027,7 @@ def main(args: Optional[list[str]] = None) -> int:
         if not validate_arguments(parsed_args):
             return EXIT_INPUT_ERROR
 
-        return process_stdin(parsed_args, options, format_arg)
+        return process_stdin(parsed_args, options, format_arg, transforms)
 
     # Multi-file/directory processing
     files = collect_input_files(
@@ -1899,14 +2078,14 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Set up options
     try:
-        options, format_arg = setup_and_validate_options(parsed_args)
+        options, format_arg, transforms = setup_and_validate_options(parsed_args)
     except argparse.ArgumentTypeError as e:
         from all2md.constants import EXIT_INPUT_ERROR
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_INPUT_ERROR
 
     # Delegate to multi-file processor
-    return process_multi_file(files, parsed_args, options, format_arg)
+    return process_multi_file(files, parsed_args, options, format_arg, transforms)
 
 
 if __name__ == "__main__":
