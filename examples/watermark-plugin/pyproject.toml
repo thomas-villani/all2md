@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "all2md-watermark"
+version = "1.0.0"
+description = "Watermark transform plugin for all2md"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["all2md", "markdown", "transform", "plugin", "watermark"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup",
+]
+dependencies = [
+    "all2md>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/all2md-watermark"
+Repository = "https://github.com/yourusername/all2md-watermark.git"
+Issues = "https://github.com/yourusername/all2md-watermark/issues"
+
+[project.entry-points."all2md.transforms"]
+watermark = "all2md_watermark:METADATA"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/all2md_watermark"]

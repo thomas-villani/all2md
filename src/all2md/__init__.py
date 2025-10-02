@@ -19,6 +19,8 @@ Key Features
 - Email chain parsing with attachment handling
 - Base64 image embedding support
 - Support for 200+ plaintext file formats
+- AST-based transformation pipeline for document manipulation
+- Plugin system for custom transforms via entry points
 
 Supported Formats
 -----------------
@@ -40,6 +42,36 @@ Basic usage for file conversion:
     >>> from all2md import to_markdown
     >>> markdown_content = to_markdown('document.pdf')
     >>> print(markdown_content)
+
+Using AST transforms to manipulate documents:
+
+    >>> from all2md import to_markdown
+    >>> from all2md.transforms import RemoveImagesTransform, HeadingOffsetTransform
+    >>>
+    >>> # Apply transforms during conversion
+    >>> markdown = to_markdown(
+    ...     'document.pdf',
+    ...     transforms=[
+    ...         RemoveImagesTransform(),
+    ...         HeadingOffsetTransform(offset=1)
+    ...     ]
+    ... )
+
+Working with the AST directly:
+
+    >>> from all2md import to_ast
+    >>> from all2md.transforms import render
+    >>>
+    >>> # Convert to AST
+    >>> doc = to_ast('document.pdf')
+    >>>
+    >>> # Apply transforms and render
+    >>> markdown = render(doc, transforms=['remove-images', 'heading-offset'])
+
+See Also
+--------
+all2md.transforms : AST transformation system
+all2md.ast : AST node definitions and utilities
 
 """
 #  Copyright (c) 2025 Tom Villani, Ph.D.
@@ -78,6 +110,9 @@ from . import converters  # noqa: F401
 
 # Import AST module for advanced users
 from . import ast  # noqa: F401
+
+# Import transforms module for AST transformation
+from . import transforms  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -887,4 +922,6 @@ __all__ = [
     "DependencyError",
     # AST module (for advanced users)
     "ast",
+    # Transforms module (for AST transformations)
+    "transforms",
 ]

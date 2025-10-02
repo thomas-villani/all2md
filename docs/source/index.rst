@@ -53,6 +53,17 @@ Quick Example
    )
    markdown = to_markdown('document.pdf', options=options)
 
+   # With AST transforms
+   from all2md.transforms import RemoveImagesTransform, HeadingOffsetTransform
+
+   markdown = to_markdown(
+       'document.pdf',
+       transforms=[
+           RemoveImagesTransform(),
+           HeadingOffsetTransform(offset=1)
+       ]
+   )
+
 Command Line Usage
 ------------------
 
@@ -95,6 +106,7 @@ User Guide
    quickstart
    overview
    ast_guide
+   transforms
    formats
    options
    security

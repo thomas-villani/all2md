@@ -65,6 +65,15 @@ all2md document.html --attachment-mode download --attachment-output-dir ./images
 
 # Convert with custom formatting
 all2md document.pdf --emphasis-symbol "_" --bullet-symbols "",,"
+
+# Apply AST transforms
+all2md document.pdf --transform remove-images
+
+# Multiple transforms (order matters)
+all2md document.pdf --transform heading-offset --transform remove-images
+
+# List available transforms
+all2md list-transforms
 ```
 
 ### Python API
@@ -89,14 +98,26 @@ markdown = to_markdown('document.pdf', options=options)
 # From file object
 with open('document.docx', 'rb') as f:
     markdown = to_markdown(f, format='docx')
+
+# With AST transforms
+from all2md.transforms import RemoveImagesTransform, HeadingOffsetTransform
+
+markdown = to_markdown(
+    'document.pdf',
+    transforms=[
+        RemoveImagesTransform(),
+        HeadingOffsetTransform(offset=1)
+    ]
+)
 ```
 
 ## Documentation
 
-= **[Full Documentation](https://all2md.readthedocs.io/)** - Complete guide and API reference
-= **[Quick Start Guide](https://all2md.readthedocs.io/en/latest/quickstart.html)** - Get up and running in 5 minutes
- **[Configuration Options](https://all2md.readthedocs.io/en/latest/options.html)** - Detailed options for each format
-= **[Troubleshooting](https://all2md.readthedocs.io/en/latest/troubleshooting.html)** - Common issues and solutions
+- **[Full Documentation](https://all2md.readthedocs.io/)** - Complete guide and API reference
+- **[Quick Start Guide](https://all2md.readthedocs.io/en/latest/quickstart.html)** - Get up and running in 5 minutes
+- **[AST Transforms Guide](https://all2md.readthedocs.io/en/latest/transforms.html)** - Create custom document transforms
+- **[Configuration Options](https://all2md.readthedocs.io/en/latest/options.html)** - Detailed options for each format
+- **[Troubleshooting](https://all2md.readthedocs.io/en/latest/troubleshooting.html)** - Common issues and solutions
 
 ## Installation Options
 
@@ -197,6 +218,55 @@ for filename in os.listdir(pdf_dir):
             f.write(markdown)
 
         print(f"Converted {filename} -> {output_path}")
+```
+
+### AST Transforms
+```python
+from all2md import to_markdown
+from all2md.transforms import (
+    RemoveImagesTransform,
+    HeadingOffsetTransform,
+    AddHeadingIdsTransform,
+    RemoveBoilerplateTextTransform
+)
+
+# Apply multiple transforms to clean up a document
+transforms = [
+    RemoveBoilerplateTextTransform(),  # Remove common boilerplate
+    RemoveImagesTransform(),  # Strip all images
+    HeadingOffsetTransform(offset=1),  # Shift headings down one level
+    AddHeadingIdsTransform(id_prefix='doc-')  # Add IDs for anchors
+]
+
+markdown = to_markdown('report.pdf', transforms=transforms)
+
+# Create custom transforms
+from all2md.ast.transforms import NodeTransformer
+from all2md.ast import Link
+
+class LinkRewriterTransform(NodeTransformer):
+    """Rewrite internal links to external URLs."""
+
+    def __init__(self, base_url: str):
+        super().__init__()
+        self.base_url = base_url
+
+    def visit_link(self, node: Link) -> Link:
+        node = super().visit_link(node)
+        if node.url.startswith('/docs/'):
+            return Link(
+                url=self.base_url + node.url,
+                content=node.content,
+                title=node.title,
+                metadata=node.metadata
+            )
+        return node
+
+# Use custom transform
+markdown = to_markdown(
+    'document.html',
+    transforms=[LinkRewriterTransform('https://example.com')]
+)
 ```
 
 ## Requirements
