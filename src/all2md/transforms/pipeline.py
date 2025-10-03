@@ -54,7 +54,7 @@ from typing import Any, Optional, Union
 
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
-from all2md.options import BaseParserOptions, BaseRendererOptions, MarkdownOptions
+from all2md.options import BaseRendererOptions, MarkdownOptions
 
 from .hooks import HookCallable, HookContext, HookManager, HookTarget
 from .registry import TransformRegistry
@@ -512,7 +512,137 @@ class Pipeline:
         logger.info("Pipeline execution complete")
         return output  # type: ignore
 
-# TODO: we need an `apply` function to apply transforms and hooks only without the renderer which applies just to the AST
+
+def apply(
+    document: Document,
+    transforms: Optional[list[Union[str, NodeTransformer]]] = None,
+    hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
+) -> Document:
+    """Apply transforms and hooks to document without rendering.
+
+    This function provides AST-only processing by applying transforms and hooks
+    to a document without the rendering stage. It reuses Pipeline internals to
+    maintain consistent hook execution order.
+
+    This is useful for developers who want to:
+    - Process AST structures programmatically
+    - Chain multiple transformation passes
+    - Inspect/modify documents before rendering
+    - Build custom rendering pipelines
+
+    Parameters
+    ----------
+    document : Document
+        AST document to process
+    transforms : list, optional
+        List of transforms to apply. Can be transform names (str) or
+        NodeTransformer instances
+    hooks : dict, optional
+        Dictionary mapping hook targets to lists of hook callables.
+        Hook targets can be pipeline stages ('post_ast', 'pre_transform',
+        'post_transform', 'pre_render') or node types ('image', 'link', etc.)
+
+    Returns
+    -------
+    Document
+        Processed document with transforms and hooks applied
+
+    Raises
+    ------
+    TypeError
+        If transform is not a string or NodeTransformer
+    ValueError
+        If transform name is not found or a hook removes the document node
+
+    Notes
+    -----
+    The following hooks are executed in order:
+    1. post_ast - After AST creation (document just came from conversion)
+    2. pre_transform - Before each transform
+    3. post_transform - After each transform
+    4. pre_render - Before element hooks (for document-level validation)
+    5. Element hooks - During tree traversal (image, link, heading, etc.)
+
+    The post_render hook is NOT executed since no rendering occurs.
+
+    Examples
+    --------
+    Apply transforms only:
+
+        >>> from all2md import to_ast
+        >>> from all2md.transforms import apply
+        >>> doc = to_ast("document.pdf")
+        >>> processed = apply(doc, transforms=['remove-images'])
+
+    Apply hooks only:
+
+        >>> def log_image(node, context):
+        ...     print(f"Found image: {node.url}")
+        ...     return node
+        >>> processed = apply(doc, hooks={'image': [log_image]})
+
+    Apply both transforms and hooks:
+
+        >>> from all2md.transforms import HeadingOffsetTransform
+        >>> processed = apply(
+        ...     doc,
+        ...     transforms=[HeadingOffsetTransform(offset=1), 'remove-images'],
+        ...     hooks={
+        ...         'pre_render': [validate_document],
+        ...         'link': [rewrite_links]
+        ...     }
+        ... )
+
+    Chain multiple processing passes:
+
+        >>> doc1 = apply(doc, transforms=['heading-offset'])
+        >>> doc2 = apply(doc1, transforms=['remove-images'])
+        >>> markdown = render(doc2)
+
+    """
+    logger.info("Starting apply() execution (no rendering)")
+
+    # Create a temporary pipeline without a renderer to reuse internals
+    # We don't actually call execute(), just use the helper methods
+    pipeline = Pipeline(transforms=transforms, hooks=hooks)
+
+    # Create context
+    context = HookContext(
+        document=document,
+        metadata=document.metadata.copy(),
+        shared={}
+    )
+
+    # Post-AST hook (document just came from conversion)
+    if pipeline.hook_manager.has_hooks('post_ast'):
+        logger.debug("Executing post_ast hooks")
+        result = pipeline.hook_manager.execute_hooks('post_ast', document, context)
+
+        if result is None:
+            raise ValueError("post_ast hook removed document")
+
+        document = result  # type: ignore
+
+    # Apply transforms
+    if pipeline.transforms:
+        document = pipeline._apply_transforms(document, context)
+
+    # Pre-render hook (before element hooks, for document-level validation)
+    if pipeline.hook_manager.has_hooks('pre_render'):
+        logger.debug("Executing pre_render hooks")
+        result = pipeline.hook_manager.execute_hooks('pre_render', document, context)
+
+        if result is None:
+            raise ValueError("pre_render hook removed document")
+
+        document = result  # type: ignore
+
+    # Apply element hooks (after pre_render, would normally be before rendering)
+    document = pipeline._apply_element_hooks(document, context)
+
+    logger.info("Apply execution complete")
+    return document
+
 
 def render(
     document: Document,
@@ -623,5 +753,6 @@ def render(
 __all__ = [
     "Pipeline",
     "HookAwareVisitor",
+    "apply",
     "render",
 ]

@@ -7,13 +7,12 @@ from all2md.ast import Document, Heading, Image, Link, Paragraph, Text
 from all2md.ast.transforms import NodeTransformer
 from all2md.options import MarkdownOptions
 from all2md.transforms import (
-    HookContext,
     Pipeline,
     TransformMetadata,
     TransformRegistry,
+    apply,
     render,
 )
-
 
 # Test transforms
 
@@ -478,3 +477,232 @@ class TestDependencyResolution:
 
         # Should not crash (A dependency satisfied)
         assert "# Title" in markdown
+
+
+# Apply function tests (AST-only processing without rendering)
+
+class TestApplyFunction:
+    """Tests for apply() function - AST transformation without rendering."""
+
+    def test_apply_returns_document(self, sample_document):
+        """Test that apply() returns a Document, not a string."""
+        result = apply(sample_document)
+
+        assert isinstance(result, Document)
+        assert not isinstance(result, str)
+
+    def test_apply_with_no_transforms_or_hooks(self, sample_document):
+        """Test apply() with no transforms or hooks returns unchanged document."""
+        result = apply(sample_document)
+
+        # Document structure should be unchanged
+        assert len(result.children) == 3
+        assert isinstance(result.children[0], Heading)
+        assert isinstance(result.children[1], Paragraph)
+        assert isinstance(result.children[2], Paragraph)
+
+    def test_apply_with_single_transform(self, sample_document):
+        """Test apply() with single transform modifies AST."""
+        result = apply(sample_document, transforms=[RemoveImagesTransform()])
+
+        # Check document structure
+        assert isinstance(result, Document)
+        assert len(result.children) == 3
+
+        # Image should be removed from paragraph
+        last_para = result.children[2]
+        assert isinstance(last_para, Paragraph)
+        assert len(last_para.content) == 0  # Image was removed
+
+    def test_apply_with_multiple_transforms(self, sample_document):
+        """Test apply() with multiple transforms."""
+        transforms = [
+            RemoveImagesTransform(),
+            UppercaseTextTransform()
+        ]
+        result = apply(sample_document, transforms=transforms)
+
+        # Check document structure
+        assert isinstance(result, Document)
+
+        # Text should be uppercased
+        heading = result.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.content[0].content == "TITLE"
+
+        # Image should be removed
+        last_para = result.children[2]
+        assert len(last_para.content) == 0
+
+    def test_apply_with_transform_instance_with_params(self, sample_document):
+        """Test apply() with parameterized transform."""
+        result = apply(sample_document, transforms=[HeadingOffsetTransform(offset=2)])
+
+        # Heading level should change from 1 to 3
+        heading = result.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.level == 3
+
+    def test_apply_with_element_hook(self, sample_document):
+        """Test apply() with element hook modifies AST."""
+        hook_called = []
+
+        def modify_image(node, context):
+            hook_called.append(node.url)
+            # Modify the image URL
+            return Image(
+                url="modified.png",
+                alt_text=node.alt_text,
+                metadata=node.metadata.copy(),
+                source_location=node.source_location
+            )
+
+        result = apply(sample_document, hooks={'image': [modify_image]})
+
+        # Hook should have been called
+        assert hook_called == ["image.png"]
+
+        # Image URL should be modified in AST
+        last_para = result.children[2]
+        image_node = last_para.content[0]
+        assert isinstance(image_node, Image)
+        assert image_node.url == "modified.png"
+
+    def test_apply_with_pipeline_hook(self, sample_document):
+        """Test apply() with pipeline hook."""
+        hook_calls = []
+
+        def pre_render_hook(doc, context):
+            hook_calls.append('pre_render')
+            return doc
+
+        def post_ast_hook(doc, context):
+            hook_calls.append('post_ast')
+            return doc
+
+        result = apply(
+            sample_document,
+            hooks={
+                'post_ast': [post_ast_hook],
+                'pre_render': [pre_render_hook]
+            }
+        )
+
+        # Both hooks should be called
+        assert 'post_ast' in hook_calls
+        assert 'pre_render' in hook_calls
+        assert isinstance(result, Document)
+
+    def test_apply_does_not_execute_post_render_hook(self, sample_document):
+        """Test that apply() does not execute post_render hooks."""
+        hook_calls = []
+
+        def post_render_hook(output, context):
+            hook_calls.append('post_render')
+            return output
+
+        result = apply(
+            sample_document,
+            hooks={'post_render': [post_render_hook]}
+        )
+
+        # post_render should NOT be called since no rendering happens
+        assert 'post_render' not in hook_calls
+        assert isinstance(result, Document)
+
+    def test_apply_with_transforms_and_hooks(self, sample_document):
+        """Test apply() with both transforms and hooks."""
+        hook_calls = []
+
+        def link_hook(node, context):
+            hook_calls.append(node.url)
+            # Modify link URL
+            return Link(
+                url="https://modified.com",
+                content=node.content,
+                title=node.title,
+                metadata=node.metadata.copy(),
+                source_location=node.source_location
+            )
+
+        result = apply(
+            sample_document,
+            transforms=[RemoveImagesTransform()],
+            hooks={'link': [link_hook]}
+        )
+
+        # Image should be removed
+        last_para = result.children[2]
+        assert len(last_para.content) == 0
+
+        # Link should be modified
+        assert hook_calls == ["https://example.com"]
+        second_para = result.children[1]
+        link_node = second_para.content[1]
+        assert isinstance(link_node, Link)
+        assert link_node.url == "https://modified.com"
+
+    def test_apply_chaining(self, sample_document):
+        """Test chaining multiple apply() calls."""
+        # First pass: remove images
+        doc1 = apply(sample_document, transforms=[RemoveImagesTransform()])
+
+        # Second pass: uppercase text
+        doc2 = apply(doc1, transforms=[UppercaseTextTransform()])
+
+        # Check both transformations applied
+        assert isinstance(doc2, Document)
+
+        # Image removed
+        last_para = doc2.children[2]
+        assert len(last_para.content) == 0
+
+        # Text uppercased
+        heading = doc2.children[0]
+        assert heading.content[0].content == "TITLE"
+
+    def test_apply_then_render(self, sample_document):
+        """Test using apply() for AST processing then render() for output."""
+        # Process AST
+        processed = apply(
+            sample_document,
+            transforms=[RemoveImagesTransform(), UppercaseTextTransform()]
+        )
+
+        # Then render
+        markdown = render(processed)
+
+        # Check final output
+        assert isinstance(markdown, str)
+        assert "TITLE" in markdown
+        assert "HELLO" in markdown
+        assert "image.png" not in markdown
+
+    def test_apply_preserves_metadata(self, sample_document):
+        """Test that apply() preserves document metadata."""
+        result = apply(sample_document, transforms=[RemoveImagesTransform()])
+
+        assert result.metadata == {"author": "Test"}
+
+    def test_apply_with_transform_by_name(self, sample_document, registry):
+        """Test apply() with named transform from registry."""
+        metadata = TransformMetadata(
+            name="remove-images",
+            description="Remove images",
+            transformer_class=RemoveImagesTransform
+        )
+        registry.register(metadata)
+
+        result = apply(sample_document, transforms=["remove-images"])
+
+        # Image should be removed
+        last_para = result.children[2]
+        assert len(last_para.content) == 0
+
+    def test_apply_hook_removes_document_raises(self, sample_document):
+        """Test that apply() raises ValueError if hook removes document."""
+        def bad_hook(doc, context):
+            return None  # Remove document
+
+        with pytest.raises(ValueError, match="removed document"):
+            apply(sample_document, hooks={'pre_render': [bad_hook]})

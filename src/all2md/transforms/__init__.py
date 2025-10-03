@@ -61,15 +61,18 @@ Use hooks for element-specific processing:
 
 from __future__ import annotations
 
-# Core classes
-from .hooks import HookCallable, HookContext, HookManager, HookPoint, HookTarget, NodeType
-from .metadata import ParameterSpec, TransformMetadata
-
-# Pipeline
-from .pipeline import HookAwareVisitor, Pipeline, render
-
-# Registry
-from .registry import TransformRegistry, registry
+# Built-in transform metadata (for advanced users)
+from ._builtin_metadata import (
+    ADD_HEADING_IDS_METADATA,
+    ADD_TIMESTAMP_METADATA,
+    HEADING_OFFSET_METADATA,
+    LINK_REWRITER_METADATA,
+    REMOVE_BOILERPLATE_METADATA,
+    REMOVE_IMAGES_METADATA,
+    REMOVE_NODES_METADATA,
+    TEXT_REPLACER_METADATA,
+    WORD_COUNT_METADATA,
+)
 
 # Built-in transforms
 from .builtin import (
@@ -84,18 +87,15 @@ from .builtin import (
     TextReplacerTransform,
 )
 
-# Built-in transform metadata (for advanced users)
-from ._builtin_metadata import (
-    ADD_HEADING_IDS_METADATA,
-    ADD_TIMESTAMP_METADATA,
-    HEADING_OFFSET_METADATA,
-    LINK_REWRITER_METADATA,
-    REMOVE_BOILERPLATE_METADATA,
-    REMOVE_IMAGES_METADATA,
-    REMOVE_NODES_METADATA,
-    TEXT_REPLACER_METADATA,
-    WORD_COUNT_METADATA,
-)
+# Core classes
+from .hooks import HookCallable, HookContext, HookManager, HookPoint, HookTarget, NodeType
+from .metadata import ParameterSpec, TransformMetadata
+
+# Pipeline
+from .pipeline import HookAwareVisitor, Pipeline, apply, render
+
+# Registry
+from .registry import TransformRegistry, registry
 
 # Version info
 __version__ = "0.1.0"
@@ -117,6 +117,7 @@ __all__ = [
     # Pipeline
     "Pipeline",
     "HookAwareVisitor",
+    "apply",
     "render",
     # Built-in Transforms
     "RemoveImagesTransform",
