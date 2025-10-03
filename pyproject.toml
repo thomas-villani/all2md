@@ -41,22 +41,11 @@ html = [
     "chardet>=5.2.0",
     "httpx>=0.28.1",
 ]
-all = [
-    "beautifulsoup4>=4.13.5",
-    "httpx>=0.28.1",
-    "mistune>=3.0.0",
-    "odfpy>=1.4.1",
-    "openpyxl>=3.1.5",
-    "pymupdf>=1.26.4",
-    "pyth3>=0.7",
-    "python-docx>=1.2.0",
-    "python-pptx>=1.0.2",
-    "reportlab>=4.0.0",
-]
+
 dev = [
     "mypy>=1.18.2",
     "pytest>=8.4.2",
-    "ruff>=0.13.1",
+    "ruff>=0.13.3",
     "sphinx>=8.2.3",
     "sphinx-rtd-theme>=3.0.2",
     "sphinx-copybutton>=0.5.2",
@@ -78,13 +67,22 @@ markdown = [
 pdf_render = [
     "reportlab>=4.0.0",
 ]
-html_render = [
-    "jinja2>=3.1.0",
-]
 docx_render = [
     "python-docx>=1.2.0",
 ]
 
+all = [
+    "beautifulsoup4>=4.14.2",
+    "chardet>=5.2.0",
+    "httpx>=0.28.1",
+    "odfpy>=1.4.1",
+    "pymupdf>=1.26.4",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
+    "pyth3>=0.7",
+    "chardet>=5.2.0",
+    "httpx>=0.28.1",
+]
 
 [project.scripts]
 all2md = "all2md.cli:main"

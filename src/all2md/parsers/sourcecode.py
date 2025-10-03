@@ -353,7 +353,7 @@ EXTENSION_TO_LANGUAGE: Dict[str, str] = {
 }
 CONVERTER_METADATA = ConverterMetadata(
     format_name="sourcecode",
-    extensions=EXTENSION_TO_LANGUAGE.keys(),
+    extensions=list(EXTENSION_TO_LANGUAGE.keys()),
     mime_types=[
         "text/plain",
         "text/x-python",

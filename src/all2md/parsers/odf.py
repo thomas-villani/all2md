@@ -24,6 +24,8 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     Strong,
@@ -67,7 +69,7 @@ class OdfToAstConverter(BaseParser):
         self.options: OdfOptions = options
         
         try:
-            from odf.namespaces import DRAWNS, STYLENS, TEXTNS
+            from odf import namespaces
         except ImportError as e:
             raise DependencyError(
                 converter_name="odf",
@@ -77,9 +79,10 @@ class OdfToAstConverter(BaseParser):
         self._list_level = 0
 
         # Namespace constants
-        self.TEXTNS = TEXTNS
-        self.DRAWNS = DRAWNS
-        self.STYLENS = STYLENS
+        self.TEXTNS = namespaces.TEXTNS
+        self.DRAWNS = namespaces.DRAWNS
+        self.STYLENS = namespaces.STYLENS
+        self.MATHNS = getattr(namespaces, "MATHNS", "http://www.w3.org/1998/Math/MathML")
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse ODF document into an AST.
@@ -254,6 +257,12 @@ class OdfToAstConverter(BaseParser):
                     nodes.append(Text(content="\t"))
                 elif qname == (self.TEXTNS, "line-break"):
                     nodes.append(Text(content="\n"))
+                elif qname == (self.MATHNS, "math"):
+                    display = node.getAttribute("display")
+                    mathml = node.toXml()
+                    if display == "block":
+                        continue
+                    nodes.append(MathInline(content=mathml, notation="mathml"))
 
         return nodes
 
@@ -295,11 +304,32 @@ class OdfToAstConverter(BaseParser):
             AST paragraph node
 
         """
+        math_blocks = self._extract_math_blocks(p)
         content = self._process_text_runs(p, doc)
-        if not content:
-            return None
 
-        return Paragraph(content=content)
+        if content:
+            return Paragraph(content=content)
+
+        if math_blocks:
+            if len(math_blocks) == 1:
+                return math_blocks[0]
+            return math_blocks
+
+        return None
+
+    def _extract_math_blocks(self, element: Any) -> list[MathBlock]:
+        blocks: list[MathBlock] = []
+        for node in getattr(element, "childNodes", []):
+            if not hasattr(node, "qname"):
+                continue
+            if node.qname != (self.MATHNS, "math"):
+                continue
+            display = node.getAttribute("display")
+            if display != "block":
+                continue
+            mathml = node.toXml()
+            blocks.append(MathBlock(content=mathml, notation="mathml"))
+        return blocks
 
     def _process_heading(self, h: Any, doc: "odf.opendocument.OpenDocument") -> Heading:
         """Convert heading element to AST Heading.

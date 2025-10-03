@@ -63,8 +63,9 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.options import MarkdownOptions
-from all2md.ast.visitors import NodeVisitor
 from all2md.renderers.base import BaseRenderer
+from all2md.ast.visitors import NodeVisitor
+from all2md.utils.html_utils import render_math_html
 
 
 class MarkdownRenderer(NodeVisitor, BaseRenderer):
@@ -995,16 +996,24 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             Inline math to render
 
         """
+        preferred = self.options.math_mode
+        content, notation = node.get_preferred_representation(preferred)
+
+        if self._flavor.supports_math() and notation == "latex":
+            self._output.append(f"${content}$")
+            return
+
         if self._flavor.supports_math():
-            self._output.append(f"${node.content}$")
+            self._output.append(render_math_html(content, notation, inline=True))
+            return
+
+        mode = self.options.unsupported_inline_mode
+        if mode == "plain":
+            self._output.append(content)
+        elif mode == "force" and notation == "latex":
+            self._output.append(f"${content}$")
         else:
-            mode = self.options.unsupported_inline_mode
-            if mode == "plain":
-                self._output.append(node.content)
-            elif mode == "force":
-                self._output.append(f"${node.content}$")
-            else:
-                self._output.append(f"<code>{node.content}</code>")
+            self._output.append(render_math_html(content, notation, inline=True))
 
     def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
         """Render a FootnoteDefinition node.
@@ -1121,24 +1130,34 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             Math block to render
 
         """
-        if self._flavor.supports_math():
+        preferred = self.options.math_mode
+        content, notation = node.get_preferred_representation(preferred)
+
+        if self._flavor.supports_math() and notation == "latex":
             self._output.append("$$\n")
-            self._output.append(node.content)
-            if not node.content.endswith('\n'):
+            self._output.append(content)
+            if not content.endswith('\n'):
                 self._output.append('\n')
             self._output.append("$$")
-        else:
-            mode = self.options.unsupported_table_mode
-            if mode == "drop":
-                return
-            elif mode == "html":
-                self._output.append(f'<div class="math">\n{node.content}\n</div>')
-            else:
-                self._output.append("$$\n")
-                self._output.append(node.content)
-                if not node.content.endswith('\n'):
-                    self._output.append('\n')
-                self._output.append("$$")
+            return
+
+        if self._flavor.supports_math():
+            self._output.append(render_math_html(content, notation, inline=False))
+            return
+
+        mode = self.options.unsupported_table_mode
+        if mode == "drop":
+            return
+        if mode == "html" or notation != "latex":
+            self._output.append(render_math_html(content, notation, inline=False))
+            return
+
+        # Mode is force or ascii; fall back to latex block fencing
+        self._output.append("$$\n")
+        self._output.append(content)
+        if not content.endswith('\n'):
+            self._output.append('\n')
+        self._output.append("$$")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to markdown and write to output.

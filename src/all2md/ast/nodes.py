@@ -37,6 +37,41 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 
+MathNotation = Literal["latex", "mathml", "html"]
+
+
+def _normalize_math_representations(
+    content: str,
+    notation: MathNotation,
+    representations: dict[MathNotation, str],
+) -> None:
+    if notation not in {"latex", "mathml", "html"}:
+        raise ValueError(f"Unsupported math notation: {notation}")
+    if notation not in representations and content:
+        representations[notation] = content
+
+
+def _select_math_representation(
+    content: str,
+    notation: MathNotation,
+    representations: dict[MathNotation, str],
+    preferred: MathNotation,
+) -> tuple[str, MathNotation]:
+    if preferred in representations:
+        return representations[preferred], preferred
+
+    if preferred == notation:
+        return content, notation
+
+    for fallback in ("latex", "mathml", "html"):
+        if fallback in representations:
+            return representations[fallback], fallback
+        if fallback == notation:
+            return content, notation
+
+    return content, notation
+
+
 @dataclass
 class SourceLocation:
     """Source location information for AST nodes.
@@ -1149,6 +1184,11 @@ class MathInline(Node):
     ----------
     content : str
         LaTeX math content (without delimiters)
+    notation : {"latex", "mathml", "html"}, default "latex"
+        Format of the primary math representation stored in ``content``.
+    representations : dict, default = empty dict
+        Additional representations keyed by notation. The primary notation is
+        automatically registered when missing.
     metadata : dict, default = empty dict
         Math metadata
     source_location : SourceLocation or None, default = None
@@ -1157,6 +1197,8 @@ class MathInline(Node):
     """
 
     content: str
+    notation: MathNotation = "latex"
+    representations: dict[MathNotation, str] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
 
@@ -1175,6 +1217,31 @@ class MathInline(Node):
 
         """
         return visitor.visit_math_inline(self)
+
+    def __post_init__(self) -> None:
+        """Normalize math representations and ensure notation validity."""
+        _normalize_math_representations(self.content, self.notation, self.representations)
+
+    def get_preferred_representation(self, preferred: MathNotation) -> tuple[str, MathNotation]:
+        """Return math content for the requested representation with fallback.
+
+        Parameters
+        ----------
+        preferred : {"latex", "mathml", "html"}
+            Requested representation for rendering
+
+        Returns
+        -------
+        tuple[str, MathNotation]
+            Math content and notation actually provided
+
+        """
+        return _select_math_representation(
+            self.content,
+            self.notation,
+            self.representations,
+            preferred,
+        )
 
 
 # ============================================================================
@@ -1350,6 +1417,11 @@ class MathBlock(Node):
     ----------
     content : str
         LaTeX math content (without delimiters)
+    notation : {"latex", "mathml", "html"}, default "latex"
+        Format of the primary math representation stored in ``content``.
+    representations : dict, default = empty dict
+        Additional representations keyed by notation. The primary notation is
+        automatically registered when missing.
     metadata : dict, default = empty dict
         Math block metadata
     source_location : SourceLocation or None, default = None
@@ -1358,6 +1430,8 @@ class MathBlock(Node):
     """
 
     content: str
+    notation: MathNotation = "latex"
+    representations: dict[MathNotation, str] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
 
@@ -1376,3 +1450,16 @@ class MathBlock(Node):
 
         """
         return visitor.visit_math_block(self)
+
+    def __post_init__(self) -> None:
+        """Normalize math representations and ensure notation validity."""
+        _normalize_math_representations(self.content, self.notation, self.representations)
+
+    def get_preferred_representation(self, preferred: MathNotation) -> tuple[str, MathNotation]:
+        """Return math content for the requested representation with fallback."""
+        return _select_math_representation(
+            self.content,
+            self.notation,
+            self.representations,
+            preferred,
+        )

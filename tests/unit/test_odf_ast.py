@@ -28,6 +28,8 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Paragraph,
     Strong,
     Table,
@@ -62,6 +64,15 @@ def _create_mock_text_node(content):
     node = Mock()
     node.data = content
     node.nodeType = 3  # TEXT_NODE
+    return node
+
+
+def _create_mock_math_node(namespace: str, display: str, xml: str) -> Mock:
+    node = Mock()
+    node.qname = (namespace, "math")
+    node.getAttribute = Mock(return_value=display)
+    node.toXml.return_value = xml
+    node.childNodes = []
     return node
 
 
@@ -477,6 +488,41 @@ class TestEdgeCases:
         text_content = para_node.content[0].content
         assert "<special>" in text_content
         assert "&" in text_content
+
+
+@pytest.mark.unit
+class TestMathHandling:
+    """Tests for ODF math extraction."""
+
+    def test_inline_math_node(self) -> None:
+        converter = OdfToAstConverter()
+        math_node = _create_mock_math_node(
+            converter.MATHNS,
+            "inline",
+            "<math><mi>x</mi></math>",
+        )
+        paragraph = _create_mock_element((TEXTNS, "p"), math_node)
+
+        result = converter._process_text_runs(paragraph, Mock())
+        inline_nodes = [node for node in result if isinstance(node, MathInline)]
+        assert inline_nodes
+        assert inline_nodes[0].notation == "mathml"
+        assert inline_nodes[0].content == "<math><mi>x</mi></math>"
+
+    def test_block_math_node(self) -> None:
+        converter = OdfToAstConverter()
+        math_node = _create_mock_math_node(
+            converter.MATHNS,
+            "block",
+            "<math><mi>y</mi></math>",
+        )
+        paragraph = _create_mock_element((TEXTNS, "p"), math_node)
+
+        blocks = converter._extract_math_blocks(paragraph)
+        assert blocks
+        assert isinstance(blocks[0], MathBlock)
+        assert blocks[0].notation == "mathml"
+        assert blocks[0].content == "<math><mi>y</mi></math>"
 
 
 @pytest.mark.unit

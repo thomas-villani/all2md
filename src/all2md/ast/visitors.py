@@ -789,7 +789,14 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_math_inline(self, node: MathInline) -> None:
         """Validate a MathInline node."""
-        pass
+        valid_notations = {"latex", "mathml", "html"}
+        if node.notation not in valid_notations:
+            self._add_error(f"MathInline uses unsupported notation '{node.notation}'")
+        for notation, value in node.representations.items():
+            if notation not in valid_notations:
+                self._add_error(f"MathInline has invalid representation key '{notation}'")
+            elif not isinstance(value, str):
+                self._add_error("MathInline representations must be strings")
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Validate a FootnoteDefinition node."""
@@ -817,4 +824,11 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_math_block(self, node: MathBlock) -> None:
         """Validate a MathBlock node."""
-        pass
+        valid_notations = {"latex", "mathml", "html"}
+        if node.notation not in valid_notations:
+            self._add_error(f"MathBlock uses unsupported notation '{node.notation}'")
+        for notation, value in node.representations.items():
+            if notation not in valid_notations:
+                self._add_error(f"MathBlock has invalid representation key '{notation}'")
+            elif not isinstance(value, str):
+                self._add_error("MathBlock representations must be strings")

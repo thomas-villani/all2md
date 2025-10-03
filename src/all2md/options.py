@@ -108,6 +108,7 @@ from .constants import (
     EmphasisSymbol,
     FlavorType,
     LinkStyleType,
+    MathMode,
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
@@ -115,6 +116,7 @@ from .constants import (
     UnsupportedTableMode,
     DEFAULT_FLAVOR,
     DEFAULT_INCLUDE_METADATA_FRONTMATTER,
+    DEFAULT_MATH_MODE,
 )
 
 
@@ -212,6 +214,11 @@ class MarkdownOptions(BaseRendererOptions):
         - "reference": [text][ref] style with reference definitions at end
     table_pipe_escape : bool, default True
         Whether to escape pipe characters (|) in table cell content.
+    math_mode : {"latex", "mathml", "html"}, default "latex"
+        Preferred math representation for flavors that support math. When the
+        requested representation is unavailable on a node, the renderer falls
+        back to any available representation while preserving flavor
+        constraints.
     """
 
     escape_special: bool = field(
@@ -358,6 +365,13 @@ class MarkdownOptions(BaseRendererOptions):
         metadata={
             "help": "Escape pipe characters in table cells",
             "cli_name": "no-table-pipe-escape"
+        }
+    )
+    math_mode: MathMode = field(
+        default=DEFAULT_MATH_MODE,  # type: ignore[arg-type]
+        metadata={
+            "help": "Preferred math representation: latex, mathml, or html",
+            "choices": ["latex", "mathml", "html"]
         }
     )
     metadata_frontmatter: bool = field(
@@ -1371,7 +1385,9 @@ class PptxOptions(BaseParserOptions):
     )
     charts_mode: str = field(
         default="data",
-        metadata={"help": "Chart conversion mode: 'data' (tables), 'image' (screenshots), or 'both'"}
+        metadata={
+            "help": "Chart conversion mode: 'data' (tables), 'image' (screenshots), 'mermaid', or 'both'"
+        }
     )
     include_titles_as_h2: bool = field(
         default=True,

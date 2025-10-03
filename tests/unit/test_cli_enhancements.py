@@ -105,7 +105,9 @@ class TestListFormatsCommand:
         mock_metadata.description = "PDF converter"
         mock_metadata.extensions = ['.pdf']
         mock_metadata.mime_types = ['application/pdf']
-        mock_metadata.converter_module = "all2md.parsers.pdf2markdown"
+        mock_metadata.parser_class = "PdfParser"
+        mock_metadata.renderer_class = "MarkdownRenderer"
+        mock_metadata.get_converter_display_string = Mock(return_value="Parser: all2md.parsers.pdf.PdfParser | Renderer: all2md.renderers.markdown.MarkdownRenderer")
         mock_metadata.priority = 100
         mock_metadata.required_packages = []
 
@@ -127,7 +129,9 @@ class TestListFormatsCommand:
         mock_metadata.description = "PDF converter"
         mock_metadata.extensions = ['.pdf']
         mock_metadata.mime_types = ['application/pdf']
-        mock_metadata.converter_module = "all2md.parsers.pdf2markdown"
+        mock_metadata.parser_class = "PdfParser"
+        mock_metadata.renderer_class = "MarkdownRenderer"
+        mock_metadata.get_converter_display_string = Mock(return_value="Parser: all2md.parsers.pdf.PdfParser | Renderer: all2md.renderers.markdown.MarkdownRenderer")
         mock_metadata.priority = 100
         # required_packages is a list of (install_name, import_name, version_spec) tuples
         mock_metadata.required_packages = [("pymupdf", "fitz", ">=1.24.0")]

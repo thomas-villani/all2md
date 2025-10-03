@@ -329,6 +329,8 @@ class NodeTransformer(NodeVisitor):
         """Transform a MathInline node."""
         return MathInline(
             content=node.content,
+            notation=node.notation,
+            representations=node.representations.copy(),
             metadata=node.metadata.copy(),
             source_location=node.source_location
         )
@@ -377,6 +379,8 @@ class NodeTransformer(NodeVisitor):
         """Transform a MathBlock node."""
         return MathBlock(
             content=node.content,
+            notation=node.notation,
+            representations=node.representations.copy(),
             metadata=node.metadata.copy(),
             source_location=node.source_location
         )

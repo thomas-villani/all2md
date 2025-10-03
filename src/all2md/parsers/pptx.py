@@ -33,6 +33,7 @@ from all2md.ast import (
     Image,
     List,
     ListItem,
+    CodeBlock,
     Node,
     Paragraph as AstParagraph,
     Strong,
@@ -266,7 +267,7 @@ class PptxToAstConverter(BaseParser):
         # For other shapes, skip or handle as needed
         return None
 
-    def _process_chart_to_ast(self, chart) -> AstTable | None:
+    def _process_chart_to_ast(self, chart) -> Node | list[Node] | None:
         """Process a PPTX chart to AST Table node.
 
         Parameters
@@ -282,131 +283,115 @@ class PptxToAstConverter(BaseParser):
         """
         from pptx.enum.chart import XL_CHART_TYPE
 
-        # Check if this is a scatter plot (XY chart)
         try:
             chart_type = chart.chart_type
-            is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER
         except Exception:
-            is_scatter = False
+            chart_type = None
+
+        is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER if chart_type is not None else False
+        mode = (self.options.charts_mode or "data").lower()
+
+        table_node: AstTable | None = None
+        mermaid_code: str | None = None
 
         if is_scatter:
-            # Process scatter plot as X/Y table
-            return self._process_scatter_chart_to_table(chart)
+            scatter_data = self._extract_scatter_chart_data(chart)
+            if mode in {"data", "both"}:
+                table_node = self._scatter_data_to_table(scatter_data)
+            if mode in {"mermaid", "both"}:
+                mermaid_code = self._scatter_chart_to_mermaid(chart, scatter_data)
+            if mode == "data" and table_node is None:
+                table_node = self._scatter_data_to_table(scatter_data)
         else:
-            # Process standard chart as category/series table
-            return self._process_standard_chart_to_table(chart)
+            categories, series_rows = self._extract_standard_chart_data(chart)
+            if mode in {"data", "both"}:
+                table_node = self._standard_data_to_table(categories, series_rows)
+            if mode in {"mermaid", "both"}:
+                mermaid_code = self._standard_chart_to_mermaid(chart, chart_type, categories, series_rows)
+            if mode == "data" and table_node is None:
+                table_node = self._standard_data_to_table(categories, series_rows)
 
-    def _process_scatter_chart_to_table(self, chart) -> AstTable | None:
-        """Process scatter plot to AST Table with X/Y rows.
+        mermaid_node: CodeBlock | None = None
+        if mermaid_code:
+            mermaid_node = CodeBlock(content=mermaid_code, language="mermaid")
 
-        For each series, creates two rows (X and Y values) with point numbers as columns.
+        output_nodes: list[Node] = []
 
-        Parameters
-        ----------
-        chart : Chart
-            PPTX scatter chart
+        if table_node and mode in {"data", "both"}:
+            output_nodes.append(table_node)
+        if mermaid_node and mode in {"mermaid", "both"}:
+            output_nodes.append(mermaid_node)
 
-        Returns
-        -------
-        AstTable or None
-            Table with X/Y rows for each series
+        if not output_nodes:
+            # Fallback to any available representation
+            if mermaid_node:
+                output_nodes.append(mermaid_node)
+            elif table_node:
+                output_nodes.append(table_node)
+            else:
+                return None
 
-        """
-        all_rows: list[TableRow] = []
-        max_points = 0
+        if len(output_nodes) == 1:
+            return output_nodes[0]
+        return output_nodes
 
-        # First pass: collect all series data and determine max points
-        series_data: list[tuple[str, list[float], list[float]]] = []
+    def _extract_scatter_chart_data(self, chart) -> list[tuple[str, list[float], list[float]]]:
+        data: list[tuple[str, list[float], list[float]]] = []
 
         for series in chart.series:
             try:
                 x_values: list[float] = []
                 y_values: list[float] = []
 
-                # Try to extract X and Y values from series XML
                 if hasattr(series, '_element'):
                     element = series._element
                     ns = {'c': 'http://schemas.openxmlformats.org/drawingml/2006/chart'}
 
-                    # Extract X values
                     x_val_ref = element.find('.//c:xVal', ns)
                     if x_val_ref is not None:
                         num_cache = x_val_ref.find('.//c:numCache', ns)
                         if num_cache is not None:
-                            pt_elements = num_cache.findall('.//c:pt', ns)
-                            for pt in pt_elements:
+                            for pt in num_cache.findall('.//c:pt', ns):
                                 v_element = pt.find('c:v', ns)
                                 if v_element is not None and v_element.text:
-                                    x_values.append(float(v_element.text))
+                                    try:
+                                        x_values.append(float(v_element.text))
+                                    except ValueError:
+                                        continue
 
-                    # Extract Y values
                     y_val_ref = element.find('.//c:yVal', ns)
                     if y_val_ref is not None:
                         num_cache = y_val_ref.find('.//c:numCache', ns)
                         if num_cache is not None:
-                            pt_elements = num_cache.findall('.//c:pt', ns)
-                            for pt in pt_elements:
+                            for pt in num_cache.findall('.//c:pt', ns):
                                 v_element = pt.find('c:v', ns)
                                 if v_element is not None and v_element.text:
-                                    y_values.append(float(v_element.text))
+                                    try:
+                                        y_values.append(float(v_element.text))
+                                    except ValueError:
+                                        continue
 
-                # Only add if we have both X and Y values of equal length
                 if x_values and y_values and len(x_values) == len(y_values):
-                    series_data.append((series.name or "Series", x_values, y_values))
-                    max_points = max(max_points, len(x_values))
+                    data.append((series.name or "Series", x_values, y_values))
                 elif hasattr(series, 'values') and series.values:
-                    # Fallback: use Y values only with sequential X values
-                    y_values = list(series.values)
-                    x_values = list(range(len(y_values)))
-                    series_data.append((series.name or "Series", x_values, y_values))
-                    max_points = max(max_points, len(y_values))
-
+                    y_values = [float(v) for v in series.values if v is not None]
+                    if y_values:
+                        x_values = list(range(len(y_values)))
+                        data.append((series.name or "Series", x_values, y_values))
             except Exception:
-                # Skip series that can't be processed
                 continue
 
+        return data
+
+    def _process_scatter_chart_to_table(self, chart) -> AstTable | None:
+        """Process scatter plot to AST Table with X/Y rows."""
+        series_data = self._extract_scatter_chart_data(chart)
         if not series_data:
             return None
 
-        # Create header row with point numbers
-        header_cells = [TableCell(content=[Text(content="Series")])]
-        for i in range(max_points):
-            header_cells.append(TableCell(content=[Text(content=f"Point {i+1}")]))
-        header_row = TableRow(cells=header_cells, is_header=True)
+        return self._scatter_data_to_table(series_data)
 
-        # Create data rows (X and Y for each series)
-        for series_name, x_values, y_values in series_data:
-            # X row
-            x_cells = [TableCell(content=[Text(content=f"{series_name} X")])]
-            for val in x_values:
-                x_cells.append(TableCell(content=[Text(content=str(val))]))
-            all_rows.append(TableRow(cells=x_cells))
-
-            # Y row
-            y_cells = [TableCell(content=[Text(content=f"{series_name} Y")])]
-            for val in y_values:
-                y_cells.append(TableCell(content=[Text(content=str(val))]))
-            all_rows.append(TableRow(cells=y_cells))
-
-        return AstTable(header=header_row, rows=all_rows)
-
-    def _process_standard_chart_to_table(self, chart) -> AstTable | None:
-        """Process standard chart (bar, column, line, pie) to AST Table.
-
-        Creates table with categories as columns and series as rows.
-
-        Parameters
-        ----------
-        chart : Chart
-            PPTX chart (non-scatter)
-
-        Returns
-        -------
-        AstTable or None
-            Table with categories as headers and series as rows
-
-        """
-        # Extract categories (x-axis)
+    def _extract_standard_chart_data(self, chart) -> tuple[list[str], list[tuple[str, list[Any]]]]:
         categories: list[str] = []
         try:
             if hasattr(chart, 'plots') and chart.plots:
@@ -416,9 +401,8 @@ class PptxToAstConverter(BaseParser):
                     if hasattr(cat, "label") or cat
                 ]
         except Exception:
-            pass
+            categories = []
 
-        # Extract series data
         series_rows: list[tuple[str, list[Any]]] = []
         for series in chart.series:
             try:
@@ -427,42 +411,298 @@ class PptxToAstConverter(BaseParser):
                     series_name = series.name or "Series"
                     series_rows.append((series_name, values))
             except Exception:
-                # Skip series that can't be processed
                 continue
+
+        return categories, series_rows
+
+    def _process_standard_chart_to_table(self, chart) -> AstTable | None:
+        """Process standard chart (bar, column, line, pie) to AST Table."""
+        categories, series_rows = self._extract_standard_chart_data(chart)
 
         if not series_rows:
             return None
 
-        # Determine number of columns from data
-        num_cols = max(len(values) for _, values in series_rows) if series_rows else 0
+        return self._standard_data_to_table(categories, series_rows)
 
+    def _scatter_data_to_table(
+        self,
+        series_data: list[tuple[str, list[float], list[float]]],
+    ) -> AstTable | None:
+        if not series_data:
+            return None
+
+        max_points = max((len(x_vals) for _, x_vals, _ in series_data), default=0)
+        if max_points == 0:
+            return None
+
+        header_cells = [TableCell(content=[Text(content="Series")])]
+        for i in range(max_points):
+            header_cells.append(TableCell(content=[Text(content=f"Point {i+1}")]))
+        header_row = TableRow(cells=header_cells, is_header=True)
+
+        all_rows: list[TableRow] = []
+        for series_name, x_values, y_values in series_data:
+            x_cells = [TableCell(content=[Text(content=f"{series_name} X")])]
+            for val in x_values:
+                x_cells.append(TableCell(content=[Text(content=self._format_scalar(val))]))
+            all_rows.append(TableRow(cells=x_cells))
+
+            y_cells = [TableCell(content=[Text(content=f"{series_name} Y")])]
+            for val in y_values:
+                y_cells.append(TableCell(content=[Text(content=self._format_scalar(val))]))
+            all_rows.append(TableRow(cells=y_cells))
+
+        return AstTable(header=header_row, rows=all_rows)
+
+    def _standard_data_to_table(
+        self,
+        categories: list[str],
+        series_rows: list[tuple[str, list[Any]]],
+    ) -> AstTable | None:
+        if not series_rows:
+            return None
+
+        num_cols = max((len(values) for _, values in series_rows), default=0)
         if num_cols == 0:
             return None
 
-        # Create header row
         header_cells = [TableCell(content=[Text(content="Category")])]
         if categories and len(categories) == num_cols:
-            # Use actual category names
             for cat in categories:
                 header_cells.append(TableCell(content=[Text(content=str(cat))]))
         else:
-            # Use generic column numbers
             for i in range(num_cols):
                 header_cells.append(TableCell(content=[Text(content=f"Col {i+1}")]))
 
         header_row = TableRow(cells=header_cells, is_header=True)
 
-        # Create data rows for each series
         data_rows: list[TableRow] = []
         for series_name, values in series_rows:
             row_cells = [TableCell(content=[Text(content=series_name)])]
             for val in values:
-                # Convert value to string, handling None
-                val_str = str(val) if val is not None else ""
+                val_str = "" if val is None else str(val)
                 row_cells.append(TableCell(content=[Text(content=val_str)]))
             data_rows.append(TableRow(cells=row_cells))
 
         return AstTable(header=header_row, rows=data_rows)
+
+    def _scatter_chart_to_mermaid(
+        self,
+        chart,
+        series_data: list[tuple[str, list[float], list[float]]],
+    ) -> str | None:
+        if not series_data:
+            return None
+
+        x_all: list[float] = []
+        y_all: list[float] = []
+        series_lines: list[str] = []
+
+        for series_name, x_values, y_values in series_data:
+            pairs: list[str] = []
+            for x_val, y_val in zip(x_values, y_values):
+                x_num = self._coerce_float(x_val)
+                y_num = self._coerce_float(y_val)
+                if x_num is None or y_num is None:
+                    continue
+                x_all.append(x_num)
+                y_all.append(y_num)
+                pairs.append(f"({self._format_axis_value(x_num)}, {self._format_axis_value(y_num)})")
+
+            if pairs:
+                series_lines.append(
+                    f'  scatter "{self._escape_mermaid_text(series_name)}" [{", ".join(pairs)}]'
+                )
+
+        if not series_lines:
+            return None
+
+        x_axis_label = self._get_axis_title(getattr(chart, 'category_axis', None)) or "X"
+        y_axis_label = self._get_axis_title(getattr(chart, 'value_axis', None)) or "Y"
+
+        x_min = min(x_all) if x_all else None
+        x_max = max(x_all) if x_all else None
+        y_min = min(y_all) if y_all else None
+        y_max = max(y_all) if y_all else None
+
+        if x_min is None or x_max is None or y_min is None or y_max is None:
+            return None
+
+        lines: list[str] = ["xychart-beta"]
+        title = self._get_chart_title(chart)
+        if title:
+            lines.append(f'  title "{self._escape_mermaid_text(title)}"')
+
+        lines.append(
+            f'  x-axis "{self._escape_mermaid_text(x_axis_label)}" '
+            f'{self._format_axis_value(x_min)} --> {self._format_axis_value(x_max)}'
+        )
+        lines.append(
+            f'  y-axis "{self._escape_mermaid_text(y_axis_label)}" '
+            f'{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}'
+        )
+        lines.extend(series_lines)
+
+        return "\n".join(lines)
+
+    def _standard_chart_to_mermaid(
+        self,
+        chart,
+        chart_type,
+        categories: list[str],
+        series_rows: list[tuple[str, list[Any]]],
+    ) -> str | None:
+        if not series_rows:
+            return None
+
+        mermaid_series_type = self._map_chart_type_to_mermaid(chart_type)
+        if mermaid_series_type is None:
+            return None
+
+        max_cols = max((len(values) for _, values in series_rows), default=0)
+        if max_cols == 0:
+            return None
+
+        if categories and len(categories) == max_cols:
+            x_labels = [self._escape_mermaid_text(str(label)) for label in categories]
+        else:
+            x_labels = [f"Col {i+1}" for i in range(max_cols)]
+
+        numeric_values: list[float] = []
+        for _, values in series_rows:
+            for value in values:
+                numeric = self._coerce_float(value)
+                if numeric is not None:
+                    numeric_values.append(numeric)
+
+        y_axis_label = self._get_axis_title(getattr(chart, 'value_axis', None)) or "Value"
+        y_min = min(numeric_values) if numeric_values else None
+        y_max = max(numeric_values) if numeric_values else None
+
+        lines: list[str] = ["xychart-beta"]
+        title = self._get_chart_title(chart)
+        if title:
+            lines.append(f'  title "{self._escape_mermaid_text(title)}"')
+
+        x_axis_list = ", ".join(f'"{label}"' for label in x_labels)
+        lines.append(f"  x-axis [{x_axis_list}]")
+
+        if y_min is not None and y_max is not None and y_min != y_max:
+            lines.append(
+                f'  y-axis "{self._escape_mermaid_text(y_axis_label)}" '
+                f'{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}'
+            )
+
+        for series_name, values in series_rows:
+            series_label = self._escape_mermaid_text(series_name)
+            formatted_values = [self._format_mermaid_number(val) for val in values]
+            # Pad values to match axis length
+            if len(formatted_values) < max_cols:
+                formatted_values.extend(["null"] * (max_cols - len(formatted_values)))
+            lines.append(
+                f'  {mermaid_series_type} "{series_label}" '
+                f"[{', '.join(formatted_values)}]"
+            )
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _map_chart_type_to_mermaid(chart_type: Any) -> str | None:
+        if chart_type is None:
+            return None
+
+        from pptx.enum.chart import XL_CHART_TYPE
+
+        bar_types = {
+            XL_CHART_TYPE.COLUMN_CLUSTERED,
+            XL_CHART_TYPE.COLUMN_STACKED,
+            XL_CHART_TYPE.COLUMN_STACKED_100,
+            XL_CHART_TYPE.BAR_CLUSTERED,
+            XL_CHART_TYPE.BAR_STACKED,
+            XL_CHART_TYPE.BAR_STACKED_100,
+        }
+
+        line_types = {
+            XL_CHART_TYPE.LINE,
+            XL_CHART_TYPE.LINE_MARKERS,
+            XL_CHART_TYPE.LINE_STACKED,
+            XL_CHART_TYPE.LINE_STACKED_100,
+        }
+
+        area_types = {
+            XL_CHART_TYPE.AREA,
+            XL_CHART_TYPE.AREA_STACKED,
+            XL_CHART_TYPE.AREA_STACKED_100,
+        }
+
+        if chart_type in bar_types:
+            return "bar"
+        if chart_type in line_types:
+            return "line"
+        if chart_type in area_types:
+            return "area"
+
+        return None
+
+    @staticmethod
+    def _get_chart_title(chart) -> str | None:
+        try:
+            if hasattr(chart, 'has_title') and chart.has_title and chart.chart_title:
+                text_frame = chart.chart_title.text_frame
+                if text_frame and text_frame.text:
+                    return text_frame.text.strip()
+        except Exception:
+            return None
+        return None
+
+    @staticmethod
+    def _get_axis_title(axis) -> str | None:
+        if axis is None:
+            return None
+        try:
+            if getattr(axis, 'has_title', False) and axis.axis_title:
+                text_frame = axis.axis_title.text_frame
+                if text_frame and text_frame.text:
+                    return text_frame.text.strip()
+        except Exception:
+            return None
+        return None
+
+    @staticmethod
+    def _escape_mermaid_text(text: str) -> str:
+        return str(text).replace('"', '\\"')
+
+    @staticmethod
+    def _coerce_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _format_axis_value(value: float) -> str:
+        if float(value).is_integer():
+            return str(int(round(value)))
+        return f"{float(value):.6g}"
+
+    def _format_mermaid_number(self, value: Any) -> str:
+        numeric = self._coerce_float(value)
+        if numeric is None:
+            return "null"
+        return self._format_axis_value(numeric)
+
+    @staticmethod
+    def _format_scalar(value: Any) -> str:
+        numeric = PptxToAstConverter._coerce_float(value)
+        if numeric is None:
+            return str(value)
+        if float(numeric).is_integer():
+            return str(int(round(numeric)))
+        return f"{float(numeric):.6g}"
 
     def _process_text_frame_to_ast(self, frame: "TextFrame") -> list[Node] | None:
         """Process a text frame to AST nodes.

@@ -233,6 +233,72 @@ class ConverterMetadata:
         else:
             return self.required_packages
 
+    def get_parser_display_name(self) -> str:
+        """Get friendly display name for the parser class.
+
+        Returns
+        -------
+        str
+            Display name for parser class
+        """
+        if self.parser_class is None:
+            return "N/A"
+
+        # If it's a type (class reference), extract module and name
+        if isinstance(self.parser_class, type):
+            module = self.parser_class.__module__
+            name = self.parser_class.__qualname__
+            return f"{module}.{name}"
+
+        # If it's a string
+        if isinstance(self.parser_class, str):
+            # If fully qualified (has dot), use as-is
+            if "." in self.parser_class:
+                return self.parser_class
+            # If simple class name, construct full path
+            return f"all2md.parsers.{self.format_name}.{self.parser_class}"
+
+        return str(self.parser_class)
+
+    def get_renderer_display_name(self) -> str:
+        """Get friendly display name for the renderer class.
+
+        Returns
+        -------
+        str
+            Display name for renderer class
+        """
+        if self.renderer_class is None:
+            return "N/A"
+
+        # If it's a type (class reference), extract module and name
+        if isinstance(self.renderer_class, type):
+            module = self.renderer_class.__module__
+            name = self.renderer_class.__qualname__
+            return f"{module}.{name}"
+
+        # If it's a string
+        if isinstance(self.renderer_class, str):
+            # If fully qualified (has dot), use as-is
+            if "." in self.renderer_class:
+                return self.renderer_class
+            # If simple class name, construct full path
+            return f"all2md.renderers.{self.format_name}.{self.renderer_class}"
+
+        return str(self.renderer_class)
+
+    def get_converter_display_string(self) -> str:
+        """Get combined display string showing both parser and renderer.
+
+        Returns
+        -------
+        str
+            Combined display string in format "Parser: X | Renderer: Y"
+        """
+        parser_name = self.get_parser_display_name()
+        renderer_name = self.get_renderer_display_name()
+        return f"Parser: {parser_name} | Renderer: {renderer_name}"
+
 # TODO: implement or remove.
 @dataclass
 class ConverterCapabilities:

@@ -53,6 +53,8 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     SourceLocation,
@@ -94,6 +96,8 @@ _NODE_TYPE_MAP = {
     "Superscript": Superscript,
     "Subscript": Subscript,
     "HTMLInline": HTMLInline,
+    "MathInline": MathInline,
+    "MathBlock": MathBlock,
     "SourceLocation": SourceLocation,
 }
 
@@ -234,6 +238,24 @@ def ast_to_dict(node: Node | SourceLocation) -> dict[str, Any]:
 
     elif isinstance(node, (Emphasis, Strong, Strikethrough, Underline, Superscript, Subscript)):
         result["content"] = [ast_to_dict(child) for child in node.content]
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, MathInline):
+        result["content"] = node.content
+        result["notation"] = node.notation
+        if node.representations:
+            result["representations"] = node.representations
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, MathBlock):
+        result["content"] = node.content
+        result["notation"] = node.notation
+        if node.representations:
+            result["representations"] = node.representations
         result["metadata"] = node.metadata
         if node.source_location:
             result["source_location"] = ast_to_dict(node.source_location)
@@ -466,6 +488,24 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
 
     elif node_type == "HTMLInline":
         return HTMLInline(content=data["content"], metadata=metadata, source_location=source_location)
+
+    elif node_type == "MathInline":
+        return MathInline(
+            content=data.get("content", ""),
+            notation=data.get("notation", "latex"),
+            representations=data.get("representations", {}).copy(),
+            metadata=metadata,
+            source_location=source_location,
+        )
+
+    elif node_type == "MathBlock":
+        return MathBlock(
+            content=data.get("content", ""),
+            notation=data.get("notation", "latex"),
+            representations=data.get("representations", {}).copy(),
+            metadata=metadata,
+            source_location=source_location,
+        )
 
     raise ValueError(f"Unhandled node type in deserialization: {node_type}")
 

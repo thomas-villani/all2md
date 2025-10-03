@@ -18,12 +18,15 @@ Tests cover:
 from pathlib import Path
 
 import docx
+from docx.oxml import parse_xml
 import pytest
 
 from all2md.ast import (
     BlockQuote,
     Document,
     Emphasis,
+    MathBlock,
+    MathInline,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -47,6 +50,9 @@ from all2md.options import DocxOptions
 
 FIXTURE_FOOTNOTES_DOC = (
     Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "footnotes-endnotes-comments.docx"
+)
+FIXTURE_MATH_DOC = (
+    Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "math-basic.docx"
 )
 
 
@@ -130,6 +136,34 @@ class TestBasicElements:
         assert len(ast_doc.children) == 2
         assert ast_doc.children[0].content[0].content == "First"
         assert ast_doc.children[1].content[0].content == "Second"
+
+    def test_inline_math_extraction(self) -> None:
+        """Inline OMML equations should become MathInline nodes."""
+        doc = docx.Document()
+        paragraph = doc.add_paragraph()
+        paragraph.add_run("Inline ")
+        math_run = paragraph.add_run()
+        math_element = parse_xml(
+            '<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+            "<m:r><m:t>x</m:t></m:r>"
+            "</m:oMath>"
+        )
+        math_run._element.append(math_element)
+        paragraph.add_run(" equals three")
+
+        converter = DocxToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
+
+        assert isinstance(ast_doc.children[0], Paragraph)
+        para = ast_doc.children[0]
+        assert any(isinstance(node, MathInline) for node in para.content)
+
+        texts = [node for node in para.content if isinstance(node, Text)]
+        assert texts[0].content == "Inline "
+        math_nodes = [node for node in para.content if isinstance(node, MathInline)]
+        assert math_nodes[0].content == "x"
+        assert math_nodes[0].notation == "latex"
+        assert math_nodes[0].representations["latex"] == "x"
 
 
 @pytest.mark.unit
@@ -716,3 +750,21 @@ class TestComments:
 
         blockquotes = [node for node in ast_doc.children if isinstance(node, BlockQuote)]
         assert not blockquotes, "Inline comments should not append trailing blockquotes"
+
+@pytest.mark.unit
+class TestMathExtraction:
+    """Tests for DOCX math conversion."""
+
+    def test_math_block_from_fixture(self) -> None:
+        """Math blocks should convert to MathBlock nodes with LaTeX content."""
+        converter = DocxToAstConverter()
+        ast_doc = converter.parse(FIXTURE_MATH_DOC)
+
+        math_nodes = extract_nodes(ast_doc, MathBlock)
+        assert math_nodes, "Expected at least one MathBlock from math fixture"
+
+        content = math_nodes[0].content.replace(" ", "")
+        assert content.startswith("e^{πi}")
+        assert "=-1" in content
+        assert math_nodes[0].notation == "latex"
+        assert math_nodes[0].representations["latex"].replace(" ", "") == content

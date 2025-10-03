@@ -30,6 +30,8 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     MarkdownRenderer,
     Paragraph,
     Strikethrough,
@@ -74,6 +76,53 @@ class TestBasicRendering:
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
         assert result == "First paragraph\n\nSecond paragraph"
+
+
+@pytest.mark.unit
+class TestMathRendering:
+    """Tests for math rendering options."""
+
+    def test_inline_math_default_latex(self) -> None:
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        renderer = MarkdownRenderer(MarkdownOptions(flavor="gfm"))
+        result = renderer.render_to_string(doc)
+        assert "$x^2$" in result
+
+    def test_inline_math_mathml_option(self) -> None:
+        doc = Document(children=[
+            Paragraph(content=[
+                MathInline(
+                    content="x^2",
+                    notation="latex",
+                    representations={"mathml": "<math><msup><mi>x</mi><mn>2</mn></msup></math>"},
+                )
+            ])
+        ])
+        renderer = MarkdownRenderer(MarkdownOptions(math_mode="mathml"))
+        result = renderer.render_to_string(doc)
+        assert '<span class="math math-inline" data-notation="mathml">' in result
+
+    def test_inline_math_commonmark_html_fallback(self) -> None:
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        renderer = MarkdownRenderer(MarkdownOptions(flavor="commonmark"))
+        result = renderer.render_to_string(doc)
+        assert '<span class="math math-inline" data-notation="latex">' in result
+
+    def test_block_math_mathml_mode(self) -> None:
+        doc = Document(children=[
+            MathBlock(
+                content="x^2",
+                notation="latex",
+                representations={"mathml": "<math><msup><mi>x</mi><mn>2</mn></msup></math>"},
+            )
+        ])
+        renderer = MarkdownRenderer(MarkdownOptions(math_mode="mathml"))
+        result = renderer.render_to_string(doc)
+        assert '<div class="math math-block" data-notation="mathml">' in result
 
 
 @pytest.mark.unit

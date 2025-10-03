@@ -77,6 +77,8 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph as AstParagraph,
     Strikethrough,
@@ -106,6 +108,8 @@ WORD_ENDNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}endnoteReference"
 WORD_COMMENT_REFERENCE_TAG = f"{WORD_TAG_PREFIX}commentReference"
 WORD_COMMENT_RANGE_START_TAG = f"{WORD_TAG_PREFIX}commentRangeStart"
 WORD_COMMENT_RANGE_END_TAG = f"{WORD_TAG_PREFIX}commentRangeEnd"
+MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+MATH_TAG_PREFIX = f"{{{MATH_NS}}}"
 
 
 class DocxToAstConverter(BaseParser):
@@ -366,11 +370,6 @@ class DocxToAstConverter(BaseParser):
             Resulting AST node(s)
 
         """
-        # Skip empty paragraphs
-        text = paragraph.text.strip()
-        if not text:
-            return None
-
         # Handle heading styles
         style_name = paragraph.style.name if paragraph.style else ""
         heading_match = re.match(r"Heading (\d+)", style_name)
@@ -387,18 +386,38 @@ class DocxToAstConverter(BaseParser):
             # We'll accumulate list items and return them when list ends
             return self._process_list_item_paragraph(paragraph, list_type, level)
 
+        math_blocks = self._extract_math_blocks_from_paragraph(paragraph)
+
         # Not a list - clear list stack and return any accumulated list
         if self._list_stack:
             accumulated_list = self._finalize_current_list()
             self._list_stack = []
-            # Return the accumulated list and the current paragraph
             content = self._process_paragraph_runs_to_inline(paragraph)
-            return [accumulated_list, AstParagraph(content=content)]
+            nodes: list[Node] = []
+            if accumulated_list:
+                nodes.append(accumulated_list)
+            if content:
+                nodes.append(AstParagraph(content=content))
+            if math_blocks:
+                nodes.extend(math_blocks)
+            if not nodes:
+                return None
+            if len(nodes) == 1:
+                return nodes[0]
+            return nodes
 
         # Regular paragraph
         content = self._process_paragraph_runs_to_inline(paragraph)
         if content:
+            if math_blocks:
+                return [AstParagraph(content=content), *math_blocks]
             return AstParagraph(content=content)
+
+        if math_blocks:
+            if len(math_blocks) == 1:
+                return math_blocks[0]
+            return math_blocks
+
         return None
 
     def _process_list_item_paragraph(
@@ -549,6 +568,12 @@ class DocxToAstConverter(BaseParser):
                 current_format = format_key
                 current_url = url
 
+            math_nodes = self._extract_math_from_run(run_to_parse)
+            if math_nodes:
+                flush_group()
+                result.extend(math_nodes)
+                continue
+
             note_nodes = self._extract_note_reference_nodes(run_to_parse)
             comment_nodes = self._extract_comment_reference_nodes(run_to_parse)
             if note_nodes or comment_nodes:
@@ -569,6 +594,37 @@ class DocxToAstConverter(BaseParser):
 
         flush_group()
         return result
+
+    def _extract_math_blocks_from_paragraph(self, paragraph: "Paragraph") -> list[MathBlock]:
+        if not hasattr(paragraph, "_element"):
+            return []
+
+        blocks: list[MathBlock] = []
+        for child in paragraph._element:
+            tag = getattr(child, "tag", None)
+            if not isinstance(tag, str):
+                continue
+            if _omml_local_name(tag) != "oMathPara":
+                continue
+            latex = _omml_to_latex(child)
+            if latex:
+                blocks.append(MathBlock(content=latex))
+        return blocks
+
+    def _extract_math_from_run(self, run: Any) -> list[MathInline]:
+        element = getattr(run, "_element", None)
+        if element is None:
+            return []
+
+        nodes: list[MathInline] = []
+        for math_elem in element.findall(f".//{MATH_TAG_PREFIX}oMath"):
+            parent = getattr(math_elem, "getparent", lambda: None)()
+            if parent is not None and _omml_local_name(getattr(parent, "tag", "")) == "oMathPara":
+                continue
+            latex = _omml_to_latex(math_elem)
+            if latex:
+                nodes.append(MathInline(content=latex))
+        return nodes
 
     def _build_formatted_inline_node(
         self,
@@ -1187,6 +1243,121 @@ def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" = N
     return None, 0
 
 
+def _omml_local_name(tag: str | None) -> str:
+    if not tag:
+        return ""
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag
+
+
+def _iter_omml_children(element: Any) -> list[Any]:
+    children: list[Any] = []
+    iterator = getattr(element, "__iter__", None)
+    if iterator is None:
+        return children
+    for child in iterator():
+        tag = getattr(child, "tag", None)
+        if not isinstance(tag, str):
+            continue
+        if _omml_local_name(tag) == "rPr":
+            continue
+        children.append(child)
+    return children
+
+
+def _omml_find_child(element: Any, name: str) -> Any | None:
+    for child in _iter_omml_children(element):
+        if _omml_local_name(getattr(child, "tag", "")) == name:
+            return child
+    return None
+
+
+def _omml_to_latex(element: Any) -> str:
+    if element is None:
+        return ""
+
+    name = _omml_local_name(getattr(element, "tag", ""))
+    if not name:
+        return ""
+
+    if name in {"oMathPara", "oMath"}:
+        return "".join(_omml_to_latex(child) for child in _iter_omml_children(element)).strip()
+
+    if name == "r":
+        return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
+
+    if name == "t":
+        return (getattr(element, "text", "") or "").strip()
+
+    if name == "f":
+        numerator = _omml_to_latex(_omml_find_child(element, "num"))
+        denominator = _omml_to_latex(_omml_find_child(element, "den"))
+        if numerator and denominator:
+            return f"\\frac{{{numerator}}}{{{denominator}}}"
+        return numerator or denominator
+
+    if name in {"num", "den", "e", "base"}:
+        return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
+
+    if name in {"sup", "sSup"}:
+        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+        sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
+        if base_expr and sup_expr:
+            return f"{base_expr}^{{{sup_expr}}}"
+        return base_expr or sup_expr
+
+    if name in {"sub", "sSub"}:
+        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+        sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
+        if base_expr and sub_expr:
+            return f"{base_expr}_{{{sub_expr}}}"
+        return base_expr or sub_expr
+
+    if name == "sSubSup":
+        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+        sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
+        sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
+        if base_expr:
+            if sub_expr:
+                base_expr = f"{base_expr}_{{{sub_expr}}}"
+            if sup_expr:
+                base_expr = f"{base_expr}^{{{sup_expr}}}"
+            return base_expr
+        return sub_expr or sup_expr
+
+    if name == "rad":
+        base_expr = _omml_to_latex(_omml_find_child(element, "base"))
+        degree_expr = _omml_to_latex(_omml_find_child(element, "deg"))
+        if base_expr and degree_expr:
+            return f"\\sqrt[{degree_expr}]{{{base_expr}}}"
+        if base_expr:
+            return f"\\sqrt{{{base_expr}}}"
+        return base_expr
+
+    if name == "nary":
+        char_node = _omml_find_child(element, "chr")
+        symbol = "\\sum"
+        if char_node is not None:
+            symbol = char_node.get(f"{MATH_TAG_PREFIX}val", symbol) or symbol
+        sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
+        sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
+        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+        result = symbol
+        if sub_expr:
+            result += f"_{{{sub_expr}}}"
+        if sup_expr:
+            result += f"^{{{sup_expr}}}"
+        if base_expr:
+            result += base_expr
+        return result
+
+    text = (getattr(element, "text", "") or "").strip()
+    children_text = "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
+    tail = (getattr(element, "tail", "") or "").strip()
+    return (text + children_text + tail).strip()
+
+
 def _iter_block_items(
     parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer=None
 ) -> Any:
@@ -1295,17 +1466,17 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"PK\x03\x04", 0),  # ZIP signature (docx is ZIP-based)
     ],
     parser_class=DocxToAstConverter,
-    renderer_class=None,
+    renderer_class="all2md.renderers.docx.DocxRenderer",
     renders_as_string=False,
     parser_required_packages=[("python-docx", "docx", "")],
-    renderer_required_packages=[],
+    renderer_required_packages=[("python-docx", "docx", ">=1.2.0")],
     optional_packages=[],
     import_error_message=(
         "DOCX conversion requires 'python-docx'. "
         "Install with: pip install python-docx"
     ),
     parser_options_class=DocxOptions,
-    renderer_options_class=None,
-    description="Convert Microsoft Word DOCX documents to Markdown",
+    renderer_options_class="DocxRendererOptions",
+    description="Convert Microsoft Word DOCX documents to/from AST",
     priority=8
 )

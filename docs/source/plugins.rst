@@ -91,12 +91,13 @@ Create a ``ConverterMetadata`` object that describes your converter:
             (b"MYFORMAT", 0),  # File signature at offset 0
             (b"MYF\x01", 0),   # Alternative signature
         ],
-        converter_module="all2md_myformat.converter",
-        converter_function="myformat_to_markdown",
-        required_packages=[
+        parser_class="all2md_myformat.parser.MyFormatParser",  # Fully qualified parser class
+        renderer_class="MarkdownRenderer",  # Simple class name looks in all2md.renderers.markdown
+        parser_required_packages=[
             ("myformat-parser", "myformat_parser", ">=1.0.0"),
             ("some-dependency", "some_dep", ""),
         ],
+        renderer_required_packages=[],  # No special packages needed for markdown rendering
         optional_packages=[
             ("advanced-feature", "advanced_feature", ">=2.0"),
         ],
@@ -104,7 +105,8 @@ Create a ``ConverterMetadata`` object that describes your converter:
             "MyFormat conversion requires 'myformat-parser' version 1.0.0 or later. "
             "Install with: pip install 'myformat-parser>=1.0.0'"
         ),
-        options_class="BaseOptions",  # See Custom Options Classes section below
+        parser_options_class="BaseOptions",  # See Custom Options Classes section below
+        renderer_options_class="MarkdownOptions",  # Options for markdown rendering
         description="Convert MyFormat documents to Markdown with advanced features",
         priority=5  # Higher numbers = higher priority for format detection
     )

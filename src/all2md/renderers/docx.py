@@ -1,0 +1,1034 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+# src/all2md/renderers/docx.py
+"""DOCX rendering from AST.
+
+This module provides the DocxRenderer class which converts AST nodes
+to Microsoft Word (.docx) format. The renderer uses the python-docx library
+to generate properly formatted Word documents.
+
+The rendering process uses the visitor pattern to traverse the AST and
+generate DOCX content with appropriate styles and formatting.
+
+"""
+
+from __future__ import annotations
+
+import base64
+import io
+import re
+import tempfile
+from pathlib import Path
+from typing import IO, TYPE_CHECKING, Union
+from urllib.parse import urlparse
+
+from all2md.exceptions import DependencyError
+
+if TYPE_CHECKING:
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.text.paragraph import Paragraph
+
+from all2md.ast.nodes import (
+    BlockQuote,
+    Code,
+    CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
+    Document as ASTDocument,
+    Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
+    Heading,
+    HTMLBlock,
+    HTMLInline,
+    Image,
+    LineBreak,
+    Link,
+    List,
+    ListItem,
+    MathBlock,
+    MathInline,
+    Node,
+    Paragraph as ASTParagraph,
+    Strikethrough,
+    Strong,
+    Subscript,
+    Superscript,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+    ThematicBreak,
+    Underline,
+)
+from all2md.ast.visitors import NodeVisitor
+from all2md.options import DocxRendererOptions
+from all2md.renderers.base import BaseRenderer
+
+
+class DocxRenderer(NodeVisitor, BaseRenderer):
+    """Render AST nodes to DOCX format.
+
+    This class implements the visitor pattern to traverse an AST and
+    generate a Microsoft Word document. It uses python-docx for document
+    generation and supports most common formatting features.
+
+    Parameters
+    ----------
+    options : DocxRendererOptions or None, default = None
+        DOCX formatting options
+
+    Examples
+    --------
+    Basic usage:
+
+        >>> from all2md.ast import Document, Heading, Text
+        >>> from all2md.options import DocxRendererOptions
+        >>> from all2md.renderers.docx import DocxRenderer
+        >>> doc = Document(children=[
+        ...     Heading(level=1, content=[Text(content="Title")])
+        ... ])
+        >>> options = DocxRendererOptions()
+        >>> renderer = DocxRenderer(options)
+        >>> renderer.render(doc, "output.docx")
+
+    """
+
+    def __init__(self, options: DocxRendererOptions | None = None):
+        options = options or DocxRendererOptions()
+        BaseRenderer.__init__(self, options)
+        self.options: DocxRendererOptions = options
+        self.document: Document | None = None
+        self._current_paragraph: Paragraph | None = None
+        self._list_level: int = 0
+        self._in_table: bool = False
+        self._temp_files: list[str] = []
+
+    def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
+        """Render the AST to a DOCX file.
+
+        Parameters
+        ----------
+        doc : Document
+            AST Document node to render
+        output : str, Path, or IO[bytes]
+            Output destination (file path or file-like object)
+
+        """
+        # Lazy load python-docx
+        try:
+            from docx import Document
+            from docx.enum.style import WD_STYLE_TYPE
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            from docx.oxml import OxmlElement
+            from docx.oxml.ns import qn
+            from docx.shared import Inches, Pt, RGBColor
+        except ImportError as e:
+            raise DependencyError(
+                converter_name="docx_render",
+                missing_packages=[("python-docx", "docx", ">=1.2.0")],
+            ) from e
+
+        # Store imports as instance variables for use in other methods
+        self._Document = Document
+        self._WD_STYLE_TYPE = WD_STYLE_TYPE
+        self._WD_ALIGN_PARAGRAPH = WD_ALIGN_PARAGRAPH
+        self._OxmlElement = OxmlElement
+        self._qn = qn
+        self._Inches = Inches
+        self._Pt = Pt
+        self._RGBColor = RGBColor
+
+        # Create new Word document
+        self.document = Document()
+
+        # Set default font
+        self._set_document_defaults()
+
+        # Render document
+        doc.accept(self)
+
+        # Save document
+        if isinstance(output, (str, Path)):
+            self.document.save(str(output))
+        else:
+            self.document.save(output)
+
+        # Clean up temp files
+        self._cleanup_temp_files()
+
+    def _set_document_defaults(self) -> None:
+        """Set default document styles and formatting."""
+        if not self.document:
+            return
+
+        # Set default font for Normal style
+        style = self.document.styles['Normal']
+        font = style.font
+        font.name = self.options.default_font
+        font.size = self._Pt(self.options.default_font_size)
+
+    def _cleanup_temp_files(self) -> None:
+        """Remove temporary files created during rendering."""
+        for temp_file in self._temp_files:
+            try:
+                Path(temp_file).unlink(missing_ok=True)
+            except Exception:
+                pass
+        self._temp_files.clear()
+
+    def visit_document(self, node: ASTDocument) -> None:
+        """Render a Document node.
+
+        Parameters
+        ----------
+        node : Document
+            Document to render
+
+        """
+        # Render metadata as document properties if present
+        if node.metadata:
+            self._set_document_properties(node.metadata)
+
+        # Render children
+        for child in node.children:
+            child.accept(self)
+
+    def _set_document_properties(self, metadata: dict) -> None:
+        """Set document properties from metadata.
+
+        Parameters
+        ----------
+        metadata : dict
+            Document metadata
+
+        """
+        if not self.document:
+            return
+
+        core_props = self.document.core_properties
+        if 'title' in metadata:
+            core_props.title = str(metadata['title'])
+        if 'author' in metadata:
+            core_props.author = str(metadata['author'])
+        if 'subject' in metadata:
+            core_props.subject = str(metadata['subject'])
+        if 'keywords' in metadata:
+            keywords = metadata['keywords']
+            if isinstance(keywords, list):
+                core_props.keywords = ', '.join(str(k) for k in keywords)
+            else:
+                core_props.keywords = str(keywords)
+
+    def visit_heading(self, node: Heading) -> None:
+        """Render a Heading node.
+
+        Parameters
+        ----------
+        node : Heading
+            Heading to render
+
+        """
+        if not self.document:
+            return
+
+        # Add heading with appropriate level
+        level = min(9, max(1, node.level))  # Word supports levels 1-9
+
+        if self.options.use_styles:
+            # Use built-in heading styles
+            heading = self.document.add_heading(level=level)
+            # Clear the heading text (add_heading adds empty text)
+            heading.text = ''
+        else:
+            # Use direct formatting
+            heading = self.document.add_paragraph()
+            if self.options.heading_font_sizes and level in self.options.heading_font_sizes:
+                for run in heading.runs:
+                    run.font.size = self._Pt(self.options.heading_font_sizes[level])
+                    run.font.bold = True
+
+        self._current_paragraph = heading
+
+        # Render content
+        for child in node.content:
+            child.accept(self)
+
+        self._current_paragraph = None
+
+    def visit_paragraph(self, node: ASTParagraph) -> None:
+        """Render a Paragraph node.
+
+        Parameters
+        ----------
+        node : Paragraph
+            Paragraph to render
+
+        """
+        if not self.document:
+            return
+
+        # Don't create new paragraph if we're already in one (e.g., heading)
+        if self._current_paragraph is None:
+            self._current_paragraph = self.document.add_paragraph()
+
+        # Render content
+        for child in node.content:
+            child.accept(self)
+
+        # Only clear if we created the paragraph
+        if not self._in_table:
+            self._current_paragraph = None
+
+    def visit_code_block(self, node: CodeBlock) -> None:
+        """Render a CodeBlock node.
+
+        Parameters
+        ----------
+        node : CodeBlock
+            Code block to render
+
+        """
+        if not self.document:
+            return
+
+        # Add paragraph with code formatting
+        para = self.document.add_paragraph()
+        run = para.add_run(node.content)
+        run.font.name = self.options.code_font
+        run.font.size = self._Pt(self.options.code_font_size)
+
+        # Set paragraph background (light gray)
+        self._set_paragraph_shading(para, "F0F0F0")
+
+    def _set_paragraph_shading(self, paragraph: Paragraph, color: str) -> None:
+        """Set paragraph background color.
+
+        Parameters
+        ----------
+        paragraph : Paragraph
+            Paragraph to shade
+        color : str
+            Hex color code (e.g., "F0F0F0")
+
+        """
+        shading_elm = self._OxmlElement('w:shd')
+        shading_elm.set(self._qn('w:fill'), color)
+        paragraph._element.get_or_add_pPr().append(shading_elm)
+
+    def visit_block_quote(self, node: BlockQuote) -> None:
+        """Render a BlockQuote node.
+
+        Parameters
+        ----------
+        node : BlockQuote
+            Block quote to render
+
+        """
+        # Render children with increased indentation
+        for child in node.children:
+            # Store current paragraph
+            saved_para = self._current_paragraph
+            self._current_paragraph = None
+
+            child.accept(self)
+
+            # Indent the created paragraph
+            if self._current_paragraph is not None:
+                self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5)
+
+            self._current_paragraph = saved_para
+
+    def visit_list(self, node: List) -> None:
+        """Render a List node.
+
+        Parameters
+        ----------
+        node : List
+            List to render
+
+        """
+        self._list_level += 1
+
+        for i, item in enumerate(node.items):
+            item.accept(self)
+
+        self._list_level -= 1
+
+    def visit_list_item(self, node: ListItem) -> None:
+        """Render a ListItem node.
+
+        Parameters
+        ----------
+        node : ListItem
+            List item to render
+
+        """
+        if not self.document:
+            return
+
+        # Create paragraph for list item
+        para = self.document.add_paragraph()
+
+        # Determine list style based on parent list
+        if self._list_level > 0:
+            # Use appropriate list style
+            # For now, use simple bullet style
+            para.style = 'List Bullet' if self._list_level == 1 else 'List Bullet'
+
+        self._current_paragraph = para
+
+        # Render children
+        for child in node.children:
+            if isinstance(child, (ASTParagraph, List)):
+                # For nested elements, handle specially
+                saved_para = self._current_paragraph
+                self._current_paragraph = None
+                child.accept(self)
+                self._current_paragraph = saved_para
+            else:
+                child.accept(self)
+
+        self._current_paragraph = None
+
+    def visit_table(self, node: Table) -> None:
+        """Render a Table node.
+
+        Parameters
+        ----------
+        node : Table
+            Table to render
+
+        """
+        if not self.document:
+            return
+
+        # Calculate table dimensions
+        num_rows = len(node.rows) + (1 if node.header else 0)
+        num_cols = len(node.header.cells) if node.header else (len(node.rows[0].cells) if node.rows else 0)
+
+        if num_cols == 0:
+            return
+
+        # Create table
+        table = self.document.add_table(rows=num_rows, cols=num_cols)
+
+        # Apply table style if requested
+        if self.options.table_style:
+            table.style = self.options.table_style
+
+        self._in_table = True
+
+        # Render header
+        row_idx = 0
+        if node.header:
+            table_row = table.rows[row_idx]
+            for col_idx, cell in enumerate(node.header.cells):
+                if col_idx < len(table_row.cells):
+                    self._render_table_cell(table_row.cells[col_idx], cell, is_header=True)
+            row_idx += 1
+
+        # Render body rows
+        for ast_row in node.rows:
+            if row_idx < len(table.rows):
+                table_row = table.rows[row_idx]
+                for col_idx, cell in enumerate(ast_row.cells):
+                    if col_idx < len(table_row.cells):
+                        self._render_table_cell(table_row.cells[col_idx], cell)
+            row_idx += 1
+
+        self._in_table = False
+
+    def _render_table_cell(self, docx_cell, ast_cell: TableCell, is_header: bool = False) -> None:
+        """Render a single table cell.
+
+        Parameters
+        ----------
+        docx_cell
+            python-docx table cell
+        ast_cell : TableCell
+            AST table cell node
+        is_header : bool, default = False
+            Whether this is a header cell
+
+        """
+        # Clear default paragraph
+        if len(docx_cell.paragraphs) > 0:
+            docx_cell.paragraphs[0].text = ''
+            self._current_paragraph = docx_cell.paragraphs[0]
+        else:
+            self._current_paragraph = docx_cell.add_paragraph()
+
+        # Render cell content
+        for child in ast_cell.content:
+            child.accept(self)
+
+        # Make header cells bold
+        if is_header:
+            for para in docx_cell.paragraphs:
+                for run in para.runs:
+                    run.font.bold = True
+
+        self._current_paragraph = None
+
+    def visit_table_row(self, node: TableRow) -> None:
+        """Render a TableRow node.
+
+        Parameters
+        ----------
+        node : TableRow
+            Table row to render
+
+        """
+        # Handled by visit_table
+        pass
+
+    def visit_table_cell(self, node: TableCell) -> None:
+        """Render a TableCell node.
+
+        Parameters
+        ----------
+        node : TableCell
+            Table cell to render
+
+        """
+        # Handled by visit_table
+        pass
+
+    def visit_thematic_break(self, node: ThematicBreak) -> None:
+        """Render a ThematicBreak node.
+
+        Parameters
+        ----------
+        node : ThematicBreak
+            Thematic break to render
+
+        """
+        if not self.document:
+            return
+
+        # Add horizontal line using a simple text separator
+        para = self.document.add_paragraph()
+        run = para.add_run('─' * 80)  # Em dash character
+        run.font.color.rgb = self._RGBColor(192, 192, 192)  # Light gray
+
+    def visit_html_block(self, node: HTMLBlock) -> None:
+        """Render an HTMLBlock node.
+
+        Parameters
+        ----------
+        node : HTMLBlock
+            HTML block to render
+
+        """
+        # Skip HTML content in DOCX
+        pass
+
+    def visit_text(self, node: Text) -> None:
+        """Render a Text node.
+
+        Parameters
+        ----------
+        node : Text
+            Text to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        if self._current_paragraph:
+            self._current_paragraph.add_run(node.content)
+
+    def visit_emphasis(self, node: Emphasis) -> None:
+        """Render an Emphasis node.
+
+        Parameters
+        ----------
+        node : Emphasis
+            Emphasis to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        # Create run for emphasized text
+        run = self._current_paragraph.add_run()
+        run.italic = True
+
+        # Temporarily change paragraph to capture text
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        # Copy text to emphasized run
+        run.text = temp_para.text
+
+        self._current_paragraph = saved_para
+
+    def visit_strong(self, node: Strong) -> None:
+        """Render a Strong node.
+
+        Parameters
+        ----------
+        node : Strong
+            Strong to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        # Create run for strong text
+        run = self._current_paragraph.add_run()
+        run.bold = True
+
+        # Temporarily change paragraph to capture text
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        # Copy text to bold run
+        run.text = temp_para.text
+
+        self._current_paragraph = saved_para
+
+    def visit_code(self, node: Code) -> None:
+        """Render a Code node.
+
+        Parameters
+        ----------
+        node : Code
+            Code to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        run = self._current_paragraph.add_run(node.content)
+        run.font.name = self.options.code_font
+        run.font.size = self._Pt(self.options.code_font_size)
+
+    def visit_link(self, node: Link) -> None:
+        """Render a Link node.
+
+        Parameters
+        ----------
+        node : Link
+            Link to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        # Get link text
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        link_text = temp_para.text
+        self._current_paragraph = saved_para
+
+        # Add hyperlink
+        self._add_hyperlink(self._current_paragraph, node.url, link_text)
+
+    def _add_hyperlink(self, paragraph: Paragraph, url: str, text: str) -> None:
+        """Add a hyperlink to a paragraph.
+
+        Parameters
+        ----------
+        paragraph : Paragraph
+            Paragraph to add link to
+        url : str
+            URL to link to
+        text : str
+            Link text
+
+        """
+        # This is a complex operation in python-docx requiring XML manipulation
+        part = paragraph.part
+        r_id = part.relate_to(url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True)
+
+        hyperlink = self._OxmlElement('w:hyperlink')
+        hyperlink.set(self._qn('r:id'), r_id)
+
+        new_run = self._OxmlElement('w:r')
+        rPr = self._OxmlElement('w:rPr')
+
+        # Add hyperlink styling
+        new_run.append(rPr)
+        new_run.text = text
+        hyperlink.append(new_run)
+
+        paragraph._element.append(hyperlink)
+
+    def visit_image(self, node: Image) -> None:
+        """Render an Image node.
+
+        Parameters
+        ----------
+        node : Image
+            Image to render
+
+        """
+        if not self.document or not node.url:
+            return
+
+        try:
+            # Handle different image sources
+            if node.url.startswith('data:'):
+                # Base64 encoded image
+                image_file = self._decode_base64_image(node.url)
+            elif urlparse(node.url).scheme in ('http', 'https'):
+                # Remote URL - for now, skip (could download in future)
+                return
+            else:
+                # Local file
+                image_file = node.url
+
+            # Add image to document
+            if image_file:
+                para = self.document.add_paragraph()
+                run = para.add_run()
+                run.add_picture(image_file, width=self._Inches(4))
+
+                # Add caption if alt text exists
+                if node.alt_text:
+                    caption_para = self.document.add_paragraph(node.alt_text)
+                    caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
+                    caption_para.runs[0].italic = True
+        except Exception:
+            # If image loading fails, just skip it
+            pass
+
+    def _decode_base64_image(self, data_uri: str) -> str | None:
+        """Decode base64 image to temporary file.
+
+        Parameters
+        ----------
+        data_uri : str
+            Data URI with base64 encoded image
+
+        Returns
+        -------
+        str or None
+            Path to temporary file, or None if decoding failed
+
+        """
+        try:
+            # Extract base64 data
+            match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
+            if not match:
+                return None
+
+            image_format = match.group(1)
+            base64_data = match.group(2)
+
+            # Decode base64
+            image_data = base64.b64decode(base64_data)
+
+            # Write to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{image_format}') as f:
+                f.write(image_data)
+                temp_path = f.name
+
+            self._temp_files.append(temp_path)
+            return temp_path
+        except Exception:
+            return None
+
+    def visit_line_break(self, node: LineBreak) -> None:
+        """Render a LineBreak node.
+
+        Parameters
+        ----------
+        node : LineBreak
+            Line break to render
+
+        """
+        if self._current_paragraph:
+            self._current_paragraph.add_run().add_break()
+
+    def visit_strikethrough(self, node: Strikethrough) -> None:
+        """Render a Strikethrough node.
+
+        Parameters
+        ----------
+        node : Strikethrough
+            Strikethrough to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        run = self._current_paragraph.add_run()
+        run.font.strike = True
+
+        # Get text content
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        run.text = temp_para.text
+        self._current_paragraph = saved_para
+
+    def visit_underline(self, node: Underline) -> None:
+        """Render an Underline node.
+
+        Parameters
+        ----------
+        node : Underline
+            Underline to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        run = self._current_paragraph.add_run()
+        run.underline = True
+
+        # Get text content
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        run.text = temp_para.text
+        self._current_paragraph = saved_para
+
+    def visit_superscript(self, node: Superscript) -> None:
+        """Render a Superscript node.
+
+        Parameters
+        ----------
+        node : Superscript
+            Superscript to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        run = self._current_paragraph.add_run()
+        run.font.superscript = True
+
+        # Get text content
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        run.text = temp_para.text
+        self._current_paragraph = saved_para
+
+    def visit_subscript(self, node: Subscript) -> None:
+        """Render a Subscript node.
+
+        Parameters
+        ----------
+        node : Subscript
+            Subscript to render
+
+        """
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        run = self._current_paragraph.add_run()
+        run.font.subscript = True
+
+        # Get text content
+        saved_para = self._current_paragraph
+        temp_doc = self._Document()
+        temp_para = temp_doc.add_paragraph()
+        self._current_paragraph = temp_para
+
+        for child in node.content:
+            child.accept(self)
+
+        run.text = temp_para.text
+        self._current_paragraph = saved_para
+
+    def visit_html_inline(self, node: HTMLInline) -> None:
+        """Render an HTMLInline node.
+
+        Parameters
+        ----------
+        node : HTMLInline
+            Inline HTML to render
+
+        """
+        # Skip inline HTML in DOCX
+        pass
+
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
+        """Render a FootnoteReference node.
+
+        Parameters
+        ----------
+        node : FootnoteReference
+            Footnote reference to render
+
+        """
+        # Footnote references could be rendered as endnotes in Word
+        # For now, render as superscript text
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        run = self._current_paragraph.add_run(f'[{node.identifier}]')
+        run.font.superscript = True
+
+    def visit_math_inline(self, node: MathInline) -> None:
+        """Render a MathInline node.
+
+        Parameters
+        ----------
+        node : MathInline
+            Inline math to render
+
+        """
+        # Render math with best available representation (fallback to plain text)
+        if self._current_paragraph is None:
+            if self.document:
+                self._current_paragraph = self.document.add_paragraph()
+
+        content, notation = node.get_preferred_representation("latex")
+        if notation == "latex":
+            text = f'${content}$'
+        else:
+            text = content
+
+        self._current_paragraph.add_run(text)
+
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
+        """Render a FootnoteDefinition node.
+
+        Parameters
+        ----------
+        node : FootnoteDefinition
+            Footnote definition to render
+
+        """
+        # Render as a separate paragraph
+        if not self.document:
+            return
+
+        para = self.document.add_paragraph()
+        run = para.add_run(f'[{node.identifier}]: ')
+        run.font.superscript = True
+
+        self._current_paragraph = para
+        for child in node.content:
+            child.accept(self)
+        self._current_paragraph = None
+
+    def visit_definition_list(self, node: DefinitionList) -> None:
+        """Render a DefinitionList node.
+
+        Parameters
+        ----------
+        node : DefinitionList
+            Definition list to render
+
+        """
+        for term, descriptions in node.items:
+            # Render term as bold paragraph
+            if self.document:
+                term_para = self.document.add_paragraph()
+                self._current_paragraph = term_para
+
+                for child in term.content:
+                    child.accept(self)
+
+                # Make term bold
+                for run in term_para.runs:
+                    run.bold = True
+
+                # Render descriptions as indented paragraphs
+                for desc in descriptions:
+                    desc_para = self.document.add_paragraph()
+                    desc_para.paragraph_format.left_indent = self._Inches(0.5)
+                    self._current_paragraph = desc_para
+
+                    for child in desc.content:
+                        child.accept(self)
+
+                self._current_paragraph = None
+
+    def visit_definition_term(self, node: DefinitionTerm) -> None:
+        """Render a DefinitionTerm node.
+
+        Parameters
+        ----------
+        node : DefinitionTerm
+            Definition term to render
+
+        """
+        # Handled by visit_definition_list
+        pass
+
+    def visit_definition_description(self, node: DefinitionDescription) -> None:
+        """Render a DefinitionDescription node.
+
+        Parameters
+        ----------
+        node : DefinitionDescription
+            Definition description to render
+
+        """
+        # Handled by visit_definition_list
+        pass
+
+    def visit_math_block(self, node: MathBlock) -> None:
+        """Render a MathBlock node.
+
+        Parameters
+        ----------
+        node : MathBlock
+            Math block to render
+
+        """
+        # Render math as code block (proper equation rendering is complex)
+        if not self.document:
+            return
+
+        para = self.document.add_paragraph()
+        content, notation = node.get_preferred_representation("latex")
+        if notation == "latex":
+            text = f'$$\n{content}\n$$'
+        else:
+            text = content
+
+        run = para.add_run(text)
+        run.font.name = self.options.code_font
+        run.font.size = self._Pt(self.options.code_font_size)

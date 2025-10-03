@@ -1578,7 +1578,7 @@ Examples:
                     content.append(f"[bold]Description:[/bold] {metadata.description or 'N/A'}")
                     content.append(f"[bold]Extensions:[/bold] {', '.join(metadata.extensions) or 'N/A'}")
                     content.append(f"[bold]MIME Types:[/bold] {', '.join(metadata.mime_types) or 'N/A'}")
-                    content.append(f"[bold]Converter Module:[/bold] {metadata.converter_module}")
+                    content.append(f"[bold]Converter:[/bold] {metadata.get_converter_display_string()}")
                     content.append(f"[bold]Priority:[/bold] {metadata.priority}")
 
                     console.print(Panel("\n".join(content), title=f"{info['name'].upper()} Format Details"))
@@ -1619,6 +1619,7 @@ Examples:
                 table = Table(title=f"All2MD Supported Formats ({len(format_info_list)} formats)")
                 table.add_column("Format", style="cyan", no_wrap=True)
                 table.add_column("Extensions", style="yellow")
+                table.add_column("Capabilities", style="blue")
                 table.add_column("Status", style="magenta")
                 table.add_column("Dependencies", style="white")
 
@@ -1636,6 +1637,18 @@ Examples:
                     if len(metadata.extensions) > 4:
                         ext_str += f" +{len(metadata.extensions) - 4}"
 
+                    # Capabilities
+                    has_parser = metadata.parser_class is not None
+                    has_renderer = metadata.renderer_class is not None
+                    if has_parser and has_renderer:
+                        capabilities = "Parse+Render"
+                    elif has_parser:
+                        capabilities = "Parse"
+                    elif has_renderer:
+                        capabilities = "Render"
+                    else:
+                        capabilities = "None"
+
                     # Dependencies summary
                     if info['dep_status']:
                         ok_count = sum(1 for _, _, s, _ in info['dep_status'] if s == 'ok')
@@ -1647,6 +1660,7 @@ Examples:
                     table.add_row(
                         info['name'].upper(),
                         ext_str,
+                        capabilities,
                         status,
                         dep_str
                     )
@@ -1669,7 +1683,7 @@ Examples:
                 print(f"Description: {metadata.description or 'N/A'}")
                 print(f"Extensions: {', '.join(metadata.extensions) or 'N/A'}")
                 print(f"MIME Types: {', '.join(metadata.mime_types) or 'N/A'}")
-                print(f"Converter: {metadata.converter_module}")
+                print(f"Converter: {metadata.get_converter_display_string()}")
                 print(f"Priority: {metadata.priority}")
 
                 if info['dep_status']:
@@ -1701,7 +1715,19 @@ Examples:
                 if len(metadata.extensions) > 4:
                     ext_str += f" +{len(metadata.extensions) - 4}"
 
-                print(f"{status} {info['name'].upper():12} {ext_str}")
+                # Capabilities
+                has_parser = metadata.parser_class is not None
+                has_renderer = metadata.renderer_class is not None
+                if has_parser and has_renderer:
+                    capabilities = "[R+W]"
+                elif has_parser:
+                    capabilities = "[R]  "
+                elif has_renderer:
+                    capabilities = "[W]  "
+                else:
+                    capabilities = "     "
+
+                print(f"{status} {info['name'].upper():12} {capabilities} {ext_str}")
 
             print(f"\nTotal: {len(format_info_list)} formats")
             print("Use 'all2md list-formats <format>' for detailed information")

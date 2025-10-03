@@ -1674,17 +1674,18 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"%PDF", 0),
     ],
     parser_class=PdfToAstConverter,
-    renderer_class=None,
+    renderer_class="all2md.renderers.pdf.PdfRenderer",
+    renders_as_string=False,
     parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
-    renderer_required_packages=[],
+    renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
     optional_packages=[],
     import_error_message=(
         "PDF conversion requires 'PyMuPDF'. "
         "Install with: pip install pymupdf"
     ),
     parser_options_class=PdfOptions,
-    renderer_options_class=None,
-    description="Convert PDF documents to Markdown with table detection",
+    renderer_options_class="PdfRendererOptions",
+    description="Convert PDF documents to/from AST with table detection",
     priority=10
 )
 

@@ -10,6 +10,8 @@ from all2md.ast import (
     Emphasis,
     Heading,
     Image,
+    MathBlock,
+    MathInline,
     Link,
     List,
     ListItem,
@@ -90,6 +92,25 @@ class TestAstToDictConversion:
         assert result["metadata"]["author"] == "Alice"
         assert result["metadata"]["date"] == "2025-01-01"
 
+    def test_math_inline_to_dict_includes_notation(self) -> None:
+        """MathInline serialization should include notation and representations."""
+        node = MathInline(content="x^2", notation="latex", representations={"mathml": "<math>...</math>"})
+        result = ast_to_dict(node)
+
+        assert result["node_type"] == "MathInline"
+        assert result["content"] == "x^2"
+        assert result["notation"] == "latex"
+        assert result["representations"]["mathml"] == "<math>...</math>"
+
+    def test_math_block_to_dict_includes_representations(self) -> None:
+        """MathBlock serialization should persist notation fields."""
+        node = MathBlock(content="\\frac{a}{b}", notation="latex")
+        result = ast_to_dict(node)
+
+        assert result["node_type"] == "MathBlock"
+        assert result["content"] == "\\frac{a}{b}"
+        assert result["notation"] == "latex"
+
 
 @pytest.mark.unit
 class TestDictToAstConversion:
@@ -156,6 +177,39 @@ class TestDictToAstConversion:
         assert node.source_location is not None
         assert node.source_location.format == "html"
         assert node.source_location.element_id == "para1"
+
+    def test_dict_to_math_inline(self) -> None:
+        """Deserialize MathInline with notation metadata."""
+        data = {
+            "node_type": "MathInline",
+            "content": "E=mc^2",
+            "notation": "latex",
+            "representations": {"html": "<span>E=mc^2</span>"},
+            "metadata": {},
+            "source_location": None,
+        }
+
+        node = dict_to_ast(data)
+
+        assert isinstance(node, MathInline)
+        assert node.notation == "latex"
+        assert node.representations["html"] == "<span>E=mc^2</span>"
+
+    def test_dict_to_math_block(self) -> None:
+        """Deserialize MathBlock preserving notation."""
+        data = {
+            "node_type": "MathBlock",
+            "content": "\\int_0^1 x dx",
+            "notation": "latex",
+            "metadata": {},
+            "source_location": None,
+        }
+
+        node = dict_to_ast(data)
+
+        assert isinstance(node, MathBlock)
+        assert node.content == "\\int_0^1 x dx"
+        assert node.notation == "latex"
 
 
 @pytest.mark.unit

@@ -16,6 +16,8 @@ Tests cover:
 
 import pytest
 from pptx import Presentation
+from pptx.chart.data import ChartData
+from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches, Pt
 
 from all2md.ast import (
@@ -25,6 +27,7 @@ from all2md.ast import (
     Image,
     List,
     ListItem,
+    CodeBlock,
     Paragraph,
     Strong,
     Strikethrough,
@@ -36,6 +39,7 @@ from all2md.ast import (
 )
 from all2md.parsers.pptx import PptxToAstConverter
 from all2md.options import PptxOptions
+from all2md.ast.transforms import extract_nodes
 
 
 @pytest.mark.unit
@@ -680,3 +684,53 @@ class TestSlideOptions:
         heading = ast_doc.children[0]
         assert isinstance(heading, Heading)
         assert "Slide 1:" in heading.content[0].content
+
+
+@pytest.mark.unit
+class TestChartHandling:
+    """Tests for chart conversion modes."""
+
+    @staticmethod
+    def _build_chart_presentation(chart_type=XL_CHART_TYPE.COLUMN_CLUSTERED) -> Presentation:
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        chart_data = ChartData()
+        chart_data.categories = ["A", "B"]
+        chart_data.add_series("Series 1", (1, 2))
+        slide.shapes.add_chart(chart_type, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
+        return prs
+
+    def test_mermaid_mode_produces_codeblock(self) -> None:
+        prs = self._build_chart_presentation()
+        converter = PptxToAstConverter(PptxOptions(charts_mode="mermaid"))
+        ast_doc = converter.convert_to_ast(prs)
+
+        code_blocks = list(extract_nodes(ast_doc, CodeBlock))
+        tables = list(extract_nodes(ast_doc, Table))
+
+        assert code_blocks, "Expected Mermaid code block when charts_mode='mermaid'"
+        assert code_blocks[0].language == "mermaid"
+        assert "xychart-beta" in code_blocks[0].content
+        assert not tables
+
+    def test_both_mode_produces_table_and_codeblock(self) -> None:
+        prs = self._build_chart_presentation()
+        converter = PptxToAstConverter(PptxOptions(charts_mode="both"))
+        ast_doc = converter.convert_to_ast(prs)
+
+        code_blocks = list(extract_nodes(ast_doc, CodeBlock))
+        tables = list(extract_nodes(ast_doc, Table))
+
+        assert code_blocks and tables
+        assert code_blocks[0].language == "mermaid"
+
+    def test_default_mode_produces_table_only(self) -> None:
+        prs = self._build_chart_presentation()
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        code_blocks = list(extract_nodes(ast_doc, CodeBlock))
+        tables = list(extract_nodes(ast_doc, Table))
+
+        assert tables
+        assert not code_blocks

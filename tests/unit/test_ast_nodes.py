@@ -506,11 +506,15 @@ class TestExtendedMarkdownNodes:
         """Test creating an inline math node."""
         math = MathInline(content="E=mc^2")
         assert math.content == "E=mc^2"
+        assert math.notation == "latex"
+        assert math.representations["latex"] == "E=mc^2"
 
     def test_math_block(self):
         """Test creating a math block node."""
         math = MathBlock(content="\\sum_{i=1}^{n} x_i")
         assert math.content == "\\sum_{i=1}^{n} x_i"
+        assert math.notation == "latex"
+        assert math.representations["latex"] == "\\sum_{i=1}^{n} x_i"
 
     def test_definition_list(self):
         """Test creating a definition list."""

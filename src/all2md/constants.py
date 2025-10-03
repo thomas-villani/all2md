@@ -62,6 +62,7 @@ DEFAULT_INCLUDE_METADATA_FRONTMATTER = False
 UnderlineMode = Literal["html", "markdown", "ignore"]
 SuperscriptMode = Literal["html", "markdown", "ignore"]
 SubscriptMode = Literal["html", "markdown", "ignore"]
+MathMode = Literal["latex", "mathml", "html"]
 EmphasisSymbol = Literal["*", "_"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
@@ -85,6 +86,7 @@ DEFAULT_FLAVOR: FlavorType = "gfm"
 # Flavor-specific defaults are applied via get_flavor_defaults() when flavor is chosen
 DEFAULT_UNSUPPORTED_TABLE_MODE: UnsupportedTableMode = "force"
 DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "force"
+DEFAULT_MATH_MODE: MathMode = "latex"
 
 # Markdown rendering defaults
 DEFAULT_HEADING_LEVEL_OFFSET = 0
