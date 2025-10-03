@@ -76,7 +76,7 @@ class MhtmlToAstConverter(BaseParser):
                 input_data, supported_types=["path-like", "file-like", "bytes"], require_binary=True
             )
 
-            if input_type == "path-like":
+            if input_type == "path":
                 with open(doc_input, 'rb') as f:
                     msg = email.message_from_binary_file(f, policy=policy.default)
             elif input_type == "bytes":

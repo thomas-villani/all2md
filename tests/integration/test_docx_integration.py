@@ -5,7 +5,7 @@ import base64
 import docx
 import pytest
 
-from all2md.parsers import docx2markdown as md
+from all2md import to_markdown
 
 
 @pytest.mark.integration
@@ -20,7 +20,7 @@ def test_docx_to_markdown_basic(tmp_path):
     doc_path = tmp_path / "test.docx"
     doc.save(str(doc_path))
 
-    result = md.docx_to_markdown(doc_path)
+    result = to_markdown(doc_path)
 
     expected_elements = [
         "# Title",
@@ -46,7 +46,7 @@ def test_docx_to_markdown_table(tmp_path):
     doc_path = tmp_path / "test.docx"
     doc.save(str(doc_path))
 
-    result = md.docx_to_markdown(doc_path)
+    result = to_markdown(doc_path)
 
     # Should have table
     assert "|" in result
@@ -70,7 +70,7 @@ def test_docx_to_markdown_images(tmp_path, monkeypatch):
     doc_path = tmp_path / "test.docx"
     doc.save(str(doc_path))
 
-    result = md.docx_to_markdown(doc_path)
+    result = to_markdown(doc_path)
 
     assert "Document with Images" in result
     assert "This document has images." in result

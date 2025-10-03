@@ -254,7 +254,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         Converted Markdown content.
     """
     try:
-        from all2md.parsers.html2markdown import html_to_markdown
+        from all2md import to_markdown
         from all2md.options import HtmlOptions, MarkdownOptions
 
         # Create MarkdownOptions with default hash headings if not provided
@@ -275,7 +275,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
 
         # Convert HTML to Markdown
         from io import StringIO
-        return html_to_markdown(StringIO(html_content), html_options)
+        return to_markdown(StringIO(html_content), format="html", options=html_options)
 
     except ImportError:
         # html2markdown not available, return HTML as-is

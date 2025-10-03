@@ -1,6 +1,6 @@
 """Advanced tests for HTML nested element handling edge cases."""
 
-from all2md.parsers.html2markdown import html_to_markdown
+from all2md import to_markdown as html_to_markdown
 from all2md.options import HtmlOptions
 from tests.utils import assert_markdown_valid
 
@@ -31,7 +31,7 @@ class TestHtmlNestedElements:
         """
 
         options = HtmlOptions(preserve_nested_structure=True)
-        markdown = html_to_markdown(html, options=options)
+        markdown = html_to_markdown(html, format="html", options=options)
         assert_markdown_valid(markdown)
 
         # Should preserve blockquote structure

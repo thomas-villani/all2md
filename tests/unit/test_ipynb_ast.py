@@ -70,8 +70,8 @@ class TestMarkdownCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         assert isinstance(doc, Document)
         assert len(doc.children) == 1
@@ -104,8 +104,8 @@ class TestMarkdownCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         assert len(doc.children) == 3
         assert all(isinstance(child, Paragraph) for child in doc.children)
@@ -137,8 +137,8 @@ class TestMarkdownCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Only 2 cells should be in AST (empty ones skipped)
         assert len(doc.children) == 2
@@ -155,8 +155,8 @@ class TestMarkdownCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         assert len(doc.children) == 1
         assert isinstance(doc.children[0], Paragraph)
@@ -180,8 +180,8 @@ class TestCodeCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         assert len(doc.children) == 1
         assert isinstance(doc.children[0], CodeBlock)
@@ -204,8 +204,8 @@ class TestCodeCells:
         )
 
         options = IpynbOptions(show_execution_count=True)
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
@@ -227,8 +227,8 @@ class TestCodeCells:
         )
 
         options = IpynbOptions(show_execution_count=False)
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
@@ -254,8 +254,8 @@ class TestCodeCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
@@ -278,8 +278,8 @@ class TestCodeCells:
         )
 
         options = IpynbOptions(include_inputs=False)
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         # No code block should be present (inputs not included)
         assert len(doc.children) == 0
@@ -305,8 +305,8 @@ class TestCodeCells:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Empty cells should be skipped
         assert len(doc.children) == 0
@@ -337,8 +337,8 @@ class TestOutputs:
         )
 
         options = IpynbOptions(include_outputs=True)
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Should have code block + output code block
         assert len(doc.children) == 2
@@ -372,8 +372,8 @@ class TestOutputs:
         )
 
         options = IpynbOptions(include_outputs=True)
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         assert len(doc.children) == 2
         output_block = doc.children[1]
@@ -410,8 +410,8 @@ class TestOutputs:
         )
 
         options = IpynbOptions(include_outputs=True, attachment_mode="embed")
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Should have code block + image
         assert len(doc.children) == 2
@@ -443,8 +443,8 @@ class TestOutputs:
         )
 
         options = IpynbOptions(include_outputs=False)
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Should only have code block, no output
         assert len(doc.children) == 1
@@ -476,8 +476,8 @@ class TestOutputs:
             include_outputs=True,
             truncate_long_outputs=10
         )
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         output_block = doc.children[1]
         assert isinstance(output_block, CodeBlock)
@@ -518,8 +518,8 @@ class TestOutputs:
             include_outputs=True,
             output_types=["stream"]
         )
-        converter = IpynbToAstConverter(notebook, options)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter(options)
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Should have code block + only stream output
         assert len(doc.children) == 2
@@ -546,8 +546,8 @@ class TestLanguageDetection:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
@@ -574,8 +574,10 @@ class TestLanguageDetection:
             }
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        # Pass the language from metadata for this test
+        language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
+        doc = converter.convert_to_ast(notebook, language)
 
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
@@ -590,8 +592,8 @@ class TestEdgeCases:
         """Test converting empty notebook."""
         notebook = _create_test_notebook(cells=[])
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         assert isinstance(doc, Document)
         assert len(doc.children) == 0
@@ -627,8 +629,8 @@ class TestEdgeCases:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Should have 4 nodes: markdown, code, markdown, code
         assert len(doc.children) == 4
@@ -659,8 +661,8 @@ class TestEdgeCases:
             ]
         )
 
-        converter = IpynbToAstConverter(notebook)
-        doc = converter.convert_to_ast()
+        converter = IpynbToAstConverter()
+        doc = converter.convert_to_ast(notebook, "python")
 
         # Only markdown cell should be included
         assert len(doc.children) == 1

@@ -5,9 +5,9 @@ from email.mime.application import MIMEApplication
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from io import StringIO
+from io import BytesIO
 
-from all2md.parsers.eml2markdown import eml_to_markdown
+from all2md import to_markdown as eml_to_markdown
 from all2md.options import EmlOptions
 from tests.utils import MINIMAL_PNG_BYTES, assert_markdown_valid
 
@@ -45,7 +45,7 @@ class TestEmlMultipart:
         msg.attach(html_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should prefer HTML content or gracefully handle both
@@ -78,7 +78,7 @@ class TestEmlMultipart:
         msg.attach(doc_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should contain main text
@@ -115,7 +115,7 @@ class TestEmlMultipart:
         msg.attach(img_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should contain HTML content or processed version
@@ -153,7 +153,7 @@ class TestEmlMultipart:
         outer_msg.attach(attachment)
 
         eml_content = outer_msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should handle nested structure
@@ -192,7 +192,7 @@ END:VCALENDAR'''
         msg.attach(cal_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should contain invitation text
@@ -224,7 +224,7 @@ iQEcBAEBAgAGBQJExample...
         msg.attach(sig_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should contain main message content
@@ -250,7 +250,7 @@ iQEcBAEBAgAGBQJExample...
         msg.attach(large_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should handle large attachments gracefully
@@ -282,7 +282,7 @@ It had multiple lines and some important information.''', 'plain')
         msg.attach(original_msg)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should contain forwarding info and original content
@@ -318,7 +318,7 @@ Diagnostic-Code: smtp; 250 OK''', 'plain')
         msg.attach(status_part)
 
         eml_content = msg.as_string()
-        result = eml_to_markdown(StringIO(eml_content))
+        result = eml_to_markdown(BytesIO(eml_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should contain delivery notification info
@@ -347,7 +347,7 @@ This is the second part.
 Extra content after boundary end.
 '''
 
-        result = eml_to_markdown(StringIO(malformed_content))
+        result = eml_to_markdown(BytesIO(malformed_content.encode('utf-8')))
         assert_markdown_valid(result)
 
         # Should handle malformed structure gracefully
@@ -375,11 +375,11 @@ Extra content after boundary end.
 
         # Test different attachment modes
         options_skip = EmlOptions(attachment_mode="skip")
-        result_skip = eml_to_markdown(StringIO(eml_content), options=options_skip)
+        result_skip = eml_to_markdown(BytesIO(eml_content.encode('utf-8')), options=options_skip)
         assert_markdown_valid(result_skip)
 
         options_alt = EmlOptions(attachment_mode="alt_text")
-        result_alt = eml_to_markdown(StringIO(eml_content), options=options_alt)
+        result_alt = eml_to_markdown(BytesIO(eml_content.encode('utf-8')), options=options_alt)
         assert_markdown_valid(result_alt)
 
         # Both should contain main text

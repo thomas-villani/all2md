@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.parsers.odf2markdown import odf_to_markdown
+from all2md import to_markdown as odf_to_markdown
 from all2md.options import MarkdownOptions, OdfOptions
 
 
@@ -88,7 +88,7 @@ class TestOdfIntegration:
             pytest.skip("Test ODT file not found")
 
         options = OdfOptions(preserve_tables=True)
-        result = odf_to_markdown(odt_path, options)
+        result = odf_to_markdown(odt_path, options=options)
 
         # Should process without error
         assert isinstance(result, str)
@@ -101,7 +101,7 @@ class TestOdfIntegration:
             pytest.skip("Test ODT file not found")
 
         options = OdfOptions(preserve_tables=False)
-        result = odf_to_markdown(odt_path, options)
+        result = odf_to_markdown(odt_path, options=options)
 
         assert isinstance(result, str)
         # Tables should be omitted but document should still process
@@ -119,7 +119,7 @@ class TestOdfIntegration:
         )
         options = OdfOptions(markdown_options=md_options)
 
-        result = odf_to_markdown(odt_path, options)
+        result = odf_to_markdown(odt_path, options=options)
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -149,7 +149,7 @@ class TestOdfIntegration:
             data = f.read()
 
         bio = BytesIO(data)
-        result = odf_to_markdown(bio)
+        result = odf_to_markdown(bio, format="odf")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -239,12 +239,12 @@ class TestOdfIntegration:
 
         # Test alt_text mode (default)
         options_alt = OdfOptions(attachment_mode="alt_text")
-        result_alt = odf_to_markdown(odt_path, options_alt)
+        result_alt = odf_to_markdown(odt_path, options=options_alt)
         assert isinstance(result_alt, str)
 
         # Test base64 mode
         options_b64 = OdfOptions(attachment_mode="base64")
-        result_b64 = odf_to_markdown(odt_path, options_b64)
+        result_b64 = odf_to_markdown(odt_path, options=options_b64)
         assert isinstance(result_b64, str)
 
         # Test download mode
@@ -253,7 +253,7 @@ class TestOdfIntegration:
                 attachment_mode="download",
                 attachment_output_dir=tmp_dir
             )
-            result_dl = odf_to_markdown(odt_path, options_dl)
+            result_dl = odf_to_markdown(odt_path, options=options_dl)
             assert isinstance(result_dl, str)
 
     def test_odt_large_document_performance(self):
@@ -315,7 +315,7 @@ class TestOdfIntegration:
 
         results = []
         for options in option_sets:
-            result = odf_to_markdown(odt_path, options)
+            result = odf_to_markdown(odt_path, options=options)
             results.append(result)
             assert isinstance(result, str)
             assert len(result) >= 0  # Could be empty for some option combinations

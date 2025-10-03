@@ -53,7 +53,7 @@ class TestBasicRendering:
         """Test rendering an empty document."""
         doc = Document()
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == ""
 
     def test_render_text_only(self):
@@ -62,7 +62,7 @@ class TestBasicRendering:
             Paragraph(content=[Text(content="Hello world")])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "Hello world"
 
     def test_render_multiple_paragraphs(self):
@@ -72,7 +72,7 @@ class TestBasicRendering:
             Paragraph(content=[Text(content="Second paragraph")])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "First paragraph\n\nSecond paragraph"
 
 
@@ -86,7 +86,7 @@ class TestHeadingRendering:
             Heading(level=1, content=[Text(content="Title")])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "# Title"
 
     def test_heading_level_2_hash(self):
@@ -95,7 +95,7 @@ class TestHeadingRendering:
             Heading(level=2, content=[Text(content="Subtitle")])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "## Subtitle"
 
     def test_heading_setext_h1(self):
@@ -105,7 +105,7 @@ class TestHeadingRendering:
         ])
         options = MarkdownOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "Title\n====="
 
     def test_heading_setext_h2(self):
@@ -115,7 +115,7 @@ class TestHeadingRendering:
         ])
         options = MarkdownOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "Subtitle\n--------"
 
     def test_heading_with_formatting(self):
@@ -127,7 +127,7 @@ class TestHeadingRendering:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "# Welcome **Home**"
 
 
@@ -143,7 +143,7 @@ class TestInlineFormatting:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "*italic text*"
 
     def test_emphasis_with_underscore(self):
@@ -155,7 +155,7 @@ class TestInlineFormatting:
         ])
         options = MarkdownOptions(emphasis_symbol="_")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "_italic_"
 
     def test_strong(self):
@@ -166,7 +166,7 @@ class TestInlineFormatting:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "**bold text**"
 
     def test_code_inline(self):
@@ -177,7 +177,7 @@ class TestInlineFormatting:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "`print()`"
 
     def test_code_with_backticks(self):
@@ -188,7 +188,7 @@ class TestInlineFormatting:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "```tick```"
 
     def test_combined_formatting(self):
@@ -203,7 +203,7 @@ class TestInlineFormatting:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "This is **bold** and *italic*."
 
 
@@ -220,7 +220,7 @@ class TestExtendedInlineFormatting:
         ])
         options = MarkdownOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "~~deleted~~"
 
     def test_strikethrough_commonmark(self):
@@ -232,7 +232,7 @@ class TestExtendedInlineFormatting:
         ])
         options = MarkdownOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "<del>deleted</del>"
 
     def test_underline_html_mode(self):
@@ -244,7 +244,7 @@ class TestExtendedInlineFormatting:
         ])
         options = MarkdownOptions(underline_mode="html")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "<u>underlined</u>"
 
     def test_superscript_html_mode(self):
@@ -256,7 +256,7 @@ class TestExtendedInlineFormatting:
         ])
         options = MarkdownOptions(superscript_mode="html")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "<sup>2</sup>"
 
     def test_subscript_html_mode(self):
@@ -268,7 +268,7 @@ class TestExtendedInlineFormatting:
         ])
         options = MarkdownOptions(subscript_mode="html")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "<sub>0</sub>"
 
 
@@ -284,7 +284,7 @@ class TestLinks:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "[Example](https://example.com)"
 
     def test_link_with_title(self):
@@ -299,7 +299,7 @@ class TestLinks:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == '[Example](https://example.com "Example Site")'
 
 
@@ -315,7 +315,7 @@ class TestImages:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "![An image](image.png)"
 
     def test_image_with_title(self):
@@ -326,7 +326,7 @@ class TestImages:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == '![An image](image.png "Image Title")'
 
 
@@ -340,7 +340,7 @@ class TestCodeBlocks:
             CodeBlock(content="print('hello')")
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "```\nprint('hello')\n```"
 
     def test_code_block_with_language(self):
@@ -349,7 +349,7 @@ class TestCodeBlocks:
             CodeBlock(content="x = 1", language="python")
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "```python\nx = 1\n```"
 
 
@@ -365,7 +365,7 @@ class TestBlockQuotes:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "> Quoted text"
 
     def test_multi_paragraph_blockquote(self):
@@ -377,7 +377,7 @@ class TestBlockQuotes:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         lines = result.split('\n')
         assert all(line.startswith('>') for line in lines)
 
@@ -395,7 +395,7 @@ class TestLists:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "* One\n* Two"
 
     def test_ordered_list(self):
@@ -407,7 +407,7 @@ class TestLists:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "1. First\n2. Second"
 
     def test_ordered_list_with_start(self):
@@ -419,7 +419,7 @@ class TestLists:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "5. Fifth\n6. Sixth"
 
     def test_task_list_gfm(self):
@@ -438,7 +438,7 @@ class TestLists:
         ])
         options = MarkdownOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "* [x]" in result
         assert "* [ ]" in result
 
@@ -464,7 +464,7 @@ class TestTables:
         doc = Document(children=[table])
         options = MarkdownOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
 
         assert "Name" in result
         assert "Alice" in result
@@ -481,7 +481,7 @@ class TestTables:
         doc = Document(children=[table])
         options = MarkdownOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
 
         assert "<table>" in result
         assert "<th>Header</th>" in result
@@ -499,7 +499,7 @@ class TestThematicBreak:
             Paragraph(content=[Text(content="After")])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "---" in result
 
 
@@ -513,7 +513,7 @@ class TestHTMLNodes:
             HTMLBlock(content="<div>Custom HTML</div>")
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "<div>Custom HTML</div>"
 
     def test_html_inline(self):
@@ -526,7 +526,7 @@ class TestHTMLNodes:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "Text with <span>HTML</span> inline"
 
 
@@ -544,7 +544,7 @@ class TestLineBreaks:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "First line\nSecond line" in result
 
     def test_hard_line_break(self):
@@ -557,7 +557,7 @@ class TestLineBreaks:
             ])
         ])
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "First line  \nSecond line" in result
 
 
@@ -584,7 +584,7 @@ class TestComplexDocuments:
         ])
 
         renderer = MarkdownRenderer()
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
 
         assert "# Title" in result
         assert "**bold**" in result
@@ -604,7 +604,7 @@ class TestEscaping:
         ])
         options = MarkdownOptions(escape_special=True)
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "\\*" in result
         assert "\\[" in result
 
@@ -615,6 +615,6 @@ class TestEscaping:
         ])
         options = MarkdownOptions(escape_special=False)
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "\\*" not in result
         assert "*asterisks*" in result

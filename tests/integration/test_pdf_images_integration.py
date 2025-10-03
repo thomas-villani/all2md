@@ -2,7 +2,7 @@
 
 import pytest
 
-from all2md.parsers.pdf2markdown import pdf_to_markdown
+from all2md import to_markdown as pdf_to_markdown
 from all2md.options import PdfOptions
 from tests.fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
@@ -133,11 +133,11 @@ class TestPdfImagesIntegration:
         pdf_bytes = create_test_pdf_bytes('images')
 
         # Test alt_text mode
-        result_alt = pdf_to_markdown(pdf_bytes, PdfOptions(attachment_mode="alt_text"))
+        result_alt = pdf_to_markdown(pdf_bytes, options=PdfOptions(attachment_mode="alt_text"))
         assert_markdown_valid(result_alt)
 
         # Test skip mode
-        result_skip = pdf_to_markdown(pdf_bytes, PdfOptions(attachment_mode="skip"))
+        result_skip = pdf_to_markdown(pdf_bytes, options=PdfOptions(attachment_mode="skip"))
         assert_markdown_valid(result_skip)
 
         # Both should contain text content

@@ -414,17 +414,25 @@ class MarkdownToAstConverter(BaseParser):
         for i, row_token in enumerate(children):
             row_type = row_token.get('type', '')
             if row_type == 'table_head':
-                # Process header row
+                # Process header row - cells are direct children of table_head
                 head_children = row_token.get('children', [])
                 if head_children:
-                    header_row_token = head_children[0]
-                    cells = self._process_table_row_cells(header_row_token)
-                    header = TableRow(cells=cells, is_header=True)
+                    # Process cells directly (no intermediate table_row)
+                    cells = []
+                    alignments_list = []
+                    for cell_token in head_children:
+                        if cell_token.get('type') == 'table_cell':
+                            cell_children = cell_token.get('children', [])
+                            content = self._process_inline_tokens(cell_children)
 
-                    # Extract alignments from attrs if available
-                    attrs = row_token.get('attrs', {})
-                    if 'align' in attrs:
-                        alignments = attrs['align']
+                            # Get alignment if specified
+                            align = cell_token.get('attrs', {}).get('align', None)
+                            alignments_list.append(align)
+
+                            cells.append(TableCell(content=content, alignment=align))
+
+                    header = TableRow(cells=cells, is_header=True)
+                    alignments = alignments_list
 
             elif row_type == 'table_body':
                 # Process body rows
@@ -641,7 +649,16 @@ class MarkdownToAstConverter(BaseParser):
         elif token_type == 'image':
             url = token.get('attrs', {}).get('url', '')
             title = token.get('attrs', {}).get('title', None)
-            alt_text = token.get('attrs', {}).get('alt', '')
+            # Alt text is in children, not attrs
+            children = token.get('children', [])
+            alt_text = ''
+            if children:
+                # Extract text from children
+                alt_parts = []
+                for child in children:
+                    if child.get('type') == 'text':
+                        alt_parts.append(child.get('raw', ''))
+                alt_text = ''.join(alt_parts)
             return Image(url=url, alt_text=alt_text, title=title)
 
         elif token_type == 'linebreak':

@@ -402,7 +402,7 @@ class RtfToAstConverter(BaseParser):
         # Most RTF metadata is not easily accessible through the pyth library
         # We can extract some basic document statistics and content analysis
 
-        if not document or not document.content:
+        if not document or not hasattr(document, 'content') or not document.content:
             return metadata
 
         # Count different element types

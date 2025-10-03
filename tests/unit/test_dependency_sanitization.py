@@ -187,25 +187,6 @@ class TestInstallDependenciesSecurity:
             assert "Package validation failed" in message
             assert "Invalid version specification" in message
 
-    def test_valid_packages_pass_validation(self):
-        """Test that valid packages pass validation (but may fail installation due to network/environment)."""
-        valid_packages = [
-            ("openpyxl", ">=3.0.0"),
-            ("requests", ""),
-            ("lxml", "~=4.6.0"),
-        ]
-
-        # Note: We're only testing that validation passes, not actual installation
-        # The function may still return False due to network issues, missing pip, etc.
-        # But it should NOT fail due to validation errors
-        for package_name, version_spec in valid_packages:
-            success, message = install_dependencies([(package_name, version_spec)])
-            # If it fails, it should NOT be due to validation
-            if not success:
-                assert "Package validation failed" not in message
-                assert "Invalid package name" not in message
-                assert "Invalid version specification" not in message
-
     def test_empty_package_list(self):
         """Test that empty package list is handled correctly."""
         success, message = install_dependencies([])

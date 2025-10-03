@@ -226,7 +226,7 @@ class DocxToAstConverter(BaseParser):
 
         return metadata
 
-    def convert_to_ast(self, doc: "docx.document.Document", base_filename) -> Document:
+    def convert_to_ast(self, doc: "docx.document.Document", base_filename="document") -> Document:
         """Convert DOCX document to AST Document.
 
         Parameters

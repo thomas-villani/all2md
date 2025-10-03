@@ -526,31 +526,31 @@ class OdfToAstConverter(BaseParser):
 
                 # Title
                 titles = meta.getElementsByType(Title)
-                if titles:
+                if titles and len(titles) > 0:
                     metadata.title = str(titles[0]).strip()
 
                 # Creator/Author
                 creators = meta.getElementsByType(Creator)
-                if creators:
+                if creators and len(creators) > 0:
                     metadata.author = str(creators[0]).strip()
                 else:
                     # Try initial creator
                     initial_creators = meta.getElementsByType(InitialCreator)
-                    if initial_creators:
+                    if initial_creators and len(initial_creators) > 0:
                         metadata.author = str(initial_creators[0]).strip()
 
                 # Description/Subject
                 descriptions = meta.getElementsByType(Description)
-                if descriptions:
+                if descriptions and len(descriptions) > 0:
                     metadata.subject = str(descriptions[0]).strip()
                 else:
                     subjects = meta.getElementsByType(Subject)
-                    if subjects:
+                    if subjects and len(subjects) > 0:
                         metadata.subject = str(subjects[0]).strip()
 
                 # Keywords
                 keywords = meta.getElementsByType(Keyword)
-                if keywords:
+                if keywords and len(keywords) > 0:
                     # ODF can have multiple keyword elements
                     keyword_list = []
                     for kw in keywords:
@@ -565,17 +565,17 @@ class OdfToAstConverter(BaseParser):
 
                 # Creation date
                 creation_dates = meta.getElementsByType(CreationDate)
-                if creation_dates:
+                if creation_dates and len(creation_dates) > 0:
                     metadata.creation_date = str(creation_dates[0]).strip()
 
                 # Generator (application)
                 generators = meta.getElementsByType(Generator)
-                if generators:
+                if generators and len(generators) > 0:
                     metadata.creator = str(generators[0]).strip()
 
                 # Language
                 languages = meta.getElementsByType(Language)
-                if languages:
+                if languages and len(languages) > 0:
                     metadata.language = str(languages[0]).strip()
 
         # Document type and statistics

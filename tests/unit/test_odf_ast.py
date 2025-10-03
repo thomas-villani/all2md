@@ -138,6 +138,20 @@ def _create_mock_odf_document(*elements):
     text_section.childNodes = list(elements)
     doc.text = text_section
     doc.presentation = None
+
+    # Set up meta section with working getElementsByType
+    meta = Mock()
+    meta.getElementsByType = Mock(return_value=[])
+    doc.meta = meta
+
+    # Set up mimetype
+    doc.mimetype = 'application/vnd.oasis.opendocument.text'
+
+    # Set up body section with working getElementsByType
+    body = Mock()
+    body.getElementsByType = Mock(return_value=[])
+    doc.body = body
+
     return doc
 
 
@@ -151,8 +165,8 @@ class TestBasicConversion:
         para = _create_mock_element((TEXTNS, "p"), text_node)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) == 1
@@ -175,8 +189,8 @@ class TestBasicConversion:
 
         doc = _create_mock_odf_document(para1, para2, para3)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert len(ast_doc.children) == 3
         assert all(isinstance(child, Paragraph) for child in ast_doc.children)
@@ -195,8 +209,8 @@ class TestHeadings:
 
         doc = _create_mock_odf_document(heading)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert len(ast_doc.children) == 1
         assert isinstance(ast_doc.children[0], Heading)
@@ -212,8 +226,8 @@ class TestHeadings:
 
             doc = _create_mock_odf_document(heading)
 
-            converter = OdfToAstConverter(doc)
-            ast_doc = converter.convert_to_ast()
+            converter = OdfToAstConverter()
+            ast_doc = converter.convert_to_ast(doc)
 
             heading_node = ast_doc.children[0]
             assert isinstance(heading_node, Heading)
@@ -234,8 +248,8 @@ class TestTextFormatting:
         para = _create_mock_element((TEXTNS, "p"), span)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         para_node = ast_doc.children[0]
         # Should detect bold from style name
@@ -250,8 +264,8 @@ class TestTextFormatting:
         para = _create_mock_element((TEXTNS, "p"), span)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         para_node = ast_doc.children[0]
         assert len(para_node.content) > 0
@@ -265,8 +279,8 @@ class TestTextFormatting:
         para = _create_mock_element((TEXTNS, "p"), span)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         para_node = ast_doc.children[0]
         assert len(para_node.content) > 0
@@ -285,8 +299,8 @@ class TestHyperlinks:
         para = _create_mock_element((TEXTNS, "p"), link)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         para_node = ast_doc.children[0]
         # Should have Link node
@@ -317,8 +331,8 @@ class TestLists:
 
         doc = _create_mock_odf_document(odf_list)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert len(ast_doc.children) == 1
         assert isinstance(ast_doc.children[0], List)
@@ -368,8 +382,8 @@ class TestTables:
         doc = _create_mock_odf_document(table)
 
         options = OdfOptions(preserve_tables=True)
-        converter = OdfToAstConverter(doc, options)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter(options)
+        ast_doc = converter.convert_to_ast(doc)
 
         # Should have table
         assert len(ast_doc.children) == 1
@@ -387,8 +401,8 @@ class TestImages:
 
         doc = _create_mock_odf_document(frame)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         # Image processing is complex, just verify no crash
         assert isinstance(ast_doc, Document)
@@ -402,8 +416,8 @@ class TestEdgeCases:
         """Test converting empty ODF document."""
         doc = _create_mock_odf_document()
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) == 0
@@ -413,9 +427,17 @@ class TestEdgeCases:
         doc = Mock()
         doc.text = None
         doc.presentation = None
+        # Add required attributes for metadata extraction
+        meta = Mock()
+        meta.getElementsByType = Mock(return_value=[])
+        doc.meta = meta
+        doc.mimetype = 'application/vnd.oasis.opendocument.text'
+        body = Mock()
+        body.getElementsByType = Mock(return_value=[])
+        doc.body = body
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) == 0
@@ -425,8 +447,8 @@ class TestEdgeCases:
         elem = Mock(spec=[])  # No qname attribute
         doc = _create_mock_odf_document(elem)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         # Should handle gracefully
         assert isinstance(ast_doc, Document)
@@ -436,8 +458,8 @@ class TestEdgeCases:
         elem = _create_mock_element(("unknown:namespace", "unknown-element"))
         doc = _create_mock_odf_document(elem)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         # Should skip unknown elements
         assert isinstance(ast_doc, Document)
@@ -448,8 +470,8 @@ class TestEdgeCases:
         para = _create_mock_element((TEXTNS, "p"), text)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         para_node = ast_doc.children[0]
         text_content = para_node.content[0].content
@@ -467,8 +489,8 @@ class TestOptionsConfiguration:
         para = _create_mock_element((TEXTNS, "p"), text)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) == 1
@@ -480,8 +502,8 @@ class TestOptionsConfiguration:
         doc = _create_mock_odf_document(para)
 
         options = OdfOptions(preserve_tables=True)
-        converter = OdfToAstConverter(doc, options)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter(options)
+        ast_doc = converter.convert_to_ast(doc)
 
         assert isinstance(ast_doc, Document)
 
@@ -504,8 +526,8 @@ class TestComplexStructures:
 
         doc = _create_mock_odf_document(heading, para1, para2)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         # Should have: Heading, Paragraph, Paragraph
         assert len(ast_doc.children) == 3
@@ -525,8 +547,8 @@ class TestComplexStructures:
         para = _create_mock_element((TEXTNS, "p"), outer_span)
         doc = _create_mock_odf_document(para)
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         para_node = ast_doc.children[0]
         # Should have nested formatting
@@ -549,8 +571,17 @@ class TestODPPresentation:
         presentation.childNodes = [para]
         doc.presentation = presentation
 
-        converter = OdfToAstConverter(doc)
-        ast_doc = converter.convert_to_ast()
+        # Add required attributes for metadata extraction
+        meta = Mock()
+        meta.getElementsByType = Mock(return_value=[])
+        doc.meta = meta
+        doc.mimetype = 'application/vnd.oasis.opendocument.presentation'
+        body = Mock()
+        body.getElementsByType = Mock(return_value=[])
+        doc.body = body
+
+        converter = OdfToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
 
         # Should process presentation content
         assert isinstance(ast_doc, Document)

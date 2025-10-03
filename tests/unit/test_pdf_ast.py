@@ -141,7 +141,7 @@ class TestBasicConversion:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) > 0
@@ -161,7 +161,7 @@ class TestBasicConversion:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert len(ast_doc.children) >= 3
 
@@ -174,7 +174,7 @@ class TestBasicConversion:
         doc = _create_mock_pdf_document(page1, page2, page3)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should have content from all pages
         assert len(ast_doc.children) >= 3
@@ -195,7 +195,7 @@ class TestHeadingDetection:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should detect heading (implementation-specific)
         # May have Heading nodes
@@ -210,7 +210,7 @@ class TestHeadingDetection:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert len(ast_doc.children) >= 1
 
@@ -243,7 +243,7 @@ class TestTableDetection:
 
         options = PdfOptions(table_detection_mode="both")
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should have table in AST
         tables = [child for child in ast_doc.children if isinstance(child, Table)]
@@ -268,7 +268,7 @@ class TestTableDetection:
 
         options = PdfOptions(table_detection_mode="none")
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Tables should be flattened to paragraphs
         assert isinstance(ast_doc, Document)
@@ -291,7 +291,7 @@ class TestImageExtraction:
 
         options = PdfOptions(attachment_mode="embed")
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should process images (implementation-specific)
         assert isinstance(ast_doc, Document)
@@ -307,7 +307,7 @@ class TestImageExtraction:
 
         options = PdfOptions(attachment_mode="skip")
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Images should be skipped
         images = [child for child in ast_doc.children if isinstance(child, Image)]
@@ -325,7 +325,7 @@ class TestCodeBlockDetection:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # May detect as code block based on font
         assert len(ast_doc.children) >= 1
@@ -341,7 +341,7 @@ class TestEdgeCases:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
         # May have page separator or be empty
@@ -351,7 +351,7 @@ class TestEdgeCases:
         doc = _create_mock_pdf_document()
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) == 0
@@ -363,7 +363,7 @@ class TestEdgeCases:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Special characters should be preserved
         assert len(ast_doc.children) >= 1
@@ -376,7 +376,7 @@ class TestEdgeCases:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
         assert len(ast_doc.children) >= 1
@@ -388,7 +388,7 @@ class TestEdgeCases:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert len(ast_doc.children) >= 1
 
@@ -406,7 +406,7 @@ class TestPageSeparators:
 
         options = PdfOptions(page_separator_template="-----")
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should have content from both pages
         assert len(ast_doc.children) >= 2
@@ -420,7 +420,7 @@ class TestPageSeparators:
 
         options = PdfOptions(page_separator_template="")
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Content from both pages without separators
         assert len(ast_doc.children) >= 2
@@ -437,7 +437,7 @@ class TestOptionsConfiguration:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
 
@@ -453,7 +453,7 @@ class TestOptionsConfiguration:
             attachment_mode="embed"
         )
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
 
@@ -469,7 +469,7 @@ class TestOptionsConfiguration:
             attachment_mode="skip"
         )
         converter = PdfToAstConverter(options)
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert isinstance(ast_doc, Document)
 
@@ -489,7 +489,7 @@ class TestComplexStructures:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should have various elements
         assert len(ast_doc.children) >= 3
@@ -511,7 +511,7 @@ class TestComplexStructures:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should handle multi-column (order may vary)
         assert len(ast_doc.children) >= 4
@@ -528,7 +528,7 @@ class TestTextExtraction:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert len(ast_doc.children) >= 1
 
@@ -539,7 +539,7 @@ class TestTextExtraction:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         assert len(ast_doc.children) >= 1
 
@@ -555,7 +555,7 @@ class TestTextExtraction:
         doc = _create_mock_pdf_document(page)
 
         converter = PdfToAstConverter()
-        ast_doc = converter.convert_to_ast(doc, range(len(doc)))
+        ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should skip empty blocks
         assert len(ast_doc.children) >= 2

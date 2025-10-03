@@ -228,8 +228,8 @@ class TestIntegration:
             assert isinstance(result, str)
         except Exception as e:
             # Should be a meaningful error (including custom MarkdownConversionError)
-            from all2md.exceptions import MarkdownConversionError
-            assert isinstance(e, (ValueError, IOError, OSError, MarkdownConversionError))
+            from all2md.exceptions import InputError
+            assert isinstance(e, (ValueError, IOError, OSError, InputError))
 
     def test_performance_with_large_documents(self):
         """Test performance and handling of large documents."""

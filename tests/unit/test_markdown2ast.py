@@ -390,9 +390,9 @@ class TestConverterClass:
         assert converter.options.parse_tables is False
 
     def test_convert_method(self) -> None:
-        """Test convert_to_ast method."""
+        """Test parse method."""
         converter = MarkdownToAstConverter()
-        doc = converter.convert_to_ast("# Hello")
+        doc = converter.parse("# Hello")
 
         assert isinstance(doc, Document)
         assert len(doc.children) == 1

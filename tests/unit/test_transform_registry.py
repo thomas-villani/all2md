@@ -27,6 +27,8 @@ def registry():
     """Create a fresh registry for each test."""
     reg = TransformRegistry()
     reg.clear()
+    # Prevent auto-initialization from re-registering builtin transforms
+    reg._initialized = True
     return reg
 
 
@@ -336,6 +338,7 @@ class TestTransformRegistry:
         assert registry.has_transform("test-transform")
 
         registry.clear()
+        registry._initialized = True  # Prevent re-initialization after clear
         assert not registry.has_transform("test-transform")
         assert registry.list_transforms() == []
 

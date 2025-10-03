@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from all2md.parsers.pdf2markdown import pdf_to_markdown
+from all2md import to_markdown as pdf_to_markdown
 from all2md.parsers.pdf import detect_columns, IdentifyHeaders
 from all2md.options import PdfOptions
 from tests.utils import cleanup_test_dir, create_test_temp_dir
@@ -97,7 +97,7 @@ class TestPdfLayoutAdvanced:
         assert len(columns[0]) == len(blocks)
 
     # TODO: remove or refactor
-    @patch('all2md.parsers.pdf2markdown.fitz.open')
+    @patch('all2md.parsers.pdf.fitz.open')
     def test_rotated_text_handling(self, mock_fitz_open):
         """Test handling of rotated text blocks."""
         # Mock PDF with rotated text
@@ -142,12 +142,14 @@ class TestPdfLayoutAdvanced:
         # Fix the magic method by configuring it properly
         mock_doc.__getitem__ = Mock(return_value=mock_page)
         mock_doc.page_count = 1
+        mock_doc.name = "test.pdf"
+        mock_doc.metadata = {}  # Add metadata dict for extraction
         mock_fitz_open.return_value = mock_doc
 
         options = PdfOptions(handle_rotated_text=True)
 
         # This would be called by pdf_to_markdown internally
-        result = pdf_to_markdown(mock_doc, options=options)
+        result = pdf_to_markdown(mock_doc, format="pdf", options=options)
         # Should handle rotated text (currently rotated text may be filtered out)
         # The test verifies that the function runs without error with rotated text present
         assert "Normal Text" in result
@@ -203,7 +205,7 @@ class TestPdfLayoutAdvanced:
         columns_large = detect_columns(blocks, column_gap_threshold=50)
         assert len(columns_large) <= 3
 
-    @patch('all2md.parsers.pdf2markdown.fitz.open')
+    @patch('all2md.parsers.pdf.fitz.open')
     def test_header_detection_with_rotation(self, mock_fitz_open):
         """Test header detection considering rotated text."""
         mock_doc = Mock()
