@@ -571,7 +571,8 @@ class ConverterRegistry:
     def check_dependencies(
         self,
         format_name: Optional[str] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        operation: str = "both"
     ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 
@@ -581,6 +582,8 @@ class ConverterRegistry:
             Check specific format, or all if None
         input_data : various types, optional
             Input data to use for context-aware dependency checking
+        operation : str, default="both"
+            Operation type to check dependencies for: "parse", "render", or "both"
 
         Returns
         -------
@@ -622,8 +625,8 @@ class ConverterRegistry:
             format_missing = []
 
             # Use context-aware dependency checking if available
-            # Pass both content sample and original input_data for accurate detection
-            required_packages = metadata.get_required_packages_for_content(content, input_data)
+            # Pass both content sample, original input_data, and operation type for accurate detection
+            required_packages = metadata.get_required_packages_for_content(content, input_data, operation)
 
             for pkg_name, import_name, _ in required_packages:
                 if not _check_package_installed(import_name):

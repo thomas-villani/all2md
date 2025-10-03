@@ -250,7 +250,8 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
-    required_packages=[("ebooklib", "ebooklib", "")],
+    parser_required_packages=[("ebooklib", "ebooklib", "")],
+    renderer_required_packages=[],
     optional_packages=[],
     import_error_message=(
         "ePub conversion requires 'ebooklib'. "

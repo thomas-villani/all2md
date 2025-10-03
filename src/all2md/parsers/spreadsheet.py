@@ -1060,7 +1060,8 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
     def get_required_packages_for_content(
         self,
         content: Optional[bytes] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        operation: str = "parse"
     ) -> list[tuple[str, str, str]]:
         """Get required packages based on detected spreadsheet format.
 
@@ -1073,6 +1074,8 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
             File content sample (may be partial) to analyze for format detection
         input_data : various types, optional
             Original input data (path, file object, or bytes) for accurate detection
+        operation : str, default="parse"
+            The operation type: "parse", "render", or "both"
 
         Returns
         -------
@@ -1080,6 +1083,10 @@ class SpreadsheetConverterMetadata(ConverterMetadata):
             Required packages for the detected format as (install_name, import_name, version_spec) tuples
 
         """
+        # Spreadsheet currently only has parsers, no renderers
+        if operation == "render":
+            return self.renderer_required_packages
+
         if input_data is not None:
             converter = SpreadsheetToAstConverter()
             detected_format = converter._detect_format(input_data)
@@ -1140,7 +1147,8 @@ CONVERTER_METADATA = SpreadsheetConverterMetadata(
     content_detector=_detect_csv_tsv_content,
     parser_class="SpreadsheetToAstConverter",
     renderer_class=None,
-    required_packages=[("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")],
+    parser_required_packages=[("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")],
+    renderer_required_packages=[],
     import_error_message="Spreadsheet conversion requires dependencies: 'openpyxl' for XLSX, "
                         "'odfpy' for ODS. Install with: pip install openpyxl odfpy",
     parser_options_class="SpreadsheetOptions",

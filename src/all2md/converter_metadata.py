@@ -45,12 +45,19 @@ class ConverterMetadata:
         - Fully qualified name (e.g., "myplugin.renderers.MyRenderer")
         - Direct class reference (e.g., MyRendererClass)
         - None for no renderer
-    required_packages : list[tuple[str, str, str]]
-        Required packages as (install_name, import_name, version_spec) tuples.
+    parser_required_packages : list[tuple[str, str, str]]
+        Required packages for the parser as (install_name, import_name, version_spec) tuples.
         The install_name is the package name for pip install, import_name is
         the name used in Python import statements, and version_spec is the
         version requirement (can be empty string for no requirement).
         e.g., [("pymupdf", "fitz", ">=1.26.4"), ("Pillow", "PIL", ">=9.0.0")]
+    renderer_required_packages : list[tuple[str, str, str]]
+        Required packages for the renderer as (install_name, import_name, version_spec) tuples.
+        Same format as parser_required_packages. Empty list if no renderer or no special
+        dependencies needed for rendering.
+    required_packages : list[tuple[str, str, str]]
+        Combined list of all required packages (parser + renderer). This field is
+        computed automatically and provided for backward compatibility.
     optional_packages : list[tuple[str, str]]
         Optional packages that enhance functionality
     import_error_message : str
@@ -80,13 +87,25 @@ class ConverterMetadata:
     content_detector: Optional[Callable[[bytes], bool]] = None
     parser_class: Optional[Union[str, type]] = None
     renderer_class: Optional[Union[str, type]] = None
-    required_packages: list[tuple[str, str, str]] = field(default_factory=list)
+    parser_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
+    renderer_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
     parser_options_class: Optional[Union[str, type]] = None
     renderer_options_class: Optional[Union[str, type]] = None
     description: str = ""
     priority: int = 0
+
+    @property
+    def required_packages(self) -> list[tuple[str, str, str]]:
+        """Get combined list of all required packages for backward compatibility.
+
+        Returns
+        -------
+        list[tuple[str, str, str]]
+            Combined parser and renderer packages
+        """
+        return self.parser_required_packages + self.renderer_required_packages
 
     def get_install_command(self) -> str:
         """Generate pip install command for required packages.
@@ -177,12 +196,13 @@ class ConverterMetadata:
     def get_required_packages_for_content(
         self,
         content: Optional[bytes] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        operation: str = "parse"
     ) -> list[tuple[str, str, str]]:
         """Get required packages for specific content, allowing context-aware dependency checking.
 
-        Some parsers may have different dependency requirements based on the actual
-        content they're processing. This method allows parsers to specify
+        Some parsers or renderers may have different dependency requirements based on the actual
+        content they're processing. This method allows parsers/renderers to specify
         context-specific dependencies.
 
         Parameters
@@ -193,17 +213,26 @@ class ConverterMetadata:
             Original input data (path, file object, or bytes) for more accurate detection.
             When provided, implementations can access the full file instead of relying
             on potentially truncated content samples.
+        operation : str, default="parse"
+            The operation type: "parse", "render", or "both"
 
         Returns
         -------
         list[tuple[str, str, str]]
             Required packages as (install_name, import_name, version_spec) tuples for this content
         """
-        # Default implementation returns all required packages
-        # Subclasses or specific parsers can override this logic to use input_data
-        return self.required_packages
+        # Default implementation returns packages based on operation type
+        # Subclasses can override this logic to use content/input_data for context-aware detection
+        if operation == "parse":
+            return self.parser_required_packages
+        elif operation == "render":
+            return self.renderer_required_packages
+        elif operation == "both":
+            return self.required_packages  # Uses the @property which combines both
+        else:
+            return self.required_packages
 
-
+# TODO: implement or remove.
 @dataclass
 class ConverterCapabilities:
     """Describes capabilities and features of a converter.

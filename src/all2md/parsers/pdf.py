@@ -1675,7 +1675,8 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     parser_class=PdfToAstConverter,
     renderer_class=None,
-    required_packages=[("pymupdf", "fitz", ">=1.26.4")],
+    parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
+    renderer_required_packages=[],
     optional_packages=[],
     import_error_message=(
         "PDF conversion requires 'PyMuPDF'. "
