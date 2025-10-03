@@ -155,7 +155,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
                 parameter_value=pages,
             )
         try:
-            # Import parse_page_ranges from pdf2markdown
+            # Use utility function to parse page range string
             pages = parse_page_ranges(pages, max_pages)
         except (ValueError, IndexError) as e:
             raise InputError(

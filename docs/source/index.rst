@@ -105,11 +105,13 @@ User Guide
    installation
    quickstart
    overview
+   architecture
    ast_guide
    transforms
    formats
    options
    security
+   threat_model
    cli
    recipes
    plugins

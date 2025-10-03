@@ -7,6 +7,7 @@ from dataclass options using field metadata.
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import argparse
+import difflib
 from dataclasses import fields, is_dataclass
 from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
 
@@ -590,6 +591,14 @@ Examples:
             help="Set logging level for debugging (default: WARNING). Overrides --verbose if both are specified."
         )
 
+        # Argument validation options
+        parser.add_argument(
+            "--strict-args",
+            action="store_true",
+            dest="strict_args",
+            help="Fail on unknown command-line arguments instead of warning (helps catch typos)"
+        )
+
         # Version and about options
         from all2md.cli.custom_actions import DynamicVersionAction
 
@@ -648,6 +657,36 @@ Examples:
 
         self.parser = parser
         return parser
+
+    def _suggest_similar_argument(self, unknown_arg: str, known_args: list[str]) -> str | None:
+        """Suggest similar argument name using fuzzy matching.
+
+        Parameters
+        ----------
+        unknown_arg : str
+            Unknown argument name (with or without -- prefix)
+        known_args : list[str]
+            List of known argument names
+
+        Returns
+        -------
+        str or None
+            Best matching argument name, or None if no good match
+        """
+        # Remove -- prefix for comparison
+        arg_clean = unknown_arg.lstrip('-').replace('-', '_')
+
+        # Build list of known arg names without prefix
+        known_clean = [arg.lstrip('-').replace('-', '_') for arg in known_args]
+
+        # Find close matches (similarity threshold 0.6)
+        matches = difflib.get_close_matches(arg_clean, known_clean, n=1, cutoff=0.6)
+
+        if matches:
+            # Convert back to CLI format (kebab-case with --)
+            return f"--{matches[0].replace('_', '-')}"
+
+        return None
 
     def map_args_to_options(self, parsed_args: argparse.Namespace, json_options: dict | None = None) -> dict:
         """Map CLI arguments to options using dot notation parsing.
@@ -726,11 +765,23 @@ Examples:
             except Exception:
                 continue
 
+        # Track unknown arguments for validation
+        unknown_args = []
+        all_known_arg_names = []
+
+        # Build list of all known argument names for fuzzy matching
+        for prefix, opts_class in options_classes.items():
+            for field in fields(opts_class):
+                if prefix == 'base':
+                    all_known_arg_names.append(field.name)
+                else:
+                    all_known_arg_names.append(f"{prefix}.{field.name}")
+
         # Process each argument
         for arg_name, arg_value in args_dict.items():
             # Skip special arguments
             if arg_name in ['input', 'out', 'format', 'log_level', 'options_json', 'about',
-                           'version', '_provided_args']:
+                           'version', '_provided_args', 'strict_args', 'verbose']:
                 continue
 
             # Only process arguments that were explicitly provided
@@ -760,8 +811,8 @@ Examples:
                             break
 
                     if not field_found and arg_value is not None:
-                        # Store unrecognized but provided values
-                        options[field_name] = arg_value
+                        # Track unknown argument
+                        unknown_args.append(arg_name)
             else:
                 # Handle non-dot notation arguments (BaseOptions fields)
                 if 'base' in options_classes:
@@ -780,8 +831,41 @@ Examples:
                             break
 
                     if not field_found and arg_value is not None:
-                        # Store unrecognized but provided values
-                        options[arg_name] = arg_value
+                        # Track unknown argument
+                        unknown_args.append(arg_name)
+
+        # Validate unknown arguments
+        if unknown_args:
+            import sys
+            import warnings
+
+            # Check if strict mode is enabled (can be controlled via env var or arg)
+            strict_mode = getattr(parsed_args, 'strict_args', False)
+
+            error_messages = []
+            for unknown_arg in unknown_args:
+                # Suggest similar argument
+                suggestion = self._suggest_similar_argument(unknown_arg, all_known_arg_names)
+
+                if suggestion:
+                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. Did you mean {suggestion}?"
+                else:
+                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}"
+
+                error_messages.append(msg)
+
+            if strict_mode:
+                # Fail on unknown arguments
+                full_error = "\n".join(error_messages)
+                raise argparse.ArgumentTypeError(
+                    f"Invalid arguments:\n{full_error}\n"
+                    f"Use 'all2md --help' to see available options."
+                )
+            else:
+                # Warn about unknown arguments
+                for msg in error_messages:
+                    warnings.warn(msg, UserWarning)
+                    print(f"Warning: {msg}", file=sys.stderr)
 
         return options
 
@@ -811,17 +895,49 @@ Examples:
         -------
         Any
             Processed value or None if should be skipped
+
+        Raises
+        ------
+        argparse.ArgumentTypeError
+            If value type validation fails or choices validation fails
         """
         # If not explicitly provided, skip it
         if not was_provided:
             return None
 
+        # Validate choices if specified
+        if 'choices' in metadata and arg_value is not None:
+            choices = metadata['choices']
+            if arg_value not in choices:
+                raise argparse.ArgumentTypeError(
+                    f"Argument --{arg_name.replace('_', '-')} must be one of {choices}, got: {arg_value}"
+                )
+
         # Handle list_int type (comma-separated integers)
         if metadata.get('type') == 'list_int' and isinstance(arg_value, str):
             try:
                 return [int(x.strip()) for x in arg_value.split(',')]
-            except ValueError:
-                return None
+            except ValueError as e:
+                raise argparse.ArgumentTypeError(
+                    f"Argument --{arg_name.replace('_', '-')} expects comma-separated integers, "
+                    f"got: {arg_value}"
+                ) from e
+
+        # Validate integer type if specified in metadata
+        if metadata.get('type') == int and arg_value is not None:
+            if not isinstance(arg_value, int):
+                raise argparse.ArgumentTypeError(
+                    f"Argument --{arg_name.replace('_', '-')} expects an integer, "
+                    f"got: {arg_value} (type: {type(arg_value).__name__})"
+                )
+
+        # Validate float type if specified in metadata
+        if metadata.get('type') == float and arg_value is not None:
+            if not isinstance(arg_value, (int, float)):
+                raise argparse.ArgumentTypeError(
+                    f"Argument --{arg_name.replace('_', '-')} expects a number, "
+                    f"got: {arg_value} (type: {type(arg_value).__name__})"
+                )
 
         # For explicitly provided arguments, return the value
         # The tracking actions ensure we only get here for user-provided values
