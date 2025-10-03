@@ -4,7 +4,7 @@ import pytest
 
 from all2md import to_markdown
 from all2md.ast import Document, Heading, Paragraph, Strikethrough, Table, TableCell, TableRow, Text
-from all2md.ast.flavors import (
+from all2md.utils.flavors import (
     CommonMarkFlavor,
     GFMFlavor,
     KramdownFlavor,

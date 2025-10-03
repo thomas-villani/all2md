@@ -75,12 +75,12 @@ all2md.ast : AST node definitions and utilities
 
 """
 #  Copyright (c) 2025 Tom Villani, Ph.D.
-import copy
 import logging
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any, Optional, Union, get_type_hints
+from dataclasses import is_dataclass
 
 from all2md.constants import DocumentFormat
 
@@ -199,9 +199,6 @@ def _collect_nested_dataclass_kwargs(options_class: type[BaseParserOptions] | ty
         'remaining': {'extract_title': False}
     }
     """
-    from dataclasses import is_dataclass
-    from typing import get_type_hints
-
     nested_kwargs = {}
     remaining_kwargs = {}
 
@@ -628,11 +625,12 @@ def to_ast(
         >>> ast_doc = to_ast("document.pdf")
 
     Manipulate AST and convert to markdown:
-        >>> from all2md.ast import transforms, MarkdownRenderer
+        >>> from all2md.ast import transforms
+        >>> from all2md.renderers.markdown import MarkdownRenderer
         >>> ast_doc = to_ast("document.pdf")
         >>> filtered_doc = transforms.filter_nodes(ast_doc, lambda n: not isinstance(n, Image))
         >>> renderer = MarkdownRenderer()
-        >>> markdown = renderer.render(filtered_doc)
+        >>> markdown = renderer.render_to_string(filtered_doc)
 
     Extract specific nodes:
         >>> from all2md.ast import transforms, Heading
@@ -722,7 +720,6 @@ def from_ast(
         >>> md_opts = MarkdownOptions(flavor="commonmark")
         >>> markdown = from_ast(ast_doc, "markdown", renderer_options=md_opts)
     """
-    from all2md.ast import Document
 
     # Prepare renderer options
     if kwargs and renderer_options:

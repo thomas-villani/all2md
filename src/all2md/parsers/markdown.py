@@ -11,7 +11,6 @@ markdown into the same AST structure used for other formats.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -750,6 +749,7 @@ CONVERTER_METADATA = ConverterMetadata(
     magic_bytes=[],
     parser_class="MarkdownToAstConverter",
     renderer_class="all2md.renderers.markdown.MarkdownRenderer",
+    renders_as_string=True,
     parser_required_packages=[("mistune", "mistune", ">=3.0.0")],
     renderer_required_packages=[],
     optional_packages=[],

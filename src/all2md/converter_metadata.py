@@ -89,6 +89,7 @@ class ConverterMetadata:
     renderer_class: Optional[Union[str, type]] = None
     parser_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
     renderer_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
+    renders_as_string: bool = False
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
     parser_options_class: Optional[Union[str, type]] = None

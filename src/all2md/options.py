@@ -22,7 +22,7 @@ Options Classes
 """
 from __future__ import annotations
 
-from dataclasses import MISSING, dataclass, field, fields, replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal, Optional, Self, Union
 
 # Sentinel value to detect when user didn't explicitly set unsupported modes
@@ -114,8 +114,7 @@ from .constants import (
     UnsupportedInlineMode,
     UnsupportedTableMode,
     DEFAULT_FLAVOR,
-    DEFAULT_UNSUPPORTED_INLINE_MODE,
-    DEFAULT_UNSUPPORTED_TABLE_MODE, DEFAULT_INCLUDE_METADATA_FRONTMATTER,
+    DEFAULT_INCLUDE_METADATA_FRONTMATTER,
 )
 
 
@@ -1703,7 +1702,7 @@ def validate_flavor_compatibility(
     - Setting table-specific options with CommonMark unless using
       `unsupported_table_mode="force"` or `"html"`
     """
-    from all2md.ast.flavors import (
+    from all2md.utils.flavors import (
         CommonMarkFlavor,
         GFMFlavor,
         KramdownFlavor,

@@ -17,10 +17,9 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from dataclasses import dataclass, field
-from typing import IO, Literal, Union
+from typing import IO, Union
 
-from all2md.ast.flavors import (
+from all2md.utils.flavors import (
     CommonMarkFlavor,
     GFMFlavor,
     KramdownFlavor,
@@ -65,7 +64,6 @@ from all2md.ast.nodes import (
 )
 from all2md.options import MarkdownOptions
 from all2md.ast.visitors import NodeVisitor
-from all2md.converter_metadata import ConverterMetadata
 from all2md.renderers.base import BaseRenderer
 
 
@@ -85,21 +83,21 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.ast import Document, Heading, Text, MarkdownRenderer
+        >>> from all2md.ast import Document, Heading, Text
         >>> from all2md.options import MarkdownOptions
+        >>> from all2md.renderers.markdown import MarkdownRenderer
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Title")])
         ... ])
         >>> options = MarkdownOptions(flavor="gfm")
         >>> renderer = MarkdownRenderer(options)
-        >>> markdown = renderer.render(doc)
+        >>> markdown = renderer.render_to_string(doc)
         >>> print(markdown)
         # Title
 
     """
 
     def __init__(self, options: MarkdownOptions | None = None):
-        # Import here to avoid circular dependency
         # Initialize BaseRenderer
         options = options or MarkdownOptions()
         BaseRenderer.__init__(self, options)

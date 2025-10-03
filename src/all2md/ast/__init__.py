@@ -25,7 +25,7 @@ Examples
 Basic usage:
 
     >>> from all2md.ast import Document, Heading, Paragraph, Text
-    >>> from all2md.ast import MarkdownRenderer
+    >>> from all2md.renderers.markdown import MarkdownRenderer
     >>>
     >>> # Create AST
     >>> doc = Document(children=[
@@ -35,7 +35,7 @@ Basic usage:
     >>>
     >>> # Render to markdown
     >>> renderer = MarkdownRenderer()
-    >>> markdown = renderer.render(doc)
+    >>> markdown = renderer.render_to_string(doc)
 
 """
 
@@ -43,12 +43,6 @@ from __future__ import annotations
 
 # Builder helpers
 from all2md.ast.builder import DocumentBuilder, ListBuilder, TableBuilder
-from all2md.ast.flavors import (
-    CommonMarkFlavor,
-    GFMFlavor,
-    MarkdownFlavor,
-    MarkdownPlusFlavor,
-)
 
 # Core node types
 from all2md.ast.nodes import (
@@ -86,9 +80,6 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
-
-# Renderer and flavors
-from all2md.renderers.markdown import MarkdownRenderer
 
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor
@@ -148,13 +139,6 @@ __all__ = [
     # Visitors
     "NodeVisitor",
     "ValidationVisitor",
-    # Renderer
-    "MarkdownRenderer",
-    # Flavors
-    "MarkdownFlavor",
-    "GFMFlavor",
-    "CommonMarkFlavor",
-    "MarkdownPlusFlavor",
     # Builders
     "ListBuilder",
     "TableBuilder",

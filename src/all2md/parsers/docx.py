@@ -1114,6 +1114,7 @@ CONVERTER_METADATA = ConverterMetadata(
     ],
     parser_class=DocxToAstConverter,
     renderer_class=None,
+    renders_as_string=False,
     parser_required_packages=[("python-docx", "docx", "")],
     renderer_required_packages=[],
     optional_packages=[],
