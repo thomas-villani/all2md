@@ -1370,7 +1370,8 @@ CONVERTER_METADATA = ConverterMetadata(
     required_packages=[("beautifulsoup4", "bs4", "")],
     optional_packages=[],
     import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
-    options_class=HtmlOptions,
+    parser_options_class=HtmlOptions,
+    renderer_options_class=None,
     description="Convert HTML documents to Markdown",
     priority=5,
 )

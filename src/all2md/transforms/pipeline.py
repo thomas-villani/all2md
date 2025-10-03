@@ -54,7 +54,7 @@ from typing import Any, Optional, Union
 
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
-from all2md.options import BaseOptions, MarkdownOptions
+from all2md.options import BaseParserOptions, BaseRendererOptions, MarkdownOptions
 
 from .hooks import HookCallable, HookContext, HookManager, HookTarget
 from .registry import TransformRegistry
@@ -150,7 +150,7 @@ class Pipeline:
         - Renderer class (e.g., MarkdownRenderer)
         - Renderer instance (e.g., MarkdownRenderer())
         Defaults to MarkdownRenderer with default options
-    options : BaseOptions or MarkdownOptions, optional
+    options : BaseRendererOptions or MarkdownOptions, optional
         Options for rendering (used if renderer is string or class, ignored if instance)
 
     Examples
@@ -179,7 +179,7 @@ class Pipeline:
         transforms: Optional[list[Union[str, NodeTransformer]]] = None,
         hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
         renderer: Optional[Union[str, type, Any]] = None,
-        options: Optional[Union[BaseOptions, MarkdownOptions]] = None
+        options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None
     ):
         """Initialize pipeline with transforms, hooks, renderer, and options."""
         self.transforms = transforms or []
@@ -190,7 +190,7 @@ class Pipeline:
         self.renderer = self._setup_renderer(renderer, options)
 
         # Store options for backward compatibility (some code may access pipeline.options)
-        self.options = options if isinstance(options, (BaseOptions, MarkdownOptions)) else MarkdownOptions()
+        self.options = options if isinstance(options, (BaseRendererOptions, MarkdownOptions)) else MarkdownOptions()
 
         # Register provided hooks
         if hooks:
@@ -202,7 +202,7 @@ class Pipeline:
     def _setup_renderer(
         self,
         renderer: Optional[Union[str, type, Any]],
-        options: Optional[Union[BaseOptions, MarkdownOptions]]
+        options: Optional[Union[BaseRendererOptions, MarkdownOptions]]
     ) -> Any:
         """Set up the renderer instance.
 
@@ -210,7 +210,7 @@ class Pipeline:
         ----------
         renderer : str, type, or instance, optional
             Renderer specification
-        options : BaseOptions or MarkdownOptions, optional
+        options : BaseRendererOptions or MarkdownOptions, optional
             Options to use if creating renderer from string/class
 
         Returns
@@ -516,7 +516,7 @@ def render(
     transforms: Optional[list[Union[str, NodeTransformer]]] = None,
     hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
     renderer: Optional[Union[str, type, Any]] = None,
-    options: Optional[Union[BaseOptions, MarkdownOptions]] = None,
+    options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
     **kwargs
 ) -> Union[str, bytes]:
     """Render document with transforms and hooks using specified renderer.
@@ -541,7 +541,7 @@ def render(
         - Renderer class (e.g., MarkdownRenderer)
         - Renderer instance (e.g., MarkdownRenderer())
         Defaults to MarkdownRenderer
-    options : BaseOptions or MarkdownOptions, optional
+    options : BaseRendererOptions or MarkdownOptions, optional
         Options for rendering (used if renderer is string or class)
     **kwargs
         Additional keyword arguments passed to MarkdownOptions if

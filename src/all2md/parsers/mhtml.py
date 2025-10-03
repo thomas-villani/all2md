@@ -220,7 +220,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_class=None,
     required_packages=[("beautifulsoup4", "bs4", "")],
     import_error_message="MHTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4",
-    options_class=MhtmlOptions,
+    parser_options_class=MhtmlOptions,
+    renderer_options_class=None,
     description="Convert MHTML web archives to Markdown",
     priority=5
 )

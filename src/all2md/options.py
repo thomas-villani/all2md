@@ -125,8 +125,22 @@ class _CloneMixin:
 
 
 @dataclass(frozen=True)
-class MarkdownOptions(_CloneMixin):
-    r"""Common Markdown formatting options used across conversion modules.
+class BaseRendererOptions(_CloneMixin):
+    """Base class for all renderer options.
+
+    This class serves as the foundation for format-specific renderer options.
+    Renderers convert AST documents into various output formats (Markdown, DOCX, PDF, etc.).
+
+    Notes
+    -----
+    Subclasses should define format-specific rendering options as frozen dataclass fields.
+    """
+    pass
+
+
+@dataclass(frozen=True)
+class MarkdownOptions(BaseRendererOptions):
+    r"""Markdown rendering options for converting AST to Markdown text.
 
     When a flavor is specified, default values for unsupported_table_mode and
     unsupported_inline_mode are automatically set to flavor-appropriate values
@@ -491,7 +505,25 @@ class LocalFileAccessOptions(_CloneMixin):
 
 
 @dataclass(frozen=True)
-class BaseOptions(_CloneMixin):
+class BaseParserOptions(_CloneMixin):
+    """Base class for all parser options.
+
+    This class serves as the foundation for format-specific parser options.
+    Parsers convert source documents into AST representation.
+
+    Parameters
+    ----------
+    attachment_mode : AttachmentMode
+        How to handle attachments/images during parsing
+    alt_text_mode : AltTextMode
+        How to render alt-text content
+    extract_metadata : bool
+        Whether to extract document metadata
+
+    Notes
+    -----
+    Subclasses should define format-specific parsing options as frozen dataclass fields.
+    """
     attachment_mode: AttachmentMode = field(
         default=DEFAULT_ATTACHMENT_MODE,
         metadata={
@@ -517,10 +549,6 @@ class BaseOptions(_CloneMixin):
     extract_metadata: bool = field(
         default=DEFAULT_EXTRACT_METADATA,
         metadata={"help": "Extract document metadata as YAML front matter"}
-    )
-    markdown_options: MarkdownOptions | None = field(
-        default=None,
-        metadata={"exclude_from_cli": True}  # Special field, handled separately
     )
     max_asset_bytes: int = field(
         default=DEFAULT_MAX_DOWNLOAD_BYTES,
@@ -553,7 +581,7 @@ class BaseOptions(_CloneMixin):
 
 
 @dataclass(frozen=True)
-class PdfOptions(BaseOptions):
+class PdfOptions(BaseParserOptions):
     """Configuration options for PDF-to-Markdown conversion.
 
     This dataclass contains settings specific to PDF document processing,
@@ -855,7 +883,7 @@ class PdfOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class DocxOptions(BaseOptions):
+class DocxOptions(BaseParserOptions):
     """Configuration options for DOCX-to-Markdown conversion.
 
     This dataclass contains settings specific to Word document processing,
@@ -926,7 +954,7 @@ class DocxOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class HtmlOptions(BaseOptions):
+class HtmlOptions(BaseParserOptions):
     """Configuration options for HTML-to-Markdown conversion.
 
     This dataclass contains settings specific to HTML document processing,
@@ -1041,7 +1069,7 @@ class HtmlOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class PptxOptions(BaseOptions):
+class PptxOptions(BaseParserOptions):
     """Configuration options for PPTX-to-Markdown conversion.
 
     This dataclass contains settings specific to PowerPoint presentation
@@ -1100,7 +1128,7 @@ class PptxOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class EmlOptions(BaseOptions):
+class EmlOptions(BaseParserOptions):
     """Configuration options for EML-to-Markdown conversion.
 
     This dataclass contains settings specific to email message processing,
@@ -1252,7 +1280,7 @@ class EmlOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class RtfOptions(BaseOptions):
+class RtfOptions(BaseParserOptions):
     """Configuration options for RTF-to-Markdown conversion.
 
     This dataclass contains settings specific to Rich Text Format processing,
@@ -1260,13 +1288,13 @@ class RtfOptions(BaseOptions):
 
     Parameters
     ----------
-    Inherited from `BaseOptions`
+    Inherited from `BaseParserOptions`
     """
     pass
 
 
 @dataclass(frozen=True)
-class IpynbOptions(BaseOptions):
+class IpynbOptions(BaseParserOptions):
     """Configuration options for IPYNB-to-Markdown conversion.
 
     This dataclass contains settings specific to Jupyter Notebook processing,
@@ -1332,7 +1360,7 @@ class IpynbOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class OdfOptions(BaseOptions):
+class OdfOptions(BaseParserOptions):
     """Configuration options for ODF-to-Markdown conversion.
 
     This dataclass contains settings specific to OpenDocument (ODT, ODP)
@@ -1354,7 +1382,7 @@ class OdfOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class EpubOptions(BaseOptions):
+class EpubOptions(BaseParserOptions):
     """Configuration options for EPUB-to-Markdown conversion.
 
     This dataclass contains settings specific to EPUB document processing,
@@ -1405,7 +1433,7 @@ class MhtmlOptions(HtmlOptions):
 
 
 @dataclass(frozen=True)
-class SpreadsheetOptions(BaseOptions):
+class SpreadsheetOptions(BaseParserOptions):
     """Configuration options for Spreadsheet (XLSX/CSV/TSV/ODS) to Markdown conversion.
 
     Parameters
@@ -1487,7 +1515,7 @@ class SpreadsheetOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class SourceCodeOptions(BaseOptions):
+class SourceCodeOptions(BaseParserOptions):
     """Configuration options for source code to Markdown conversion.
 
     This dataclass contains settings specific to source code file processing,
@@ -1535,7 +1563,7 @@ class SourceCodeOptions(BaseOptions):
 
 
 @dataclass(frozen=True)
-class MarkdownParserOptions(BaseOptions):
+class MarkdownParserOptions(BaseParserOptions):
     """Configuration options for Markdown-to-AST parsing.
 
     This dataclass contains settings specific to parsing Markdown documents

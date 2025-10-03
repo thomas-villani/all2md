@@ -604,7 +604,6 @@ def process_with_rich_output(
 
             # Auto-detect CPU count if --parallel was provided without a value (None)
             # Otherwise use the explicit worker count
-            import os
             max_workers = args.parallel if args.parallel else os.cpu_count()
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
@@ -1249,7 +1248,6 @@ def process_dry_run(
     # Check if parallel was explicitly provided
     parallel_provided = hasattr(args, '_provided_args') and 'parallel' in args._provided_args
     if parallel_provided and args.parallel is None:
-        import os
         worker_count = os.cpu_count() or 'auto'
         print(f"  Parallel processing: {worker_count} workers (auto-detected)")
     elif isinstance(args.parallel, int) and args.parallel != 1:
@@ -1928,10 +1926,7 @@ def _default_extension_for_format(target_format: str) -> str:
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     from all2md.constants import EXIT_INPUT_ERROR, EXIT_SUCCESS, get_exit_code_for_exception
-    from all2md.converter_registry import registry
     from all2md.cli.processors import (
-        process_detect_only,
-        process_dry_run,
         process_stdin,
         setup_and_validate_options,
         validate_arguments,

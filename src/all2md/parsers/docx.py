@@ -1120,7 +1120,8 @@ CONVERTER_METADATA = ConverterMetadata(
         "DOCX conversion requires 'python-docx'. "
         "Install with: pip install python-docx"
     ),
-    options_class=DocxOptions,
+    parser_options_class=DocxOptions,
+    renderer_options_class=None,
     description="Convert Microsoft Word DOCX documents to Markdown",
     priority=8
 )

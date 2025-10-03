@@ -26,7 +26,7 @@ class TestPdfImagesIntegration:
         pdf_bytes = create_test_pdf_bytes('images')
 
         options = PdfOptions(attachment_mode="alt_text")
-        result = pdf_to_markdown(pdf_bytes, options=options)
+        result = pdf_to_markdown(pdf_bytes, parser_options=options)
         assert_markdown_valid(result)
 
         # Should contain our expected text content
@@ -60,7 +60,7 @@ class TestPdfImagesIntegration:
         pdf_bytes = create_test_pdf_bytes('images')
 
         options = PdfOptions(attachment_mode="alt_text")
-        result = pdf_to_markdown(pdf_bytes, options=options)
+        result = pdf_to_markdown(pdf_bytes, parser_options=options)
         assert_markdown_valid(result)
 
         # Should handle both figures
@@ -106,7 +106,7 @@ class TestPdfImagesIntegration:
         pdf_bytes = create_test_pdf_bytes('complex')
 
         options = PdfOptions(attachment_mode="alt_text")
-        result = pdf_to_markdown(pdf_bytes, options=options)
+        result = pdf_to_markdown(pdf_bytes, parser_options=options)
         assert_markdown_valid(result)
 
         # Should properly handle mixed content
@@ -122,7 +122,7 @@ class TestPdfImagesIntegration:
 
         options = PdfOptions(attachment_mode="alt_text")
         # Should not raise exception even if no images or extraction issues
-        result = pdf_to_markdown(pdf_bytes, options=options)
+        result = pdf_to_markdown(pdf_bytes, parser_options=options)
         assert_markdown_valid(result)
 
         # Should still extract text content
@@ -133,11 +133,11 @@ class TestPdfImagesIntegration:
         pdf_bytes = create_test_pdf_bytes('images')
 
         # Test alt_text mode
-        result_alt = pdf_to_markdown(pdf_bytes, options=PdfOptions(attachment_mode="alt_text"))
+        result_alt = pdf_to_markdown(pdf_bytes, parser_options=PdfOptions(attachment_mode="alt_text"))
         assert_markdown_valid(result_alt)
 
         # Test skip mode
-        result_skip = pdf_to_markdown(pdf_bytes, options=PdfOptions(attachment_mode="skip"))
+        result_skip = pdf_to_markdown(pdf_bytes, parser_options=PdfOptions(attachment_mode="skip"))
         assert_markdown_valid(result_skip)
 
         # Both should contain text content

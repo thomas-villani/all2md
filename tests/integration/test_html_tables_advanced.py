@@ -132,7 +132,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html", options=HtmlOptions(detect_table_alignment=True))
+        markdown = html_to_markdown(html, format="html", parser_options=HtmlOptions(detect_table_alignment=True))
         assert_markdown_valid(markdown)
 
         # Should detect and apply alignment

@@ -375,7 +375,7 @@ class TestSecurityPresetOptionsMapping:
 
     def test_safe_mode_creates_html_options_with_nested_fields(self):
         """Test that safe-mode flat keys create proper HtmlOptions with nested dataclasses."""
-        from all2md import _create_options_from_kwargs
+        from all2md import _create_parser_options_from_kwargs
         from all2md.options import HtmlOptions
 
         # Simulate what apply_security_preset does
@@ -387,7 +387,7 @@ class TestSecurityPresetOptionsMapping:
             'allow_cwd_files': False,
         }
 
-        options = _create_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs('html', **kwargs)
 
         # Verify options instance is created
         assert options is not None
@@ -408,7 +408,7 @@ class TestSecurityPresetOptionsMapping:
 
     def test_paranoid_mode_creates_html_options_with_all_fields(self):
         """Test that paranoid-mode creates HtmlOptions with all security settings."""
-        from all2md import _create_options_from_kwargs
+        from all2md import _create_parser_options_from_kwargs
         from all2md.options import HtmlOptions
 
         kwargs = {
@@ -421,7 +421,7 @@ class TestSecurityPresetOptionsMapping:
             'max_remote_asset_bytes': 5 * 1024 * 1024,
         }
 
-        options = _create_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs('html', **kwargs)
 
         assert options is not None
         assert isinstance(options, HtmlOptions)
@@ -435,7 +435,7 @@ class TestSecurityPresetOptionsMapping:
 
     def test_strict_html_sanitize_creates_html_options(self):
         """Test that strict-html-sanitize creates proper HtmlOptions."""
-        from all2md import _create_options_from_kwargs
+        from all2md import _create_parser_options_from_kwargs
         from all2md.options import HtmlOptions
 
         kwargs = {
@@ -445,7 +445,7 @@ class TestSecurityPresetOptionsMapping:
             'allow_cwd_files': False,
         }
 
-        options = _create_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs('html', **kwargs)
 
         assert options is not None
         assert isinstance(options, HtmlOptions)
@@ -456,7 +456,7 @@ class TestSecurityPresetOptionsMapping:
 
     def test_eml_options_with_html_network_nested_field(self):
         """Test that EmlOptions correctly handles html_network nested field."""
-        from all2md import _create_options_from_kwargs
+        from all2md import _create_parser_options_from_kwargs
         from all2md.options import EmlOptions
 
         kwargs = {
@@ -465,7 +465,7 @@ class TestSecurityPresetOptionsMapping:
             'convert_html_to_markdown': True,
         }
 
-        options = _create_options_from_kwargs('eml', **kwargs)
+        options = _create_parser_options_from_kwargs('eml', **kwargs)
 
         assert options is not None
         assert isinstance(options, EmlOptions)
@@ -476,7 +476,7 @@ class TestSecurityPresetOptionsMapping:
 
     def test_mhtml_options_with_local_files_nested_field(self):
         """Test that MhtmlOptions correctly handles local_files nested field."""
-        from all2md import _create_options_from_kwargs
+        from all2md import _create_parser_options_from_kwargs
         from all2md.options import MhtmlOptions
 
         kwargs = {
@@ -484,7 +484,7 @@ class TestSecurityPresetOptionsMapping:
             'allow_cwd_files': False,
         }
 
-        options = _create_options_from_kwargs('mhtml', **kwargs)
+        options = _create_parser_options_from_kwargs('mhtml', **kwargs)
 
         assert options is not None
         assert isinstance(options, MhtmlOptions)
@@ -494,7 +494,7 @@ class TestSecurityPresetOptionsMapping:
 
     def test_mixed_flat_and_top_level_kwargs(self):
         """Test that mixed flat nested and top-level kwargs work together."""
-        from all2md import _create_options_from_kwargs
+        from all2md import _create_parser_options_from_kwargs
         from all2md.options import HtmlOptions
 
         kwargs = {
@@ -504,7 +504,7 @@ class TestSecurityPresetOptionsMapping:
             'require_https': True,  # Nested in network
         }
 
-        options = _create_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs('html', **kwargs)
 
         assert options is not None
         assert isinstance(options, HtmlOptions)
@@ -549,29 +549,9 @@ class TestSecurityPresetOptionsMapping:
         finally:
             temp_file.unlink()
 
+    @pytest.mark.skip(reason="_merge_options was removed in options refactoring - use clone() method instead")
     def test_merge_options_with_flat_nested_kwargs(self):
         """Test that _merge_options correctly handles flat nested kwargs."""
-        from all2md import _merge_options
-        from all2md.options import HtmlOptions
-
-        # Start with base options
-        base_options = HtmlOptions(extract_title=True)
-
-        # Merge with flat nested kwargs
-        merged = _merge_options(
-            base_options,
-            'html',
-            allow_remote_fetch=True,
-            require_https=True,
-            convert_nbsp=True
-        )
-
-        assert merged is not None
-        assert isinstance(merged, HtmlOptions)
-        # Original field preserved
-        assert merged.extract_title is True
-        # New top-level field added
-        assert merged.convert_nbsp is True
-        # Nested fields added
-        assert merged.network.allow_remote_fetch is True
-        assert merged.network.require_https is True
+        # This test is obsolete - _merge_options was removed
+        # Options are now immutable dataclasses that use clone() method
+        pass

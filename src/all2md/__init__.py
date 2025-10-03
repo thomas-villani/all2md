@@ -86,9 +86,10 @@ from all2md.constants import DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from all2md.converter_registry import registry
-from all2md.exceptions import DependencyError, FormatError, InputError, MarkdownConversionError
+from all2md.exceptions import DependencyError, FormatError, InputError, MarkdownConversionError, All2MdError
 from all2md.options import (
-    BaseOptions,
+    BaseParserOptions,
+    BaseRendererOptions,
     DocxOptions,
     EmlOptions,
     EpubOptions,
@@ -113,15 +114,15 @@ from . import parsers  # noqa: F401
 from . import ast  # noqa: F401
 
 # Import transforms module for AST transformation
-from . import transforms  # noqa: F401
+from . import transforms as transforms_module  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 
 # Options handling helpers
 
-def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] | None:
-    """Get the appropriate Options class for a given document format.
+def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BaseParserOptions] | None:
+    """Get the parser options class for a given document format.
 
     Parameters
     ----------
@@ -130,8 +131,8 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
 
     Returns
     -------
-    type[BaseOptions] | None
-        Options class or None for formats that don't use options.
+    type[BaseParserOptions] | None
+        Parser options class or None for formats that don't have parser options.
     """
     format_to_class = {
         "pdf": PdfOptions,
@@ -151,7 +152,26 @@ def _get_options_class_for_format(format: DocumentFormat) -> type[BaseOptions] |
     return format_to_class.get(format)
 
 
-def _collect_nested_dataclass_kwargs(options_class: type[BaseOptions], kwargs: dict) -> dict:
+def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseRendererOptions] | None:
+    """Get the renderer options class for a given document format.
+
+    Parameters
+    ----------
+    format : DocumentFormat
+        The document format.
+
+    Returns
+    -------
+    type[BaseRendererOptions] | None
+        Renderer options class or None for formats that don't have renderer options.
+    """
+    # Currently only markdown has a renderer
+    if format == "markdown":
+        return MarkdownOptions
+    return None
+
+
+def _collect_nested_dataclass_kwargs(options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict) -> dict:
     """Collect kwargs that belong to nested dataclass fields.
 
     This function inspects the options class for nested dataclass fields
@@ -160,7 +180,7 @@ def _collect_nested_dataclass_kwargs(options_class: type[BaseOptions], kwargs: d
 
     Parameters
     ----------
-    options_class : type[BaseOptions]
+    options_class : type[BaseParserOptions] | type[BaseRendererOptions]
         The options class to inspect.
     kwargs : dict
         Flat keyword arguments that may contain nested dataclass fields.
@@ -233,50 +253,31 @@ def _collect_nested_dataclass_kwargs(options_class: type[BaseOptions], kwargs: d
     return {'nested': nested_kwargs, 'remaining': remaining_kwargs}
 
 
-def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions | None:
-    """Create format-specific options object from keyword arguments.
-
-    This function handles flat kwargs and assembles nested dataclass instances
-    as needed. For example, flat keys like 'allow_remote_fetch' are grouped
-    and used to create a NetworkFetchOptions instance for HtmlOptions.network.
+def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseParserOptions | None:
+    """Create format-specific parser options object from keyword arguments.
 
     Parameters
     ----------
     format : DocumentFormat
-        The document format to create options for.
+        The document format to create parser options for.
     **kwargs
-        Keyword arguments to use for options creation. Can include flat keys
-        that map to nested dataclass fields.
+        Keyword arguments to use for parser options creation.
 
     Returns
     -------
-    BaseOptions | None
-        Options instance or None for formats that don't use options.
+    BaseParserOptions | None
+        Parser options instance or None for formats that don't use parser options.
     """
     from dataclasses import is_dataclass
 
-    options_class = _get_options_class_for_format(format)
+    options_class = _get_parser_options_class_for_format(format)
     if not options_class:
         return None
 
-    # Extract MarkdownOptions fields
-    markdown_fields = {field.name for field in fields(MarkdownOptions)}
-    markdown_opts = {k: v for k, v in kwargs.items() if k in markdown_fields}
-
-    # Remove markdown fields from main kwargs
-    remaining_kwargs = {k: v for k, v in kwargs.items() if k not in markdown_fields}
-
-    # Create MarkdownOptions if we have any markdown-specific options
-    markdown_options = MarkdownOptions(**markdown_opts) if markdown_opts else None
-
     # Collect nested dataclass kwargs
-    nested_info = _collect_nested_dataclass_kwargs(options_class, remaining_kwargs)
+    nested_info = _collect_nested_dataclass_kwargs(options_class, kwargs)
     nested_dataclass_kwargs = nested_info['nested']
-    flat_remaining_kwargs = nested_info['remaining']
-
-    # Add markdown_options to flat kwargs if created
-    if markdown_options:
-        flat_remaining_kwargs['markdown_options'] = markdown_options
+    flat_kwargs = nested_info['remaining']
 
     # Use get_type_hints to properly resolve types
     from typing import get_type_hints
@@ -287,17 +288,14 @@ def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions
 
     # Create instances of nested dataclasses
     for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():
-        # Find the nested dataclass type using type hints
         field_type = type_hints.get(nested_field_name)
         if not field_type:
-            # Fallback to field.type
             for field in fields(options_class):
                 if field.name == nested_field_name:
                     field_type = field.type
                     break
 
         if field_type:
-            # Handle Optional types
             nested_class = None
             if hasattr(field_type, '__origin__'):
                 if hasattr(field_type, '__args__'):
@@ -309,191 +307,107 @@ def _create_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseOptions
                 nested_class = field_type
 
             if nested_class:
-                # Create instance of nested dataclass
-                flat_remaining_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
+                flat_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
 
     # Filter to only valid top-level kwargs
     option_names = [field.name for field in fields(options_class)]
-    valid_kwargs = {k: v for k, v in flat_remaining_kwargs.items() if k in option_names}
-    missing = [k for k in flat_remaining_kwargs if k not in valid_kwargs]
+    valid_kwargs = {k: v for k, v in flat_kwargs.items() if k in option_names}
+    missing = [k for k in flat_kwargs if k not in valid_kwargs]
     if missing:
-        logger.debug(f"Skipping unknown options: {missing}")
+        logger.debug(f"Skipping unknown parser options: {missing}")
     return options_class(**valid_kwargs)
 
 
-def _merge_options(
-        base_options: BaseOptions | MarkdownOptions | None, format: DocumentFormat, **kwargs
-) -> BaseOptions | None:
-    """Merge base options with additional kwargs.
+def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs) -> BaseRendererOptions | None:
+    """Create format-specific renderer options object from keyword arguments.
 
     Parameters
     ----------
-    base_options : BaseOptions | None
-        Existing options object to use as base.
     format : DocumentFormat
-        Document format for creating new options if base_options is None.
+        The document format to create renderer options for.
     **kwargs
-        Additional keyword arguments to merge/override.
+        Keyword arguments to use for renderer options creation.
 
     Returns
     -------
-    BaseOptions | None
-        Merged options object or None for formats that don't use options.
+    BaseRendererOptions | None
+        Renderer options instance or None for formats that don't have renderer options.
     """
-    if base_options is None:
-        return _create_options_from_kwargs(format, **kwargs)
-    elif isinstance(base_options, MarkdownOptions):
-        options_instance = _create_options_from_kwargs(format, **kwargs)
+    options_class = _get_renderer_options_class_for_format(format)
+    if not options_class:
+        return None
 
-        # Handle case where format doesn't use options (returns None)
-        if options_instance is None:
-            return None
-
-        if options_instance.markdown_options is None:
-            options_instance = create_updated_options(options_instance, markdown_options=base_options)
-        else:
-            # Update existing MarkdownOptions by merging fields
-            merged_md_options = options_instance.markdown_options
-            for field in fields(base_options):
-                field_value = getattr(base_options, field.name)
-                merged_md_options = create_updated_options(merged_md_options, **{field.name: field_value})
-            options_instance = create_updated_options(options_instance, markdown_options=merged_md_options)
-        return options_instance
-
-    # Create a copy of the base options
-    merged_options = copy.deepcopy(base_options)
-
-    # Extract MarkdownOptions fields from kwargs
-    markdown_fields = {field.name for field in fields(MarkdownOptions)}
-    markdown_kwargs = {k: v for k, v in kwargs.items() if k in markdown_fields}
-    other_kwargs = {k: v for k, v in kwargs.items() if k not in markdown_fields}
-
-    # Handle MarkdownOptions merging with field-wise preservation
-    if markdown_kwargs:
-        # Start with existing markdown_options or create default
-        new_md = merged_options.markdown_options or MarkdownOptions()
-        # Apply only the kwargs fields that are present, preserving existing fields
-        for k, v in markdown_kwargs.items():
-            new_md = create_updated_options(new_md, **{k: v})
-        merged_options = merged_options.create_updated(markdown_options=new_md)
-
-    if other_kwargs:
-        # Handle nested dataclass kwargs
-        from dataclasses import is_dataclass
-        from typing import get_type_hints
-
-        options_class = type(base_options)
-        nested_info = _collect_nested_dataclass_kwargs(options_class, other_kwargs)
-        nested_dataclass_kwargs = nested_info['nested']
-        flat_other_kwargs = nested_info['remaining']
-
-        # Use get_type_hints to properly resolve types
-        try:
-            type_hints = get_type_hints(options_class)
-        except Exception:
-            type_hints = {}
-
-        # For nested dataclasses, merge with existing values
-        for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():
-            # Get existing nested instance
-            existing_nested = getattr(merged_options, nested_field_name, None)
-
-            if existing_nested is not None:
-                # Merge with existing nested dataclass
-                updated_nested = create_updated_options(existing_nested, **nested_kwargs)
-                flat_other_kwargs[nested_field_name] = updated_nested
-            else:
-                # Create new nested dataclass instance using type hints
-                field_type = type_hints.get(nested_field_name)
-                if not field_type:
-                    # Fallback to field.type
-                    for field in fields(options_class):
-                        if field.name == nested_field_name:
-                            field_type = field.type
-                            break
-
-                if field_type:
-                    nested_class = None
-                    if hasattr(field_type, '__origin__'):
-                        if hasattr(field_type, '__args__'):
-                            for arg in field_type.__args__:
-                                if arg is not type(None) and is_dataclass(arg):
-                                    nested_class = arg
-                                    break
-                    elif is_dataclass(field_type):
-                        nested_class = field_type
-
-                    if nested_class:
-                        flat_other_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
-
-        # Filter to only valid top-level kwargs before passing to create_updated
-        option_field_names = {field.name for field in fields(options_class)}
-        valid_other_kwargs = {k: v for k, v in flat_other_kwargs.items() if k in option_field_names}
-
-        # Apply all updates
-        if valid_other_kwargs:
-            merged_options = merged_options.create_updated(**valid_other_kwargs)
-
-    return merged_options
+    # Filter to only valid kwargs for this options class
+    option_names = [field.name for field in fields(options_class)]
+    valid_kwargs = {k: v for k, v in kwargs.items() if k in option_names}
+    missing = [k for k in kwargs if k not in valid_kwargs]
+    if missing:
+        logger.debug(f"Skipping unknown renderer options: {missing}")
+    return options_class(**valid_kwargs)
 
 
-# Main conversion function starts here
-
-
-def _prepare_options(
-        actual_format: DocumentFormat,
-        options: Optional[BaseOptions | MarkdownOptions],
-        flavor: Optional[str],
-        kwargs: dict
-) -> Optional[BaseOptions | MarkdownOptions]:
-    """Prepare final options by handling flavor and merging options with kwargs.
+def _split_kwargs_for_parser_and_renderer(
+    parser_format: DocumentFormat,
+    renderer_format: DocumentFormat,
+    kwargs: dict
+) -> tuple[dict, dict]:
+    """Split kwargs between parser and renderer based on their field names.
 
     Parameters
     ----------
-    actual_format : DocumentFormat
-        The detected/specified document format
-    options : BaseOptions | MarkdownOptions, optional
-        Pre-configured options object
-    flavor : str, optional
-        Markdown flavor to use
+    parser_format : DocumentFormat
+        Parser format to determine which kwargs belong to parser
+    renderer_format : DocumentFormat
+        Renderer format to determine which kwargs belong to renderer
     kwargs : dict
-        Additional keyword arguments
+        Keyword arguments to split
 
     Returns
     -------
-    BaseOptions | MarkdownOptions, optional
-        Final merged options
+    tuple[dict, dict]
+        (parser_kwargs, renderer_kwargs)
     """
-    # Handle flavor parameter priority: flavor param > kwargs > options
-    if flavor is not None:
-        # Flavor parameter takes highest priority
-        kwargs['flavor'] = flavor
-    elif 'flavor' not in kwargs and options is not None:
-        # Use flavor from options if not in kwargs
-        if isinstance(options, MarkdownOptions) and hasattr(options, 'flavor'):
-            kwargs.setdefault('flavor', options.flavor)
-        elif hasattr(options, 'markdown_options') and options.markdown_options is not None:
-            kwargs.setdefault('flavor', options.markdown_options.flavor)
+    parser_class = _get_parser_options_class_for_format(parser_format)
+    renderer_class = _get_renderer_options_class_for_format(renderer_format)
 
-    # Merge options
-    if options is not None and kwargs:
-        # Merge provided options with kwargs (kwargs override)
-        return _merge_options(options, actual_format, **kwargs)
-    elif options is not None:
-        # Use provided options as-is
-        return options
-    elif kwargs:
-        # Create options from kwargs only
-        return _create_options_from_kwargs(actual_format, **kwargs)
-    else:
-        # No options provided
-        return None
+    parser_kwargs = {}
+    renderer_kwargs = {}
+    unmatched = []
+
+    # Get field names for both classes
+    parser_fields = set()
+    if parser_class:
+        parser_fields = {f.name for f in fields(parser_class)}
+        # Also include nested dataclass fields
+        nested_info = _collect_nested_dataclass_kwargs(parser_class, kwargs)
+        for nested_field_name, nested_dataclass in nested_info['nested'].items():
+            for k in nested_dataclass.keys():
+                parser_fields.add(k)
+
+    renderer_fields = set()
+    if renderer_class:
+        renderer_fields = {f.name for f in fields(renderer_class)}
+
+    # Split kwargs
+    for k, v in kwargs.items():
+        if k in parser_fields:
+            parser_kwargs[k] = v
+        elif k in renderer_fields:
+            renderer_kwargs[k] = v
+        else:
+            unmatched.append(k)
+
+    if unmatched:
+        logger.debug(f"Kwargs don't match parser or renderer fields: {unmatched}")
+
+    return parser_kwargs, renderer_kwargs
 
 
 def to_markdown(
         input: Union[str, Path, IO[bytes], bytes],
         *,
-        options: Optional[BaseOptions | MarkdownOptions] = None,
+        parser_options: Optional[BaseParserOptions] = None,
+        renderer_options: Optional[BaseRendererOptions] = None,
         format: DocumentFormat = "auto",
         flavor: Optional[str] = None,
         transforms: Optional[list] = None,
@@ -509,30 +423,28 @@ def to_markdown(
     ----------
     input : str, Path, IO[bytes], or bytes
         Input data, which can be a file path, a file-like object, or raw bytes.
-    options : BaseOptions | MarkdownOptions, optional
-        A pre-configured options object for format-specific settings.
-        See the classes in `all2md.options` for details. When provided
-        alongside `kwargs`, the kwargs will override matching fields in
-        the options object, allowing for selective customization.
+    parser_options : BaseParserOptions, optional
+        Pre-configured parser options for format-specific parsing settings
+        (e.g., PdfOptions, DocxOptions, HtmlOptions).
+    renderer_options : BaseRendererOptions, optional
+        Pre-configured renderer options for Markdown rendering settings
+        (e.g., MarkdownOptions).
     format : DocumentFormat, default "auto"
         Explicitly specify the document format. If "auto", the format is
         detected from the filename or content.
     flavor : str, optional
         Markdown flavor/dialect to use for output. Options: "gfm", "commonmark",
         "multimarkdown", "pandoc", "kramdown", "markdown_plus".
-        If specified, takes precedence over flavor in options or kwargs.
-        Defaults to "gfm" if not specified anywhere.
+        Shorthand for renderer_options=MarkdownOptions(flavor=...).
     transforms : list, optional
         List of AST transforms to apply before rendering. Can be transform names
         (strings) or NodeTransformer instances. Transforms are applied in order.
         See `all2md.transforms` for available transforms.
     kwargs : Any
-        Individual conversion options that override settings in the `options`
-        parameter. These are mapped to the appropriate format-specific
-        options class and take precedence over the same fields in `options`.
-        For a full list of available options, please refer to the documentation
-        for the :mod:`all2md.options` module and the specific `...Options`
-        classes (e.g., `PdfOptions`, `HtmlOptions`).
+        Individual conversion options. Kwargs are intelligently split between
+        parser and renderer based on field names. Parser-related kwargs override
+        fields in parser_options, renderer-related kwargs override fields in
+        renderer_options.
 
     Returns
     -------
@@ -548,111 +460,78 @@ def to_markdown(
     InputError
         If input parameters are invalid or the file cannot be accessed.
 
-    Notes
-    -----
-    **Options Merging Logic:**
-
-    The function supports flexible configuration through three approaches:
-
-    1. **Options only**: Pass a pre-configured options object
-        >>> options = PdfOptions(pages=[0, 1], attachment_mode="base64")
-        >>> to_markdown("doc.pdf", options=options)
-
-    2. **Kwargs only**: Pass individual options as keyword arguments
-        >>> to_markdown("doc.pdf", pages=[0, 1], attachment_mode="base64")
-
-    3. **Combined (recommended)**: Use options as base with kwargs overrides
-        >>> base_options = PdfOptions(attachment_mode="download")
-        >>> to_markdown("doc.pdf", options=base_options, attachment_mode="base64")
-        # Results in base64 mode (kwargs override options)
-
-    When both `options` and `kwargs` are provided, kwargs take precedence for
-    matching field names. This allows you to define reusable base configurations
-    and selectively override specific settings per conversion.
-
-    **MarkdownOptions Handling:**
-
-    MarkdownOptions can be provided either:
-    - Directly as the `options` parameter (creates format-specific options with those markdown settings)
-    - Embedded in format-specific options via the `markdown_options` field
-    - As individual kwargs prefixed implicitly (e.g., `emphasis_symbol="_"`)
-
     Examples
     --------
-    Basic conversion with auto-detection:
+    Basic conversion:
         >>> markdown = to_markdown("document.pdf")
 
-    Converting an in-memory BytesIO object:
-        >>> from io import BytesIO
-        >>> with open("document.pdf", "rb") as f:
-        ...     data = BytesIO(f.read())
-        >>> markdown = to_markdown(data)
-
-    Using pre-configured options:
+    With parser options:
         >>> pdf_opts = PdfOptions(pages=[0, 1, 2], attachment_mode="download")
-        >>> markdown = to_markdown("document.pdf", options=pdf_opts)
+        >>> markdown = to_markdown("document.pdf", parser_options=pdf_opts)
 
-    Combining options with selective overrides:
-        >>> base_opts = PdfOptions(attachment_mode="download", detect_columns=True)
-        >>> markdown = to_markdown("doc.pdf", options=base_opts, attachment_mode="base64")
-        # Uses base64 mode but keeps column detection enabled
+    With renderer options:
+        >>> md_opts = MarkdownOptions(emphasis_symbol="_", flavor="commonmark")
+        >>> markdown = to_markdown("document.pdf", renderer_options=md_opts)
 
-    Format-specific options - PDF with page selection:
-        >>> markdown = to_markdown("document.pdf", pages=[0, 1, 2])
-        >>> markdown = to_markdown("large.pdf", pages=range(10, 20))
+    Using both parser and renderer options:
+        >>> markdown = to_markdown("doc.pdf",
+        ...     parser_options=PdfOptions(pages=[0, 1]),
+        ...     renderer_options=MarkdownOptions(flavor="gfm"))
 
-    Format-specific options - PowerPoint with notes:
-        >>> markdown = to_markdown("presentation.pptx", include_notes=True)
-        >>> markdown = to_markdown("slides.pptx", include_notes=True, include_comments=True)
+    Using kwargs (automatically split):
+        >>> markdown = to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_")
 
-    Format-specific options - DOCX with metadata:
-        >>> markdown = to_markdown("document.docx", extract_metadata=True)
-
-    Format-specific options - HTML with network resources:
-        >>> markdown = to_markdown("page.html", allow_remote_fetch=True, max_fetch_size_mb=10)
-
-    Using MarkdownOptions directly:
-        >>> md_opts = MarkdownOptions(emphasis_symbol="_", bullet_symbols="•◦▪")
-        >>> markdown = to_markdown("document.pdf", options=md_opts)
-
-    Mixed markdown and format-specific options:
-        >>> markdown = to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_", bullet_symbols="•◦▪")
-
-    Specifying markdown flavor:
+    Using flavor shorthand:
         >>> markdown = to_markdown("document.pdf", flavor="commonmark")
-        >>> markdown = to_markdown("document.pdf", flavor="multimarkdown")
+
+    With transforms:
+        >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
     """
 
-    # Determine format first, before opening files
+    # Determine format first
     if format != "auto":
-        # Format explicitly specified
         actual_format = format
         logger.debug(f"Using explicitly specified format: {actual_format}")
     elif isinstance(input, (str, Path)):
-        # Try to detect format from filename first (won't open the file)
         actual_format = registry.detect_format(input, hint=None)
-        # Registry already logs the detection method, no need to duplicate
     else:
-        # For bytes or file-like objects, we need to inspect content
         if isinstance(input, bytes):
             file: IO[bytes] = BytesIO(input)
         else:
             file: IO[bytes] = input  # type: ignore
         actual_format = registry.detect_format(file, hint=None)
-        # Registry already logs the detection method
 
-    # Prepare final options (handles flavor and merging)
-    final_options = _prepare_options(actual_format, options, flavor, kwargs)
+    # Split kwargs between parser and renderer
+    parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
+        actual_format, "markdown", kwargs
+    )
 
-    # Always use the transform pipeline for consistent hook support
-    # Import transform pipeline
-    from all2md.transforms import render as render_with_transforms
+    # Prepare parser options
+    if parser_kwargs and parser_options:
+        final_parser_options = parser_options.create_updated(**parser_kwargs)
+    elif parser_kwargs:
+        final_parser_options = _create_parser_options_from_kwargs(actual_format, **parser_kwargs)
+    else:
+        final_parser_options = parser_options
+
+    # Prepare renderer options (handle flavor shorthand)
+    if flavor:
+        renderer_kwargs['flavor'] = flavor
+
+    if renderer_kwargs and renderer_options:
+        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+    elif renderer_kwargs:
+        final_renderer_options = _create_renderer_options_from_kwargs("markdown", **renderer_kwargs)
+    elif renderer_options:
+        final_renderer_options = renderer_options
+    else:
+        # Default to GFM flavor
+        final_renderer_options = MarkdownOptions()
 
     # Convert to AST
     try:
-        ast_doc = to_ast(input, options=final_options, format=actual_format)
+        ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format)
     except DependencyError:
-        # Re-raise dependency errors as-is
         raise
     except FormatError as e:
         # Handle unknown formats by falling back to text
@@ -676,7 +555,6 @@ def to_markdown(
                 except Exception as exc:
                     raise MarkdownConversionError("Could not decode bytes as UTF-8") from exc
             else:
-                # File-like object
                 file = input  # type: ignore
                 file.seek(0)
                 try:
@@ -688,36 +566,24 @@ def to_markdown(
                 except Exception as exc:
                     raise MarkdownConversionError("Could not decode file as UTF-8") from exc
 
-            # Normalize and return plain text
             return content.replace("\r\n", "\n").replace("\r", "\n")
 
-    # Extract MarkdownOptions for rendering
-    if isinstance(final_options, MarkdownOptions):
-        markdown_options = final_options
-    elif final_options and hasattr(final_options, 'markdown_options') and final_options.markdown_options:
-        markdown_options = final_options.markdown_options
-    else:
-        markdown_options = MarkdownOptions()
-
     # Apply transforms and render using pipeline
-    # The pipeline handles both transforms and hooks
-    content = render_with_transforms(
+    content = transforms_module.render(
         ast_doc,
-        transforms=transforms or [],  # Empty list if no transforms
-        renderer="markdown",  # Always render to markdown
-        options=markdown_options
+        transforms=transforms or [],
+        renderer="markdown",
+        options=final_renderer_options
     )
 
-    # Normalize line endings and return
     return content.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def to_ast(
         input: Union[str, Path, IO[bytes], bytes],
         *,
-        options: Optional[BaseOptions | MarkdownOptions] = None,
+        parser_options: Optional[BaseParserOptions] = None,
         format: DocumentFormat = "auto",
-        flavor: Optional[str] = None,
         **kwargs
 ):
     """Convert document to AST (Abstract Syntax Tree) format.
@@ -731,23 +597,14 @@ def to_ast(
     ----------
     input : str, Path, IO[bytes], or bytes
         Input data, which can be a file path, a file-like object, or raw bytes.
-    options : BaseOptions | MarkdownOptions, optional
-        A pre-configured options object for format-specific settings.
-        See the classes in `all2md.options` for details. When provided
-        alongside `kwargs`, the kwargs will override matching fields in
-        the options object, allowing for selective customization.
+    parser_options : BaseParserOptions, optional
+        Pre-configured parser options for format-specific parsing settings
+        (e.g., PdfOptions, DocxOptions, HtmlOptions).
     format : DocumentFormat, default "auto"
         Explicitly specify the document format. If "auto", the format is
         detected from the filename or content.
-    flavor : str, optional
-        Markdown flavor/dialect to use for rendering. Options: "gfm", "commonmark",
-        "multimarkdown", "pandoc", "kramdown", "markdown_plus".
-        If specified, takes precedence over flavor in options or kwargs.
-        Defaults to "gfm" if not specified anywhere.
     kwargs : Any
-        Individual conversion options that override settings in the `options`
-        parameter. These are mapped to the appropriate format-specific
-        options class and take precedence over the same fields in `options`.
+        Individual parser options that override settings in parser_options.
 
     Returns
     -------
@@ -789,10 +646,6 @@ def to_ast(
     """
     from all2md.ast import Document
 
-    # Use the same format detection and options merging as to_markdown()
-    # Get the markdown string first, then parse it to AST
-    # For formats with native AST parsers, use those directly
-
     # Detect format
     actual_format = format if format != "auto" else registry.detect_format(input)
 
@@ -801,108 +654,238 @@ def to_ast(
     if not metadata:
         raise FormatError(f"Unknown format: {actual_format}")
 
-    # Check and prepare options (same logic as to_markdown())
-    final_options = _prepare_options(actual_format, options, flavor, kwargs)
+    # Prepare parser options
+    if kwargs and parser_options:
+        final_parser_options = parser_options.create_updated(**kwargs)
+    elif kwargs:
+        final_parser_options = _create_parser_options_from_kwargs(actual_format, **kwargs)
+    else:
+        final_parser_options = parser_options
 
     # Use the parser class system to convert to AST
     try:
-        # Get parser class from registry
         parser_class = registry.get_parser(actual_format)
-
-        # Instantiate parser with options
-        parser = parser_class(options=final_options)
-
-        # Parse input to AST
+        parser = parser_class(options=final_parser_options)
         ast_doc = parser.parse(input)
-
         return ast_doc
 
-    except DependencyError:
-        # Re-raise dependency errors as-is
-        raise
-    except FormatError:
-        # Re-raise format errors as-is
+    except All2MdError:
         raise
     except Exception as e:
         raise MarkdownConversionError(f"AST conversion failed: {e}") from e
 
-# TODO: should also allow `markdown` to be a path or file.
+def from_ast(
+        ast_doc: "Document",
+        target_format: DocumentFormat,
+        output: Union[str, Path, IO[bytes], None] = None,
+        *,
+        renderer_options: Optional[BaseRendererOptions] = None,
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        **kwargs
+) -> Union[None, str, bytes]:
+    """Render AST document to a target format.
+
+    Parameters
+    ----------
+    ast_doc : Document
+        AST Document node to render
+    target_format : DocumentFormat
+        Target format name (e.g., "markdown", "docx", "pdf")
+    output : str, Path, IO[bytes], or None, optional
+        Output destination. If None, returns rendered content as string or bytes
+    renderer_options : BaseRendererOptions, optional
+        Renderer options for the target format
+    transforms : list, optional
+        AST transforms to apply before rendering
+    hooks : dict, optional
+        Transform hooks to execute during processing
+    kwargs : Any
+        Additional renderer options that override renderer_options
+
+    Returns
+    -------
+    None, str, or bytes
+        None if output was specified, otherwise the rendered content
+
+    Examples
+    --------
+    Render AST to markdown string:
+        >>> ast_doc = to_ast("document.pdf")
+        >>> markdown = from_ast(ast_doc, "markdown")
+
+    Render AST to file:
+        >>> from_ast(ast_doc, "markdown", output="output.md")
+
+    With renderer options:
+        >>> md_opts = MarkdownOptions(flavor="commonmark")
+        >>> markdown = from_ast(ast_doc, "markdown", renderer_options=md_opts)
+    """
+    from all2md.ast import Document
+
+    # Prepare renderer options
+    if kwargs and renderer_options:
+        final_renderer_options = renderer_options.create_updated(**kwargs)
+    elif kwargs:
+        final_renderer_options = _create_renderer_options_from_kwargs(target_format, **kwargs)
+    else:
+        final_renderer_options = renderer_options
+
+    # Use transform pipeline to render
+    content = transforms_module.render(
+        ast_doc,
+        transforms=transforms or [],
+        hooks=hooks or {},
+        renderer=target_format,
+        options=final_renderer_options
+    )
+
+    # Handle output
+    if output is None:
+        return content
+    elif isinstance(output, (str, Path)):
+        Path(output).write_text(content, encoding="utf-8")
+        return None
+    else:
+        # File-like object
+        if hasattr(output, 'mode') and 'b' in output.mode:
+            output.write(content.encode('utf-8'))
+        else:
+            output.write(content)
+        return None
+
+
 def from_markdown(
         markdown: Union[str, Path, IO[bytes], IO[str]],
         target_format: DocumentFormat,
-        output: Union[str, Path, IO[bytes], None],
+        output: Union[str, Path, IO[bytes], None] = None,
         *,
-        options: Optional[BaseOptions | MarkdownOptions | MarkdownParserOptions] = None,
+        parser_options: Optional[MarkdownParserOptions] = None,
+        renderer_options: Optional[BaseRendererOptions] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
-        renderer: Optional[Union[str, type, object]] = None,
-        target_kwargs: Optional[dict[str, Any]] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
-    """Convert Markdown content to another format using the transform pipeline."""
-    from all2md.options import MarkdownParserOptions
+    """Convert Markdown content to another format.
 
-    parser_options: MarkdownParserOptions | None = None
-    target_options: BaseOptions | MarkdownOptions | None = None
+    Parameters
+    ----------
+    markdown : str, Path, IO[bytes], or IO[str]
+        Markdown content as string, file path, or file-like object
+    target_format : DocumentFormat
+        Target format name (e.g., "docx", "pdf", "html")
+    output : str, Path, IO[bytes], or None, optional
+        Output destination. If None, returns rendered content
+    parser_options : MarkdownParserOptions, optional
+        Options for parsing Markdown
+    renderer_options : BaseRendererOptions, optional
+        Options for rendering to target format
+    transforms : list, optional
+        AST transforms to apply
+    hooks : dict, optional
+        Transform hooks to execute
+    kwargs : Any
+        Additional options split between parser and renderer
 
-    if isinstance(options, MarkdownParserOptions):
-        parser_options = options
-    else:
-        target_options = options
+    Returns
+    -------
+    None, str, or bytes
+        None if output specified, otherwise rendered content
 
+    Examples
+    --------
+    Convert markdown string to HTML:
+        >>> html = from_markdown("# Title\\n\\nContent", "html")
+
+    Convert markdown file to DOCX:
+        >>> from_markdown("input.md", "docx", output="output.docx")
+
+    With options:
+        >>> from_markdown("input.md", "html",
+        ...     parser_options=MarkdownParserOptions(flavor="gfm"),
+        ...     renderer_options=HtmlOptions(...))
+    """
     return convert(
         markdown,
         output=output,
-        options=None,
-        source_options=parser_options,
-        target_options=target_options,
+        parser_options=parser_options,
+        renderer_options=renderer_options,
         source_format="markdown",
         target_format=target_format,
         transforms=transforms,
         hooks=hooks,
-        renderer=renderer,
-        target_kwargs=target_kwargs,
         **kwargs,
     )
 
-# TODO: simplify this, get rid of `options` in favor of `parser_options` and `renderer_options`
 def convert(
         source: Union[str, Path, IO[bytes], IO[str], bytes],
         output: Union[str, Path, IO[bytes], IO[str], None] = None,
         *,
-        options: Optional[BaseOptions | MarkdownOptions] = None,
-        source_options: Optional[BaseOptions | MarkdownOptions | MarkdownParserOptions] = None,
-        target_options: Optional[BaseOptions | MarkdownOptions] = None,
+        parser_options: Optional[BaseParserOptions] = None,
+        renderer_options: Optional[BaseRendererOptions] = None,
         source_format: DocumentFormat = "auto",
         target_format: DocumentFormat = "auto",
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
         renderer: Optional[Union[str, type, object]] = None,
         flavor: Optional[str] = None,
-        target_kwargs: Optional[dict[str, Any]] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
-    """Convert between document formats using the transform-aware pipeline."""
+    """Convert between document formats.
 
+    Parameters
+    ----------
+    source : str, Path, IO[bytes], IO[str], or bytes
+        Source document (file path, file-like object, or content)
+    output : str, Path, IO[bytes], IO[str], or None, optional
+        Output destination. If None, returns content
+    parser_options : BaseParserOptions, optional
+        Options for parsing source format
+    renderer_options : BaseRendererOptions, optional
+        Options for rendering target format
+    source_format : DocumentFormat, default "auto"
+        Source format (auto-detected if "auto")
+    target_format : DocumentFormat, default "auto"
+        Target format (inferred from output or defaults to "markdown")
+    transforms : list, optional
+        AST transforms to apply
+    hooks : dict, optional
+        Transform hooks to execute
+    renderer : str, type, or object, optional
+        Custom renderer (overrides target_format)
+    flavor : str, optional
+        Markdown flavor shorthand for renderer_options
+    kwargs : Any
+        Additional options split between parser and renderer
+
+    Returns
+    -------
+    None, str, or bytes
+        None if output specified, otherwise rendered content
+
+    Examples
+    --------
+    Convert PDF to markdown:
+        >>> markdown = convert("doc.pdf", target_format="markdown")
+
+    Convert with options:
+        >>> convert("doc.pdf", "output.md",
+        ...     parser_options=PdfOptions(pages=[0, 1]),
+        ...     renderer_options=MarkdownOptions(flavor="commonmark"))
+
+    Bidirectional with transforms:
+        >>> convert("input.docx", "output.md",
+        ...     transforms=["remove-images", "heading-offset"])
+    """
     transforms = transforms or []
     hooks = hooks or {}
-    render_kwargs = dict(target_kwargs or {})
-    parser_kwargs = dict(kwargs)
 
-    parser_options = source_options or options
-
+    # Detect source format
     actual_source_format = (
         source_format if source_format != "auto" else registry.detect_format(source)
     )
 
-    ast_document = to_ast(
-        source,
-        options=parser_options,
-        format=actual_source_format,
-        flavor=flavor,
-        **parser_kwargs,
-    )
-
+    # Determine target format
     if target_format != "auto":
         actual_target_format = target_format
     elif isinstance(renderer, str):
@@ -913,42 +896,48 @@ def convert(
     else:
         actual_target_format = "markdown"
 
+    # Split kwargs between parser and renderer
+    parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
+        actual_source_format, actual_target_format, kwargs
+    )
+
+    # Parse to AST
+    if parser_kwargs and parser_options:
+        final_parser_options = parser_options.create_updated(**parser_kwargs)
+    elif parser_kwargs:
+        final_parser_options = _create_parser_options_from_kwargs(actual_source_format, **parser_kwargs)
+    else:
+        final_parser_options = parser_options
+
+    ast_document = to_ast(
+        source,
+        parser_options=final_parser_options,
+        format=actual_source_format,
+    )
+
+    # Prepare renderer options
+    if flavor:
+        renderer_kwargs['flavor'] = flavor
+
+    if renderer_kwargs and renderer_options:
+        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+    elif renderer_kwargs:
+        final_renderer_options = _create_renderer_options_from_kwargs(actual_target_format, **renderer_kwargs)
+    else:
+        final_renderer_options = renderer_options
+
+    # Render AST to target format
     renderer_spec = renderer or actual_target_format
 
-    effective_target_options = target_options if target_options is not None else options
-
-    if isinstance(renderer_spec, str) and renderer_spec == "markdown":
-        candidate = effective_target_options or parser_options
-        if isinstance(candidate, MarkdownOptions):
-            markdown_opts = candidate
-        elif candidate and hasattr(candidate, 'markdown_options') and getattr(candidate, 'markdown_options'):
-            markdown_opts = getattr(candidate, 'markdown_options')
-        else:
-            markdown_opts = MarkdownOptions()
-
-        if render_kwargs:
-            markdown_opts = create_updated_options(markdown_opts, **render_kwargs)
-        render_options = markdown_opts
-    elif isinstance(renderer_spec, str):
-        render_options = _prepare_options(
-            actual_target_format,
-            effective_target_options,
-            flavor,
-            render_kwargs,
-        )
-    else:
-        render_options = effective_target_options
-
-    from all2md.transforms import render as render_with_transforms
-
-    rendered = render_with_transforms(
+    rendered = transforms_module.render(
         ast_document,
         transforms=transforms,
         hooks=hooks,
         renderer=renderer_spec,
-        options=render_options,
+        options=final_renderer_options,
     )
 
+    # Handle output
     if output is None:
         return rendered
 
@@ -977,6 +966,7 @@ def convert(
 __all__ = [
     "to_markdown",
     "to_ast",
+    "from_ast",
     "from_markdown",
     "convert",
     # Registry system
@@ -984,7 +974,8 @@ __all__ = [
     # Type definitions
     "DocumentFormat",
     # Re-exported classes and exceptions for public API
-    "BaseOptions",
+    "BaseParserOptions",
+    "BaseRendererOptions",
     "DocxOptions",
     "EmlOptions",
     "HtmlOptions",

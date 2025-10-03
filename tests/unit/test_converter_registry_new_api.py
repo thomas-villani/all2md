@@ -19,27 +19,27 @@ class TestRegistryNewAPI:
         registry.auto_discover()
 
     def test_get_options_class_for_pdf(self):
-        """Test that get_options_class returns correct options class for PDF."""
-        options_class = registry.get_options_class("pdf")
+        """Test that get_parser_options_class returns correct options class for PDF."""
+        options_class = registry.get_parser_options_class("pdf")
         assert options_class is not None
         assert options_class == PdfOptions
 
     def test_get_options_class_for_docx(self):
-        """Test that get_options_class returns correct options class for DOCX."""
-        options_class = registry.get_options_class("docx")
+        """Test that get_parser_options_class returns correct options class for DOCX."""
+        options_class = registry.get_parser_options_class("docx")
         assert options_class is not None
         assert options_class == DocxOptions
 
     def test_get_options_class_for_html(self):
-        """Test that get_options_class returns correct options class for HTML."""
-        options_class = registry.get_options_class("html")
+        """Test that get_parser_options_class returns correct options class for HTML."""
+        options_class = registry.get_parser_options_class("html")
         assert options_class is not None
         assert options_class == HtmlOptions
 
     def test_get_options_class_for_unknown_format(self):
-        """Test that get_options_class raises FormatError for unknown formats."""
+        """Test that get_parser_options_class raises FormatError for unknown formats."""
         with pytest.raises(FormatError) as exc_info:
-            registry.get_options_class("unknown_format_xyz")
+            registry.get_parser_options_class("unknown_format_xyz")
 
         assert "unknown_format_xyz" in str(exc_info.value).lower()
 
@@ -76,7 +76,7 @@ class TestRegistryNewAPI:
         parser_class = registry.get_parser("markdown")
         assert parser_class is not None
 
-        options_class = registry.get_options_class("markdown")
+        options_class = registry.get_parser_options_class("markdown")
         assert options_class is not None
 
     def test_converter_metadata_has_parser_class(self):
@@ -134,8 +134,8 @@ class TestRegistryNewAPI:
         assert detected == "html"
 
     def test_options_class_can_be_instantiated(self):
-        """Test that options classes returned by get_options_class are usable."""
-        options_class = registry.get_options_class("pdf")
+        """Test that options classes returned by get_parser_options_class are usable."""
+        options_class = registry.get_parser_options_class("pdf")
 
         # Should be able to instantiate with default values
         options = options_class()
@@ -192,7 +192,7 @@ class TestEndToEndParsing:
         except Exception:
             pytest.skip("PDF parser dependencies not available")
 
-        options_class = registry.get_options_class("pdf")
+        options_class = registry.get_parser_options_class("pdf")
         assert options_class is not None
 
         # Create options
@@ -210,7 +210,7 @@ class TestEndToEndParsing:
         except Exception:
             pytest.skip("HTML parser dependencies not available")
 
-        options_class = registry.get_options_class("html")
+        options_class = registry.get_parser_options_class("html")
         assert options_class is not None
 
         # Create options

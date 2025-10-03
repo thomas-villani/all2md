@@ -157,7 +157,7 @@ def test_notebook_with_attachment_options():
                 attachment_output_dir=temp_dir
             )
 
-            result = ipynb_to_markdown(temp_path, options=options)
+            result = ipynb_to_markdown(temp_path, parser_options=options)
 
             # Should reference the downloaded image file
             assert "![cell output](" in result
@@ -259,7 +259,7 @@ def test_notebook_with_long_outputs():
     try:
         # Test with truncation
         options = IpynbOptions(truncate_long_outputs=5)
-        result = ipynb_to_markdown(temp_path, options=options)
+        result = ipynb_to_markdown(temp_path, parser_options=options)
 
         assert "Line 0" in result
         assert "Line 4" in result
@@ -268,7 +268,7 @@ def test_notebook_with_long_outputs():
 
         # Test without truncation
         options_no_truncate = IpynbOptions(truncate_long_outputs=None)
-        result_full = ipynb_to_markdown(temp_path, options=options_no_truncate)
+        result_full = ipynb_to_markdown(temp_path, parser_options=options_no_truncate)
 
         assert "Line 0" in result_full
         assert "Line 19" in result_full
@@ -310,7 +310,7 @@ def test_notebook_with_custom_truncate_message():
             truncate_long_outputs=3,
             truncate_output_message="\n... CUSTOM TRUNCATION MESSAGE ..."
         )
-        result = ipynb_to_markdown(temp_path, options=options)
+        result = ipynb_to_markdown(temp_path, parser_options=options)
 
         assert "CUSTOM TRUNCATION MESSAGE" in result
         assert "Output line 0" in result
@@ -637,9 +637,9 @@ def test_notebook_with_markdown_options():
     try:
         # Test with custom markdown options
         md_options = MarkdownOptions()
-        options = IpynbOptions(markdown_options=md_options)
+        parser_options = IpynbOptions()
 
-        result = ipynb_to_markdown(temp_path, options=options)
+        result = ipynb_to_markdown(temp_path, parser_options=parser_options, renderer_options=md_options)
 
         # Should still work with custom options
         assert "# Test Notebook" in result

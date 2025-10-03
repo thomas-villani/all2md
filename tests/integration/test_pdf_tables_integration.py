@@ -132,7 +132,7 @@ class TestPdfTablesIntegration:
 
         # Test with fallback detection enabled
         options = PdfOptions(enable_table_fallback_detection=True)
-        result = pdf_to_markdown(pdf_bytes, options=options)
+        result = pdf_to_markdown(pdf_bytes, parser_options=options)
         assert_markdown_valid(result)
 
         # Should still extract table data even if table detection varies
@@ -188,7 +188,7 @@ class TestPdfTablesIntegration:
         pdf_bytes = create_test_pdf_bytes('tables')
 
         options = PdfOptions(enable_table_fallback_detection=True)
-        result = pdf_to_markdown(pdf_bytes, options=options)
+        result = pdf_to_markdown(pdf_bytes, parser_options=options)
         assert_markdown_valid(result)
 
         # Should handle both tables without issues

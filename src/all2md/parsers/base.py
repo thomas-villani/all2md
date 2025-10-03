@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, IO, Union
 
 from all2md.ast import Document
-from all2md.options import BaseOptions
+from all2md.options import BaseParserOptions
 from all2md.utils.metadata import DocumentMetadata
 
 
@@ -29,7 +29,7 @@ class BaseParser(ABC):
 
     Parameters
     ----------
-    options : BaseOptions or None, default = None
+    options : BaseParserOptions or None, default = None
         Format-specific parsing options
 
     Examples
@@ -38,7 +38,7 @@ class BaseParser(ABC):
 
         >>> from all2md.parsers.base import BaseParser
         >>> from all2md.ast import Document
-        >>> from all2md.options import BaseOptions
+        >>> from all2md.options import BaseParserOptions
         >>>
         >>> class MyCustomParser(BaseParser):
         ...     def parse(self, input_data):
@@ -54,16 +54,16 @@ class BaseParser(ABC):
 
     """
 
-    def __init__(self, options: BaseOptions | None = None):
+    def __init__(self, options: BaseParserOptions | None = None):
         """Initialize the parser with optional configuration.
 
         Parameters
         ----------
-        options : BaseOptions or None, default = None
+        options : BaseParserOptions or None, default = None
             Format-specific parsing options. If None, default options will be used.
 
         """
-        self.options: BaseOptions = options
+        self.options: BaseParserOptions = options
 
     @abstractmethod
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:

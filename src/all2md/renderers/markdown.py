@@ -1166,20 +1166,3 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             else:
                 # Text mode
                 output.write(markdown_text)
-
-
-# Converter metadata for registration
-CONVERTER_METADATA = ConverterMetadata(
-    format_name="markdown",
-    extensions=[".md", ".markdown", ".mdown", ".mkd", ".mkdn"],
-    mime_types=["text/markdown", "text/x-markdown"],
-    magic_bytes=[],
-    parser_class="MarkdownToAstConverter",
-    renderer_class="MarkdownRenderer",
-    required_packages=[],
-    optional_packages=[],
-    import_error_message="",
-    options_class="MarkdownOptions",
-    description="Render AST to Markdown format",
-    priority=10
-)

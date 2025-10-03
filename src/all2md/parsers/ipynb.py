@@ -110,14 +110,14 @@ class IpynbToAstConverter(BaseParser):
             else:
                 raise InputError(f"Unsupported input type: {type(input_data).__name__}")
 
+        except InputError as e:
+            raise e
         except json.JSONDecodeError as e:
             raise InputError(
                 "Input is not a valid JSON file. Ensure it is a proper .ipynb notebook.",
                 original_error=e,
             ) from e
         except Exception as e:
-            if isinstance(e, InputError):
-                raise
             raise MarkdownConversionError(
                 f"Failed to read or parse Jupyter Notebook: {e}",
                 conversion_stage="input_processing",
@@ -439,7 +439,8 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_class="IpynbToAstConverter",
     renderer_class=None,
     required_packages=[],
-    options_class="IpynbOptions",
+    parser_options_class="IpynbOptions",
+    renderer_options_class=None,
     description="Convert Jupyter Notebooks to Markdown",
     priority=7
 )

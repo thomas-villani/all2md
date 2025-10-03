@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast import Document
-from all2md.options import BaseOptions
+from all2md.options import BaseRendererOptions
 
 
 class BaseRenderer(ABC):
@@ -28,7 +28,7 @@ class BaseRenderer(ABC):
 
     Parameters
     ----------
-    options : BaseOptions or None, default = None
+    options : BaseRendererOptions or None, default = None
         Format-specific rendering options
 
     Examples
@@ -37,7 +37,7 @@ class BaseRenderer(ABC):
 
         >>> from all2md.renderers.base import BaseRenderer
         >>> from all2md.ast import Document
-        >>> from all2md.options import BaseOptions
+        >>> from all2md.options import BaseRendererOptions
         >>>
         >>> class MyCustomRenderer(BaseRenderer):
         ...     def render(self, doc, output):
@@ -50,12 +50,12 @@ class BaseRenderer(ABC):
 
     """
 
-    def __init__(self, options: BaseOptions | None = None):
+    def __init__(self, options: BaseRendererOptions | None = None):
         """Initialize the renderer with optional configuration.
 
         Parameters
         ----------
-        options : BaseOptions or None, default = None
+        options : BaseRendererOptions or None, default = None
             Format-specific rendering options. If None, default options will be used.
 
         """

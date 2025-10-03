@@ -386,7 +386,8 @@ CONVERTER_METADATA = ConverterMetadata(
     required_packages=[],  # No external dependencies
     optional_packages=[],
     import_error_message="",  # No dependencies required
-    options_class="SourceCodeOptions",
+    parser_options_class="SourceCodeOptions",
+    renderer_options_class=None,
     description="Convert source code files to Markdown with syntax highlighting",
     priority=1,  # Lower priority than specialized parsers, higher than txt fallback
 )

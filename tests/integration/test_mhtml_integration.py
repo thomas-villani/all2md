@@ -92,7 +92,7 @@ class TestMhtmlIntegrationImages:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         options = MhtmlOptions(attachment_mode="base64")
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "Test MHTML with Image" in result
@@ -110,7 +110,7 @@ class TestMhtmlIntegrationImages:
             attachment_mode="download",
             attachment_output_dir=str(image_dir)
         )
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "Test MHTML with Image" in result
@@ -125,7 +125,7 @@ class TestMhtmlIntegrationImages:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         options = MhtmlOptions(attachment_mode="skip")
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "Test MHTML with Image" in result
@@ -147,7 +147,7 @@ class TestMhtmlIntegrationImages:
                 allow_cwd_files=True
             )
         )
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "MHTML with Multiple Assets" in result
@@ -296,8 +296,8 @@ class TestMhtmlIntegrationOptions:
             emphasis_symbol="_",
             bullet_symbols="+-*"
         )
-        options = MhtmlOptions(markdown_options=md_options)
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        parser_options = MhtmlOptions()
+        result = mhtml_to_markdown(mhtml_file, parser_options=parser_options, renderer_options=md_options)
 
         assert isinstance(result, str)
         # Should use custom emphasis symbol
@@ -314,7 +314,7 @@ class TestMhtmlIntegrationOptions:
             attachment_output_dir="/custom/path",
             attachment_base_url="https://example.com"
         )
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         assert_markdown_valid(result)
@@ -325,21 +325,20 @@ class TestMhtmlIntegrationOptions:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         option_combinations = [
-            MhtmlOptions(),  # Default options
-            MhtmlOptions(attachment_mode="base64"),
-            MhtmlOptions(attachment_mode="skip"),
-            MhtmlOptions(
+            (MhtmlOptions(), None),  # Default options
+            (MhtmlOptions(attachment_mode="base64"), None),
+            (MhtmlOptions(attachment_mode="skip"), None),
+            (MhtmlOptions(
                 attachment_mode="download",
                 attachment_output_dir=str(temp_dir / "images")
-            ),
-            MhtmlOptions(
-                attachment_mode="base64",
-                markdown_options=MarkdownOptions(emphasis_symbol="_")
-            ),
+            ), None),
+            (MhtmlOptions(
+                attachment_mode="base64"
+            ), MarkdownOptions(emphasis_symbol="_")),
         ]
 
-        for options in option_combinations:
-            result = mhtml_to_markdown(mhtml_file, options=options)
+        for parser_options, renderer_options in option_combinations:
+            result = mhtml_to_markdown(mhtml_file, parser_options=parser_options, renderer_options=renderer_options)
 
             assert isinstance(result, str)
             assert len(result) > 0
@@ -407,7 +406,7 @@ class TestMhtmlIntegrationPerformance:
         # Convert same file multiple times
         for i in range(3):
             mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
-            result = mhtml_to_markdown(mhtml_file, options=options)
+            result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
             assert isinstance(result, str)
             # Data URLs may be blocked, so check for image processing instead
@@ -509,7 +508,7 @@ Content-Type: text/html; charset=utf-8
 
         # Test with master switch disabled (default)
         options = MhtmlOptions()  # Uses default security settings
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         # Security handling varies - just verify conversion succeeded
@@ -543,7 +542,7 @@ Content-Type: text/html; charset=utf-8
             allow_cwd_files=True  # Should be ignored due to master switch
         )
         options = MhtmlOptions(local_files=local_files_options)
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         # Security handling varies - just verify conversion succeeded
@@ -578,7 +577,7 @@ Content-Type: text/html; charset=utf-8
             allow_cwd_files=False
         )
         options = MhtmlOptions(local_files=local_files_options)
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should not contain the file URLs since files don't actually exist
@@ -614,7 +613,7 @@ Content-Type: text/html; charset=utf-8
             allow_cwd_files=False
         )
         options = MhtmlOptions(local_files=local_files_options)
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         # Images should be processed according to denylist rules
@@ -658,7 +657,7 @@ Content-Type: text/html; charset=utf-8
                 allow_cwd_files=True
             )
             options = MhtmlOptions(local_files=local_files_options)
-            result = mhtml_to_markdown(mhtml_file, options=options)
+            result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
             assert isinstance(result, str)
             assert_markdown_valid(result)
@@ -696,7 +695,7 @@ fake_image_data
 
         # Test with default security (should block file:// but allow others)
         options = MhtmlOptions()
-        result = mhtml_to_markdown(mhtml_file, options=options)
+        result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should have image references (various formats may be used)

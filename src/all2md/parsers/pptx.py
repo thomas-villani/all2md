@@ -777,7 +777,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_class=None,
     required_packages=[("python-pptx", "pptx", "")],
     import_error_message="PPTX conversion requires 'python-pptx'. Install with: pip install python-pptx",
-    options_class=PptxOptions,
+    parser_options_class=PptxOptions,
+    renderer_options_class=None,
     description="Convert PowerPoint presentations to Markdown",
     priority=7
 )

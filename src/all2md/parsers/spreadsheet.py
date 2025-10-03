@@ -1143,7 +1143,8 @@ CONVERTER_METADATA = SpreadsheetConverterMetadata(
     required_packages=[("openpyxl", "openpyxl", ""), ("odfpy", "odf", "")],
     import_error_message="Spreadsheet conversion requires dependencies: 'openpyxl' for XLSX, "
                         "'odfpy' for ODS. Install with: pip install openpyxl odfpy",
-    options_class="SpreadsheetOptions",
+    parser_options_class="SpreadsheetOptions",
+    renderer_options_class=None,
     description="Convert spreadsheets (XLSX, ODS, CSV, TSV) to Markdown tables",
     priority=5
 )

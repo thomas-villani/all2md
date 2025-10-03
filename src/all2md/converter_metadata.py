@@ -55,12 +55,18 @@ class ConverterMetadata:
         Optional packages that enhance functionality
     import_error_message : str
         Custom error message for missing dependencies
-    options_class : Union[str, type, None]
-        Options class specification. Can be:
+    parser_options_class : Union[str, type, None]
+        Parser options class specification. Can be:
         - Simple class name (e.g., "PdfOptions") - looks in all2md.options
         - Fully qualified name (e.g., "myplugin.options.MyOptions")
         - Direct class reference (e.g., MyOptionsClass)
-        - None for no options
+        - None for no parser options
+    renderer_options_class : Union[str, type, None]
+        Renderer options class specification. Can be:
+        - Simple class name (e.g., "MarkdownOptions") - looks in all2md.options
+        - Fully qualified name (e.g., "myplugin.options.MyRendererOptions")
+        - Direct class reference (e.g., MyRendererOptionsClass)
+        - None for no renderer options
     description : str
         Human-readable description of the converter
     priority : int
@@ -77,7 +83,8 @@ class ConverterMetadata:
     required_packages: list[tuple[str, str, str]] = field(default_factory=list)
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
-    options_class: Optional[Union[str, type]] = None
+    parser_options_class: Optional[Union[str, type]] = None
+    renderer_options_class: Optional[Union[str, type]] = None
     description: str = ""
     priority: int = 0
 

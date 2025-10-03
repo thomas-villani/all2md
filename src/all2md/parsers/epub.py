@@ -256,6 +256,7 @@ CONVERTER_METADATA = ConverterMetadata(
         "ePub conversion requires 'ebooklib'. "
         "Install with: pip install ebooklib"
     ),
-    options_class="EpubOptions",
+    parser_options_class="EpubOptions",
+    renderer_options_class=None,
     priority=8
 )

@@ -82,7 +82,7 @@ class TestEpubIntegrationBasic:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(include_toc=False)
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should not contain TOC header
@@ -97,7 +97,7 @@ class TestEpubIntegrationBasic:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(include_toc=True)
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should contain TOC (format may be # or ##)
@@ -121,7 +121,7 @@ class TestEpubIntegrationImages:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(attachment_mode="base64")
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "Chapter with Image" in result
@@ -142,7 +142,7 @@ class TestEpubIntegrationImages:
             attachment_mode="download",
             attachment_output_dir=str(image_dir)
         )
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "Chapter with Image" in result
@@ -159,7 +159,7 @@ class TestEpubIntegrationImages:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(attachment_mode="skip")
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         assert "Chapter with Image" in result
@@ -198,8 +198,8 @@ class TestEpubIntegrationFootnotes:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         md_options = MarkdownOptions(emphasis_symbol="_")
-        options = EpubOptions(markdown_options=md_options)
-        result = epub_to_markdown(epub_file, options=options)
+        parser_options = EpubOptions()
+        result = epub_to_markdown(epub_file, parser_options=parser_options, renderer_options=md_options)
 
         assert isinstance(result, str)
         # Should use underscore for emphasis instead of asterisk - or just contain the word
@@ -222,7 +222,7 @@ class TestEpubIntegrationComplexStructure:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(include_toc=True)
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should contain nested TOC structure (format may be # or ##)
@@ -242,7 +242,7 @@ class TestEpubIntegrationComplexStructure:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(merge_chapters=False)
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should contain chapter separator (format may vary: --- or -----)
@@ -258,7 +258,7 @@ class TestEpubIntegrationComplexStructure:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         options = EpubOptions(merge_chapters=True)
-        result = epub_to_markdown(epub_file, options=options)
+        result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
         # Should not contain chapter separators (default behavior)
@@ -358,31 +358,30 @@ class TestEpubIntegrationOptionsValidation:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         option_combinations = [
-            EpubOptions(),  # Default options
-            EpubOptions(include_toc=True, merge_chapters=True),
-            EpubOptions(include_toc=False, merge_chapters=False),
-            EpubOptions(
+            (EpubOptions(), None),  # Default options
+            (EpubOptions(include_toc=True, merge_chapters=True), None),
+            (EpubOptions(include_toc=False, merge_chapters=False), None),
+            (EpubOptions(
                 include_toc=True,
                 merge_chapters=False,
                 attachment_mode="skip"
-            ),
-            EpubOptions(
+            ), None),
+            (EpubOptions(
                 include_toc=False,
                 merge_chapters=True,
-                attachment_mode="base64",
-                markdown_options=MarkdownOptions(emphasis_symbol="_")
-            ),
+                attachment_mode="base64"
+            ), MarkdownOptions(emphasis_symbol="_")),
         ]
 
-        for options in option_combinations:
-            result = epub_to_markdown(epub_file, options=options)
+        for parser_options, renderer_options in option_combinations:
+            result = epub_to_markdown(epub_file, parser_options=parser_options, renderer_options=renderer_options)
 
             assert isinstance(result, str)
             assert len(result) > 0
             assert_markdown_valid(result)
 
             # Verify TOC behavior
-            if options.include_toc:
+            if parser_options.include_toc:
                 assert "Table of Contents" in result
             else:
                 assert "Table of Contents" not in result
@@ -403,7 +402,7 @@ class TestEpubIntegrationOptionsValidation:
 
         # Should handle gracefully or raise appropriate error
         try:
-            result = epub_to_markdown(epub_file, options=options)
+            result = epub_to_markdown(epub_file, parser_options=options)
             # If it succeeds, verify it's valid
             assert isinstance(result, str)
             assert_markdown_valid(result)

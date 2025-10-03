@@ -1311,7 +1311,7 @@ class PdfToAstConverter(BaseParser):
                 # Handle rotated text if enabled, otherwise skip non-horizontal lines
                 if line["dir"][1] != 0:  # Non-horizontal lines
                     if self.options.handle_rotated_text:
-                        rotated_text = handle_rotated_text(line, self.options.markdown_options)
+                        rotated_text = handle_rotated_text(line, None)
                         if rotated_text.strip():
                             # Add as paragraph
                             nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
@@ -1442,10 +1442,6 @@ class PdfToAstConverter(BaseParser):
                 inline_node: Node = Code(content=span_text)
             else:
                 # Regular text with optional formatting
-                # Escape markdown special characters if enabled
-                if self.options.markdown_options and self.options.markdown_options.escape_special:
-                    span_text = escape_markdown_special(span_text)
-
                 # Replace special characters
                 span_text = (
                     span_text.replace("<", "&lt;")
@@ -1685,7 +1681,8 @@ CONVERTER_METADATA = ConverterMetadata(
         "PDF conversion requires 'PyMuPDF'. "
         "Install with: pip install pymupdf"
     ),
-    options_class=PdfOptions,
+    parser_options_class=PdfOptions,
+    renderer_options_class=None,
     description="Convert PDF documents to Markdown with table detection",
     priority=10
 )

@@ -254,8 +254,8 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         from all2md import to_markdown
         from all2md.options import HtmlOptions, MarkdownOptions
 
-        # Create MarkdownOptions with default hash headings if not provided
-        md_options = options.markdown_options or MarkdownOptions(use_hash_headings=True)
+        # Create MarkdownOptions with default hash headings
+        md_options = MarkdownOptions(use_hash_headings=True)
 
         # Create HTML options that match EML preferences and security settings
         html_options = HtmlOptions(
@@ -265,14 +265,13 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
             attachment_mode=options.attachment_mode,
             attachment_output_dir=options.attachment_output_dir,
             attachment_base_url=options.attachment_base_url,
-            markdown_options=md_options,
             # Network security settings from EML options
             network=options.html_network,
         )
 
         # Convert HTML to Markdown
         from io import StringIO
-        return to_markdown(StringIO(html_content), format="html", options=html_options)
+        return to_markdown(StringIO(html_content), format="html", parser_options=html_options, renderer_options=md_options)
 
     except ImportError:
         # html2markdown not available, return HTML as-is
@@ -1112,7 +1111,8 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_class=EmlToAstConverter,
     renderer_class=None,
     required_packages=[],
-    options_class=EmlOptions,
+    parser_options_class=EmlOptions,
+    renderer_options_class=None,
     description="Convert email messages to Markdown",
     priority=6
 )

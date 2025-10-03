@@ -290,7 +290,7 @@ class DynamicCLIBuilder:
         group_name : str, optional
             Name for argument group
         exclude_base_fields : bool, default=False
-            If True, skip fields that are defined in BaseOptions
+            If True, skip fields that are defined in BaseParserOptions
         """
         if not is_dataclass(options_class):
             return
@@ -298,8 +298,8 @@ class DynamicCLIBuilder:
         # Get BaseOptions fields to exclude if requested
         base_field_names = set()
         if exclude_base_fields:
-            from all2md.options import BaseOptions
-            base_field_names = {f.name for f in fields(BaseOptions)}
+            from all2md.options import BaseParserOptions
+            base_field_names = {f.name for f in fields(BaseParserOptions)}
 
         # Create argument group if requested
         if group_name:
@@ -607,10 +607,10 @@ Examples:
                             help="Show detailed information about all2md and exit")
 
         # Add BaseOptions as universal options (no prefix)
-        from all2md.options import BaseOptions
+        from all2md.options import BaseParserOptions
         self.add_options_class_arguments(
             parser,
-            BaseOptions,
+            BaseParserOptions,
             format_prefix=None,
             group_name="Universal attachment options"
         )
@@ -628,7 +628,7 @@ Examples:
 
         for format_name in registry.list_formats():
             try:
-                options_class = registry.get_options_class(format_name)
+                options_class = registry.get_parser_options_class(format_name)
                 if options_class and is_dataclass(options_class):
                     # Create group name
                     group_name = f"{format_name.upper()} options"
@@ -712,15 +712,15 @@ Examples:
         # Collect all options classes for field validation
         options_classes = {}
 
-        # Add BaseOptions
-        from all2md.options import BaseOptions
-        options_classes['base'] = BaseOptions
+        # Add BaseParserOptions
+        from all2md.options import BaseParserOptions
+        options_classes['base'] = BaseParserOptions
         options_classes['markdown'] = MarkdownOptions
 
-        # Add converter-specific options
+        # Add converter-specific parser options
         for format_name in registry.list_formats():
             try:
-                options_class = registry.get_options_class(format_name)
+                options_class = registry.get_parser_options_class(format_name)
                 if options_class and is_dataclass(options_class):
                     options_classes[format_name] = options_class
             except Exception:

@@ -91,8 +91,9 @@ class TestDocxEscaping:
         doc.save(str(temp_file))
 
         # Test with escaping enabled
-        options = DocxOptions(markdown_options=MarkdownOptions(escape_special=True))
-        markdown = docx_to_markdown(str(temp_file), options=options)
+        parser_options = DocxOptions()
+        renderer_options = MarkdownOptions(escape_special=True)
+        markdown = docx_to_markdown(str(temp_file), parser_options=parser_options, renderer_options=renderer_options)
         assert_markdown_valid(markdown)
 
         # Should preserve formatting while handling special characters
@@ -102,8 +103,9 @@ class TestDocxEscaping:
         assert "\\`function() \\{" in markdown
 
         # Test with escaping disabled
-        options_no_escape = DocxOptions(markdown_options=MarkdownOptions(escape_special=False))
-        markdown_no_escape = docx_to_markdown(str(temp_file), options=options_no_escape)
+        parser_options_no_escape = DocxOptions()
+        renderer_options_no_escape = MarkdownOptions(escape_special=False)
+        markdown_no_escape = docx_to_markdown(str(temp_file), parser_options=parser_options_no_escape, renderer_options=renderer_options_no_escape)
         assert_markdown_valid(markdown_no_escape)
 
     def test_code_blocks_and_inline_code(self):
@@ -208,13 +210,15 @@ class TestDocxEscaping:
         doc.save(str(temp_file))
 
         # Test with asterisk emphasis
-        options_asterisk = DocxOptions(markdown_options=MarkdownOptions(emphasis_symbol="*"))
-        markdown_asterisk = docx_to_markdown(str(temp_file), options=options_asterisk)
+        parser_options_asterisk = DocxOptions()
+        renderer_options_asterisk = MarkdownOptions(emphasis_symbol="*")
+        markdown_asterisk = docx_to_markdown(str(temp_file), parser_options=parser_options_asterisk, renderer_options=renderer_options_asterisk)
         assert_markdown_valid(markdown_asterisk)
 
         # Test with underscore emphasis
-        options_underscore = DocxOptions(markdown_options=MarkdownOptions(emphasis_symbol="_"))
-        markdown_underscore = docx_to_markdown(str(temp_file), options=options_underscore)
+        parser_options_underscore = DocxOptions()
+        renderer_options_underscore = MarkdownOptions(emphasis_symbol="_")
+        markdown_underscore = docx_to_markdown(str(temp_file), parser_options=parser_options_underscore, renderer_options=renderer_options_underscore)
         assert_markdown_valid(markdown_underscore)
 
         # Both should contain the text

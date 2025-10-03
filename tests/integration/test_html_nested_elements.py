@@ -31,7 +31,7 @@ class TestHtmlNestedElements:
         """
 
         options = HtmlOptions(preserve_nested_structure=True)
-        markdown = html_to_markdown(html, format="html", options=options)
+        markdown = html_to_markdown(html, format="html", parser_options=options)
         assert_markdown_valid(markdown)
 
         # Should preserve blockquote structure

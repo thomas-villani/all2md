@@ -49,8 +49,8 @@ class TestMetadataIntegration:
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
-        options = HtmlOptions(extract_metadata=True, markdown_options=md_options)
-        result = to_markdown(str(html_file), options=options)
+        parser_options = HtmlOptions(extract_metadata=True)
+        result = to_markdown(str(html_file), parser_options=parser_options, renderer_options=md_options)
 
         # Verify YAML front matter is present
         assert result.startswith("---")
@@ -88,8 +88,8 @@ Test Sender
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
-        options = EmlOptions(extract_metadata=True, markdown_options=md_options)
-        result = to_markdown(str(eml_file), options=options)
+        parser_options = EmlOptions(extract_metadata=True)
+        result = to_markdown(str(eml_file), parser_options=parser_options, renderer_options=md_options)
 
         # Verify YAML front matter is present
         assert result.startswith("---")
@@ -166,8 +166,8 @@ Test Sender
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
-        options = IpynbOptions(extract_metadata=True, markdown_options=md_options)
-        result = to_markdown(str(notebook_file), options=options)
+        parser_options = IpynbOptions(extract_metadata=True)
+        result = to_markdown(str(notebook_file), parser_options=parser_options, renderer_options=md_options)
 
         # Verify YAML front matter is present
         assert result.startswith("---")
@@ -220,8 +220,8 @@ Content-Type: text/html; charset=utf-8
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
-        options = MhtmlOptions(extract_metadata=True, markdown_options=md_options)
-        result = to_markdown(str(mhtml_file), options=options)
+        parser_options = MhtmlOptions(extract_metadata=True)
+        result = to_markdown(str(mhtml_file), parser_options=parser_options, renderer_options=md_options)
 
         # Verify YAML front matter is present
         assert result.startswith("---")
@@ -304,8 +304,8 @@ Content-Type: text/html; charset=utf-8
         # Test with BytesIO
         html_bytes = BytesIO(html_content.encode('utf-8'))
         md_options = MarkdownOptions(metadata_frontmatter=True)
-        options = HtmlOptions(extract_metadata=True, markdown_options=md_options)
-        result = to_markdown(html_bytes, format="html", options=options)
+        parser_options = HtmlOptions(extract_metadata=True)
+        result = to_markdown(html_bytes, format="html", parser_options=parser_options, renderer_options=md_options)
 
         # Verify metadata extraction works with file-like objects
         assert result.startswith("---")

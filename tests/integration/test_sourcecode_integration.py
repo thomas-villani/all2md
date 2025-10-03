@@ -61,7 +61,7 @@ print(fibonacci(10))"""
             temp_path = f.name
 
         try:
-            result = to_markdown(temp_path, options=options)
+            result = to_markdown(temp_path, parser_options=options)
             assert result.startswith("```css\n")
             filename = Path(temp_path).name
             assert filename in result
@@ -96,7 +96,7 @@ print(fibonacci(10))"""
 
         try:
             # Override language while keeping filename inclusion
-            result = to_markdown(temp_path, options=base_options, language_override="text")
+            result = to_markdown(temp_path, parser_options=base_options, language_override="text")
             assert result.startswith("```text\n")  # Language overridden
             filename = Path(temp_path).name
             assert filename in result  # Filename still included from base_options
@@ -209,14 +209,15 @@ print(fibonacci(10))"""
         content = "def greet(name):\n    return f'Hello, {name}!'"
 
         # Create options with metadata extraction and frontmatter enabled
-        options = SourceCodeOptions(extract_metadata=True, markdown_options=MarkdownOptions(emphasis_symbol="_", metadata_frontmatter=True))
+        parser_options = SourceCodeOptions(extract_metadata=True)
+        renderer_options = MarkdownOptions(emphasis_symbol="_", metadata_frontmatter=True)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(content)
             temp_path = f.name
 
         try:
-            result = to_markdown(temp_path, options=options)
+            result = to_markdown(temp_path, parser_options=parser_options, renderer_options=renderer_options)
             # Should have code block (metadata extraction may or may not work)
             assert "```python\n" in result or "```python" in result
             assert "def greet(name)" in result
@@ -335,9 +336,9 @@ if __name__ == "__main__":
         try:
             # Test with different option combinations
             md_options = MarkdownOptions(metadata_frontmatter=True)
-            options = SourceCodeOptions(include_filename=True, extract_metadata=True, markdown_options=md_options)
+            parser_options = SourceCodeOptions(include_filename=True, extract_metadata=True)
 
-            result = to_markdown(temp_path, options=options)
+            result = to_markdown(temp_path, parser_options=parser_options, renderer_options=md_options)
 
             # Verify structure (metadata may or may not be present)
             assert "```python\n" in result or "```python" in result

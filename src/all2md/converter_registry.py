@@ -262,18 +262,18 @@ class ConverterRegistry:
             return True
         return False
 
-    def get_options_class(self, format_name: str) -> Optional[type]:
-        """Get options class for a format.
+    def get_parser_options_class(self, format_name: str) -> Optional[type]:
+        """Get parser options class for a format.
 
         Parameters
         ----------
         format_name : str
-            Format name to get options class for
+            Format name to get parser options class for
 
         Returns
         -------
         type or None
-            Options class or None if format has no options
+            Parser options class or None if format has no parser options
 
         Raises
         ------
@@ -288,7 +288,35 @@ class ConverterRegistry:
             )
 
         metadata = self._converters[format_name]
-        return _load_options_class(metadata.options_class)
+        return _load_options_class(metadata.parser_options_class)
+
+    def get_renderer_options_class(self, format_name: str) -> Optional[type]:
+        """Get renderer options class for a format.
+
+        Parameters
+        ----------
+        format_name : str
+            Format name to get renderer options class for
+
+        Returns
+        -------
+        type or None
+            Renderer options class or None if format has no renderer options
+
+        Raises
+        ------
+        FormatError
+            If format not registered
+        """
+        if format_name not in self._converters:
+            available = list(self._converters.keys())
+            raise FormatError(
+                format_type=format_name,
+                supported_formats=available
+            )
+
+        metadata = self._converters[format_name]
+        return _load_options_class(metadata.renderer_options_class)
 
     def get_parser(self, format_name: str) -> type:
         """Get parser class for a format.

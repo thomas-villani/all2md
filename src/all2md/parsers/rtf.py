@@ -493,7 +493,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_class=None,
     required_packages=[("pyth3", "pyth", "")],
     import_error_message="RTF conversion requires 'pyth3'. Install with: pip install pyth3",
-    options_class=RtfOptions,
+    parser_options_class=RtfOptions,
+    renderer_options_class=None,
     description="Convert Rich Text Format documents to Markdown",
     priority=4,
 )

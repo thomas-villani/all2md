@@ -182,12 +182,10 @@ class TestIntegration:
         doc.save(str(docx_file))
 
         # Test with different option combinations
-        options1 = DocxOptions(
-            preserve_tables=True,
-            markdown_options=MarkdownOptions(escape_special=True)
-        )
-        # parse_file doesn't currently support format-specific options
-        result1 = to_markdown(str(docx_file))
+        parser_options1 = DocxOptions(preserve_tables=True)
+        renderer_options1 = MarkdownOptions(escape_special=True)
+
+        result1 = to_markdown(str(docx_file), parser_options=parser_options1, renderer_options=renderer_options1)
         assert_markdown_valid(result1)
 
         result2 = to_markdown(str(docx_file))
@@ -361,15 +359,13 @@ class TestNewAPI:
 
         # Create options with one setting
         md_opts = MarkdownOptions(use_hash_headings=False)
-        base_options = HtmlOptions(
-            markdown_options=md_opts,
-            convert_nbsp=True
-        )
+        base_parser_options = HtmlOptions(convert_nbsp=True)
 
         # Override with kwargs
         result = to_markdown(
             html_io,
-            options=base_options,
+            parser_options=base_parser_options,
+            renderer_options=md_opts,
             use_hash_headings=True,  # Override the False setting
             format="html"
         )

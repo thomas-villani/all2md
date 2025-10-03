@@ -626,7 +626,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_class=None,
     required_packages=[("odfpy", "odf", "")],
     import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",
-    options_class=OdfOptions,
+    parser_options_class=OdfOptions,
+    renderer_options_class=None,
     description="Convert OpenDocument files to Markdown",
     priority=4
 )

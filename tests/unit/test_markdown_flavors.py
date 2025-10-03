@@ -11,7 +11,7 @@ from all2md.ast.flavors import (
     MultiMarkdownFlavor,
     PandocFlavor,
 )
-from all2md.ast.renderer import MarkdownRenderer
+from all2md.renderers.markdown import MarkdownRenderer
 from all2md.options import MarkdownOptions, get_flavor_defaults, validate_flavor_compatibility
 
 
@@ -195,7 +195,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="html")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "<table>" in result
         assert "<th>Header 1</th>" in result
 
@@ -217,7 +217,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="ascii")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "+" in result  # ASCII table borders
         assert "-" in result
         assert "|" in result
@@ -237,7 +237,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="drop")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "Title" in result
         assert "After table" in result
         assert "Header 1" not in result  # Table dropped
@@ -260,7 +260,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="gfm")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "| Header 1 | Header 2 |" in result
         assert "|---|---|" in result
         assert "| Cell 1 | Cell 2 |" in result
@@ -276,7 +276,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="plain")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert result == "This is deleted text"
 
     def test_commonmark_strikethrough_html(self):
@@ -290,7 +290,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="html")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "<del>deleted</del>" in result
 
     def test_gfm_strikethrough_markdown(self):
@@ -304,7 +304,7 @@ class TestFlavorRendering:
         ])
         options = MarkdownOptions(flavor="gfm")
         renderer = MarkdownRenderer(options)
-        result = renderer.render(doc)
+        result = renderer.render_to_string(doc)
         assert "~~deleted~~" in result
 
 

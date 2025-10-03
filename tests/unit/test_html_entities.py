@@ -60,8 +60,8 @@ class TestHtmlEntities:
         options_preserve = HtmlOptions(convert_nbsp=True)
         options_no_preserve = HtmlOptions(convert_nbsp=False)
 
-        md_preserve = html_to_markdown(html, options=options_preserve, format="html")
-        md_no_preserve = html_to_markdown(html, options=options_no_preserve, format="html")
+        md_preserve = html_to_markdown(html, parser_options=options_preserve, format="html")
+        md_no_preserve = html_to_markdown(html, parser_options=options_no_preserve, format="html")
 
         assert_markdown_valid(md_preserve)
         assert_markdown_valid(md_no_preserve)
@@ -104,7 +104,7 @@ class TestHtmlEntities:
         <abbr title="HyperText &amp; Markup Language">HTML</abbr>
         '''
 
-        markdown = html_to_markdown(html, options=HtmlOptions(attachment_mode="alt_text"), format="html")
+        markdown = html_to_markdown(html, parser_options=HtmlOptions(attachment_mode="alt_text"), format="html")
         assert_markdown_valid(markdown)
 
         # Should handle entities in attributes
