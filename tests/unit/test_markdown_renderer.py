@@ -18,10 +18,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
-    CommonMarkFlavor,
     Document,
     Emphasis,
-    GFMFlavor,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -32,7 +30,6 @@ from all2md.ast import (
     ListItem,
     MathBlock,
     MathInline,
-    MarkdownRenderer,
     Paragraph,
     Strikethrough,
     Strong,
@@ -45,6 +42,9 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+
+from all2md.renderers.markdown import MarkdownRenderer
+from all2md.utils.flavors import GFMFlavor
 
 
 @pytest.mark.unit

@@ -253,7 +253,7 @@ class PptxToAstConverter(BaseParser):
             return self._process_text_frame_to_ast(shape.text_frame)
 
         # Check if shape is a table
-        if hasattr(shape, "table"):
+        if hasattr(shape, "has_table") and shape.has_table:
             return self._process_table_to_ast(shape.table)
 
         # Check if shape is an image
@@ -261,7 +261,7 @@ class PptxToAstConverter(BaseParser):
             return self._process_image_to_ast(shape)
 
         from pptx.shapes.graphfrm import GraphicFrame
-        if isinstance(shape, GraphicFrame) and hasattr(shape, "chart"):
+        if isinstance(shape, GraphicFrame) and hasattr(shape, "has_chart") and shape.has_chart:
             return self._process_chart_to_ast(shape.chart)
 
         # For other shapes, skip or handle as needed

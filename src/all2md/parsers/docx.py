@@ -409,9 +409,15 @@ class DocxToAstConverter(BaseParser):
         # Regular paragraph
         content = self._process_paragraph_runs_to_inline(paragraph)
         if content:
-            if math_blocks:
-                return [AstParagraph(content=content), *math_blocks]
-            return AstParagraph(content=content)
+            # Skip paragraphs that only contain whitespace
+            has_non_whitespace = any(
+                not isinstance(node, Text) or node.content.strip()
+                for node in content
+            )
+            if has_non_whitespace:
+                if math_blocks:
+                    return [AstParagraph(content=content), *math_blocks]
+                return AstParagraph(content=content)
 
         if math_blocks:
             if len(math_blocks) == 1:
@@ -1297,17 +1303,17 @@ def _omml_to_latex(element: Any) -> str:
             return f"\\frac{{{numerator}}}{{{denominator}}}"
         return numerator or denominator
 
-    if name in {"num", "den", "e", "base"}:
+    if name in {"num", "den", "e", "base", "sup", "sub"}:
         return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
 
-    if name in {"sup", "sSup"}:
+    if name == "sSup":
         base_expr = _omml_to_latex(_omml_find_child(element, "e"))
         sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
         if base_expr and sup_expr:
             return f"{base_expr}^{{{sup_expr}}}"
         return base_expr or sup_expr
 
-    if name in {"sub", "sSub"}:
+    if name == "sSub":
         base_expr = _omml_to_latex(_omml_find_child(element, "e"))
         sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
         if base_expr and sub_expr:

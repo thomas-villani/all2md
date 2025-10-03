@@ -68,10 +68,10 @@ def _create_mock_text_node(content):
 
 
 def _create_mock_math_node(namespace: str, display: str, xml: str) -> Mock:
-    node = Mock()
+    node = Mock(spec_set=["qname", "getAttribute", "toXml", "childNodes"])
     node.qname = (namespace, "math")
     node.getAttribute = Mock(return_value=display)
-    node.toXml.return_value = xml
+    node.toXml = Mock(return_value=xml)
     node.childNodes = []
     return node
 
