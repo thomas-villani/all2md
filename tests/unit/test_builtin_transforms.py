@@ -5,6 +5,7 @@ import pytest
 
 from all2md.ast import Document, Heading, Image, Link, Paragraph, Text
 from all2md.transforms.builtin import (
+    AddAttachmentFootnotesTransform,
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
     CalculateWordCountTransform,
@@ -509,3 +510,179 @@ class TestCalculateWordCountTransform:
 
         assert result.metadata['word_count'] == 0
         assert result.metadata['char_count'] == 0
+
+
+# AddAttachmentFootnotesTransform tests
+
+class TestAddAttachmentFootnotesTransform:
+    """Tests for AddAttachmentFootnotesTransform."""
+
+    def test_adds_footnote_for_image_with_empty_url(self):
+        """Test adding footnote definition for image with empty URL."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="test_image.png")
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        # Should have original paragraph plus heading plus footnote definition
+        assert len(result.children) >= 3
+
+        # Find footnote definition
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+        # Check footnote identifier matches label extraction
+        assert footnote_defs[0].identifier == "test_image"
+
+    def test_adds_footnote_for_link_with_empty_url(self):
+        """Test adding footnote definition for link with empty URL."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="", content=[Text(content="document.pdf")])
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        # Find footnote definition
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == "document"
+
+    def test_no_footnotes_for_images_with_urls(self):
+        """Test that images with URLs are not processed."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="http://example.com/image.png", alt_text="test")
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        # Should not add footnote definitions
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 0
+
+    def test_custom_section_title(self):
+        """Test custom section title for footnotes."""
+        from all2md.ast.nodes import Heading
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="test.png")
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform(section_title="Image Sources")
+        result = transform.transform(doc)
+
+        # Find heading
+        headings = [n for n in result.children if isinstance(n, Heading)]
+        assert any(h.content[0].content == "Image Sources" for h in headings if isinstance(h.content[0], Text))
+
+    def test_no_section_title(self):
+        """Test omitting section title."""
+        from all2md.ast.nodes import Heading, FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="test.png")
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform(section_title=None)
+        result = transform.transform(doc)
+
+        # Should have footnote but no "Attachments" heading
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+        # Count headings added by transform (original may have some)
+        original_headings = [n for n in doc.children if isinstance(n, Heading)]
+        result_headings = [n for n in result.children if isinstance(n, Heading)]
+        assert len(result_headings) == len(original_headings)  # No new headings
+
+    def test_multiple_attachments(self):
+        """Test handling multiple attachment footnotes."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="first.png"),
+                Text(content=" and "),
+                Image(url="", alt_text="second.jpg")
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        # Should have 2 footnote definitions
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 2
+
+        # Check identifiers
+        identifiers = {fd.identifier for fd in footnote_defs}
+        assert "first" in identifiers
+        assert "second" in identifiers
+
+    def test_disable_image_footnotes(self):
+        """Test disabling image footnote processing."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="test.png"),
+                Link(url="", content=[Text(content="doc.pdf")])
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform(add_definitions_for_images=False)
+        result = transform.transform(doc)
+
+        # Should only have footnote for link, not image
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == "doc"
+
+    def test_empty_document_no_footnotes(self):
+        """Test that empty document is unchanged."""
+        doc = Document(children=[])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        assert len(result.children) == 0
+
+    def test_label_sanitization(self):
+        """Test that labels are properly sanitized."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="my image (1).png"),
+                Image(url="", alt_text="file with spaces.jpg")
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        identifiers = {fd.identifier for fd in footnote_defs}
+
+        # Labels should be sanitized
+        assert "my_image_1" in identifiers
+        assert "file_with_spaces" in identifiers

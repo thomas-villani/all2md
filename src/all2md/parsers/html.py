@@ -52,7 +52,7 @@ from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
 from all2md.exceptions import InputError, MarkdownConversionError, DependencyError, NetworkSecurityError
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
-from all2md.utils.security import validate_local_file_access
+from all2md.utils.security import validate_local_file_access, sanitize_language_identifier
 
 import logging
 
@@ -1208,58 +1208,6 @@ class HtmlToAstConverter(BaseParser):
         """
         return html.unescape(text)
 
-    def _sanitize_language_identifier(self, language: str) -> str:
-        """Sanitize language identifier to prevent markdown injection attacks.
-
-        Code fence language identifiers must only contain safe characters to prevent
-        markdown injection via malicious HTML class attributes. This method validates
-        and sanitizes language strings by checking against a safe pattern of
-        alphanumeric characters, underscores, hyphens, and plus signs.
-
-        Parameters
-        ----------
-        language : str
-            Raw language identifier string to sanitize
-
-        Returns
-        -------
-        str
-            Sanitized language identifier, or empty string if invalid
-
-        Examples
-        --------
-        >>> self._sanitize_language_identifier("python")
-        'python'
-        >>> self._sanitize_language_identifier("c++")
-        'c++'
-        >>> self._sanitize_language_identifier("python\\nmalicious")
-        ''
-        >>> self._sanitize_language_identifier("python javascript")
-        ''
-
-        """
-        if not language:
-            return ""
-
-        # Strip whitespace
-        language = language.strip()
-
-        # Check length limit
-        if len(language) > MAX_LANGUAGE_IDENTIFIER_LENGTH:
-            logger.warning(
-                f"Language identifier exceeds maximum length ({MAX_LANGUAGE_IDENTIFIER_LENGTH}): {language[:50]}..."
-            )
-            return ""
-
-        # Validate against safe pattern
-        if not re.match(SAFE_LANGUAGE_IDENTIFIER_PATTERN, language):
-            logger.warning(
-                f"Blocked potentially dangerous language identifier containing invalid characters: {language[:50]}"
-            )
-            return ""
-
-        return language
-
     def _extract_language_from_attrs(self, node: Any) -> str:
         """Extract language identifier from HTML attributes.
 
@@ -1290,17 +1238,17 @@ class HtmlToAstConverter(BaseParser):
             for idx, cls in enumerate(classes):
                 # Check for language-xxx pattern
                 if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    return self._sanitize_language_identifier(match.group(1))
+                    return sanitize_language_identifier(match.group(1))
                 # Check for lang-xxx pattern
                 elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                    return self._sanitize_language_identifier(match.group(1))
+                    return sanitize_language_identifier(match.group(1))
                 # Check for brush: xxx pattern - BeautifulSoup splits "brush: sql" into ["brush:", "sql"]
                 elif cls == "brush:" and idx + 1 < len(classes):
                     # Next class is the language identifier
-                    return self._sanitize_language_identifier(classes[idx + 1])
+                    return sanitize_language_identifier(classes[idx + 1])
                 elif match := re.match(r"brush:\s*([a-zA-Z0-9_+\-]+)", cls):
                     # Fallback for cases where brush:lang is together without space
-                    return self._sanitize_language_identifier(match.group(1))
+                    return sanitize_language_identifier(match.group(1))
                 # Use the class as-is if it's a simple language name (only if we haven't found one yet)
                 elif (
                     not language
@@ -1313,7 +1261,7 @@ class HtmlToAstConverter(BaseParser):
 
         # Check data-lang attribute
         if node.get("data-lang"):
-            return self._sanitize_language_identifier(node.get("data-lang"))
+            return sanitize_language_identifier(node.get("data-lang"))
 
         # Check child code element
         code_child = node.find("code")
@@ -1324,11 +1272,11 @@ class HtmlToAstConverter(BaseParser):
 
             for cls in classes:
                 if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    return self._sanitize_language_identifier(match.group(1))
+                    return sanitize_language_identifier(match.group(1))
                 elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                    return self._sanitize_language_identifier(match.group(1))
+                    return sanitize_language_identifier(match.group(1))
 
-        return self._sanitize_language_identifier(language)
+        return sanitize_language_identifier(language)
 
     def _get_alignment(self, cell: Any) -> str | None:
         """Get table cell alignment.

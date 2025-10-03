@@ -487,3 +487,86 @@ class TestEdgeCases:
         assert "émojis" in text.content
         assert "😀" in text.content
         assert "中文" in text.content
+
+
+class TestCodeBlockLanguageSanitization:
+    """Test code block language identifier sanitization."""
+
+    def test_valid_language_identifiers(self) -> None:
+        """Test that valid language identifiers are preserved."""
+        valid_languages = ["python", "javascript", "c++", "rust-nightly", "c_sharp"]
+
+        for lang in valid_languages:
+            markdown = f"```{lang}\ncode\n```"
+            doc = markdown_to_ast(markdown)
+
+            assert len(doc.children) == 1
+            code_block = doc.children[0]
+            assert isinstance(code_block, CodeBlock)
+            assert code_block.language == lang
+
+    def test_malicious_language_with_newline(self) -> None:
+        """Test that language identifiers with newlines are blocked."""
+        # This could be used for markdown injection
+        markdown = "```python\\nmalicious\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        # Should be sanitized to empty or just "python"
+        # Since .split()[0] extracts "python\nmalicious", sanitizer should reject it
+        assert code_block.language in [None, ""]
+
+    def test_malicious_language_with_spaces(self) -> None:
+        """Test that language identifiers with spaces are blocked."""
+        markdown = "```python javascript\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        # After split()[0], we get "python", which should be valid
+        assert code_block.language == "python"
+
+    def test_excessively_long_language_identifier(self) -> None:
+        """Test that excessively long language identifiers are blocked."""
+        long_lang = "x" * 100  # Exceeds MAX_LANGUAGE_IDENTIFIER_LENGTH (50)
+        markdown = f"```{long_lang}\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        # Should be sanitized to empty
+        assert code_block.language in [None, ""]
+
+    def test_language_with_special_characters(self) -> None:
+        """Test that language identifiers with disallowed special characters are blocked."""
+        malicious_langs = ["python;rm -rf", "python$(whoami)", "python|ls", "python<script>"]
+
+        for lang in malicious_langs:
+            markdown = f"```{lang}\ncode\n```"
+            doc = markdown_to_ast(markdown)
+
+            code_block = doc.children[0]
+            assert isinstance(code_block, CodeBlock)
+            # Should be sanitized - either empty or only the valid prefix
+            # After split()[0], we get things like "python;rm", which should be blocked
+            # Only alphanumeric, hyphens, underscores, and plus signs are allowed
+            assert code_block.language in [None, ""]
+
+    def test_empty_language_identifier(self) -> None:
+        """Test that empty language identifiers are handled correctly."""
+        markdown = "```\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language in [None, ""]
+
+    def test_whitespace_only_language(self) -> None:
+        """Test that whitespace-only language identifiers are treated as empty."""
+        markdown = "```   \ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language in [None, ""]

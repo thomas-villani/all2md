@@ -18,6 +18,7 @@ Available Transforms
 - RemoveBoilerplateTextTransform: Remove common boilerplate patterns
 - AddConversionTimestampTransform: Add timestamp to metadata
 - CalculateWordCountTransform: Calculate word and character counts
+- AddAttachmentFootnotesTransform: Add footnote definitions for attachment references
 
 Examples
 --------
@@ -46,6 +47,7 @@ from typing import Any
 
 from all2md.ast.nodes import (
     Document,
+    FootnoteDefinition,
     Heading,
     Image,
     Link,
@@ -809,6 +811,207 @@ class CalculateWordCountTransform(NodeTransformer):
         return ' '.join(text_parts)
 
 
+class AddAttachmentFootnotesTransform(NodeTransformer):
+    """Add footnote definitions for attachment references.
+
+    When attachments are processed with alt_text_mode="footnote", they generate
+    footnote-style references like ![image][^label] but no corresponding definitions.
+    This transform scans the rendered markdown for such references and adds
+    FootnoteDefinition nodes with source information.
+
+    Parameters
+    ----------
+    section_title : str or None, default "Attachments"
+        Title for the footnote section heading. If None, no heading is added.
+    add_definitions_for_images : bool, default True
+        Add definitions for image footnote references
+    add_definitions_for_links : bool, default True
+        Add definitions for link footnote references
+
+    Examples
+    --------
+    Add footnote definitions after conversion:
+
+        >>> transform = AddAttachmentFootnotesTransform()
+        >>> doc_with_footnotes = transform.transform(document)
+
+    Custom section title:
+
+        >>> transform = AddAttachmentFootnotesTransform(section_title="Image Sources")
+        >>> doc_with_footnotes = transform.transform(document)
+
+    Notes
+    -----
+    This transform works by:
+    1. Collecting all Image and Link nodes with empty URLs (indicates footnote mode)
+    2. Extracting footnote labels from alt text or title
+    3. Creating FootnoteDefinition nodes with source information
+    4. Appending definitions to the end of the document
+
+    """
+
+    def __init__(
+        self,
+        section_title: str | None = "Attachments",
+        add_definitions_for_images: bool = True,
+        add_definitions_for_links: bool = True
+    ):
+        """Initialize transform with options.
+
+        Parameters
+        ----------
+        section_title : str or None
+            Heading for footnotes section
+        add_definitions_for_images : bool
+            Whether to process image footnotes
+        add_definitions_for_links : bool
+            Whether to process link footnotes
+
+        """
+        self.section_title = section_title
+        self.add_definitions_for_images = add_definitions_for_images
+        self.add_definitions_for_links = add_definitions_for_links
+        self._footnote_refs: dict[str, str] = {}  # label -> source info
+
+    def visit_document(self, node: Document) -> Document:
+        """Process document and add footnote definitions.
+
+        Parameters
+        ----------
+        node : Document
+            Document to process
+
+        Returns
+        -------
+        Document
+            Document with footnote definitions added
+
+        """
+        # Reset footnote collection
+        self._footnote_refs = {}
+
+        # Traverse document to collect footnote references
+        self._collect_footnote_refs(node)
+
+        # If no footnotes found, return unchanged
+        if not self._footnote_refs:
+            return node
+
+        # Create footnote definitions
+        new_children = list(node.children)
+
+        # Add section heading if specified
+        if self.section_title:
+            new_children.append(Heading(
+                level=2,
+                content=[Text(content=self.section_title)]
+            ))
+
+        # Add footnote definitions
+        for label, source_info in sorted(self._footnote_refs.items()):
+            definition = FootnoteDefinition(
+                identifier=label,
+                content=[Paragraph(content=[Text(content=f"Source: {source_info}")])]
+            )
+            new_children.append(definition)
+
+        return Document(
+            children=new_children,
+            metadata=node.metadata,
+            source_location=node.source_location
+        )
+
+    def _collect_footnote_refs(self, node: Node) -> None:
+        """Recursively collect footnote references from AST.
+
+        Parameters
+        ----------
+        node : Node
+            Node to scan
+
+        """
+        # Check if this is an Image or Link with empty URL (footnote mode)
+        if self.add_definitions_for_images and isinstance(node, Image) and not node.url:
+            # Extract footnote label from rendered markdown
+            # The label is derived from alt_text or filename
+            label = self._extract_label(node.alt_text or "attachment")
+            if label:
+                self._footnote_refs[label] = node.alt_text or "Unknown source"
+
+        if self.add_definitions_for_links and isinstance(node, Link) and not node.url:
+            # Extract label from link content
+            label = self._extract_label(self._get_link_text(node))
+            if label:
+                self._footnote_refs[label] = self._get_link_text(node) or "Unknown source"
+
+        # Recurse into children
+        if hasattr(node, 'children') and isinstance(node.children, list):
+            for child in node.children:
+                self._collect_footnote_refs(child)
+
+        # Recurse into content
+        if hasattr(node, 'content') and isinstance(node.content, list):
+            for child in node.content:
+                self._collect_footnote_refs(child)
+
+    def _extract_label(self, text: str) -> str:
+        """Extract footnote label from attachment name.
+
+        Mimics the logic in utils.attachments._sanitize_footnote_label.
+
+        Parameters
+        ----------
+        text : str
+            Source text (filename or alt text)
+
+        Returns
+        -------
+        str
+            Sanitized label
+
+        """
+        if not text:
+            return "attachment"
+
+        # Remove file extension
+        if '.' in text:
+            base_name = text.rsplit('.', 1)[0]
+        else:
+            base_name = text
+
+        # Sanitize: replace non-alphanumeric with underscore
+        label = re.sub(r'[^a-zA-Z0-9_-]', '_', base_name.lower().strip())
+
+        # Remove multiple underscores
+        label = re.sub(r'_+', '_', label)
+
+        # Remove leading/trailing underscores
+        label = label.strip('_')
+
+        return label or "attachment"
+
+    def _get_link_text(self, node: Link) -> str:
+        """Extract text content from link node.
+
+        Parameters
+        ----------
+        node : Link
+            Link node
+
+        Returns
+        -------
+        str
+            Text content of link
+
+        """
+        text_parts = []
+        if node.content:
+            for child in node.content:
+                if isinstance(child, Text):
+                    text_parts.append(child.content)
+        return ' '.join(text_parts)
+
+
 __all__ = [
     "RemoveImagesTransform",
     "RemoveNodesTransform",
@@ -819,4 +1022,5 @@ __all__ = [
     "RemoveBoilerplateTextTransform",
     "AddConversionTimestampTransform",
     "CalculateWordCountTransform",
+    "AddAttachmentFootnotesTransform",
 ]

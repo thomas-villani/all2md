@@ -7,6 +7,7 @@ Functions
 ---------
 - validate_local_file_access: Check if access to a local file path is allowed
 - validate_zip_archive: Pre-validate ZIP archives for security threats
+- sanitize_language_identifier: Sanitize code fence language identifiers
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
@@ -25,12 +26,17 @@ Functions
 #  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import logging
+import re
 import zipfile
 from pathlib import Path
 from typing import Union
 from urllib.parse import urlparse
 
+from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN
 from all2md.exceptions import InputError, ZipFileSecurityError
+
+logger = logging.getLogger(__name__)
 
 
 def validate_local_file_access(
@@ -210,3 +216,62 @@ def validate_zip_archive(
         raise InputError(f"Invalid ZIP archive: {e}") from e
     except (OSError, IOError) as e:
         raise InputError(f"Could not read ZIP archive: {e}") from e
+
+
+def sanitize_language_identifier(language: str) -> str:
+    """Sanitize code fence language identifier to prevent markdown injection.
+
+    Code fence language identifiers must only contain safe characters to prevent
+    markdown injection via malicious language strings. This function validates
+    and sanitizes language strings by checking against a safe pattern of
+    alphanumeric characters, underscores, hyphens, and plus signs.
+
+    Parameters
+    ----------
+    language : str
+        Raw language identifier string to sanitize
+
+    Returns
+    -------
+    str
+        Sanitized language identifier, or empty string if invalid
+
+    Examples
+    --------
+    >>> sanitize_language_identifier("python")
+    'python'
+    >>> sanitize_language_identifier("c++")
+    'c++'
+    >>> sanitize_language_identifier("python\\nmalicious")
+    ''
+    >>> sanitize_language_identifier("python javascript")
+    ''
+    >>> sanitize_language_identifier("x" * 100)
+    ''
+
+    Notes
+    -----
+    This function is used by both HTML and Markdown parsers to ensure
+    consistent security validation of code block language identifiers.
+    """
+    if not language:
+        return ""
+
+    # Strip whitespace
+    language = language.strip()
+
+    # Check length limit
+    if len(language) > MAX_LANGUAGE_IDENTIFIER_LENGTH:
+        logger.warning(
+            f"Language identifier exceeds maximum length ({MAX_LANGUAGE_IDENTIFIER_LENGTH}): {language[:50]}..."
+        )
+        return ""
+
+    # Validate against safe pattern
+    if not re.match(SAFE_LANGUAGE_IDENTIFIER_PATTERN, language):
+        logger.warning(
+            f"Blocked potentially dangerous language identifier containing invalid characters: {language[:50]}"
+        )
+        return ""
+
+    return language

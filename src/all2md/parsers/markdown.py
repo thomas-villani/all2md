@@ -50,6 +50,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.security import sanitize_language_identifier
 
 
 class MarkdownToAstConverter(BaseParser):
@@ -314,8 +315,10 @@ class MarkdownToAstConverter(BaseParser):
         # Clean up language string (mistune includes it with possible extra data)
         if language:
             language = language.strip().split()[0]  # Take first word
+            # Sanitize language identifier for security (prevent markdown injection)
+            language = sanitize_language_identifier(language)
 
-        return CodeBlock(content=code_content, language=language)
+        return CodeBlock(content=code_content, language=language if language else None)
 
     def _process_block_quote(self, token: dict[str, Any]) -> BlockQuote:
         """Process block quote token.
