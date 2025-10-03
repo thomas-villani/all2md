@@ -278,17 +278,14 @@ def process_stdin(
     input_source = stdin_data
 
     try:
-        # Convert the document
         markdown_content = to_markdown(input_source, format=format_arg, transforms=transforms, **options)
 
-        # Output the result
         if parsed_args.out:
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(markdown_content, encoding="utf-8")
             print(f"Converted stdin -> {output_path}")
         else:
-            # Use pager if requested and outputting to stdout
             if parsed_args.pager:
                 try:
                     from rich.console import Console

@@ -80,7 +80,7 @@ import logging
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Optional, Union
+from typing import IO, Any, Optional, Union
 
 from all2md.constants import DocumentFormat
 
@@ -829,140 +829,149 @@ def to_ast(
 # TODO: should also allow `markdown` to be a path or file.
 def from_markdown(
         markdown: Union[str, Path, IO[bytes], IO[str]],
-        target_format: str,
-        output: Union[str, Path],
+        target_format: DocumentFormat,
+        output: Union[str, Path, IO[bytes], None],
         *,
-        options: Optional[BaseOptions | MarkdownOptions] = None,
+        options: Optional[BaseOptions | MarkdownOptions | MarkdownParserOptions] = None,
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        renderer: Optional[Union[str, type, object]] = None,
+        target_kwargs: Optional[dict[str, Any]] = None,
         **kwargs
-) -> None:
-    """Convert Markdown to a target document format.
-
-    This function enables bidirectional conversion by parsing Markdown into AST
-    and rendering it to various output formats.
-
-    Parameters
-    ----------
-    markdown : str
-        Markdown content to convert
-    target_format : str
-        Target format (e.g., "docx", "pdf", "html")
-    output : str or Path
-        Output file path
-    options : BaseOptions | MarkdownOptions, optional
-        Pre-configured options object for the target format
-    kwargs : Any
-        Additional format-specific options
-
-    Raises
-    ------
-    FormatError
-        If target format is not supported or has no renderer
-    DependencyError
-        If required dependencies are not installed
-    MarkdownConversionError
-        If conversion fails
-
-    Examples
-    --------
-    Convert Markdown to DOCX:
-        >>> from_markdown("# Hello\\n\\nWorld", "docx", "output.docx")
-
-    With options:
-        >>> from all2md.options import DocxOptions
-        >>> opts = DocxOptions(preserve_tables=True)
-        >>> from_markdown(markdown_text, "docx", "output.docx", options=opts)
-
-    """
-    # Parse markdown to AST
-    from all2md.parsers.markdown import MarkdownToAstConverter
+) -> Union[None, str, bytes]:
+    """Convert Markdown content to another format using the transform pipeline."""
     from all2md.options import MarkdownParserOptions
 
-    parser = MarkdownToAstConverter(MarkdownParserOptions())
-    doc_ast = parser.parse(markdown)
+    parser_options: MarkdownParserOptions | None = None
+    target_options: BaseOptions | MarkdownOptions | None = None
 
-    # Get renderer for target format
-    try:
-        renderer_class = registry.get_renderer(target_format)
-    except FormatError:
-        raise FormatError(
-            f"No renderer available for format '{target_format}'. "
-            f"Only markdown format is currently supported for rendering."
-        )
+    if isinstance(options, MarkdownParserOptions):
+        parser_options = options
+    else:
+        target_options = options
 
-    # Prepare options for renderer
-    final_options = _prepare_options(target_format, options, None, kwargs)
+    return convert(
+        markdown,
+        output=output,
+        options=None,
+        source_options=parser_options,
+        target_options=target_options,
+        source_format="markdown",
+        target_format=target_format,
+        transforms=transforms,
+        hooks=hooks,
+        renderer=renderer,
+        target_kwargs=target_kwargs,
+        **kwargs,
+    )
 
-    # Create renderer and render
-    renderer = renderer_class(final_options)
-    renderer.render(doc_ast, output)
-
-
+# TODO: simplify this, get rid of `options` in favor of `parser_options` and `renderer_options`
 def convert(
-        source: Union[str, Path, IO[bytes], bytes],
-        output: Union[str, Path, None] = None,
+        source: Union[str, Path, IO[bytes], IO[str], bytes],
+        output: Union[str, Path, IO[bytes], IO[str], None] = None,
         *,
         options: Optional[BaseOptions | MarkdownOptions] = None,
+        source_options: Optional[BaseOptions | MarkdownOptions | MarkdownParserOptions] = None,
+        target_options: Optional[BaseOptions | MarkdownOptions] = None,
         source_format: DocumentFormat = "auto",
         target_format: DocumentFormat = "auto",
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        renderer: Optional[Union[str, type, object]] = None,
+        flavor: Optional[str] = None,
+        target_kwargs: Optional[dict[str, Any]] = None,
         **kwargs
-) -> None | IO[bytes]:
-    """Convert a document from one format to another.
+) -> Union[None, str, bytes]:
+    """Convert between document formats using the transform-aware pipeline."""
 
-    This is a general-purpose conversion function that handles
-    format-to-format conversion via the AST intermediate representation.
+    transforms = transforms or []
+    hooks = hooks or {}
+    render_kwargs = dict(target_kwargs or {})
+    parser_kwargs = dict(kwargs)
 
-    Parameters
-    ----------
-    source : str, Path, IO[bytes], or bytes
-        Source document (file path, file-like object, or bytes)
-    output : str or Path
-        Output file path
-    options : BaseOptions | MarkdownOptions, optional
-        Pre-configured options object
-    target_format : DocumentFormat, default "auto"
-        Target format (e.g., "markdown", "docx", "pdf")
-    source_format : DocumentFormat, default "auto"
-        Source format (auto-detected if not specified)
-    kwargs : Any
-        Additional conversion options
+    parser_options = source_options or options
 
-    Raises
-    ------
-    FormatError
-        If source/target format is not supported
-    DependencyError
-        If required dependencies are not installed
-    MarkdownConversionError
-        If conversion fails
+    actual_source_format = (
+        source_format if source_format != "auto" else registry.detect_format(source)
+    )
 
-    Examples
-    --------
-    Convert PDF to DOCX:
-        >>> convert("input.pdf", "docx", "output.docx")
+    ast_document = to_ast(
+        source,
+        options=parser_options,
+        format=actual_source_format,
+        flavor=flavor,
+        **parser_kwargs,
+    )
 
-    Convert HTML to Markdown file:
-        >>> convert("page.html", "markdown", "output.md")
+    if target_format != "auto":
+        actual_target_format = target_format
+    elif isinstance(renderer, str):
+        actual_target_format = renderer
+    elif isinstance(output, (str, Path)):
+        inferred = registry.detect_format(output)
+        actual_target_format = inferred if inferred != "txt" else "markdown"
+    else:
+        actual_target_format = "markdown"
 
-    With format hint:
-        >>> convert(data_bytes, "markdown", "output.md", format="html")
+    renderer_spec = renderer or actual_target_format
 
-    """
-    # Detect source format
-    actual_format = source_format if source_format != "auto" else registry.detect_format(source)
+    effective_target_options = target_options if target_options is not None else options
 
-    # Parse source to AST
-    parser_class = registry.get_parser(actual_format)
-    parser_options = _prepare_options(actual_format, options, None, kwargs)
-    parser = parser_class(parser_options)
-    doc_ast = parser.parse(source)
+    if isinstance(renderer_spec, str) and renderer_spec == "markdown":
+        candidate = effective_target_options or parser_options
+        if isinstance(candidate, MarkdownOptions):
+            markdown_opts = candidate
+        elif candidate and hasattr(candidate, 'markdown_options') and getattr(candidate, 'markdown_options'):
+            markdown_opts = getattr(candidate, 'markdown_options')
+        else:
+            markdown_opts = MarkdownOptions()
 
-    # Get renderer for target format
-    renderer_class = registry.get_renderer(target_format)
-    renderer_options = _prepare_options(target_format, options, None, kwargs)
-    renderer = renderer_class(renderer_options)
+        if render_kwargs:
+            markdown_opts = create_updated_options(markdown_opts, **render_kwargs)
+        render_options = markdown_opts
+    elif isinstance(renderer_spec, str):
+        render_options = _prepare_options(
+            actual_target_format,
+            effective_target_options,
+            flavor,
+            render_kwargs,
+        )
+    else:
+        render_options = effective_target_options
 
-    # Render to output
-    renderer.render(doc_ast, output)
+    from all2md.transforms import render as render_with_transforms
+
+    rendered = render_with_transforms(
+        ast_document,
+        transforms=transforms,
+        hooks=hooks,
+        renderer=renderer_spec,
+        options=render_options,
+    )
+
+    if output is None:
+        return rendered
+
+    if isinstance(output, (str, Path)):
+        output_path = Path(output)
+        if isinstance(rendered, str):
+            output_path.write_text(rendered, encoding='utf-8')
+        else:
+            output_path.write_bytes(rendered)
+        return None
+
+    if hasattr(output, 'write'):
+        if isinstance(rendered, str):
+            mode = getattr(output, 'mode', '')
+            if isinstance(mode, str) and 'b' in mode:
+                output.write(rendered.encode('utf-8'))  # type: ignore[arg-type]
+            else:
+                output.write(rendered)  # type: ignore[arg-type]
+        else:
+            output.write(rendered)  # type: ignore[arg-type]
+        return None
+
+    raise ValueError("Unsupported output destination provided to convert().")
 
 
 __all__ = [

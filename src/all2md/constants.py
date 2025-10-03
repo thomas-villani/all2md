@@ -337,6 +337,7 @@ DocumentFormat = Literal[
     "spreadsheet",  # CSV, TSV, XLSX
     "sourcecode",  # Source code files with syntax highlighting
     "txt",  # Plain text
+    "markdown",  # Markdown documents
     "eml",  # Email messages
     "image",  # Image files (PNG, JPEG, GIF)
     "ipynb",  # Jupyter Notebooks

@@ -450,28 +450,8 @@ def convert_single_file(
         transforms: Optional[list] = None,
         show_progress: bool = False
 ) -> Tuple[int, str, Optional[str]]:
-    """Convert a single file to markdown.
+    """Convert a single file to markdown."""
 
-    Parameters
-    ----------
-    input_path : Path
-        Input file path
-    output_path : Path, optional
-        Output file path (None for stdout)
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform instances to apply
-    show_progress : bool
-        Whether to show progress
-
-    Returns
-    -------
-    Tuple[int, str, Optional[str]]
-        Exit code (0 for success), file path string, and error message if failed
-    """
     from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
 
     try:
@@ -1890,6 +1870,261 @@ Examples:
     return 0
 
 
+def handle_convert_command(args: Optional[list[str]] = None) -> Optional[int]:
+    """Handle the `convert` subcommand for bidirectional conversions."""
+    if not args:
+        args = sys.argv[1:]
+
+    if not args or args[0] != 'convert':
+        return None
+
+    convert_args = args[1:]
+    parser = create_parser()
+    parsed_args = parser.parse_args(convert_args)
+
+    provided_args = getattr(parsed_args, '_provided_args', set())
+
+    if 'output_type' not in provided_args:
+        parsed_args.output_type = 'auto'
+
+    if not parsed_args.out and not parsed_args.output_dir and len(parsed_args.input) == 2:
+        parsed_args.out = parsed_args.input[-1]
+        parsed_args.input = parsed_args.input[:1]
+
+    if not parsed_args.options_json:
+        env_config = os.environ.get('ALL2MD_CONFIG_JSON')
+        if env_config:
+            parsed_args.options_json = env_config
+
+    if parsed_args.about:
+        print(_get_about_info())
+        return 0
+
+    if parsed_args.save_config:
+        try:
+            save_config_to_file(parsed_args, parsed_args.save_config)
+            return 0
+        except Exception as exc:
+            print(f"Error saving configuration: {exc}", file=sys.stderr)
+            return 1
+
+    return _run_convert_command(parsed_args)
+
+
+def _default_extension_for_format(target_format: str) -> str:
+    from all2md.converter_registry import registry
+    if target_format in ('auto', 'markdown'):
+        return '.md'
+
+    try:
+        metadata = registry.get_format_info(target_format)
+        if metadata and metadata.extensions:
+            return metadata.extensions[0]
+    except Exception:
+        pass
+
+    return f'.{target_format}'
+
+
+def _run_convert_command(parsed_args: argparse.Namespace) -> int:
+    from all2md.constants import EXIT_INPUT_ERROR, EXIT_SUCCESS, get_exit_code_for_exception
+    from all2md.converter_registry import registry
+    from all2md.cli.processors import (
+        process_detect_only,
+        process_dry_run,
+        process_stdin,
+        setup_and_validate_options,
+        validate_arguments,
+    )
+
+    options, format_arg, transforms = setup_and_validate_options(parsed_args)
+
+    if parsed_args.verbose and parsed_args.log_level == "WARNING":
+        log_level = logging.DEBUG
+    else:
+        log_level = getattr(logging, parsed_args.log_level.upper())
+
+    logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
+
+    if not validate_arguments(parsed_args):
+        return EXIT_INPUT_ERROR
+
+    if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
+        return process_stdin(parsed_args, options, format_arg, transforms)
+
+    files = collect_input_files(
+        parsed_args.input,
+        parsed_args.recursive,
+        exclude_patterns=parsed_args.exclude
+    )
+
+    if not files:
+        print("Error: No valid input files found", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    # Handle detection-only / dry-run using existing processors
+    if parsed_args.detect_only:
+        return process_detect_only(files, parsed_args, format_arg)
+
+    if parsed_args.dry_run:
+        return process_dry_run(files, parsed_args, format_arg)
+
+    if parsed_args.collate:
+        print("Error: --collate is only supported for markdown output", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    if not parsed_args.out and not parsed_args.output_dir and len(files) > 1:
+        print("Error: Multiple inputs require --output-dir or --out", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    if parsed_args.out and len(files) > 1:
+        print("Error: --out can only be used with a single input file", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    if parsed_args.output_dir and parsed_args.output_type == 'auto':
+        print("Error: --output-dir requires --output-type to determine file extensions", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    base_input_dir: Optional[Path] = None
+    if parsed_args.preserve_structure and len(files) > 0:
+        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
+
+    use_progress = parsed_args.progress or len(files) > 1
+    progress_iterator = files
+    progress_context = None
+
+    if use_progress:
+        try:
+            from tqdm import tqdm
+            progress_iterator = tqdm(files, desc="Converting files", unit="file")
+            progress_context = progress_iterator
+        except ImportError:
+            print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
+            use_progress = False
+
+    successes: list[tuple[Path, Optional[Path]]] = []
+    failures: list[tuple[Path, str, int]] = []
+
+    def determine_output_path(input_file: Path) -> Optional[Path]:
+        if parsed_args.out:
+            return Path(parsed_args.out)
+        if parsed_args.output_dir:
+            ext = _default_extension_for_format(parsed_args.output_type)
+            stem = input_file.stem
+            relative_parent = Path()
+            if parsed_args.preserve_structure and base_input_dir:
+                try:
+                    relative_parent = input_file.parent.relative_to(base_input_dir)
+                except ValueError:
+                    relative_parent = Path()
+            target_dir = Path(parsed_args.output_dir) / relative_parent
+            target_dir.mkdir(parents=True, exist_ok=True)
+            return target_dir / f"{stem}{ext}"
+        return None
+
+    try:
+        from all2md import convert
+    except ImportError:
+        print("Error: Unable to import conversion API", file=sys.stderr)
+        return 1
+
+    iterator = progress_iterator if use_progress else files
+
+    for file in iterator:
+        output_path = determine_output_path(file)
+
+        if output_path and parsed_args.out:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            target_format = parsed_args.output_type
+
+            if output_path is None:
+                target_format = 'markdown'
+                rendered = convert(
+                    file,
+                    output=None,
+                    source_format=format_arg,
+                    target_format=target_format,
+                    transforms=transforms,
+                    **options,
+                )
+
+                if isinstance(rendered, bytes):
+                    rendered_text = rendered.decode('utf-8', errors='replace')
+                else:
+                    rendered_text = rendered or ""
+
+                if parsed_args.pager:
+                    try:
+                        from rich.console import Console
+                        console = Console()
+                        with console.pager(styles=True):
+                            console.print(rendered_text)
+                    except ImportError:
+                        print(rendered_text)
+                else:
+                    print(rendered_text)
+                successes.append((file, None))
+                continue
+
+            convert(
+                file,
+                output=output_path,
+                source_format=format_arg,
+                target_format=target_format,
+                transforms=transforms,
+                **options,
+            )
+
+            successes.append((file, output_path))
+
+            if not parsed_args.rich:
+                print(f"Converted {file} -> {output_path}")
+
+        except Exception as exc:
+            exit_code = get_exit_code_for_exception(exc)
+            failures.append((file, str(exc), exit_code))
+            print(f"Error converting {file}: {exc}", file=sys.stderr)
+            if not parsed_args.skip_errors:
+                break
+
+    if progress_context is not None:
+        progress_context.close()
+
+    if parsed_args.rich and successes and not parsed_args.no_summary:
+        try:
+            from rich.console import Console
+            from rich.table import Table
+
+            console = Console()
+            table = Table(title="Conversion Summary")
+            table.add_column("File", style="cyan")
+            table.add_column("Output", style="green")
+
+            for src, dest in successes:
+                table.add_row(str(src), str(dest) if dest else "stdout")
+
+            if failures:
+                table_fail = Table(title="Failures", style="red")
+                table_fail.add_column("File")
+                table_fail.add_column("Error")
+                for src, message, _ in failures:
+                    table_fail.add_row(str(src), message)
+                console.print(table)
+                console.print(table_fail)
+            else:
+                console.print(table)
+
+        except ImportError:
+            pass
+
+    if failures:
+        return max(exit_code for _, _, exit_code in failures)
+
+    return EXIT_SUCCESS
+
+
 def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int]:
     """Handle dependency management commands.
 
@@ -1968,6 +2203,10 @@ def main(args: Optional[list[str]] = None) -> int:
         setup_and_validate_options,
         validate_arguments,
     )
+
+    convert_result = handle_convert_command(args)
+    if convert_result is not None:
+        return convert_result
 
     # Check for dependency management commands first
     deps_result = handle_dependency_commands(args)

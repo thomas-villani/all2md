@@ -560,10 +560,18 @@ Examples:
 
         # Format override option
         parser.add_argument(
-            "--format",
+            "--format", "--input-type",
+            dest="format",
             choices=list(get_args(DocumentFormat)),
             default="auto",
-            help="Force specific file format instead of auto-detection (default: auto)"
+            help="Force specific input format instead of auto-detection (default: auto)"
+        )
+
+        parser.add_argument(
+            "--output-type",
+            choices=list(get_args(DocumentFormat)),
+            default="markdown",
+            help="Target format for conversion (default: markdown)"
         )
 
         # Options JSON file
