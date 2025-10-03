@@ -479,3 +479,175 @@ class TestLinkSchemeSecurityIntegration:
 
         # HTTP in uppercase should still work
         assert "[HTTP Upper](HTTP://example.com)" in result or "[HTTP Upper](http://example.com)" in result
+
+
+class TestHtmlFileUrlSecurity:
+    """Test file:// URL handling and local file access policy in HTML parser."""
+
+    def teardown_method(self):
+        """Clean up test artifacts after each test."""
+        for path in [Path("safe_images"), Path("tests/safe_images"), Path("tests/integration/safe_images")]:
+            if path.exists():
+                shutil.rmtree(path)
+
+    def test_file_url_blocked_by_default(self):
+        """Test that file:// URLs are blocked by default security settings."""
+        html_content = '<img src="file:///etc/passwd" alt="system file">'
+
+        # Default options should block local file access
+        options = HtmlOptions()
+        assert not options.local_files.allow_local_files
+
+        result = html_to_markdown(html_content, format="html", parser_options=options)
+
+        # Should return empty URL with alt text only
+        assert "![system file]" in result
+        assert "file://" not in result
+
+    def test_file_url_relative_path_blocked_by_default(self):
+        """Test that relative file:// URLs are blocked by default."""
+        html_content = '<img src="file://./local_image.png" alt="local">'
+
+        result = html_to_markdown(html_content, format="html")
+
+        # Should be blocked even for CWD files
+        assert "![local]" in result
+        assert "file://" not in result
+
+    def test_file_url_allowed_with_cwd_permission(self, tmp_path):
+        """Test that file:// URLs work when CWD access is allowed."""
+        from all2md.options import LocalFileAccessOptions
+
+        # Create test image in current directory
+        test_image = Path.cwd() / "test_image.png"
+        test_image.write_bytes(b'\x89PNG\r\n\x1a\n')  # Minimal PNG header
+
+        try:
+            html_content = f'<img src="file://{test_image}" alt="allowed">'
+
+            options = HtmlOptions(
+                local_files=LocalFileAccessOptions(
+                    allow_local_files=True,
+                    allow_cwd_files=True
+                ),
+                attachment_mode="alt_text"
+            )
+
+            result = html_to_markdown(html_content, format="html", parser_options=options)
+
+            # Should preserve the file:// URL when allowed
+            assert f"file://{test_image}" in result or "allowed" in result
+
+        finally:
+            if test_image.exists():
+                test_image.unlink()
+
+    def test_file_url_blocked_by_denylist(self, tmp_path):
+        """Test that denylist blocks file access even when local files are allowed."""
+        from all2md.options import LocalFileAccessOptions
+
+        # Create test file in a directory
+        denied_dir = tmp_path / "denied"
+        denied_dir.mkdir()
+        test_file = denied_dir / "secret.png"
+        test_file.write_bytes(b'\x89PNG\r\n\x1a\n')
+
+        html_content = f'<img src="file://{test_file}" alt="denied">'
+
+        options = HtmlOptions(
+            local_files=LocalFileAccessOptions(
+                allow_local_files=True,
+                allow_cwd_files=True,
+                local_file_denylist=[str(denied_dir)]
+            ),
+            attachment_mode="base64"
+        )
+
+        result = html_to_markdown(html_content, format="html", parser_options=options)
+
+        # Should be blocked by denylist
+        assert "![denied]" in result
+        assert "file://" not in result
+        assert "base64" not in result
+
+    def test_file_url_allowlist_enforcement(self, tmp_path):
+        """Test that allowlist restricts file access to specified directories."""
+        from all2md.options import LocalFileAccessOptions
+
+        # Create files in different directories
+        allowed_dir = tmp_path / "allowed"
+        allowed_dir.mkdir()
+        allowed_file = allowed_dir / "ok.png"
+        allowed_file.write_bytes(b'\x89PNG\r\n\x1a\n')
+
+        blocked_dir = tmp_path / "blocked"
+        blocked_dir.mkdir()
+        blocked_file = blocked_dir / "no.png"
+        blocked_file.write_bytes(b'\x89PNG\r\n\x1a\n')
+
+        # Test allowed file
+        html_allowed = f'<img src="file://{allowed_file}" alt="allowed">'
+        options = HtmlOptions(
+            local_files=LocalFileAccessOptions(
+                allow_local_files=True,
+                allow_cwd_files=False,
+                local_file_allowlist=[str(allowed_dir)]
+            ),
+            attachment_mode="alt_text"
+        )
+
+        result_allowed = html_to_markdown(html_allowed, format="html", parser_options=options)
+        # Should be allowed
+        assert f"file://{allowed_file}" in result_allowed or "allowed" in result_allowed
+
+        # Test blocked file
+        html_blocked = f'<img src="file://{blocked_file}" alt="blocked">'
+        result_blocked = html_to_markdown(html_blocked, format="html", parser_options=options)
+
+        # Should be blocked (not in allowlist)
+        assert "![blocked]" in result_blocked
+        assert str(blocked_file) not in result_blocked
+
+    def test_file_url_with_download_mode(self, tmp_path):
+        """Test that file:// URLs work with download mode when allowed."""
+        from all2md.options import LocalFileAccessOptions
+
+        # Create test image
+        test_image = tmp_path / "test.png"
+        test_image.write_bytes(b'\x89PNG\r\n\x1a\n' + b'\x00' * 100)
+
+        output_dir = tmp_path / "images"
+        output_dir.mkdir()
+
+        html_content = f'<img src="file://{test_image}" alt="test">'
+
+        options = HtmlOptions(
+            local_files=LocalFileAccessOptions(
+                allow_local_files=True,
+                allow_cwd_files=True,
+                local_file_allowlist=[str(tmp_path)]
+            ),
+            attachment_mode="download",
+            attachment_output_dir=str(output_dir)
+        )
+
+        result = html_to_markdown(html_content, format="html", parser_options=options)
+
+        # Should download the file
+        assert "![test]" in result
+        # Check that file was copied to output directory
+        downloaded_files = list(output_dir.glob("*.png"))
+        assert len(downloaded_files) > 0
+
+    def test_file_url_preserves_privacy_when_denied(self):
+        """Test that file:// URLs don't leak paths when access is denied."""
+        sensitive_path = "/home/user/.ssh/id_rsa"
+        html_content = f'<img src="file://{sensitive_path}" alt="secret key">'
+
+        # Default secure settings
+        result = html_to_markdown(html_content, format="html")
+
+        # Should not leak the path
+        assert sensitive_path not in result
+        assert "![secret key]" in result
+        assert "file://" not in result

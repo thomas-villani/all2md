@@ -52,6 +52,7 @@ from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
 from all2md.exceptions import InputError, MarkdownConversionError, DependencyError, NetworkSecurityError
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
+from all2md.utils.security import validate_local_file_access
 
 import logging
 
@@ -944,6 +945,25 @@ class HtmlToAstConverter(BaseParser):
         # Resolve relative URLs
         resolved_src = self._resolve_url(src)
 
+        # Check for file:// URLs and enforce local file access policy
+        is_file_url = resolved_src.lower().startswith("file://")
+        if is_file_url:
+            # Validate against local file access options
+            is_allowed = validate_local_file_access(
+                resolved_src,
+                allow_local_files=self.options.local_files.allow_local_files,
+                local_file_allowlist=self.options.local_files.local_file_allowlist,
+                local_file_denylist=self.options.local_files.local_file_denylist,
+                allow_cwd_files=self.options.local_files.allow_cwd_files
+            )
+
+            if not is_allowed:
+                # Local file access denied - return image with empty URL and alt text only
+                logger.warning(
+                    f"Local file access denied for file:// URL (security policy): {resolved_src[:100]}"
+                )
+                return Image(url="", alt_text=alt_text, title=title)
+
         # Current attachment mode (may change on error)
         current_attachment_mode = self.options.attachment_mode
 
@@ -951,7 +971,12 @@ class HtmlToAstConverter(BaseParser):
         image_data = None
         if current_attachment_mode in ["base64", "download"]:
             try:
-                image_data = self._download_image_data(resolved_src)
+                if is_file_url:
+                    # For local files, read directly from filesystem
+                    image_data = self._read_local_file(resolved_src)
+                else:
+                    # For remote URLs, download via network
+                    image_data = self._download_image_data(resolved_src)
             except Exception as e:
                 # Fall back to alt_text mode if download fails
                 logger.info(f"Image download failed for {resolved_src}, falling back to alt_text mode: {e}")
@@ -1007,6 +1032,65 @@ class HtmlToAstConverter(BaseParser):
         if not self.options.attachment_base_url or urlparse(url).scheme:
             return url
         return urljoin(self.options.attachment_base_url, url)
+
+    def _read_local_file(self, file_url: str) -> bytes:
+        """Read image data from local file:// URL.
+
+        This method should only be called after validate_local_file_access
+        has confirmed access is allowed.
+
+        Parameters
+        ----------
+        file_url : str
+            file:// URL to read from
+
+        Returns
+        -------
+        bytes
+            Raw file data
+
+        Raises
+        ------
+        Exception
+            If file cannot be read or does not exist
+
+        """
+        # Parse file:// URL to get local path
+        parsed = urlparse(file_url)
+
+        # Handle different file:// URL formats
+        if file_url.startswith("file://./") or file_url.startswith("file://../"):
+            # Relative paths: file://./image.png or file://../image.png
+            path = file_url[7:]  # Remove "file://" prefix
+            file_path = Path.cwd() / path
+        elif file_url.startswith("file://") and not file_url.startswith("file:///"):
+            # file://filename (without leading slash) - treat as relative to CWD
+            path = file_url[7:]  # Remove "file://" prefix
+            file_path = Path.cwd() / path
+        else:
+            # Standard absolute file:///path
+            file_path = Path(parsed.path)
+
+        # Resolve and read file
+        try:
+            file_path = file_path.resolve()
+            with open(file_path, "rb") as f:
+                data = f.read()
+
+            # Check against max asset size
+            if len(data) > self.options.max_asset_bytes:
+                raise Exception(
+                    f"Local file exceeds maximum allowed size: "
+                    f"{len(data)} bytes > {self.options.max_asset_bytes} bytes"
+                )
+
+            return data
+        except FileNotFoundError as e:
+            raise Exception(f"Local file not found: {file_path}") from e
+        except PermissionError as e:
+            raise Exception(f"Permission denied reading local file: {file_path}") from e
+        except Exception as e:
+            raise Exception(f"Failed to read local file {file_path}: {e}") from e
 
     def _download_image_data(self, url: str) -> bytes:
         """Download image data from URL using secure network client.

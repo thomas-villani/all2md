@@ -339,3 +339,120 @@ class TestHookManager:
         manager.execute_hooks('image', image, context)
 
         assert results == [1, 2, 3]  # Registration order
+
+
+class TestHookAwareVisitor:
+    """Tests for HookAwareVisitor class."""
+
+    def test_node_path_integrity_when_hook_replaces_node(self):
+        """Test that node_path is correctly maintained when hooks return different nodes.
+
+        This test verifies the fix for the node path handling bug where if a hook
+        returns a different node object, the path stack should still be cleaned up
+        correctly.
+        """
+        from all2md.transforms.pipeline import HookAwareVisitor
+
+        # Create test document
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Original text")
+            ])
+        ])
+
+        # Create hook manager and context
+        manager = HookManager()
+        context = HookContext(document=doc, metadata={}, shared={})
+
+        # Track path state during hook execution
+        path_states = []
+
+        def replace_text_hook(node, ctx):
+            # Record path state when hook is called
+            path_states.append(len(ctx.node_path))
+
+            # Return a DIFFERENT Text node (not the same object)
+            return Text(content="Replaced text")
+
+        # Register hook that replaces nodes
+        manager.register_hook('text', replace_text_hook)
+
+        # Create visitor and transform the document
+        visitor = HookAwareVisitor(manager, context)
+        result = visitor.transform(doc)
+
+        # Verify the hook was called (path length should be > 0 during execution)
+        assert len(path_states) > 0
+        assert path_states[0] > 0  # Path should contain nodes during hook
+
+        # Most importantly: verify the path is clean after transformation
+        # This is the bug fix - previously the path would retain the original node
+        assert len(context.node_path) == 0, "Node path should be empty after transformation completes"
+
+    def test_node_path_integrity_with_nested_replacements(self):
+        """Test node_path with multiple nested hooks that replace nodes."""
+        from all2md.transforms.pipeline import HookAwareVisitor
+
+        # Create nested document structure
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="http://example.com", content=[
+                    Text(content="link text")
+                ])
+            ])
+        ])
+
+        manager = HookManager()
+        context = HookContext(document=doc, metadata={}, shared={})
+
+        # Track all path states
+        recorded_paths = []
+
+        def record_and_replace_link(node, ctx):
+            # Record current path
+            recorded_paths.append(('link', list(ctx.node_path)))
+            # Return new Link object
+            return Link(url="http://replaced.com", content=node.content)
+
+        def record_and_replace_text(node, ctx):
+            # Record current path
+            recorded_paths.append(('text', list(ctx.node_path)))
+            # Return new Text object
+            return Text(content="replaced text")
+
+        manager.register_hook('link', record_and_replace_link)
+        manager.register_hook('text', record_and_replace_text)
+
+        visitor = HookAwareVisitor(manager, context)
+        visitor.transform(doc)
+
+        # Path should be clean after all transformations
+        assert len(context.node_path) == 0, "Node path should be clean after nested transformations"
+
+        # Verify hooks were called
+        assert len(recorded_paths) > 0
+
+    def test_node_path_cleaned_when_hook_removes_node(self):
+        """Test that node_path is cleaned up when hook returns None."""
+        from all2md.transforms.pipeline import HookAwareVisitor
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="test.png", alt_text="test")
+            ])
+        ])
+
+        manager = HookManager()
+        context = HookContext(document=doc, metadata={}, shared={})
+
+        def remove_image_hook(node, ctx):
+            # Return None to remove the node
+            return None
+
+        manager.register_hook('image', remove_image_hook)
+
+        visitor = HookAwareVisitor(manager, context)
+        visitor.transform(doc)
+
+        # Path should still be clean after node removal
+        assert len(context.node_path) == 0, "Node path should be clean even when nodes are removed"

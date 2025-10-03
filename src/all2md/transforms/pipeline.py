@@ -110,11 +110,13 @@ class HookAwareVisitor(NodeTransformer):
 
         # Execute element hook if registered
         if node_type and self.hook_manager.has_hooks(node_type):
-            # Add to path for context
-            self.context.node_path.append(node)
+            # Store reference to the node we push to path before hook execution
+            # This is critical because hooks may return a different node object
+            pushed_node = node
+            self.context.node_path.append(pushed_node)
 
             try:
-                # Execute hooks for this node type
+                # Execute hooks for this node type (may replace node variable)
                 node = self.hook_manager.execute_hooks(node_type, node, self.context)
 
                 # Hook removed node
@@ -123,8 +125,9 @@ class HookAwareVisitor(NodeTransformer):
                     return None
 
             finally:
-                # Always pop from path (even if hook failed)
-                if self.context.node_path and self.context.node_path[-1] is node:
+                # Always pop the node we originally pushed, even if hook replaced it
+                # Check that we actually have something to pop (defensive programming)
+                if self.context.node_path and self.context.node_path[-1] is pushed_node:
                     self.context.node_path.pop()
 
         # Continue normal traversal with transformed node
