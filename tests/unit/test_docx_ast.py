@@ -15,12 +15,17 @@ Tests cover:
 
 """
 
+from pathlib import Path
+
 import docx
 import pytest
 
 from all2md.ast import (
+    BlockQuote,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
     Link,
@@ -35,8 +40,26 @@ from all2md.ast import (
     Text,
     Underline,
 )
+from all2md.ast.transforms import extract_nodes
 from all2md.parsers.docx import DocxToAstConverter
 from all2md.options import DocxOptions
+
+
+FIXTURE_FOOTNOTES_DOC = (
+    Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "footnotes-endnotes-comments.docx"
+)
+
+
+def _inline_text(nodes: list) -> str:
+    parts: list[str] = []
+    for node in nodes:
+        if isinstance(node, Text):
+            parts.append(node.content)
+        elif hasattr(node, "content"):
+            child = getattr(node, "content")
+            if isinstance(child, list):
+                parts.append(_inline_text(child))
+    return "".join(parts)
 
 
 @pytest.mark.unit
@@ -549,3 +572,147 @@ class TestComplexStructures:
         assert heading_node.level == 1
         # Check formatting is preserved
         assert isinstance(heading_node.content[0], Strong)
+
+
+@pytest.mark.unit
+class TestFootnotes:
+    """Tests for DOCX footnote and endnote extraction."""
+
+    def test_footnote_reference_and_definition(self) -> None:
+        """Parser should emit references and collect matching definitions."""
+
+        ast_doc = self._convert_with_fixture()
+        references, definitions = self._extract_notes(ast_doc)
+
+        footnote_refs = [ref for ref in references if not ref.identifier.startswith("end")]
+        footnote_defs = [definition for definition in definitions if definition.metadata.get("note_type") == "footnote"]
+
+        assert footnote_refs, "Expected at least one footnote reference"
+        assert footnote_defs, "Expected at least one captured footnote definition"
+
+        footnote_ids = {definition.identifier for definition in footnote_defs}
+        assert {ref.identifier for ref in footnote_refs} <= footnote_ids
+
+        for definition in footnote_defs:
+            assert definition.content, "Footnote definition should contain block content"
+            assert all(isinstance(block, Paragraph) for block in definition.content)
+            assert all(block.content for block in definition.content)
+
+    def test_endnote_reference_and_definition(self) -> None:
+        """Endnotes should use prefixed identifiers and be collected."""
+
+        ast_doc = self._convert_with_fixture()
+        references, definitions = self._extract_notes(ast_doc)
+
+        endnote_refs = [ref for ref in references if ref.identifier.startswith("end")]
+        endnote_defs = [definition for definition in definitions if definition.metadata.get("note_type") == "endnote"]
+
+        assert endnote_refs, "Expected at least one endnote reference"
+        assert endnote_defs, "Expected at least one captured endnote definition"
+
+        endnote_ids = {definition.identifier for definition in endnote_defs}
+        assert {ref.identifier for ref in endnote_refs} <= endnote_ids
+
+        for definition in endnote_defs:
+            assert definition.content, "Endnote definition should contain block content"
+            assert all(isinstance(block, Paragraph) for block in definition.content)
+            assert all(block.content for block in definition.content)
+
+    def test_footnotes_can_be_disabled(self) -> None:
+        """Footnotes should be omitted entirely when option disabled."""
+
+        ast_doc = self._convert_with_fixture(include_footnotes=False)
+        references, definitions = self._extract_notes(ast_doc)
+
+        footnote_refs = [ref for ref in references if not ref.identifier.startswith("end")]
+        assert not footnote_refs
+        assert all(definition.metadata.get("note_type") != "footnote" for definition in definitions)
+        assert any(ref.identifier.startswith("end") for ref in references), "Endnote references should remain"
+
+    def test_endnotes_can_be_disabled(self) -> None:
+        """Endnotes should be omitted when include_endnotes is False."""
+
+        ast_doc = self._convert_with_fixture(include_endnotes=False)
+        references, definitions = self._extract_notes(ast_doc)
+
+        endnote_refs = [ref for ref in references if ref.identifier.startswith("end")]
+        assert not endnote_refs
+        assert all(definition.metadata.get("note_type") != "endnote" for definition in definitions)
+        assert any(not ref.identifier.startswith("end") for ref in references), "Footnote references should remain"
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _convert_with_fixture(
+        include_footnotes: bool = True,
+        include_endnotes: bool = True,
+    ) -> Document:
+        options = DocxOptions(
+            include_footnotes=include_footnotes,
+            include_endnotes=include_endnotes,
+            include_comments=False,
+        )
+        converter = DocxToAstConverter(options=options)
+        fixture_doc = docx.Document(FIXTURE_FOOTNOTES_DOC)
+        return converter.convert_to_ast(fixture_doc)
+
+    @staticmethod
+    def _extract_notes(document: Document) -> tuple[list[FootnoteReference], list[FootnoteDefinition]]:
+        references = extract_nodes(document, FootnoteReference)
+        definitions = extract_nodes(document, FootnoteDefinition)
+        return references, definitions
+
+
+@pytest.mark.unit
+class TestComments:
+    """Tests for DOCX comment rendering options."""
+
+    def test_comments_append_when_position_is_footnotes(self) -> None:
+        doc = docx.Document(str(FIXTURE_FOOTNOTES_DOC))
+        options = DocxOptions(
+            include_comments=True,
+            comments_position="footnotes",
+            comment_mode="blockquote",
+        )
+        converter = DocxToAstConverter(options=options)
+        ast_doc = converter.convert_to_ast(doc)
+
+        blockquotes = [node for node in ast_doc.children if isinstance(node, BlockQuote)]
+        assert blockquotes, "Expected comments to be appended as blockquotes"
+
+        quoted_text = _inline_text(blockquotes[0].children[0].content)
+        assert "I decided not to think of something funny." in quoted_text
+
+        paragraph = next(
+            child
+            for child in ast_doc.children
+            if isinstance(child, Paragraph)
+            and "However, it will have a comment" in _inline_text(child.content)
+        )
+        inline_text = _inline_text(paragraph.content)
+        assert "comment1" not in inline_text
+
+    def test_comments_inline_when_requested(self) -> None:
+        doc = docx.Document(str(FIXTURE_FOOTNOTES_DOC))
+        options = DocxOptions(
+            include_comments=True,
+            comments_position="inline",
+            comment_mode="blockquote",
+        )
+        converter = DocxToAstConverter(options=options)
+        ast_doc = converter.convert_to_ast(doc)
+
+        paragraph = next(
+            child
+            for child in ast_doc.children
+            if isinstance(child, Paragraph)
+            and "However, it will have a comment" in _inline_text(child.content)
+        )
+        inline_text = _inline_text(paragraph.content)
+        assert "I decided not to think of something funny." in inline_text
+        assert "comment1" in inline_text
+
+        blockquotes = [node for node in ast_doc.children if isinstance(node, BlockQuote)]
+        assert not blockquotes, "Inline comments should not append trailing blockquotes"

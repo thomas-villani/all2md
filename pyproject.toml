@@ -78,6 +78,12 @@ markdown = [
 pdf_render = [
     "reportlab>=4.0.0",
 ]
+html_render = [
+    "jinja2>=3.1.0",
+]
+docx_render = [
+    "python-docx>=1.2.0",
+]
 
 
 [project.scripts]

@@ -49,6 +49,15 @@ class ImageData:
     title: str | None = None
 
 
+@dataclass
+class CommentData:
+    identifier: str
+    label: str
+    author: str
+    date: str
+    text: str
+
+
 if TYPE_CHECKING:
     import docx.document
     from docx.table import Table
@@ -60,10 +69,10 @@ from all2md.ast import (
     BlockQuote,
     Document,
     Emphasis,
-    FootnoteDefinition,
     FootnoteReference,
     Heading,
     HTMLBlock,
+    HTMLInline,
     Image,
     Link,
     List,
@@ -83,8 +92,20 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import DocxOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.footnotes import FootnoteCollector
 
 logger = logging.getLogger(__name__)
+
+
+WORDPROCESSING_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+WORD_TAG_PREFIX = f"{{{WORDPROCESSING_NS}}}"
+WORD_ID_ATTR = f"{WORD_TAG_PREFIX}id"
+WORD_PARAGRAPH_TAG = f"{WORD_TAG_PREFIX}p"
+WORD_FOOTNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}footnoteReference"
+WORD_ENDNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}endnoteReference"
+WORD_COMMENT_REFERENCE_TAG = f"{WORD_TAG_PREFIX}commentReference"
+WORD_COMMENT_RANGE_START_TAG = f"{WORD_TAG_PREFIX}commentRangeStart"
+WORD_COMMENT_RANGE_END_TAG = f"{WORD_TAG_PREFIX}commentRangeEnd"
 
 
 class DocxToAstConverter(BaseParser):
@@ -117,6 +138,8 @@ class DocxToAstConverter(BaseParser):
         # Internally used to stash info between functions
         self._list_stack: list[tuple[str, int, list[ListItem]]] = []  # (type, level, items)
         self._numbering_defs: dict[str, dict[str, str]] | None = None
+        self._footnote_collector: FootnoteCollector | None = None
+        self._comments_map: dict[str, CommentData] = {}
 
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -242,12 +265,17 @@ class DocxToAstConverter(BaseParser):
         """
         self._numbering_defs = None  # Will be loaded lazily if needed
         self._list_stack = []
+        self._footnote_collector = FootnoteCollector()
+        self._comments_map = {}
 
         children: list[Node] = []
 
         # Import here to avoid circular dependencies
         from docx.table import Table
         from docx.text.paragraph import Paragraph
+
+        if self.options.include_comments:
+            self._comments_map = self._load_comments(doc)
 
         for block in _iter_block_items(
             doc,
@@ -290,18 +318,24 @@ class DocxToAstConverter(BaseParser):
 
         # Add footnotes, endnotes, and comments at the end if requested
         if self.options.include_footnotes:
-            footnotes_nodes = self._process_footnotes(doc)
-            if footnotes_nodes:
-                children.extend(footnotes_nodes)
+            self._process_footnotes(doc)
 
         if self.options.include_endnotes:
-            endnotes_nodes = self._process_endnotes(doc)
-            if endnotes_nodes:
-                children.extend(endnotes_nodes)
+            self._process_endnotes(doc)
 
-        # TODO: should comments be inline instead?
-        if self.options.include_comments:
-            comments_nodes = self._process_comments(doc)
+        if self._footnote_collector:
+            priority: list[str] = []
+            if self.options.include_footnotes:
+                priority.append("footnote")
+            if self.options.include_endnotes:
+                priority.append("endnote")
+
+            for definition in self._footnote_collector.iter_definitions(note_type_priority=priority):
+                children.append(definition)
+
+        # Comments may be inline or appended depending on options
+        if self.options.include_comments and self.options.comments_position == "footnotes":
+            comments_nodes = self._process_comments()
             if comments_nodes:
                 children.extend(comments_nodes)
 
@@ -311,7 +345,10 @@ class DocxToAstConverter(BaseParser):
             metadata = self.extract_metadata(doc)
             metadata_dict = metadata.to_dict()
 
-        return Document(children=children, metadata=metadata_dict)
+        document = Document(children=children, metadata=metadata_dict)
+        self._footnote_collector = None
+        self._comments_map = {}
+        return document
 
     def _process_paragraph_to_ast(self, paragraph: "Paragraph", doc) -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
@@ -490,72 +527,189 @@ class DocxToAstConverter(BaseParser):
 
         """
         result: list[Node] = []
-
-        # Group runs by formatting to avoid excessive nesting
-        grouped_runs: list[tuple[str, tuple[bool, bool, bool, bool, bool, bool, bool] | None, str | None]] = []
         current_text: list[str] = []
         current_format: tuple[bool, bool, bool, bool, bool, bool, bool] | None = None
         current_url: str | None = None
 
-        for run in paragraph.iter_inner_content():
-            # Check for hyperlink
-            url, run_to_parse = self._process_hyperlink(run)
+        def flush_group() -> None:
+            if not current_text:
+                return
+            text_value = "".join(current_text)
+            result.append(self._build_formatted_inline_node(text_value, current_format, current_url))
+            current_text.clear()
 
-            # Get formatting
+        from docx.text.hyperlink import Hyperlink
+
+        for run in paragraph.iter_inner_content():
+            url, run_to_parse = self._process_hyperlink(run)
             format_key = self._get_run_formatting_key(run_to_parse, url is not None)
 
-            # Start new group if format changes
             if format_key != current_format or url != current_url:
-                if current_text:
-                    grouped_runs.append(("".join(current_text), current_format, current_url))
-                    current_text = []
+                flush_group()
                 current_format = format_key
                 current_url = url
 
-            from docx.text.hyperlink import Hyperlink
-            # Extract text
+            note_nodes = self._extract_note_reference_nodes(run_to_parse)
+            comment_nodes = self._extract_comment_reference_nodes(run_to_parse)
+            if note_nodes or comment_nodes:
+                flush_group()
+                if note_nodes:
+                    result.extend(note_nodes)
+                if comment_nodes:
+                    result.extend(comment_nodes)
+
             if isinstance(run_to_parse, Hyperlink):
                 hyperlink_text = "".join(r.text for r in run_to_parse.runs)
-                current_text.append(hyperlink_text)
+                if hyperlink_text:
+                    current_text.append(hyperlink_text)
             else:
-                current_text.append(run_to_parse.text)
+                run_text = run_to_parse.text
+                if run_text:
+                    current_text.append(run_text)
 
-        # Add final group
-        if current_text:
-            grouped_runs.append(("".join(current_text), current_format, current_url))
-
-        # Convert groups to AST nodes
-        for text, format_key, url in grouped_runs:
-            if not text:
-                continue
-
-            # Build inline nodes with formatting
-            inline_node: Node = Text(content=text)
-
-            if format_key:
-                # Apply formatting layers from innermost to outermost
-                # Order: text -> underline/sub/super -> bold -> italic -> strike -> link
-
-                if format_key[2]:  # underline
-                    inline_node = Underline(content=[inline_node])
-                if format_key[4]:  # subscript
-                    inline_node = Subscript(content=[inline_node])
-                if format_key[5]:  # superscript
-                    inline_node = Superscript(content=[inline_node])
-                if format_key[0]:  # bold
-                    inline_node = Strong(content=[inline_node])
-                if format_key[1]:  # italic
-                    inline_node = Emphasis(content=[inline_node])
-                if format_key[3]:  # strike
-                    inline_node = Strikethrough(content=[inline_node])
-
-            # Wrap in link if URL present
-            if url:
-                inline_node = Link(url=url, content=[inline_node])
-
-            result.append(inline_node)
-
+        flush_group()
         return result
+
+    def _build_formatted_inline_node(
+        self,
+        text: str,
+        format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
+        url: str | None,
+    ) -> Node:
+        inline_node: Node = Text(content=text)
+
+        if format_key:
+            if format_key[2]:  # underline
+                inline_node = Underline(content=[inline_node])
+            if format_key[4]:  # subscript
+                inline_node = Subscript(content=[inline_node])
+            if format_key[5]:  # superscript
+                inline_node = Superscript(content=[inline_node])
+            if format_key[0]:  # bold
+                inline_node = Strong(content=[inline_node])
+            if format_key[1]:  # italic
+                inline_node = Emphasis(content=[inline_node])
+            if format_key[3]:  # strike
+                inline_node = Strikethrough(content=[inline_node])
+
+        if url:
+            inline_node = Link(url=url, content=[inline_node])
+
+        return inline_node
+
+    def _extract_note_reference_nodes(self, run: Any) -> list[Node]:
+        from docx.text.hyperlink import Hyperlink
+
+        if isinstance(run, Hyperlink):
+            return []
+
+        collector = self._footnote_collector
+        if collector is None or not hasattr(run, "_element"):
+            return []
+
+        nodes: list[Node] = []
+        for element in run._element.iter():
+            if element.tag == WORD_FOOTNOTE_REFERENCE_TAG:
+                identifier = element.get(WORD_ID_ATTR)
+                canonical_id = self._register_note_reference(identifier, note_type="footnote")
+                if canonical_id:
+                    nodes.append(FootnoteReference(identifier=canonical_id))
+            elif element.tag == WORD_ENDNOTE_REFERENCE_TAG:
+                identifier = element.get(WORD_ID_ATTR)
+                canonical_id = self._register_note_reference(identifier, note_type="endnote")
+                if canonical_id:
+                    nodes.append(FootnoteReference(identifier=canonical_id))
+
+        return nodes
+
+    def _extract_comment_reference_nodes(self, run: Any) -> list[Node]:
+        from docx.text.hyperlink import Hyperlink
+
+        if (
+            not self.options.include_comments
+            or self.options.comments_position != "inline"
+            or self.options.comment_mode == "ignore"
+        ):
+            return []
+
+        if isinstance(run, Hyperlink) or not hasattr(run, "_element"):
+            return []
+
+        nodes: list[Node] = []
+        for element in run._element.iter():
+            if element.tag == WORD_COMMENT_REFERENCE_TAG:
+                comment_id = element.get(WORD_ID_ATTR)
+                nodes.extend(self._render_comment_inline(comment_id))
+
+        return nodes
+
+    def _register_note_reference(self, identifier: str | None, *, note_type: str) -> str | None:
+        if note_type == "footnote" and not self.options.include_footnotes:
+            return None
+        if note_type == "endnote" and not self.options.include_endnotes:
+            return None
+
+        collector = self._footnote_collector
+        if collector is None:
+            return None
+
+        raw_identifier = identifier
+        if note_type == "endnote" and identifier is not None:
+            raw_identifier = f"end{identifier}"
+
+        return collector.register_reference(raw_identifier, note_type=note_type)
+
+    def _render_comment_inline(self, identifier: str | None) -> list[Node]:
+        if identifier is None:
+            return []
+
+        comment = self._comments_map.get(str(identifier))
+        if comment is None:
+            return []
+
+        mode = self.options.comment_mode
+        if mode == "ignore":
+            return []
+
+        if not comment.text:
+            return []
+
+        if mode == "html":
+            header = self._format_comment_header(comment, include_id=False, include_prefix=True)
+            html = f"<!-- {header}: {comment.text} -->"
+            return [HTMLInline(content=html)]
+
+        header = self._format_comment_header(comment, include_id=True, include_prefix=False)
+        inline_text = f" ({header}: {comment.text})"
+        return [Text(content=inline_text)]
+
+    def _format_comment_header(
+        self,
+        comment: CommentData,
+        *,
+        include_id: bool,
+        include_prefix: bool,
+    ) -> str:
+        segments: list[str] = []
+
+        if include_prefix:
+            segments.append("Comment")
+
+        if include_id:
+            segments.append(comment.label)
+
+        if comment.author:
+            segments.append(comment.author)
+
+        header = " ".join(segments).strip()
+
+        if comment.date:
+            header = f"{header} ({comment.date})" if header else comment.date
+
+        if not header:
+            return comment.label
+
+        return header
 
     def _process_hyperlink(self, run: Any) -> tuple[str | None, Any]:
         """Process a run to extract hyperlink information.
@@ -664,192 +818,220 @@ class DocxToAstConverter(BaseParser):
 
         return AstTable(header=header_row, rows=data_rows)
 
-    def _process_footnotes(self, doc: "docx.document.Document") -> list[Node]:
-        """Process footnotes from document using FootnoteDefinition nodes.
+    def _process_footnotes(self, doc: "docx.document.Document") -> None:
+        """Populate the collector with footnote definitions from the document."""
 
-        Parameters
-        ----------
-        doc : docx.document.Document
-            Document to extract footnotes from
-
-        Returns
-        -------
-        list[Node]
-            List of FootnoteDefinition AST nodes
-
-        """
-        nodes: list[Node] = []
+        collector = self._footnote_collector
+        if collector is None:
+            return
 
         try:
-            if hasattr(doc.part, 'footnotes_part'):
-                footnotes_part = doc.part.footnotes_part
-                if footnotes_part and hasattr(footnotes_part, 'element'):
-                    # Iterate over footnotes
-                    for footnote in footnotes_part.element.findall(
-                        './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}footnote'
-                    ):
-                        footnote_id = footnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                        # Skip special footnotes (separator, continuation separator)
-                        if footnote_id in ('-1', '0'):
-                            continue
-
-                        # Extract text from footnote paragraphs (simple text extraction for now)
-                        footnote_content_nodes: list[Node] = []
-                        for p_elem in footnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
-                            text_parts = []
-                            for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
-                                if t_elem.text:
-                                    text_parts.append(t_elem.text)
-
-                            if text_parts:
-                                footnote_text = ' '.join(text_parts)
-                                footnote_content_nodes.append(
-                                    AstParagraph(content=[Text(content=footnote_text)])
-                                )
-
-                        if footnote_content_nodes:
-                            # Create FootnoteDefinition node
-                            nodes.append(FootnoteDefinition(
-                                identifier=footnote_id,
-                                content=footnote_content_nodes
-                            ))
-        except Exception as e:
-            logger.debug(f"Could not process footnotes: {e}")
-
-        return nodes
-
-    def _process_endnotes(self, doc: "docx.document.Document") -> list[Node]:
-        """Process endnotes from document using FootnoteDefinition nodes.
-
-        Note: Endnotes are treated as footnotes in the AST since they have
-        the same structure and rendering format.
-
-        Parameters
-        ----------
-        doc : docx.document.Document
-            Document to extract endnotes from
-
-        Returns
-        -------
-        list[Node]
-            List of FootnoteDefinition AST nodes
-
-        """
-        nodes: list[Node] = []
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        except ImportError:
+            return
 
         try:
-            if hasattr(doc.part, 'endnotes_part'):
-                endnotes_part = doc.part.endnotes_part
-                if endnotes_part and hasattr(endnotes_part, 'element'):
-                    # Iterate over endnotes
-                    for endnote in endnotes_part.element.findall(
-                        './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}endnote'
-                    ):
-                        endnote_id = endnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                        # Skip special endnotes
-                        if endnote_id in ('-1', '0'):
-                            continue
+            note_part = self._get_note_part(doc, RT.FOOTNOTES, "footnotes_part")
+            if note_part is None:
+                return
 
-                        # Extract text from endnote paragraphs (simple text extraction for now)
-                        endnote_content_nodes: list[Node] = []
-                        for p_elem in endnote.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
-                            text_parts = []
-                            for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
-                                if t_elem.text:
-                                    text_parts.append(t_elem.text)
+            element = self._get_note_part_element(note_part)
+            if element is None:
+                return
 
-                            if text_parts:
-                                endnote_text = ' '.join(text_parts)
-                                endnote_content_nodes.append(
-                                    AstParagraph(content=[Text(content=endnote_text)])
-                                )
+            for footnote in element.findall(f".//{WORD_TAG_PREFIX}footnote"):
+                footnote_id = footnote.get(WORD_ID_ATTR)
+                if footnote_id in {"-1", "0"}:
+                    continue
 
-                        if endnote_content_nodes:
-                            # Create FootnoteDefinition node
-                            # Use 'end' prefix to distinguish from regular footnotes
-                            nodes.append(FootnoteDefinition(
-                                identifier=f"end{endnote_id}",
-                                content=endnote_content_nodes
-                            ))
-        except Exception as e:
-            logger.debug(f"Could not process endnotes: {e}")
+                content_nodes = self._build_note_definition_content(footnote, note_part)
+                if content_nodes:
+                    collector.register_definition(footnote_id, content_nodes, note_type="footnote")
+        except Exception as exc:
+            logger.debug(f"Could not process footnotes: {exc}")
 
-        return nodes
+    def _process_endnotes(self, doc: "docx.document.Document") -> None:
+        """Populate the collector with endnote definitions from the document."""
 
-    def _process_comments(self, doc: "docx.document.Document") -> list[Node]:
-        """Process comments from document with configurable rendering modes.
+        collector = self._footnote_collector
+        if collector is None:
+            return
 
-        Supports three rendering modes via options.comment_mode:
-        - 'html': Render as HTML comments (<!-- Comment: text -->)
-        - 'blockquote': Render as blockquotes with attribution
-        - 'ignore': Skip comments entirely
+        try:
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        except ImportError:
+            return
 
-        Parameters
-        ----------
-        doc : docx.document.Document
-            Document to extract comments from
+        try:
+            note_part = self._get_note_part(doc, RT.ENDNOTES, "endnotes_part")
+            if note_part is None:
+                return
 
-        Returns
-        -------
-        list[Node]
-            List of AST nodes for comments
+            element = self._get_note_part_element(note_part)
+            if element is None:
+                return
 
-        """
+            for endnote in element.findall(f".//{WORD_TAG_PREFIX}endnote"):
+                endnote_id = endnote.get(WORD_ID_ATTR)
+                if endnote_id in {"-1", "0"}:
+                    continue
+
+                content_nodes = self._build_note_definition_content(endnote, note_part)
+                if content_nodes:
+                    collector.register_definition(f"end{endnote_id}", content_nodes, note_type="endnote")
+        except Exception as exc:
+            logger.debug(f"Could not process endnotes: {exc}")
+
+    def _get_note_part(
+        self,
+        doc: "docx.document.Document",
+        relationship_type: str,
+        attr_name: str | None,
+    ) -> Any | None:
+        """Return a related note part if available."""
+
+        if attr_name:
+            part = getattr(doc.part, attr_name, None)
+            if part is not None:
+                return part
+
+        try:
+            return doc.part.part_related_by(relationship_type)
+        except (KeyError, AttributeError):
+            package = getattr(doc.part, "package", None)
+            if package is None:
+                return None
+            try:
+                return package.part_related_by(relationship_type)
+            except KeyError:
+                return None
+
+    def _get_note_part_element(self, note_part: Any) -> Any | None:
+        """Return the XML element root for the supplied note part."""
+
+        element = getattr(note_part, "element", None)
+        if element is not None:
+            return element
+
+        blob = getattr(note_part, "blob", None)
+        if not blob:
+            return None
+
+        try:
+            from lxml import etree
+
+            return etree.fromstring(blob)
+        except Exception as exc:
+            logger.debug(f"Could not parse note part XML: {exc}")
+            return None
+
+    def _build_note_definition_content(self, note_element: Any, note_part: Any) -> list[Node]:
+        """Create block content for a single footnote or endnote definition."""
+
+        content_nodes: list[Node] = []
+        for paragraph_element in note_element.findall(f".//{WORD_PARAGRAPH_TAG}"):
+            inline_nodes = self._note_paragraph_to_inline(paragraph_element, note_part)
+            if inline_nodes:
+                content_nodes.append(AstParagraph(content=inline_nodes))
+
+        return content_nodes
+
+    def _note_paragraph_to_inline(self, paragraph_element: Any, note_part: Any) -> list[Node]:
+        """Convert a note paragraph XML element into inline nodes."""
+
+        try:
+            from docx.text.paragraph import Paragraph
+
+            paragraph = Paragraph(paragraph_element, note_part)
+            return self._process_paragraph_runs_to_inline(paragraph)
+        except Exception:
+            return self._extract_inline_nodes_from_xml(paragraph_element)
+
+    def _extract_inline_nodes_from_xml(self, paragraph_element: Any) -> list[Node]:
+        """Fallback text extraction when python-docx objects are unavailable."""
+
+        text_fragments: list[str] = []
+        for text_element in paragraph_element.findall(f".//{WORD_TAG_PREFIX}t"):
+            if text_element.text:
+                text_fragments.append(text_element.text)
+
+        if not text_fragments:
+            return []
+
+        combined_text = "".join(text_fragments)
+        return [Text(content=combined_text)]
+
+    def _load_comments(self, doc: "docx.document.Document") -> dict[str, CommentData]:
+        comments: dict[str, CommentData] = {}
+
+        if not self.options.include_comments:
+            return comments
+
+        try:
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        except ImportError:
+            RT = None
+
+        comments_part = getattr(doc.part, "comments_part", None)
+        if comments_part is None and RT is not None:
+            comments_part = self._get_note_part(doc, RT.COMMENTS, "comments_part")
+
+        if comments_part is None:
+            return comments
+
+        element = self._get_note_part_element(comments_part)
+        if element is None:
+            return comments
+
+        for index, comment_element in enumerate(element.findall(f".//{WORD_TAG_PREFIX}comment"), start=1):
+            comment_id = comment_element.get(WORD_ID_ATTR)
+            if comment_id is None:
+                continue
+
+            author = comment_element.get(f"{WORD_TAG_PREFIX}author", "Unknown")
+            date = comment_element.get(f"{WORD_TAG_PREFIX}date", "")
+
+            text_parts: list[str] = []
+            for paragraph_node in comment_element.findall(f".//{WORD_PARAGRAPH_TAG}"):
+                for text_element in paragraph_node.findall(f".//{WORD_TAG_PREFIX}t"):
+                    if text_element.text:
+                        text_parts.append(text_element.text)
+
+            text = " ".join(text_parts).strip()
+            comments[comment_id] = CommentData(
+                identifier=comment_id,
+                label=f"comment{index}",
+                author=author or "",
+                date=date or "",
+                text=text,
+            )
+
+        return comments
+
+    def _process_comments(self) -> list[Node]:
+        """Render collected comments as block-level nodes."""
+
         nodes: list[Node] = []
         mode = self.options.comment_mode
 
-        # Skip if mode is ignore
-        if mode == "ignore":
+        if mode == "ignore" or not self._comments_map:
             return nodes
 
-        try:
-            if hasattr(doc.part, 'comments_part'):
-                comments_part = doc.part.comments_part
-                if comments_part and hasattr(comments_part, 'element'):
-                    # Iterate over comments
-                    for comment in comments_part.element.findall(
-                        './/{http://schemas.openxmlformats.org/wordprocessingml/2006/main}comment'
-                    ):
-                        comment_id = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                        author = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author', 'Unknown')
-                        date = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}date', '')
+        for comment in self._comments_map.values():
+            if not comment.text:
+                continue
 
-                        # Extract text from comment paragraphs
-                        comment_text_parts = []
-                        for p_elem in comment.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
-                            for t_elem in p_elem.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
-                                if t_elem.text:
-                                    comment_text_parts.append(t_elem.text)
-
-                        if comment_text_parts:
-                            comment_text = ' '.join(comment_text_parts)
-
-                            if mode == "html":
-                                # Render as HTML comment
-                                header = f"Comment by {author}"
-                                if date:
-                                    header += f" on {date}"
-                                html_comment = f"<!-- {header}: {comment_text} -->"
-                                nodes.append(HTMLBlock(content=html_comment))
-
-                            elif mode == "blockquote":
-                                # Render as blockquote with attribution
-                                # Create attribution line
-                                header = f"[{comment_id}] {author}"
-                                if date:
-                                    header += f" ({date})"
-
-                                # Build blockquote content
-                                blockquote_content = [
-                                    AstParagraph(content=[Text(content=comment_text)]),
-                                    AstParagraph(content=[
-                                        Emphasis(content=[Text(content=f"— {header}")])
-                                    ])
-                                ]
-                                nodes.append(BlockQuote(children=blockquote_content))
-
-        except Exception as e:
-            logger.debug(f"Could not process comments: {e}")
+            if mode == "html":
+                header = self._format_comment_header(comment, include_id=True, include_prefix=True)
+                html_comment = f"<!-- {header}: {comment.text} -->"
+                nodes.append(HTMLBlock(content=html_comment))
+            else:
+                header = self._format_comment_header(comment, include_id=True, include_prefix=False)
+                blockquote_content = [
+                    AstParagraph(content=[Text(content=comment.text)]),
+                    AstParagraph(content=[Emphasis(content=[Text(content=f"— {header}")])]),
+                ]
+                nodes.append(BlockQuote(children=blockquote_content))
 
         return nodes
 

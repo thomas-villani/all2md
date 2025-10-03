@@ -385,6 +385,255 @@ class MarkdownOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
+class DocxRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST to DOCX format.
+
+    This dataclass contains settings specific to Word document generation,
+    including fonts, styles, and formatting preferences.
+
+    Parameters
+    ----------
+    default_font : str, default "Calibri"
+        Default font name for body text.
+    default_font_size : int, default 11
+        Default font size in points for body text.
+    heading_font_sizes : dict[int, int] or None, default None
+        Font sizes for heading levels 1-6. If None, uses built-in Word heading styles.
+    use_styles : bool, default True
+        Whether to use built-in Word styles vs direct formatting.
+    table_style : str or None, default "Light Grid Accent 1"
+        Built-in table style name. If None, uses plain table formatting.
+    code_font : str, default "Courier New"
+        Font name for code blocks and inline code.
+    code_font_size : int, default 10
+        Font size for code blocks and inline code.
+    preserve_formatting : bool, default True
+        Whether to preserve text formatting (bold, italic, etc.).
+    """
+
+    default_font: str = field(
+        default="Calibri",
+        metadata={"help": "Default font for body text"}
+    )
+    default_font_size: int = field(
+        default=11,
+        metadata={"help": "Default font size in points", "type": int}
+    )
+    heading_font_sizes: dict[int, int] | None = field(
+        default=None,
+        metadata={
+            "help": "Font sizes for heading levels 1-6 (None = use built-in styles)",
+            "exclude_from_cli": True
+        }
+    )
+    use_styles: bool = field(
+        default=True,
+        metadata={
+            "help": "Use built-in Word styles vs direct formatting",
+            "cli_name": "no-use-styles"
+        }
+    )
+    table_style: str | None = field(
+        default="Light Grid Accent 1",
+        metadata={"help": "Built-in table style name (None = plain formatting)"}
+    )
+    code_font: str = field(
+        default="Courier New",
+        metadata={"help": "Font for code blocks and inline code"}
+    )
+    code_font_size: int = field(
+        default=10,
+        metadata={"help": "Font size for code", "type": int}
+    )
+    preserve_formatting: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve text formatting (bold, italic, etc.)",
+            "cli_name": "no-preserve-formatting"
+        }
+    )
+
+
+@dataclass(frozen=True)
+class HtmlRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST to HTML format.
+
+    This dataclass contains settings specific to HTML generation,
+    including document structure, styling, and feature toggles.
+
+    Parameters
+    ----------
+    standalone : bool, default True
+        Generate complete HTML document with <html>, <head>, <body> tags.
+        If False, generates only the content fragment.
+    css_style : {"inline", "embedded", "external", "none"}, default "embedded"
+        How to include CSS styles:
+        - "inline": Add style attributes to elements
+        - "embedded": Include <style> block in <head>
+        - "external": Reference external CSS file
+        - "none": No styling
+    css_file : str or None, default None
+        Path to external CSS file (used when css_style="external").
+    template : str or None, default None
+        Path to custom Jinja2 template file. If None, uses built-in template.
+    include_toc : bool, default False
+        Generate table of contents from headings.
+    syntax_highlighting : bool, default True
+        Add language classes to code blocks for syntax highlighting.
+    escape_html : bool, default True
+        Escape HTML special characters in text content.
+    math_renderer : {"mathjax", "katex", "none"}, default "mathjax"
+        Math rendering library to use for MathML/LaTeX math:
+        - "mathjax": Include MathJax CDN script
+        - "katex": Include KaTeX CDN script
+        - "none": Render math as plain text
+    """
+
+    standalone: bool = field(
+        default=True,
+        metadata={
+            "help": "Generate complete HTML document (vs content fragment)",
+            "cli_name": "no-standalone"
+        }
+    )
+    css_style: Literal["inline", "embedded", "external", "none"] = field(
+        default="embedded",
+        metadata={
+            "help": "CSS inclusion method: inline, embedded, external, or none",
+            "choices": ["inline", "embedded", "external", "none"]
+        }
+    )
+    css_file: str | None = field(
+        default=None,
+        metadata={"help": "Path to external CSS file (when css_style='external')"}
+    )
+    template: str | None = field(
+        default=None,
+        metadata={"help": "Path to custom Jinja2 template (None = use built-in)"}
+    )
+    include_toc: bool = field(
+        default=False,
+        metadata={"help": "Generate table of contents from headings"}
+    )
+    syntax_highlighting: bool = field(
+        default=True,
+        metadata={
+            "help": "Add language classes for syntax highlighting",
+            "cli_name": "no-syntax-highlighting"
+        }
+    )
+    escape_html: bool = field(
+        default=True,
+        metadata={
+            "help": "Escape HTML special characters in text",
+            "cli_name": "no-escape-html"
+        }
+    )
+    math_renderer: Literal["mathjax", "katex", "none"] = field(
+        default="mathjax",
+        metadata={
+            "help": "Math rendering library: mathjax, katex, or none",
+            "choices": ["mathjax", "katex", "none"]
+        }
+    )
+
+
+@dataclass(frozen=True)
+class PdfRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST to PDF format.
+
+    This dataclass contains settings specific to PDF generation using ReportLab,
+    including page layout, fonts, margins, and formatting preferences.
+
+    Parameters
+    ----------
+    page_size : {"letter", "a4", "legal"}, default "letter"
+        Page size for the PDF document.
+    margin_top : float, default 72.0
+        Top margin in points (72 points = 1 inch).
+    margin_bottom : float, default 72.0
+        Bottom margin in points.
+    margin_left : float, default 72.0
+        Left margin in points.
+    margin_right : float, default 72.0
+        Right margin in points.
+    font_name : str, default "Helvetica"
+        Default font for body text. Standard PDF fonts: Helvetica, Times-Roman, Courier.
+    font_size : int, default 11
+        Default font size in points for body text.
+    heading_fonts : dict[int, tuple[str, int]] or None, default None
+        Font specifications for headings as {level: (font_name, font_size)}.
+        If None, uses scaled versions of default font.
+    code_font : str, default "Courier"
+        Monospace font for code blocks and inline code.
+    line_spacing : float, default 1.2
+        Line spacing multiplier (1.0 = single spacing).
+    include_page_numbers : bool, default True
+        Add page numbers to footer.
+    include_toc : bool, default False
+        Generate table of contents from headings.
+    """
+
+    page_size: Literal["letter", "a4", "legal"] = field(
+        default="letter",
+        metadata={
+            "help": "Page size: letter, a4, or legal",
+            "choices": ["letter", "a4", "legal"]
+        }
+    )
+    margin_top: float = field(
+        default=72.0,
+        metadata={"help": "Top margin in points (72pt = 1 inch)", "type": float}
+    )
+    margin_bottom: float = field(
+        default=72.0,
+        metadata={"help": "Bottom margin in points", "type": float}
+    )
+    margin_left: float = field(
+        default=72.0,
+        metadata={"help": "Left margin in points", "type": float}
+    )
+    margin_right: float = field(
+        default=72.0,
+        metadata={"help": "Right margin in points", "type": float}
+    )
+    font_name: str = field(
+        default="Helvetica",
+        metadata={"help": "Default font (Helvetica, Times-Roman, Courier)"}
+    )
+    font_size: int = field(
+        default=11,
+        metadata={"help": "Default font size in points", "type": int}
+    )
+    heading_fonts: dict[int, tuple[str, int]] | None = field(
+        default=None,
+        metadata={
+            "help": "Heading font specs as {level: (font, size)}",
+            "exclude_from_cli": True
+        }
+    )
+    code_font: str = field(
+        default="Courier",
+        metadata={"help": "Monospace font for code"}
+    )
+    line_spacing: float = field(
+        default=1.2,
+        metadata={"help": "Line spacing multiplier (1.0 = single)", "type": float}
+    )
+    include_page_numbers: bool = field(
+        default=True,
+        metadata={
+            "help": "Add page numbers to footer",
+            "cli_name": "no-page-numbers"
+        }
+    )
+    include_toc: bool = field(
+        default=False,
+        metadata={"help": "Generate table of contents"}
+    )
+
+
+@dataclass(frozen=True)
 class NetworkFetchOptions(_CloneMixin):
     """Network security options for remote resource fetching.
 
@@ -929,6 +1178,13 @@ class DocxOptions(BaseParserOptions):
     include_comments: bool = field(
         default=False,
         metadata={"help": "Include document comments in output"}
+    )
+    comments_position: Literal["inline", "footnotes"] = field(
+        default="footnotes",
+        metadata={
+            "help": "Render comments inline or at document end",
+            "choices": ["inline", "footnotes"],
+        },
     )
     comment_mode: CommentMode = field(
         default=DEFAULT_COMMENT_MODE,
