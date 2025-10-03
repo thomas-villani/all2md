@@ -13,6 +13,8 @@ list nesting) during traversal.
 
 """
 
+# TODO: REMOVE this file, we've replicated it in all2md/renderers
+
 from __future__ import annotations
 
 import re

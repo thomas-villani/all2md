@@ -17,7 +17,6 @@ from email.utils import parsedate_to_datetime, getaddresses
 from pathlib import Path
 from typing import IO, Any, Union
 
-from all2md import EmlOptions
 from all2md.ast import Document, Heading, HTMLInline, Node, Paragraph, Text, ThematicBreak
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
@@ -31,15 +30,13 @@ from io import StringIO
 from all2md.exceptions import InputError, MarkdownConversionError
 
 
-def _parse_date_with_fallback(msg: EmailMessage | Message, options: EmlOptions) -> datetime.datetime | None:
+def _parse_date_with_fallback(msg: EmailMessage | Message) -> datetime.datetime | None:
     """Parse email date with fallback hierarchy: Date -> Sent -> Received.
 
     Parameters
     ----------
     msg : EmailMessage | Message
         Email message object containing date headers.
-    options : EmlOptions
-        Configuration options for date parsing.
 
     Returns
     -------
@@ -328,7 +325,7 @@ def parse_single_message(msg: EmailMessage | Message, options: EmlOptions) -> di
     headers = _extract_headers(msg, options)
 
     # Parse date with fallback hierarchy
-    parsed_date = _parse_date_with_fallback(msg, options)
+    parsed_date = _parse_date_with_fallback(msg)
 
     # Extract content with enhanced multipart handling
     content = extract_message_content(msg, options)
@@ -1042,7 +1039,7 @@ class EmlToAstConverter(BaseParser):
                 metadata.author = name if name else email
 
         # Extract date
-        date_obj = _parse_date_with_fallback(document, self.options)
+        date_obj = _parse_date_with_fallback(document)
         if date_obj:
             metadata.creation_date = date_obj
 
@@ -1115,7 +1112,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_class=EmlToAstConverter,
     renderer_class=None,
     required_packages=[],
-    options_class="EmlOptions",
+    options_class=EmlOptions,
     description="Convert email messages to Markdown",
     priority=6
 )

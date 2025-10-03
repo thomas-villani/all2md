@@ -644,90 +644,71 @@ def to_markdown(
     # Prepare final options (handles flavor and merging)
     final_options = _prepare_options(actual_format, options, flavor, kwargs)
 
-    # If transforms are provided, use AST pipeline instead of direct conversion
-    if transforms:
-        # Import transform pipeline
-        from all2md.transforms import render as render_with_transforms
+    # Always use the transform pipeline for consistent hook support
+    # Import transform pipeline
+    from all2md.transforms import render as render_with_transforms
 
-        # Convert to AST first
-        ast_doc = to_ast(input, options=final_options, format=actual_format)
-
-        # Extract MarkdownOptions for rendering
-        if isinstance(final_options, MarkdownOptions):
-            markdown_options = final_options
-        elif final_options and hasattr(final_options, 'markdown_options'):
-            markdown_options = final_options.markdown_options
-        else:
-            markdown_options = None
-
-        # Apply transforms and render
-        content = render_with_transforms(ast_doc, transforms=transforms, options=markdown_options)
-
-        # Normalize line endings and return
-        return content.replace("\r\n", "\n").replace("\r", "\n")
-
-    # Process input based on detected/specified format using registry
+    # Convert to AST
     try:
-        # Use new parser->renderer pattern
-        # Get parser class from registry
-        parser_class = registry.get_parser(actual_format)
-
-        # Instantiate parser with options
-        parser = parser_class(options=final_options)
-
-        # Parse input to AST
-        ast_doc = parser.parse(input)
-
-        # Extract MarkdownOptions for rendering
-        if isinstance(final_options, MarkdownOptions):
-            markdown_options = final_options
-        elif final_options and hasattr(final_options, 'markdown_options') and final_options.markdown_options:
-            markdown_options = final_options.markdown_options
-        else:
-            # Create default MarkdownOptions
-            markdown_options = MarkdownOptions()
-
-        # Render AST to markdown
-        from all2md.renderers.markdown import MarkdownRenderer
-        renderer = MarkdownRenderer(options=markdown_options)
-        content = renderer.render_to_string(ast_doc)
-
+        ast_doc = to_ast(input, options=final_options, format=actual_format)
     except DependencyError:
         # Re-raise dependency errors as-is
         raise
-    except FormatError:
+    except FormatError as e:
         # Handle unknown formats by falling back to text
         if actual_format not in ["txt", "image"]:
             logger.warning(f"Unknown format '{actual_format}', falling back to text")
             actual_format = "txt"
 
         if actual_format == "image":
-            raise FormatError("Invalid input type: `image` not supported.") from None
+            raise FormatError("Invalid input type: `image` not supported.") from e
         else:
-            # Plain text handling
+            # Plain text handling - return content directly without AST
             if isinstance(input, (str, Path)):
                 try:
                     with open(input, 'r', encoding='utf-8', errors='replace') as f:
                         content = f.read()
-                except Exception as e:
-                    raise MarkdownConversionError(f"Could not read file as UTF-8: {input}") from e
+                except Exception as exc:
+                    raise MarkdownConversionError(f"Could not read file as UTF-8: {input}") from exc
             elif isinstance(input, bytes):
                 try:
                     content = input.decode("utf-8", errors="replace")
-                except Exception as e:
-                    raise MarkdownConversionError("Could not decode bytes as UTF-8") from e
+                except Exception as exc:
+                    raise MarkdownConversionError("Could not decode bytes as UTF-8") from exc
             else:
                 # File-like object
                 file = input  # type: ignore
                 file.seek(0)
                 try:
-                    content = file.read()
-                    if isinstance(content, bytes):
-                        content = content.decode("utf-8", errors="replace")
-                except Exception as e:
-                    raise MarkdownConversionError("Could not decode file as UTF-8") from e
+                    file_content = file.read()
+                    if isinstance(file_content, bytes):
+                        content = file_content.decode("utf-8", errors="replace")
+                    else:
+                        content = file_content
+                except Exception as exc:
+                    raise MarkdownConversionError("Could not decode file as UTF-8") from exc
 
-    # Normalize all line endings to \n
+            # Normalize and return plain text
+            return content.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Extract MarkdownOptions for rendering
+    if isinstance(final_options, MarkdownOptions):
+        markdown_options = final_options
+    elif final_options and hasattr(final_options, 'markdown_options') and final_options.markdown_options:
+        markdown_options = final_options.markdown_options
+    else:
+        markdown_options = MarkdownOptions()
+
+    # Apply transforms and render using pipeline
+    # The pipeline handles both transforms and hooks
+    content = render_with_transforms(
+        ast_doc,
+        transforms=transforms or [],  # Empty list if no transforms
+        renderer="markdown",  # Always render to markdown
+        options=markdown_options
+    )
+
+    # Normalize line endings and return
     return content.replace("\r\n", "\n").replace("\r", "\n")
 
 
@@ -823,81 +804,27 @@ def to_ast(
     # Check and prepare options (same logic as to_markdown())
     final_options = _prepare_options(actual_format, options, flavor, kwargs)
 
-    # Map of formats to their AST converter functions
-    ast_converters = {
-        "pdf": "all2md.parsers.pdf.pdf_to_ast",
-        "docx": "all2md.parsers.docx.docx_to_ast",
-        "html": "all2md.parsers.html.html_to_ast",
-        "pptx": "all2md.parsers.pptx.pptx_to_ast",
-        "ipynb": "all2md.parsers.ipynb.ipynb_to_ast",
-        "eml": "all2md.parsers.eml.eml_to_ast",
-        "odf": "all2md.parsers.odf.odf_to_ast",
-        "rtf": "all2md.parsers.rtf.rtf_to_ast",
-        "sourcecode": "all2md.parsers.sourcecode.sourcecode_to_ast",
-        "spreadsheet": "all2md.parsers.spreadsheet.spreadsheet_to_ast",
-        "markdown": "all2md.parsers.markdown.markdown_to_ast",
-    }
+    # Use the parser class system to convert to AST
+    try:
+        # Get parser class from registry
+        parser_class = registry.get_parser(actual_format)
 
-    converter_path = ast_converters.get(actual_format)
+        # Instantiate parser with options
+        parser = parser_class(options=final_options)
 
-    if converter_path:
-        # Load the AST converter function
-        module_path, func_name = converter_path.rsplit(".", 1)
-        try:
-            import importlib
+        # Parse input to AST
+        ast_doc = parser.parse(input)
 
-            module = importlib.import_module(module_path)
-            converter_func = getattr(module, func_name)
-        except (ImportError, AttributeError) as e:
-            raise FormatError(f"AST converter not available for format: {actual_format}") from e
+        return ast_doc
 
-        # Call the converter
-        try:
-            if isinstance(input, (str, Path)):
-                # For markdown, read file content as string
-                if actual_format == "markdown":
-                    if isinstance(input, Path):
-                        markdown_content = input.read_text(encoding="utf-8")
-                    else:
-                        # Assume string is a path
-                        markdown_content = Path(input).read_text(encoding="utf-8")
-                    ast_doc = converter_func(markdown_content, options=final_options)
-                else:
-                    ast_doc = converter_func(input, options=final_options)
-            elif isinstance(input, bytes):
-                if actual_format in ("html", "markdown"):
-                    content = input.decode("utf-8", errors="replace")
-                    ast_doc = converter_func(content, options=final_options)
-                else:
-                    from io import BytesIO
-
-                    file = BytesIO(input)
-                    ast_doc = converter_func(file, options=final_options)
-            else:
-                # File-like object
-                file = input  # type: ignore
-                if actual_format in ("html", "markdown"):
-                    file.seek(0)
-                    content = file.read().decode("utf-8", errors="replace")
-                    ast_doc = converter_func(content, options=final_options)
-                else:
-                    file.seek(0)
-                    ast_doc = converter_func(file, options=final_options)
-
-            return ast_doc
-
-        except DependencyError:
-            raise
-        except Exception as e:
-            raise MarkdownConversionError(f"AST conversion failed: {e}") from e
-
-    else:
-        # For formats without AST support, fall back to markdown conversion
-        # then parse the markdown to AST (future enhancement)
-        raise FormatError(
-            f"Direct AST conversion not yet supported for format: {actual_format}. "
-            f"Use to_markdown() instead."
-        )
+    except DependencyError:
+        # Re-raise dependency errors as-is
+        raise
+    except FormatError:
+        # Re-raise format errors as-is
+        raise
+    except Exception as e:
+        raise MarkdownConversionError(f"AST conversion failed: {e}") from e
 
 # TODO: should also allow `markdown` to be a path or file.
 def from_markdown(

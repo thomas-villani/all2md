@@ -50,12 +50,11 @@ Complex pipeline:
 from __future__ import annotations
 
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from all2md.ast.nodes import Document, Node
-from all2md.ast.renderer import MarkdownRenderer
 from all2md.ast.transforms import NodeTransformer
-from all2md.options import MarkdownOptions
+from all2md.options import BaseOptions, MarkdownOptions
 
 from .hooks import HookCallable, HookContext, HookManager, HookTarget
 from .registry import TransformRegistry
@@ -136,7 +135,7 @@ class Pipeline:
     """Pipeline for transforming and rendering AST documents.
 
     This class orchestrates the complete transformation and rendering pipeline,
-    including transform resolution, hook execution, and markdown generation.
+    including transform resolution, hook execution, and rendering to output format.
 
     Parameters
     ----------
@@ -145,18 +144,33 @@ class Pipeline:
         NodeTransformer instances. Names are resolved via TransformRegistry
     hooks : dict, optional
         Dictionary mapping hook targets to lists of hook callables
-    options : MarkdownOptions, optional
-        Options for markdown rendering
+    renderer : str, type, or renderer instance, optional
+        Renderer to use for output. Can be:
+        - Format name string (e.g., "markdown") - looked up via registry
+        - Renderer class (e.g., MarkdownRenderer)
+        - Renderer instance (e.g., MarkdownRenderer())
+        Defaults to MarkdownRenderer with default options
+    options : BaseOptions or MarkdownOptions, optional
+        Options for rendering (used if renderer is string or class, ignored if instance)
 
     Examples
     --------
-    Create pipeline and execute:
+    Create pipeline with default markdown renderer:
 
         >>> pipeline = Pipeline(
         ...     transforms=['remove-images'],
         ...     hooks={'pre_render': [validate]}
         ... )
-        >>> markdown = pipeline.execute(document)
+        >>> output = pipeline.execute(document)
+
+    With custom renderer:
+
+        >>> from all2md.renderers.markdown import MarkdownRenderer
+        >>> pipeline = Pipeline(
+        ...     transforms=['remove-images'],
+        ...     renderer=MarkdownRenderer(options=MarkdownOptions(flavor='commonmark'))
+        ... )
+        >>> output = pipeline.execute(document)
 
     """
 
@@ -164,13 +178,19 @@ class Pipeline:
         self,
         transforms: Optional[list[Union[str, NodeTransformer]]] = None,
         hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-        options: Optional[MarkdownOptions] = None
+        renderer: Optional[Union[str, type, Any]] = None,
+        options: Optional[Union[BaseOptions, MarkdownOptions]] = None
     ):
-        """Initialize pipeline with transforms, hooks, and options."""
+        """Initialize pipeline with transforms, hooks, renderer, and options."""
         self.transforms = transforms or []
         self.hook_manager = HookManager()
-        self.options = options or MarkdownOptions()
         self.registry = TransformRegistry()
+
+        # Set up renderer
+        self.renderer = self._setup_renderer(renderer, options)
+
+        # Store options for backward compatibility (some code may access pipeline.options)
+        self.options = options if isinstance(options, (BaseOptions, MarkdownOptions)) else MarkdownOptions()
 
         # Register provided hooks
         if hooks:
@@ -178,6 +198,52 @@ class Pipeline:
                 for priority, hook in enumerate(hook_list):
                     # Use list index as priority to maintain order
                     self.hook_manager.register_hook(target, hook, priority=priority)
+
+    def _setup_renderer(
+        self,
+        renderer: Optional[Union[str, type, Any]],
+        options: Optional[Union[BaseOptions, MarkdownOptions]]
+    ) -> Any:
+        """Set up the renderer instance.
+
+        Parameters
+        ----------
+        renderer : str, type, or instance, optional
+            Renderer specification
+        options : BaseOptions or MarkdownOptions, optional
+            Options to use if creating renderer from string/class
+
+        Returns
+        -------
+        Any
+            Renderer instance ready to use
+
+        """
+        # If renderer is already an instance, use it
+        if renderer is not None and hasattr(renderer, 'render_to_string'):
+            return renderer
+
+        # If renderer is a class, instantiate it
+        if renderer is not None and isinstance(renderer, type):
+            return renderer(options=options)
+
+        # If renderer is a string, look it up via registry
+        if isinstance(renderer, str):
+            from all2md.converter_registry import registry
+            renderer_class = registry.get_renderer(renderer)
+            return renderer_class(options=options)
+
+        # Default to MarkdownRenderer
+        from all2md.renderers.markdown import MarkdownRenderer
+        # Use MarkdownOptions if no options provided or if BaseOptions provided for markdown
+        if options is None:
+            return MarkdownRenderer(options=MarkdownOptions())
+        elif isinstance(options, MarkdownOptions):
+            return MarkdownRenderer(options=options)
+        elif hasattr(options, 'markdown_options') and options.markdown_options:
+            return MarkdownRenderer(options=options.markdown_options)
+        else:
+            return MarkdownRenderer(options=MarkdownOptions())
 
     def _resolve_transforms(self) -> list[NodeTransformer]:
         """Resolve transform names/instances to ordered list of instances.
@@ -338,8 +404,8 @@ class Pipeline:
 
         return result  # type: ignore
 
-    def _render(self, document: Document) -> str:
-        """Render document to markdown.
+    def _render(self, document: Document) -> Union[str, bytes]:
+        """Render document using configured renderer.
 
         Parameters
         ----------
@@ -348,15 +414,25 @@ class Pipeline:
 
         Returns
         -------
-        str
-            Markdown text
+        str or bytes
+            Rendered output (type depends on renderer)
 
         """
-        logger.debug("Rendering document to markdown")
-        renderer = MarkdownRenderer(self.options)
-        return renderer.render(document)
+        logger.debug(f"Rendering document using {self.renderer.__class__.__name__}")
 
-    def execute(self, document: Document) -> str:
+        # Try render_to_string first (for text-based renderers)
+        if hasattr(self.renderer, 'render_to_string'):
+            return self.renderer.render_to_string(document)
+        # Fall back to render_to_bytes (for binary renderers)
+        elif hasattr(self.renderer, 'render_to_bytes'):
+            return self.renderer.render_to_bytes(document)
+        else:
+            raise NotImplementedError(
+                f"Renderer {self.renderer.__class__.__name__} must implement "
+                f"either render_to_string() or render_to_bytes()"
+            )
+
+    def execute(self, document: Document) -> Union[str, bytes]:
         """Execute complete pipeline.
 
         This method runs the full transformation and rendering pipeline:
@@ -364,7 +440,7 @@ class Pipeline:
         2. Apply transforms (with pre/post transform hooks)
         3. Apply element hooks
         4. Execute pre_render hooks
-        5. Render to markdown
+        5. Render to output format
         6. Execute post_render hooks
 
         Parameters
@@ -374,13 +450,13 @@ class Pipeline:
 
         Returns
         -------
-        str
-            Rendered markdown text
+        str or bytes
+            Rendered output (type depends on renderer)
 
         Examples
         --------
         >>> pipeline = Pipeline(transforms=['remove-images'])
-        >>> markdown = pipeline.execute(document)
+        >>> output = pipeline.execute(document)
 
         """
         logger.info("Starting pipeline execution")
@@ -420,31 +496,33 @@ class Pipeline:
         document = self._apply_element_hooks(document, context)
 
         # Render
-        markdown = self._render(document)
+        output = self._render(document)
 
         # Post-render hook
         if self.hook_manager.has_hooks('post_render'):
             logger.debug("Executing post_render hooks")
-            markdown = self.hook_manager.execute_hooks('post_render', markdown, context)
+            output = self.hook_manager.execute_hooks('post_render', output, context)
 
-            if markdown is None:
-                raise ValueError("post_render hook removed markdown")
+            if output is None:
+                raise ValueError("post_render hook removed output")
 
         logger.info("Pipeline execution complete")
-        return markdown  # type: ignore
+        return output  # type: ignore
 
+# TODO: we need an `apply` function to apply transforms and hooks only without the renderer which applies just to the AST
 
 def render(
     document: Document,
     transforms: Optional[list[Union[str, NodeTransformer]]] = None,
     hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-    options: Optional[MarkdownOptions] = None,
+    renderer: Optional[Union[str, type, Any]] = None,
+    options: Optional[Union[BaseOptions, MarkdownOptions]] = None,
     **kwargs
-) -> str:
-    """Render document to markdown with transforms and hooks.
+) -> Union[str, bytes]:
+    """Render document with transforms and hooks using specified renderer.
 
     This is the high-level entry point for the transformation pipeline.
-    It creates a Pipeline instance and executes it to produce markdown output.
+    It creates a Pipeline instance and executes it to produce rendered output.
 
     Parameters
     ----------
@@ -457,16 +535,22 @@ def render(
         Dictionary mapping hook targets to lists of hook callables.
         Hook targets can be pipeline stages ('pre_render', 'post_render', etc.)
         or node types ('image', 'link', 'heading', etc.)
-    options : MarkdownOptions, optional
-        Options for markdown rendering (flavor, formatting, etc.)
+    renderer : str, type, or renderer instance, optional
+        Renderer to use. Can be:
+        - Format name string (e.g., "markdown") - looked up via registry
+        - Renderer class (e.g., MarkdownRenderer)
+        - Renderer instance (e.g., MarkdownRenderer())
+        Defaults to MarkdownRenderer
+    options : BaseOptions or MarkdownOptions, optional
+        Options for rendering (used if renderer is string or class)
     **kwargs
         Additional keyword arguments passed to MarkdownOptions if
-        options is not provided
+        options is not provided and renderer is markdown
 
     Returns
     -------
-    str
-        Rendered markdown text
+    str or bytes
+        Rendered output (type depends on renderer)
 
     Raises
     ------
@@ -477,7 +561,7 @@ def render(
 
     Examples
     --------
-    Basic rendering:
+    Basic rendering to markdown:
         >>> from all2md import to_ast
         >>> from all2md.transforms import render
         >>> doc = to_ast("document.pdf")
@@ -486,11 +570,11 @@ def render(
     With transforms by name:
         >>> markdown = render(doc, transforms=['remove-images'])
 
-    With transform instances:
-        >>> from all2md.transforms import HeadingOffsetTransform
-        >>> markdown = render(
+    With custom renderer:
+        >>> from all2md.renderers.markdown import MarkdownRenderer
+        >>> output = render(
         ...     doc,
-        ...     transforms=[HeadingOffsetTransform(offset=1)]
+        ...     renderer=MarkdownRenderer(options=MarkdownOptions(flavor='commonmark'))
         ... )
 
     With hooks:
@@ -518,13 +602,15 @@ def render(
     # Create options from kwargs if not provided
     if options is None and kwargs:
         options = MarkdownOptions(**kwargs)
-    elif options is None:
+    elif options is None and renderer is None:
+        # Default to MarkdownOptions for markdown renderer
         options = MarkdownOptions()
 
     # Create and execute pipeline
     pipeline = Pipeline(
         transforms=transforms,
         hooks=hooks,
+        renderer=renderer,
         options=options
     )
 
