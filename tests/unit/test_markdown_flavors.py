@@ -348,5 +348,5 @@ class TestToMarkdownFlavorParameter:
         text_content = "Hello World"
         options = MarkdownOptions(flavor="commonmark")
         # flavor kwarg should override options
-        result = to_markdown(text_content.encode(), format="txt", options=options, flavor="gfm")
+        result = to_markdown(text_content.encode(), format="txt", renderer_options=options, flavor="gfm")
         assert result == "Hello World"

@@ -435,7 +435,7 @@ class TestNewAPI:
 
         result = to_markdown(
             text_io,
-            options=pdf_options,
+            parser_options=pdf_options,
             format="txt"  # Force as text since we don't have real PDF
         )
 

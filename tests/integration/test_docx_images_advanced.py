@@ -51,7 +51,7 @@ class TestDocxImagesAdvanced:
 
         # Test alt_text mode
         options = DocxOptions(attachment_mode="alt_text")
-        markdown = docx_to_markdown(str(temp_file), options=options)
+        markdown = docx_to_markdown(str(temp_file), parser_options=options)
         assert_markdown_valid(markdown)
         # Should contain image reference
         assert "![image]" in markdown
@@ -75,7 +75,7 @@ class TestDocxImagesAdvanced:
 
         # Test base64 embedding
         options = DocxOptions(attachment_mode="base64")
-        markdown = docx_to_markdown(str(temp_file), options=options)
+        markdown = docx_to_markdown(str(temp_file), parser_options=options)
         assert_markdown_valid(markdown)
 
         # Should contain base64 encoded images
@@ -84,7 +84,7 @@ class TestDocxImagesAdvanced:
 
         # Test alt_text mode
         options_alt = DocxOptions(attachment_mode="alt_text")
-        markdown_alt = docx_to_markdown(str(temp_file), options=options_alt)
+        markdown_alt = docx_to_markdown(str(temp_file), parser_options=options_alt)
         assert_markdown_valid(markdown_alt)
 
         # Should contain alt text references instead
@@ -243,7 +243,7 @@ class TestDocxImagesAdvanced:
 
         # Test skip mode
         options = DocxOptions(attachment_mode="skip")
-        markdown = docx_to_markdown(str(temp_file), options=options)
+        markdown = docx_to_markdown(str(temp_file), parser_options=options)
         assert_markdown_valid(markdown)
 
         # Should contain text but no image references
@@ -285,7 +285,7 @@ class TestDocxImagesAdvanced:
             attachment_output_dir=str(self.temp_dir / "downloads")
         )
 
-        markdown = docx_to_markdown(str(temp_file), options=options)
+        markdown = docx_to_markdown(str(temp_file), parser_options=options)
         assert_markdown_valid(markdown)
 
         # Should contain text and image references

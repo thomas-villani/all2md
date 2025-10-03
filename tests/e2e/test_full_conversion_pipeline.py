@@ -40,8 +40,8 @@ class TestFullConversionPipeline:
         result = to_markdown(
             BytesIO(docx_bytes),
             format="docx",
-            docx_options=options,
-            markdown_options=markdown_options
+            parser_options=options,
+            renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)
@@ -69,8 +69,8 @@ class TestFullConversionPipeline:
         result = to_markdown(
             BytesIO(html_content.encode('utf-8')),
             format="html",
-            html_options=options,
-            markdown_options=markdown_options
+            parser_options=options,
+            renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)
@@ -100,8 +100,8 @@ class TestFullConversionPipeline:
         result = to_markdown(
             BytesIO(pptx_bytes),
             format="pptx",
-            pptx_options=options,
-            markdown_options=markdown_options
+            parser_options=options,
+            renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)
@@ -136,8 +136,8 @@ class TestFullConversionPipeline:
             result = to_markdown(
                 pdf_bytes,
                 format="pdf",
-                pdf_options=options,
-                markdown_options=markdown_options
+                parser_options=options,
+                renderer_options=markdown_options
             )
 
             assert_markdown_valid(result)
@@ -246,7 +246,7 @@ class TestFullConversionPipeline:
         result = to_markdown(
             BytesIO(html.encode('utf-8')),
             format="html",
-            html_options=options_test
+            parser_options=options_test
         )
 
         # Verify the conversion worked with options
@@ -264,7 +264,7 @@ class TestFullConversionPipeline:
         result2 = to_markdown(
             BytesIO(html.encode('utf-8')),
             format="html",
-            html_options=options_test2
+            parser_options=options_test2
         )
 
         # Both conversions should work
@@ -319,8 +319,8 @@ class TestFullConversionPipeline:
         result = to_markdown(
             BytesIO(docx_bytes),
             format="docx",
-            docx_options=docx_options,
-            markdown_options=markdown_options
+            parser_options=docx_options,
+            renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)

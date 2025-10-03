@@ -407,7 +407,7 @@ def to_markdown(
         input: Union[str, Path, IO[bytes], bytes],
         *,
         parser_options: Optional[BaseParserOptions] = None,
-        renderer_options: Optional[BaseRendererOptions] = None,
+        renderer_options: Optional[MarkdownOptions] = None,
         format: DocumentFormat = "auto",
         flavor: Optional[str] = None,
         transforms: Optional[list] = None,
@@ -487,7 +487,8 @@ def to_markdown(
     With transforms:
         >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
     """
-
+    if "options" in kwargs:
+        raise ValueError("`options` is deprecated! Use `parse_options` or `renderer_options`")
     # Determine format first
     if format != "auto":
         actual_format = format

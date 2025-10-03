@@ -375,11 +375,11 @@ Extra content after boundary end.
 
         # Test different attachment modes
         options_skip = EmlOptions(attachment_mode="skip")
-        result_skip = eml_to_markdown(BytesIO(eml_content.encode('utf-8')), options=options_skip)
+        result_skip = eml_to_markdown(BytesIO(eml_content.encode('utf-8')), parser_options=options_skip)
         assert_markdown_valid(result_skip)
 
         options_alt = EmlOptions(attachment_mode="alt_text")
-        result_alt = eml_to_markdown(BytesIO(eml_content.encode('utf-8')), options=options_alt)
+        result_alt = eml_to_markdown(BytesIO(eml_content.encode('utf-8')), parser_options=options_alt)
         assert_markdown_valid(result_alt)
 
         # Both should contain main text
