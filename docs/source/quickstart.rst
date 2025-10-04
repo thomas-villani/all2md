@@ -347,6 +347,57 @@ For advanced use cases, all2md provides an Abstract Syntax Tree (AST) API that e
 
 For complete AST documentation, see :doc:`ast_guide`.
 
+Developer Productivity Features
+--------------------------------
+
+Watch Mode for Live Conversion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Monitor files for changes and automatically reconvert them (requires ``pip install all2md[cli_extras]``):
+
+.. code-block:: bash
+
+   # Watch a directory for changes
+   all2md ./docs --watch --recursive --output-dir ./markdown
+
+   # Watch with shorter debounce for fast iteration
+   all2md report.docx --watch --watch-debounce 0.3 --output-dir ./preview
+
+Perfect for documentation development and live previewing your conversions!
+
+Creating Shareable Bundles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Package converted documents with organized assets into ZIP archives:
+
+.. code-block:: bash
+
+   # Create a ZIP bundle with organized assets
+   all2md ./project-docs --recursive --output-dir ./bundle --zip docs.zip --assets-layout by-stem
+
+   # Auto-named ZIP with flat asset organization
+   all2md *.pdf --output-dir ./converted --zip --assets-layout flat
+
+Great for distributing documentation or archiving converted content.
+
+Debugging and Logging
+~~~~~~~~~~~~~~~~~~~~~~
+
+Enhanced logging and debugging tools for troubleshooting:
+
+.. code-block:: bash
+
+   # Detailed trace logging with timing
+   all2md complex-doc.pdf --trace --log-file trace.log
+
+   # Save logs while processing
+   all2md *.pdf --log-file conversion.log --output-dir ./converted
+
+   # Get system info for bug reports
+   all2md --about
+
+See :doc:`cli` for complete details on all CLI features.
+
 Next Steps
 ----------
 

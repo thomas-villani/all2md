@@ -322,6 +322,69 @@ Configuration and Debugging
       # Quiet mode (errors only)
       all2md document.pdf --log-level ERROR
 
+``--log-file``
+   Write log output to a file instead of (or in addition to) console output.
+
+   .. code-block:: bash
+
+      # Save logs to file
+      all2md *.pdf --log-file conversion.log --output-dir ./converted
+
+      # Combine with verbose logging
+      all2md ./docs --recursive --log-file debug.log --log-level DEBUG --output-dir ./output
+
+      # Useful for batch processing
+      all2md ./archive --recursive --log-file archive_conversion.log --skip-errors --output-dir ./converted
+
+   .. note::
+
+      Log files capture all log messages regardless of console output settings. This is useful for post-processing analysis and debugging batch conversions.
+
+``--trace``
+   Enable trace mode with very verbose output including per-stage timing information. This is equivalent to ``--log-level DEBUG`` with additional timing instrumentation.
+
+   .. code-block:: bash
+
+      # Trace mode for performance analysis
+      all2md document.pdf --trace
+
+      # Trace with log file for detailed analysis
+      all2md complex_document.pdf --trace --log-file trace.log
+
+      # Trace batch processing
+      all2md *.pdf --trace --log-file batch_trace.log --output-dir ./converted
+
+   **Trace Output Includes:**
+
+   * Detailed parsing timing for each stage
+   * AST transformation timing
+   * Rendering performance metrics
+   * Timestamp-formatted log messages
+
+   .. note::
+
+      Trace mode is primarily useful for performance debugging and optimization. For normal operation, use ``--log-level DEBUG`` or ``--verbose`` instead.
+
+``--about``
+   Display comprehensive system information including version, dependencies, and format availability.
+
+   .. code-block:: bash
+
+      # Show system information
+      all2md --about
+
+   **Output Includes:**
+
+   * all2md version and Python version
+   * System platform and architecture
+   * Installed dependencies with versions
+   * Available format converters and their status
+   * Missing optional dependencies
+
+   .. note::
+
+      Use ``--about`` when reporting bugs or troubleshooting dependency issues. It provides a complete snapshot of your environment configuration.
+
 Processing and Output Control
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1079,6 +1142,99 @@ Advanced Features
 
       # Test exclusion patterns
       all2md ./docs --recursive --exclude "*.draft.*" --dry-run
+
+Output Packaging
+~~~~~~~~~~~~~~~~
+
+``--zip``
+   Create a ZIP archive of the conversion output. Can be used with or without a custom path.
+
+   .. code-block:: bash
+
+      # Create ZIP archive with automatic naming
+      all2md *.pdf --output-dir ./converted --zip
+
+      # Create ZIP with custom path
+      all2md *.pdf --output-dir ./converted --zip ./archive.zip
+
+      # Combine with asset organization
+      all2md *.docx --output-dir ./output --zip --assets-layout flat
+
+   .. note::
+
+      The ZIP archive includes all converted markdown files and their associated assets. When used without a path argument, the ZIP file is named after the output directory (e.g., ``converted.zip``).
+
+``--assets-layout``
+   Organize asset files (images, attachments) using different layout strategies.
+
+   **Choices:**
+
+   * ``flat`` - All assets in a single ``assets/`` directory (default)
+   * ``by-stem`` - Assets organized by document name: ``assets/{document}/``
+   * ``structured`` - Preserves original directory structure
+
+   **Default:** ``flat``
+
+   .. code-block:: bash
+
+      # Flat layout - all assets in assets/
+      all2md *.pdf --output-dir ./output --assets-layout flat
+
+      # By-stem layout - assets/{doc_name}/
+      all2md report1.pdf report2.pdf --output-dir ./output --assets-layout by-stem
+
+      # Structured layout - preserves directory structure
+      all2md ./docs --recursive --output-dir ./output --assets-layout structured
+
+   .. note::
+
+      Asset organization automatically updates markdown links to point to the new locations. This is particularly useful when creating shareable documentation bundles.
+
+Watch Mode
+~~~~~~~~~~
+
+``--watch``
+   Monitor files or directories for changes and automatically reconvert when changes are detected. Requires the ``watchdog`` library (install with ``pip install all2md[cli_extras]``).
+
+   .. code-block:: bash
+
+      # Watch a single file
+      all2md document.txt --watch --output-dir ./output
+
+      # Watch a directory
+      all2md ./docs --watch --recursive --output-dir ./output
+
+      # Watch with custom debounce
+      all2md ./docs --watch --watch-debounce 2.0 --output-dir ./output
+
+      # Watch with file exclusions
+      all2md ./docs --watch --recursive --exclude "*.tmp" --exclude "draft_*" --output-dir ./output
+
+   .. note::
+
+      * Watch mode runs continuously until interrupted with ``Ctrl+C``
+      * Changes are debounced to prevent duplicate processing of rapid changes
+      * The ``--output-dir`` flag is required for watch mode
+      * Files matching ``--exclude`` patterns are ignored
+
+``--watch-debounce``
+   Set the debounce delay in seconds for watch mode (prevents duplicate processing of rapid changes).
+
+   **Default:** ``1.0``
+
+   .. code-block:: bash
+
+      # Short debounce for fast iteration
+      all2md ./src --watch --watch-debounce 0.5 --output-dir ./docs
+
+      # Longer debounce for slower systems
+      all2md ./content --watch --watch-debounce 2.0 --output-dir ./output
+
+   **Use Cases:**
+
+   * **Documentation Development:** Automatically regenerate docs as source files change
+   * **Content Authoring:** Live preview of markdown output while editing
+   * **Integration Testing:** Auto-convert test fixtures during development
 
 Dependency Management
 ---------------------

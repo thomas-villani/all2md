@@ -421,13 +421,100 @@ def process_multi_file(
 
     # Process multiple files or with special output
     if parsed_args.collate:
-        return process_files_collated(files, parsed_args, options, format_arg, transforms)
+        exit_code = process_files_collated(files, parsed_args, options, format_arg, transforms)
     elif parsed_args.rich:
-        return process_with_rich_output(files, parsed_args, options, format_arg, transforms)
+        exit_code = process_with_rich_output(files, parsed_args, options, format_arg, transforms)
     elif parsed_args.progress or len(files) > 1:
-        return process_with_progress_bar(files, parsed_args, options, format_arg, transforms)
+        exit_code = process_with_progress_bar(files, parsed_args, options, format_arg, transforms)
     else:
-        return process_files_simple(files, parsed_args, options, format_arg, transforms)
+        exit_code = process_files_simple(files, parsed_args, options, format_arg, transforms)
+
+    # Handle output packaging if --zip was specified
+    if exit_code == 0 and parsed_args.zip and parsed_args.output_dir:
+        exit_code = _create_output_package(parsed_args, files)
+
+    return exit_code
+
+
+def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Path]) -> int:
+    """Create output package (zip) after successful conversion.
+
+    Parameters
+    ----------
+    parsed_args : argparse.Namespace
+        Parsed command line arguments
+    input_files : List[Path]
+        List of input files that were processed
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+    """
+    import logging
+    from pathlib import Path
+
+    from all2md.cli.packaging import create_output_zip, organize_assets, update_markdown_asset_links
+    from all2md.constants import EXIT_ERROR
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        output_dir = Path(parsed_args.output_dir)
+
+        if not output_dir.exists():
+            logger.error(f"Output directory does not exist: {output_dir}")
+            return EXIT_ERROR
+
+        # Collect generated markdown files
+        markdown_files = list(output_dir.rglob("*.md"))
+
+        if not markdown_files:
+            logger.warning("No markdown files found in output directory for packaging")
+            return 0
+
+        # Organize assets according to layout if specified
+        if hasattr(parsed_args, 'assets_layout') and parsed_args.assets_layout != 'flat':
+            logger.debug(f"Organizing assets with layout: {parsed_args.assets_layout}")
+            asset_mapping = organize_assets(
+                markdown_files,
+                output_dir,
+                layout=parsed_args.assets_layout,
+                attachment_dir=Path(parsed_args.attachment_output_dir) if hasattr(
+                    parsed_args, 'attachment_output_dir') and parsed_args.attachment_output_dir else None
+            )
+
+            # Move assets to new locations
+            for old_path, new_path in asset_mapping.items():
+                if old_path != new_path:
+                    new_path.parent.mkdir(parents=True, exist_ok=True)
+                    if old_path.exists():
+                        import shutil
+                        shutil.move(str(old_path), str(new_path))
+
+            # Update markdown file links
+            for md_file in markdown_files:
+                update_markdown_asset_links(md_file, asset_mapping, output_dir)
+
+        # Determine zip path
+        if parsed_args.zip == 'auto':
+            zip_path = None  # Will use default: output_dir.zip
+        else:
+            zip_path = Path(parsed_args.zip)
+
+        # Create the zip file
+        created_zip = create_output_zip(
+            output_dir,
+            zip_path=zip_path,
+            markdown_files=markdown_files
+        )
+
+        print(f"Created package: {created_zip}")
+        return 0
+
+    except Exception as e:
+        logger.error(f"Failed to create output package: {e}")
+        return EXIT_ERROR
 
 
 def load_options_from_json(json_file_path: str) -> dict:

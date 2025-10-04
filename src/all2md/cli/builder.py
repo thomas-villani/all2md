@@ -602,6 +602,17 @@ Examples:
             default="WARNING",
             help="Set logging level for debugging (default: WARNING). Overrides --verbose if both are specified."
         )
+        parser.add_argument(
+            "--log-file",
+            type=str,
+            metavar="PATH",
+            help="Write log messages to specified file in addition to console output"
+        )
+        parser.add_argument(
+            "--trace",
+            action="store_true",
+            help="Enable trace mode with very verbose logging and per-stage timing information"
+        )
 
         # Argument validation options
         parser.add_argument(

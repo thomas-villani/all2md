@@ -68,29 +68,117 @@ def _get_version() -> str:
 
 
 def _get_about_info() -> str:
-    """Get detailed information about all2md."""
+    """Get detailed information about all2md including system info and dependencies."""
+    import platform
+    from all2md.converter_registry import registry
+    from all2md.dependencies import get_package_version, check_version_requirement
+
     version_str = _get_version()
+
+    # System information
+    python_version = platform.python_version()
+    python_path = sys.executable
+    os_info = platform.platform()
+    architecture = platform.machine()
+
+    # Get dependency information
+    registry.auto_discover()
+    formats = registry.list_formats()
+
+    # Count available formats
+    available_formats = []
+    unavailable_formats = []
+
+    for format_name in formats:
+        metadata = registry.get_format_info(format_name)
+        if not metadata:
+            continue
+
+        # Check if all dependencies are satisfied
+        all_available = True
+        if metadata.required_packages:
+            for install_name, import_name, version_spec in metadata.required_packages:
+                if version_spec:
+                    meets_req, _ = check_version_requirement(install_name, version_spec)
+                    if not meets_req:
+                        all_available = False
+                        break
+                else:
+                    installed_version = get_package_version(install_name)
+                    if not installed_version:
+                        all_available = False
+                        break
+
+        if all_available:
+            available_formats.append(format_name)
+        else:
+            unavailable_formats.append(format_name)
+
+    # Get unique dependencies across all formats
+    all_deps = {}
+    for format_name in formats:
+        metadata = registry.get_format_info(format_name)
+        if metadata and metadata.required_packages:
+            for install_name, import_name, version_spec in metadata.required_packages:
+                if install_name not in all_deps:
+                    installed_version = get_package_version(install_name)
+                    if version_spec:
+                        meets_req, _ = check_version_requirement(install_name, version_spec)
+                        status = 'installed' if meets_req else 'version_mismatch'
+                    else:
+                        meets_req = installed_version is not None
+                        status = 'installed' if meets_req else 'not_installed'
+
+                    all_deps[install_name] = {
+                        'version': installed_version,
+                        'required': version_spec,
+                        'status': status
+                    }
+
+    # Build dependency report
+    dep_lines = []
+    for pkg_name, dep_info in sorted(all_deps.items()):
+        if dep_info['status'] == 'installed':
+            check = "✓"
+            version_info = f"{dep_info['version']}"
+            if dep_info['required']:
+                version_info += f" (required: {dep_info['required']})"
+        elif dep_info['status'] == 'version_mismatch':
+            check = "✗"
+            version_info = f"{dep_info['version']} (required: {dep_info['required']})"
+        else:
+            check = "✗"
+            version_info = "not installed"
+
+        dep_lines.append(f"  {check} {pkg_name:20} {version_info}")
+
+    dependencies_report = "\n".join(dep_lines) if dep_lines else "  (none)"
+
+    # Build format availability report
+    total_formats = len(available_formats) + len(unavailable_formats)
+    available_count = len(available_formats)
+
     return f"""all2md {version_str}
 
 A Python document conversion library for transformation
-between various file formats to Markdown.
+between various file formats and Markdown.
 
-Supported formats:
-  • PDF documents
-  • Word documents (DOCX)
-  • PowerPoint presentations (PPTX)
-  • HTML documents
-  • Email messages (EML)
-  • EPUB e-books
-  • Jupyter Notebooks (IPYNB)
-  • OpenDocument Text/Presentation (ODT/ODP)
-  • Rich Text Format (RTF)
-  • Excel spreadsheets (XLSX)
-  • CSV/TSV files
-  • 200+ text file formats
+System Information:
+  Python:        {python_version} ({python_path})
+  Platform:      {os_info}
+  Architecture:  {architecture}
+
+Installed Dependencies ({len([d for d in all_deps.values() if d['status'] == 'installed'])}/{len(all_deps)}):
+{dependencies_report}
+
+Available Formats ({available_count}/{total_formats} ready):
+  Ready:   {', '.join(sorted(available_formats))}
+  Missing: {', '.join(sorted(unavailable_formats)) if unavailable_formats else '(none)'}
 
 Features:
   • Advanced PDF parsing with table detection
+  • AST-based transformation pipeline
+  • Plugin system for custom transforms
   • Intelligent format detection from content
   • Configurable Markdown output options
   • Attachment handling (download, embed, skip)
@@ -99,9 +187,67 @@ Features:
   • Multi-file and directory processing
   • Rich terminal output and progress bars
 
+Install all dependencies: pip install all2md[all]
+Install specific format:   pip install all2md[pdf,docx,html]
+
 Documentation: https://github.com/thomas.villani/all2md
 License: MIT License
 Author: Thomas Villani <thomas.villani@gmail.com>"""
+
+
+def _configure_logging(
+    log_level: int,
+    log_file: Optional[str] = None,
+    trace_mode: bool = False
+) -> None:
+    """Configure logging with console and optional file output.
+
+    Parameters
+    ----------
+    log_level : int
+        Logging level (DEBUG, INFO, WARNING, ERROR)
+    log_file : str, optional
+        Path to log file for writing logs
+    trace_mode : bool, default False
+        Enable trace mode with timestamps and detailed formatting
+    """
+    # Create root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    # Remove existing handlers to avoid duplicates
+    root_logger.handlers.clear()
+
+    # Format string depends on trace mode
+    if trace_mode:
+        # Trace mode: detailed format with timestamps
+        format_str = '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
+        date_format = '%Y-%m-%d %H:%M:%S'
+    else:
+        # Normal mode: simple format
+        format_str = '%(levelname)s: %(message)s'
+        date_format = None
+
+    formatter = logging.Formatter(format_str, datefmt=date_format)
+
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    # File handler if log_file is specified
+    if log_file:
+        try:
+            file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+
+            # Log to stderr so user knows where logs are going
+            print(f"Logging to file: {log_file}", file=sys.stderr)
+        except Exception as e:
+            print(f"Warning: Could not create log file {log_file}: {e}", file=sys.stderr)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -167,6 +313,38 @@ def create_parser() -> argparse.ArgumentParser:
         '--preserve-structure',
         action=TrackingStoreTrueAction,
         help='Preserve directory structure in output directory'
+    )
+
+    parser.add_argument(
+        '--zip',
+        action=TrackingStoreAction,
+        nargs='?',
+        const='auto',
+        metavar='PATH',
+        help='Create zip archive of output (optionally specify custom path, default: output_dir.zip)'
+    )
+
+    parser.add_argument(
+        '--assets-layout',
+        action=TrackingStoreAction,
+        choices=['flat', 'by-stem', 'structured'],
+        default='flat',
+        help='Asset organization: flat (single assets/ dir), by-stem (assets/{doc}/), structured (preserve structure)'
+    )
+
+    parser.add_argument(
+        '--watch',
+        action=TrackingStoreTrueAction,
+        help='Watch mode: monitor files/directories and convert on change (requires --output-dir)'
+    )
+
+    parser.add_argument(
+        '--watch-debounce',
+        action=TrackingStoreAction,
+        type=float,
+        default=1.0,
+        metavar='SECONDS',
+        help='Debounce delay for watch mode in seconds (default: 1.0)'
     )
 
     parser.add_argument(
@@ -1960,12 +2138,20 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 
-    if parsed_args.verbose and parsed_args.log_level == "WARNING":
+    # Set up logging level
+    if parsed_args.trace:
+        log_level = logging.DEBUG
+    elif parsed_args.verbose and parsed_args.log_level == "WARNING":
         log_level = logging.DEBUG
     else:
         log_level = getattr(logging, parsed_args.log_level.upper())
 
-    logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
+    # Configure logging with file handler if --log-file is specified
+    _configure_logging(
+        log_level,
+        log_file=parsed_args.log_file,
+        trace_mode=parsed_args.trace
+    )
 
     if not validate_arguments(parsed_args):
         return EXIT_INPUT_ERROR
@@ -2265,15 +2451,21 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Set up logging level - configures root logger for all modules
     # Note: All modules use logging.getLogger(__name__) for consistent logger hierarchy
-    # If --verbose is specified and --log-level is at default, use DEBUG
-    if parsed_args.verbose and parsed_args.log_level == "WARNING":
+    # --trace takes highest precedence, then --verbose, then --log-level
+    if parsed_args.trace:
+        log_level = logging.DEBUG
+    elif parsed_args.verbose and parsed_args.log_level == "WARNING":
         log_level = logging.DEBUG
     else:
         # --log-level takes precedence if explicitly set
         log_level = getattr(logging, parsed_args.log_level.upper())
 
-    # Configure logging once at CLI entry point (basicConfig is idempotent)
-    logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
+    # Configure logging with file handler if --log-file is specified
+    _configure_logging(
+        log_level,
+        log_file=parsed_args.log_file,
+        trace_mode=parsed_args.trace
+    )
 
     # Handle stdin input
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
@@ -2345,6 +2537,33 @@ def main(args: Optional[list[str]] = None) -> int:
         from all2md.constants import EXIT_INPUT_ERROR
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_INPUT_ERROR
+
+    # Handle watch mode if requested
+    if parsed_args.watch:
+        from all2md.constants import EXIT_INPUT_ERROR
+
+        # Watch mode requires --output-dir
+        if not parsed_args.output_dir:
+            print("Error: --watch requires --output-dir to be specified", file=sys.stderr)
+            return EXIT_INPUT_ERROR
+
+        # Import and run watch mode
+        from all2md.cli.watch import run_watch_mode
+
+        # Convert input paths (which might be strings) to Path objects
+        paths_to_watch = [Path(f) for f in parsed_args.input]
+
+        return run_watch_mode(
+            paths=paths_to_watch,
+            output_dir=Path(parsed_args.output_dir),
+            options=options,
+            format_arg=format_arg,
+            transforms=transforms,
+            debounce=parsed_args.watch_debounce,
+            preserve_structure=parsed_args.preserve_structure,
+            recursive=parsed_args.recursive,
+            exclude_patterns=parsed_args.exclude
+        )
 
     # Delegate to multi-file processor
     return process_multi_file(files, parsed_args, options, format_arg, transforms)

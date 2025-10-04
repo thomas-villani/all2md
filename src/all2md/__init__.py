@@ -535,7 +535,15 @@ def to_markdown(
 
     # Convert to AST
     try:
-        ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format)
+        # Log timing for parsing stage in trace mode
+        if logger.isEnabledFor(logging.DEBUG):
+            import time
+            start_time = time.perf_counter()
+            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format)
+            parse_time = time.perf_counter() - start_time
+            logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
+        else:
+            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format)
     except DependencyError:
         raise
     except FormatError as e:
@@ -574,12 +582,24 @@ def to_markdown(
             return content.replace("\r\n", "\n").replace("\r", "\n")
 
     # Apply transforms and render using pipeline
-    content = transforms_module.render(
-        ast_doc,
-        transforms=transforms or [],
-        renderer="markdown",
-        options=final_renderer_options
-    )
+    if logger.isEnabledFor(logging.DEBUG):
+        import time
+        start_time = time.perf_counter()
+        content = transforms_module.render(
+            ast_doc,
+            transforms=transforms or [],
+            renderer="markdown",
+            options=final_renderer_options
+        )
+        render_time = time.perf_counter() - start_time
+        logger.debug(f"Rendering (markdown) completed in {render_time:.2f}s")
+    else:
+        content = transforms_module.render(
+            ast_doc,
+            transforms=transforms or [],
+            renderer="markdown",
+            options=final_renderer_options
+        )
 
     return content.replace("\r\n", "\n").replace("\r", "\n")
 

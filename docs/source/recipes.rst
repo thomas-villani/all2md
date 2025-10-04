@@ -1697,4 +1697,178 @@ Batch Document Transformation
        transformers=transformers
    )
 
+Developer Workflows
+-------------------
+
+Live Documentation with Watch Mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem:** You're writing documentation in various formats and want to automatically regenerate Markdown output as you edit source files.
+
+**Solution:**
+
+.. code-block:: bash
+
+   # Watch a documentation directory
+   all2md ./source-docs \
+       --watch \
+       --recursive \
+       --output-dir ./docs-markdown \
+       --watch-debounce 0.5 \
+       --exclude "*.tmp" \
+       --exclude "*.draft.*" \
+       --log-file watch.log
+
+   # Watch a single file during editing
+   all2md my-guide.docx \
+       --watch \
+       --output-dir ./preview \
+       --watch-debounce 0.3
+
+   # Watch with specific format conversion
+   all2md ./slides \
+       --watch \
+       --recursive \
+       --format pptx \
+       --output-dir ./markdown-slides \
+       --pptx-include-slide-numbers
+
+**Common Use Cases:**
+
+* **Documentation Development:** Live preview of converted markdown
+* **Content Authoring:** Real-time feedback when editing source documents
+* **Testing:** Auto-convert test fixtures during development
+* **CI/CD Integration:** Watch mode can be used in development containers
+
+**Tips:**
+
+* Use shorter debounce values (0.3-0.5s) for fast iteration
+* Combine with ``--exclude`` to ignore temporary/backup files
+* Use ``--log-file`` to track conversion issues without cluttering console
+* Press ``Ctrl+C`` to stop watch mode
+
+Creating Shareable Documentation Bundles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem:** You need to convert multiple documents and create a portable, organized ZIP archive with all assets properly structured.
+
+**Solution:**
+
+.. code-block:: bash
+
+   # Create organized bundle with flat asset layout
+   all2md ./project-docs \
+       --recursive \
+       --output-dir ./bundle \
+       --assets-layout flat \
+       --zip project-docs.zip \
+       --attachment-mode download \
+       --preserve-structure
+
+   # Create per-document asset organization
+   all2md report1.pdf report2.pdf report3.pdf \
+       --output-dir ./reports \
+       --assets-layout by-stem \
+       --zip reports-bundle.zip \
+       --attachment-mode download
+
+   # Structured layout preserving directory hierarchy
+   all2md ./company-docs \
+       --recursive \
+       --output-dir ./archive \
+       --assets-layout structured \
+       --zip company-archive.zip \
+       --preserve-structure
+
+**Asset Layout Comparison:**
+
+* **flat**: All assets in single ``assets/`` directory - simplest, potential name conflicts
+* **by-stem**: Assets organized by document name ``assets/{doc_name}/`` - clean separation
+* **structured**: Preserves original directory structure - best for complex hierarchies
+
+**Complete Example:**
+
+.. code-block:: bash
+
+   # Professional documentation bundle
+   all2md ./technical-docs \
+       --recursive \
+       --output-dir ./output \
+       --zip technical-docs-$(date +%Y%m%d).zip \
+       --assets-layout by-stem \
+       --attachment-mode download \
+       --preserve-structure \
+       --exclude "*.draft.*" \
+       --exclude "*.tmp" \
+       --parallel 4 \
+       --skip-errors \
+       --log-file conversion.log \
+       --rich
+
+This creates:
+* Organized markdown files in ``output/``
+* Assets organized per document in ``assets/{document_name}/``
+* ZIP archive with timestamp
+* Conversion log for troubleshooting
+
+Debugging and Performance Analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem:** You need to troubleshoot conversion issues or analyze performance bottlenecks in batch processing.
+
+**Solution:**
+
+.. code-block:: bash
+
+   # Detailed trace logging for single file
+   all2md complex-document.pdf \
+       --trace \
+       --log-file trace-output.log \
+       --out result.md
+
+   # Trace batch processing with timing
+   all2md ./documents \
+       --recursive \
+       --output-dir ./converted \
+       --trace \
+       --log-file batch-trace.log \
+       --skip-errors
+
+   # Performance analysis of large conversion
+   all2md huge-report.pdf \
+       --trace \
+       --log-file performance.log \
+       --log-level DEBUG
+
+**Analyzing Trace Output:**
+
+The trace log includes detailed timing for each stage:
+
+.. code-block:: text
+
+   [2025-01-04 10:15:23] [DEBUG] [all2md] Starting: Parse PDF document
+   [2025-01-04 10:15:25] [DEBUG] [all2md] Parsing (pdf) completed in 2.34s
+   [2025-01-04 10:15:25] [DEBUG] [all2md] Starting: Apply transforms
+   [2025-01-04 10:15:25] [DEBUG] [all2md] Transform pipeline completed in 0.12s
+   [2025-01-04 10:15:25] [DEBUG] [all2md] Starting: Render to markdown
+   [2025-01-04 10:15:26] [DEBUG] [all2md] Rendering completed in 0.89s
+
+**System Information for Bug Reports:**
+
+.. code-block:: bash
+
+   # Get complete system info
+   all2md --about > system-info.txt
+
+   # Check specific format dependencies
+   all2md check-deps pdf
+   all2md check-deps docx
+
+**Use Cases:**
+
+* Identifying slow conversion stages
+* Debugging complex document issues
+* Collecting info for bug reports
+* Performance optimization
+
 Each recipe provides a complete, tested solution that you can adapt to your specific needs. The examples demonstrate both CLI and Python API approaches, with emphasis on real-world considerations like security, performance, and error handling.
