@@ -1,0 +1,19 @@
+all2md.renderers package
+========================
+
+.. automodule:: all2md.renderers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   all2md.renderers.base
+   all2md.renderers.docx
+   all2md.renderers.html
+   all2md.renderers.markdown
+   all2md.renderers.pdf

@@ -1,5 +1,5 @@
-all2md API Documentation
-========================
+all2md
+======
 
 .. toctree::
    :maxdepth: 4

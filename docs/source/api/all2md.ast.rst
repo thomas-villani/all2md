@@ -13,7 +13,7 @@ Submodules
    :maxdepth: 4
 
    all2md.ast.builder
-   all2md.ast.flavors
    all2md.ast.nodes
-   all2md.ast.renderer
+   all2md.ast.serialization
+   all2md.ast.transforms
    all2md.ast.visitors

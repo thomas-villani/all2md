@@ -12,7 +12,11 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   all2md.converters
+   all2md.ast
+   all2md.cli
+   all2md.parsers
+   all2md.renderers
+   all2md.transforms
    all2md.utils
 
 Submodules
@@ -21,7 +25,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   all2md.cli
    all2md.constants
    all2md.converter_metadata
    all2md.converter_registry

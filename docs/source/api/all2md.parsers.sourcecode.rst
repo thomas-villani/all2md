@@ -1,7 +1,7 @@
-all2md.converters.rtf2ast module
+all2md.parsers.sourcecode module
 ================================
 
-.. automodule:: all2md.converters.rtf2ast
+.. automodule:: all2md.parsers.sourcecode
    :members:
    :show-inheritance:
    :undoc-members:

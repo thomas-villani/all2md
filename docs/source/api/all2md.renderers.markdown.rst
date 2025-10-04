@@ -1,7 +1,7 @@
-all2md.converters.eml2ast module
+all2md.renderers.markdown module
 ================================
 
-.. automodule:: all2md.converters.eml2ast
+.. automodule:: all2md.renderers.markdown
    :members:
    :show-inheritance:
    :undoc-members:
