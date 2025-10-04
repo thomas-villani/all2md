@@ -119,6 +119,16 @@ from .constants import (
     DEFAULT_INCLUDE_METADATA_FRONTMATTER,
     DEFAULT_MATH_MODE,
     DEFAULT_METADATA_FORMAT,
+    # RST-specific constants
+    DEFAULT_RST_HEADING_CHARS,
+    DEFAULT_RST_TABLE_STYLE,
+    DEFAULT_RST_CODE_STYLE,
+    DEFAULT_RST_LINE_LENGTH,
+    DEFAULT_RST_PARSE_DIRECTIVES,
+    DEFAULT_RST_STRICT_MODE,
+    DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
+    RstTableStyle,
+    RstCodeStyle,
 )
 
 
@@ -2133,6 +2143,103 @@ class MarkdownParserOptions(BaseParserOptions):
         metadata={
             "help": "Preserve raw HTML in AST (HTMLBlock/HTMLInline nodes)",
             "cli_name": "no-preserve-html"
+        }
+    )
+
+
+@dataclass(frozen=True)
+class RstParserOptions(BaseParserOptions):
+    """Configuration options for reStructuredText-to-AST parsing.
+
+    This dataclass contains settings specific to parsing reStructuredText documents
+    into AST representation using docutils.
+
+    Parameters
+    ----------
+    parse_directives : bool, default True
+        Whether to parse RST directives (code-block, image, note, etc.).
+        When True, directives are converted to appropriate AST nodes.
+        When False, directives are preserved as code blocks.
+    strict_mode : bool, default False
+        Whether to raise errors on invalid RST syntax.
+        When False, attempts to recover gracefully.
+    preserve_raw_directives : bool, default False
+        Whether to preserve unknown directives as code blocks.
+        When True, unknown directives become CodeBlock nodes.
+        When False, they are processed through docutils default handling.
+    """
+
+    parse_directives: bool = field(
+        default=DEFAULT_RST_PARSE_DIRECTIVES,
+        metadata={
+            "help": "Parse RST directives (code-block, image, etc.)",
+            "cli_name": "no-parse-directives"
+        }
+    )
+    strict_mode: bool = field(
+        default=DEFAULT_RST_STRICT_MODE,
+        metadata={
+            "help": "Raise errors on invalid RST syntax (vs. graceful recovery)"
+        }
+    )
+    preserve_raw_directives: bool = field(
+        default=DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
+        metadata={
+            "help": "Preserve unknown directives as code blocks",
+            "cli_name": "preserve-raw-directives"
+        }
+    )
+
+
+@dataclass(frozen=True)
+class RstRendererOptions(BaseRendererOptions):
+    """Configuration options for AST-to-reStructuredText rendering.
+
+    This dataclass contains settings for rendering AST documents as
+    reStructuredText output.
+
+    Parameters
+    ----------
+    heading_chars : str, default "=-~^*"
+        Characters to use for heading underlines from h1 to h5.
+        First character is for level 1, second for level 2, etc.
+    table_style : {"grid", "simple"}, default "grid"
+        Table rendering style:
+        - "grid": Grid tables with +---+ borders
+        - "simple": Simple tables with === separators
+    code_directive_style : {"double_colon", "directive"}, default "directive"
+        Code block rendering style:
+        - "double_colon": Use :: literal blocks
+        - "directive": Use .. code-block:: directive
+    line_length : int, default 80
+        Target line length for wrapping text.
+    """
+
+    heading_chars: str = field(
+        default=DEFAULT_RST_HEADING_CHARS,
+        metadata={
+            "help": "Characters for heading underlines (h1-h5)"
+        }
+    )
+    table_style: RstTableStyle = field(
+        default=DEFAULT_RST_TABLE_STYLE,  # type: ignore[arg-type]
+        metadata={
+            "help": "Table rendering style",
+            "choices": ["grid", "simple"]
+        }
+    )
+    code_directive_style: RstCodeStyle = field(
+        default=DEFAULT_RST_CODE_STYLE,  # type: ignore[arg-type]
+        metadata={
+            "help": "Code block rendering style",
+            "choices": ["double_colon", "directive"]
+        }
+    )
+    line_length: int = field(
+        default=DEFAULT_RST_LINE_LENGTH,
+        metadata={
+            "help": "Target line length for wrapping",
+            "type": int
         }
     )
 

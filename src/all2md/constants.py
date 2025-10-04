@@ -262,6 +262,21 @@ IPYNB_SUPPORTED_IMAGE_MIMETYPES = [
 ]
 
 # =============================================================================
+# reStructuredText (RST) Constants
+# =============================================================================
+
+RstTableStyle = Literal["grid", "simple"]
+RstCodeStyle = Literal["double_colon", "directive"]
+
+DEFAULT_RST_HEADING_CHARS = "=-~^*"
+DEFAULT_RST_TABLE_STYLE: RstTableStyle = "grid"
+DEFAULT_RST_CODE_STYLE: RstCodeStyle = "directive"
+DEFAULT_RST_LINE_LENGTH = 80
+DEFAULT_RST_PARSE_DIRECTIVES = True
+DEFAULT_RST_STRICT_MODE = False
+DEFAULT_RST_PRESERVE_RAW_DIRECTIVES = False
+
+# =============================================================================
 # File Extension Lists
 # =============================================================================
 _PLAINTEXT_EXTENSIONS_JSON_FILE = Path(__file__).parent / "_plaintext-exts.json"
