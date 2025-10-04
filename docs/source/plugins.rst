@@ -43,11 +43,11 @@ Your converter function should accept the same signature as built-in converters:
     # all2md_myformat/converter.py
     from pathlib import Path
     from typing import IO, Union
-    from all2md.options import BaseOptions
+    from all2md.options import BaseParserOptions
 
     def myformat_to_markdown(
         input_data: Union[str, Path, IO[bytes]],
-        options: BaseOptions | None = None
+        options: BaseParserOptions | None = None
     ) -> str:
         """Convert MyFormat documents to Markdown.
 
@@ -55,7 +55,7 @@ Your converter function should accept the same signature as built-in converters:
         ----------
         input_data : str, Path, or IO[bytes]
             The document to convert
-        options : BaseOptions | None
+        options : BaseParserOptions | None
             Conversion options
 
         Returns
@@ -105,7 +105,7 @@ Create a ``ConverterMetadata`` object that describes your converter:
             "MyFormat conversion requires 'myformat-parser' version 1.0.0 or later. "
             "Install with: pip install 'myformat-parser>=1.0.0'"
         ),
-        parser_options_class="BaseOptions",  # See Custom Options Classes section below
+        parser_options_class="BaseParserOptions",  # See Custom Options Classes section below
         renderer_options_class="MarkdownOptions",  # Options for markdown rendering
         description="Convert MyFormat documents to Markdown with advanced features",
         priority=5  # Higher numbers = higher priority for format detection
@@ -135,7 +135,7 @@ Configure your ``pyproject.toml`` to register the plugin:
         "myformat-parser>=1.0.0",
     ]
 
-    [project.entry-points."all2md.converters"]
+    [project.entry-points."all2md.parsers"]
     myformat = "all2md_myformat.converter:CONVERTER_METADATA"
 
     [project.urls]
@@ -158,7 +158,7 @@ For options classes defined in ``all2md.options``:
 
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
-        options_class="BaseOptions",  # Looks in all2md.options module
+        options_class="BaseParserOptions",  # Looks in all2md.options module
         # ... rest of metadata ...
     )
 
@@ -170,10 +170,10 @@ For custom options classes in your plugin package:
 
     # all2md_myformat/options.py
     from dataclasses import dataclass
-    from all2md.options import BaseOptions
+    from all2md.options import BaseParserOptions
 
     @dataclass
-    class MyFormatOptions(BaseOptions):
+    class MyFormatOptions(BaseParserOptions):
         """Options for MyFormat conversion."""
 
         extract_metadata: bool = True

@@ -20,7 +20,12 @@ release = "0.1.0"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon", "sphinx_copybutton"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.doctest",
+    "sphinx_copybutton"
+]
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -38,6 +43,25 @@ autodoc_member_order = "bysource"
 autoclass_content = "both"
 autodoc_typehints = "signature"
 
+# -- Options for doctest -----------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/extensions/doctest.html
+
+doctest_test_doctest_blocks = "default"
+doctest_global_setup = """
+from all2md import to_markdown, to_ast
+from all2md.options import (
+    PdfOptions, DocxOptions, HtmlOptions, PptxOptions,
+    EmlOptions, IpynbOptions, MarkdownOptions
+)
+from all2md.ast import NodeVisitor, Heading
+from all2md.renderers.markdown import MarkdownRenderer
+from all2md.utils.flavors import GFMFlavor
+from pathlib import Path
+import tempfile
+"""
+
+# Skip testing code blocks that require external files or network
+doctest_default_flags = 0
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

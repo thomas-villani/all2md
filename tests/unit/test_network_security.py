@@ -514,3 +514,283 @@ class TestEventHooksImplementation:
 
         # Verify timeout is set (as an httpx.Timeout object)
         assert client.timeout is not None
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestRedirectLimitEdgeCases:
+    """Test redirect limit enforcement edge cases."""
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_exactly_at_redirect_limit(self, mock_resolve):
+        """Test that exactly max_redirects redirects are allowed."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
+
+        # Create client with max_redirects=3
+        client = create_secure_http_client(max_redirects=3)
+
+        # Create mock response with exactly 3 redirects in history
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.history = [
+            Mock(url="http://example.com/1"),
+            Mock(url="http://example.com/2"),
+            Mock(url="http://example.com/3")
+        ]
+        mock_response.request = Mock()
+        mock_response.request.extensions = {'redirect_count': 3}
+
+        # Get the response validation hook
+        validate_response = client.event_hooks['response'][0]
+
+        # Should not raise - exactly at limit
+        validate_response(mock_response)
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_one_over_redirect_limit(self, mock_resolve):
+        """Test that max_redirects + 1 redirects are blocked."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
+
+        client = create_secure_http_client(max_redirects=3)
+
+        # Create mock response with 4 redirects (one over limit)
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.history = [
+            Mock(url="http://example.com/1"),
+            Mock(url="http://example.com/2"),
+            Mock(url="http://example.com/3"),
+            Mock(url="http://example.com/4")
+        ]
+        mock_response.request = Mock()
+        mock_response.request.extensions = {'redirect_count': 4}
+
+        validate_response = client.event_hooks['response'][0]
+
+        # Should raise - over limit
+        with pytest.raises(NetworkSecurityError, match="Too many redirects"):
+            validate_response(mock_response)
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_redirect_loop_detection(self, mock_resolve):
+        """Test that redirect loops eventually get blocked by limit."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
+
+        client = create_secure_http_client(max_redirects=5)
+
+        # Simulate redirect loop
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.history = [
+            Mock(url="http://example.com/a"),
+            Mock(url="http://example.com/b"),
+            Mock(url="http://example.com/a"),
+            Mock(url="http://example.com/b"),
+            Mock(url="http://example.com/a"),
+            Mock(url="http://example.com/b")
+        ]
+        mock_response.request = Mock()
+        mock_response.request.extensions = {'redirect_count': 6}
+
+        validate_response = client.event_hooks['response'][0]
+
+        # Should raise - exceeds limit
+        with pytest.raises(NetworkSecurityError, match="Too many redirects"):
+            validate_response(mock_response)
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_redirect_from_https_to_http_blocked_with_require_https(self, mock_resolve):
+        """Test that HTTPS->HTTP redirects are blocked when require_https=True."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        def mock_resolver(hostname):
+            return [ipaddress.IPv4Address("8.8.8.8")]
+
+        mock_resolve.side_effect = mock_resolver
+
+        client = create_secure_http_client(max_redirects=5, require_https=True)
+
+        # Simulate redirect from HTTPS to HTTP
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.history = [
+            Mock(url="https://example.com/secure"),
+            Mock(url="http://example.com/insecure")  # Downgrade to HTTP
+        ]
+        mock_response.request = Mock()
+        mock_response.request.extensions = {'redirect_count': 2}
+
+        validate_response = client.event_hooks['response'][0]
+
+        # Should raise due to HTTP in redirect chain
+        with pytest.raises(NetworkSecurityError, match="HTTPS required"):
+            validate_response(mock_response)
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_redirect_to_private_ip_blocked(self, mock_resolve):
+        """Test that redirects to private IPs are blocked."""
+        from all2md.utils.network_security import create_secure_http_client
+
+        def mock_resolver(hostname):
+            if hostname == "public.com":
+                return [ipaddress.IPv4Address("8.8.8.8")]
+            elif hostname == "192.168.1.1":
+                return [ipaddress.IPv4Address("192.168.1.1")]
+            return [ipaddress.IPv4Address("8.8.8.8")]
+
+        mock_resolve.side_effect = mock_resolver
+
+        client = create_secure_http_client(max_redirects=5)
+
+        # Simulate redirect to private IP
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.history = [
+            Mock(url="http://public.com/start"),
+            Mock(url="http://192.168.1.1/admin")  # Private IP
+        ]
+        mock_response.request = Mock()
+        mock_response.request.extensions = {'redirect_count': 2}
+
+        validate_response = client.event_hooks['response'][0]
+
+        # Should raise due to private IP in redirect
+        with pytest.raises(Exception):  # NetworkSecurityError wrapped
+            validate_response(mock_response)
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestSSRFEdgeCases:
+    """Test SSRF prevention edge cases and advanced attack vectors."""
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_dns_rebinding_simulation(self, mock_resolve):
+        """Test that DNS rebinding attacks are prevented by checking all resolved IPs."""
+        # Simulate DNS rebinding: first resolves to public IP, then to private
+        call_count = [0]
+
+        def dns_rebinding_resolver(hostname):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First resolution: public IP (attacker's server)
+                return [ipaddress.IPv4Address("8.8.8.8")]
+            else:
+                # Subsequent resolutions: private IP (internal server)
+                return [ipaddress.IPv4Address("192.168.1.1")]
+
+        mock_resolve.side_effect = dns_rebinding_resolver
+
+        # First call should pass (public IP)
+        validate_url_security("http://rebinding.evil.com")
+
+        # Second call with same hostname should fail (private IP)
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://rebinding.evil.com")
+
+    def test_ipv6_localhost_blocked(self):
+        """Test that IPv6 localhost addresses are blocked."""
+        ipv6_loopback_urls = [
+            "http://[::1]/admin",
+            "http://[0:0:0:0:0:0:0:1]/secret",
+        ]
+
+        for url in ipv6_loopback_urls:
+            with pytest.raises(NetworkSecurityError):
+                validate_url_security(url)
+
+    def test_ipv6_link_local_blocked(self):
+        """Test that IPv6 link-local addresses are blocked."""
+        with pytest.raises(NetworkSecurityError):
+            validate_url_security("http://[fe80::1]/internal")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_ipv4_mapped_ipv6_blocked(self, mock_resolve):
+        """Test that IPv4-mapped IPv6 addresses are blocked if they're private."""
+        # IPv4-mapped IPv6 for 127.0.0.1
+        mock_resolve.return_value = [ipaddress.IPv6Address("::ffff:127.0.0.1")]
+
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://ipv4mapped.example.com")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_multiple_ips_with_one_private(self, mock_resolve):
+        """Test that if any resolved IP is private, the URL is blocked."""
+        # Hostname resolves to both public and private IPs
+        mock_resolve.return_value = [
+            ipaddress.IPv4Address("8.8.8.8"),       # Public
+            ipaddress.IPv4Address("192.168.1.1"),   # Private
+            ipaddress.IPv4Address("1.1.1.1")        # Public
+        ]
+
+        # Should be blocked because one IP is private
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://mixed-ips.example.com")
+
+    def test_url_encoding_normalization(self):
+        """Test that URL encoding doesn't bypass IP checks."""
+        # URL-encoded localhost variations
+        encoded_urls = [
+            "http://127.0.0.1/admin",
+            "http://0x7f.0x0.0x0.0x1/admin",  # Hex notation
+        ]
+
+        for url in encoded_urls:
+            with pytest.raises(NetworkSecurityError):
+                validate_url_security(url)
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_aws_metadata_service_blocked(self, mock_resolve):
+        """Test that AWS metadata service IP is blocked."""
+        mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
+
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://instance-metadata.amazonaws.com")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_gcp_metadata_service_blocked(self, mock_resolve):
+        """Test that GCP metadata service IP is blocked."""
+        # GCP uses 169.254.169.254 via metadata.google.internal
+        mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
+
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://metadata.google.internal")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_azure_metadata_service_blocked(self, mock_resolve):
+        """Test that Azure metadata service IP is blocked."""
+        # Azure uses 169.254.169.254
+        mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
+
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://169.254.169.254/metadata/instance")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_docker_internal_network_blocked(self, mock_resolve):
+        """Test that Docker internal network IPs are blocked."""
+        # Common Docker bridge network
+        mock_resolve.return_value = [ipaddress.IPv4Address("172.17.0.1")]
+
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://docker.internal")
+
+    def test_broadcast_address_blocked(self):
+        """Test that broadcast addresses are blocked."""
+        # 255.255.255.255 is reserved
+        with pytest.raises(NetworkSecurityError):
+            validate_url_security("http://255.255.255.255/admin")
+
+    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    def test_multicast_address_blocked(self, mock_resolve):
+        """Test that multicast addresses are blocked."""
+        # 224.0.0.0/4 is multicast
+        mock_resolve.return_value = [ipaddress.IPv4Address("224.0.0.1")]
+
+        with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            validate_url_security("http://multicast.example.com")

@@ -227,7 +227,7 @@ PDF Problems
    # Check if PDF is text-based
    from all2md import to_markdown, PdfOptions
 
-   options = PdfOptions(pages=[0])  # Test first page only
+   options = PdfOptions(pages=[1])  # Test first page only
    markdown = to_markdown('document.pdf', options=options)
 
    if not markdown.strip():
@@ -443,7 +443,7 @@ Slow Processing
    from all2md import PdfOptions
 
    # Process specific pages only
-   options = PdfOptions(pages=[0, 1, 2])  # First 3 pages
+   options = PdfOptions(pages=[1, 2, 3])  # First 3 pages
 
    # Skip images for faster processing
    options = PdfOptions(attachment_mode='skip')

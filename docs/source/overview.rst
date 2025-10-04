@@ -121,6 +121,48 @@ The ``to_markdown()`` function in ``__init__.py`` acts as the orchestrator:
        # 4. Route to appropriate converter
        # 5. Return clean Markdown string
 
+General Format Conversion
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For conversions between any supported formats (not just to Markdown), use the ``convert()`` function:
+
+.. code-block:: python
+
+   from all2md import convert
+   from all2md.options import PdfOptions, MarkdownOptions
+
+   # Convert PDF to Markdown (returns string)
+   markdown = convert("document.pdf", target_format="markdown")
+
+   # Convert PDF to DOCX (writes to file)
+   convert("document.pdf", "output.docx")
+
+   # Convert Markdown to HTML with options
+   convert(
+       source="report.md",
+       output="report.html",
+       target_format="html",
+       renderer_options=HtmlRendererOptions(...)
+   )
+
+   # Convert with AST transforms
+   convert(
+       source="input.docx",
+       output="output.pdf",
+       transforms=["remove-images", "heading-offset"],
+       parser_options=DocxOptions(...),
+       renderer_options=PdfRendererOptions(...)
+   )
+
+**Key Features:**
+
+* **Auto-detection**: Both source and target formats detected automatically
+* **Transform pipeline**: Apply AST transforms between parsing and rendering
+* **Flexible I/O**: Supports file paths, file objects, and bytes
+* **Return behavior**: Returns content if no output specified, else writes to file
+
+See :doc:`bidirectional` for detailed examples of Markdown-to-DOCX/HTML/PDF conversions.
+
 Format Detection Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -149,7 +191,7 @@ You can use the ``list-formats`` CLI command to explore which formats are suppor
    # Show only formats with available dependencies
    all2md list-formats --available-only
 
-This is particularly useful when diagnosing format detection issues or verifying that required dependencies are installed.
+This is particularly useful when diagnosing format detection issues or verifying that required dependencies are installed. See :doc:`troubleshooting` for common format detection issues and solutions.
 
 AST Architecture
 ~~~~~~~~~~~~~~~~
@@ -212,8 +254,9 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
 * **Serialization**: Save/load as JSON (``ast_to_json``, ``json_to_ast``)
 * **Builders**: Construct complex structures (``TableBuilder``, ``ListBuilder``)
 * **Flavors**: Render to CommonMark, GFM, or custom dialects
+* **Bidirectional conversion**: Render AST to DOCX, HTML, or PDF
 
-For complete AST documentation, see :doc:`ast_guide`.
+For complete AST documentation, see :doc:`ast_guide`. For bidirectional conversion examples (Markdown to DOCX/HTML/PDF), see :doc:`bidirectional`.
 
 Converter Architecture
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -361,7 +404,7 @@ HTML Documents
 
 **Network Security:**
 
-HTML processing includes sophisticated network security features to prevent SSRF attacks and control remote resource access:
+HTML processing includes sophisticated network security features to prevent SSRF attacks and control remote resource access. For comprehensive security information, see :doc:`security` and :doc:`threat_model`:
 
 .. code-block:: python
 
@@ -483,7 +526,7 @@ Each format's dependencies are isolated:
    except ImportError:
        raise ImportError("python-docx required for DOCX processing")
 
-This allows partial installations and clear error messages for missing dependencies.
+This allows partial installations and clear error messages for missing dependencies. See :doc:`installation` for complete dependency installation instructions.
 
 Programmatic Dependency Management
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -714,12 +757,14 @@ Extensibility
 Adding New Formats
 ~~~~~~~~~~~~~~~~~~
 
-The architecture makes it straightforward to add new formats:
+The architecture makes it straightforward to add new formats through the plugin system. See :doc:`plugins` for complete plugin development guide.
 
-1. Create converter module in ``converters/``
-2. Add format detection logic
-3. Create options dataclass
-4. Register in main entry point
+**Plugin Development Overview:**
+
+1. Create parser module extending ``BaseParser``
+2. Define format detection logic (extensions, MIME types, magic bytes)
+3. Create custom options dataclass
+4. Register via entry points
 
 .. code-block:: python
 
@@ -745,8 +790,12 @@ New option classes inherit from ``BaseOptions``:
 Integration Patterns
 --------------------
 
+For more practical examples and patterns, see :doc:`recipes`.
+
 Batch Processing
 ~~~~~~~~~~~~~~~~
+
+For complete CLI batch processing options, see :doc:`cli`.
 
 .. code-block:: python
 

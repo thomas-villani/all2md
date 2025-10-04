@@ -57,6 +57,76 @@ Version and Help
    # Show detailed about information
    all2md --about
 
+Discovery Commands
+------------------
+
+List Available Formats
+~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``all2md list-formats`` to see all supported file formats and their details.
+
+.. code-block:: bash
+
+   # List all formats
+   all2md list-formats
+
+   # Show only formats with all dependencies installed
+   all2md list-formats --available-only
+
+   # Display with rich formatting (tables and colors)
+   all2md list-formats --rich
+
+Example output:
+
+.. code-block:: text
+
+   Available Formats:
+
+   Format: pdf
+     Extensions: .pdf
+     MIME Types: application/pdf
+     Status: Available
+     Dependencies: PyMuPDF (fitz)
+
+   Format: docx
+     Extensions: .docx
+     MIME Types: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+     Status: Available
+     Dependencies: python-docx
+
+List Available Transforms
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``all2md list-transforms`` to see all available AST transforms. For detailed transform documentation, see :doc:`transforms`.
+
+.. code-block:: bash
+
+   # List all transforms
+   all2md list-transforms
+
+   # Show only installed transforms
+   all2md list-transforms --available-only
+
+   # Display with rich formatting
+   all2md list-transforms --rich
+
+Example output:
+
+.. code-block:: text
+
+   Available Transforms:
+
+   Transform: RemoveImagesTransform
+     Module: all2md.transforms.builtin
+     Description: Remove all image nodes from the AST
+     Status: Available
+
+   Transform: HeadingOffsetTransform
+     Module: all2md.transforms.builtin
+     Description: Adjust heading levels by a specified offset
+     Status: Available
+     Options: offset (int)
+
 Global Options
 --------------
 

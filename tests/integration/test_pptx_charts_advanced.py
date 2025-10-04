@@ -50,7 +50,7 @@ class TestPptxChartsAdvanced:
         ast_doc = converter.convert_to_ast(prs)
 
         renderer = MarkdownRenderer()
-        return renderer.render(ast_doc)
+        return renderer.render_to_string(ast_doc)
 
     def test_multiple_series_column_chart(self):
         """Test column chart with multiple data series."""

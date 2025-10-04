@@ -300,7 +300,8 @@ For advanced use cases, all2md provides an Abstract Syntax Tree (AST) API that e
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import NodeVisitor, Heading, MarkdownRenderer
+   from all2md.ast import NodeVisitor, Heading
+   from all2md.renderers.markdown import MarkdownRenderer
 
    # Convert to AST instead of Markdown
    doc_ast = to_ast('document.pdf')
@@ -321,7 +322,7 @@ For advanced use cases, all2md provides an Abstract Syntax Tree (AST) API that e
 
    # Use the visitor
    extractor = HeadingExtractor()
-   extractor.visit(doc_ast)
+   doc_ast.accept(extractor)
 
    print("Document Headings:")
    for heading in extractor.headings:

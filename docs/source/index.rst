@@ -47,7 +47,7 @@ Quick Example
    from all2md import PdfOptions
 
    options = PdfOptions(
-       pages=[0, 1, 2],  # First 3 pages only
+       pages=[1, 2, 3],  # First 3 pages only
        attachment_mode='download',
        attachment_output_dir='./images'
    )
@@ -107,6 +107,7 @@ User Guide
    overview
    architecture
    ast_guide
+   bidirectional
    transforms
    formats
    options

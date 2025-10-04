@@ -3,6 +3,8 @@ Recipes and Cookbook
 
 This cookbook provides practical solutions to common, complex problems when using all2md. Each recipe demonstrates real-world scenarios with complete, tested examples that you can adapt to your needs.
 
+For format-specific details, see :doc:`formats`. For configuration options, see :doc:`options`. For CLI batch processing, see :doc:`cli`. For AST manipulation, see :doc:`ast_guide`.
+
 .. contents::
    :local:
    :depth: 2

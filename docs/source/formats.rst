@@ -1,7 +1,7 @@
 Supported Formats
 =================
 
-all2md supports a wide range of document formats. This guide provides detailed examples and format-specific options for each supported type.
+all2md supports a wide range of document formats. This guide provides detailed examples and format-specific options for each supported type. For advanced document manipulation using the AST, see :doc:`ast_guide`. For transform pipelines, see :doc:`transforms`.
 
 .. contents:: Formats
    :local:
@@ -1196,10 +1196,10 @@ Troubleshooting Detection
 
 .. code-block:: python
 
-   # Directly call converter (advanced)
-   from all2md.converters.pdf2markdown import pdf_to_markdown
+   # Use explicit format parameter instead
+   from all2md import to_markdown
 
-   markdown = pdf_to_markdown("file.xyz")  # Bypass detection
+   markdown = to_markdown("file.xyz", format='pdf')  # Explicit format
 
 Detection Best Practices
 ~~~~~~~~~~~~~~~~~~~~~~~~

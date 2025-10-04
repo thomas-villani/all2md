@@ -180,7 +180,7 @@ Core Components
 .. code-block:: python
 
    # pyproject.toml
-   [project.entry-points."all2md.converters"]
+   [project.entry-points."all2md.parsers"]
    pdf = "all2md.parsers.pdf:PdfToAstConverter"
    html = "all2md.parsers.html:HtmlToAstConverter"
 
@@ -329,7 +329,7 @@ All nodes inherit from ``Node`` base class:
    class Heading(Node):
        level: int = 1
        content: list[Node] = field(default_factory=list)  # Inline nodes
-       id: str | None = None
+       # metadata['id'] can be set by transforms like AddHeadingIdsTransform
 
 **Key Features:**
 
@@ -476,22 +476,24 @@ Options Hierarchy
    ├── attachment_mode
    ├── attachment_output_dir
    ├── alt_text_mode
-   ├── network (NetworkFetchOptions)
-   ├── local_files (LocalFileAccessOptions)
    └── markdown_options (MarkdownOptions)
 
    Format-Specific Options (inherit from BaseParserOptions)
    ├── HtmlOptions
    │   ├── strip_dangerous_elements
    │   ├── preserve_tables
-   │   └── network (NetworkFetchOptions - can override base)
+   │   ├── network (NetworkFetchOptions)
+   │   └── local_files (LocalFileAccessOptions)
    ├── PdfOptions
    │   ├── pages
    │   ├── extract_images
-   │   └── ocr_enabled
+   │   └── detect_columns
    ├── DocxOptions
    │   ├── include_comments
    │   └── include_footnotes
+   ├── EmlOptions
+   │   ├── network (NetworkFetchOptions)
+   │   └── local_files (LocalFileAccessOptions)
    └── (other format options...)
 
 **Nested Options:**
@@ -556,7 +558,7 @@ Create a custom parser for a new format:
            ])
 
    # Register via entry point in pyproject.toml
-   [project.entry-points."all2md.converters"]
+   [project.entry-points."all2md.parsers"]
    custom = "my_package.parsers.custom:CustomParser"
 
 2. Custom Renderers
