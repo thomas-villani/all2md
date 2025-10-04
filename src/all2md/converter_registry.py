@@ -707,12 +707,12 @@ class ConverterRegistry:
     def _discover_plugins(self) -> None:
         """Discover and register third-party converter plugins via entry points.
 
-        This method scans for installed packages that define parsers
-        via the 'all2md.parsers' entry point group.
+        This method scans for installed packages that define converters
+        via the 'all2md.converters' entry point group.
         """
         try:
-            # Discover entry points for the all2md.parsers group
-            entry_points = importlib.metadata.entry_points(group="all2md.parsers")
+            # Discover entry points for the all2md.converters group
+            entry_points = importlib.metadata.entry_points(group="all2md.converters")
 
             for entry_point in entry_points:
                 try:

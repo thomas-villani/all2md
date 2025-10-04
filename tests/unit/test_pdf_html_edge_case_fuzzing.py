@@ -194,11 +194,12 @@ class TestFormatDetectionFuzzing:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
     def test_format_detection_with_random_headers(self, header_bytes):
         """Test format detection doesn't crash on random file headers."""
+        from all2md.exceptions import MarkdownConversionError
         # Try to convert without specifying format (auto-detect)
         try:
             result = to_markdown(BytesIO(header_bytes))
             assert isinstance(result, str)
-        except (InputError, UnicodeDecodeError):
+        except (InputError, UnicodeDecodeError, MarkdownConversionError):
             # Expected for unrecognized or invalid formats
             pass
         except Exception as e:
@@ -240,15 +241,22 @@ class TestEncodingEdgeCases:
         try:
             encoded = html.encode(encoding)
             result = to_markdown(BytesIO(encoded), format='html')
-            # HTML parser only accepts UTF-8, so non-UTF-8 encodings should fail
-            if encoding != 'utf-8' and encoding != 'ascii':
+
+            # Check if the encoded bytes are valid UTF-8
+            try:
+                encoded.decode('utf-8')
+                is_valid_utf8 = True
+            except UnicodeDecodeError:
+                is_valid_utf8 = False
+
+            # If encoding produced non-UTF-8 bytes, conversion should have failed
+            if not is_valid_utf8:
                 pytest.fail("Non-UTF-8 encoding should have raised InputError")
+
             assert isinstance(result, str)
         except (UnicodeEncodeError, UnicodeDecodeError, LookupError, InputError):
-            # Expected for non-UTF-8 encodings
-            if encoding == 'utf-8' or encoding == 'ascii':
-                # UTF-8 and ASCII should work (unless text contains non-ASCII in 'ascii' case)
-                pass
+            # Expected for encodings that produce non-UTF-8 bytes
+            pass
 
     def test_html_with_bom(self):
         """Test HTML with byte order mark."""

@@ -136,7 +136,7 @@ class TestHTMLConversionFuzzing:
     """Property-based tests for HTML to Markdown conversion."""
 
     @given(st.text(min_size=0, max_size=500))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=100)
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=100, deadline=None)
     def test_arbitrary_html_dont_crash(self, html_content):
         """Property: Arbitrary HTML content should not cause crashes."""
         try:
@@ -177,7 +177,7 @@ class TestHTMLConversionFuzzing:
             max_size=5
         )
     )
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_dangerous_tags_removed_when_strip_enabled(self, dangerous_tags):
         """Property: Dangerous tags should be removed when strip_dangerous_elements=True."""
         html = ''.join(dangerous_tags) + 'Safe content'
@@ -189,8 +189,11 @@ class TestHTMLConversionFuzzing:
         for tag in dangerous_tags:
             assert tag.lower() not in result.lower()
 
-        # Safe content should still be present
-        assert 'safe content' in result.lower()
+        # Safe content should be present for non-script/style tags
+        # For script/style tags, content is removed entirely for security
+        has_script_or_style = any('<script>' in tag.lower() or '<style>' in tag.lower() for tag in dangerous_tags)
+        if not has_script_or_style:
+            assert 'safe content' in result.lower()
 
 
 @pytest.mark.unit

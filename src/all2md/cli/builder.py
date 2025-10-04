@@ -12,6 +12,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
 
 from all2md.cli.custom_actions import (
+    TrackingAppendAction,
     TrackingStoreAction,
     TrackingStoreFalseAction,
     TrackingStoreTrueAction,
@@ -263,6 +264,11 @@ class DynamicCLIBuilder:
         if metadata.get('type') in (int, float):
             kwargs['type'] = metadata['type']
 
+        # Honor metadata-specified action (e.g., append) if present
+        # This allows fields to explicitly request append behavior
+        if 'action' in metadata and not kwargs.get('action'):
+            kwargs['action'] = metadata['action']
+
         # Set default if field has one and it's not None
         if field.default is not None and not kwargs.get('action'):
             kwargs['default'] = field.default
@@ -356,7 +362,7 @@ class DynamicCLIBuilder:
             kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
             # Set dest using dot notation for better structure mapping
-            # and use tracking actions for booleans
+            # and use tracking actions for booleans and append
             if 'action' in kwargs:
                 if kwargs['action'] == 'store_true':
                     kwargs['action'] = TrackingStoreTrueAction
@@ -366,6 +372,12 @@ class DynamicCLIBuilder:
                         kwargs['dest'] = field.name
                 elif kwargs['action'] == 'store_false':
                     kwargs['action'] = TrackingStoreFalseAction
+                    if format_prefix:
+                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    else:
+                        kwargs['dest'] = field.name
+                elif kwargs['action'] == 'append':
+                    kwargs['action'] = TrackingAppendAction
                     if format_prefix:
                         kwargs['dest'] = f"{format_prefix}.{field.name}"
                     else:

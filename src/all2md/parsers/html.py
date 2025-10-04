@@ -259,6 +259,9 @@ class HtmlToAstConverter(BaseParser):
         from bs4 import BeautifulSoup
         from bs4.element import Comment
 
+        # Sanitize null bytes from HTML to prevent XSS bypass
+        html_content = html_content.replace('\x00', '')
+
         soup = BeautifulSoup(html_content, "html.parser")
 
         # Strip comments if requested
@@ -268,17 +271,34 @@ class HtmlToAstConverter(BaseParser):
 
         # Strip dangerous elements if requested
         if self.options.strip_dangerous_elements:
-            # Remove script and style tags
+            # Remove script and style tags completely (including all content for security)
             for tag in soup.find_all(['script', 'style']):
+                # Decompose completely to avoid any script content in output
                 tag.decompose()
 
-            # Remove elements with dangerous attributes
+            # Collect other dangerous elements and elements with dangerous attributes
             elements_to_remove = []
             for element in soup.find_all():
-                if not self._sanitize_element(element):
-                    elements_to_remove.append(element)
+                if hasattr(element, 'name'):
+                    # Check for other dangerous elements (not script/style, already removed)
+                    if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ['script', 'style']:
+                        elements_to_remove.append(element)
+                    # Check for dangerous attributes
+                    elif not self._sanitize_element(element):
+                        elements_to_remove.append(element)
+
+            # Remove collected elements - unwrap to preserve text content
             for element in elements_to_remove:
-                element.decompose()
+                if hasattr(element, 'name') and element.name in DANGEROUS_HTML_ELEMENTS:
+                    # Unwrap dangerous elements like iframe, form, object to keep text
+                    try:
+                        element.unwrap()
+                    except ValueError:
+                        # Element already removed or can't be unwrapped
+                        pass
+                else:
+                    # Decompose elements with dangerous attributes
+                    element.decompose()
 
         # Apply whitelist filters if specified
         if self.options.allowed_elements is not None:
