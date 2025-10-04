@@ -42,7 +42,7 @@ PDF processing includes sophisticated table detection, multi-column layout handl
    from all2md import to_markdown, PdfOptions
 
    options = PdfOptions(
-       pages=[0, 1, 2],                    # Process first 3 pages only
+       pages=[1, 2, 3],                    # Process first 3 pages only
        enable_table_fallback_detection=True, # Enable fallback table detection
        detect_columns=True,                # Handle multi-column layouts (default)
        header_percentile_threshold=75,     # Header detection threshold
@@ -651,14 +651,13 @@ The sourcecode converter wraps text and code files in properly formatted Markdow
 .. code-block:: python
 
    from all2md import to_markdown
-   from all2md.converters.sourcecode2markdown import sourcecode_to_markdown
 
    # Automatic conversion with language detection
    markdown = to_markdown('script.py')
    # Output: ```python\ndef hello():\n    print("Hello")\n```
 
-   # Direct converter access
-   markdown = sourcecode_to_markdown('config.json')
+   # Works for any source code file
+   markdown = to_markdown('config.json')
    # Output: ```json\n{"key": "value"}\n```
 
 **Advanced Options:**
@@ -763,7 +762,7 @@ Combine explicit format specification with format-specific options:
 
    # Force PDF processing with specific options
    pdf_options = PdfOptions(
-       pages=[0, 1, 2],
+       pages=[1, 2, 3],
        detect_columns=False,
        attachment_mode='base64'
    )
@@ -773,7 +772,7 @@ Combine explicit format specification with format-specific options:
    markdown = to_markdown(
        'mystery_file',
        format='pdf',
-       pages=[0, 1, 2],
+       pages=[1, 2, 3],
        detect_columns=False,
        attachment_mode='base64'
    )
@@ -1259,7 +1258,7 @@ Best Practices
 
       # Better control over complex conversions
       options = PdfOptions(
-          pages=[0, 1, 2],
+          pages=[1, 2, 3],
           enable_table_fallback_detection=True,
           attachment_mode='download'
       )

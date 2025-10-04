@@ -1,21 +1,19 @@
 """Advanced tests for PPTX chart handling edge cases.
 
-NOTE: These tests are disabled pending refactoring for the new AST architecture.
-They test internal functions (_process_shape) that no longer exist in the new parser.
+Tests cover various chart types and edge cases using the AST-based API.
 """
 
 import pytest
-
-# Skip all tests in this module - they test internal functions that were removed in AST refactor
-pytest.skip("Tests require refactoring for new AST architecture", allow_module_level=True)
-
 from pptx import Presentation
-from pptx.chart.data import ChartData
+from pptx.chart.data import ChartData, XyChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 
-# from all2md.parsers.pptx import _process_shape  # Function no longer exists
+from all2md.parsers.pptx import PptxToAstConverter
 from all2md.options import PptxOptions
+from all2md.ast import Table, CodeBlock
+from all2md.ast.transforms import extract_nodes
+from all2md.renderers.markdown import MarkdownRenderer
 from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
@@ -29,6 +27,30 @@ class TestPptxChartsAdvanced:
     def teardown_method(self):
         """Clean up test environment."""
         cleanup_test_dir(self.temp_dir)
+
+    def _convert_and_render(self, prs: Presentation, options: PptxOptions | None = None) -> str:
+        """Helper to convert PPTX to markdown via AST.
+
+        Parameters
+        ----------
+        prs : Presentation
+            PPTX presentation to convert
+        options : PptxOptions or None
+            Options for conversion
+
+        Returns
+        -------
+        str
+            Rendered markdown
+        """
+        if options is None:
+            options = PptxOptions(attachment_mode="alt_text")
+
+        converter = PptxToAstConverter(options)
+        ast_doc = converter.convert_to_ast(prs)
+
+        renderer = MarkdownRenderer()
+        return renderer.render(ast_doc)
 
     def test_multiple_series_column_chart(self):
         """Test column chart with multiple data series."""
@@ -44,12 +66,12 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Profit', (2.3, 3.1, 2.3, 4.6))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
+
         assert_markdown_valid(markdown)
 
         # Should contain all series and categories
@@ -74,12 +96,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Market Share', (35, 25, 20, 20))
 
         x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.PIE, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should contain categories and values
@@ -103,12 +124,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Previous Year', (8, 10, 12, 11, 14, 16))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should contain all series and time periods
@@ -131,12 +151,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Not Started', (5, 10, 2))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_STACKED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should represent stacked data appropriately
@@ -157,12 +176,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Sales', (25, 40, 30, 35))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.BAR_CLUSTERED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should contain products and values
@@ -183,12 +201,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Conversions', (50, 65, 48, 72))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.AREA, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should contain area chart data
@@ -215,12 +232,11 @@ class TestPptxChartsAdvanced:
         series.add_data_point(25, 20)  # Point 4
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.XY_SCATTER, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should contain scatter data
@@ -244,12 +260,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Revenue %', (5.2, 6.8, 4.9, 7.1))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should contain both series with different scales
@@ -271,12 +286,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Returns', (1, 2, 0, 1, 0))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should handle zero values
@@ -304,12 +318,11 @@ class TestPptxChartsAdvanced:
         )
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should handle long labels
@@ -328,12 +341,11 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Revenue (€)', (1000.50, 2500.75, 1800.25, 3200.00))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         # Should handle special characters
@@ -365,26 +377,21 @@ class TestPptxChartsAdvanced:
         chart_data2.categories = ['X', 'Y', 'Z']
         chart_data2.add_series('Series 2', (5, 15, 25))
 
-        chart2 = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.PIE,
             Inches(5.5), Inches(1.5), Inches(4), Inches(3),
             chart_data2
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
+        # Convert the presentation with both charts
+        markdown = self._convert_and_render(prs)
+        assert_markdown_valid(markdown)
 
-        # Process each chart separately
-        markdown1 = _process_shape(chart1, options)
-        markdown2 = _process_shape(chart2, options)
-
-        assert_markdown_valid(markdown1)
-        assert_markdown_valid(markdown2)
-
-        # Each should contain their respective data
-        assert "Series 1" in markdown1
-        assert "Series 2" in markdown2
-        assert "A" in markdown1
-        assert "X" in markdown2
+        # Should contain data from both charts
+        assert "Series 1" in markdown
+        assert "Series 2" in markdown
+        assert "A" in markdown
+        assert "X" in markdown
 
     def test_chart_error_handling(self):
         """Test error handling with malformed chart data."""
@@ -397,14 +404,12 @@ class TestPptxChartsAdvanced:
         chart_data.add_series('Data', (42,))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(4), Inches(3)
-        chart_shape = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
         )
 
-        options = PptxOptions(attachment_mode="alt_text")
-
         # Should handle minimal data gracefully
-        markdown = _process_shape(chart_shape, options)
+        markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
 
         assert "Single" in markdown

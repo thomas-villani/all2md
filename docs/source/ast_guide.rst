@@ -47,7 +47,7 @@ Use ``to_ast()`` to convert any supported document to an AST:
 
    # With options (same as to_markdown)
    from all2md import PdfOptions
-   ast_doc = to_ast("document.pdf", options=PdfOptions(pages=[0, 1, 2]))
+   ast_doc = to_ast("document.pdf", options=PdfOptions(pages=[1, 2, 3]))
 
 The AST Document Structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,7 +76,7 @@ Use ``MarkdownRenderer`` to convert AST back to Markdown:
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import MarkdownRenderer
+   from all2md.renderers.markdown import MarkdownRenderer
 
    # Convert document to AST
    doc = to_ast("document.pdf")
@@ -87,7 +87,7 @@ Use ``MarkdownRenderer`` to convert AST back to Markdown:
    print(markdown)
 
    # Render with specific flavor
-   from all2md.ast import GFMFlavor
+   from all2md.utils.flavors import GFMFlavor
 
    renderer = MarkdownRenderer(flavor=GFMFlavor())
    gfm_markdown = renderer.render(doc)
@@ -205,7 +205,7 @@ The ``NodeVisitor`` pattern allows you to traverse and analyze the AST:
    # Analyze document
    doc = to_ast("document.pdf")
    analyzer = DocumentAnalyzer()
-   analyzer.visit(doc)
+   doc.accept(analyzer)
 
    # Print results
    print(f"Found {len(analyzer.headings)} headings:")
@@ -231,7 +231,7 @@ all2md includes useful pre-built visitors:
    validator = ValidationVisitor()
 
    try:
-       validator.visit(doc)
+       doc.accept(validator)
        print("AST is valid")
    except ValueError as e:
        print(f"AST validation error: {e}")
@@ -313,7 +313,7 @@ all2md provides commonly-used transformers:
            return url.replace('http://', 'https://')
        return url
 
-   transformer = LinkRewriter(rewrite_func=rewrite_link)
+   transformer = LinkRewriter(url_mapper=rewrite_link)
    new_doc = transformer.transform(doc)
 
 **Text Replacer:**
@@ -373,12 +373,12 @@ Use ``NodeCollector`` to gather specific nodes:
 
    # Collect all headings
    heading_collector = NodeCollector(Heading)
-   heading_collector.visit(doc)
+   doc.accept(heading_collector)
    print(f"Found {len(heading_collector.nodes)} headings")
 
    # Collect all tables
    table_collector = NodeCollector(Table)
-   table_collector.visit(doc)
+   doc.accept(table_collector)
    print(f"Found {len(table_collector.nodes)} tables")
 
 Building AST Programmatically
@@ -479,20 +479,20 @@ all2md provides builders for complex structures:
    from all2md.ast import ListBuilder, Text
 
    # Build nested list
-   builder = ListBuilder(ordered=False)
+   builder = ListBuilder()
 
-   builder.add_item([Text(content="Python")])
-   builder.add_item([Text(content="JavaScript")])
+   builder.add_item(level=1, ordered=False, content=[Text(content="Python")])
+   builder.add_item(level=1, ordered=False, content=[Text(content="JavaScript")])
 
-   # Add nested list
-   builder.start_sublist(ordered=True)
-   builder.add_item([Text(content="ES6")])
-   builder.add_item([Text(content="TypeScript")])
-   builder.end_sublist()
+   # Add nested items (level 2)
+   builder.add_item(level=2, ordered=True, content=[Text(content="ES6")])
+   builder.add_item(level=2, ordered=True, content=[Text(content="TypeScript")])
 
-   builder.add_item([Text(content="Rust")])
+   # Back to top level
+   builder.add_item(level=1, ordered=False, content=[Text(content="Rust")])
 
-   list_node = builder.build()
+   doc = builder.get_document()
+   list_node = doc.children[0]
 
 **DocumentBuilder:**
 
@@ -599,8 +599,8 @@ Render the same AST in different Markdown dialects:
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import (
-       MarkdownRenderer,
+   from all2md.renderers.markdown import MarkdownRenderer
+   from all2md.utils.flavors import (
        GFMFlavor,
        CommonMarkFlavor,
        MarkdownPlusFlavor
@@ -627,7 +627,7 @@ Different flavors support different features:
 
 .. code-block:: python
 
-   from all2md.ast import GFMFlavor, CommonMarkFlavor
+   from all2md.utils.flavors import GFMFlavor, CommonMarkFlavor
 
    # GFM supports:
    # - Tables
@@ -683,7 +683,7 @@ Extract headings and build TOC:
    # Generate TOC
    doc = to_ast("document.pdf")
    generator = TOCGenerator()
-   generator.visit(doc)
+   doc.accept(generator)
 
    print("# Table of Contents\n")
    print('\n'.join(generator.toc))
@@ -749,7 +749,7 @@ Analyze document content:
    # Analyze document
    doc = to_ast("report.pdf")
    stats = DocumentStats()
-   stats.visit(doc)
+   doc.accept(stats)
 
    print(f"Document Statistics:")
    print(f"  Headings: {len(stats.stats['headings'])}")
@@ -783,7 +783,7 @@ Update links across multiple documents:
                return url.replace('http://', 'https://')
            return url
 
-       transformer = LinkRewriter(rewrite_func=rewrite_docs_links)
+       transformer = LinkRewriter(url_mapper=rewrite_docs_links)
        renderer = MarkdownRenderer()
 
        # Process all markdown files
@@ -852,7 +852,7 @@ Create a custom renderer for specific output:
            return ''.join(text)
 
        def render(self, doc):
-           self.visit(doc)
+           doc.accept(self)
            return ''.join(self.output)
 
    # Use custom renderer
@@ -886,7 +886,7 @@ Error Handling
 
        # Validate structure
        validator = ValidationVisitor()
-       validator.visit(doc)
+       doc.accept(validator)
 
    except FormatError as e:
        print(f"Unsupported format: {e}")

@@ -66,33 +66,39 @@ Core Components
    │   ├── __init__.py      # AST public API
    │   ├── nodes.py         # AST node definitions
    │   ├── visitors.py      # Visitor pattern for traversal
-   │   ├── renderer.py      # Markdown rendering from AST
-   │   ├── flavors.py       # Markdown flavor support
-   │   ├── builder.py       # AST construction helpers
    │   ├── transforms.py    # AST transformation utilities
+   │   ├── builder.py       # AST construction helpers
    │   └── serialization.py # JSON serialization
-   ├── converters/          # Format-specific conversion modules
+   ├── parsers/             # Format parsers (input → AST)
    │   ├── __init__.py
-   │   ├── pdf2markdown.py  # Direct PDF → Markdown
-   │   ├── pdf2ast.py       # PDF → AST
-   │   ├── docx2markdown.py # Direct DOCX → Markdown
-   │   ├── docx2ast.py      # DOCX → AST
-   │   ├── html2markdown.py # Direct HTML → Markdown
-   │   ├── html2ast.py      # HTML → AST
-   │   ├── eml2markdown.py
-   │   ├── pptx2markdown.py
-   │   ├── ipynb2markdown.py
-   │   ├── epub2markdown.py
-   │   ├── odf2markdown.py
-   │   ├── mhtml2markdown.py
-   │   ├── rtf2markdown.py
-   │   └── spreadsheet2markdown.py
+   │   ├── base.py          # Base parser class
+   │   ├── pdf.py           # PDF → AST
+   │   ├── docx.py          # DOCX → AST
+   │   ├── html.py          # HTML → AST
+   │   ├── eml.py           # Email → AST
+   │   ├── pptx.py          # PowerPoint → AST
+   │   ├── ipynb.py         # Jupyter → AST
+   │   ├── epub.py          # EPUB → AST
+   │   ├── odf.py           # OpenDocument → AST
+   │   ├── mhtml.py         # MHTML → AST
+   │   ├── rtf.py           # RTF → AST
+   │   ├── markdown.py      # Markdown → AST
+   │   ├── sourcecode.py    # Source code → AST
+   │   └── spreadsheet.py   # Spreadsheet → AST
+   ├── renderers/           # Format renderers (AST → output)
+   │   ├── __init__.py
+   │   ├── base.py          # Base renderer class
+   │   ├── markdown.py      # AST → Markdown
+   │   ├── docx.py          # AST → DOCX
+   │   ├── html.py          # AST → HTML
+   │   └── pdf.py           # AST → PDF
    └── utils/               # Shared utilities
        ├── __init__.py
        ├── inputs.py        # Input validation and handling
        ├── attachments.py   # Image and attachment processing
        ├── metadata.py      # Document metadata extraction
        ├── security.py      # Security utilities
+       ├── flavors.py       # Markdown flavor support
        └── network_security.py # Network and SSRF protection
 
 The Main Entry Point
@@ -163,7 +169,8 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
 .. code-block:: python
 
    from all2md import to_markdown, to_ast
-   from all2md.ast import MarkdownRenderer, GFMFlavor
+   from all2md.renderers.markdown import MarkdownRenderer
+   from all2md.utils.flavors import GFMFlavor
 
    # Direct conversion (simple)
    markdown = to_markdown('document.pdf')
@@ -180,7 +187,7 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
            self.headings.append(node)
 
    extractor = HeadingExtractor()
-   extractor.visit(doc_ast)
+   doc_ast.accept(extractor)
    print(f"Found {len(extractor.headings)} headings")
 
    # Transform AST

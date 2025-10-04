@@ -2263,7 +2263,8 @@ def main(args: Optional[list[str]] = None) -> int:
         print("Error: Input file is required", file=sys.stderr)
         return EXIT_INPUT_ERROR
 
-    # Set up logging level
+    # Set up logging level - configures root logger for all modules
+    # Note: All modules use logging.getLogger(__name__) for consistent logger hierarchy
     # If --verbose is specified and --log-level is at default, use DEBUG
     if parsed_args.verbose and parsed_args.log_level == "WARNING":
         log_level = logging.DEBUG
@@ -2271,6 +2272,7 @@ def main(args: Optional[list[str]] = None) -> int:
         # --log-level takes precedence if explicitly set
         log_level = getattr(logging, parsed_args.log_level.upper())
 
+    # Configure logging once at CLI entry point (basicConfig is idempotent)
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
     # Handle stdin input

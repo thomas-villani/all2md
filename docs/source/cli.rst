@@ -235,7 +235,7 @@ Configuration and Debugging
         "attachment_mode": "download",
         "attachment_output_dir": "./images",
         "pdf.detect_columns": true,
-        "pdf.pages": [0, 1, 2],
+        "pdf.pages": [1, 2, 3],
         "markdown.emphasis_symbol": "_"
       }
 
@@ -318,6 +318,51 @@ Processing and Output Control
 
       # Use specific number of workers
       all2md *.pdf --parallel 4
+
+   .. note::
+
+      **Performance Considerations:**
+
+      Parallel processing provides significant speedups for certain formats:
+
+      * **CPU-bound formats** (best for parallel processing):
+
+        - **PDF:** Excellent parallelization - parsing is CPU-intensive (text extraction, table detection, image decoding)
+        - **DOCX/PPTX:** Good parallelization - XML parsing and formatting logic benefits from multiple cores
+        - **Images (OCR):** Excellent parallelization - OCR operations are very CPU-intensive
+
+      * **I/O-bound formats** (less benefit from parallel processing):
+
+        - **HTML/Markdown:** Minimal benefit - parsing is fast, most time spent on I/O
+        - **Plain text:** No benefit - trivial processing time
+
+      **Memory Considerations:**
+
+      * Each worker process imports dependencies independently (startup overhead per worker)
+      * Large PDFs with many images can use significant memory per worker
+      * **Recommendation:** For large PDFs, use ``--pdf-skip-image-extraction`` with parallel mode if you only need text
+      * Monitor memory usage when processing large files in parallel (e.g., ``htop`` on Linux)
+
+      **Optimal Worker Count:**
+
+      * **Auto-detect** (``--parallel`` without number): Uses CPU core count - good default for most cases
+      * **CPU-bound workloads:** Use core count or ``core count - 1`` to leave headroom for OS
+      * **Mixed I/O/CPU:** Start with 2-4 workers, increase if CPU utilization is low
+      * **Large PDFs with images:** Reduce workers (e.g., 2-4) to avoid memory pressure
+      * **Network-heavy workloads:** Can use more workers than CPU cores (e.g., ``core count * 2``)
+
+      **Example Configurations:**
+
+      .. code-block:: bash
+
+         # Large PDFs, text-only, maximize throughput
+         all2md *.pdf --parallel --pdf-skip-image-extraction --output-dir ./out
+
+         # Medium PDFs with images, conservative memory usage
+         all2md *.pdf --parallel 4 --output-dir ./out
+
+         # Many small files, I/O bound
+         all2md *.html --parallel 2 --output-dir ./out
 
 ``--skip-errors``
    Continue processing remaining files if one fails.

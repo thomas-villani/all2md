@@ -920,6 +920,17 @@ class PdfOptions(BaseParserOptions):
         Height in points to trim from top of page (requires trim_headers_footers).
     footer_height : int, default 0
         Height in points to trim from bottom of page (requires trim_headers_footers).
+    skip_image_extraction : bool, default False
+        Skip all image extraction for text-only conversion (improves performance for large PDFs).
+    lazy_image_processing : bool, default False
+        Placeholder for future lazy image loading support (currently no effect).
+
+    Notes
+    -----
+    For large PDFs (hundreds of pages), consider using skip_image_extraction=True if you only need
+    text content. This significantly reduces memory pressure by avoiding image decoding.
+    Parallel processing (CLI --parallel flag) can further improve throughput for multi-file batches,
+    but note that each worker process imports dependencies anew, adding startup overhead.
 
     Examples
     --------
@@ -1140,6 +1151,21 @@ class PdfOptions(BaseParserOptions):
         metadata={
             "help": "Height in points to trim from bottom of page (requires trim_headers_footers)",
             "type": int
+        }
+    )
+
+    # Performance optimization options
+    skip_image_extraction: bool = field(
+        default=False,
+        metadata={
+            "help": "Completely skip image extraction for text-only conversion (improves performance for large PDFs)"
+        }
+    )
+    lazy_image_processing: bool = field(
+        default=False,
+        metadata={
+            "help": "Placeholder for future lazy image loading support. Note: Full implementation would require "
+                    "paginator interface for streaming large PDFs. Currently has no effect."
         }
     )
 

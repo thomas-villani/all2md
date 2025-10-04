@@ -19,7 +19,7 @@ The all2md options system uses a clear inheritance structure that separates univ
 
 .. code-block:: text
 
-   BaseOptions (universal attachment/metadata options)
+   BaseParserOptions (universal attachment/metadata options)
    ├── PdfOptions (PDF-specific options)
    ├── DocxOptions (Word document options)
    ├── HtmlOptions (HTML conversion options)
@@ -36,13 +36,13 @@ The all2md options system uses a clear inheritance structure that separates univ
 
 **How it works:**
 
-1. **BaseOptions** provides universal settings that all converters use, including:
+1. **BaseParserOptions** provides universal settings that all converters use, including:
 
    - Attachment handling (``attachment_mode``, ``attachment_output_dir``)
    - Metadata extraction (``extract_metadata``)
    - Network security settings (``max_download_bytes``)
 
-2. **Format-specific Options** (e.g., ``PdfOptions``, ``HtmlOptions``) inherit from ``BaseOptions`` and add their own specialized settings:
+2. **Format-specific Options** (e.g., ``PdfOptions``, ``HtmlOptions``) inherit from ``BaseParserOptions`` and add their own specialized settings:
 
    - PDF: page selection, header detection, table parsing
    - HTML: content sanitization, network security
@@ -74,7 +74,7 @@ Using Options
 
    # Create PDF-specific options
    pdf_options = PdfOptions(
-       pages=[0, 1, 2],
+       pages=[1, 2, 3],
        attachment_mode="download",
        markdown_options=md_options
    )
@@ -210,12 +210,12 @@ This pattern (called "negative flags" or "disable flags") is used because:
 Shared Options Classes
 ----------------------
 
-BaseOptions
-~~~~~~~~~~~
+BaseParserOptions
+~~~~~~~~~~~~~~~~~
 
 Universal options inherited by all format-specific options classes.
 
-.. autoclass:: all2md.options.BaseOptions
+.. autoclass:: all2md.options.BaseParserOptions
    :noindex:
 
 **CLI Prefix:** (no prefix - universal options)
@@ -365,7 +365,7 @@ Configuration for PDF document conversion with advanced parsing features.
    from all2md.options import PdfOptions
 
    options = PdfOptions(
-       pages=[0, 1, 2],                    # First 3 pages only
+       pages=[1, 2, 3],                    # First 3 pages only
        password="secret",                  # For encrypted PDFs
        header_percentile_threshold=75,     # Top 25% font sizes as headers
        detect_columns=True,                # Multi-column layout
@@ -561,7 +561,7 @@ Configuration for Rich Text Format documents.
 
 **CLI Prefix:** ``--rtf-``
 
-Currently inherits all options from BaseOptions without additional RTF-specific settings.
+Currently inherits all options from BaseParserOptions without additional RTF-specific settings.
 
 IpynbOptions
 ~~~~~~~~~~~~
@@ -807,7 +807,7 @@ JSON configuration files provide a reusable way to specify complex options:
 .. code-block:: json
 
    {
-     "pdf.pages": [0, 1, 2, 3, 4],
+     "pdf.pages": [1, 2, 3, 4, 5],
      "pdf.detect_columns": true,
      "pdf.enable_table_fallback_detection": true,
      "pdf.merge_hyphenated_words": true,
@@ -867,7 +867,7 @@ Lists like ``allowed_hosts`` or ``pages`` are specified as JSON arrays:
 .. code-block:: json
 
    {
-     "pdf.pages": [0, 1, 2, 3, 4, 5],
+     "pdf.pages": [1, 2, 3, 4, 5, 6],
      "html.network.allowed_hosts": [
        "cdn.jsdelivr.net",
        "unpkg.com",
@@ -1006,7 +1006,7 @@ Use ``ALL2MD_PDF_`` prefix:
 
 .. code-block:: bash
 
-   export ALL2MD_PDF_PAGES="0,1,2,3,4"
+   export ALL2MD_PDF_PAGES="1,2,3,4,5"
    export ALL2MD_PDF_DETECT_COLUMNS="true"
    export ALL2MD_PDF_ENABLE_TABLE_FALLBACK_DETECTION="true"
    export ALL2MD_PDF_MERGE_HYPHENATED_WORDS="true"
@@ -1091,7 +1091,7 @@ For options that accept lists (like ``allowed_hosts`` or ``pages``), use comma-s
 .. code-block:: bash
 
    # Pages as comma-separated numbers
-   export ALL2MD_PDF_PAGES="0,1,2,3,4,5"
+   export ALL2MD_PDF_PAGES="1,2,3,4,5,6"
 
    # Hosts as comma-separated domains
    export ALL2MD_HTML_NETWORK_ALLOWED_HOSTS="cdn.example.com,images.example.org,fonts.googleapis.com"

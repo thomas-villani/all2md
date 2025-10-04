@@ -134,9 +134,9 @@ class TestDynamicCLIBuilder:
         result = builder._process_argument_value(mock_field, metadata, "1, 2, 3", "pdf.pages", was_provided=True)
         assert result == [1, 2, 3]
 
-        # Test invalid input returns None
-        result = builder._process_argument_value(mock_field, metadata, "1,invalid,3", "pdf.pages", was_provided=True)
-        assert result is None
+        # Test invalid input raises ArgumentTypeError
+        with pytest.raises(argparse.ArgumentTypeError):
+            builder._process_argument_value(mock_field, metadata, "1,invalid,3", "pdf.pages", was_provided=True)
 
         # Test that not provided returns None
         result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf.pages", was_provided=False)

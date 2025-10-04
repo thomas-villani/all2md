@@ -761,7 +761,9 @@ Examples:
             try:
                 options_class = registry.get_parser_options_class(format_name)
                 if options_class and is_dataclass(options_class):
-                    options_classes[format_name] = options_class
+                    # Don't overwrite manually-set options classes (like MarkdownOptions)
+                    if format_name not in options_classes:
+                        options_classes[format_name] = options_class
             except Exception:
                 continue
 

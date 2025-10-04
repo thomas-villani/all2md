@@ -298,31 +298,3 @@ class ConverterMetadata:
         parser_name = self.get_parser_display_name()
         renderer_name = self.get_renderer_display_name()
         return f"Parser: {parser_name} | Renderer: {renderer_name}"
-
-# TODO: implement or remove.
-@dataclass
-class ConverterCapabilities:
-    """Describes capabilities and features of a converter.
-
-    Parameters
-    ----------
-    supports_streaming : bool
-        Whether converter can process file-like objects
-    supports_password : bool
-        Whether converter handles password-protected files
-    supports_partial : bool
-        Whether converter can process specific pages/sections
-    supports_attachments : bool
-        Whether converter can extract attachments/images
-    supports_bidirectional : bool
-        Whether converter supports both to/from markdown
-    max_file_size : int or None
-        Maximum file size in bytes, None for unlimited
-    """
-
-    supports_streaming: bool = True
-    supports_password: bool = False
-    supports_partial: bool = False
-    supports_attachments: bool = False
-    supports_bidirectional: bool = False
-    max_file_size: Optional[int] = None

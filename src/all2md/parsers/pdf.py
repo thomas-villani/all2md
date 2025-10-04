@@ -365,7 +365,16 @@ def extract_page_images(
         - 'bbox': Image bounding box
         - 'path': Path to saved image or data URI
         - 'caption': Detected caption text (if any)
+
+    Notes
+    -----
+    For large PDFs with many images, use skip_image_extraction=True in PdfOptions
+    to avoid memory pressure from decoding images on every page.
     """
+    # Skip image extraction entirely if requested (performance optimization for large PDFs)
+    if options and options.skip_image_extraction:
+        return []
+
     if not options or options.attachment_mode == "skip":
         return []
 
@@ -1512,6 +1521,9 @@ class PdfToAstConverter(BaseParser):
     def _process_table_to_ast(self, table: Any, page_num: int) -> AstTable | None:
         """Process a PyMuPDF table to AST Table node.
 
+        Directly accesses table cell data from PyMuPDF table object instead of
+        converting to markdown and re-parsing, which is more efficient and robust.
+
         Parameters
         ----------
         table : PyMuPDF Table
@@ -1525,11 +1537,66 @@ class PdfToAstConverter(BaseParser):
             Table node if table has content
 
         """
-        # PyMuPDF's table has to_markdown() method
-        # We'll parse the markdown output to extract table structure
-        # Alternative: Extract cells directly from table object
-        # TODO: switch to extracting directly, reprocessing is silly.
+        try:
+            # Try to extract cells directly from PyMuPDF table object
+            # PyMuPDF tables have a `extract()` method that returns cell data
+            table_data = table.extract()
 
+            if not table_data or len(table_data) == 0:
+                logger.debug("Table has no data")
+                return None
+
+            # Separate header row (first row) from data rows
+            header_row_data = table_data[0] if table_data else []
+            data_rows_data = table_data[1:] if len(table_data) > 1 else []
+
+            # Build AST header row
+            header_cells = []
+            for cell_text in header_row_data:
+                # Cell text could be None, convert to empty string
+                cell_content = str(cell_text).strip() if cell_text is not None else ""
+                header_cells.append(TableCell(content=[Text(content=cell_content)]))
+
+            header_row = TableRow(cells=header_cells, is_header=True)
+
+            # Build AST data rows
+            data_rows = []
+            for row_data in data_rows_data:
+                row_cells = []
+                for cell_text in row_data:
+                    # Cell text could be None, convert to empty string
+                    cell_content = str(cell_text).strip() if cell_text is not None else ""
+                    row_cells.append(TableCell(content=[Text(content=cell_content)]))
+
+                data_rows.append(TableRow(cells=row_cells))
+
+            return AstTable(
+                header=header_row,
+                rows=data_rows,
+                source_location=SourceLocation(format="pdf", page=page_num + 1)
+            )
+
+        except (AttributeError, Exception) as e:
+            # Fallback to markdown conversion if direct extraction fails
+            logger.debug(f"Direct table extraction failed ({e}), falling back to markdown parsing")
+            return self._process_table_to_ast_fallback(table, page_num)
+
+    def _process_table_to_ast_fallback(self, table: Any, page_num: int) -> AstTable | None:
+        """Fallback method using markdown conversion when direct extraction fails.
+
+        Parameters
+        ----------
+        table : PyMuPDF Table
+            Table object from find_tables()
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        AstTable or None
+            Table node if table has content
+
+        """
         try:
             # Get table as markdown
             table_md = table.to_markdown(clean=False)
@@ -1570,7 +1637,7 @@ class PdfToAstConverter(BaseParser):
             )
 
         except Exception as e:
-            logger.debug(f"Failed to process table: {e}")
+            logger.debug(f"Fallback table processing failed: {e}")
             return None
 
     def _parse_markdown_table_row(self, row_line: str) -> list[str]:
