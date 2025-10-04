@@ -278,18 +278,18 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             Document to render
 
         """
-        # Render metadata as YAML frontmatter if present and enabled
+        # Render metadata as frontmatter if present and enabled
         if self.options.metadata_frontmatter and node.metadata:
-            self._render_yaml_frontmatter(node.metadata)
-            self._output.append('\n\n')
+            self._render_frontmatter(node.metadata)
+            # Frontmatter formatters already include trailing newlines
 
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
                 self._output.append('\n\n')
 
-    def _render_yaml_frontmatter(self, metadata: dict) -> None:
-        """Render metadata as YAML frontmatter.
+    def _render_frontmatter(self, metadata: dict) -> None:
+        """Render metadata as frontmatter in the configured format.
 
         Parameters
         ----------
@@ -300,29 +300,23 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         if not metadata:
             return
 
-        self._output.append('---\n')
+        # Import formatters
+        from all2md.utils.metadata import (
+            format_yaml_frontmatter,
+            format_toml_frontmatter,
+            format_json_frontmatter,
+        )
 
-        for key, value in metadata.items():
-            if value is None:
-                continue
+        # Select formatter based on metadata_format option
+        if self.options.metadata_format == "toml":
+            frontmatter = format_toml_frontmatter(metadata)
+        elif self.options.metadata_format == "json":
+            frontmatter = format_json_frontmatter(metadata)
+        else:  # default to yaml
+            frontmatter = format_yaml_frontmatter(metadata)
 
-            # Handle list values
-            if isinstance(value, list):
-                if value:  # Only render non-empty lists
-                    self._output.append(f'{key}:\n')
-                    for item in value:
-                        self._output.append(f'  - {self._yaml_escape(item)}\n')
-            # Handle dict values
-            elif isinstance(value, dict):
-                self._output.append(f'{key}:\n')
-                for sub_key, sub_value in value.items():
-                    if sub_value is not None:
-                        self._output.append(f'  {sub_key}: {self._yaml_escape(sub_value)}\n')
-            # Handle simple values
-            else:
-                self._output.append(f'{key}: {self._yaml_escape(value)}\n')
-
-        self._output.append('---')
+        if frontmatter:
+            self._output.append(frontmatter)
 
     def _yaml_escape(self, value: any) -> str:
         """Escape a value for YAML output.

@@ -27,6 +27,8 @@ creation date, keywords, and format-specific metadata fields.
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional, Union
+import hashlib
+from pathlib import Path
 
 # Standard property mappings for different document formats
 PDF_FIELD_MAPPING = {
@@ -87,6 +89,18 @@ class DocumentMetadata:
         Document category or type
     language : str | None
         Document language
+    url : str | None
+        Source URL of the document
+    source_path : str | None
+        Original file path of the document
+    page_count : int | None
+        Total number of pages (for paginated formats)
+    word_count : int | None
+        Total word count in the document
+    sha256 : str | None
+        SHA-256 hash of the source document
+    extraction_date : str | None
+        Date and time when the document was converted
     custom : dict[str, Any]
         Custom metadata fields specific to document format
     """
@@ -101,6 +115,12 @@ class DocumentMetadata:
     producer: Optional[str] = None
     category: Optional[str] = None
     language: Optional[str] = None
+    url: Optional[str] = None
+    source_path: Optional[str] = None
+    page_count: Optional[int] = None
+    word_count: Optional[int] = None
+    sha256: Optional[str] = None
+    extraction_date: Optional[str] = None
     custom: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -140,6 +160,20 @@ class DocumentMetadata:
             result['category'] = self.category
         if self.language:
             result['language'] = self.language
+
+        # New fields
+        if self.url:
+            result['url'] = self.url
+        if self.source_path:
+            result['source_path'] = self.source_path
+        if self.page_count is not None:
+            result['page_count'] = self.page_count
+        if self.word_count is not None:
+            result['word_count'] = self.word_count
+        if self.sha256:
+            result['sha256'] = self.sha256
+        if self.extraction_date:
+            result['extraction_date'] = self.extraction_date
 
         # Add custom fields
         for key, value in self.custom.items():
@@ -282,6 +316,135 @@ def format_yaml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
 
     lines.append("---")
     return '\n'.join(lines) + '\n\n'
+
+
+def format_toml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -> str:
+    """Format metadata as TOML front matter.
+
+    This function creates TOML front matter using standard library json module
+    (TOML can be represented as JSON-compatible structures).
+
+    Parameters
+    ----------
+    metadata : DocumentMetadata or dict
+        Metadata to format as TOML front matter
+
+    Returns
+    -------
+    str
+        TOML front matter string with +++ delimiters, or empty string if no metadata
+
+    Examples
+    --------
+    >>> metadata = DocumentMetadata(
+    ...     title="My Document",
+    ...     author="John Doe",
+    ...     keywords=["python", "conversion"]
+    ... )
+    >>> print(format_toml_frontmatter(metadata))
+    +++
+    title = "My Document"
+    author = "John Doe"
+    keywords = ["python", "conversion"]
+    +++
+
+    """
+    # Convert DocumentMetadata to dict if needed
+    if isinstance(metadata, DocumentMetadata):
+        data = metadata.to_dict()
+    else:
+        data = metadata
+
+    # Skip if no metadata
+    if not data:
+        return ""
+
+    lines = ["+++"]
+
+    # Process each field
+    for key, value in data.items():
+        if value is None:
+            continue
+
+        # Format the value for TOML
+        if isinstance(value, bool):
+            formatted_value = "true" if value else "false"
+        elif isinstance(value, (int, float)):
+            formatted_value = str(value)
+        elif isinstance(value, str):
+            # Escape quotes and backslashes
+            escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+            formatted_value = f'"{escaped}"'
+        elif isinstance(value, list):
+            # Format as TOML array
+            items = []
+            for item in value:
+                if isinstance(item, str):
+                    escaped = item.replace('\\', '\\\\').replace('"', '\\"')
+                    items.append(f'"{escaped}"')
+                else:
+                    items.append(str(item))
+            formatted_value = f"[{', '.join(items)}]"
+        elif isinstance(value, dict):
+            # Skip nested dicts for now (TOML tables are complex)
+            continue
+        else:
+            formatted_value = f'"{str(value)}"'
+
+        lines.append(f'{key} = {formatted_value}')
+
+    lines.append("+++")
+    return '\n'.join(lines) + '\n\n'
+
+
+def format_json_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -> str:
+    """Format metadata as JSON front matter.
+
+    This function creates JSON front matter with proper escaping and formatting.
+
+    Parameters
+    ----------
+    metadata : DocumentMetadata or dict
+        Metadata to format as JSON front matter
+
+    Returns
+    -------
+    str
+        JSON front matter string with ```json delimiters, or empty string if no metadata
+
+    Examples
+    --------
+    >>> metadata = DocumentMetadata(
+    ...     title="My Document",
+    ...     author="John Doe",
+    ...     keywords=["python", "conversion"]
+    ... )
+    >>> print(format_json_frontmatter(metadata))
+    ```json
+    {
+      "title": "My Document",
+      "author": "John Doe",
+      "keywords": ["python", "conversion"]
+    }
+    ```
+
+    """
+    import json
+
+    # Convert DocumentMetadata to dict if needed
+    if isinstance(metadata, DocumentMetadata):
+        data = metadata.to_dict()
+    else:
+        data = metadata
+
+    # Skip if no metadata
+    if not data:
+        return ""
+
+    # Format as JSON with indentation
+    json_content = json.dumps(data, indent=2, ensure_ascii=False)
+
+    return f'```json\n{json_content}\n```\n\n'
 
 
 def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[str] = None) -> Optional[str]:
@@ -474,3 +637,76 @@ def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadat
         if frontmatter:
             return frontmatter + content
     return content
+
+
+def enrich_metadata_with_conversion_info(
+    metadata: DocumentMetadata,
+    input_data: Any,
+    content: str = "",
+    page_count: Optional[int] = None
+) -> DocumentMetadata:
+    """Enrich metadata with conversion-specific information.
+
+    Adds fields like extraction_date, source_path, sha256, word_count, and page_count
+    to the metadata based on the input and content.
+
+    Parameters
+    ----------
+    metadata : DocumentMetadata
+        The metadata object to enrich
+    input_data : Any
+        The input data (file path, bytes, or file object)
+    content : str, default ""
+        The extracted text content for word count calculation
+    page_count : int | None, default None
+        Number of pages (for paginated formats)
+
+    Returns
+    -------
+    DocumentMetadata
+        The enriched metadata object
+
+    """
+    # Set extraction date
+    from datetime import datetime as dt
+    metadata.extraction_date = dt.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Try to extract source_path from input
+    if isinstance(input_data, (str, Path)):
+        metadata.source_path = str(input_data)
+
+    # Calculate SHA256 hash
+    try:
+        if isinstance(input_data, bytes):
+            metadata.sha256 = hashlib.sha256(input_data).hexdigest()
+        elif isinstance(input_data, (str, Path)):
+            # Hash file content if it's a path
+            try:
+                with open(str(input_data), 'rb') as f:
+                    metadata.sha256 = hashlib.sha256(f.read()).hexdigest()
+            except Exception:
+                pass  # Skip if file can't be read
+        elif hasattr(input_data, 'read'):
+            # For file-like objects
+            try:
+                current_pos = input_data.tell() if hasattr(input_data, 'tell') else None
+                data = input_data.read()
+                metadata.sha256 = hashlib.sha256(data).hexdigest()
+                # Try to restore position
+                if current_pos is not None and hasattr(input_data, 'seek'):
+                    input_data.seek(current_pos)
+            except Exception:
+                pass  # Skip if reading fails
+    except Exception:
+        pass  # Skip hash calculation on any error
+
+    # Calculate word count from content
+    if content:
+        # Simple word count: split on whitespace
+        metadata.word_count = len(content.split())
+
+    # Set page count if provided
+    if page_count is not None:
+        metadata.page_count = page_count
+
+    return metadata

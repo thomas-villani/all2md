@@ -74,6 +74,7 @@ UnsupportedTableMode = Literal["drop", "ascii", "force", "html"]
 UnsupportedInlineMode = Literal["plain", "force", "html"]
 LinkStyleType = Literal["inline", "reference"]
 CodeFenceChar = Literal["`", "~"]
+MetadataFormatType = Literal["yaml", "toml", "json"]
 
 # Attachment handling defaults - defined here after AttachmentMode type
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
@@ -87,6 +88,7 @@ DEFAULT_FLAVOR: FlavorType = "gfm"
 DEFAULT_UNSUPPORTED_TABLE_MODE: UnsupportedTableMode = "force"
 DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "force"
 DEFAULT_MATH_MODE: MathMode = "latex"
+DEFAULT_METADATA_FORMAT: MetadataFormatType = "yaml"
 
 # Markdown rendering defaults
 DEFAULT_HEADING_LEVEL_OFFSET = 0

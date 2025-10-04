@@ -109,6 +109,7 @@ from .constants import (
     FlavorType,
     LinkStyleType,
     MathMode,
+    MetadataFormatType,
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
@@ -117,6 +118,7 @@ from .constants import (
     DEFAULT_FLAVOR,
     DEFAULT_INCLUDE_METADATA_FRONTMATTER,
     DEFAULT_MATH_MODE,
+    DEFAULT_METADATA_FORMAT,
 )
 
 
@@ -378,6 +380,13 @@ class MarkdownOptions(BaseRendererOptions):
         default=DEFAULT_INCLUDE_METADATA_FRONTMATTER,
         metadata={
             "help": "Render document metadata as YAML frontmatter"
+        }
+    )
+    metadata_format: MetadataFormatType = field(
+        default=DEFAULT_METADATA_FORMAT,  # type: ignore[arg-type]
+        metadata={
+            "help": "Format for metadata frontmatter: yaml, toml, or json",
+            "choices": ["yaml", "toml", "json"]
         }
     )
 
@@ -1359,6 +1368,27 @@ class HtmlOptions(BaseParserOptions):
         metadata={
             "help": "Whitelist of allowed HTML attributes (if set, only these are processed)",
             "action": "append"
+        }
+    )
+    figure_rendering: str = field(
+        default="blockquote",
+        metadata={
+            "help": "How to render <figure> elements: blockquote, image_with_caption, html",
+            "choices": ["blockquote", "image_with_caption", "html"]
+        }
+    )
+    details_rendering: str = field(
+        default="blockquote",
+        metadata={
+            "help": "How to render <details>/<summary> elements: blockquote, html, ignore",
+            "choices": ["blockquote", "html", "ignore"]
+        }
+    )
+    extract_microdata: bool = field(
+        default=True,
+        metadata={
+            "help": "Extract microdata and structured data to metadata",
+            "cli_name": "no-extract-microdata"
         }
     )
 

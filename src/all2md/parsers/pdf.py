@@ -91,10 +91,11 @@ def _check_pymupdf_version() -> None:
 
 
 def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[dict]]:
-    """Detect multi-column layout in text blocks.
+    """Detect multi-column layout in text blocks with enhanced whitespace analysis.
 
     Analyzes the x-coordinates of text blocks to identify column boundaries
-    and groups blocks into columns based on their horizontal positions.
+    and groups blocks into columns based on their horizontal positions. Uses
+    whitespace analysis and connected-component grouping for improved accuracy.
 
     Parameters
     ----------
@@ -111,15 +112,93 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     if not blocks:
         return [blocks]
 
-    # Extract x-coordinates (left edge) for each block
+    # Extract x-coordinates and build whitespace map
     x_coords = []
+    block_ranges = []
     for block in blocks:
         if "bbox" in block:
-            x_coords.append(block["bbox"][0])
+            x0, x1 = block["bbox"][0], block["bbox"][2]
+            x_coords.append(x0)
+            block_ranges.append((x0, x1))
 
     if len(x_coords) < 2:
         return [blocks]
 
+    # Build whitespace map: find gaps between all blocks
+    # Sort block ranges by left edge
+    sorted_ranges = sorted(block_ranges)
+
+    # Find whitespace gaps (vertical whitespace strips between columns)
+    whitespace_gaps = []
+    for i in range(len(sorted_ranges) - 1):
+        current_right = sorted_ranges[i][1]
+        next_left = sorted_ranges[i + 1][0]
+        gap_width = next_left - current_right
+
+        if gap_width >= column_gap_threshold:
+            # Record the gap
+            whitespace_gaps.append({
+                'start': current_right,
+                'end': next_left,
+                'width': gap_width
+            })
+
+    # Find consistent gaps that span multiple blocks (likely column separators)
+    if whitespace_gaps:
+        # Count how many gaps overlap at each position
+        gap_frequency = {}
+        for gap in whitespace_gaps:
+            # Round to nearest 5 points to group similar positions
+            gap_pos = round((gap['start'] + gap['end']) / 2 / 5) * 5
+            gap_frequency[gap_pos] = gap_frequency.get(gap_pos, 0) + 1
+
+        # Find positions with highest frequency (likely column boundaries)
+        if gap_frequency:
+            max_freq = max(gap_frequency.values())
+            # Use gaps that appear in at least 30% of possible positions
+            threshold_freq = max(2, max_freq * 0.3)
+            column_boundaries = sorted([pos for pos, freq in gap_frequency.items() if freq >= threshold_freq])
+
+            if column_boundaries:
+                # Use these boundaries to split columns
+                columns = [[] for _ in range(len(column_boundaries) + 1)]
+
+                for block in blocks:
+                    if "bbox" not in block:
+                        columns[0].append(block)
+                        continue
+
+                    x0 = block["bbox"][0]
+                    x1 = block["bbox"][2]
+                    block_center = (x0 + x1) / 2
+
+                    # Find which column this block belongs to based on center point
+                    assigned = False
+                    for i, boundary in enumerate(column_boundaries):
+                        if block_center < boundary:
+                            columns[i].append(block)
+                            assigned = True
+                            break
+
+                    if not assigned:
+                        columns[-1].append(block)
+
+                # Sort blocks within each column by y-coordinate (top to bottom)
+                for column in columns:
+                    column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+
+                # Remove empty columns
+                columns = [col for col in columns if col]
+
+                if len(columns) > 1:
+                    return columns
+
+    # If enhanced detection found no columns, return single column
+    # Don't fall back to the simple algorithm as it measures wrong gaps
+    if not whitespace_gaps:
+        return [blocks]
+
+    # Fallback to original simple gap detection for edge cases
     # Sort x-coordinates and find significant gaps
     sorted_x = sorted(set(x_coords))
     column_boundaries = [sorted_x[0]]
@@ -134,14 +213,6 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
         return [blocks]
 
     # Check if we have overlapping blocks that suggest single column
-    # Calculate the width coverage for each potential column
-    block_ranges = []
-    for block in blocks:
-        if "bbox" in block:
-            x0, x1 = block["bbox"][0], block["bbox"][2]
-            block_ranges.append((x0, x1))
-
-    # If most blocks overlap significantly, it's likely single column
     if len(block_ranges) >= 3:
         # Find the median width to determine if blocks are mostly full-width
         widths = [x1 - x0 for x0, x1 in block_ranges]

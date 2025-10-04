@@ -481,6 +481,84 @@ class HtmlToAstConverter(BaseParser):
             if h1:
                 metadata.title = h1.get_text(strip=True)
 
+        # Extract enhanced microdata and structured data if enabled
+        if self.options.extract_microdata:
+            microdata = {}
+
+            # Extract all Open Graph tags
+            og_tags = {}
+            for meta in document.find_all("meta", property=re.compile(r"^og:")):
+                prop = meta.get("property", "")
+                content = meta.get("content", "").strip()
+                if content:
+                    og_tags[prop] = content
+
+            if og_tags:
+                microdata["opengraph"] = og_tags
+
+            # Extract all Twitter Card metadata
+            twitter_tags = {}
+            for meta in document.find_all("meta", attrs={"name": re.compile(r"^twitter:")}):
+                name = meta.get("name", "")
+                content = meta.get("content", "").strip()
+                if content:
+                    twitter_tags[name] = content
+
+            if twitter_tags:
+                microdata["twitter_card"] = twitter_tags
+
+            # Extract microdata (itemscope/itemprop)
+            itemscopes = document.find_all(attrs={"itemscope": True})
+            if itemscopes:
+                microdata_items = []
+                for scope in itemscopes:
+                    item = {
+                        "type": scope.get("itemtype", ""),
+                        "properties": {}
+                    }
+
+                    # Find all itemprop elements within this scope
+                    props = scope.find_all(attrs={"itemprop": True})
+                    for prop in props:
+                        prop_name = prop.get("itemprop")
+                        # Get content from various sources
+                        if prop.get("content"):
+                            prop_value = prop.get("content")
+                        elif prop.name == "meta":
+                            prop_value = prop.get("content", "")
+                        elif prop.name == "link":
+                            prop_value = prop.get("href", "")
+                        else:
+                            prop_value = prop.get_text(strip=True)
+
+                        if prop_name and prop_value:
+                            item["properties"][prop_name] = prop_value
+
+                    if item["properties"]:
+                        microdata_items.append(item)
+
+                if microdata_items:
+                    microdata["items"] = microdata_items
+
+            # Extract JSON-LD structured data
+            json_ld_scripts = document.find_all("script", type="application/ld+json")
+            if json_ld_scripts:
+                import json
+                json_ld_data = []
+                for script in json_ld_scripts:
+                    try:
+                        data = json.loads(script.string)
+                        json_ld_data.append(data)
+                    except Exception:
+                        pass  # Skip malformed JSON-LD
+
+                if json_ld_data:
+                    microdata["json_ld"] = json_ld_data
+
+            # Store all microdata in custom fields
+            if microdata:
+                metadata.custom["microdata"] = microdata
+
         return metadata
 
     def _sanitize_element(self, element: Any) -> bool:
@@ -585,6 +663,10 @@ class HtmlToAstConverter(BaseParser):
             return self._process_code_block_to_ast(node)
         elif node.name == "blockquote":
             return self._process_blockquote_to_ast(node)
+        elif node.name == "figure":
+            return self._process_figure_to_ast(node)
+        elif node.name == "details":
+            return self._process_details_to_ast(node)
         elif node.name == "table":
             return self._process_table_to_ast(node)
         elif node.name in ["strong", "b"]:
@@ -768,6 +850,113 @@ class HtmlToAstConverter(BaseParser):
                     children.append(ast_nodes)
 
         return BlockQuote(children=children)
+
+    def _process_figure_to_ast(self, node: Any) -> BlockQuote | Paragraph | HTMLBlock | None:
+        """Process HTML figure element to AST node.
+
+        Parameters
+        ----------
+        node : BeautifulSoup element
+            Figure element to process
+
+        Returns
+        -------
+        BlockQuote, Paragraph, HTMLBlock, or None
+            Converted node based on figure_rendering option
+
+        """
+        if self.options.figure_rendering == "html":
+            # Preserve as HTML
+            return HTMLBlock(content=str(node))
+
+        # Extract figcaption if present
+        figcaption = node.find("figcaption")
+        caption_text = figcaption.get_text(strip=True) if figcaption else None
+
+        # Find image in figure
+        img_node = node.find("img")
+
+        if self.options.figure_rendering == "image_with_caption":
+            # Render as image with caption in alt text or below
+            if img_node:
+                img_ast = self._process_image_to_ast(img_node)
+                if caption_text and isinstance(img_ast, Image):
+                    # Update alt text with caption if not already set
+                    if not img_ast.alt_text or img_ast.alt_text == "Image":
+                        img_ast.alt_text = caption_text
+
+                # Return image in a paragraph
+                if img_ast:
+                    return Paragraph(content=[img_ast])
+
+        # Default: blockquote rendering
+        children: list[Node] = []
+
+        # Add image if present
+        if img_node:
+            img_ast = self._process_image_to_ast(img_node)
+            if img_ast:
+                children.append(Paragraph(content=[img_ast]))
+
+        # Add caption as italic text if present
+        if caption_text:
+            caption_inline = Emphasis(content=[Text(content=caption_text)])
+            children.append(Paragraph(content=[caption_inline]))
+
+        if children:
+            return BlockQuote(children=children)
+
+        return None
+
+    def _process_details_to_ast(self, node: Any) -> BlockQuote | HTMLBlock | None:
+        """Process HTML details/summary element to AST node.
+
+        Parameters
+        ----------
+        node : BeautifulSoup element
+            Details element to process
+
+        Returns
+        -------
+        BlockQuote, HTMLBlock, or None
+            Converted node based on details_rendering option
+
+        """
+        if self.options.details_rendering == "ignore":
+            return None
+
+        if self.options.details_rendering == "html":
+            # Preserve as HTML
+            return HTMLBlock(content=str(node))
+
+        # Default: blockquote rendering
+        children: list[Node] = []
+
+        # Extract summary if present
+        summary = node.find("summary")
+        if summary:
+            summary_text = summary.get_text(strip=True)
+            if summary_text:
+                # Add summary as bold text
+                summary_inline = Strong(content=[Text(content=summary_text)])
+                children.append(Paragraph(content=[summary_inline]))
+
+        # Process remaining content
+        for child in node.children:
+            if hasattr(child, 'name') and child.name == "summary":
+                continue  # Skip summary, already processed
+
+            ast_nodes = self._process_node_to_ast(child)
+            if ast_nodes:
+                if isinstance(ast_nodes, list):
+                    children.extend(ast_nodes)
+                else:
+                    children.append(ast_nodes)
+
+        if children:
+            return BlockQuote(children=children)
+
+        return None
 
     def _process_table_to_ast(self, node: Any) -> Table:
         """Process table element to Table node.
@@ -1232,9 +1421,10 @@ class HtmlToAstConverter(BaseParser):
         """Extract language identifier from HTML attributes.
 
         Checks for language in:
-        - class attributes with patterns like language-xxx, lang-xxx, brush: xxx
-        - data-lang attributes
+        - class attributes with patterns like language-xxx, lang-xxx, brush: xxx, hljs-xxx
+        - data-lang, data-language attributes
         - child code elements' classes
+        - Common aliases (js→javascript, py→python)
 
         Parameters
         ----------
@@ -1249,6 +1439,21 @@ class HtmlToAstConverter(BaseParser):
         """
         language = ""
 
+        # Language alias mapping for common abbreviations
+        aliases = {
+            'js': 'javascript',
+            'ts': 'typescript',
+            'py': 'python',
+            'rb': 'ruby',
+            'sh': 'bash',
+            'yml': 'yaml',
+            'md': 'markdown',
+            'cs': 'csharp',
+            'fs': 'fsharp',
+            'kt': 'kotlin',
+            'rs': 'rust',
+        }
+
         # Check class attribute
         if node.get("class"):
             classes = node.get("class")
@@ -1256,19 +1461,27 @@ class HtmlToAstConverter(BaseParser):
                 classes = [classes]
 
             for idx, cls in enumerate(classes):
-                # Check for language-xxx pattern
+                # Check for language-xxx pattern (Prism.js)
                 if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    return sanitize_language_identifier(match.group(1))
+                    lang = match.group(1)
+                    return sanitize_language_identifier(aliases.get(lang, lang))
                 # Check for lang-xxx pattern
                 elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                    return sanitize_language_identifier(match.group(1))
+                    lang = match.group(1)
+                    return sanitize_language_identifier(aliases.get(lang, lang))
+                # Check for hljs-xxx pattern (Highlight.js)
+                elif match := re.match(r"hljs-([a-zA-Z0-9_+\-]+)", cls):
+                    lang = match.group(1)
+                    return sanitize_language_identifier(aliases.get(lang, lang))
                 # Check for brush: xxx pattern - BeautifulSoup splits "brush: sql" into ["brush:", "sql"]
                 elif cls == "brush:" and idx + 1 < len(classes):
                     # Next class is the language identifier
-                    return sanitize_language_identifier(classes[idx + 1])
+                    lang = classes[idx + 1]
+                    return sanitize_language_identifier(aliases.get(lang, lang))
                 elif match := re.match(r"brush:\s*([a-zA-Z0-9_+\-]+)", cls):
                     # Fallback for cases where brush:lang is together without space
-                    return sanitize_language_identifier(match.group(1))
+                    lang = match.group(1)
+                    return sanitize_language_identifier(aliases.get(lang, lang))
                 # Use the class as-is if it's a simple language name (only if we haven't found one yet)
                 elif (
                     not language
@@ -1277,24 +1490,45 @@ class HtmlToAstConverter(BaseParser):
                     and not cls.startswith("highlight")
                     and cls != "brush:"
                 ):
-                    language = cls
+                    language = aliases.get(cls, cls)
 
         # Check data-lang attribute
         if node.get("data-lang"):
-            return sanitize_language_identifier(node.get("data-lang"))
+            lang = node.get("data-lang")
+            return sanitize_language_identifier(aliases.get(lang, lang))
+
+        # Check data-language attribute (alternative)
+        if node.get("data-language"):
+            lang = node.get("data-language")
+            return sanitize_language_identifier(aliases.get(lang, lang))
 
         # Check child code element
         code_child = node.find("code")
-        if code_child and code_child.get("class"):
-            classes = code_child.get("class")
-            if isinstance(classes, str):
-                classes = [classes]
+        if code_child:
+            # Check class on code element
+            if code_child.get("class"):
+                classes = code_child.get("class")
+                if isinstance(classes, str):
+                    classes = [classes]
 
-            for cls in classes:
-                if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    return sanitize_language_identifier(match.group(1))
-                elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                    return sanitize_language_identifier(match.group(1))
+                for cls in classes:
+                    if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
+                        lang = match.group(1)
+                        return sanitize_language_identifier(aliases.get(lang, lang))
+                    elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
+                        lang = match.group(1)
+                        return sanitize_language_identifier(aliases.get(lang, lang))
+                    elif match := re.match(r"hljs-([a-zA-Z0-9_+\-]+)", cls):
+                        lang = match.group(1)
+                        return sanitize_language_identifier(aliases.get(lang, lang))
+
+            # Check data attributes on code element
+            if code_child.get("data-lang"):
+                lang = code_child.get("data-lang")
+                return sanitize_language_identifier(aliases.get(lang, lang))
+            if code_child.get("data-language"):
+                lang = code_child.get("data-language")
+                return sanitize_language_identifier(aliases.get(lang, lang))
 
         return sanitize_language_identifier(language)
 
