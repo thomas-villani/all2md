@@ -108,6 +108,7 @@ from all2md.options import (
     RtfOptions,
     SourceCodeOptions,
     XlsxOptions,
+    ZipOptions,
     create_updated_options,
 )
 
@@ -155,7 +156,8 @@ def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BasePar
         "ods": OdsSpreadsheetOptions,
         "csv": CsvOptions,
         "tsv": CsvOptions,  # TSV uses same options as CSV
-        "markdown": MarkdownParserOptions
+        "markdown": MarkdownParserOptions,
+        "zip": ZipOptions
     }
     return format_to_class.get(format)
 

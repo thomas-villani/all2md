@@ -143,7 +143,36 @@ Common Use Cases
    # Command line equivalent
    all2md document.pdf --markdown-emphasis-symbol "_" --markdown-bullet-symbols "•◦▪"
 
-4. Progress Monitoring
+4. Processing ZIP Archives
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Extract and convert multiple files from ZIP archives:
+
+.. code-block:: python
+
+   from all2md import to_markdown, ZipOptions
+
+   # Convert all parseable files in the archive
+   markdown = to_markdown('project_docs.zip')
+
+   # Filter specific file types and skip system files
+   options = ZipOptions(
+       include_patterns=['*.md', '*.txt', '*.py'],
+       exclude_patterns=['__MACOSX/*', '.DS_Store'],
+       create_section_headings=True
+   )
+
+   markdown = to_markdown('archive.zip', options=options)
+
+.. code-block:: bash
+
+   # Command line with filtering
+   all2md archive.zip --zip-include "*.md" --zip-exclude "__MACOSX/*"
+
+   # Flatten directory structure
+   all2md archive.zip --zip-flatten --out combined.md
+
+5. Progress Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~
 
 For long-running conversions, use progress callbacks to track the conversion in real-time:
@@ -170,7 +199,7 @@ This is particularly useful for:
 
 See :doc:`overview` for detailed progress callback documentation and :doc:`recipes` for GUI integration examples.
 
-5. Batch Processing
+6. Batch Processing
 ~~~~~~~~~~~~~~~~~~~
 
 all2md provides powerful built-in batch processing features for converting multiple files efficiently.
@@ -224,7 +253,7 @@ For programmatic control, you can process files manually:
            except Exception as e:
                print(f"✗ Failed: {file_path.name}: {e}")
 
-5. Working with File Objects
+7. Working with File Objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python

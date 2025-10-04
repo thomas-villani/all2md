@@ -721,6 +721,128 @@ Single-file web archive processing with embedded resources.
 * **Web Archive Support:** Handles Internet Explorer and Edge web archives
 * **Content Reconstruction:** Rebuilds page structure from archive
 
+ZIP Archives
+~~~~~~~~~~~~
+
+**File Extensions:** ``.zip``
+
+**Dependencies:** Built-in (uses Python's zipfile module)
+
+**Technology:** Built-in zipfile + automatic per-file format detection
+
+Extract and convert multiple files from ZIP archives, with each parseable file converted to its appropriate format.
+
+**Basic Usage:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Convert all parseable files in archive
+   markdown = to_markdown('documents.zip')
+
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown, ZipOptions
+
+   options = ZipOptions(
+       include_patterns=['*.md', '*.txt', '*.py'],  # Only include certain files
+       exclude_patterns=['__MACOSX/*', '.DS_Store'], # Skip system files
+       max_depth=2,                        # Limit directory traversal depth
+       create_section_headings=True,       # Add heading for each file (default)
+       preserve_directory_structure=True,  # Include paths in headings
+       flatten_structure=False,            # Don't flatten directory structure
+       extract_resource_files=True,        # Handle non-parseable files
+       skip_empty_files=True               # Skip empty/failed conversions
+   )
+
+   markdown = to_markdown('archive.zip', options=options)
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Basic conversion
+   all2md archive.zip
+
+   # With filtering
+   all2md archive.zip --zip-include "*.md" --zip-exclude "__MACOSX/*"
+
+   # Flatten directory structure
+   all2md archive.zip --zip-flatten
+
+**ZIP-Specific Features:**
+
+* **Multi-Format Support:** Each file in the archive is automatically detected and converted using the appropriate parser
+* **File Filtering:** Include/exclude files using glob patterns
+* **Directory Control:** Limit traversal depth and control structure preservation
+* **Section Headings:** Automatically creates headings for each file in the archive
+* **Security Validation:** Built-in protection against zip bombs and path traversal attacks
+* **Resource Handling:** Identifies non-parseable files (images, etc.) for potential extraction
+* **Mixed Content:** Handles archives containing various file types (PDF, DOCX, Markdown, code, etc.)
+
+**Example Archive Contents:**
+
+.. code-block:: text
+
+   project.zip
+   ├── README.md           → Converted as Markdown
+   ├── docs/
+   │   ├── guide.pdf       → Converted as PDF
+   │   └── api.html        → Converted as HTML
+   ├── src/
+   │   ├── main.py         → Converted as Python source code
+   │   └── config.json     → Converted as JSON source code
+   └── images/
+       └── logo.png        → Identified as resource file
+
+**Output Structure:**
+
+The ZIP parser creates a unified Markdown document with section headings for each converted file:
+
+.. code-block:: markdown
+
+   ## README.md
+
+   # Project Title
+
+   Project description...
+
+   ## docs/guide.pdf
+
+   (PDF content converted to markdown)
+
+   ## docs/api.html
+
+   (HTML content converted to markdown)
+
+   ## src/main.py
+
+   ```python
+   def main():
+       pass
+   ```
+
+   ## src/config.json
+
+   ```json
+   {
+       "setting": "value"
+   }
+   ```
+
+**Security Features:**
+
+The ZIP parser includes comprehensive security validation:
+
+* **Zip Bomb Protection:** Validates compression ratios and uncompressed sizes
+* **Path Traversal Prevention:** Blocks entries with suspicious paths (``../``, absolute paths)
+* **Entry Limits:** Enforces maximum number of files in archive
+* **Size Limits:** Configurable limits on total uncompressed size
+* **Automatic Validation:** All security checks applied before processing
+
 Images and Media
 ----------------
 
@@ -1112,6 +1234,7 @@ Valid format strings for the ``format`` parameter:
 * ``'xlsx'`` - Excel spreadsheets (.xlsx)
 * ``'ods'`` - ODS spreadsheets (.ods)
 * ``'csv'`` - CSV and TSV files (.csv, .tsv)
+* ``'zip'`` - ZIP archives (.zip)
 * ``'image'`` - Image files (limited support)
 * ``'txt'`` - Plain text (fallback)
 
@@ -1192,6 +1315,7 @@ How file extensions map to converters (order matters for multi-extension support
    .epub         → epub (E-books)
    .rtf          → rtf (Rich Text)
    .ipynb        → ipynb (Jupyter)
+   .zip          → zip (ZIP archives)
 
    .odt          → odt (OpenDocument Text)
    .odp          → odp (OpenDocument Presentation)
@@ -1246,6 +1370,7 @@ For files with unreliable extensions, MIME type provides verification:
    application/vnd.openxmlformats-officedocument.wordprocessingml.document → docx
    application/vnd.openxmlformats-officedocument.presentationml.presentation → pptx
    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet → xlsx
+   application/zip                 → zip
    text/html                       → html
    text/x-rst                      → rst
    text/prs.fallenstein.rst        → rst
@@ -1278,6 +1403,7 @@ When filename/MIME are unavailable, content is analyzed:
    %PDF                    → PDF
    PK\x03\x04 + [Content_Types].xml → DOCX/PPTX/XLSX (Office Open XML)
    PK\x03\x04 + mimetype   → EPUB/ODT/ODP (ZIP-based)
+   PK\x03\x04              → ZIP (generic ZIP archive)
    {\rtf                   → RTF
    <html or <!DOCTYPE      → HTML
    {                       → JSON (potential IPYNB)

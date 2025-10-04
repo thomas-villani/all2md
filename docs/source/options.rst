@@ -30,6 +30,7 @@ The all2md options system uses a clear inheritance structure that separates univ
    ├── OdfOptions (OpenDocument options)
    ├── EpubOptions (EPUB e-book options)
    ├── MhtmlOptions (MHTML web archive options)
+   ├── ZipOptions (ZIP archive options)
    └── SpreadsheetOptions (Excel/CSV/TSV options)
 
    MarkdownOptions (common Markdown formatting - used by all format options)
@@ -660,6 +661,78 @@ Configuration for MHTML web archive processing.
            allow_cwd_files=True        # Allow current directory
        ),
        attachment_mode="download"      # Download embedded resources
+   )
+
+ZipOptions
+~~~~~~~~~~
+
+Configuration for ZIP archive processing.
+
+.. autoclass:: all2md.options.ZipOptions
+   :noindex:
+
+**CLI Prefix:** ``--zip-``
+
+**Key Features:**
+
+* **File Filtering:** Include/exclude files using glob patterns
+* **Directory Control:** Limit traversal depth and structure handling
+* **Section Organization:** Control heading creation and path display
+* **Resource Handling:** Configure non-parseable file extraction
+
+**Example:**
+
+.. code-block:: python
+
+   from all2md.options import ZipOptions
+
+   options = ZipOptions(
+       include_patterns=['*.md', '*.txt', '*.py'],  # Only process these files
+       exclude_patterns=['__MACOSX/*', '.DS_Store'], # Skip system files
+       max_depth=2,                        # Limit directory depth
+       create_section_headings=True,       # Add heading for each file
+       preserve_directory_structure=True,  # Show full paths in headings
+       flatten_structure=False,            # Don't flatten paths
+       extract_resource_files=True,        # Handle non-parseable files
+       skip_empty_files=True               # Skip files that fail to parse
+   )
+
+**CLI Usage:**
+
+.. code-block:: bash
+
+   # Include only specific file types
+   all2md archive.zip --zip-include "*.md" --zip-include "*.txt"
+
+   # Exclude system files
+   all2md archive.zip --zip-exclude "__MACOSX/*" --zip-exclude ".DS_Store"
+
+   # Flatten directory structure in output
+   all2md archive.zip --zip-flatten
+
+   # Limit directory traversal depth
+   all2md archive.zip --zip-max-depth 2
+
+**Common Patterns:**
+
+.. code-block:: python
+
+   # Process only documentation files
+   docs_only = ZipOptions(
+       include_patterns=['*.md', '*.rst', '*.txt'],
+       exclude_patterns=['node_modules/*', '__pycache__/*']
+   )
+
+   # Flat output with no directory structure
+   flat = ZipOptions(
+       flatten_structure=True,
+       create_section_headings=True
+   )
+
+   # Limited depth traversal
+   shallow = ZipOptions(
+       max_depth=1,  # Only root and one level down
+       skip_empty_files=True
    )
 
 Advanced Usage
