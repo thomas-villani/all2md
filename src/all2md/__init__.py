@@ -99,7 +99,6 @@ from all2md.options import (
     MarkdownOptions,
     MarkdownParserOptions,
     MhtmlOptions,
-    OdfOptions,
     OdpOptions,
     OdsSpreadsheetOptions,
     OdtOptions,
@@ -107,7 +106,6 @@ from all2md.options import (
     PptxOptions,
     RtfOptions,
     SourceCodeOptions,
-    SpreadsheetOptions,
     XlsxOptions,
     create_updated_options,
 )
@@ -148,12 +146,10 @@ def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BasePar
         "eml": EmlOptions,
         "ipynb": IpynbOptions,
         "rtf": RtfOptions,
-        "odf": OdfOptions,  # Deprecated, kept for backward compatibility
         "odt": OdtOptions,
         "odp": OdpOptions,
         "epub": EpubOptions,
         "sourcecode": SourceCodeOptions,
-        "spreadsheet": SpreadsheetOptions,  # Deprecated, kept for backward compatibility
         "xlsx": XlsxOptions,
         "ods": OdsSpreadsheetOptions,
         "csv": CsvOptions,
@@ -994,7 +990,6 @@ __all__ = [
     "MarkdownOptions",
     "MarkdownParserOptions",
     "MhtmlOptions",
-    "OdfOptions",  # Deprecated
     "OdpOptions",
     "OdsSpreadsheetOptions",
     "OdtOptions",
@@ -1002,7 +997,6 @@ __all__ = [
     "PptxOptions",
     "RtfOptions",
     "SourceCodeOptions",
-    "SpreadsheetOptions",  # Deprecated
     "XlsxOptions",
     "MarkdownConversionError",
     "InputError",
