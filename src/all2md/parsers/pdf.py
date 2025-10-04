@@ -15,10 +15,10 @@ import logging
 import re
 import string
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union, Callable, Optional
+from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 
 from all2md import MarkdownOptions, PdfOptions
-from all2md.utils.attachments import process_attachment, create_attachment_sequencer
+from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 
 if TYPE_CHECKING:
     import fitz
@@ -29,6 +29,7 @@ from all2md.ast import (
     Document,
     Emphasis,
     Heading,
+    HTMLBlock,
     Image,
     Link,
     Node,
@@ -37,16 +38,20 @@ from all2md.ast import (
     TableCell,
     TableRow,
     Text,
-    Table as AstTable,
-    Paragraph as AstParagraph, HTMLBlock,
 )
-
+from all2md.ast import (
+    Paragraph as AstParagraph,
+)
+from all2md.ast import (
+    Table as AstTable,
+)
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
-    DEFAULT_OVERLAP_THRESHOLD_PX, PDF_MIN_PYMUPDF_VERSION,
+    DEFAULT_OVERLAP_THRESHOLD_PX,
+    PDF_MIN_PYMUPDF_VERSION,
 )
-from all2md.exceptions import InputError, DependencyError, MarkdownConversionError, PasswordProtectedError
 from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import DependencyError, InputError, PasswordProtectedError
 from all2md.options import PdfOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
@@ -597,12 +602,14 @@ class IdentifyHeaders:
     doc : fitz.Document
         PDF document to analyze
     pages : list[int], range, or None, optional
-        Pages to analyze for font size distribution. If None, analyzes all pages.
+        Pages to analyze for font size distribution. If None, samples first 5 pages
+        for performance on large PDFs.
     body_limit : float or None, optional
         Font size threshold below which text is considered body text.
         If None, uses the most frequent font size as body text baseline.
     options : PdfOptions or None, optional
         PDF conversion options containing header detection parameters.
+        Use options.header_sample_pages to override the default sampling behavior.
 
     Attributes
     ----------
@@ -630,7 +637,7 @@ class IdentifyHeaders:
         doc : fitz.Document
             PDF document to analyze
         pages : list[int], range, or None, optional
-            Pages to analyze for font size distribution. If None, analyzes all pages.
+            Pages to analyze for font size distribution. If None, samples first 5 pages.
         body_limit : float or None, optional
             Font size threshold below which text is considered body text.
             If None, uses the most frequent font size as body text baseline.
@@ -650,7 +657,9 @@ class IdentifyHeaders:
         elif pages is not None:
             pages_to_sample = pages if isinstance(pages, list) else list(pages)
         else:
-            pages_to_sample = list(range(doc.page_count))
+            # Default: sample first 5 pages for performance on large PDFs
+            # This provides good header detection accuracy while avoiding O(n) scans
+            pages_to_sample = list(range(min(5, doc.page_count)))
 
         pages_to_use: list[int] = pages_to_sample
         fontsizes: dict[int, int] = {}

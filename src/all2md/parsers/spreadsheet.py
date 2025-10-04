@@ -19,10 +19,9 @@ from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Union
 
 from all2md import DependencyError, InputError
-from all2md.ast import Document, Emphasis, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
-from all2md.constants import TABLE_ALIGNMENT_MAPPING
+from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import MarkdownOptions, SpreadsheetOptions
+from all2md.options import SpreadsheetOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -621,8 +620,21 @@ class SpreadsheetToAstConverter(BaseParser):
 
         reader = csv.reader(text_stream, dialect=dialect)
         rows: list[list[str]] = []
+
+        # Calculate maximum rows to read (header + max_rows data rows)
+        # This prevents reading entire large files into memory
+        max_total_rows = None
+        if self.options.max_rows is not None:
+            # Account for header row if present
+            max_total_rows = (self.options.max_rows + 1) if self.options.has_header else self.options.max_rows
+
+        # Read rows with early termination if max_rows is set
+        row_count = 0
         for r in reader:
             rows.append(r)
+            row_count += 1
+            if max_total_rows is not None and row_count >= max_total_rows:
+                break
 
         # Extract metadata (CSV/TSV have no structured metadata)
         metadata = self.extract_metadata(None)
@@ -677,6 +689,7 @@ class SpreadsheetToAstConverter(BaseParser):
 
         children = [table]
 
+        # Note: truncated flag was set earlier if we hit max_rows limit during reading
         if truncated:
             children.append(
                 Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
@@ -743,7 +756,8 @@ class SpreadsheetToAstConverter(BaseParser):
             AST document with table nodes
 
         """
-        from odf.table import Table as OdfTable, TableCell, TableRow
+        from odf.table import Table as OdfTable
+        from odf.table import TableCell, TableRow
 
         children = []
 

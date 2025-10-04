@@ -15,7 +15,6 @@ generate DOCX content with appropriate styles and formatting.
 from __future__ import annotations
 
 import base64
-import io
 import re
 import tempfile
 from pathlib import Path
@@ -26,7 +25,6 @@ from all2md.exceptions import DependencyError
 
 if TYPE_CHECKING:
     from docx import Document
-    from docx.oxml import OxmlElement
     from docx.text.paragraph import Paragraph
 
 from all2md.ast.nodes import (
@@ -36,7 +34,6 @@ from all2md.ast.nodes import (
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
-    Document as ASTDocument,
     Emphasis,
     FootnoteDefinition,
     FootnoteReference,
@@ -51,7 +48,6 @@ from all2md.ast.nodes import (
     MathBlock,
     MathInline,
     Node,
-    Paragraph as ASTParagraph,
     Strikethrough,
     Strong,
     Subscript,
@@ -62,6 +58,12 @@ from all2md.ast.nodes import (
     Text,
     ThematicBreak,
     Underline,
+)
+from all2md.ast.nodes import (
+    Document as ASTDocument,
+)
+from all2md.ast.nodes import (
+    Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import DocxRendererOptions
@@ -526,6 +528,148 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Skip HTML content in DOCX
         pass
 
+    def _render_inlines(
+        self,
+        paragraph: Paragraph,
+        nodes: list[Node],
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
+        strike: bool = False,
+        superscript: bool = False,
+        subscript: bool = False,
+        code_font: bool = False,
+    ) -> None:
+        """Render inline nodes directly into a paragraph with formatting.
+
+        This method efficiently renders inline content by applying formatting
+        flags recursively, avoiding the overhead of creating temporary documents
+        and paragraphs.
+
+        Parameters
+        ----------
+        paragraph : Paragraph
+            Target paragraph to render into
+        nodes : list of Node
+            Inline nodes to render
+        bold : bool, default = False
+            Apply bold formatting
+        italic : bool, default = False
+            Apply italic formatting
+        underline : bool, default = False
+            Apply underline formatting
+        strike : bool, default = False
+            Apply strikethrough formatting
+        superscript : bool, default = False
+            Apply superscript formatting
+        subscript : bool, default = False
+            Apply subscript formatting
+        code_font : bool, default = False
+            Apply code font formatting
+
+        """
+        for node in nodes:
+            if isinstance(node, Text):
+                # Create run with text and apply all formatting
+                run = paragraph.add_run(node.content)
+                if bold:
+                    run.bold = True
+                if italic:
+                    run.italic = True
+                if underline:
+                    run.underline = True
+                if strike:
+                    run.font.strike = True
+                if superscript:
+                    run.font.superscript = True
+                if subscript:
+                    run.font.subscript = True
+                if code_font:
+                    run.font.name = self.options.code_font
+                    run.font.size = self._Pt(self.options.code_font_size)
+
+            elif isinstance(node, Strong):
+                # Recursively render with bold flag
+                self._render_inlines(
+                    paragraph, node.content,
+                    bold=True, italic=italic, underline=underline, strike=strike,
+                    superscript=superscript, subscript=subscript, code_font=code_font
+                )
+
+            elif isinstance(node, Emphasis):
+                # Recursively render with italic flag
+                self._render_inlines(
+                    paragraph, node.content,
+                    bold=bold, italic=True, underline=underline, strike=strike,
+                    superscript=superscript, subscript=subscript, code_font=code_font
+                )
+
+            elif isinstance(node, Underline):
+                # Recursively render with underline flag
+                self._render_inlines(
+                    paragraph, node.content,
+                    bold=bold, italic=italic, underline=True, strike=strike,
+                    superscript=superscript, subscript=subscript, code_font=code_font
+                )
+
+            elif isinstance(node, Strikethrough):
+                # Recursively render with strike flag
+                self._render_inlines(
+                    paragraph, node.content,
+                    bold=bold, italic=italic, underline=underline, strike=True,
+                    superscript=superscript, subscript=subscript, code_font=code_font
+                )
+
+            elif isinstance(node, Superscript):
+                # Recursively render with superscript flag
+                self._render_inlines(
+                    paragraph, node.content,
+                    bold=bold, italic=italic, underline=underline, strike=strike,
+                    superscript=True, subscript=subscript, code_font=code_font
+                )
+
+            elif isinstance(node, Subscript):
+                # Recursively render with subscript flag
+                self._render_inlines(
+                    paragraph, node.content,
+                    bold=bold, italic=italic, underline=underline, strike=strike,
+                    superscript=superscript, subscript=True, code_font=code_font
+                )
+
+            elif isinstance(node, Code):
+                # Render as code with code font
+                self._render_inlines(
+                    paragraph, [Text(content=node.content)],
+                    bold=bold, italic=italic, underline=underline, strike=strike,
+                    superscript=superscript, subscript=subscript, code_font=True
+                )
+
+            elif isinstance(node, Link):
+                # Extract link text by rendering to a temporary paragraph
+                temp_para = self.document.add_paragraph()
+                self._render_inlines(
+                    temp_para, node.content,
+                    bold=bold, italic=italic, underline=underline, strike=strike,
+                    superscript=superscript, subscript=subscript, code_font=code_font
+                )
+                link_text = temp_para.text
+                # Remove the temporary paragraph
+                self.document._element.body.remove(temp_para._element)
+                # Add hyperlink to target paragraph
+                self._add_hyperlink(paragraph, node.url, link_text)
+
+            elif isinstance(node, LineBreak):
+                paragraph.add_run().add_break()
+
+            else:
+                # For other inline nodes, try to process if they have content
+                if hasattr(node, 'content') and isinstance(node.content, list):
+                    self._render_inlines(
+                        paragraph, node.content,
+                        bold=bold, italic=italic, underline=underline, strike=strike,
+                        superscript=superscript, subscript=subscript, code_font=code_font
+                    )
+
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
 
@@ -555,23 +699,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        # Create run for emphasized text
-        run = self._current_paragraph.add_run()
-        run.italic = True
-
-        # Temporarily change paragraph to capture text
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        # Copy text to emphasized run
-        run.text = temp_para.text
-
-        self._current_paragraph = saved_para
+        # Use efficient inline rendering
+        self._render_inlines(self._current_paragraph, node.content, italic=True)
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -586,23 +715,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        # Create run for strong text
-        run = self._current_paragraph.add_run()
-        run.bold = True
-
-        # Temporarily change paragraph to capture text
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        # Copy text to bold run
-        run.text = temp_para.text
-
-        self._current_paragraph = saved_para
+        # Use efficient inline rendering
+        self._render_inlines(self._current_paragraph, node.content, bold=True)
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -617,9 +731,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        run = self._current_paragraph.add_run(node.content)
-        run.font.name = self.options.code_font
-        run.font.size = self._Pt(self.options.code_font_size)
+        # Use efficient inline rendering with code font
+        self._render_inlines(self._current_paragraph, [Text(content=node.content)], code_font=True)
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.
@@ -634,20 +747,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        # Get link text
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        link_text = temp_para.text
-        self._current_paragraph = saved_para
-
-        # Add hyperlink
-        self._add_hyperlink(self._current_paragraph, node.url, link_text)
+        # Use efficient inline rendering (handles links internally)
+        self._render_inlines(self._current_paragraph, [node])
 
     def _add_hyperlink(self, paragraph: Paragraph, url: str, text: str) -> None:
         """Add a hyperlink to a paragraph.
@@ -779,20 +880,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        run = self._current_paragraph.add_run()
-        run.font.strike = True
-
-        # Get text content
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        run.text = temp_para.text
-        self._current_paragraph = saved_para
+        # Use efficient inline rendering
+        self._render_inlines(self._current_paragraph, node.content, strike=True)
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.
@@ -807,20 +896,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        run = self._current_paragraph.add_run()
-        run.underline = True
-
-        # Get text content
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        run.text = temp_para.text
-        self._current_paragraph = saved_para
+        # Use efficient inline rendering
+        self._render_inlines(self._current_paragraph, node.content, underline=True)
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -835,20 +912,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        run = self._current_paragraph.add_run()
-        run.font.superscript = True
-
-        # Get text content
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        run.text = temp_para.text
-        self._current_paragraph = saved_para
+        # Use efficient inline rendering
+        self._render_inlines(self._current_paragraph, node.content, superscript=True)
 
     def visit_subscript(self, node: Subscript) -> None:
         """Render a Subscript node.
@@ -863,20 +928,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        run = self._current_paragraph.add_run()
-        run.font.subscript = True
-
-        # Get text content
-        saved_para = self._current_paragraph
-        temp_doc = self._Document()
-        temp_para = temp_doc.add_paragraph()
-        self._current_paragraph = temp_para
-
-        for child in node.content:
-            child.accept(self)
-
-        run.text = temp_para.text
-        self._current_paragraph = saved_para
+        # Use efficient inline rendering
+        self._render_inlines(self._current_paragraph, node.content, subscript=True)
 
     def visit_html_inline(self, node: HTMLInline) -> None:
         """Render an HTMLInline node.

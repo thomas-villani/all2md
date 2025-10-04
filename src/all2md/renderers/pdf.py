@@ -26,8 +26,6 @@ from urllib.parse import urlparse
 from all2md.exceptions import DependencyError
 
 if TYPE_CHECKING:
-    from reportlab.lib.colors import Color
-    from reportlab.lib.pagesizes import A4, LETTER, LEGAL
     from reportlab.platypus import Flowable
 
 from all2md.ast.nodes import (
@@ -44,15 +42,12 @@ from all2md.ast.nodes import (
     Heading,
     HTMLBlock,
     HTMLInline,
-    Image as ASTImage,
     LineBreak,
     Link,
     List,
-    ListItem as ASTListItem,
     MathBlock,
     MathInline,
     Node,
-    Paragraph as ASTParagraph,
     Strikethrough,
     Strong,
     Subscript,
@@ -63,6 +58,15 @@ from all2md.ast.nodes import (
     Text,
     ThematicBreak,
     Underline,
+)
+from all2md.ast.nodes import (
+    Image as ASTImage,
+)
+from all2md.ast.nodes import (
+    ListItem as ASTListItem,
+)
+from all2md.ast.nodes import (
+    Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import PdfRendererOptions
@@ -122,7 +126,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         try:
             from reportlab.lib import colors
             from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
-            from reportlab.lib.pagesizes import A4, LETTER, LEGAL
+            from reportlab.lib.pagesizes import A4, LEGAL, LETTER
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib.units import inch
             from reportlab.platypus import (
@@ -136,8 +140,10 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 Preformatted,
                 SimpleDocTemplate,
                 Spacer,
-                Table as ReportLabTable,
                 TableStyle,
+            )
+            from reportlab.platypus import (
+                Table as ReportLabTable,
             )
         except ImportError as e:
             raise DependencyError(
@@ -531,8 +537,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
             # Create list item from flowables
             if self._flowables:
-                # For now, just use the first flowable as the list item
-                items.append(self._ListItem(self._flowables[0], bulletType='bullet' if not node.ordered else '1'))
+                # Pass all flowables to preserve multi-paragraph and nested content
+                items.append(self._ListItem(self._flowables, bulletType='bullet' if not node.ordered else '1'))
 
             self._flowables = saved_flowables
 
