@@ -106,6 +106,17 @@ RTF Documents
 
 **Formats:** Rich Text Format files with formatting preservation
 
+reStructuredText
+~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   pip install all2md[rst]
+
+**Dependencies:** docutils
+
+**Formats:** reStructuredText (.rst, .rest) files with full bidirectional support for Sphinx documentation
+
 OpenDocument Formats
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -167,7 +178,7 @@ This is equivalent to:
 
 .. code-block:: bash
 
-   pip install all2md[pdf,docx,pptx,html,epub,rtf,odf,spreadsheet]
+   pip install all2md[pdf,docx,pptx,html,epub,rtf,rst,odf,spreadsheet]
 
 **Note:** The ``eml`` and ``ipynb`` extras are not needed as these formats use built-in Python libraries.
 

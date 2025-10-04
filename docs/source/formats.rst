@@ -635,6 +635,102 @@ Image files are handled as attachments with various processing modes.
 Text and Code Formats
 ---------------------
 
+reStructuredText Documents
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**File Extensions:** ``.rst``, ``.rest``
+
+**Dependencies:** ``pip install all2md[rst]``
+
+**Technology:** docutils for RST parsing and rendering
+
+Full bidirectional support for reStructuredText, the documentation format used by Python's Sphinx and many technical documentation systems.
+
+**Basic Usage:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Parse RST to Markdown
+   markdown = to_markdown('documentation.rst')
+
+   # Convert back to RST from AST
+   from all2md.parsers.rst import RestructuredTextParser
+   from all2md.renderers.rst import RestructuredTextRenderer
+
+   parser = RestructuredTextParser()
+   doc = parser.parse('input.rst')
+
+   renderer = RestructuredTextRenderer()
+   rst_output = renderer.render_to_string(doc)
+
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options import RstParserOptions, RstRendererOptions
+
+   # Parser options
+   parser_options = RstParserOptions(
+       parse_directives=True,          # Parse RST directives (default)
+       strict_mode=False,              # Graceful error recovery
+       preserve_raw_directives=False   # Handle unknown directives
+   )
+
+   # Renderer options
+   renderer_options = RstRendererOptions(
+       heading_chars="=-~^*",          # Heading underline characters
+       table_style="grid",             # "grid" or "simple" tables
+       code_directive_style="directive", # "directive" or "double_colon"
+       line_length=80                  # Target line length
+   )
+
+   # Parse with options
+   from all2md.parsers.rst import RestructuredTextParser
+   parser = RestructuredTextParser(parser_options)
+   doc = parser.parse('sphinx_docs.rst')
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Convert RST to Markdown
+   all2md documentation.rst --out output.md
+
+   # Force RST format
+   all2md document.txt --format rst
+
+**RST-Specific Features:**
+
+* **Bidirectional Conversion:** Full support for RST → AST → RST round-trips
+* **Sphinx Compatibility:** Handles common Sphinx directives and roles
+* **Heading Styles:** Configurable underline characters for different heading levels
+* **Table Support:** Both grid and simple table rendering
+* **Code Blocks:** Literal blocks (::) and code-block directives with language detection
+* **Definition Lists:** Full support for term/definition structures
+* **Metadata Extraction:** Processes docinfo blocks for author, date, version, etc.
+* **Inline Formatting:** Emphasis, strong, literal, links, images
+* **Math Support:** Inline (:math:) and block (.. math::) mathematics
+* **Footnotes:** Reference and definition rendering
+
+**Supported RST Elements:**
+
+* Headings (title, subtitle, sections with auto-leveling)
+* Paragraphs and inline formatting (emphasis, strong, literal)
+* Lists (bullet, enumerated, nested)
+* Definition lists
+* Tables (grid and simple styles)
+* Code blocks (literal blocks and directives)
+* Block quotes
+* Links (inline and reference-style)
+* Images (.. image:: directive)
+* Transitions (----)
+* Docinfo metadata blocks
+* Math expressions (inline and block)
+* Footnotes and citations
+
 Plain Text and Code Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -885,6 +981,7 @@ Valid format strings for the ``format`` parameter:
 * ``'eml'`` - Email messages (.eml)
 * ``'epub'`` - EPUB e-books
 * ``'rtf'`` - Rich Text Format
+* ``'rst'`` - reStructuredText documents
 * ``'ipynb'`` - Jupyter notebooks
 * ``'odf'`` - OpenDocument formats (.odt, .odp)
 * ``'spreadsheet'`` - Excel/CSV/TSV files
@@ -973,6 +1070,7 @@ How file extensions map to converters (order matters for multi-extension support
    .html, .htm   → html (HTML)
    .mhtml, .mht  → mhtml (Web archives)
    .eml          → eml (Email)
+   .rst, .rest   → rst (reStructuredText)
 
 **Priority 2: Text-Based Formats**
 
@@ -1020,6 +1118,8 @@ For files with unreliable extensions, MIME type provides verification:
    application/vnd.openxmlformats-officedocument.presentationml.presentation → pptx
    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet → spreadsheet
    text/html                       → html
+   text/x-rst                      → rst
+   text/prs.fallenstein.rst        → rst
    message/rfc822                  → eml
    application/epub+zip            → epub
    text/csv                        → spreadsheet

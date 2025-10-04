@@ -580,6 +580,120 @@ Best Practices
       assert len(original_md) > 0
       assert len(roundtrip_md) > 0
 
+Markdown to reStructuredText (RST)
+-----------------------------------
+
+Basic Conversion
+~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.rst import RestructuredTextRenderer, RstRendererOptions
+
+   # Simple conversion
+   from_markdown('document.md', output_format='rst', output_path='document.rst')
+
+   # With options
+   options = RstRendererOptions(
+       heading_chars="=-~^*",           # Customize heading underlines
+       table_style="grid",              # Use grid tables
+       code_directive_style="directive" # Use .. code-block:: directives
+   )
+   from_markdown('document.md', output_format='rst', output_path='document.rst', renderer_options=options)
+
+Bidirectional RST Support
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+RST has full bidirectional support, enabling round-trip conversions:
+
+.. code-block:: python
+
+   from all2md.parsers.rst import RestructuredTextParser
+   from all2md.renderers.rst import RestructuredTextRenderer
+   from all2md.renderers.markdown import MarkdownRenderer
+
+   # RST → Markdown → RST round-trip
+   parser = RestructuredTextParser()
+   rst_renderer = RestructuredTextRenderer()
+   md_renderer = MarkdownRenderer()
+
+   # Parse RST to AST
+   doc = parser.parse('input.rst')
+
+   # Convert to Markdown
+   markdown = md_renderer.render_to_string(doc)
+
+   # Convert back to RST
+   output_rst = rst_renderer.render_to_string(doc)
+
+Features Preserved
+~~~~~~~~~~~~~~~~~~
+
+The RST renderer preserves:
+
+- **Headings** → RST section underlines with configurable characters
+- **Inline Formatting** → Emphasis (*text*), strong (**text**), literal (``text``)
+- **Lists** → Bullet and enumerated lists with nesting
+- **Tables** → Grid or simple table styles
+- **Code Blocks** → Literal blocks (::) or code-block directives with language
+- **Definition Lists** → Term/definition structures
+- **Links** → Inline and reference-style links
+- **Images** → .. image:: directives with alt text
+- **Block Quotes** → Indented blocks
+- **Math** → Inline (:math:) and block (.. math::) directives
+- **Metadata** → Docinfo blocks for author, date, etc.
+
+Customizing RST Output
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md.renderers.rst import RestructuredTextRenderer, RstRendererOptions
+
+   # Custom heading characters (level 1-5)
+   options = RstRendererOptions(
+       heading_chars="#*+=",        # Different underline chars
+       table_style="simple",        # Simple tables instead of grid
+       code_directive_style="double_colon",  # Use :: for code blocks
+       line_length=100              # Target line wrapping
+   )
+
+   renderer = RestructuredTextRenderer(options)
+   rst_output = renderer.render_to_string(doc_ast)
+
+Round-Trip Example
+~~~~~~~~~~~~~~~~~~
+
+Complete round-trip conversion example:
+
+.. code-block:: python
+
+   from all2md.parsers.rst import RestructuredTextParser
+   from all2md.renderers.rst import RestructuredTextRenderer, RstRendererOptions
+   from pathlib import Path
+
+   # Read original RST
+   original_rst = Path('documentation.rst').read_text()
+
+   # Parse to AST
+   parser = RestructuredTextParser()
+   doc = parser.parse(original_rst)
+
+   # Apply transforms if needed
+   # (e.g., modify headings, add content, etc.)
+
+   # Render back to RST with custom options
+   options = RstRendererOptions(
+       heading_chars="=-~^*",
+       table_style="grid"
+   )
+   renderer = RestructuredTextRenderer(options)
+   modified_rst = renderer.render_to_string(doc)
+
+   # Save output
+   Path('documentation_modified.rst').write_text(modified_rst)
+
 See Also
 --------
 
@@ -598,4 +712,6 @@ API Reference
 .. autoclass:: all2md.renderers.html.HtmlRenderer
    :members:
 .. autoclass:: all2md.renderers.pdf.PdfRenderer
+   :members:
+.. autoclass:: all2md.renderers.rst.RestructuredTextRenderer
    :members:
