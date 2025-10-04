@@ -110,6 +110,7 @@ User Guide
    bidirectional
    transforms
    formats
+   attachments
    options
    security
    threat_model

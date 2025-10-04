@@ -667,6 +667,181 @@ class PdfRendererOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
+class EpubRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST to EPUB format.
+
+    This dataclass contains settings specific to EPUB generation from AST,
+    including chapter splitting strategies, metadata, and EPUB structure.
+
+    Parameters
+    ----------
+    chapter_split_mode : {"separator", "heading", "auto"}, default "auto"
+        How to split the AST into chapters:
+        - "separator": Split on ThematicBreak nodes (mirrors parser behavior)
+        - "heading": Split on specific heading level
+        - "auto": Try separator first, fallback to heading-based splitting
+    chapter_split_heading_level : int, default 1
+        Heading level to use for chapter splits when using heading mode.
+        Level 1 (H1) typically represents chapter boundaries.
+    title : str or None, default None
+        EPUB book title. If None, extracted from document metadata.
+    author : str or None, default None
+        EPUB book author. If None, extracted from document metadata.
+    language : str, default "en"
+        EPUB book language code (ISO 639-1).
+    identifier : str or None, default None
+        Unique identifier (ISBN, UUID, etc.). Auto-generated if None.
+    chapter_title_template : str, default "Chapter {num}"
+        Template for auto-generated chapter titles. Supports {num} placeholder.
+    use_heading_as_chapter_title : bool, default True
+        Use first heading in chapter as chapter title in NCX/navigation.
+    generate_toc : bool, default True
+        Generate table of contents (NCX and nav.xhtml files).
+    include_cover : bool, default False
+        Include cover image in EPUB package.
+    cover_image_path : str or None, default None
+        Path to cover image file. Only used if include_cover=True.
+    """
+
+    chapter_split_mode: Literal["separator", "heading", "auto"] = field(
+        default="auto",
+        metadata={
+            "help": "Chapter splitting strategy: separator, heading, or auto",
+            "choices": ["separator", "heading", "auto"]
+        }
+    )
+    chapter_split_heading_level: int = field(
+        default=1,
+        metadata={
+            "help": "Heading level for chapter splits (H1 = level 1)",
+            "type": int
+        }
+    )
+    title: str | None = field(
+        default=None,
+        metadata={"help": "EPUB book title (None = use document metadata)"}
+    )
+    author: str | None = field(
+        default=None,
+        metadata={"help": "EPUB book author (None = use document metadata)"}
+    )
+    language: str = field(
+        default="en",
+        metadata={"help": "EPUB language code (ISO 639-1)"}
+    )
+    identifier: str | None = field(
+        default=None,
+        metadata={"help": "Unique identifier (ISBN, UUID, etc.)"}
+    )
+    chapter_title_template: str = field(
+        default="Chapter {num}",
+        metadata={"help": "Template for auto-generated chapter titles"}
+    )
+    use_heading_as_chapter_title: bool = field(
+        default=True,
+        metadata={
+            "help": "Use first heading as chapter title in navigation",
+            "cli_name": "no-use-heading-as-chapter-title"
+        }
+    )
+    generate_toc: bool = field(
+        default=True,
+        metadata={
+            "help": "Generate table of contents (NCX and nav.xhtml)",
+            "cli_name": "no-generate-toc"
+        }
+    )
+    include_cover: bool = field(
+        default=False,
+        metadata={"help": "Include cover image in EPUB"}
+    )
+    cover_image_path: str | None = field(
+        default=None,
+        metadata={"help": "Path to cover image file"}
+    )
+
+
+@dataclass(frozen=True)
+class PptxRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST to PPTX format.
+
+    This dataclass contains settings specific to PowerPoint presentation
+    generation from AST, including slide splitting strategies and layout.
+
+    Parameters
+    ----------
+    slide_split_mode : {"separator", "heading", "auto"}, default "auto"
+        How to split the AST into slides:
+        - "separator": Split on ThematicBreak nodes (mirrors parser behavior)
+        - "heading": Split on specific heading level
+        - "auto": Try separator first, fallback to heading-based splitting
+    slide_split_heading_level : int, default 2
+        Heading level to use for slide splits when using heading mode.
+        Level 2 (H2) is typical (H1 might be document title).
+    default_layout : str, default "Title and Content"
+        Default slide layout name from template.
+    title_slide_layout : str, default "Title Slide"
+        Layout name for the first slide.
+    use_heading_as_slide_title : bool, default True
+        Use first heading in slide content as slide title.
+    template_path : str or None, default None
+        Path to .pptx template file. If None, uses default blank template.
+    default_font : str, default "Calibri"
+        Default font for slide content.
+    default_font_size : int, default 18
+        Default font size in points for body text.
+    title_font_size : int, default 44
+        Font size for slide titles.
+    """
+
+    slide_split_mode: Literal["separator", "heading", "auto"] = field(
+        default="auto",
+        metadata={
+            "help": "Slide splitting strategy: separator, heading, or auto",
+            "choices": ["separator", "heading", "auto"]
+        }
+    )
+    slide_split_heading_level: int = field(
+        default=2,
+        metadata={
+            "help": "Heading level for slide splits (H2 = level 2)",
+            "type": int
+        }
+    )
+    default_layout: str = field(
+        default="Title and Content",
+        metadata={"help": "Default slide layout name"}
+    )
+    title_slide_layout: str = field(
+        default="Title Slide",
+        metadata={"help": "Layout for first slide"}
+    )
+    use_heading_as_slide_title: bool = field(
+        default=True,
+        metadata={
+            "help": "Use first heading as slide title",
+            "cli_name": "no-use-heading-as-slide-title"
+        }
+    )
+    template_path: str | None = field(
+        default=None,
+        metadata={"help": "Path to .pptx template file (None = default)"}
+    )
+    default_font: str = field(
+        default="Calibri",
+        metadata={"help": "Default font for slide content"}
+    )
+    default_font_size: int = field(
+        default=18,
+        metadata={"help": "Default font size for body text", "type": int}
+    )
+    title_font_size: int = field(
+        default=44,
+        metadata={"help": "Font size for slide titles", "type": int}
+    )
+
+
+@dataclass(frozen=True)
 class NetworkFetchOptions(_CloneMixin):
     """Network security options for remote resource fetching.
 

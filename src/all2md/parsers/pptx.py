@@ -1014,13 +1014,13 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
     parser_class=PptxToAstConverter,
-    renderer_class=None,
+    renderer_class="all2md.renderers.pptx.PptxRenderer",
     parser_required_packages=[("python-pptx", "pptx", "")],
-    renderer_required_packages=[],
+    renderer_required_packages=[("python-pptx", "pptx", ">=0.6.21")],
     import_error_message="PPTX conversion requires 'python-pptx'. Install with: pip install python-pptx",
     parser_options_class=PptxOptions,
-    renderer_options_class=None,
-    description="Convert PowerPoint presentations to Markdown",
+    renderer_options_class="PptxRendererOptions",
+    description="Convert PowerPoint presentations to/from Markdown",
     priority=7
 )
 

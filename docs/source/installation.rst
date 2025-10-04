@@ -26,6 +26,196 @@ This includes support for:
 * Text files (200+ formats)
 * Images (PNG, JPEG, GIF)
 
+Installing with uv
+------------------
+
+`uv <https://github.com/astral-sh/uv>`_ is a fast Python package installer and resolver. If you use ``uv``, you can install all2md as follows:
+
+Basic Installation
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Install with uv
+   uv pip install all2md
+
+   # Install with specific formats
+   uv pip install all2md[pdf,docx,html]
+
+   # Install all formats
+   uv pip install all2md[all]
+
+Using uv with Virtual Environments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Create and activate virtual environment
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+   # Install all2md
+   uv pip install all2md[all]
+
+Project-based Installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For projects using ``pyproject.toml``:
+
+.. code-block:: bash
+
+   # Add to your project
+   uv add all2md
+
+   # With specific extras
+   uv add "all2md[pdf,docx,pptx]"
+
+   # Sync dependencies
+   uv sync
+
+System-Level CLI Installation
+------------------------------
+
+For system-wide CLI access, you can install all2md globally. This makes the ``all2md`` command available from any directory.
+
+Linux and macOS
+~~~~~~~~~~~~~~~
+
+**Using pip:**
+
+.. code-block:: bash
+
+   # Install globally (may require sudo)
+   sudo pip install all2md[all]
+
+   # Or install for current user only (no sudo required)
+   pip install --user all2md[all]
+
+   # Add user install location to PATH if needed
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+   source ~/.bashrc
+
+**Using pipx (recommended):**
+
+`pipx <https://pipx.pypa.io/>`_ installs Python CLI applications in isolated environments:
+
+.. code-block:: bash
+
+   # Install pipx first (if not already installed)
+   python -m pip install --user pipx
+   python -m pipx ensurepath
+
+   # Install all2md with pipx
+   pipx install all2md[all]
+
+   # Verify installation
+   all2md --version
+
+**Using uv (recommended):**
+
+.. code-block:: bash
+
+   # Install uv first (if not already installed)
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+
+   # Install all2md globally with uv
+   uv tool install all2md --with all2md[all]
+
+   # Verify installation
+   all2md --version
+
+Windows
+~~~~~~~
+
+**Using pip:**
+
+.. code-block:: powershell
+
+   # Install globally (may require admin)
+   pip install all2md[all]
+
+   # Or install for current user only
+   pip install --user all2md[all]
+
+**Using pipx (recommended):**
+
+.. code-block:: powershell
+
+   # Install pipx first
+   python -m pip install --user pipx
+   python -m pipx ensurepath
+
+   # Install all2md with pipx
+   pipx install all2md[all]
+
+   # Verify installation
+   all2md --version
+
+**Using uv (recommended):**
+
+.. code-block:: powershell
+
+   # Install uv first
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+   # Install all2md globally with uv
+   uv tool install all2md --with all2md[all]
+
+   # Verify installation
+   all2md --version
+
+**Using Scoop (alternative):**
+
+.. code-block:: powershell
+
+   # Install Scoop first (if not already installed)
+   iwr -useb get.scoop.sh | iex
+
+   # Install Python via Scoop
+   scoop install python
+
+   # Install all2md
+   pip install all2md[all]
+
+Why Use pipx or uv tool?
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Both ``pipx`` and ``uv tool`` are superior to global pip installation because they:
+
+* Install CLI tools in isolated environments (no dependency conflicts)
+* Automatically manage PATH configuration
+* Allow easy updates and uninstalls
+* Prevent pollution of system Python environment
+
+**Comparison:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 25 25 30
+
+   * - Method
+     - Speed
+     - Isolation
+     - Best For
+   * - ``pip`` (global)
+     - Fast
+     - None (system Python)
+     - Quick testing, single tool
+   * - ``pip --user``
+     - Fast
+     - User-level only
+     - Single user systems
+   * - ``pipx``
+     - Moderate
+     - Full isolation
+     - Multiple CLI tools
+   * - ``uv tool``
+     - Very fast
+     - Full isolation
+     - Performance-critical, modern workflows
+
+**Recommendation:** Use ``uv tool`` for best performance and modern tooling, or ``pipx`` for wider compatibility.
+
 Optional Dependencies
 ---------------------
 
@@ -126,18 +316,20 @@ OpenDocument Formats
 
 **Dependencies:** odfpy
 
-**Formats:** OpenDocument Text (.odt) and Presentation (.odp) files
+**Formats:** OpenDocument Text (.odt), Presentation (.odp), and Spreadsheet (.ods) files
 
-Spreadsheet Files
-~~~~~~~~~~~~~~~~~
+Excel Spreadsheets
+~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
    pip install all2md[spreadsheet]
 
-**Dependencies:** openpyxl for Excel files, built-in csv module for CSV/TSV
+**Dependencies:** openpyxl
 
-**Formats:** Excel .xlsx files, CSV and TSV files with unified processing
+**Formats:** Microsoft Excel .xlsx files with table and formatting preservation
+
+**Note:** CSV and TSV files are supported in the base installation without additional dependencies.
 
 Jupyter Notebooks
 ~~~~~~~~~~~~~~~~~

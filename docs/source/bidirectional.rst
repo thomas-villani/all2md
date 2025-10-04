@@ -43,6 +43,12 @@ Use the ``from_markdown()`` or ``from_ast()`` functions:
    # Convert Markdown to PDF
    from_markdown('document.md', output_format='pdf', output_path='document.pdf')
 
+   # Convert Markdown to EPUB
+   from_markdown('book.md', output_format='epub', output_path='book.epub')
+
+   # Convert Markdown to PowerPoint
+   from_markdown('slides.md', output_format='pptx', output_path='presentation.pptx')
+
 Using the AST Directly
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -357,7 +363,15 @@ Generate multiple output formats from a single Markdown source:
        pdf_bytes = from_ast(doc_ast, output_format='pdf')
        (output_path / f'{stem}.pdf').write_bytes(pdf_bytes)
 
-       print(f"Published {stem} to DOCX, HTML, and PDF")
+       # Generate EPUB
+       from all2md.renderers.epub import EpubRendererOptions
+       epub_options = EpubRendererOptions(title=stem, generate_toc=True)
+       from_ast(doc_ast, output_format='epub', output_path=output_path / f'{stem}.epub', renderer_options=epub_options)
+
+       # Generate PPTX
+       from_ast(doc_ast, output_format='pptx', output_path=output_path / f'{stem}.pptx')
+
+       print(f"Published {stem} to DOCX, HTML, PDF, EPUB, and PPTX")
 
    # Usage
    publish_multiformat('article.md', './output')
@@ -441,13 +455,19 @@ Feature Comparison
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 20 20 20
+   :widths: 25 12 12 12 12 12 15
 
    * - Feature
      - DOCX
      - HTML
      - PDF
+     - EPUB
+     - PPTX
+     - RST
    * - Headings (H1-H6)
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -455,7 +475,13 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Lists (ordered/unordered)
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -463,11 +489,20 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Code blocks
      - ✓
-     - ✓ (with highlighting)
+     - ✓ (highlighting)
+     - ✓
+     - ✓
+     - ✓
      - ✓
    * - Inline code
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -475,11 +510,20 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - Partial
+     - ✓
    * - Images
      - ✓
      - ✓
      - ✓
+     - ✓
+     - Partial
+     - ✓
    * - Block quotes
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -487,13 +531,22 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Footnotes
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✗
+     - ✓
    * - Task lists
      - ✓
      - ✓
+     - Partial
+     - ✓
+     - ✗
      - Partial
 
 Limitations
@@ -514,6 +567,21 @@ Limitations
 - No interactive elements
 - Fixed page layout (not responsive)
 - Images must be accessible at render time
+
+**EPUB:**
+- Images must be accessible at render time
+- Limited styling control (depends on ereader)
+- Chapter splitting required for logical structure
+
+**PPTX:**
+- Images not yet fully supported
+- Links rendered as plain text
+- Limited layout customization without templates
+- Font availability depends on system
+
+**RST:**
+- Some advanced Markdown extensions may not have RST equivalents
+- Directive syntax may differ from original
 
 Best Practices
 --------------
@@ -579,6 +647,273 @@ Best Practices
       # Compare (note: formatting may differ)
       assert len(original_md) > 0
       assert len(roundtrip_md) > 0
+
+Markdown to EPUB
+-----------------
+
+Basic Conversion
+~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.epub import EpubRendererOptions
+
+   # Simple conversion
+   from_markdown('book.md', output_format='epub', output_path='book.epub')
+
+   # With metadata
+   options = EpubRendererOptions(
+       title="My Book",
+       author="John Doe",
+       language="en",
+       generate_toc=True
+   )
+   from_markdown('book.md', output_format='epub', output_path='book.epub', renderer_options=options)
+
+Chapter Splitting Strategies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+EPUB documents are organized into chapters. all2md supports three strategies for splitting content into chapters:
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.epub import EpubRendererOptions
+
+   # Strategy 1: Split by thematic breaks (---)
+   # Best for: Markdown with explicit separators between chapters
+   options = EpubRendererOptions(
+       chapter_split_mode="separator",
+       title="My Novel"
+   )
+   from_markdown('novel.md', output_format='epub', output_path='novel.epub', renderer_options=options)
+
+   # Strategy 2: Split by heading level
+   # Best for: Structured documents with H1 or H2 chapter markers
+   options = EpubRendererOptions(
+       chapter_split_mode="heading",
+       chapter_split_heading_level=1,  # Split on H1 headings
+       use_heading_as_chapter_title=True
+   )
+   from_markdown('book.md', output_format='epub', output_path='book.epub', renderer_options=options)
+
+   # Strategy 3: Auto-detect (default)
+   # Prefers separators if present, falls back to headings
+   options = EpubRendererOptions(chapter_split_mode="auto")
+   from_markdown('content.md', output_format='epub', output_path='content.epub', renderer_options=options)
+
+Example with Multiple Chapters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.epub import EpubRendererOptions
+
+   # Markdown with explicit chapter separators
+   markdown_content = """
+   # Chapter 1: The Beginning
+
+   It was a dark and stormy night...
+
+   ---
+
+   # Chapter 2: The Journey
+
+   The next morning, our hero set out on their quest...
+
+   ---
+
+   # Chapter 3: The End
+
+   And they lived happily ever after.
+   """
+
+   options = EpubRendererOptions(
+       title="My Short Story",
+       author="Jane Author",
+       chapter_split_mode="separator",  # Split on ---
+       generate_toc=True
+   )
+
+   from_markdown(markdown_content, output_format='epub', output_path='story.epub', renderer_options=options)
+
+Advanced EPUB Options
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import to_ast, from_ast
+   from all2md.renderers.epub import EpubRendererOptions
+
+   # Parse Markdown
+   doc_ast = to_ast('manuscript.md')
+
+   # Configure EPUB rendering
+   options = EpubRendererOptions(
+       title="Technical Manual",
+       author="Expert Team",
+       language="en",
+       identifier="urn:isbn:978-0-123456-78-9",  # ISBN or unique ID
+       chapter_split_mode="heading",
+       chapter_split_heading_level=1,
+       chapter_title_template="Chapter {num}",
+       use_heading_as_chapter_title=True,
+       generate_toc=True
+   )
+
+   # Render to EPUB
+   from_ast(doc_ast, output_format='epub', output_path='manual.epub', renderer_options=options)
+
+EPUB Features
+~~~~~~~~~~~~~
+
+The EPUB renderer supports:
+
+- **Chapter Organization** - Automatic chapter splitting with configurable strategies
+- **Table of Contents** - Auto-generated navigation (NCX and nav.xhtml)
+- **Metadata** - Title, author, language, ISBN, and Dublin Core fields
+- **Rich Content** - Tables, code blocks, lists, images, formatting
+- **EPUB3 Standard** - Modern EPUB3 format with proper structure
+
+Markdown to PowerPoint (PPTX)
+-------------------------------
+
+Basic Conversion
+~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.pptx import PptxRendererOptions
+
+   # Simple conversion
+   from_markdown('presentation.md', output_format='pptx', output_path='presentation.pptx')
+
+   # With custom fonts
+   options = PptxRendererOptions(
+       default_font="Arial",
+       default_font_size=20,
+       title_font_size=36
+   )
+   from_markdown('slides.md', output_format='pptx', output_path='slides.pptx', renderer_options=options)
+
+Slide Splitting Strategies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+PowerPoint presentations are organized into slides. all2md supports three strategies for splitting content into slides:
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.pptx import PptxRendererOptions
+
+   # Strategy 1: Split by thematic breaks (---)
+   # Best for: Markdown with explicit separators between slides
+   options = PptxRendererOptions(slide_split_mode="separator")
+   from_markdown('deck.md', output_format='pptx', output_path='deck.pptx', renderer_options=options)
+
+   # Strategy 2: Split by heading level
+   # Best for: Structured presentations with H2 slide markers
+   options = PptxRendererOptions(
+       slide_split_mode="heading",
+       slide_split_heading_level=2,  # Split on H2 headings (common pattern)
+       use_heading_as_slide_title=True
+   )
+   from_markdown('presentation.md', output_format='pptx', output_path='presentation.pptx', renderer_options=options)
+
+   # Strategy 3: Auto-detect (default)
+   # Prefers separators if present, falls back to headings
+   options = PptxRendererOptions(slide_split_mode="auto")
+   from_markdown('slides.md', output_format='pptx', output_path='slides.pptx', renderer_options=options)
+
+Example Presentation
+~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.renderers.pptx import PptxRendererOptions
+
+   # Markdown for a presentation
+   markdown_content = """
+   # Welcome to Our Product
+
+   A revolutionary new solution
+
+   ---
+
+   ## Key Features
+
+   - Fast performance
+   - Easy to use
+   - Secure by default
+
+   ---
+
+   ## Technical Specs
+
+   | Feature | Value |
+   |---------|-------|
+   | Speed   | 10x faster |
+   | Memory  | 50% less |
+
+   ---
+
+   ## Get Started Today
+
+   Visit our website for more information
+   """
+
+   options = PptxRendererOptions(
+       slide_split_mode="separator",  # Split on ---
+       use_heading_as_slide_title=True,
+       default_font_size=24,
+       title_font_size=44
+   )
+
+   from_markdown(markdown_content, output_format='pptx', output_path='product.pptx', renderer_options=options)
+
+Advanced PPTX Options
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import to_ast, from_ast
+   from all2md.renderers.pptx import PptxRendererOptions
+
+   # Parse Markdown
+   doc_ast = to_ast('quarterly_review.md')
+
+   # Configure PPTX rendering
+   options = PptxRendererOptions(
+       slide_split_mode="heading",
+       slide_split_heading_level=2,
+       default_layout="Title and Content",
+       title_slide_layout="Title Slide",
+       use_heading_as_slide_title=True,
+       template_path="corporate_template.pptx",  # Use custom template
+       default_font="Calibri",
+       default_font_size=18,
+       title_font_size=36
+   )
+
+   # Render to PPTX
+   from_ast(doc_ast, output_format='pptx', output_path='review.pptx', renderer_options=options)
+
+PPTX Features
+~~~~~~~~~~~~~
+
+The PPTX renderer supports:
+
+- **Slide Organization** - Automatic slide splitting with configurable strategies
+- **Text Formatting** - Bold, italic, code, inline formatting
+- **Lists** - Bullet points and numbered lists
+- **Tables** - Data tables with headers
+- **Code Blocks** - Syntax highlighting with monospace font
+- **Custom Layouts** - Support for PowerPoint templates
+- **Font Customization** - Configure fonts and sizes
 
 Markdown to reStructuredText (RST)
 -----------------------------------
@@ -712,6 +1047,10 @@ API Reference
 .. autoclass:: all2md.renderers.html.HtmlRenderer
    :members:
 .. autoclass:: all2md.renderers.pdf.PdfRenderer
+   :members:
+.. autoclass:: all2md.renderers.epub.EpubRenderer
+   :members:
+.. autoclass:: all2md.renderers.pptx.PptxRenderer
    :members:
 .. autoclass:: all2md.renderers.rst.RestructuredTextRenderer
    :members:

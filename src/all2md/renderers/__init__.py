@@ -10,6 +10,9 @@ to different output formats:
 - HtmlRenderer: Render to HTML (standalone or fragment)
 - DocxRenderer: Render to Microsoft Word (.docx)
 - PdfRenderer: Render to PDF using ReportLab
+- EpubRenderer: Render to EPUB ebook format
+- PptxRenderer: Render to PowerPoint (.pptx) presentation
+- RstRenderer: Render to reStructuredText
 
 Each renderer implements the visitor pattern to traverse the AST and generate
 format-specific output.
@@ -75,13 +78,40 @@ except ImportError:
     PDF_AVAILABLE = False
     PdfRenderer = None
 
+try:
+    from all2md.renderers.epub import EpubRenderer
+    EPUB_AVAILABLE = True
+except ImportError:
+    EPUB_AVAILABLE = False
+    EpubRenderer = None
+
+try:
+    from all2md.renderers.pptx import PptxRenderer
+    PPTX_RENDERER_AVAILABLE = True
+except ImportError:
+    PPTX_RENDERER_AVAILABLE = False
+    PptxRenderer = None
+
+try:
+    from all2md.renderers.rst import RstRenderer
+    RST_AVAILABLE = True
+except ImportError:
+    RST_AVAILABLE = False
+    RstRenderer = None
+
 __all__ = [
     'BaseRenderer',
     'MarkdownRenderer',
     'DocxRenderer',
     'HtmlRenderer',
     'PdfRenderer',
+    'EpubRenderer',
+    'PptxRenderer',
+    'RstRenderer',
     'DOCX_AVAILABLE',
     'HTML_AVAILABLE',
     'PDF_AVAILABLE',
+    'EPUB_AVAILABLE',
+    'PPTX_RENDERER_AVAILABLE',
+    'RST_AVAILABLE',
 ]

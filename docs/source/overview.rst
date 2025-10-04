@@ -79,19 +79,26 @@ Core Components
    │   ├── pptx.py          # PowerPoint → AST
    │   ├── ipynb.py         # Jupyter → AST
    │   ├── epub.py          # EPUB → AST
-   │   ├── odf.py           # OpenDocument → AST
+   │   ├── odt.py           # ODT (text) → AST
+   │   ├── odp.py           # ODP (presentation) → AST
    │   ├── mhtml.py         # MHTML → AST
    │   ├── rtf.py           # RTF → AST
+   │   ├── rst.py           # reStructuredText → AST
    │   ├── markdown.py      # Markdown → AST
    │   ├── sourcecode.py    # Source code → AST
-   │   └── spreadsheet.py   # Spreadsheet → AST
+   │   ├── xlsx.py          # Excel → AST
+   │   ├── ods_spreadsheet.py # ODS spreadsheet → AST
+   │   └── csv.py           # CSV/TSV → AST
    ├── renderers/           # Format renderers (AST → output)
    │   ├── __init__.py
    │   ├── base.py          # Base renderer class
    │   ├── markdown.py      # AST → Markdown
    │   ├── docx.py          # AST → DOCX
    │   ├── html.py          # AST → HTML
-   │   └── pdf.py           # AST → PDF
+   │   ├── pdf.py           # AST → PDF
+   │   ├── epub.py          # AST → EPUB
+   │   ├── pptx.py          # AST → PowerPoint
+   │   └── rst.py           # AST → reStructuredText
    └── utils/               # Shared utilities
        ├── __init__.py
        ├── inputs.py        # Input validation and handling

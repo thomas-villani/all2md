@@ -359,18 +359,16 @@ Chapter-by-chapter extraction with metadata and navigation preservation.
 Data and Spreadsheet Formats
 -----------------------------
 
-Spreadsheet Files (XLSX/CSV/TSV)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Excel Spreadsheets (XLSX)
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**File Extensions:** ``.xlsx``, ``.csv``, ``.tsv``
+**File Extensions:** ``.xlsx``
 
 **Dependencies:** ``pip install all2md[spreadsheet]``
 
-**Technology:** openpyxl for XLSX files, built-in csv module for CSV/TSV
+**Technology:** openpyxl for Excel parsing
 
-**Format Note:** All spreadsheet formats are handled by the unified ``spreadsheet`` converter with ``SpreadsheetOptions``.
-
-Multi-sheet workbook processing with intelligent table formatting and automatic format detection.
+Multi-sheet workbook processing with intelligent table formatting.
 
 **Basic Usage:**
 
@@ -380,6 +378,103 @@ Multi-sheet workbook processing with intelligent table formatting and automatic 
 
    # Convert Excel spreadsheet
    markdown = to_markdown('data.xlsx')
+
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown, XlsxOptions
+
+   options = XlsxOptions(
+       sheets=['Sheet1', 'Summary'],       # Process specific sheets
+       include_sheet_titles=True,          # Add sheet name headers
+       render_formulas=True,               # Use stored values vs formulas
+       max_rows=1000,                      # Limit rows per sheet
+       max_cols=20,                        # Limit columns per sheet
+       truncation_indicator="...",         # Message when truncated
+   )
+
+   markdown = to_markdown('workbook.xlsx', options=options)
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Process specific sheets using regex pattern
+   all2md workbook.xlsx --xlsx-sheets "^(Sheet1|Summary)$"
+
+   # Limit output size
+   all2md large_data.xlsx --xlsx-max-rows 500 --xlsx-max-cols 10
+
+**XLSX-Specific Features:**
+
+* **Multi-sheet Support:** Process all or selected worksheets
+* **Formula Handling:** Show stored values or formulas
+* **Size Limiting:** Configurable row and column limits for large datasets
+* **Clean Tables:** Produces well-formatted Markdown tables
+
+ODS Spreadsheets
+~~~~~~~~~~~~~~~~
+
+**File Extensions:** ``.ods``
+
+**Dependencies:** ``pip install all2md[odf]``
+
+**Technology:** odfpy for ODS spreadsheet parsing
+
+OpenDocument Spreadsheet support with table formatting.
+
+**Basic Usage:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Convert ODS spreadsheet
+   markdown = to_markdown('data.ods')
+
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown, OdsSpreadsheetOptions
+
+   options = OdsSpreadsheetOptions(
+       sheets=['Sheet1', 'Summary'],       # Process specific sheets
+       include_sheet_titles=True,          # Add sheet name headers
+       max_rows=1000,                      # Limit rows per sheet
+       max_cols=20,                        # Limit columns per sheet
+       truncation_indicator="...",         # Message when truncated
+   )
+
+   markdown = to_markdown('workbook.ods', options=options)
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Process specific sheets
+   all2md workbook.ods --ods-spreadsheet-sheets "^(Sheet1|Summary)$"
+
+   # Limit output size
+   all2md large_data.ods --ods-spreadsheet-max-rows 500
+
+CSV and TSV Files
+~~~~~~~~~~~~~~~~~
+
+**File Extensions:** ``.csv``, ``.tsv``
+
+**Dependencies:** Built-in Python csv module (no extra installation needed)
+
+**Technology:** Built-in csv module
+
+Delimiter-separated values with automatic format detection.
+
+**Basic Usage:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
 
    # Convert CSV
    markdown = to_markdown('data.csv')
@@ -391,44 +486,30 @@ Multi-sheet workbook processing with intelligent table formatting and automatic 
 
 .. code-block:: python
 
-   from all2md import to_markdown, SpreadsheetOptions
+   from all2md import to_markdown, CsvOptions
 
-   options = SpreadsheetOptions(
-       sheets=['Sheet1', 'Summary'],       # XLSX: Process specific sheets
-       include_sheet_titles=True,          # Add sheet name headers
-       render_formulas=True,               # XLSX: Use stored values vs formulas
-       max_rows=1000,                      # Limit rows per sheet
-       max_cols=20,                        # Limit columns per sheet
+   options = CsvOptions(
+       detect_csv_dialect=True,            # Auto-detect delimiter and quoting
+       max_rows=1000,                      # Limit rows
+       max_cols=20,                        # Limit columns
        truncation_indicator="...",         # Message when truncated
-       detect_csv_dialect=True,            # CSV/TSV: Auto-detect format
-       attachment_mode='alt_text'          # Future: embedded images
    )
 
-   markdown = to_markdown('workbook.xlsx', options=options)
+   markdown = to_markdown('data.csv', options=options)
 
 **Command Line:**
 
 .. code-block:: bash
 
-   # Process specific sheets in XLSX using regex pattern
-   all2md workbook.xlsx --spreadsheet-sheets "^(Sheet1|Summary)$"
-
-   # For multiple specific sheets, use JSON config (recommended)
-   # In config.json: {"spreadsheet.sheets": ["Sheet1", "Summary"]}
-   all2md workbook.xlsx --options-json config.json
-
    # Limit output size
-   all2md large_data.csv --spreadsheet-max-rows 500 --spreadsheet-max-cols 10
+   all2md large_data.csv --csv-max-rows 500 --csv-max-cols 10
 
-**Spreadsheet-Specific Features:**
+**CSV-Specific Features:**
 
-* **Unified Processing:** Single converter handles XLSX, CSV, and TSV
-* **Multi-sheet Support:** Process all or selected XLSX worksheets
-* **Auto-detection:** Automatically detects CSV/TSV delimiters and structure
-* **Formula Handling:** XLSX can show stored values or formulas
+* **Auto-detection:** Automatically detects delimiters and quoting styles
 * **Size Limiting:** Configurable row and column limits for large datasets
 * **Clean Tables:** Produces well-formatted Markdown tables
-* **Encoding Support:** Handles various character encodings for CSV/TSV
+* **Encoding Support:** Handles various character encodings
 
 Notebook and Code Formats
 --------------------------
@@ -513,18 +594,16 @@ Legacy document format support with formatting preservation.
 * **Character Encoding:** Handles various RTF encodings
 * **Legacy Compatibility:** Supports older RTF versions
 
-OpenDocument Formats (ODT/ODP)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+OpenDocument Text (ODT)
+~~~~~~~~~~~~~~~~~~~~~~~
 
-**File Extensions:** ``.odt`` (text), ``.odp`` (presentation)
+**File Extensions:** ``.odt``
 
 **Dependencies:** ``pip install all2md[odf]``
 
-**Technology:** odfpy for OpenDocument parsing
+**Technology:** odfpy for OpenDocument text parsing
 
-**Format Note:** Both ODT and ODP files are handled by the unified ``odf`` converter with ``OdfOptions``.
-
-LibreOffice and OpenOffice document support with consistent processing for both text and presentation formats.
+LibreOffice and OpenOffice text document support with formatting preservation.
 
 **Basic Usage:**
 
@@ -535,19 +614,16 @@ LibreOffice and OpenOffice document support with consistent processing for both 
    # Convert OpenDocument Text
    markdown = to_markdown('document.odt')
 
-   # Convert OpenDocument Presentation
-   markdown = to_markdown('slides.odp')
-
 **Advanced Options:**
 
 .. code-block:: python
 
-   from all2md import to_markdown, OdfOptions
+   from all2md import to_markdown, OdtOptions
 
-   options = OdfOptions(
+   options = OdtOptions(
        preserve_tables=True,               # Maintain table formatting
        attachment_mode='download',         # Handle embedded images
-       attachment_output_dir='./odf_images'
+       attachment_output_dir='./odt_images'
    )
 
    markdown = to_markdown('document.odt', options=options)
@@ -557,18 +633,66 @@ LibreOffice and OpenOffice document support with consistent processing for both 
 .. code-block:: bash
 
    # Disable table preservation
-   all2md document.odt --odf-no-preserve-tables
+   all2md document.odt --odt-no-preserve-tables
 
    # Process with image download
-   all2md presentation.odp --attachment-mode download --attachment-output-dir ./images
+   all2md document.odt --attachment-mode download --attachment-output-dir ./images
 
-**ODF-Specific Features:**
+**ODT-Specific Features:**
 
-* **Unified Processing:** Single converter handles both ODT and ODP formats
 * **Style Mapping:** Converts ODF styles to Markdown
 * **Table Processing:** Configurable table structure preservation
 * **Image Extraction:** Processes embedded images and objects
 * **Cross-platform:** Works with LibreOffice/OpenOffice documents
+
+OpenDocument Presentation (ODP)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**File Extensions:** ``.odp``
+
+**Dependencies:** ``pip install all2md[odf]``
+
+**Technology:** odfpy for OpenDocument presentation parsing
+
+LibreOffice and OpenOffice presentation support with slide-by-slide extraction.
+
+**Basic Usage:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Convert OpenDocument Presentation
+   markdown = to_markdown('slides.odp')
+
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown, OdpOptions
+
+   options = OdpOptions(
+       preserve_tables=True,               # Maintain table formatting
+       attachment_mode='download',         # Handle embedded images
+       attachment_output_dir='./odp_images'
+   )
+
+   markdown = to_markdown('presentation.odp', options=options)
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Process with image download
+   all2md presentation.odp --attachment-mode download --attachment-output-dir ./images
+
+**ODP-Specific Features:**
+
+* **Slide Extraction:** Processes each slide separately
+* **Style Mapping:** Converts ODF styles to Markdown
+* **Table Processing:** Configurable table structure preservation
+* **Image Extraction:** Processes embedded images and objects
+* **Cross-platform:** Works with LibreOffice/OpenOffice presentations
 
 MHTML Web Archives
 ~~~~~~~~~~~~~~~~~~
@@ -933,7 +1057,7 @@ Combine explicit format specification with format-specific options:
    mixed_data = {
        'report': (report_bytes, 'pdf'),
        'slides': (pptx_data, 'pptx'),
-       'spreadsheet': (excel_bytes, 'spreadsheet')
+       'spreadsheet': (excel_bytes, 'xlsx')
    }
    converted = extract_text_from_mixed_sources(mixed_data)
 
@@ -983,8 +1107,11 @@ Valid format strings for the ``format`` parameter:
 * ``'rtf'`` - Rich Text Format
 * ``'rst'`` - reStructuredText documents
 * ``'ipynb'`` - Jupyter notebooks
-* ``'odf'`` - OpenDocument formats (.odt, .odp)
-* ``'spreadsheet'`` - Excel/CSV/TSV files
+* ``'odt'`` - OpenDocument Text (.odt)
+* ``'odp'`` - OpenDocument Presentation (.odp)
+* ``'xlsx'`` - Excel spreadsheets (.xlsx)
+* ``'ods'`` - ODS spreadsheets (.ods)
+* ``'csv'`` - CSV and TSV files (.csv, .tsv)
 * ``'image'`` - Image files (limited support)
 * ``'txt'`` - Plain text (fallback)
 
@@ -1061,12 +1188,14 @@ How file extensions map to converters (order matters for multi-extension support
    .pdf          → pdf (PDF documents)
    .docx         → docx (Word documents)
    .pptx         → pptx (PowerPoint)
-   .xlsx         → spreadsheet (Excel)
+   .xlsx         → xlsx (Excel)
    .epub         → epub (E-books)
    .rtf          → rtf (Rich Text)
    .ipynb        → ipynb (Jupyter)
 
-   .odt, .odp    → odf (OpenDocument)
+   .odt          → odt (OpenDocument Text)
+   .odp          → odp (OpenDocument Presentation)
+   .ods          → ods (OpenDocument Spreadsheet)
    .html, .htm   → html (HTML)
    .mhtml, .mht  → mhtml (Web archives)
    .eml          → eml (Email)
@@ -1076,8 +1205,8 @@ How file extensions map to converters (order matters for multi-extension support
 
 .. code-block:: text
 
-   .csv          → spreadsheet (CSV)
-   .tsv          → spreadsheet (TSV)
+   .csv          → csv (CSV)
+   .tsv          → csv (TSV)
    .md, .markdown → txt (text/sourcecode)
    .txt          → txt (plain text)
 
@@ -1116,13 +1245,13 @@ For files with unreliable extensions, MIME type provides verification:
    application/pdf                 → pdf
    application/vnd.openxmlformats-officedocument.wordprocessingml.document → docx
    application/vnd.openxmlformats-officedocument.presentationml.presentation → pptx
-   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet → spreadsheet
+   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet → xlsx
    text/html                       → html
    text/x-rst                      → rst
    text/prs.fallenstein.rst        → rst
    message/rfc822                  → eml
    application/epub+zip            → epub
-   text/csv                        → spreadsheet
+   text/csv                        → csv
    application/x-ipynb+json        → ipynb
 
 Content Analysis (Magic Bytes)
@@ -1217,9 +1346,9 @@ When multiple converters could handle a format:
 
 .. code-block:: python
 
-   # .xlsx → spreadsheet converter (not odf, even though technically ZIP)
-   # .csv  → spreadsheet converter (not text)
-   # .ipynb → ipynb converter (not json/text)
+   # .xlsx → xlsx converter (specific Excel parser)
+   # .csv  → csv converter (not generic text)
+   # .ipynb → ipynb converter (not generic json/text)
 
 **Rule 2: Binary Before Text**
 

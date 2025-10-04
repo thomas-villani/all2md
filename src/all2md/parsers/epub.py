@@ -246,18 +246,18 @@ CONVERTER_METADATA = ConverterMetadata(
     mime_types=["application/epub+zip"],
     description="Electronic Publication (EPUB) format",
     parser_class="all2md.parsers.epub.EpubToAstConverter",
-    renderer_class=None,
+    renderer_class="all2md.renderers.epub.EpubRenderer",
     magic_bytes=[
         (b"PK\x03\x04", 0),  # ZIP signature
     ],
     parser_required_packages=[("ebooklib", "ebooklib", "")],
-    renderer_required_packages=[],
+    renderer_required_packages=[("ebooklib", "ebooklib", ">=0.17")],
     optional_packages=[],
     import_error_message=(
         "ePub conversion requires 'ebooklib'. "
         "Install with: pip install ebooklib"
     ),
     parser_options_class="EpubOptions",
-    renderer_options_class=None,
+    renderer_options_class="EpubRendererOptions",
     priority=8
 )
