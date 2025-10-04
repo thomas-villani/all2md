@@ -92,6 +92,7 @@ from all2md.options import (
     BaseRendererOptions,
     DocxOptions,
     EmlOptions,
+    CsvOptions,
     EpubOptions,
     HtmlOptions,
     IpynbOptions,
@@ -99,11 +100,15 @@ from all2md.options import (
     MarkdownParserOptions,
     MhtmlOptions,
     OdfOptions,
+    OdpOptions,
+    OdsSpreadsheetOptions,
+    OdtOptions,
     PdfOptions,
     PptxOptions,
     RtfOptions,
     SourceCodeOptions,
     SpreadsheetOptions,
+    XlsxOptions,
     create_updated_options,
 )
 
@@ -120,7 +125,7 @@ logger = logging.getLogger(__name__)
 
 
 # Options handling helpers
-
+# TODO: this should use the registry rather than be hardcoded.
 def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BaseParserOptions] | None:
     """Get the parser options class for a given document format.
 
@@ -143,10 +148,16 @@ def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BasePar
         "eml": EmlOptions,
         "ipynb": IpynbOptions,
         "rtf": RtfOptions,
-        "odf": OdfOptions,
+        "odf": OdfOptions,  # Deprecated, kept for backward compatibility
+        "odt": OdtOptions,
+        "odp": OdpOptions,
         "epub": EpubOptions,
         "sourcecode": SourceCodeOptions,
-        "spreadsheet": SpreadsheetOptions,
+        "spreadsheet": SpreadsheetOptions,  # Deprecated, kept for backward compatibility
+        "xlsx": XlsxOptions,
+        "ods": OdsSpreadsheetOptions,
+        "csv": CsvOptions,
+        "tsv": CsvOptions,  # TSV uses same options as CSV
         "markdown": MarkdownParserOptions
     }
     return format_to_class.get(format)
@@ -974,15 +985,25 @@ __all__ = [
     # Re-exported classes and exceptions for public API
     "BaseParserOptions",
     "BaseRendererOptions",
+    "CsvOptions",
     "DocxOptions",
     "EmlOptions",
+    "EpubOptions",
     "HtmlOptions",
     "IpynbOptions",
     "MarkdownOptions",
-    "OdfOptions",
+    "MarkdownParserOptions",
+    "MhtmlOptions",
+    "OdfOptions",  # Deprecated
+    "OdpOptions",
+    "OdsSpreadsheetOptions",
+    "OdtOptions",
     "PdfOptions",
     "PptxOptions",
+    "RtfOptions",
     "SourceCodeOptions",
+    "SpreadsheetOptions",  # Deprecated
+    "XlsxOptions",
     "MarkdownConversionError",
     "InputError",
     "DependencyError",

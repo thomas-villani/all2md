@@ -7,6 +7,10 @@ This module provides conversion from spreadsheet formats (XLSX, ODS, CSV, TSV)
 to AST representation. It replaces direct markdown string generation with
 structured AST building, enabling multiple rendering strategies.
 
+DEPRECATED: This combined spreadsheet parser is deprecated. Use XlsxToAstConverter
+for .xlsx files, OdsSpreadsheetToAstConverter for .ods files, or CsvToAstConverter
+for .csv/.tsv files instead for better format-specific options.
+
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ import csv
 import io
 import logging
 import re
+import warnings
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Union
 
@@ -245,6 +250,14 @@ class SpreadsheetToAstConverter(BaseParser):
     """
 
     def __init__(self, options: SpreadsheetOptions | None = None):
+        warnings.warn(
+            "SpreadsheetToAstConverter is deprecated. Use XlsxToAstConverter for .xlsx files, "
+            "OdsSpreadsheetToAstConverter for .ods files, or CsvToAstConverter for .csv/.tsv files "
+            "for better format-specific options.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         options = options or SpreadsheetOptions()
         super().__init__()
         self.options: SpreadsheetOptions = options

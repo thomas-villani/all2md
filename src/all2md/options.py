@@ -1679,6 +1679,103 @@ class OdfOptions(BaseParserOptions):
 
 
 @dataclass(frozen=True)
+class OdtOptions(BaseParserOptions):
+    """Configuration options for ODT-to-Markdown conversion.
+
+    This dataclass contains settings specific to OpenDocument Text (ODT)
+    processing, including table preservation, footnotes, and comments.
+
+    Parameters
+    ----------
+    preserve_tables : bool, default True
+        Whether to preserve table formatting in Markdown.
+    preserve_comments : bool, default False
+        Whether to include document comments in output.
+    include_footnotes : bool, default True
+        Whether to include footnotes in output.
+    include_endnotes : bool, default True
+        Whether to include endnotes in output.
+    """
+
+    preserve_tables: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve table formatting in Markdown",
+            "cli_name": "no-preserve-tables"
+        }
+    )
+    preserve_comments: bool = field(
+        default=False,
+        metadata={"help": "Include document comments in output"}
+    )
+    include_footnotes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include footnotes in output",
+            "cli_name": "no-include-footnotes"
+        }
+    )
+    include_endnotes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include endnotes in output",
+            "cli_name": "no-include-endnotes"
+        }
+    )
+
+
+@dataclass(frozen=True)
+class OdpOptions(BaseParserOptions):
+    """Configuration options for ODP-to-Markdown conversion.
+
+    This dataclass contains settings specific to OpenDocument Presentation (ODP)
+    processing, including slide selection, numbering, and notes.
+
+    Parameters
+    ----------
+    preserve_tables : bool, default True
+        Whether to preserve table formatting in Markdown.
+    include_slide_numbers : bool, default False
+        Whether to include slide numbers in the output.
+    include_notes : bool, default True
+        Whether to include speaker notes in the conversion.
+    page_separator_template : str, default "---"
+        Template for slide separators. Supports placeholders: {page_num}, {total_pages}.
+    slides : str or None, default None
+        Slide selection (e.g., "1,3-5,8" for slides 1, 3-5, and 8).
+    """
+
+    preserve_tables: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve table formatting in Markdown",
+            "cli_name": "no-preserve-tables"
+        }
+    )
+    include_slide_numbers: bool = field(
+        default=False,
+        metadata={"help": "Include slide numbers in output"}
+    )
+    include_notes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include speaker notes from slides",
+            "cli_name": "no-include-notes"
+        }
+    )
+    page_separator_template: str = field(
+        default="---",
+        metadata={
+            "help": "Template for slide separators. Supports placeholders: {page_num}, {total_pages}."
+        }
+    )
+    slides: str | None = field(
+        default=None,
+        metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)"}
+    )
+
+
+@dataclass(frozen=True)
 class EpubOptions(BaseParserOptions):
     """Configuration options for EPUB-to-Markdown conversion.
 
@@ -1808,6 +1905,166 @@ class SpreadsheetOptions(BaseParserOptions):
     header_case: str = field(
         default="preserve",
         metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+    )
+
+
+@dataclass(frozen=True)
+class XlsxOptions(BaseParserOptions):
+    """Configuration options for XLSX spreadsheet conversion.
+
+    This dataclass contains settings specific to Excel XLSX file processing,
+    including sheet selection, cell formatting, and data limits.
+
+    Parameters
+    ----------
+    sheets : list[str] | str | None, default None
+        List of exact sheet names to include or a regex pattern.
+        If None, includes all sheets.
+    include_sheet_titles : bool, default True
+        Prepend each sheet with a '## {sheet_name}' heading.
+    render_formulas : bool, default True
+        When True, uses stored values (data_only=True). When False, shows formulas.
+    max_rows : int | None, default None
+        Maximum number of data rows per table (excluding header). None = unlimited.
+    max_cols : int | None, default None
+        Maximum number of columns per table. None = unlimited.
+    truncation_indicator : str, default "..."
+        Appended note when rows/columns are truncated.
+    preserve_newlines_in_cells : bool, default False
+        Preserve line breaks within cells as <br> tags.
+    trim_empty : str, default "trailing"
+        Trim empty rows/columns: none, leading, trailing, or both.
+    header_case : str, default "preserve"
+        Transform header case: preserve, title, upper, or lower.
+    detect_merged_cells : bool, default True
+        Attempt to handle merged cells.
+    """
+
+    sheets: Union[list[str], str, None] = None
+    include_sheet_titles: bool = True
+    render_formulas: bool = True
+    max_rows: Optional[int] = None
+    max_cols: Optional[int] = None
+    truncation_indicator: str = "..."
+
+    preserve_newlines_in_cells: bool = field(
+        default=False,
+        metadata={"help": "Preserve line breaks within cells as <br> tags"}
+    )
+    trim_empty: str = field(
+        default="trailing",
+        metadata={"help": "Trim empty rows/columns: none, leading, trailing, or both"}
+    )
+    header_case: str = field(
+        default="preserve",
+        metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+    )
+    detect_merged_cells: bool = field(
+        default=True,
+        metadata={"help": "Attempt to handle merged cells"}
+    )
+
+
+@dataclass(frozen=True)
+class OdsSpreadsheetOptions(BaseParserOptions):
+    """Configuration options for ODS spreadsheet conversion.
+
+    This dataclass contains settings specific to OpenDocument Spreadsheet
+    file processing, including sheet selection and data limits.
+
+    Parameters
+    ----------
+    sheets : list[str] | str | None, default None
+        List of exact sheet names to include or a regex pattern.
+        If None, includes all sheets.
+    include_sheet_titles : bool, default True
+        Prepend each sheet with a '## {sheet_name}' heading.
+    max_rows : int | None, default None
+        Maximum number of data rows per table (excluding header). None = unlimited.
+    max_cols : int | None, default None
+        Maximum number of columns per table. None = unlimited.
+    truncation_indicator : str, default "..."
+        Appended note when rows/columns are truncated.
+    preserve_newlines_in_cells : bool, default False
+        Preserve line breaks within cells as <br> tags.
+    trim_empty : str, default "trailing"
+        Trim empty rows/columns: none, leading, trailing, or both.
+    header_case : str, default "preserve"
+        Transform header case: preserve, title, upper, or lower.
+    has_header : bool, default True
+        Whether the first row contains column headers.
+    """
+
+    sheets: Union[list[str], str, None] = None
+    include_sheet_titles: bool = True
+    max_rows: Optional[int] = None
+    max_cols: Optional[int] = None
+    truncation_indicator: str = "..."
+    has_header: bool = True
+
+    preserve_newlines_in_cells: bool = field(
+        default=False,
+        metadata={"help": "Preserve line breaks within cells as <br> tags"}
+    )
+    trim_empty: str = field(
+        default="trailing",
+        metadata={"help": "Trim empty rows/columns: none, leading, trailing, or both"}
+    )
+    header_case: str = field(
+        default="preserve",
+        metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+    )
+
+
+@dataclass(frozen=True)
+class CsvOptions(BaseParserOptions):
+    """Configuration options for CSV/TSV conversion.
+
+    This dataclass contains settings specific to delimiter-separated value
+    file processing, including dialect detection and data limits.
+
+    Parameters
+    ----------
+    detect_csv_dialect : bool, default True
+        Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set).
+    csv_delimiter : str | None, default None
+        Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|').
+        When set, disables dialect detection.
+    has_header : bool, default True
+        Whether the first row contains column headers.
+        When False, generates generic headers (Column 1, Column 2, etc.).
+    max_rows : int | None, default None
+        Maximum number of data rows per table (excluding header). None = unlimited.
+    max_cols : int | None, default None
+        Maximum number of columns per table. None = unlimited.
+    truncation_indicator : str, default "..."
+        Appended note when rows/columns are truncated.
+    header_case : str, default "preserve"
+        Transform header case: preserve, title, upper, or lower.
+    skip_empty_rows : bool, default True
+        Whether to skip completely empty rows.
+    strip_whitespace : bool, default False
+        Whether to strip leading/trailing whitespace from all cells.
+    """
+
+    detect_csv_dialect: bool = True
+    csv_delimiter: Optional[str] = None
+    has_header: bool = True
+    max_rows: Optional[int] = None
+    max_cols: Optional[int] = None
+    truncation_indicator: str = "..."
+
+    header_case: str = field(
+        default="preserve",
+        metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+    )
+    skip_empty_rows: bool = field(
+        default=True,
+        metadata={"help": "Skip completely empty rows"}
+    )
+    strip_whitespace: bool = field(
+        default=False,
+        metadata={"help": "Strip leading/trailing whitespace from all cells"}
     )
 
 

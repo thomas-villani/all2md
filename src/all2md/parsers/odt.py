@@ -1,20 +1,16 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/parsers/odf.py
-"""ODF to AST converter.
+# src/all2md/parsers/odt.py
+"""ODT (OpenDocument Text) to AST converter.
 
-This module provides conversion from ODF documents (ODT, ODP) to AST representation.
-It replaces direct markdown string generation with structured AST building.
-
-DEPRECATED: This combined ODF parser is deprecated. Use OdtToAstConverter for ODT files
-and OdpToAstConverter for ODP files instead for better format-specific options.
+This module provides conversion from ODT text document files to AST representation.
+It replaces the combined ODF parser with a focused text document parser.
 
 """
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
-import warnings
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -40,7 +36,6 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import OdfOptions
 from all2md.exceptions import DependencyError, MarkdownConversionError
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
@@ -54,36 +49,35 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OdfToAstConverter(BaseParser):
-    """Convert ODF documents to AST representation.
+class OdtToAstConverter(BaseParser):
+    """Convert ODT text documents to AST representation.
 
-    This converter processes ODF documents (ODT, ODP) and builds an AST
+    This converter processes ODT (OpenDocument Text) files and builds an AST
     that can be rendered to various markdown flavors.
 
     Parameters
     ----------
-    options : OdfOptions or None
+    options : OdtOptions or None
         Conversion options
 
     """
 
-    def __init__(self, options: OdfOptions | None = None):
-        warnings.warn(
-            "OdfToAstConverter is deprecated. Use OdtToAstConverter for .odt files "
-            "or OdpToAstConverter for .odp files for better format-specific options.",
-            DeprecationWarning,
-            stacklevel=2
-        )
+    def __init__(self, options: Any = None):
+        # Import here to avoid circular dependency
+        from all2md.options import OdtOptions
 
-        options = options or OdfOptions()
+        options = options or OdtOptions()
         super().__init__(options)
-        self.options: OdfOptions = options
+
+        # Type hint for IDE
+        from all2md.options import OdtOptions
+        self.options: OdtOptions = options
 
         try:
             from odf import namespaces
         except ImportError as e:
             raise DependencyError(
-                converter_name="odf",
+                converter_name="odt",
                 missing_packages=[("odfpy", "")],
             ) from e
 
@@ -96,12 +90,12 @@ class OdfToAstConverter(BaseParser):
         self.MATHNS = getattr(namespaces, "MATHNS", "http://www.w3.org/1998/Math/MathML")
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
-        """Parse ODF document into an AST.
+        """Parse ODT document into an AST.
 
         Parameters
         ----------
         input_data : str, Path, IO[bytes], or bytes
-            The input ODF document to parse
+            The input ODT document to parse
 
         Returns
         -------
@@ -120,21 +114,21 @@ class OdfToAstConverter(BaseParser):
             from odf import opendocument
         except ImportError as e:
             raise DependencyError(
-                converter_name="odf",
+                converter_name="odt",
                 missing_packages=[("odfpy", "")],
             ) from e
-        
+
 
         # Validate ZIP archive security for file-based inputs
         if isinstance(input_data, (str, Path)) and Path(input_data).exists():
             validate_zip_archive(input_data)
-            
+
 
         try:
             doc = opendocument.load(input_data)
         except Exception as e:
             raise InputError(
-                f"Failed to open ODF document: {e!r}",
+                f"Failed to open ODT document: {e!r}",
                 parameter_name="input_data",
                 parameter_value=input_data,
                 original_error=e
@@ -143,7 +137,7 @@ class OdfToAstConverter(BaseParser):
         return self.convert_to_ast(doc)
 
     def convert_to_ast(self, doc: "odf.opendocument.OpenDocument") -> Document:
-        """Convert ODF document to AST Document.
+        """Convert ODT document to AST Document.
 
         Returns
         -------
@@ -153,8 +147,8 @@ class OdfToAstConverter(BaseParser):
         """
         children: list[Node] = []
 
-        # For ODT, content is in doc.text. For ODP, it's in doc.presentation
-        content_root = getattr(doc, 'text', None) or getattr(doc, 'presentation', None)
+        # For ODT, content is in doc.text
+        content_root = getattr(doc, 'text', None)
 
         # Extract metadata
         metadata = self.extract_metadata(doc)
@@ -173,12 +167,12 @@ class OdfToAstConverter(BaseParser):
         return Document(children=children, metadata=metadata.to_dict())
 
     def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
-        """Process an ODF element to AST node(s).
+        """Process an ODT element to AST node(s).
 
         Parameters
         ----------
         element : Any
-            ODF element to process
+            ODT element to process
         doc : odf.opendocument.OpenDocument
             The document to process
 
@@ -214,7 +208,7 @@ class OdfToAstConverter(BaseParser):
         Parameters
         ----------
         element : Any
-            ODF element containing text runs
+            ODT element containing text runs
         doc : odf.opendocument.OpenDocument
             The document to process
 
@@ -241,7 +235,6 @@ class OdfToAstConverter(BaseParser):
                     style_name = node.getAttribute("stylename")
                     if style_name and doc:
                         # Apply formatting based on style
-                        # For now, wrap in formatting nodes if we detect common patterns
                         text_content = "".join(
                             n.content for n in inner_nodes if isinstance(n, Text)
                         )
@@ -283,7 +276,7 @@ class OdfToAstConverter(BaseParser):
         Parameters
         ----------
         element : Any
-            ODF element
+            ODT element
 
         Returns
         -------
@@ -299,7 +292,7 @@ class OdfToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | None:
+    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | list[MathBlock] | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
@@ -311,7 +304,7 @@ class OdfToAstConverter(BaseParser):
 
         Returns
         -------
-        Paragraph or None
+        Paragraph, list[MathBlock], or None
             AST paragraph node
 
         """
@@ -329,6 +322,19 @@ class OdfToAstConverter(BaseParser):
         return None
 
     def _extract_math_blocks(self, element: Any) -> list[MathBlock]:
+        """Extract block-level math from an element.
+
+        Parameters
+        ----------
+        element : Any
+            Element to process
+
+        Returns
+        -------
+        list[MathBlock]
+            Math block nodes
+
+        """
         blocks: list[MathBlock] = []
         for node in getattr(element, "childNodes", []):
             if not hasattr(node, "qname"):
@@ -512,7 +518,7 @@ class OdfToAstConverter(BaseParser):
             # odfpy stores parts in a dict-like object
             image_data = doc.getPart(href)
         except KeyError:
-            logger.warning(f"Image not found in ODF package: {href}")
+            logger.warning(f"Image not found in ODT package: {href}")
             return None
 
         alt_text = "image"
@@ -541,12 +547,12 @@ class OdfToAstConverter(BaseParser):
         return None
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
-        """Extract metadata from ODF document.
+        """Extract metadata from ODT document.
 
         Parameters
         ----------
         document : opendocument.OpenDocument
-            ODF document object from odfpy
+            ODT document object from odfpy
 
         Returns
         -------
@@ -620,21 +626,10 @@ class OdfToAstConverter(BaseParser):
                     metadata.language = str(languages[0]).strip()
 
         # Document type and statistics
-        if hasattr(document, 'mimetype'):
-            doc_type = 'presentation' if 'presentation' in document.mimetype else 'text'
-            metadata.custom['document_type'] = doc_type
+        metadata.custom['document_type'] = 'text'
 
-        # Count pages/slides if it's a presentation
+        # Count paragraphs for text documents
         if hasattr(document, 'body'):
-            try:
-                from odf.draw import Page
-                pages = document.body.getElementsByType(Page)
-                if pages:
-                    metadata.custom['page_count'] = len(pages)
-            except Exception:
-                pass
-
-            # Count paragraphs for text documents
             try:
                 from odf.text import P
                 paragraphs = document.body.getElementsByType(P)
@@ -657,19 +652,19 @@ class OdfToAstConverter(BaseParser):
 
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
-    format_name="odf",
-    extensions=[".odt", ".odp"],
-    mime_types=["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.presentation"],
+    format_name="odt",
+    extensions=[".odt"],
+    mime_types=["application/vnd.oasis.opendocument.text"],
     magic_bytes=[
         (b"PK\x03\x04", 0),
     ],
-    parser_class=OdfToAstConverter,
+    parser_class=OdtToAstConverter,
     renderer_class=None,
     parser_required_packages=[("odfpy", "odf", "")],
     renderer_required_packages=[],
-    import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",
-    parser_options_class=OdfOptions,
+    import_error_message="ODT conversion requires 'odfpy'. Install with: pip install odfpy",
+    parser_options_class="OdtOptions",
     renderer_options_class=None,
-    description="Convert OpenDocument files to Markdown",
-    priority=4
+    description="Convert OpenDocument Text files to Markdown",
+    priority=5
 )

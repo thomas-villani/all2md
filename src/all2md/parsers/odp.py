@@ -1,20 +1,16 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/parsers/odf.py
-"""ODF to AST converter.
+# src/all2md/parsers/odp.py
+"""ODP (OpenDocument Presentation) to AST converter.
 
-This module provides conversion from ODF documents (ODT, ODP) to AST representation.
-It replaces direct markdown string generation with structured AST building.
-
-DEPRECATED: This combined ODF parser is deprecated. Use OdtToAstConverter for ODT files
-and OdpToAstConverter for ODP files instead for better format-specific options.
+This module provides conversion from ODP presentation files to AST representation.
+It replaces the combined ODF parser with a focused presentation parser.
 
 """
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
-import warnings
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -40,7 +36,6 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import OdfOptions
 from all2md.exceptions import DependencyError, MarkdownConversionError
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
@@ -54,59 +49,60 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OdfToAstConverter(BaseParser):
-    """Convert ODF documents to AST representation.
+class OdpToAstConverter(BaseParser):
+    """Convert ODP presentation files to AST representation.
 
-    This converter processes ODF documents (ODT, ODP) and builds an AST
-    that can be rendered to various markdown flavors.
+    This converter processes ODP (OpenDocument Presentation) files and builds
+    an AST that can be rendered to various markdown flavors.
 
     Parameters
     ----------
-    options : OdfOptions or None
+    options : OdpOptions or None
         Conversion options
 
     """
 
-    def __init__(self, options: OdfOptions | None = None):
-        warnings.warn(
-            "OdfToAstConverter is deprecated. Use OdtToAstConverter for .odt files "
-            "or OdpToAstConverter for .odp files for better format-specific options.",
-            DeprecationWarning,
-            stacklevel=2
-        )
+    def __init__(self, options: Any = None):
+        # Import here to avoid circular dependency
+        from all2md.options import OdpOptions
 
-        options = options or OdfOptions()
+        options = options or OdpOptions()
         super().__init__(options)
-        self.options: OdfOptions = options
+
+        # Type hint for IDE
+        from all2md.options import OdpOptions
+        self.options: OdpOptions = options
 
         try:
             from odf import namespaces
         except ImportError as e:
             raise DependencyError(
-                converter_name="odf",
+                converter_name="odp",
                 missing_packages=[("odfpy", "")],
             ) from e
 
         self._list_level = 0
+        self._current_slide = 0
 
         # Namespace constants
         self.TEXTNS = namespaces.TEXTNS
         self.DRAWNS = namespaces.DRAWNS
         self.STYLENS = namespaces.STYLENS
         self.MATHNS = getattr(namespaces, "MATHNS", "http://www.w3.org/1998/Math/MathML")
+        self.PRESENTATIONNS = getattr(namespaces, "PRESENTATIONNS", "urn:oasis:names:tc:opendocument:xmlns:presentation:1.0")
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
-        """Parse ODF document into an AST.
+        """Parse ODP document into an AST.
 
         Parameters
         ----------
         input_data : str, Path, IO[bytes], or bytes
-            The input ODF document to parse
+            The input ODP document to parse
 
         Returns
         -------
         Document
-            AST Document node representing the parsed document structure
+            AST Document node representing the parsed presentation structure
 
         Raises
         ------
@@ -120,21 +116,21 @@ class OdfToAstConverter(BaseParser):
             from odf import opendocument
         except ImportError as e:
             raise DependencyError(
-                converter_name="odf",
+                converter_name="odp",
                 missing_packages=[("odfpy", "")],
             ) from e
-        
+
 
         # Validate ZIP archive security for file-based inputs
         if isinstance(input_data, (str, Path)) and Path(input_data).exists():
             validate_zip_archive(input_data)
-            
+
 
         try:
             doc = opendocument.load(input_data)
         except Exception as e:
             raise InputError(
-                f"Failed to open ODF document: {e!r}",
+                f"Failed to open ODP document: {e!r}",
                 parameter_name="input_data",
                 parameter_value=input_data,
                 original_error=e
@@ -143,7 +139,7 @@ class OdfToAstConverter(BaseParser):
         return self.convert_to_ast(doc)
 
     def convert_to_ast(self, doc: "odf.opendocument.OpenDocument") -> Document:
-        """Convert ODF document to AST Document.
+        """Convert ODP document to AST Document.
 
         Returns
         -------
@@ -153,8 +149,8 @@ class OdfToAstConverter(BaseParser):
         """
         children: list[Node] = []
 
-        # For ODT, content is in doc.text. For ODP, it's in doc.presentation
-        content_root = getattr(doc, 'text', None) or getattr(doc, 'presentation', None)
+        # For ODP, content is in doc.presentation
+        content_root = getattr(doc, 'presentation', None)
 
         # Extract metadata
         metadata = self.extract_metadata(doc)
@@ -162,23 +158,180 @@ class OdfToAstConverter(BaseParser):
         if not content_root:
             return Document(children=[], metadata=metadata.to_dict())
 
+        # Parse slide selection if specified
+        slide_indices = self._parse_slide_selection(self.options.slides, metadata)
+
+        slide_num = 0
+        total_slides = len([e for e in content_root.childNodes if self._is_slide_element(e)])
+
         for element in content_root.childNodes:
-            node = self._process_element(element, doc)
-            if node:
-                if isinstance(node, list):
-                    children.extend(node)
+            if not self._is_slide_element(element):
+                continue
+
+            slide_num += 1
+
+            # Skip if not in selection
+            if slide_indices is not None and (slide_num - 1) not in slide_indices:
+                continue
+
+            self._current_slide = slide_num
+
+            # Add slide separator if requested
+            if slide_num > 1 and self.options.page_separator_template:
+                separator_text = self.options.page_separator_template.format(
+                    page_num=slide_num,
+                    total_pages=total_slides
+                )
+                children.append(Paragraph(content=[Text(content=separator_text)]))
+
+            # Add slide number if requested
+            if self.options.include_slide_numbers:
+                slide_label = f"Slide {slide_num}"
+                if total_slides > 0:
+                    slide_label += f" of {total_slides}"
+                children.append(Paragraph(content=[Text(content=slide_label)]))
+
+            # Process slide content
+            slide_nodes = self._process_slide(element, doc)
+            if slide_nodes:
+                if isinstance(slide_nodes, list):
+                    children.extend(slide_nodes)
                 else:
-                    children.append(node)
+                    children.append(slide_nodes)
 
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
-        """Process an ODF element to AST node(s).
+    def _is_slide_element(self, element: Any) -> bool:
+        """Check if element is a slide/page element.
 
         Parameters
         ----------
         element : Any
-            ODF element to process
+            Element to check
+
+        Returns
+        -------
+        bool
+            True if element is a slide
+
+        """
+        if not hasattr(element, "qname"):
+            return False
+        return element.qname == (self.DRAWNS, "page")
+
+    def _parse_slide_selection(self, slides_spec: str | None, metadata: DocumentMetadata) -> set[int] | None:
+        """Parse slide selection specification.
+
+        Parameters
+        ----------
+        slides_spec : str or None
+            Slide selection string (e.g., "1,3-5,8")
+        metadata : DocumentMetadata
+            Document metadata for total slide count
+
+        Returns
+        -------
+        set[int] or None
+            Set of 0-based slide indices, or None for all slides
+
+        """
+        if not slides_spec:
+            return None
+
+        indices = set()
+        for part in slides_spec.split(','):
+            part = part.strip()
+            if '-' in part:
+                # Range
+                start_str, end_str = part.split('-', 1)
+                start = int(start_str) - 1 if start_str else 0
+                end = int(end_str) - 1 if end_str else float('inf')
+                # We'll expand this during iteration
+                indices.add((start, end))
+            else:
+                # Single slide (1-based to 0-based)
+                indices.add(int(part) - 1)
+
+        # Expand ranges
+        expanded = set()
+        max_slide = metadata.custom.get('page_count', 100)  # Fallback to 100 if unknown
+        for item in indices:
+            if isinstance(item, tuple):
+                start, end = item
+                for i in range(start, min(int(end) + 1, max_slide)):
+                    expanded.add(i)
+            else:
+                expanded.add(item)
+
+        return expanded if expanded else None
+
+    def _process_slide(self, slide_element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node] | None:
+        """Process a slide element.
+
+        Parameters
+        ----------
+        slide_element : Any
+            Slide element to process
+        doc : odf.opendocument.OpenDocument
+            The document
+
+        Returns
+        -------
+        list[Node] or None
+            List of AST nodes from the slide
+
+        """
+        nodes: list[Node] = []
+
+        for element in slide_element.childNodes:
+            node = self._process_element(element, doc)
+            if node:
+                if isinstance(node, list):
+                    nodes.extend(node)
+                else:
+                    nodes.append(node)
+
+        # Process slide notes if requested
+        if self.options.include_notes:
+            notes_nodes = self._extract_slide_notes(slide_element, doc)
+            if notes_nodes:
+                nodes.extend(notes_nodes)
+
+        return nodes if nodes else None
+
+    def _extract_slide_notes(self, slide_element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:
+        """Extract speaker notes from a slide.
+
+        Parameters
+        ----------
+        slide_element : Any
+            Slide element
+        doc : odf.opendocument.OpenDocument
+            The document
+
+        Returns
+        -------
+        list[Node]
+            Notes nodes
+
+        """
+        # ODP notes are typically in a notes page associated with the slide
+        # This is a simplified implementation
+        notes: list[Node] = []
+
+        # Look for notes elements
+        # Note: This is a placeholder - actual notes extraction may require
+        # more complex logic depending on ODP structure
+
+        return notes
+
+    def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
+        """Process an ODP element to AST node(s).
+
+        Parameters
+        ----------
+        element : Any
+            ODP element to process
         doc : odf.opendocument.OpenDocument
             The document to process
 
@@ -204,8 +357,33 @@ class OdfToAstConverter(BaseParser):
         elif qname[0] == "urn:oasis:names:tc:opendocument:xmlns:table:1.0" and qname[1] == "table":
             return self._process_table(element, doc)
         elif qname == (self.DRAWNS, "frame"):
-            return self._process_image(element, doc)
+            return self._process_frame(element, doc)
 
+        return None
+
+    def _process_frame(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Node | None:
+        """Process a drawing frame (could be image, text box, etc.).
+
+        Parameters
+        ----------
+        frame : Any
+            Frame element
+        doc : odf.opendocument.OpenDocument
+            The document
+
+        Returns
+        -------
+        Node or None
+            Resulting AST node
+
+        """
+        # Try image first
+        image_node = self._process_image(frame, doc)
+        if image_node:
+            return image_node
+
+        # Could be a text box - process text content
+        # This is simplified; real implementation might need more logic
         return None
 
     def _process_text_runs(self, element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:
@@ -214,7 +392,7 @@ class OdfToAstConverter(BaseParser):
         Parameters
         ----------
         element : Any
-            ODF element containing text runs
+            ODP element containing text runs
         doc : odf.opendocument.OpenDocument
             The document to process
 
@@ -241,7 +419,6 @@ class OdfToAstConverter(BaseParser):
                     style_name = node.getAttribute("stylename")
                     if style_name and doc:
                         # Apply formatting based on style
-                        # For now, wrap in formatting nodes if we detect common patterns
                         text_content = "".join(
                             n.content for n in inner_nodes if isinstance(n, Text)
                         )
@@ -283,7 +460,7 @@ class OdfToAstConverter(BaseParser):
         Parameters
         ----------
         element : Any
-            ODF element
+            ODP element
 
         Returns
         -------
@@ -299,7 +476,7 @@ class OdfToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | None:
+    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | list[MathBlock] | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
@@ -311,7 +488,7 @@ class OdfToAstConverter(BaseParser):
 
         Returns
         -------
-        Paragraph or None
+        Paragraph, list[MathBlock], or None
             AST paragraph node
 
         """
@@ -329,6 +506,19 @@ class OdfToAstConverter(BaseParser):
         return None
 
     def _extract_math_blocks(self, element: Any) -> list[MathBlock]:
+        """Extract block-level math from an element.
+
+        Parameters
+        ----------
+        element : Any
+            Element to process
+
+        Returns
+        -------
+        list[MathBlock]
+            Math block nodes
+
+        """
         blocks: list[MathBlock] = []
         for node in getattr(element, "childNodes", []):
             if not hasattr(node, "qname"):
@@ -512,7 +702,7 @@ class OdfToAstConverter(BaseParser):
             # odfpy stores parts in a dict-like object
             image_data = doc.getPart(href)
         except KeyError:
-            logger.warning(f"Image not found in ODF package: {href}")
+            logger.warning(f"Image not found in ODP package: {href}")
             return None
 
         alt_text = "image"
@@ -541,12 +731,12 @@ class OdfToAstConverter(BaseParser):
         return None
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
-        """Extract metadata from ODF document.
+        """Extract metadata from ODP document.
 
         Parameters
         ----------
         document : opendocument.OpenDocument
-            ODF document object from odfpy
+            ODP document object from odfpy
 
         Returns
         -------
@@ -620,33 +810,23 @@ class OdfToAstConverter(BaseParser):
                     metadata.language = str(languages[0]).strip()
 
         # Document type and statistics
-        if hasattr(document, 'mimetype'):
-            doc_type = 'presentation' if 'presentation' in document.mimetype else 'text'
-            metadata.custom['document_type'] = doc_type
+        metadata.custom['document_type'] = 'presentation'
 
-        # Count pages/slides if it's a presentation
-        if hasattr(document, 'body'):
+        # Count slides
+        if hasattr(document, 'presentation'):
             try:
                 from odf.draw import Page
-                pages = document.body.getElementsByType(Page)
+                pages = document.presentation.getElementsByType(Page)
                 if pages:
                     metadata.custom['page_count'] = len(pages)
-            except Exception:
-                pass
-
-            # Count paragraphs for text documents
-            try:
-                from odf.text import P
-                paragraphs = document.body.getElementsByType(P)
-                if paragraphs:
-                    metadata.custom['paragraph_count'] = len(paragraphs)
+                    metadata.custom['slide_count'] = len(pages)
             except Exception:
                 pass
 
             # Count tables
             try:
                 from odf.table import Table
-                tables = document.body.getElementsByType(Table)
+                tables = document.presentation.getElementsByType(Table)
                 if tables:
                     metadata.custom['table_count'] = len(tables)
             except Exception:
@@ -657,19 +837,19 @@ class OdfToAstConverter(BaseParser):
 
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
-    format_name="odf",
-    extensions=[".odt", ".odp"],
-    mime_types=["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.presentation"],
+    format_name="odp",
+    extensions=[".odp"],
+    mime_types=["application/vnd.oasis.opendocument.presentation"],
     magic_bytes=[
         (b"PK\x03\x04", 0),
     ],
-    parser_class=OdfToAstConverter,
+    parser_class=OdpToAstConverter,
     renderer_class=None,
     parser_required_packages=[("odfpy", "odf", "")],
     renderer_required_packages=[],
-    import_error_message="ODF conversion requires 'odfpy'. Install with: pip install odfpy",
-    parser_options_class=OdfOptions,
+    import_error_message="ODP conversion requires 'odfpy'. Install with: pip install odfpy",
+    parser_options_class="OdpOptions",
     renderer_options_class=None,
-    description="Convert OpenDocument files to Markdown",
-    priority=4
+    description="Convert OpenDocument Presentation files to Markdown",
+    priority=5
 )
