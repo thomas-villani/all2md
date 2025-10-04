@@ -34,7 +34,7 @@ from typing import Union
 from urllib.parse import urlparse
 
 from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN
-from all2md.exceptions import InputError, ZipFileSecurityError
+from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 
 logger = logging.getLogger(__name__)
 
@@ -213,9 +213,9 @@ def validate_zip_archive(
                     )
 
     except zipfile.BadZipFile as e:
-        raise InputError(f"Invalid ZIP archive: {e}") from e
+        raise MalformedFileError(f"Invalid ZIP archive: {e}") from e
     except (OSError, IOError) as e:
-        raise InputError(f"Could not read ZIP archive: {e}") from e
+        raise MalformedFileError(f"Could not read ZIP archive: {e}") from e
 
 
 def sanitize_language_identifier(language: str) -> str:

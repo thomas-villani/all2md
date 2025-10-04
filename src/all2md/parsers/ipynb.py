@@ -19,7 +19,7 @@ from typing import IO, Any, Union
 from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph, Text
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options import IpynbOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
@@ -87,10 +87,12 @@ class IpynbToAstConverter(BaseParser):
 
         Raises
         ------
-        InputError
+        ValidationError
+            If the input type is not supported
+        MalformedFileError
             If the input is not valid notebook JSON
-        MarkdownConversionError
-            If parsing fails
+        ParsingError
+            If parsing or conversion fails
 
         """
 
@@ -108,24 +110,28 @@ class IpynbToAstConverter(BaseParser):
                     content = content.decode("utf-8")
                 notebook = json.loads(content)
             else:
-                raise InputError(f"Unsupported input type: {type(input_data).__name__}")
+                raise ValidationError(f"Unsupported input type: {type(input_data).__name__}")
 
-        except InputError as e:
+        except ValidationError as e:
             raise e
         except json.JSONDecodeError as e:
-            raise InputError(
+            raise MalformedFileError(
                 "Input is not a valid JSON file. Ensure it is a proper .ipynb notebook.",
+                file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
                 original_error=e,
             ) from e
         except Exception as e:
-            raise MarkdownConversionError(
+            raise ParsingError(
                 f"Failed to read or parse Jupyter Notebook: {e}",
                 conversion_stage="input_processing",
                 original_error=e,
             ) from e
 
         if "cells" not in notebook or not isinstance(notebook["cells"], list):
-            raise InputError("Invalid notebook format: 'cells' key is missing or not a list.")
+            raise MalformedFileError(
+                "Invalid notebook format: 'cells' key is missing or not a list.",
+                file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
+            )
 
         # Extract language from notebook metadata
         language = notebook.get("metadata", {}).get("kernelspec", {}).get("language", "python")
@@ -143,7 +149,7 @@ class IpynbToAstConverter(BaseParser):
 
         """
         if notebook is None:
-            raise MarkdownConversionError(
+            raise ParsingError(
                 "No notebook data loaded. Call parse() first.",
                 conversion_stage="ast_conversion",
             )

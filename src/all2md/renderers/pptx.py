@@ -45,7 +45,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.exceptions import DependencyError, MarkdownConversionError
+from all2md.exceptions import DependencyError, RenderingError
 from all2md.options import PptxRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,
@@ -108,7 +108,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         ------
         DependencyError
             If python-pptx is not installed
-        MarkdownConversionError
+        RenderingError
             If PPTX generation fails
 
         """
@@ -150,7 +150,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 buffer.seek(0)
                 output.write(buffer.read())
         except Exception as e:
-            raise MarkdownConversionError(
+            raise RenderingError(
                 f"Failed to write PPTX file: {e!r}",
                 conversion_stage="rendering",
                 original_error=e

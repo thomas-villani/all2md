@@ -16,7 +16,7 @@ from typing import IO, Any, Union
 
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import InputError, MarkdownConversionError, DependencyError
+from all2md.exceptions import InputError, ParsingError, DependencyError
 from all2md.options import MhtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
@@ -85,7 +85,7 @@ class MhtmlToAstConverter(BaseParser):
                 msg = email.message_from_binary_file(doc_input, policy=policy.default)
 
         except Exception as e:
-            raise MarkdownConversionError(
+            raise ParsingError(
                 f"Failed to parse MHTML file: {e}",
                 conversion_stage="mhtml_parsing",
                 original_error=e
@@ -95,7 +95,7 @@ class MhtmlToAstConverter(BaseParser):
         html_content = self._extract_html_from_mhtml(msg)
 
         if not html_content:
-            raise MarkdownConversionError(
+            raise ParsingError(
                 "No HTML content found in MHTML file",
                 conversion_stage="content_extraction"
             )

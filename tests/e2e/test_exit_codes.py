@@ -47,23 +47,23 @@ class TestExitCodes:
         assert "Test" in result.stdout
 
     def test_exit_code_input_error_nonexistent_file(self, tmp_path):
-        """Test exit code 3 (INPUT_ERROR) for nonexistent file."""
+        """Test exit code 4 (FILE_ERROR) for nonexistent file."""
         nonexistent = tmp_path / "does_not_exist.pdf"
 
         result = self._run_cli([str(nonexistent)])
 
-        assert result.returncode == 3
+        assert result.returncode == 4
         assert "Error" in result.stderr
 
     def test_exit_code_input_error_no_input(self):
-        """Test exit code 3 (INPUT_ERROR) when no input provided."""
+        """Test exit code 3 (VALIDATION_ERROR) when no input provided."""
         result = self._run_cli([])
 
         assert result.returncode == 3
         assert "Input file is required" in result.stderr
 
     def test_exit_code_input_error_invalid_json_options(self, tmp_path):
-        """Test exit code 3 (INPUT_ERROR) for invalid options JSON."""
+        """Test exit code 3 (VALIDATION_ERROR) for invalid options JSON."""
         html_file = tmp_path / "test.html"
         html_file.write_text("<h1>Test</h1>")
 
@@ -79,18 +79,18 @@ class TestExitCodes:
         assert "Error" in result.stderr
 
     def test_exit_code_input_error_malformed_file(self, tmp_path):
-        """Test exit code 3 (INPUT_ERROR) for malformed input file."""
+        """Test exit code 4 (FILE_ERROR) for malformed input file."""
         # Create invalid JSON for ipynb
         invalid_ipynb = tmp_path / "invalid.ipynb"
         invalid_ipynb.write_text("{ invalid json }")
 
         result = self._run_cli([str(invalid_ipynb)])
 
-        assert result.returncode == 3
+        assert result.returncode == 4
         assert "Error" in result.stderr
 
     def test_exit_code_input_error_invalid_format(self, tmp_path):
-        """Test exit code 3 (INPUT_ERROR) for invalid format specification."""
+        """Test exit code 3 (VALIDATION_ERROR) for invalid format specification."""
         html_file = tmp_path / "test.html"
         html_file.write_text("<h1>Test</h1>")
 
@@ -121,10 +121,9 @@ class TestExitCodes:
         assert "Rich library not installed" in result.stderr
 
     def test_exit_code_conversion_error(self, tmp_path):
-        """Test exit code 1 (CONVERSION_ERROR) for conversion failures.
+        """Test exit code for conversion failures.
 
-        This tests that conversion errors (as opposed to input/dependency errors)
-        return exit code 1.
+        This tests that conversion errors return appropriate exit codes based on failure type.
         """
         # Create a file with valid structure but problematic content
         # that might cause conversion issues
@@ -134,8 +133,8 @@ class TestExitCodes:
 
         result = self._run_cli([str(test_file)])
 
-        # Should be a conversion error (1) not an input error (3)
-        assert result.returncode in [1, 3]  # Could be either depending on where it fails
+        # Should be file error (4) or parsing error (6) depending on where it fails
+        assert result.returncode in [4, 6]
         assert "Error" in result.stderr
 
     def test_exit_code_multiple_files_highest_error(self, tmp_path):
@@ -183,8 +182,8 @@ class TestExitCodes:
             "--skip-errors"
         ])
 
-        # Should return 3 (input error from malformed file)
-        assert result.returncode == 3
+        # Should return 4 (file error from malformed file)
+        assert result.returncode == 4
         # But should have processed the valid file
         assert "valid.html" in result.stdout or "valid.md" in result.stdout
 
@@ -229,22 +228,34 @@ class TestExitCodeConstants:
         from all2md.constants import (
             EXIT_DEPENDENCY_ERROR,
             EXIT_ERROR,
-            EXIT_INPUT_ERROR,
+            EXIT_FILE_ERROR,
+            EXIT_FORMAT_ERROR,
+            EXIT_PARSING_ERROR,
+            EXIT_PASSWORD_ERROR,
+            EXIT_RENDERING_ERROR,
+            EXIT_SECURITY_ERROR,
             EXIT_SUCCESS,
+            EXIT_VALIDATION_ERROR,
         )
 
         assert EXIT_SUCCESS == 0
         assert EXIT_ERROR == 1
         assert EXIT_DEPENDENCY_ERROR == 2
-        assert EXIT_INPUT_ERROR == 3
+        assert EXIT_VALIDATION_ERROR == 3
+        assert EXIT_FILE_ERROR == 4
+        assert EXIT_FORMAT_ERROR == 5
+        assert EXIT_PARSING_ERROR == 6
+        assert EXIT_RENDERING_ERROR == 7
+        assert EXIT_SECURITY_ERROR == 8
+        assert EXIT_PASSWORD_ERROR == 9
 
-    def test_get_exit_code_for_exception_input_error(self):
-        """Test mapping InputError to exit code 3."""
-        from all2md.constants import EXIT_INPUT_ERROR, get_exit_code_for_exception
-        from all2md.exceptions import InputError
+    def test_get_exit_code_for_exception_malformed_error(self):
+        """Test mapping MalformedFileError to exit code 4."""
+        from all2md.constants import EXIT_FILE_ERROR, get_exit_code_for_exception
+        from all2md.exceptions import MalformedFileError
 
-        exc = InputError("Test input error")
-        assert get_exit_code_for_exception(exc) == EXIT_INPUT_ERROR
+        exc = MalformedFileError("Test malformed file error")
+        assert get_exit_code_for_exception(exc) == EXIT_FILE_ERROR
 
     def test_get_exit_code_for_exception_dependency_error(self):
         """Test mapping DependencyError to exit code 2."""
@@ -261,13 +272,13 @@ class TestExitCodeConstants:
         exc = ImportError("Test import error")
         assert get_exit_code_for_exception(exc) == EXIT_DEPENDENCY_ERROR
 
-    def test_get_exit_code_for_exception_conversion_error(self):
-        """Test mapping MarkdownConversionError to exit code 1."""
-        from all2md.constants import EXIT_ERROR, get_exit_code_for_exception
-        from all2md.exceptions import MarkdownConversionError
+    def test_get_exit_code_for_exception_parsing_error(self):
+        """Test mapping ParsingError to exit code 6."""
+        from all2md.constants import EXIT_PARSING_ERROR, get_exit_code_for_exception
+        from all2md.exceptions import ParsingError
 
-        exc = MarkdownConversionError("Test conversion error")
-        assert get_exit_code_for_exception(exc) == EXIT_ERROR
+        exc = ParsingError("Test parsing error")
+        assert get_exit_code_for_exception(exc) == EXIT_PARSING_ERROR
 
     def test_get_exit_code_for_exception_generic(self):
         """Test mapping generic exceptions to exit code 1."""

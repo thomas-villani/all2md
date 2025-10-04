@@ -50,7 +50,7 @@ from all2md.options import HtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
-from all2md.exceptions import InputError, MarkdownConversionError, DependencyError, NetworkSecurityError
+from all2md.exceptions import DependencyError, FileAccessError, MalformedFileError, NetworkSecurityError, ParsingError, ValidationError
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.security import validate_local_file_access, sanitize_language_identifier
 
@@ -76,7 +76,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
 
     Raises
     ------
-    MarkdownConversionError
+    ParsingError
         If file cannot be read with any encoding
     """
     encodings_to_try = ["utf-8", "utf-8-sig"]
@@ -121,7 +121,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
             continue
 
     # If we get here, all encodings failed (should not happen with latin-1 fallback)
-    raise MarkdownConversionError(
+    raise ParsingError(
         f"Failed to read HTML file with any encoding: {last_error}",
         conversion_stage="file_reading",
         original_error=last_error
@@ -168,10 +168,14 @@ class HtmlToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid HTML or corruption
-        InputError
-            If input data is invalid or inaccessible
+        FileAccessError
+            If input file cannot be accessed
+        MalformedFileError
+            If input data is malformed
+        ValidationError
+            If input type is not supported
 
         """
         try:
@@ -194,8 +198,10 @@ class HtmlToAstConverter(BaseParser):
                 try:
                     html_content = _read_html_file_with_encoding_fallback(input_data)
                 except Exception as e:
-                    raise InputError(
-                        f"Failed to read HTML file: {e!r}", original_error=e
+                    raise FileAccessError(
+                        f"Failed to read HTML file: {e!r}",
+                        file_path=str(input_data),
+                        original_error=e
                     ) from e
             else:
                 # It's HTML content as a string
@@ -205,8 +211,9 @@ class HtmlToAstConverter(BaseParser):
             try:
                 html_content = input_data.decode("utf-8")
             except UnicodeDecodeError as e:
-                raise InputError(
+                raise MalformedFileError(
                     f"Failed to decode HTML bytes as UTF-8: {e!r}",
+                    file_path=None,
                     original_error=e
                 ) from e
         else:
@@ -225,17 +232,18 @@ class HtmlToAstConverter(BaseParser):
                     if isinstance(html_content, bytes):
                         html_content = html_content.decode("utf-8")
                 else:
-                    raise InputError(
+                    raise ValidationError(
                         f"Unsupported input type for HTML conversion: {type(input_data).__name__}",
                         parameter_name="input_data",
                         parameter_value=input_data,
                     )
             except Exception as e:
-                if isinstance(e, (InputError, MarkdownConversionError)):
+                if isinstance(e, (FileAccessError, MalformedFileError, ParsingError, ValidationError)):
                     raise
                 else:
-                    raise InputError(
+                    raise MalformedFileError(
                         f"Failed to process HTML input: {e!r}",
+                        file_path=None,
                         original_error=e
                     ) from e
 

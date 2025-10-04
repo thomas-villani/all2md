@@ -173,7 +173,7 @@ class TestConversionEventHandler:
     def test_convert_file_handles_error(self, mock_to_markdown, tmp_path, caplog):
         """Test that conversion errors are handled gracefully."""
         from all2md.cli.watch import ConversionEventHandler
-        from all2md.exceptions import MarkdownConversionError
+        from all2md.exceptions import All2MdError
 
         handler = ConversionEventHandler(
             paths_to_watch=[tmp_path],
@@ -186,7 +186,7 @@ class TestConversionEventHandler:
         test_file.write_text("test")
 
         # Simulate conversion error
-        mock_to_markdown.side_effect = MarkdownConversionError("Test error")
+        mock_to_markdown.side_effect = All2MdError("Test error")
 
         # Should not raise, but log error
         handler.convert_file(str(test_file))

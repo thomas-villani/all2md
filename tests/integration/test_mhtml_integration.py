@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from all2md import to_markdown as mhtml_to_markdown
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownOptions, MhtmlOptions
 from tests.fixtures.generators.mhtml_fixtures import (
     create_malformed_mhtml,
@@ -250,7 +250,7 @@ class TestMhtmlIntegrationErrorHandling:
 
     def test_nonexistent_file(self):
         """Test handling of nonexistent MHTML file."""
-        with pytest.raises((InputError, MarkdownConversionError)):
+        with pytest.raises((MalformedFileError, ParsingError)):
             mhtml_to_markdown("nonexistent.mht")
 
     def test_malformed_mhtml_file(self, temp_dir):
@@ -258,7 +258,7 @@ class TestMhtmlIntegrationErrorHandling:
         malformed_content = create_malformed_mhtml()
         mhtml_file = create_mhtml_file(malformed_content, temp_dir)
 
-        with pytest.raises(MarkdownConversionError) as exc_info:
+        with pytest.raises(ParsingError) as exc_info:
             mhtml_to_markdown(str(mhtml_file))
 
         assert "No HTML content found" in str(exc_info.value)
@@ -268,17 +268,17 @@ class TestMhtmlIntegrationErrorHandling:
         empty_file = temp_dir / "empty.mht"
         empty_file.write_bytes(b"")
 
-        with pytest.raises((MarkdownConversionError, InputError)):
+        with pytest.raises((ParsingError, MalformedFileError)):
             mhtml_to_markdown(empty_file)
 
     def test_invalid_input_type(self):
         """Test handling of invalid input types."""
-        with pytest.raises((InputError, AttributeError, TypeError)):
+        with pytest.raises((MalformedFileError, AttributeError, TypeError)):
             mhtml_to_markdown(123)  # Invalid type
 
     def test_directory_instead_of_file(self, temp_dir):
         """Test handling when directory is passed instead of file."""
-        with pytest.raises((InputError, MarkdownConversionError, PermissionError)):
+        with pytest.raises((MalformedFileError, ParsingError, PermissionError)):
             mhtml_to_markdown(temp_dir)
 
 

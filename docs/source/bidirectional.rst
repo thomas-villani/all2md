@@ -619,11 +619,11 @@ Best Practices
    .. code-block:: python
 
       from all2md import from_markdown
-      from all2md.exceptions import MarkdownConversionError
+      from all2md.exceptions import RenderingError
 
       try:
           from_markdown('document.md', output_format='pdf', output_path='output.pdf')
-      except MarkdownConversionError as e:
+      except RenderingError as e:
           print(f"Rendering failed: {e}")
           print(f"Stage: {e.conversion_stage}")
 

@@ -1449,11 +1449,11 @@ Missing Dependencies
 .. code-block:: python
 
    from all2md import to_markdown
-   from all2md.exceptions import ImportError
+   from all2md.exceptions import DependencyError
 
    try:
        markdown = to_markdown('document.pdf')
-   except ImportError as e:
+   except DependencyError as e:
        print(f"Missing PDF support: {e}")
        print("Install with: pip install all2md[pdf]")
 
@@ -1463,13 +1463,16 @@ Unsupported Features
 .. code-block:: python
 
    from all2md import to_markdown
-   from all2md.exceptions import MarkdownConversionError
+   from all2md.exceptions import ParsingError, All2MdError
 
    try:
        markdown = to_markdown('complex_document.pdf')
-   except MarkdownConversionError as e:
-       print(f"Conversion issue: {e}")
+   except ParsingError as e:
+       print(f"Parsing issue: {e}")
        # Try with different options or manual processing
+   except All2MdError as e:
+       print(f"Conversion issue: {e}")
+       # Fallback handling
 
 Best Practices
 --------------

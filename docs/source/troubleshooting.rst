@@ -187,7 +187,8 @@ Corrupted or Invalid Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Error Messages:**
-   * ``MarkdownConversionError: Invalid PDF file``
+   * ``MalformedFileError: Invalid PDF file``
+   * ``ParsingError: Failed to parse document``
    * ``Error: Could not decode file as UTF-8``
 
 **Solutions:**

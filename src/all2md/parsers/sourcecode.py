@@ -57,11 +57,11 @@ class SourceCodeToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails
 
         """
-        from all2md.exceptions import MarkdownConversionError
+        from all2md.exceptions import ParsingError
         from all2md.utils.inputs import is_path_like
 
         # Extract filename for language detection
@@ -91,7 +91,7 @@ class SourceCodeToAstConverter(BaseParser):
                 else:
                     raise ValueError(f"Unsupported input type: {type(input_data)}")
         except Exception as e:
-            raise MarkdownConversionError(f"Failed to read source code: {e}") from e
+            raise ParsingError(f"Failed to read source code: {e}") from e
 
         return self.convert_to_ast(content, filename=filename)
 

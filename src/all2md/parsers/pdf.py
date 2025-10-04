@@ -51,7 +51,7 @@ from all2md.constants import (
     PDF_MIN_PYMUPDF_VERSION,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, InputError, PasswordProtectedError
+from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
 from all2md.options import PdfOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
@@ -71,7 +71,7 @@ def _check_pymupdf_version() -> None:
 
     Raises
     ------
-    MarkdownConversionError
+    DependencyError
         If PyMuPDF version is too old
     """
     try:
@@ -968,13 +968,13 @@ class PdfToAstConverter(BaseParser):
                 ):
                     doc = doc_input
                 else:
-                    raise InputError(
+                    raise ValidationError(
                         f"Expected fitz.Document object, got {type(doc_input).__name__}",
                         parameter_name="input_data",
                         parameter_value=doc_input,
                     )
             else:
-                raise InputError(
+                raise ValidationError(
                     f"Unsupported input type: {input_type}", parameter_name="input_data", parameter_value=doc_input
                 )
         except Exception as e:
@@ -982,8 +982,9 @@ class PdfToAstConverter(BaseParser):
                 filename = str(input_data) if isinstance(input_data, (str, Path)) else None
                 raise PasswordProtectedError(filename=filename) from e
             else:
-                raise InputError(
-                    f"Failed to open PDF document: {e!r}", parameter_name="input_data", parameter_value=input_data,
+                raise MalformedFileError(
+                    f"Failed to open PDF document: {e!r}",
+                    file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
                     original_error=e
                 ) from e
 
@@ -992,7 +993,7 @@ class PdfToAstConverter(BaseParser):
             validated_pages = validate_page_range(self.options.pages, doc.page_count)
             pages_to_use: range | list[int] = validated_pages if validated_pages else range(doc.page_count)
         except Exception as e:
-            raise InputError(
+            raise ValidationError(
                 f"Invalid page range: {str(e)}", parameter_name="pdf.pages", parameter_value=self.options.pages
             ) from e
 

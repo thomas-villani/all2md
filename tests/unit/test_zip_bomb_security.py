@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.exceptions import InputError, ZipFileSecurityError
+from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 from all2md.utils.security import validate_zip_archive
 
 
@@ -269,27 +269,27 @@ class TestPathTraversalDetection:
 class TestInvalidArchiveHandling:
     """Test handling of invalid or corrupted archives."""
 
-    def test_corrupted_zip_raises_input_error(self, tmp_path):
-        """Test that corrupted ZIP files raise InputError."""
+    def test_corrupted_zip_raises_malformed_error(self, tmp_path):
+        """Test that corrupted ZIP files raise MalformedFileError."""
         corrupt_zip = tmp_path / "corrupt.zip"
         corrupt_zip.write_bytes(b"This is not a valid ZIP file")
 
-        # Should raise InputError (not ZipFileSecurityError)
-        with pytest.raises(InputError, match="Invalid ZIP archive"):
+        # Should raise MalformedFileError (not ZipFileSecurityError)
+        with pytest.raises(MalformedFileError, match="Invalid ZIP archive"):
             validate_zip_archive(corrupt_zip)
 
-    def test_nonexistent_file_raises_input_error(self, tmp_path):
-        """Test that nonexistent files raise InputError."""
+    def test_nonexistent_file_raises_malformed_error(self, tmp_path):
+        """Test that nonexistent files raise MalformedFileError."""
         nonexistent = tmp_path / "doesnotexist.zip"
 
-        # Should raise InputError
-        with pytest.raises(InputError, match="Could not read ZIP archive"):
+        # Should raise MalformedFileError
+        with pytest.raises(MalformedFileError, match="Could not read ZIP archive"):
             validate_zip_archive(nonexistent)
 
-    def test_directory_instead_of_file_raises_input_error(self, tmp_path):
-        """Test that directories raise InputError."""
+    def test_directory_instead_of_file_raises_malformed_error(self, tmp_path):
+        """Test that directories raise MalformedFileError."""
         # tmp_path is a directory
-        with pytest.raises(InputError):
+        with pytest.raises(MalformedFileError):
             validate_zip_archive(tmp_path)
 
 

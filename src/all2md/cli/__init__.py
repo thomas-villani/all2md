@@ -55,7 +55,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from all2md import to_markdown
 from all2md.cli.builder import DynamicCLIBuilder
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import All2MdError
 
 
 def _get_version() -> str:
@@ -649,7 +649,7 @@ def convert_single_file(
         error_msg = str(e)
         if isinstance(e, ImportError):
             error_msg = f"Missing dependency: {e}"
-        elif not isinstance(e, (MarkdownConversionError, InputError)):
+        elif not isinstance(e, All2MdError):
             error_msg = f"Unexpected error: {e}"
         return exit_code, str(input_path), error_msg
 
@@ -698,7 +698,7 @@ def convert_single_file_for_collation(
         error_msg = str(e)
         if isinstance(e, ImportError):
             error_msg = f"Missing dependency: {e}"
-        elif not isinstance(e, (MarkdownConversionError, InputError)):
+        elif not isinstance(e, All2MdError):
             error_msg = f"Unexpected error: {e}"
         return exit_code, "", error_msg
 
@@ -805,7 +805,7 @@ def process_with_rich_output(
                         error = str(e)
                         if isinstance(e, ImportError):
                             error = f"Missing dependency: {e}"
-                        elif not isinstance(e, (MarkdownConversionError, InputError)):
+                        elif not isinstance(e, All2MdError):
                             error = f"Unexpected error: {e}"
 
                     if exit_code == EXIT_SUCCESS:
@@ -888,7 +888,7 @@ def process_with_rich_output(
                         error = str(e)
                         if isinstance(e, ImportError):
                             error = f"Missing dependency: {e}"
-                        elif not isinstance(e, (MarkdownConversionError, InputError)):
+                        elif not isinstance(e, All2MdError):
                             error = f"Unexpected error: {e}"
                 else:
                     exit_code, file_str, error = convert_single_file(
@@ -1685,10 +1685,10 @@ Examples:
     formats = registry.list_formats()
     if specific_format:
         if specific_format not in formats:
-            from all2md.constants import EXIT_INPUT_ERROR
+            from all2md.constants import EXIT_VALIDATION_ERROR
             print(f"Error: Format '{specific_format}' not found", file=sys.stderr)
             print(f"Available formats: {', '.join(formats)}", file=sys.stderr)
-            return EXIT_INPUT_ERROR
+            return EXIT_VALIDATION_ERROR
         formats = [specific_format]
 
     # Gather format information
@@ -2129,7 +2129,7 @@ def _default_extension_for_format(target_format: str) -> str:
 
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
-    from all2md.constants import EXIT_INPUT_ERROR, EXIT_SUCCESS, get_exit_code_for_exception
+    from all2md.constants import EXIT_SUCCESS, EXIT_VALIDATION_ERROR, EXIT_FILE_ERROR, get_exit_code_for_exception
     from all2md.cli.processors import (
         process_stdin,
         setup_and_validate_options,
@@ -2154,7 +2154,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     )
 
     if not validate_arguments(parsed_args):
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
         return process_stdin(parsed_args, options, format_arg, transforms)
@@ -2167,7 +2167,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
     if not files:
         print("Error: No valid input files found", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_FILE_ERROR
 
     # Handle detection-only / dry-run using existing processors
     if parsed_args.detect_only:
@@ -2178,19 +2178,19 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
     if parsed_args.collate:
         print("Error: --collate is only supported for markdown output", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     if not parsed_args.out and not parsed_args.output_dir and len(files) > 1:
         print("Error: Multiple inputs require --output-dir or --out", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     if parsed_args.out and len(files) > 1:
         print("Error: --out can only be used with a single input file", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     if parsed_args.output_dir and parsed_args.output_type == 'auto':
         print("Error: --output-dir requires --output-type to determine file extensions", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     base_input_dir: Optional[Path] = None
     if parsed_args.preserve_structure and len(files) > 0:
@@ -2445,9 +2445,9 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Ensure input is provided when not using special flags
     if not parsed_args.input:
-        from all2md.constants import EXIT_INPUT_ERROR
+        from all2md.constants import EXIT_VALIDATION_ERROR
         print("Error: Input file is required", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     # Set up logging level - configures root logger for all modules
     # Note: All modules use logging.getLogger(__name__) for consistent logger hierarchy
@@ -2469,17 +2469,17 @@ def main(args: Optional[list[str]] = None) -> int:
 
     # Handle stdin input
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
-        from all2md.constants import EXIT_INPUT_ERROR
+        from all2md.constants import EXIT_VALIDATION_ERROR
         # Set up options and validate
         try:
             options, format_arg, transforms = setup_and_validate_options(parsed_args)
         except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)
-            return EXIT_INPUT_ERROR
+            return EXIT_VALIDATION_ERROR
 
         # Validate arguments
         if not validate_arguments(parsed_args):
-            return EXIT_INPUT_ERROR
+            return EXIT_VALIDATION_ERROR
 
         return process_stdin(parsed_args, options, format_arg, transforms)
 
@@ -2491,12 +2491,12 @@ def main(args: Optional[list[str]] = None) -> int:
     )
 
     if not files:
-        from all2md.constants import EXIT_INPUT_ERROR
+        from all2md.constants import EXIT_FILE_ERROR
         if parsed_args.exclude:
             print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
         else:
             print("Error: No valid input files found", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_FILE_ERROR
 
     # Handle exclusion patterns from JSON
     if parsed_args.options_json:
@@ -2514,38 +2514,38 @@ def main(args: Optional[list[str]] = None) -> int:
                 )
 
                 if not files:
-                    from all2md.constants import EXIT_INPUT_ERROR
+                    from all2md.constants import EXIT_FILE_ERROR
                     if parsed_args.exclude:
                         print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
                     else:
                         print("Error: No valid input files found", file=sys.stderr)
-                    return EXIT_INPUT_ERROR
+                    return EXIT_FILE_ERROR
         except argparse.ArgumentTypeError as e:
-            from all2md.constants import EXIT_INPUT_ERROR
+            from all2md.constants import EXIT_VALIDATION_ERROR
             print(f"Error: {e}", file=sys.stderr)
-            return EXIT_INPUT_ERROR
+            return EXIT_VALIDATION_ERROR
 
     # Validate arguments
     if not validate_arguments(parsed_args, files):
-        from all2md.constants import EXIT_INPUT_ERROR
-        return EXIT_INPUT_ERROR
+        from all2md.constants import EXIT_VALIDATION_ERROR
+        return EXIT_VALIDATION_ERROR
 
     # Set up options
     try:
         options, format_arg, transforms = setup_and_validate_options(parsed_args)
     except argparse.ArgumentTypeError as e:
-        from all2md.constants import EXIT_INPUT_ERROR
+        from all2md.constants import EXIT_VALIDATION_ERROR
         print(f"Error: {e}", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        return EXIT_VALIDATION_ERROR
 
     # Handle watch mode if requested
     if parsed_args.watch:
-        from all2md.constants import EXIT_INPUT_ERROR
+        from all2md.constants import EXIT_VALIDATION_ERROR
 
         # Watch mode requires --output-dir
         if not parsed_args.output_dir:
             print("Error: --watch requires --output-dir to be specified", file=sys.stderr)
-            return EXIT_INPUT_ERROR
+            return EXIT_VALIDATION_ERROR
 
         # Import and run watch mode
         from all2md.cli.watch import run_watch_mode

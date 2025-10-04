@@ -79,7 +79,7 @@ class BaseRenderer(ABC):
 
         Raises
         ------
-        MarkdownConversionError
+        RenderingError
             If rendering fails
         IOError
             If output cannot be written

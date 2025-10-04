@@ -17,10 +17,8 @@ from pathlib import Path
 import re
 from typing import IO, TYPE_CHECKING, Any, Union
 
-from all2md import InputError
 from all2md.utils.security import validate_zip_archive
-from all2md.exceptions import MarkdownConversionError
-from all2md.exceptions import DependencyError
+from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.utils.attachments import extract_docx_image_data, process_attachment, create_attachment_sequencer
 from all2md.utils.metadata import (
@@ -166,10 +164,8 @@ class DocxToAstConverter(BaseParser):
         ------
         DependencyError
             If python-docx is not installed
-        MarkdownConversionError
-            If document loading or archive validation fails
-        InputError
-            If ZIP archive fails security validation
+        MalformedFileError
+            If document loading fails
 
         """
         # Import dependencies with error handling
@@ -205,10 +201,9 @@ class DocxToAstConverter(BaseParser):
             else:
                 doc = docx.Document(input_data)
         except Exception as e:
-            raise InputError(
+            raise MalformedFileError(
                 f"Failed to open DOCX document: {str(e)}",
-                parameter_name="input_data",
-                parameter_value=input_data,
+                file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
                 original_error=e
             ) from e
 

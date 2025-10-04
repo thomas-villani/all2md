@@ -27,7 +27,7 @@ from all2md.utils.metadata import DocumentMetadata
 from email import message_from_binary_file, message_from_bytes, message_from_file, policy
 from io import StringIO
 
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 
 
 def _parse_date_with_fallback(msg: EmailMessage | Message) -> datetime.datetime | None:
@@ -824,10 +824,12 @@ class EmlToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        MalformedFileError
             If parsing fails due to invalid email format
-        InputError
-            If input data is invalid or inaccessible
+        ParsingError
+            If content processing fails
+        ValidationError
+            If input type is not supported
 
         """
 
@@ -853,20 +855,19 @@ class EmlToAstConverter(BaseParser):
             elif isinstance(input_data, bytes):
                 eml_msg = message_from_bytes(input_data, policy=policy.default)
             else:
-                raise InputError(
+                raise ValidationError(
                     f"Unsupported input type: {type(input_data).__name__}. Expected str, Path, or binary file object",
                     parameter_name="input_data",
                     parameter_value=input_data,
                 )
         except Exception as e:
-            if isinstance(e, InputError):
+            if isinstance(e, ValidationError):
                 raise
             else:
-                raise InputError(
+                raise MalformedFileError(
                     f"Failed to parse email data: {e!r}",
+                    file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
                     original_error=e,
-                    parameter_name="input_data",
-                    parameter_value=input_data,
                 ) from e
 
         # Parse the message content
@@ -919,9 +920,9 @@ class EmlToAstConverter(BaseParser):
             return doc
 
         except Exception as e:
-            if isinstance(e, MarkdownConversionError):
+            if isinstance(e, ParsingError):
                 raise
-            raise MarkdownConversionError(
+            raise ParsingError(
                 f"Failed to process email content: {str(e)}",
                 conversion_stage="content_processing",
                 original_error=e

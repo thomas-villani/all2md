@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from all2md import to_markdown as epub_to_markdown
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import EpubOptions, MarkdownOptions
 from tests.fixtures.generators.epub_fixtures import (
     create_epub_file,
@@ -277,10 +277,10 @@ class TestEpubIntegrationErrorHandling:
 
     def test_nonexistent_file(self):
         """Test handling of nonexistent EPUB file."""
-        with pytest.raises(MarkdownConversionError) as exc_info:
+        with pytest.raises(ParsingError) as exc_info:
             epub_to_markdown("nonexistent.epub")
 
-        assert exc_info.value.conversion_stage == "document_opening"
+        assert exc_info.value.parsing_stage == "document_opening"
 
     def test_invalid_epub_file(self, temp_dir):
         """Test handling of invalid EPUB file."""
@@ -288,7 +288,7 @@ class TestEpubIntegrationErrorHandling:
         invalid_file = temp_dir / "invalid.epub"
         invalid_file.write_text("This is not a valid EPUB file")
 
-        with pytest.raises((MarkdownConversionError, InputError)):
+        with pytest.raises((ParsingError, MalformedFileError)):
             epub_to_markdown(invalid_file)
 
     def test_empty_epub_file(self, temp_dir):
@@ -296,7 +296,7 @@ class TestEpubIntegrationErrorHandling:
         empty_file = temp_dir / "empty.epub"
         empty_file.write_bytes(b"")
 
-        with pytest.raises((MarkdownConversionError, InputError)):
+        with pytest.raises((ParsingError, MalformedFileError)):
             epub_to_markdown(empty_file)
 
 

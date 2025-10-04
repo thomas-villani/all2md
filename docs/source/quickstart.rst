@@ -273,24 +273,33 @@ Error Handling
 .. code-block:: python
 
    from all2md import to_markdown
-   from all2md.exceptions import MarkdownConversionError, InputError
+   from all2md.exceptions import (
+       All2MdError,
+       DependencyError,
+       ParsingError,
+       FileNotFoundError as All2MdFileNotFoundError,
+       ValidationError
+   )
 
    try:
        markdown = to_markdown('document.pdf')
        print("Conversion successful!")
 
-   except FileNotFoundError:
+   except All2MdFileNotFoundError:
        print("File not found. Please check the path.")
 
-   except ImportError as e:
+   except DependencyError as e:
        print(f"Missing dependency: {e}")
        print("Try: pip install all2md[pdf]")
 
-   except MarkdownConversionError as e:
-       print(f"Conversion failed: {e}")
+   except ParsingError as e:
+       print(f"Parsing failed: {e}")
 
-   except InputError as e:
-       print(f"Input error: {e}")
+   except ValidationError as e:
+       print(f"Validation error: {e}")
+
+   except All2MdError as e:
+       print(f"Conversion error: {e}")
 
 Advanced: Working with AST
 --------------------------

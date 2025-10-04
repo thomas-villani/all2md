@@ -16,7 +16,7 @@ from hypothesis import given, strategies as st, assume, settings, HealthCheck
 from io import BytesIO
 
 from all2md import to_markdown
-from all2md.exceptions import InputError
+from all2md.exceptions import MalformedFileError
 
 
 @pytest.mark.unit
@@ -33,7 +33,7 @@ class TestHTMLEdgeCaseFuzzing:
             result = to_markdown(BytesIO(binary_data), format='html')
             # Should return a string (possibly empty)
             assert isinstance(result, str)
-        except (UnicodeDecodeError, InputError):
+        except (UnicodeDecodeError, MalformedFileError):
             # Expected for invalid encodings or completely invalid input
             pass
         except Exception as e:
@@ -122,9 +122,9 @@ class TestPDFEdgeCaseFuzzing:
         """Property: Random binary data should not crash PDF parser."""
         try:
             result = to_markdown(BytesIO(binary_data), format='pdf')
-            # Should either succeed or raise InputError
+            # Should either succeed or raise MalformedFileError
             assert isinstance(result, str)
-        except InputError:
+        except MalformedFileError:
             # Expected for invalid PDF data
             pass
         except Exception as e:
@@ -138,7 +138,7 @@ class TestPDFEdgeCaseFuzzing:
         try:
             result = to_markdown(BytesIO(b''), format='pdf')
             assert isinstance(result, str)
-        except InputError:
+        except MalformedFileError:
             # Expected - empty file is not valid PDF
             pass
 
@@ -149,9 +149,9 @@ class TestPDFEdgeCaseFuzzing:
 
         try:
             result = to_markdown(BytesIO(invalid_pdf), format='pdf')
-            # Should either work or raise InputError
+            # Should either work or raise MalformedFileError
             assert isinstance(result, str)
-        except InputError:
+        except MalformedFileError:
             # Expected for invalid PDF
             pass
 
@@ -163,7 +163,7 @@ class TestPDFEdgeCaseFuzzing:
         try:
             result = to_markdown(BytesIO(corrupt_pdf), format='pdf')
             assert isinstance(result, str)
-        except InputError:
+        except MalformedFileError:
             # Expected for corrupted PDF
             pass
 
@@ -180,7 +180,7 @@ class TestPDFEdgeCaseFuzzing:
             result = to_markdown(BytesIO(truncated_pdf), format='pdf')
             # Might succeed partially or fail
             assert isinstance(result, str)
-        except (InputError, Exception):
+        except (MalformedFileError, Exception):
             # Expected - truncated PDF might fail parsing
             pass
 
@@ -194,12 +194,12 @@ class TestFormatDetectionFuzzing:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
     def test_format_detection_with_random_headers(self, header_bytes):
         """Test format detection doesn't crash on random file headers."""
-        from all2md.exceptions import MarkdownConversionError
+        from all2md.exceptions import FormatError, ParsingError
         # Try to convert without specifying format (auto-detect)
         try:
             result = to_markdown(BytesIO(header_bytes))
             assert isinstance(result, str)
-        except (InputError, UnicodeDecodeError, MarkdownConversionError):
+        except (MalformedFileError, UnicodeDecodeError, FormatError, ParsingError):
             # Expected for unrecognized or invalid formats
             pass
         except Exception as e:
@@ -219,7 +219,7 @@ class TestFormatDetectionFuzzing:
             result = to_markdown(BytesIO(pdf_bytes), format='html')
             # Should handle gracefully
             assert isinstance(result, str)
-        except (InputError, UnicodeDecodeError):
+        except (MalformedFileError, UnicodeDecodeError):
             # Expected
             pass
 
@@ -251,10 +251,10 @@ class TestEncodingEdgeCases:
 
             # If encoding produced non-UTF-8 bytes, conversion should have failed
             if not is_valid_utf8:
-                pytest.fail("Non-UTF-8 encoding should have raised InputError")
+                pytest.fail("Non-UTF-8 encoding should have raised MalformedFileError")
 
             assert isinstance(result, str)
-        except (UnicodeEncodeError, UnicodeDecodeError, LookupError, InputError):
+        except (UnicodeEncodeError, UnicodeDecodeError, LookupError, MalformedFileError):
             # Expected for encodings that produce non-UTF-8 bytes
             pass
 

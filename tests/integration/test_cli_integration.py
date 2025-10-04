@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from all2md.cli import main
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import MalformedFileError, ParsingError
 from tests.utils import cleanup_test_dir, create_test_temp_dir
 
 
@@ -216,7 +216,7 @@ class TestCLIIntegration:
         html_file.write_text("<p>Test</p>")
 
         with patch("all2md.cli.to_markdown") as mock_to_markdown:
-            mock_to_markdown.side_effect = MarkdownConversionError("Test conversion error")
+            mock_to_markdown.side_effect = ParsingError("Test conversion error")
 
             result = main([str(html_file)])
 
@@ -490,7 +490,7 @@ class TestCLIIntegration:
 
         # Should fail gracefully for nonexistent file
         with patch("all2md.cli.to_markdown") as mock_to_markdown:
-            mock_to_markdown.side_effect = InputError("File not found")
+            mock_to_markdown.side_effect = MalformedFileError("File not found")
 
             result = main([str(nonexistent_file)])
 
@@ -591,7 +591,7 @@ class TestCLIIntegration:
         nonexistent_file = self.temp_dir / "nonexistent.ipynb"
 
         with patch("all2md.cli.to_markdown") as mock_to_markdown:
-            mock_to_markdown.side_effect = InputError("Invalid JSON")
+            mock_to_markdown.side_effect = MalformedFileError("Invalid JSON")
 
             result = main([str(nonexistent_file)])
 

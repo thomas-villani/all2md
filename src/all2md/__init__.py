@@ -86,7 +86,7 @@ from all2md.constants import DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from all2md.converter_registry import registry
-from all2md.exceptions import DependencyError, FormatError, InputError, MarkdownConversionError, All2MdError
+from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError, RenderingError
 from all2md.options import (
     BaseParserOptions,
     BaseRendererOptions,
@@ -561,12 +561,12 @@ def to_markdown(
                     with open(input, 'r', encoding='utf-8', errors='replace') as f:
                         content = f.read()
                 except Exception as exc:
-                    raise MarkdownConversionError(f"Could not read file as UTF-8: {input}") from exc
+                    raise ParsingError(f"Could not read file as UTF-8: {input}") from exc
             elif isinstance(input, bytes):
                 try:
                     content = input.decode("utf-8", errors="replace")
                 except Exception as exc:
-                    raise MarkdownConversionError("Could not decode bytes as UTF-8") from exc
+                    raise ParsingError("Could not decode bytes as UTF-8") from exc
             else:
                 file = input  # type: ignore
                 file.seek(0)
@@ -577,7 +577,7 @@ def to_markdown(
                     else:
                         content = file_content
                 except Exception as exc:
-                    raise MarkdownConversionError("Could not decode file as UTF-8") from exc
+                    raise ParsingError("Could not decode file as UTF-8") from exc
 
             return content.replace("\r\n", "\n").replace("\r", "\n")
 
@@ -698,7 +698,7 @@ def to_ast(
     except All2MdError:
         raise
     except Exception as e:
-        raise MarkdownConversionError(f"AST conversion failed: {e}") from e
+        raise ParsingError(f"AST conversion failed: {e}", parsing_stage="ast_conversion") from e
 
 def from_ast(
         ast_doc: "Document",

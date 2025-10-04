@@ -138,7 +138,7 @@ class ConversionEventHandler(FileSystemEventHandler):
             Path to the file to convert
         """
         from all2md import to_markdown
-        from all2md.exceptions import MarkdownConversionError
+        from all2md.exceptions import All2MdError
         from all2md.cli import generate_output_path
 
         path = Path(file_path)
@@ -180,7 +180,7 @@ class ConversionEventHandler(FileSystemEventHandler):
             # Update last processed time
             self._last_processed[file_path] = time.time()
 
-        except MarkdownConversionError as e:
+        except All2MdError as e:
             logger.error(f"Conversion error for {file_path}: {e}")
         except Exception as e:
             logger.error(f"Unexpected error converting {file_path}: {e}")

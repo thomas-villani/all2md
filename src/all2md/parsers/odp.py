@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import IO, Any, Union
 
-from all2md import InputError
+from all2md.exceptions import MalformedFileError
 from all2md.ast import (
     Code,
     Document,
@@ -129,7 +129,7 @@ class OdpToAstConverter(BaseParser):
         try:
             doc = opendocument.load(input_data)
         except Exception as e:
-            raise InputError(
+            raise MalformedFileError(
                 f"Failed to open ODP document: {e!r}",
                 parameter_name="input_data",
                 parameter_value=input_data,

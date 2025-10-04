@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast.nodes import Document, Heading, Node
-from all2md.exceptions import DependencyError, MarkdownConversionError
+from all2md.exceptions import DependencyError, RenderingError
 from all2md.options import EpubRendererOptions, HtmlRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,
@@ -87,7 +87,7 @@ class EpubRenderer(BaseRenderer):
         ------
         DependencyError
             If ebooklib is not installed
-        MarkdownConversionError
+        RenderingError
             If EPUB generation fails
 
         """
@@ -158,7 +158,7 @@ class EpubRenderer(BaseRenderer):
                 buffer.seek(0)
                 output.write(buffer.read())
         except Exception as e:
-            raise MarkdownConversionError(
+            raise RenderingError(
                 f"Failed to write EPUB file: {e!r}",
                 conversion_stage="rendering",
                 original_error=e

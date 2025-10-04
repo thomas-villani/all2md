@@ -40,7 +40,7 @@ from all2md.ast import (
     ThematicBreak,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError
+from all2md.exceptions import DependencyError, ParsingError
 from all2md.options import RstParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.metadata import DocumentMetadata
@@ -129,8 +129,7 @@ class RestructuredTextParser(BaseParser):
                 settings_overrides=settings_overrides
             )
         except Exception as e:
-            from all2md.exceptions import MarkdownConversionError
-            raise MarkdownConversionError(f"Failed to parse RST: {e}") from e
+            raise ParsingError(f"Failed to parse RST: {e}") from e
 
         # Extract metadata
         metadata = self.extract_metadata(doctree)

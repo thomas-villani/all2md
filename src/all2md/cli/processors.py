@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from all2md import to_markdown
 from all2md.cli.builder import DynamicCLIBuilder
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import All2MdError
 
 
 def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
@@ -262,7 +262,7 @@ def process_stdin(
     Returns
     -------
     int
-        Exit code (0 for success, 1 for general errors, 2 for dependency errors, 3 for input errors)
+        Exit code (0 for success, see constants.py for complete exit code list)
     """
     # Read from stdin
     try:
@@ -311,7 +311,7 @@ def process_stdin(
         if isinstance(e, (DependencyError, ImportError)):
             print(f"Missing dependency: {e}", file=sys.stderr)
             print("Install required dependencies with: pip install all2md[full]", file=sys.stderr)
-        elif isinstance(e, (MarkdownConversionError, InputError)):
+        elif isinstance(e, All2MdError):
             print(f"Error: {e}", file=sys.stderr)
         else:
             print(f"Unexpected error: {e}", file=sys.stderr)
@@ -344,8 +344,7 @@ def process_multi_file(
     Returns
     -------
     int
-        Exit code (0 for success, highest error code otherwise: 1 for general errors,
-        2 for dependency errors, 3 for input errors)
+        Exit code (0 for success, highest error code otherwise; see constants.py for complete list)
     """
     # Import processing functions
     from all2md.cli import (

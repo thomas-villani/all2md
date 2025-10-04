@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Union
 
-from all2md import DependencyError, InputError
+from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.parsers.base import BaseParser
@@ -293,7 +293,7 @@ class XlsxToAstConverter(BaseParser):
             )
             wb = openpyxl.load_workbook(doc_input, data_only=self.options.render_formulas)
         except Exception as e:
-            raise InputError(
+            raise MalformedFileError(
                 f"Failed to parse XLSX file: {e!r}",
                 original_error=e
             ) from e

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from all2md import to_markdown as ipynb_to_markdown
-from all2md.exceptions import InputError, MarkdownConversionError
+from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import IpynbOptions, MarkdownOptions
 
 
@@ -746,11 +746,11 @@ def test_notebook_error_recovery():
         invalid_path = f.name
 
     try:
-        with pytest.raises(InputError, match="not a valid JSON file"):
+        with pytest.raises(MalformedFileError, match="not a valid JSON file"):
             ipynb_to_markdown(invalid_path)
     finally:
         Path(invalid_path).unlink()
 
     # Test with missing file
-    with pytest.raises(MarkdownConversionError, match="Failed to read or parse"):
+    with pytest.raises(ParsingError, match="Failed to read or parse"):
         ipynb_to_markdown("nonexistent.ipynb")

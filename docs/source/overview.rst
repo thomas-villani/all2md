@@ -488,12 +488,25 @@ Error Handling and Recovery
 Exception Hierarchy
 ~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+.. code-block:: text
 
-   MarkdownConversionError        # Base conversion error
-   ├── FormatError               # Unsupported format
-   ├── InputError                # Invalid input parameters
-   └── ImportError               # Missing dependencies
+   All2MdError (base)
+   ├── ValidationError
+   │   └── PageRangeError
+   ├── FileError
+   │   ├── FileNotFoundError
+   │   ├── FileAccessError
+   │   └── MalformedFileError
+   ├── FormatError
+   ├── ParsingError
+   │   └── PasswordProtectedError
+   ├── RenderingError
+   │   └── OutputWriteError
+   ├── TransformError
+   ├── SecurityError
+   │   ├── NetworkSecurityError
+   │   └── ZipFileSecurityError
+   └── DependencyError
 
 Graceful Degradation
 ~~~~~~~~~~~~~~~~~~~~
@@ -502,12 +515,14 @@ The library handles errors gracefully:
 
 .. code-block:: python
 
+   from all2md.exceptions import DependencyError, All2MdError
+
    try:
        markdown = to_markdown('document.pdf')
-   except ImportError as e:
+   except DependencyError as e:
        print(f"Missing dependency: {e}")
        print("Install with: pip install all2md[pdf]")
-   except MarkdownConversionError as e:
+   except All2MdError as e:
        print(f"Conversion failed: {e}")
        # Fallback to text extraction or alternative processing
 

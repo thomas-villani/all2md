@@ -223,22 +223,22 @@ Implement robust error handling in your converter:
 
 .. code-block:: python
 
-    from all2md.exceptions import MarkdownConversionError
+    from all2md.exceptions import DependencyError, ParsingError
 
     def myformat_to_markdown(input_data, options=None):
         try:
             # Your conversion logic
             pass
         except ImportError as e:
-            raise MarkdownConversionError(
-                f"Required dependency missing: {e}",
-                conversion_stage="dependency_check",
+            raise DependencyError(
+                converter_name="myformat",
+                missing_packages=[("myformat-lib", "myformat-lib", ">=1.0")],
                 original_error=e
             )
         except Exception as e:
-            raise MarkdownConversionError(
+            raise ParsingError(
                 f"Failed to convert MyFormat document: {e}",
-                conversion_stage="conversion",
+                conversion_stage="parsing",
                 original_error=e
             )
 

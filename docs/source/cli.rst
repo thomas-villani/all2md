@@ -1666,10 +1666,20 @@ Error Handling
 Common Exit Codes
 ~~~~~~~~~~~~~~~~~
 
+The CLI provides granular exit codes for automation and scripting:
+
 * ``0`` - Success
-* ``1`` - General error (conversion failed)
+* ``1`` - General/unexpected error
 * ``2`` - Missing dependency error
-* ``3`` - Input/output error (file not found, permission denied)
+* ``3`` - Validation error (invalid arguments)
+* ``4`` - File error (not found, permission denied, malformed)
+* ``5`` - Format error (unsupported/unknown format)
+* ``6`` - Parsing error (failed to parse document)
+* ``7`` - Rendering error (failed to generate output)
+* ``8`` - Security error (SSRF, zip bombs, etc.)
+* ``9`` - Password-protected file
+
+See ``EXIT_CODES.md`` in the repository for detailed documentation and shell scripting examples.
 
 Error Examples
 ~~~~~~~~~~~~~~

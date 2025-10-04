@@ -371,7 +371,13 @@ DocumentFormat = Literal[
 EXIT_SUCCESS = 0
 EXIT_ERROR = 1
 EXIT_DEPENDENCY_ERROR = 2
-EXIT_INPUT_ERROR = 3
+EXIT_VALIDATION_ERROR = 3
+EXIT_FILE_ERROR = 4
+EXIT_FORMAT_ERROR = 5
+EXIT_PARSING_ERROR = 6
+EXIT_RENDERING_ERROR = 7
+EXIT_SECURITY_ERROR = 8
+EXIT_PASSWORD_ERROR = 9
 
 
 def get_exit_code_for_exception(exception: Exception) -> int:
@@ -387,15 +393,48 @@ def get_exit_code_for_exception(exception: Exception) -> int:
     int
         The appropriate exit code for the exception type
     """
-    from all2md.exceptions import DependencyError, InputError
+    from all2md.exceptions import (
+        DependencyError,
+        FileError,
+        FormatError,
+        ParsingError,
+        PasswordProtectedError,
+        RenderingError,
+        SecurityError,
+        ValidationError,
+    )
+
+    # Check for password-protected files (most specific)
+    if isinstance(exception, PasswordProtectedError):
+        return EXIT_PASSWORD_ERROR
+
+    # Check for security violations
+    if isinstance(exception, SecurityError):
+        return EXIT_SECURITY_ERROR
 
     # Check for dependency-related errors
     if isinstance(exception, (DependencyError, ImportError)):
         return EXIT_DEPENDENCY_ERROR
 
-    # Check for input validation errors
-    if isinstance(exception, InputError):
-        return EXIT_INPUT_ERROR
+    # Check for validation errors
+    if isinstance(exception, ValidationError):
+        return EXIT_VALIDATION_ERROR
 
-    # All other errors (conversion errors, format errors, etc.)
+    # Check for file I/O errors
+    if isinstance(exception, FileError):
+        return EXIT_FILE_ERROR
+
+    # Check for format errors
+    if isinstance(exception, FormatError):
+        return EXIT_FORMAT_ERROR
+
+    # Check for parsing errors
+    if isinstance(exception, ParsingError):
+        return EXIT_PARSING_ERROR
+
+    # Check for rendering errors
+    if isinstance(exception, RenderingError):
+        return EXIT_RENDERING_ERROR
+
+    # All other errors (unexpected errors)
     return EXIT_ERROR

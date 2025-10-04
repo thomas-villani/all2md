@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md import DependencyError, PptxOptions
-from all2md.exceptions import ZipFileSecurityError, InputError
+from all2md.exceptions import ZipFileSecurityError, InputError, MalformedFileError
 from all2md.utils.inputs import validate_and_convert_input, parse_page_ranges, format_special_text
 from all2md.utils.security import validate_zip_archive
 
@@ -136,7 +136,7 @@ class PptxToAstConverter(BaseParser):
             raise
 
         except Exception as e:
-            raise InputError(
+            raise MalformedFileError(
                 f"Failed to open PPTX presentation: {e!r}",
                 parameter_name="input_data",
                 parameter_value=input_data,
