@@ -80,8 +80,8 @@ class MarkdownToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: MarkdownParserOptions | None = None):
-        super().__init__(options or MarkdownParserOptions())
+    def __init__(self, options: MarkdownParserOptions | None = None, progress_callback=None):
+        super().__init__(options or MarkdownParserOptions(), progress_callback)
         self._footnote_definitions: dict[str, list[Node]] = {}
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:

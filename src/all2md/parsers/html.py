@@ -267,6 +267,14 @@ class HtmlToAstConverter(BaseParser):
         from bs4 import BeautifulSoup
         from bs4.element import Comment
 
+        # Emit started event
+        self._emit_progress(
+            "started",
+            "Converting HTML document",
+            current=0,
+            total=1
+        )
+
         # Sanitize null bytes from HTML to prevent XSS bypass
         html_content = html_content.replace('\x00', '')
 
@@ -351,6 +359,15 @@ class HtmlToAstConverter(BaseParser):
 
         # Extract and attach metadata
         metadata = self.extract_metadata(soup)
+
+        # Emit finished event
+        self._emit_progress(
+            "finished",
+            "HTML conversion completed",
+            current=1,
+            total=1
+        )
+
         return Document(children=children, metadata=metadata.to_dict())
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:

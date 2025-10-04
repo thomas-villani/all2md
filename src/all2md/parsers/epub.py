@@ -137,6 +137,14 @@ class EpubToAstConverter(BaseParser):
             AST document node
 
         """
+        # Emit started event
+        self._emit_progress(
+            "started",
+            "Converting EPUB document",
+            current=0,
+            total=1
+        )
+
         children: list[Node] = []
 
         # Add table of contents if requested
@@ -155,6 +163,14 @@ class EpubToAstConverter(BaseParser):
                     children.extend(chapter_doc.children)
                     # Add chapter separator
                     children.append(ThematicBreak())
+
+        # Emit finished event
+        self._emit_progress(
+            "finished",
+            "EPUB conversion completed",
+            current=1,
+            total=1
+        )
 
         return Document(children=children)
 

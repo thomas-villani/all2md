@@ -526,6 +526,135 @@ The library handles errors gracefully:
        print(f"Conversion failed: {e}")
        # Fallback to text extraction or alternative processing
 
+Progress Callbacks
+------------------
+
+For long-running conversions, progress callbacks provide real-time updates to enable UI updates, logging, or progress bars in applications that embed all2md.
+
+Basic Usage
+~~~~~~~~~~~
+
+Pass a callback function to any conversion function:
+
+.. code-block:: python
+
+   from all2md import to_markdown, ProgressEvent
+
+   def my_progress_handler(event: ProgressEvent):
+       print(f"[{event.event_type}] {event.message}")
+       if event.total > 0:
+           percentage = (event.current / event.total) * 100
+           print(f"  Progress: {percentage:.1f}%")
+
+   markdown = to_markdown("document.pdf", progress=my_progress_handler)
+
+Progress Event Types
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``ProgressEvent`` dataclass includes:
+
+* **started** - Conversion has begun
+* **page_done** - A page/section has been processed (PDF, PPTX)
+* **table_detected** - Table structure detected (PDF)
+* **finished** - Conversion completed successfully
+* **error** - An error occurred during processing
+
+.. code-block:: python
+
+   @dataclass
+   class ProgressEvent:
+       event_type: Literal["started", "page_done", "table_detected", "finished", "error"]
+       message: str
+       current: int = 0      # Current progress position
+       total: int = 0        # Total items to process
+       metadata: dict = {}   # Event-specific data
+
+Event-Specific Handling
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Different event types provide different metadata:
+
+.. code-block:: python
+
+   def detailed_handler(event: ProgressEvent):
+       if event.event_type == "started":
+           print(f"Starting: {event.message}")
+
+       elif event.event_type == "page_done":
+           print(f"  Page {event.current}/{event.total} complete")
+
+       elif event.event_type == "table_detected":
+           table_count = event.metadata.get('table_count', 0)
+           page = event.metadata.get('page', '?')
+           print(f"  Found {table_count} tables on page {page}")
+
+       elif event.event_type == "finished":
+           print(f"Complete: {event.message}")
+
+       elif event.event_type == "error":
+           error = event.metadata.get('error', 'Unknown')
+           print(f"  ERROR: {error}")
+
+   markdown = to_markdown("large_document.pdf", progress=detailed_handler)
+
+GUI Integration
+~~~~~~~~~~~~~~~
+
+Progress callbacks are especially useful for GUI applications:
+
+.. code-block:: python
+
+   import tkinter as tk
+   from tkinter import ttk
+   from all2md import to_markdown, ProgressEvent
+
+   class ConverterApp:
+       def __init__(self, root):
+           self.root = root
+           self.progress = ttk.Progressbar(root, length=300, mode='determinate')
+           self.progress.pack()
+           self.status = tk.Label(root, text="Ready")
+           self.status.pack()
+
+       def progress_callback(self, event: ProgressEvent):
+           if event.total > 0:
+               value = (event.current / event.total) * 100
+               self.progress['value'] = value
+           self.status['text'] = event.message
+           self.root.update_idletasks()
+
+       def convert(self, filepath):
+           return to_markdown(filepath, progress=self.progress_callback)
+
+Error Handling in Callbacks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Progress callbacks are fail-safe - exceptions in the callback are caught and logged without interrupting conversion:
+
+.. code-block:: python
+
+   def potentially_failing_callback(event: ProgressEvent):
+       # Even if this raises an exception, conversion continues
+       risky_operation(event)
+
+   # Conversion will complete successfully even if callback fails
+   markdown = to_markdown("document.pdf", progress=potentially_failing_callback)
+
+API Support
+~~~~~~~~~~~
+
+All conversion functions support progress callbacks:
+
+.. code-block:: python
+
+   from all2md import to_markdown, to_ast, convert, from_markdown
+
+   # All support the progress parameter
+   markdown = to_markdown("doc.pdf", progress=callback)
+   ast_doc = to_ast("doc.pdf", progress=callback)
+   convert("doc.pdf", "output.docx", progress=callback)
+   from_markdown("input.md", "html", progress=callback)
+
 Dependency Management
 ---------------------
 

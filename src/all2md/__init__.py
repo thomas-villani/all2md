@@ -87,6 +87,7 @@ from all2md.constants import DocumentFormat
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError, RenderingError
+from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.options import (
     BaseParserOptions,
     BaseRendererOptions,
@@ -415,6 +416,7 @@ def to_markdown(
         format: DocumentFormat = "auto",
         flavor: Optional[str] = None,
         transforms: Optional[list] = None,
+        progress: Optional[ProgressCallback] = None,
         **kwargs
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
@@ -444,6 +446,10 @@ def to_markdown(
         List of AST transforms to apply before rendering. Can be transform names
         (strings) or NodeTransformer instances. Transforms are applied in order.
         See `all2md.transforms` for available transforms.
+    progress : ProgressCallback, optional
+        Optional callback function for progress updates. Receives ProgressEvent
+        objects with event_type, message, current/total counts, and metadata.
+        See all2md.progress for details.
     kwargs : Any
         Individual conversion options. Kwargs are intelligently split between
         parser and renderer based on field names. Parser-related kwargs override
@@ -539,11 +545,11 @@ def to_markdown(
         if logger.isEnabledFor(logging.DEBUG):
             import time
             start_time = time.perf_counter()
-            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format)
+            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format, progress=progress)
             parse_time = time.perf_counter() - start_time
             logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
         else:
-            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format)
+            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format, progress=progress)
     except DependencyError:
         raise
     except FormatError as e:
@@ -609,6 +615,7 @@ def to_ast(
         *,
         parser_options: Optional[BaseParserOptions] = None,
         format: DocumentFormat = "auto",
+        progress: Optional[ProgressCallback] = None,
         **kwargs
 ):
     """Convert document to AST (Abstract Syntax Tree) format.
@@ -628,6 +635,10 @@ def to_ast(
     format : DocumentFormat, default "auto"
         Explicitly specify the document format. If "auto", the format is
         detected from the filename or content.
+    progress : ProgressCallback, optional
+        Optional callback function for progress updates. Receives ProgressEvent
+        objects with event_type, message, current/total counts, and metadata.
+        See all2md.progress for details.
     kwargs : Any
         Individual parser options that override settings in parser_options.
 
@@ -691,7 +702,7 @@ def to_ast(
     # Use the parser class system to convert to AST
     try:
         parser_class = registry.get_parser(actual_format)
-        parser = parser_class(options=final_parser_options)
+        parser = parser_class(options=final_parser_options, progress_callback=progress)
         ast_doc = parser.parse(input)
         return ast_doc
 
@@ -789,6 +800,7 @@ def from_markdown(
         renderer_options: Optional[BaseRendererOptions] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
+        progress: Optional[ProgressCallback] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
     """Convert Markdown content to another format.
@@ -809,6 +821,10 @@ def from_markdown(
         AST transforms to apply
     hooks : dict, optional
         Transform hooks to execute
+    progress : ProgressCallback, optional
+        Optional callback function for progress updates. Receives ProgressEvent
+        objects with event_type, message, current/total counts, and metadata.
+        See all2md.progress for details.
     kwargs : Any
         Additional options split between parser and renderer
 
@@ -839,6 +855,7 @@ def from_markdown(
         target_format=target_format,
         transforms=transforms,
         hooks=hooks,
+        progress=progress,
         **kwargs,
     )
 
@@ -854,6 +871,7 @@ def convert(
         hooks: Optional[dict] = None,
         renderer: Optional[Union[str, type, object]] = None,
         flavor: Optional[str] = None,
+        progress: Optional[ProgressCallback] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
     """Convert between document formats.
@@ -880,6 +898,10 @@ def convert(
         Custom renderer (overrides target_format)
     flavor : str, optional
         Markdown flavor shorthand for renderer_options
+    progress : ProgressCallback, optional
+        Optional callback function for progress updates. Receives ProgressEvent
+        objects with event_type, message, current/total counts, and metadata.
+        See all2md.progress for details.
     kwargs : Any
         Additional options split between parser and renderer
 
@@ -938,6 +960,7 @@ def convert(
         source,
         parser_options=final_parser_options,
         format=actual_source_format,
+        progress=progress,
     )
 
     # Prepare renderer options
@@ -998,6 +1021,9 @@ __all__ = [
     "registry",
     # Type definitions
     "DocumentFormat",
+    # Progress system
+    "ProgressCallback",
+    "ProgressEvent",
     # Re-exported classes and exceptions for public API
     "BaseParserOptions",
     "BaseRendererOptions",

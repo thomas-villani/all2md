@@ -121,12 +121,12 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options=None):
+    def __init__(self, options=None, progress_callback=None):
         # Import here to avoid circular dependency
         from all2md.options import OdsSpreadsheetOptions
 
         options = options or OdsSpreadsheetOptions()
-        super().__init__()
+        super().__init__(options, progress_callback)
 
         # Type hint for IDE
         from all2md.options import OdsSpreadsheetOptions

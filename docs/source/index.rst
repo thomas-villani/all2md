@@ -32,6 +32,8 @@ Key Features
 
 🔧 **Modular Design** - Optional dependencies per format to keep installs lightweight
 
+📊 **Progress Callbacks** - Real-time progress updates for UI integration and monitoring
+
 Quick Example
 -------------
 

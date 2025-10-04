@@ -690,6 +690,81 @@ Directory Processing with Progress Tracking
    # Run the batch processing
    process_documents_with_progress()
 
+Real-Time Progress Monitoring
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem:** Need detailed, real-time progress updates during long-running PDF conversions with table detection.
+
+**Solution:**
+
+Use the built-in progress callback system for fine-grained progress tracking:
+
+.. code-block:: python
+
+   from all2md import to_markdown, ProgressEvent
+   import time
+
+   class ProgressMonitor:
+       """Monitor conversion progress with detailed statistics."""
+
+       def __init__(self):
+           self.start_time = None
+           self.pages_processed = 0
+           self.tables_found = 0
+
+       def callback(self, event: ProgressEvent):
+           """Handle progress events from all2md."""
+           if event.event_type == "started":
+               self.start_time = time.time()
+               print(f"Starting: {event.message} (Total: {event.total} pages)")
+
+           elif event.event_type == "page_done":
+               self.pages_processed += 1
+               elapsed = time.time() - self.start_time
+               pct = event.current / event.total * 100 if event.total > 0 else 0
+               print(f"  Page {event.current}/{event.total} ({pct:.1f}%)")
+
+           elif event.event_type == "table_detected":
+               count = event.metadata.get('table_count', 0)
+               self.tables_found += count
+               print(f"  Found {count} table(s) on page {event.current}")
+
+           elif event.event_type == "finished":
+               elapsed = time.time() - self.start_time
+               print(f"Complete! ({elapsed:.2f}s, {self.tables_found} tables total)")
+
+   # Use the monitor
+   monitor = ProgressMonitor()
+   markdown = to_markdown("document.pdf", progress=monitor.callback)
+
+**GUI Integration Example:**
+
+.. code-block:: python
+
+   import tkinter as tk
+   from tkinter import ttk
+   from all2md import to_markdown, ProgressEvent
+   import threading
+
+   class ConverterGUI:
+       def __init__(self, root):
+           self.progress = ttk.Progressbar(root, length=400, mode='determinate')
+           self.progress.pack(pady=20)
+           self.status = tk.Label(root, text="Ready")
+           self.status.pack()
+
+       def progress_callback(self, event: ProgressEvent):
+           if event.total > 0:
+               self.progress['value'] = (event.current / event.total) * 100
+           self.status['text'] = event.message
+           self.root.update_idletasks()
+
+       def convert(self, filepath):
+           threading.Thread(
+               target=lambda: to_markdown(filepath, progress=self.progress_callback),
+               daemon=True
+           ).start()
+
 Complex Format Combinations
 ---------------------------
 

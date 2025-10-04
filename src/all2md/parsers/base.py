@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, IO, Union
+from typing import Any, IO, Optional, Union
 
 from all2md.ast import Document
 from all2md.options import BaseParserOptions
+from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
 
 
@@ -31,6 +32,8 @@ class BaseParser(ABC):
     ----------
     options : BaseParserOptions or None, default = None
         Format-specific parsing options
+    progress_callback : ProgressCallback or None, default = None
+        Optional callback for progress updates during parsing
 
     Examples
     --------
@@ -54,16 +57,23 @@ class BaseParser(ABC):
 
     """
 
-    def __init__(self, options: BaseParserOptions | None = None):
+    def __init__(
+        self,
+        options: BaseParserOptions | None = None,
+        progress_callback: Optional[ProgressCallback] = None
+    ):
         """Initialize the parser with optional configuration.
 
         Parameters
         ----------
         options : BaseParserOptions or None, default = None
             Format-specific parsing options. If None, default options will be used.
+        progress_callback : ProgressCallback or None, default = None
+            Optional callback for progress updates during parsing.
 
         """
         self.options: BaseParserOptions = options
+        self.progress_callback: Optional[ProgressCallback] = progress_callback
 
     @abstractmethod
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -131,3 +141,70 @@ class BaseParser(ABC):
 
         """
         pass
+
+    def _emit_progress(
+        self,
+        event_type: str,
+        message: str,
+        current: int = 0,
+        total: int = 0,
+        **metadata: Any
+    ) -> None:
+        """Emit a progress event to the callback if registered.
+
+        This helper method safely emits progress events, handling cases where
+        no callback is registered or the callback raises an exception.
+
+        Parameters
+        ----------
+        event_type : str
+            Type of progress event (started, page_done, table_detected, finished, error)
+        message : str
+            Human-readable description of the event
+        current : int, default 0
+            Current progress position
+        total : int, default 0
+            Total items to process
+        **metadata
+            Additional event-specific information
+
+        Notes
+        -----
+        If the callback raises an exception, it will be caught and logged to
+        prevent interrupting the conversion process.
+
+        Examples
+        --------
+        Emit a started event:
+            >>> self._emit_progress("started", "Converting document", total=10)
+
+        Emit a page done event:
+            >>> self._emit_progress("page_done", f"Page {n}", current=n, total=10)
+
+        Emit a table detected event:
+            >>> self._emit_progress(
+            ...     "table_detected",
+            ...     "Table found",
+            ...     current=page_num,
+            ...     total=total_pages,
+            ...     table_count=2
+            ... )
+
+        """
+        if not self.progress_callback:
+            return
+
+        try:
+            event = ProgressEvent(
+                event_type=event_type,  # type: ignore[arg-type]
+                message=message,
+                current=current,
+                total=total,
+                metadata=metadata
+            )
+            self.progress_callback(event)
+        except Exception as e:
+            # Log but don't interrupt conversion if callback fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Progress callback raised exception: {e}", exc_info=True)

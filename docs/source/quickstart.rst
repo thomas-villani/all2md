@@ -143,7 +143,34 @@ Common Use Cases
    # Command line equivalent
    all2md document.pdf --markdown-emphasis-symbol "_" --markdown-bullet-symbols "•◦▪"
 
-4. Batch Processing
+4. Progress Monitoring
+~~~~~~~~~~~~~~~~~~~~~~
+
+For long-running conversions, use progress callbacks to track the conversion in real-time:
+
+.. code-block:: python
+
+   from all2md import to_markdown, ProgressEvent
+
+   def show_progress(event: ProgressEvent):
+       if event.event_type == "page_done":
+           print(f"Processed page {event.current}/{event.total}")
+       elif event.event_type == "table_detected":
+           count = event.metadata.get('table_count', 0)
+           print(f"  Found {count} table(s)")
+
+   markdown = to_markdown('large_document.pdf', progress=show_progress)
+
+This is particularly useful for:
+
+* GUI applications with progress bars
+* Long-running batch operations
+* Monitoring table detection in PDFs
+* Web applications with real-time updates
+
+See :doc:`overview` for detailed progress callback documentation and :doc:`recipes` for GUI integration examples.
+
+5. Batch Processing
 ~~~~~~~~~~~~~~~~~~~
 
 all2md provides powerful built-in batch processing features for converting multiple files efficiently.

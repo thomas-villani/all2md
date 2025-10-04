@@ -240,12 +240,12 @@ class XlsxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Any = None):
+    def __init__(self, options: Any = None, progress_callback=None):
         # Import here to avoid circular dependency
         from all2md.options import XlsxOptions
 
         options = options or XlsxOptions()
-        super().__init__()
+        super().__init__(options, progress_callback)
 
         # Type hint for IDE
         from all2md.options import XlsxOptions

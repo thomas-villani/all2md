@@ -1159,31 +1159,71 @@ class PdfToAstConverter(BaseParser):
         total_pages = len(list(pages_to_use))
         children: list[Node] = []
 
+        # Emit started event
+        self._emit_progress(
+            "started",
+            f"Converting PDF with {total_pages} page{'s' if total_pages != 1 else ''}",
+            current=0,
+            total=total_pages
+        )
+
         attachment_sequencer = create_attachment_sequencer()
 
         pages_list = list(pages_to_use)
         for idx, pno in enumerate(pages_list):
-            page = doc[pno]
-            page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer)
-            if page_nodes:
-                children.extend(page_nodes)
+            try:
+                page = doc[pno]
+                page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer, total_pages)
+                if page_nodes:
+                    children.extend(page_nodes)
 
-            # Add page separator between pages (but not after the last page)
-            if idx < len(pages_list) - 1:
-                # Add special marker for page separator
-                # Format: <!-- PAGE_SEP:{page_num}/{total_pages} -->
-                sep_marker = f"<!-- PAGE_SEP:{pno + 1}/{total_pages} -->"
-                children.append(HTMLBlock(content=sep_marker))
+                # Add page separator between pages (but not after the last page)
+                if idx < len(pages_list) - 1:
+                    # Add special marker for page separator
+                    # Format: <!-- PAGE_SEP:{page_num}/{total_pages} -->
+                    sep_marker = f"<!-- PAGE_SEP:{pno + 1}/{total_pages} -->"
+                    children.append(HTMLBlock(content=sep_marker))
+
+                # Emit page done event
+                self._emit_progress(
+                    "page_done",
+                    f"Page {pno + 1} of {total_pages} processed",
+                    current=idx + 1,
+                    total=total_pages,
+                    page=pno + 1
+                )
+            except Exception as e:
+                # Emit error event but continue processing
+                self._emit_progress(
+                    "error",
+                    f"Error processing page {pno + 1}: {str(e)}",
+                    current=idx + 1,
+                    total=total_pages,
+                    error=str(e),
+                    page=pno + 1
+                )
+                # Re-raise to maintain existing error handling
+                raise
 
         # Extract and attach metadata
         metadata = self.extract_metadata(doc)
+
+        # Emit finished event
+        self._emit_progress(
+            "finished",
+            f"PDF conversion completed ({total_pages} page{'s' if total_pages != 1 else ''})",
+            current=total_pages,
+            total=total_pages
+        )
+
         return Document(children=children, metadata=metadata.to_dict())
 
     def _process_page_to_ast(self,
                              page: "fitz.Page",
                              page_num: int,
                              base_filename: str,
-                             attachment_sequencer: Callable[[str, str], tuple[str, int]]) -> list[Node]:
+                             attachment_sequencer: Callable[[str, str], tuple[str, int]],
+                             total_pages: int = 0) -> list[Node]:
         """Process a PDF page to AST nodes.
 
         Parameters
@@ -1235,6 +1275,17 @@ class PdfToAstConverter(BaseParser):
             tabs = page.find_tables()
             if self.options.enable_table_fallback_detection and not tabs.tables:
                 _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
+
+        # Emit table detected event if tables found
+        if tabs.tables:
+            self._emit_progress(
+                "table_detected",
+                f"Found {len(tabs.tables)} table{'s' if len(tabs.tables) != 1 else ''} on page {page_num + 1}",
+                current=page_num + 1,
+                total=total_pages,
+                table_count=len(tabs.tables),
+                page=page_num + 1
+            )
 
         # 2. Make a list of table boundary boxes, sort by top-left corner
         tab_rects = sorted(

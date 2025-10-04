@@ -172,6 +172,14 @@ class PptxToAstConverter(BaseParser):
         all_slides = list(prs.slides)
         total_slides = len(all_slides)
 
+        # Emit started event
+        self._emit_progress(
+            "started",
+            f"Converting PPTX with {total_slides} slide{'s' if total_slides != 1 else ''}",
+            current=0,
+            total=total_slides
+        )
+
         if self.options.slides:
             # Parse slide range specification
             slide_indices = parse_page_ranges(self.options.slides, total_slides)
@@ -192,6 +200,15 @@ class PptxToAstConverter(BaseParser):
 
         # Extract and attach metadata
         metadata = self.extract_metadata(prs)
+
+        # Emit finished event
+        self._emit_progress(
+            "finished",
+            f"PPTX conversion completed ({len(slide_indices)} slide{'s' if len(slide_indices) != 1 else ''})",
+            current=len(slide_indices),
+            total=len(slide_indices)
+        )
+
         return Document(children=children, metadata=metadata.to_dict())
 
     def _process_slide_to_ast(self, slide: Any) -> list[Node]:

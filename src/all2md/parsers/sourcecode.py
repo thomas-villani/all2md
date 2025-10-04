@@ -39,8 +39,8 @@ class SourceCodeToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: SourceCodeOptions | None = None):
-        super().__init__(options or SourceCodeOptions())
+    def __init__(self, options: SourceCodeOptions | None = None, progress_callback=None):
+        super().__init__(options or SourceCodeOptions(), progress_callback)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse source code input into an AST Document.

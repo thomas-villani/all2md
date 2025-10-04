@@ -267,6 +267,14 @@ class DocxToAstConverter(BaseParser):
         self._footnote_collector = FootnoteCollector()
         self._comments_map = {}
 
+        # Emit started event
+        self._emit_progress(
+            "started",
+            "Converting DOCX document",
+            current=0,
+            total=0
+        )
+
         children: list[Node] = []
 
         # Import here to avoid circular dependencies
@@ -337,6 +345,14 @@ class DocxToAstConverter(BaseParser):
             comments_nodes = self._process_comments()
             if comments_nodes:
                 children.extend(comments_nodes)
+
+        # Emit finished event
+        self._emit_progress(
+            "finished",
+            "DOCX conversion completed",
+            current=1,
+            total=1
+        )
 
         # Extract and attach metadata if requested
         metadata_dict = {}
