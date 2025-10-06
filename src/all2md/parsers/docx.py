@@ -131,10 +131,11 @@ class DocxToAstConverter(BaseParser):
 
     def __init__(
         self,
-        options: DocxOptions | None = None
+        options: DocxOptions | None = None,
+        progress_callback=None
     ):
         options = options or DocxOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: DocxOptions = options
 
         # Internally used to stash info between functions

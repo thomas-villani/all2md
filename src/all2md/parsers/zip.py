@@ -130,7 +130,7 @@ class ZipToAstConverter(BaseParser):
         except Exception as e:
             raise ParsingError(
                 f"Failed to open ZIP archive: {e}",
-                conversion_stage="archive_opening",
+                parsing_stage="archive_opening",
                 original_error=e
             ) from e
 

@@ -18,7 +18,7 @@ from typing import IO, Union
 
 from all2md.ast import Document, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import MarkdownConversionError
+from all2md.exceptions import ParsingError
 from all2md.parsers.base import BaseParser
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -137,7 +137,7 @@ class CsvToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid format
 
         """
@@ -208,9 +208,8 @@ class CsvToAstConverter(BaseParser):
             else:
                 text_stream = self._read_text_stream_for_csv(doc_input)
         except Exception as e:
-            from all2md.exceptions import MarkdownConversionError
-            raise MarkdownConversionError(
-                f"Failed to read CSV/TSV input: {e}", conversion_stage="input_processing", original_error=e
+            raise ParsingError(
+                f"Failed to read CSV/TSV input: {e}", parsing_stage="input_processing", original_error=e
             ) from e
 
         # Sniff dialect

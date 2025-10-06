@@ -269,11 +269,11 @@ class XlsxToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid format or corruption
         DependencyError
             If required dependencies are not installed
-        InputError
+        ValidationError
             If input data is invalid or inaccessible
 
         """

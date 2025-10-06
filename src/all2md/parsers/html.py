@@ -123,7 +123,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
     # If we get here, all encodings failed (should not happen with latin-1 fallback)
     raise ParsingError(
         f"Failed to read HTML file with any encoding: {last_error}",
-        conversion_stage="file_reading",
+        parsing_stage="file_reading",
         original_error=last_error
     )
 
@@ -141,9 +141,9 @@ class HtmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: HtmlOptions | None = None):
+    def __init__(self, options: HtmlOptions | None = None, progress_callback=None):
         options = options or HtmlOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: HtmlOptions = options
         self._list_depth = 0
         self._in_code_block = False

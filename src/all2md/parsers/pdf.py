@@ -908,10 +908,11 @@ class PdfToAstConverter(BaseParser):
 
     def __init__(
         self,
-        options: PdfOptions | None = None
+        options: PdfOptions | None = None,
+        progress_callback=None
     ):
         options = options or PdfOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: PdfOptions = options
         self._hdr_identifier: Optional[IdentifyHeaders] = None
 

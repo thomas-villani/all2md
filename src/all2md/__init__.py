@@ -78,6 +78,7 @@ all2md.ast : AST node definitions and utilities
 import logging
 from dataclasses import fields
 from io import BytesIO
+import time
 from pathlib import Path
 from typing import IO, Any, Optional, Union, get_type_hints
 from dataclasses import is_dataclass
@@ -125,9 +126,8 @@ logger = logging.getLogger(__name__)
 
 
 # Options handling helpers
-# TODO: this should use the registry rather than be hardcoded.
 def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BaseParserOptions] | None:
-    """Get the parser options class for a given document format.
+    """Get the parser options class for a given document format from the registry.
 
     Parameters
     ----------
@@ -139,31 +139,14 @@ def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BasePar
     type[BaseParserOptions] | None
         Parser options class or None for formats that don't have parser options.
     """
-    format_to_class = {
-        "pdf": PdfOptions,
-        "docx": DocxOptions,
-        "pptx": PptxOptions,
-        "html": HtmlOptions,
-        "mhtml": MhtmlOptions,
-        "eml": EmlOptions,
-        "ipynb": IpynbOptions,
-        "rtf": RtfOptions,
-        "odt": OdtOptions,
-        "odp": OdpOptions,
-        "epub": EpubOptions,
-        "sourcecode": SourceCodeOptions,
-        "xlsx": XlsxOptions,
-        "ods": OdsSpreadsheetOptions,
-        "csv": CsvOptions,
-        "tsv": CsvOptions,  # TSV uses same options as CSV
-        "markdown": MarkdownParserOptions,
-        "zip": ZipOptions
-    }
-    return format_to_class.get(format)
+    try:
+        return registry.get_parser_options_class(format)
+    except FormatError:
+        return None
 
 
 def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseRendererOptions] | None:
-    """Get the renderer options class for a given document format.
+    """Get the renderer options class for a given document format from the registry.
 
     Parameters
     ----------
@@ -175,10 +158,10 @@ def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseR
     type[BaseRendererOptions] | None
         Renderer options class or None for formats that don't have renderer options.
     """
-    # Currently only markdown has a renderer
-    if format == "markdown":
-        return MarkdownOptions
-    return None
+    try:
+        return registry.get_renderer_options_class(format)
+    except FormatError:
+        return None
 
 
 def _collect_nested_dataclass_kwargs(options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict) -> dict:
@@ -275,7 +258,6 @@ def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs) -> Base
     BaseParserOptions | None
         Parser options instance or None for formats that don't use parser options.
     """
-    from dataclasses import is_dataclass
 
     options_class = _get_parser_options_class_for_format(format)
     if not options_class:
@@ -286,8 +268,6 @@ def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs) -> Base
     nested_dataclass_kwargs = nested_info['nested']
     flat_kwargs = nested_info['remaining']
 
-    # Use get_type_hints to properly resolve types
-    from typing import get_type_hints
     try:
         type_hints = get_type_hints(options_class)
     except Exception:
@@ -467,10 +447,8 @@ def to_markdown(
     ------
     DependencyError
         If required dependencies for a specific format are not installed.
-    MarkdownConversionError
+    ParsingError
         If file processing fails due to corruption or format issues.
-    InputError
-        If input parameters are invalid or the file cannot be accessed.
 
     Examples
     --------
@@ -545,7 +523,6 @@ def to_markdown(
     try:
         # Log timing for parsing stage in trace mode
         if logger.isEnabledFor(logging.DEBUG):
-            import time
             start_time = time.perf_counter()
             ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format, progress=progress)
             parse_time = time.perf_counter() - start_time
@@ -591,7 +568,6 @@ def to_markdown(
 
     # Apply transforms and render using pipeline
     if logger.isEnabledFor(logging.DEBUG):
-        import time
         start_time = time.perf_counter()
         content = transforms_module.render(
             ast_doc,
@@ -655,7 +631,7 @@ def to_ast(
         If the format cannot be detected or is unsupported
     DependencyError
         If required dependencies for the format are not installed
-    MarkdownConversionError
+    ParsingError
         If conversion fails
 
     Examples
@@ -1046,8 +1022,6 @@ __all__ = [
     "RtfOptions",
     "SourceCodeOptions",
     "XlsxOptions",
-    "MarkdownConversionError",
-    "InputError",
     "DependencyError",
     # AST module (for advanced users)
     "ast",

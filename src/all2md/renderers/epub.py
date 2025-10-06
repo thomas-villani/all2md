@@ -160,7 +160,7 @@ class EpubRenderer(BaseRenderer):
         except Exception as e:
             raise RenderingError(
                 f"Failed to write EPUB file: {e!r}",
-                conversion_stage="rendering",
+                rendering_stage="rendering",
                 original_error=e
             ) from e
 

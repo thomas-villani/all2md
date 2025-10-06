@@ -25,23 +25,37 @@ if TYPE_CHECKING:
     from pptx.util import Length
 
 from all2md.ast.nodes import (
+    BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     LineBreak,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
     Text,
+    ThematicBreak,
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
@@ -152,7 +166,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         except Exception as e:
             raise RenderingError(
                 f"Failed to write PPTX file: {e!r}",
-                conversion_stage="rendering",
+                rendering_stage="rendering",
                 original_error=e
             ) from e
 
@@ -617,3 +631,219 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         """Render underline."""
         for child in node.content:
             child.accept(self)
+
+    def visit_block_quote(self, node: "BlockQuote") -> None:
+        """Render block quote as indented text.
+
+        Parameters
+        ----------
+        node : BlockQuote
+            Block quote to render
+
+        """
+        if not self._current_textbox:
+            return
+
+        # Render children with indentation
+        for child in node.children:
+            child.accept(self)
+
+    def visit_thematic_break(self, node: "ThematicBreak") -> None:
+        """Render thematic break as separator line.
+
+        Parameters
+        ----------
+        node : ThematicBreak
+            Thematic break to render
+
+        """
+        if not self._current_textbox:
+            return
+
+        # Add a separator paragraph
+        p = self._current_textbox.add_paragraph()
+        run = p.add_run()
+        run.text = "---"
+
+    def visit_strikethrough(self, node: "Strikethrough") -> None:
+        """Render strikethrough text.
+
+        Parameters
+        ----------
+        node : Strikethrough
+            Strikethrough to render
+
+        """
+        if not self._current_paragraph:
+            return
+
+        # Render content with strikethrough (python-pptx doesn't support strikethrough directly)
+        for child in node.content:
+            child.accept(self)
+
+    def visit_subscript(self, node: "Subscript") -> None:
+        """Render subscript text.
+
+        Parameters
+        ----------
+        node : Subscript
+            Subscript to render
+
+        """
+        if not self._current_paragraph:
+            return
+
+        # Render content (python-pptx has limited subscript support)
+        for child in node.content:
+            child.accept(self)
+
+    def visit_superscript(self, node: "Superscript") -> None:
+        """Render superscript text.
+
+        Parameters
+        ----------
+        node : Superscript
+            Superscript to render
+
+        """
+        if not self._current_paragraph:
+            return
+
+        # Render content (python-pptx has limited superscript support)
+        for child in node.content:
+            child.accept(self)
+
+    def visit_html_block(self, node: "HTMLBlock") -> None:
+        """Skip HTML blocks in PPTX rendering.
+
+        Parameters
+        ----------
+        node : HTMLBlock
+            HTML block to skip
+
+        """
+        pass
+
+    def visit_html_inline(self, node: "HTMLInline") -> None:
+        """Skip inline HTML in PPTX rendering.
+
+        Parameters
+        ----------
+        node : HTMLInline
+            Inline HTML to skip
+
+        """
+        pass
+
+    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+        """Render footnote reference as superscript number.
+
+        Parameters
+        ----------
+        node : FootnoteReference
+            Footnote reference to render
+
+        """
+        if not self._current_paragraph:
+            return
+
+        run = self._current_paragraph.add_run()
+        run.text = f"[{node.identifier}]"
+
+    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+        """Skip footnote definitions in PPTX rendering.
+
+        Parameters
+        ----------
+        node : FootnoteDefinition
+            Footnote definition to skip
+
+        """
+        pass
+
+    def visit_math_inline(self, node: "MathInline") -> None:
+        """Render inline math as plain text.
+
+        Parameters
+        ----------
+        node : MathInline
+            Inline math to render
+
+        """
+        if not self._current_paragraph:
+            return
+
+        run = self._current_paragraph.add_run()
+        run.text = node.content
+
+    def visit_math_block(self, node: "MathBlock") -> None:
+        """Render math block as plain text.
+
+        Parameters
+        ----------
+        node : MathBlock
+            Math block to render
+
+        """
+        if not self._current_textbox:
+            return
+
+        p = self._current_textbox.add_paragraph()
+        run = p.add_run()
+        run.text = node.content
+
+    def visit_definition_list(self, node: "DefinitionList") -> None:
+        """Render definition list.
+
+        Parameters
+        ----------
+        node : DefinitionList
+            Definition list to render
+
+        """
+        for term, descriptions in node.items:
+            term.accept(self)
+            for desc in descriptions:
+                desc.accept(self)
+
+    def visit_definition_term(self, node: "DefinitionTerm") -> None:
+        """Render definition term as bold text.
+
+        Parameters
+        ----------
+        node : DefinitionTerm
+            Definition term to render
+
+        """
+        if not self._current_textbox:
+            return
+
+        p = self._current_textbox.add_paragraph()
+        self._current_paragraph = p
+        p.font.bold = True
+
+        for child in node.content:
+            child.accept(self)
+
+        self._current_paragraph = None
+
+    def visit_definition_description(self, node: "DefinitionDescription") -> None:
+        """Render definition description as indented text.
+
+        Parameters
+        ----------
+        node : DefinitionDescription
+            Definition description to render
+
+        """
+        if not self._current_textbox:
+            return
+
+        p = self._current_textbox.add_paragraph()
+        p.level = 1
+        self._current_paragraph = p
+
+        for child in node.content:
+            child.accept(self)
+
+        self._current_paragraph = None

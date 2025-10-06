@@ -16,7 +16,7 @@ from typing import IO, Any, Union
 
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import InputError, ParsingError, DependencyError
+from all2md.exceptions import ParsingError, DependencyError
 from all2md.options import MhtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
@@ -37,9 +37,9 @@ class MhtmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: MhtmlOptions | None = None):
+    def __init__(self, options: MhtmlOptions | None = None, progress_callback=None):
         options = options or MhtmlOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: MhtmlOptions = options
         self._html_parser = HtmlToAstConverter(self.options)
 
@@ -58,7 +58,7 @@ class MhtmlToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid MHTML format
 
         """
@@ -87,7 +87,7 @@ class MhtmlToAstConverter(BaseParser):
         except Exception as e:
             raise ParsingError(
                 f"Failed to parse MHTML file: {e}",
-                conversion_stage="mhtml_parsing",
+                parsing_stage="mhtml_parsing",
                 original_error=e
             ) from e
 
@@ -97,7 +97,7 @@ class MhtmlToAstConverter(BaseParser):
         if not html_content:
             raise ParsingError(
                 "No HTML content found in MHTML file",
-                conversion_stage="content_extraction"
+                parsing_stage="content_extraction"
             )
 
         # Convert HTML to AST

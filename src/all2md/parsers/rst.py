@@ -75,8 +75,8 @@ class RestructuredTextParser(BaseParser):
 
     """
 
-    def __init__(self, options: RstParserOptions | None = None):
-        super().__init__(options or RstParserOptions())
+    def __init__(self, options: RstParserOptions | None = None, progress_callback=None):
+        super().__init__(options or RstParserOptions(), progress_callback)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse RST input into AST Document.
@@ -99,7 +99,7 @@ class RestructuredTextParser(BaseParser):
         ------
         DependencyError
             If docutils is not installed
-        MarkdownConversionError
+        ParsingError
             If parsing fails
 
         """

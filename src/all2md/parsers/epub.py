@@ -14,10 +14,9 @@ import tempfile
 from pathlib import Path
 from typing import IO, Any, Union
 
-from all2md import InputError
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import MarkdownConversionError, ZipFileSecurityError, ParsingError
+from all2md.exceptions import ZipFileSecurityError, ParsingError, ValidationError
 from all2md.options import EpubOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
@@ -38,9 +37,9 @@ class EpubToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EpubOptions | None = None):
+    def __init__(self, options: EpubOptions | None = None, progress_callback=None):
         options = options or EpubOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: EpubOptions = options
         self.html_parser = HtmlToAstConverter(self.options.html_options)
 
@@ -59,7 +58,7 @@ class EpubToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid EPUB format
 
         """
@@ -95,12 +94,12 @@ class EpubToAstConverter(BaseParser):
         try:
 
             book = epub.read_epub(epub_path)
-        except (MarkdownConversionError, ZipFileSecurityError, InputError):
+        except (ParsingError, ZipFileSecurityError, ValidationError):
             raise
         except Exception as e:
             raise ParsingError(
                 f"Failed to read or parse EPUB file: {e!r}",
-                conversion_stage="document_opening",
+                parsing_stage="document_opening",
                 original_error=e,
             ) from e
         finally:
@@ -120,7 +119,7 @@ class EpubToAstConverter(BaseParser):
         else:
             raise ParsingError(
                 f"Failed to read or parse EPUB file: no file read.",
-                conversion_stage="document_opening",
+                parsing_stage="document_opening",
             )
 
     def convert_to_ast(self, book: Any) -> Document:

@@ -161,7 +161,7 @@ def validate_zip_archive(
     ------
     ZipFileSecurityError
         If the archive fails security validation
-    InputError
+    MalformedFileError
         If the archive cannot be read for some other reason
 
     Examples
@@ -170,7 +170,7 @@ def validate_zip_archive(
     # Passes if the file is a safe ZIP archive
 
     >>> validate_zip_archive("malicious.zip")  # doctest: +SKIP
-    InputError: ZIP archive has suspicious compression ratio: 1000:1
+    ZipFileSecurityError: ZIP archive has suspicious compression ratio: 1000:1
     """
     try:
         with zipfile.ZipFile(file_path, 'r') as zf:

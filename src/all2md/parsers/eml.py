@@ -800,9 +800,9 @@ class EmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EmlOptions | None = None):
+    def __init__(self, options: EmlOptions | None = None, progress_callback=None):
         options = options or EmlOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: EmlOptions = options
 
 
@@ -924,7 +924,7 @@ class EmlToAstConverter(BaseParser):
                 raise
             raise ParsingError(
                 f"Failed to process email content: {str(e)}",
-                conversion_stage="content_processing",
+                parsing_stage="content_processing",
                 original_error=e
             ) from e
 

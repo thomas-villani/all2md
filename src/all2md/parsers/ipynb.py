@@ -67,9 +67,9 @@ class IpynbToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: IpynbOptions | None = None):
+    def __init__(self, options: IpynbOptions | None = None, progress_callback=None):
         options = options or IpynbOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: IpynbOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -123,7 +123,7 @@ class IpynbToAstConverter(BaseParser):
         except Exception as e:
             raise ParsingError(
                 f"Failed to read or parse Jupyter Notebook: {e}",
-                conversion_stage="input_processing",
+                parsing_stage="input_processing",
                 original_error=e,
             ) from e
 
@@ -151,7 +151,7 @@ class IpynbToAstConverter(BaseParser):
         if notebook is None:
             raise ParsingError(
                 "No notebook data loaded. Call parse() first.",
-                conversion_stage="ast_conversion",
+                parsing_stage="ast_conversion",
             )
 
         children: list[Node] = []

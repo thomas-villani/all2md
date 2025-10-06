@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md import DependencyError, PptxOptions
-from all2md.exceptions import ZipFileSecurityError, InputError, MalformedFileError
+from all2md.exceptions import ZipFileSecurityError, MalformedFileError
 from all2md.utils.inputs import validate_and_convert_input, parse_page_ranges, format_special_text
 from all2md.utils.security import validate_zip_archive
 
@@ -70,10 +70,11 @@ class PptxToAstConverter(BaseParser):
 
     def __init__(
         self,
-        options: PptxOptions | None = None
+        options: PptxOptions | None = None,
+        progress_callback=None
     ):
         options = options or PptxOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
         self.options: PptxOptions = options
         
         self._current_slide_num = 0
@@ -99,7 +100,7 @@ class PptxToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid format or corruption
         DependencyError
             If python-pptx is not installed

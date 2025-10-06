@@ -27,7 +27,7 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, InputError
+from all2md.exceptions import DependencyError, ParsingError, ValidationError
 from all2md.options import RtfOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment, create_attachment_sequencer
@@ -51,18 +51,17 @@ class RtfToAstConverter(BaseParser):
     ----------
     options : RtfOptions or None
         Conversion options
-    base_filename : str
-        Base filename for attachments
-    attachment_sequencer : callable or None
-        Function to generate sequential attachment names
 
     """
 
     def __init__(
         self,
-        options: RtfOptions | None = None
+        options: RtfOptions | None = None,
+        progress_callback=None
     ):
-        super().__init__(options or RtfOptions())
+        options = options or RtfOptions()
+        super().__init__(options, progress_callback)
+        self.options: RtfOptions = options
 
         # Import pyth types for use in converter methods
         try:
@@ -104,7 +103,7 @@ class RtfToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails or required dependencies are missing
 
         """
@@ -134,12 +133,13 @@ class RtfToAstConverter(BaseParser):
                 else:
                     base_filename = "document"
             else:
-                raise InputError(f"Unsupported input type for RTF conversion: {type(doc_input)}")
+                raise ValidationError(f"Unsupported input type for RTF conversion: {type(input_data)}",
+                                      parameter_name="input_data", parameter_value=input_data)
 
-        except InputError as e:
+        except ValidationError as e:
             raise e
         except Exception as e:
-            raise InputError(
+            raise ParsingError(
                 f"Failed to read or parse RTF document: {e!r}",
                 original_error=e,
             ) from e

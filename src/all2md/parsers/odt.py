@@ -36,7 +36,7 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, MarkdownConversionError
+from all2md.exceptions import DependencyError, ParsingError
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
@@ -62,12 +62,12 @@ class OdtToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Any = None):
+    def __init__(self, options: Any = None, progress_callback=None):
         # Import here to avoid circular dependency
         from all2md.options import OdtOptions
 
         options = options or OdtOptions()
-        super().__init__(options)
+        super().__init__(options, progress_callback)
 
         # Type hint for IDE
         from all2md.options import OdtOptions
@@ -104,7 +104,7 @@ class OdtToAstConverter(BaseParser):
 
         Raises
         ------
-        MarkdownConversionError
+        ParsingError
             If parsing fails due to invalid format or corruption
         DependencyError
             If required dependencies are not installed
