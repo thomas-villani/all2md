@@ -44,6 +44,66 @@ def _check_package_installed(import_name: str) -> bool:
         return False
 
 
+def _load_class(
+    class_spec: Union[str, type, None],
+    default_module_path: str,
+    class_type_name: str
+) -> Optional[type]:
+    """Generic class loader for parsers, renderers, and options classes.
+
+    Parameters
+    ----------
+    class_spec : Union[str, type, None]
+        Class specification. Can be:
+        - Simple class name (e.g., "PdfOptions") - looks in default_module_path
+        - Fully qualified name (e.g., "myplugin.options.MyOptions")
+        - Direct class reference
+        - None
+    default_module_path : str
+        Module path to use for simple class names (e.g., "all2md.options")
+    class_type_name : str
+        Type name for error messages (e.g., "options", "parser", "renderer")
+
+    Returns
+    -------
+    Optional[type]
+        The loaded class or None
+
+    """
+    if class_spec is None:
+        return None
+    elif isinstance(class_spec, type):
+        # Direct class reference
+        return class_spec
+    elif isinstance(class_spec, str):
+        # String specification
+        # Check if it contains a dot (fully qualified)
+        if '.' in class_spec:
+            # Parse module and class name
+            module_path, class_name = class_spec.rsplit('.', 1)
+            try:
+                module = importlib.import_module(module_path)
+                return getattr(module, class_name)
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Could not load {class_type_name} class '{class_spec}': {e}")
+                return None
+        else:
+            # Simple name - look in default module
+            try:
+                module = importlib.import_module(default_module_path)
+                return getattr(module, class_spec, None)
+            except (ImportError, AttributeError) as e:
+                logger.warning(
+                    f"{class_type_name.capitalize()} class '{class_spec}' "
+                    f"not found in {default_module_path}: {e}"
+                )
+                return None
+    else:
+        # This shouldn't happen with proper typing, but handle it gracefully
+        logger.warning(f"Invalid {class_type_name}_class specification type: {type(class_spec)}")
+        return None
+
+
 def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[type]:
     """Load options class from various specifications.
 
@@ -62,35 +122,7 @@ def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[
         The loaded options class or None
 
     """
-    if options_class_spec is None:
-        return None
-    elif isinstance(options_class_spec, type):
-        # Direct class reference
-        return options_class_spec
-    elif isinstance(options_class_spec, str):
-        # String specification
-        # Check if it contains a dot (fully qualified)
-        if '.' in options_class_spec:
-            # Parse module and class name
-            module_path, class_name = options_class_spec.rsplit('.', 1)
-            try:
-                module = importlib.import_module(module_path)
-                return getattr(module, class_name)
-            except (ImportError, AttributeError) as e:
-                logger.warning(f"Could not load options class '{options_class_spec}': {e}")
-                return None
-        else:
-            # Simple name - look in all2md.options (backward compatibility)
-            try:
-                from . import options
-                return getattr(options, options_class_spec, None)
-            except AttributeError:
-                logger.warning(f"Options class '{options_class_spec}' not found in all2md.options")
-                return None
-    else:
-        # This shouldn't happen with proper typing, but handle it gracefully
-        logger.warning(f"Invalid options_class specification type: {type(options_class_spec)}")
-        return None
+    return _load_class(options_class_spec, "all2md.options", "options")
 
 
 def _load_parser_class(parser_class_spec: Union[str, type, None], format_name: str) -> Optional[type]:
@@ -113,35 +145,7 @@ def _load_parser_class(parser_class_spec: Union[str, type, None], format_name: s
         The loaded parser class or None
 
     """
-    if parser_class_spec is None:
-        return None
-    elif isinstance(parser_class_spec, type):
-        # Direct class reference
-        return parser_class_spec
-    elif isinstance(parser_class_spec, str):
-        # String specification
-        # Check if it contains a dot (fully qualified)
-        if '.' in parser_class_spec:
-            # Parse module and class name
-            module_path, class_name = parser_class_spec.rsplit('.', 1)
-            try:
-                module = importlib.import_module(module_path)
-                return getattr(module, class_name)
-            except (ImportError, AttributeError) as e:
-                logger.warning(f"Could not load parser class '{parser_class_spec}': {e}")
-                return None
-        else:
-            # Simple name - look in all2md.parsers.{format}
-            try:
-                module_path = f"all2md.parsers.{format_name}"
-                module = importlib.import_module(module_path)
-                return getattr(module, parser_class_spec, None)
-            except (ImportError, AttributeError) as e:
-                logger.warning(f"Parser class '{parser_class_spec}' not found in {module_path}: {e}")
-                return None
-    else:
-        logger.warning(f"Invalid parser_class specification type: {type(parser_class_spec)}")
-        return None
+    return _load_class(parser_class_spec, f"all2md.parsers.{format_name}", "parser")
 
 
 def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_name: str) -> Optional[type]:
@@ -164,35 +168,7 @@ def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_nam
         The loaded renderer class or None
 
     """
-    if renderer_class_spec is None:
-        return None
-    elif isinstance(renderer_class_spec, type):
-        # Direct class reference
-        return renderer_class_spec
-    elif isinstance(renderer_class_spec, str):
-        # String specification
-        # Check if it contains a dot (fully qualified)
-        if '.' in renderer_class_spec:
-            # Parse module and class name
-            module_path, class_name = renderer_class_spec.rsplit('.', 1)
-            try:
-                module = importlib.import_module(module_path)
-                return getattr(module, class_name)
-            except (ImportError, AttributeError) as e:
-                logger.warning(f"Could not load renderer class '{renderer_class_spec}': {e}")
-                return None
-        else:
-            # Simple name - look in all2md.renderers.{format}
-            try:
-                module_path = f"all2md.renderers.{format_name}"
-                module = importlib.import_module(module_path)
-                return getattr(module, renderer_class_spec, None)
-            except (ImportError, AttributeError) as e:
-                logger.warning(f"Renderer class '{renderer_class_spec}' not found in {module_path}: {e}")
-                return None
-    else:
-        logger.warning(f"Invalid renderer_class specification type: {type(renderer_class_spec)}")
-        return None
+    return _load_class(renderer_class_spec, f"all2md.renderers.{format_name}", "renderer")
 
 
 class ConverterRegistry:
