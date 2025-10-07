@@ -673,6 +673,11 @@ Examples:
 
         for format_name in registry.list_formats():
             try:
+                # Skip markdown format - we already added MarkdownOptions explicitly above
+                # to avoid duplicate --markdown-flavor and other overlapping arguments
+                if format_name == "markdown":
+                    continue
+
                 options_class = registry.get_parser_options_class(format_name)
                 if options_class and is_dataclass(options_class):
                     # Create group name
@@ -817,11 +822,28 @@ Examples:
                 else:
                     all_known_arg_names.append(f"{prefix}.{field.name}")
 
+        # Define CLI-only arguments that should not be mapped to converter options
+        # These are arguments handled directly by the CLI layer
+        cli_only_args = {
+            # Core arguments from builder.build_parser
+            'input', 'out', 'format', 'output_type', 'options_json',
+            'verbose', 'log_level', 'log_file', 'trace',
+            'strict_args', 'version', 'about', '_provided_args',
+            # Multi-file processing arguments from cli.create_parser
+            'rich', 'pager', 'progress', 'output_dir', 'recursive',
+            'parallel', 'skip_errors', 'preserve_structure', 'zip',
+            'assets_layout', 'watch', 'watch_debounce', 'collate',
+            'no_summary', 'save_config', 'dry_run', 'detect_only', 'exclude',
+            # Security presets from cli.create_parser
+            'strict_html_sanitize', 'safe_mode', 'paranoid_mode',
+            # Transform arguments
+            'transforms'
+        }
+
         # Process each argument
         for arg_name, arg_value in args_dict.items():
-            # Skip special arguments
-            if arg_name in ['input', 'out', 'format', 'log_level', 'options_json', 'about',
-                           'version', '_provided_args', 'strict_args', 'verbose']:
+            # Skip CLI-only arguments
+            if arg_name in cli_only_args:
                 continue
 
             # Only process arguments that were explicitly provided
@@ -899,7 +921,6 @@ Examples:
                     f"Use 'all2md --help' to see available options."
                 )
             else:
-                # BUG: we are warning about some of the valid options (e.g. --rich)
                 # Warn about unknown arguments
                 for msg in error_messages:
                     warnings.warn(msg, UserWarning, stacklevel=2)
