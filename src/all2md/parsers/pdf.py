@@ -957,16 +957,6 @@ class PdfToAstConverter(BaseParser):
             elif input_type in ("file", "bytes"):
                 doc = fitz.open(stream=doc_input, filetype="pdf")
                 # Handle different file-like object types
-                # if hasattr(doc_input, 'name') and hasattr(doc_input, 'read'):
-                #     # For file objects that have a name attribute (like BufferedReader from open()),
-                #     # use the filename approach which is more memory efficient
-                #     doc = fitz.open(filename=doc_input.name)
-                # elif hasattr(doc_input, 'read'):
-                #     # For file-like objects without name (like BytesIO), read the content
-                #     doc = fitz.open(stream=doc_input, filetype="pdf")
-                # else:
-                #     # For bytes objects
-                #     doc = fitz.open(stream=doc_input)
             elif input_type == "object":
                 if isinstance(doc_input, fitz.Document) or (
                         hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
@@ -983,15 +973,38 @@ class PdfToAstConverter(BaseParser):
                     f"Unsupported input type: {input_type}", parameter_name="input_data", parameter_value=doc_input
                 )
         except Exception as e:
-            if "password" in str(e).lower() or "encrypt" in str(e).lower():
-                filename = str(input_data) if isinstance(input_data, (str, Path)) else None
-                raise PasswordProtectedError(filename=filename) from e
+            raise MalformedFileError(
+                f"Failed to open PDF document: {e!r}",
+                file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
+                original_error=e
+            ) from e
+
+        # Handle password-protected PDFs using PyMuPDF's authentication API
+        if doc.is_encrypted:
+            filename = str(input_data) if isinstance(input_data, (str, Path)) else None
+            if self.options.password:
+                # Attempt authentication with provided password
+                auth_result = doc.authenticate(self.options.password)
+                if auth_result == 0:
+                    # Authentication failed (return code 0)
+                    raise PasswordProtectedError(
+                        message=(
+                            "Failed to authenticate PDF with provided password. "
+                            "Please check the password is correct."
+                        ),
+                        filename=filename
+                    )
+                # auth_result > 0 indicates successful authentication
+                # (1=no passwords, 2=user password, 4=owner password, 6=both equal)
             else:
-                raise MalformedFileError(
-                    f"Failed to open PDF document: {e!r}",
-                    file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
-                    original_error=e
-                ) from e
+                # Document is encrypted but no password provided
+                raise PasswordProtectedError(
+                    message=(
+                        "PDF document is password-protected. "
+                        "Please provide a password using the 'password' option."
+                    ),
+                    filename=filename
+                )
 
         # Validate page range
         try:

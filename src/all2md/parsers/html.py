@@ -1362,6 +1362,7 @@ class HtmlToAstConverter(BaseParser):
                 require_https=self.options.network.require_https,
                 max_size_bytes=self.options.network.max_remote_asset_bytes,
                 timeout=self.options.network.network_timeout,
+                require_head_success=self.options.network.require_head_success
             )
         except NetworkSecurityError as e:
             logger.warning(f"Network security validation failed for {url}: {e}")

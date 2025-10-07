@@ -368,7 +368,8 @@ def fetch_content_securely(
         require_https: bool = False,
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
         timeout: float = 10.0,
-        expected_content_types: list[str] | None = None
+        expected_content_types: list[str] | None = None,
+        require_head_success: bool = True
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -386,6 +387,8 @@ def fetch_content_securely(
         Request timeout in seconds
     expected_content_types : list[str] | None, default None
         List of allowed content type prefixes (e.g., ["image/", "text/"])
+    require_head_success : bool, default True
+        Require a successful HEAD request prior to GET.
 
     Returns
     -------
@@ -437,7 +440,11 @@ def fetch_content_securely(
                     )
             except Exception as head_error:
                 # HEAD request failed, continue with GET but be more cautious
+                if require_head_success:
+                    raise NetworkSecurityError(f"HEAD request required but failed: {head_error!r}",
+                                               original_error=head_error) from head_error
                 logger.debug(f"HEAD request failed for {url}: {head_error}")
+
 
             # Stream the actual content with size validation
             with client.stream('GET', url) as response:
@@ -483,7 +490,8 @@ def fetch_image_securely(
         allowed_hosts: list[str] | None = None,
         require_https: bool = False,
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
-        timeout: float = 30.0
+        timeout: float = 30.0,
+        require_head_success: bool = True,
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 
@@ -519,6 +527,7 @@ def fetch_image_securely(
         require_https=require_https,
         max_size_bytes=max_size_bytes,
         timeout=timeout,
+        require_head_success=require_head_success,
         expected_content_types=["image/"]
     )
 

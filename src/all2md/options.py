@@ -128,7 +128,7 @@ from .constants import (
     SuperscriptMode,
     UnderlineMode,
     UnsupportedInlineMode,
-    UnsupportedTableMode,
+    UnsupportedTableMode, DEFAULT_REQUIRE_HEAD_SUCCESS,
 )
 
 
@@ -891,6 +891,10 @@ class NetworkFetchOptions(_CloneMixin):
     require_https: bool = field(
         default=DEFAULT_REQUIRE_HTTPS,
         metadata={"help": "Require HTTPS for all remote URL fetching"}
+    )
+    require_head_success: bool = field(
+        default=DEFAULT_REQUIRE_HEAD_SUCCESS,
+        metadata={"help": "Require HEAD request success before remote URL fetching"}
     )
     network_timeout: float = field(
         default=DEFAULT_NETWORK_TIMEOUT,
