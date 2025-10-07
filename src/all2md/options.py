@@ -81,8 +81,10 @@ from .constants import (
     DEFAULT_LIST_INDENT_WIDTH,
     DEFAULT_MATH_MODE,
     DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
+    DEFAULT_MAX_CONCURRENT_REQUESTS,
     DEFAULT_MAX_DOWNLOAD_BYTES,
     DEFAULT_MAX_IMAGE_SIZE_BYTES,
+    DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_METADATA_FORMAT,
     DEFAULT_NETWORK_TIMEOUT,
@@ -90,6 +92,7 @@ from .constants import (
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_PRESERVE_RAW_HEADERS,
+    DEFAULT_REQUIRE_HEAD_SUCCESS,
     DEFAULT_REQUIRE_HTTPS,
     DEFAULT_RST_CODE_STYLE,
     # RST-specific constants
@@ -128,7 +131,7 @@ from .constants import (
     SuperscriptMode,
     UnderlineMode,
     UnsupportedInlineMode,
-    UnsupportedTableMode, DEFAULT_REQUIRE_HEAD_SUCCESS,
+    UnsupportedTableMode,
 )
 
 
@@ -871,6 +874,10 @@ class NetworkFetchOptions(_CloneMixin):
         Timeout in seconds for remote URL fetching.
     max_remote_asset_bytes : int, default 20MB
         Maximum allowed size in bytes for downloaded remote assets.
+    max_requests_per_second : float, default 10.0
+        Maximum number of network requests per second (rate limiting).
+    max_concurrent_requests : int, default 5
+        Maximum number of concurrent network requests.
 
     """
 
@@ -922,6 +929,20 @@ class NetworkFetchOptions(_CloneMixin):
         metadata={
             "help": "Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')",
             "action": "append"
+        }
+    )
+    max_requests_per_second: float = field(
+        default=DEFAULT_MAX_REQUESTS_PER_SECOND,
+        metadata={
+            "help": "Maximum number of network requests per second (rate limiting)",
+            "type": float
+        }
+    )
+    max_concurrent_requests: int = field(
+        default=DEFAULT_MAX_CONCURRENT_REQUESTS,
+        metadata={
+            "help": "Maximum number of concurrent network requests",
+            "type": int
         }
     )
 

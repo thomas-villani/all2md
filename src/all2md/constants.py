@@ -12,16 +12,18 @@ file handling, and Markdown flavor specifications.
 import json
 from pathlib import Path
 from typing import Literal
+
 from all2md.exceptions import (
-        DependencyError,
-        FileError,
-        FormatError,
-        ParsingError,
-        PasswordProtectedError,
-        RenderingError,
-        SecurityError,
-        ValidationError,
-    )
+    DependencyError,
+    FileError,
+    FormatError,
+    ParsingError,
+    PasswordProtectedError,
+    RenderingError,
+    SecurityError,
+    ValidationError,
+)
+
 # =============================================================================
 # Markdown Formatting Constants
 # =============================================================================
@@ -202,6 +204,8 @@ DEFAULT_REQUIRE_HEAD_SUCCESS = True
 DEFAULT_NETWORK_TIMEOUT = 10.0
 DEFAULT_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024  # 20MB
 DEFAULT_MAX_REDIRECTS = 5
+DEFAULT_MAX_REQUESTS_PER_SECOND = 10.0  # Rate limit for network requests
+DEFAULT_MAX_CONCURRENT_REQUESTS = 5  # Maximum concurrent network requests
 
 # Download size limits for security
 DEFAULT_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100MB maximum per download
@@ -404,7 +408,6 @@ def get_exit_code_for_exception(exception: Exception) -> int:
         The appropriate exit code for the exception type
 
     """
-
     # Check for password-protected files (most specific)
     if isinstance(exception, PasswordProtectedError):
         return EXIT_PASSWORD_ERROR

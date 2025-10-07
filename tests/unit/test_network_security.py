@@ -18,15 +18,17 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from all2md.exceptions import NetworkSecurityError
 from all2md.utils.network_security import (
+    RateLimiter,
     _is_private_or_reserved_ip,
+    _parse_content_type,
     _resolve_hostname_to_ips,
     _validate_hostname_allowlist,
     fetch_image_securely,
     is_network_disabled,
     validate_url_security,
 )
-from all2md.exceptions import NetworkSecurityError
 
 
 class TestPrivateIPValidation:
@@ -192,7 +194,7 @@ class TestURLSecurityValidation:
     def test_missing_hostname(self):
         """Test validation of URLs without hostnames."""
         with pytest.raises(NetworkSecurityError, match="URL missing hostname"):
-            validate_url_security("http:///path")
+            validate_url_security("http:///path", require_https=False)
 
     @patch('all2md.utils.network_security._validate_hostname_allowlist')
     def test_hostname_allowlist_enforcement(self, mock_allowlist):
@@ -200,7 +202,7 @@ class TestURLSecurityValidation:
         mock_allowlist.return_value = False
 
         with pytest.raises(NetworkSecurityError, match="Hostname not in allowlist"):
-            validate_url_security("http://evil.com", allowed_hosts=["trusted.com"])
+            validate_url_security("http://evil.com", allowed_hosts=["trusted.com"], require_https=False)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_private_ip_blocking(self, mock_resolve):
@@ -208,7 +210,7 @@ class TestURLSecurityValidation:
         mock_resolve.return_value = [ipaddress.IPv4Address("192.168.1.1")]
 
         with pytest.raises(NetworkSecurityError, match="Access to private/reserved IP"):
-            validate_url_security("http://internal.company.com")
+            validate_url_security("http://internal.company.com", require_https=False)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_valid_url_passes(self, mock_resolve):
@@ -456,7 +458,6 @@ class TestEventHooksImplementation:
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_event_hooks_validate_redirect_chain(self, mock_resolve):
         """Test that response event hooks validate redirect chains."""
-
         from all2md.utils.network_security import create_secure_http_client
 
         # Create a mock response with redirect history containing a private IP
@@ -688,11 +689,11 @@ class TestSSRFEdgeCases:
         mock_resolve.side_effect = dns_rebinding_resolver
 
         # First call should pass (public IP)
-        validate_url_security("http://rebinding.evil.com")
+        validate_url_security("http://rebinding.evil.com", require_https=False)
 
         # Second call with same hostname should fail (private IP)
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://rebinding.evil.com")
+            validate_url_security("http://rebinding.evil.com", require_https=False)
 
     def test_ipv6_localhost_blocked(self):
         """Test that IPv6 localhost addresses are blocked."""
@@ -717,7 +718,7 @@ class TestSSRFEdgeCases:
         mock_resolve.return_value = [ipaddress.IPv6Address("::ffff:127.0.0.1")]
 
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://ipv4mapped.example.com")
+            validate_url_security("http://ipv4mapped.example.com", require_https=False)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_multiple_ips_with_one_private(self, mock_resolve):
@@ -731,7 +732,7 @@ class TestSSRFEdgeCases:
 
         # Should be blocked because one IP is private
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://mixed-ips.example.com")
+            validate_url_security("http://mixed-ips.example.com", require_https=False)
 
     def test_url_encoding_normalization(self):
         """Test that URL encoding doesn't bypass IP checks."""
@@ -751,7 +752,7 @@ class TestSSRFEdgeCases:
         mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
 
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://instance-metadata.amazonaws.com")
+            validate_url_security("http://instance-metadata.amazonaws.com", require_https=False)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_gcp_metadata_service_blocked(self, mock_resolve):
@@ -760,7 +761,7 @@ class TestSSRFEdgeCases:
         mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
 
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://metadata.google.internal")
+            validate_url_security("http://metadata.google.internal", require_https=False)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_azure_metadata_service_blocked(self, mock_resolve):
@@ -769,7 +770,7 @@ class TestSSRFEdgeCases:
         mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
 
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://169.254.169.254/metadata/instance")
+            validate_url_security("http://169.254.169.254/metadata/instance", require_https=False)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
     def test_docker_internal_network_blocked(self, mock_resolve):
@@ -778,7 +779,7 @@ class TestSSRFEdgeCases:
         mock_resolve.return_value = [ipaddress.IPv4Address("172.17.0.1")]
 
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://docker.internal")
+            validate_url_security("http://docker.internal", require_https=False)
 
     def test_broadcast_address_blocked(self):
         """Test that broadcast addresses are blocked."""
@@ -793,4 +794,135 @@ class TestSSRFEdgeCases:
         mock_resolve.return_value = [ipaddress.IPv4Address("224.0.0.1")]
 
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
-            validate_url_security("http://multicast.example.com")
+            validate_url_security("http://multicast.example.com", require_https=False)
+
+
+class TestContentTypeParsing:
+    """Test content-type header parsing."""
+
+    def test_simple_content_type(self):
+        """Test parsing simple content-type without parameters."""
+        assert _parse_content_type("image/png") == "image/png"
+        assert _parse_content_type("text/html") == "text/html"
+        assert _parse_content_type("application/json") == "application/json"
+
+    def test_content_type_with_charset(self):
+        """Test parsing content-type with charset parameter."""
+        assert _parse_content_type("text/html; charset=utf-8") == "text/html"
+        assert _parse_content_type("text/html; charset=UTF-8") == "text/html"
+        assert _parse_content_type("application/json; charset=utf-8") == "application/json"
+
+    def test_content_type_with_boundary(self):
+        """Test parsing content-type with boundary parameter."""
+        assert _parse_content_type("multipart/form-data; boundary=----WebKitFormBoundary") == "multipart/form-data"
+
+    def test_content_type_with_multiple_parameters(self):
+        """Test parsing content-type with multiple parameters."""
+        assert _parse_content_type("text/html; charset=utf-8; boundary=foo") == "text/html"
+        assert _parse_content_type("image/png; name=file.png; size=1234") == "image/png"
+
+    def test_content_type_case_insensitive(self):
+        """Test that content-type parsing is case-insensitive."""
+        assert _parse_content_type("IMAGE/PNG") == "image/png"
+        assert _parse_content_type("Text/HTML; Charset=UTF-8") == "text/html"
+
+    def test_content_type_with_malicious_parameters(self):
+        """Test parsing content-type with potentially malicious parameters."""
+        # Should extract only the main type, ignoring suspicious parameters
+        assert _parse_content_type("image/png; <script>alert('xss')</script>") == "image/png"
+        assert _parse_content_type("text/html; attack=payload") == "text/html"
+
+    def test_empty_content_type(self):
+        """Test parsing empty content-type."""
+        assert _parse_content_type("") == ""
+        assert _parse_content_type(None) == ""
+
+    def test_invalid_content_type(self):
+        """Test parsing invalid content-type."""
+        # email.message.Message defaults to text/plain for invalid types
+        assert _parse_content_type("invalid") == "text/plain"
+        assert _parse_content_type("not-a-mime-type") == "text/plain"
+
+
+class TestRateLimiter:
+    """Test rate limiting functionality."""
+
+    def test_rate_limiter_initialization(self):
+        """Test rate limiter initialization."""
+        limiter = RateLimiter(max_requests_per_second=10.0, max_concurrent=5)
+        assert limiter.max_requests_per_second == 10.0
+        assert limiter.max_concurrent == 5
+
+    def test_single_request_allowed(self):
+        """Test that a single request is allowed immediately."""
+        limiter = RateLimiter(max_requests_per_second=10.0, max_concurrent=5)
+        assert limiter.acquire(timeout=1.0) is True
+        limiter.release()
+
+    def test_concurrent_limit(self):
+        """Test that concurrent request limit is enforced."""
+        import threading
+        import time
+
+        limiter = RateLimiter(max_requests_per_second=100.0, max_concurrent=2)
+        acquired = []
+
+        def worker(worker_id):
+            if limiter.acquire(timeout=0.1):
+                acquired.append(worker_id)
+                time.sleep(0.5)  # Hold the slot
+                limiter.release()
+
+        # Start 3 threads trying to acquire 2 slots
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Only 2 should have succeeded within the timeout
+        assert len(acquired) == 2
+
+    def test_rate_limiting_per_second(self):
+        """Test that rate limiting enforces requests per second."""
+        import time
+
+        limiter = RateLimiter(max_requests_per_second=5.0, max_concurrent=10)
+
+        # Make 5 rapid requests (should all succeed)
+        for _ in range(5):
+            assert limiter.acquire(timeout=2.0) is True
+            limiter.release()
+
+        # The 6th request should be delayed
+        sixth_start = time.time()
+        assert limiter.acquire(timeout=2.0) is True
+        limiter.release()
+        sixth_elapsed = time.time() - sixth_start
+
+        # Should have waited at least a bit (bucket refill)
+        # Allow for some timing variance
+        assert sixth_elapsed > 0.05, "Rate limiter should have delayed the 6th request"
+
+    def test_context_manager(self):
+        """Test rate limiter as context manager."""
+        limiter = RateLimiter(max_requests_per_second=10.0, max_concurrent=5)
+
+        with limiter:
+            # Should acquire successfully
+            pass
+
+        # Should have released automatically
+
+    def test_timeout_behavior(self):
+        """Test timeout behavior when rate limit is exceeded."""
+        limiter = RateLimiter(max_requests_per_second=1.0, max_concurrent=1)
+
+        # Acquire first slot
+        assert limiter.acquire(timeout=1.0) is True
+
+        # Try to acquire second slot immediately (should timeout)
+        assert limiter.acquire(timeout=0.01) is False
+
+        # Release first slot
+        limiter.release()

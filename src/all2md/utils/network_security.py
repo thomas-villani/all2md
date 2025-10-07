@@ -37,7 +37,10 @@ import ipaddress
 import logging
 import os
 import socket
-from typing import Any
+import threading
+import time
+from email.message import Message
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 from all2md.exceptions import NetworkSecurityError
@@ -174,6 +177,138 @@ def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None)
         return False
 
     return False
+
+
+def _parse_content_type(content_type: str) -> str:
+    """Parse content-type header to extract main MIME type.
+
+    Uses email.message.Message to properly parse the content-type header,
+    ignoring parameters like charset, boundary, etc.
+
+    Parameters
+    ----------
+    content_type : str
+        Raw content-type header value
+
+    Returns
+    -------
+    str
+        Main content type (e.g., "image/png"), lowercased, or empty string if parsing fails
+
+    Examples
+    --------
+    >>> _parse_content_type("image/png")
+    'image/png'
+    >>> _parse_content_type("image/png; charset=utf-8")
+    'image/png'
+    >>> _parse_content_type("text/html; charset=UTF-8")
+    'text/html'
+
+    """
+    if not content_type:
+        return ""
+
+    try:
+        # Use email.message.Message to parse the content-type header
+        msg = Message()
+        msg['content-type'] = content_type
+        # get_content_type() returns the main type, ignoring parameters
+        return msg.get_content_type().lower()
+    except Exception:
+        # If parsing fails, return empty string
+        return ""
+
+
+class RateLimiter:
+    """Rate limiter for network requests using token bucket algorithm.
+
+    Implements both requests-per-second rate limiting and concurrent request limiting.
+    Thread-safe implementation using locks and semaphores.
+
+    Parameters
+    ----------
+    max_requests_per_second : float, default 10.0
+        Maximum number of requests per second
+    max_concurrent : int, default 5
+        Maximum number of concurrent requests
+
+    """
+
+    def __init__(self, max_requests_per_second: float = 10.0, max_concurrent: int = 5):
+        """Initialize rate limiter."""
+        self.max_requests_per_second = max_requests_per_second
+        self.max_concurrent = max_concurrent
+
+        # Token bucket for rate limiting
+        self.tokens = max_requests_per_second
+        self.last_update = time.time()
+        self.lock = threading.Lock()
+
+        # Semaphore for concurrent limiting
+        self.semaphore = threading.Semaphore(max_concurrent)
+
+    def acquire(self, timeout: float | None = None) -> bool:
+        """Acquire permission to make a request.
+
+        Blocks until rate limit and concurrency constraints are satisfied.
+
+        Parameters
+        ----------
+        timeout : float | None, default None
+            Maximum time to wait in seconds. None means wait indefinitely.
+
+        Returns
+        -------
+        bool
+            True if acquired, False if timeout
+
+        """
+        start_time = time.time()
+
+        # Wait for rate limit
+        while True:
+            with self.lock:
+                now = time.time()
+                # Refill tokens based on elapsed time
+                elapsed = now - self.last_update
+                self.tokens = min(
+                    self.max_requests_per_second,
+                    self.tokens + elapsed * self.max_requests_per_second
+                )
+                self.last_update = now
+
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    break
+
+            # Check timeout
+            if timeout is not None and (time.time() - start_time) >= timeout:
+                return False
+
+            # Sleep briefly to avoid busy waiting
+            time.sleep(0.01)
+
+        # Acquire semaphore for concurrent limiting
+        remaining_timeout = None if timeout is None else max(0, timeout - (time.time() - start_time))
+        if not self.semaphore.acquire(timeout=remaining_timeout):
+            return False
+
+        return True
+
+    def release(self) -> None:
+        """Release a concurrent request slot."""
+        self.semaphore.release()
+
+    def __enter__(self) -> "RateLimiter":
+        """Context manager entry."""
+        if not self.acquire():
+            raise TimeoutError("Rate limiter acquisition timeout")
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
+        """Context manager exit."""
+        self.release()
+        return False
 
 
 def validate_url_security(
@@ -369,7 +504,8 @@ def fetch_content_securely(
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
         timeout: float = 10.0,
         expected_content_types: list[str] | None = None,
-        require_head_success: bool = True
+        require_head_success: bool = True,
+        rate_limiter: RateLimiter | None = None
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -389,6 +525,8 @@ def fetch_content_securely(
         List of allowed content type prefixes (e.g., ["image/", "text/"])
     require_head_success : bool, default True
         Require a successful HEAD request prior to GET.
+    rate_limiter : RateLimiter | None, default None
+        Optional rate limiter to control request rate and concurrency
 
     Returns
     -------
@@ -408,6 +546,11 @@ def fetch_content_securely(
 
     # Initial URL validation
     validate_url_security(url, allowed_hosts=allowed_hosts, require_https=require_https)
+
+    # Acquire rate limiter if provided
+    if rate_limiter:
+        if not rate_limiter.acquire(timeout=timeout):
+            raise NetworkSecurityError(f"Rate limiter timeout for {url}")
 
     try:
         with create_secure_http_client(
@@ -433,7 +576,8 @@ def fetch_content_securely(
                         pass  # Invalid content-length header, will check during streaming
 
                 # Check content type from HEAD response
-                content_type = head_response.headers.get('content-type', '').lower()
+                content_type_raw = head_response.headers.get('content-type', '')
+                content_type = _parse_content_type(content_type_raw)
                 if expected_content_types and not any(content_type.startswith(ct) for ct in expected_content_types):
                     raise NetworkSecurityError(
                         f"Invalid content type: {content_type}. Expected one of: {expected_content_types}"
@@ -451,7 +595,8 @@ def fetch_content_securely(
                 response.raise_for_status()
 
                 # Final content type check from GET response
-                content_type = response.headers.get('content-type', '').lower()
+                content_type_raw = response.headers.get('content-type', '')
+                content_type = _parse_content_type(content_type_raw)
                 if expected_content_types and not any(content_type.startswith(ct) for ct in expected_content_types):
                     raise NetworkSecurityError(
                         f"Invalid content type: {content_type}. Expected one of: {expected_content_types}"
@@ -483,6 +628,10 @@ def fetch_content_securely(
         if hasattr(e, '__module__') and e.__module__ and 'httpx' in e.__module__:
             raise NetworkSecurityError(f"HTTP request failed for {url}: {e}") from e
         raise NetworkSecurityError(f"Unexpected error fetching {url}: {e}") from e
+    finally:
+        # Release rate limiter if acquired
+        if rate_limiter:
+            rate_limiter.release()
 
 
 def fetch_image_securely(
@@ -492,6 +641,7 @@ def fetch_image_securely(
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
         timeout: float = 30.0,
         require_head_success: bool = True,
+        rate_limiter: RateLimiter | None = None
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 
@@ -509,6 +659,10 @@ def fetch_image_securely(
         Maximum allowed response size in bytes
     timeout : float, default 10.0
         Request timeout in seconds
+    require_head_success : bool, default True
+        Require a successful HEAD request prior to GET
+    rate_limiter : RateLimiter | None, default None
+        Optional rate limiter to control request rate and concurrency
 
     Returns
     -------
@@ -528,7 +682,8 @@ def fetch_image_securely(
         max_size_bytes=max_size_bytes,
         timeout=timeout,
         require_head_success=require_head_success,
-        expected_content_types=["image/"]
+        expected_content_types=["image/"],
+        rate_limiter=rate_limiter
     )
 
 
