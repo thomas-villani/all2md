@@ -22,8 +22,8 @@ def sanitize_footnote_identifier(identifier: str, *, fallback_prefix: str = "not
         Raw identifier that may contain disallowed characters.
     fallback_prefix : str, default "note"
         Prefix used when the sanitized identifier would be empty.
-    """
 
+    """
     candidate = identifier.strip()
     candidate = _SANITIZE_PATTERN.sub("-", candidate)
     candidate = candidate.strip("-")
@@ -49,7 +49,6 @@ class FootnoteCollector:
 
     def register_reference(self, identifier: Optional[str], *, note_type: str = "footnote") -> str:
         """Record a reference and return the canonical identifier."""
-
         return self._ensure_identifier(identifier, note_type=note_type)
 
     def register_definition(
@@ -60,7 +59,6 @@ class FootnoteCollector:
         note_type: str = "footnote",
     ) -> str:
         """Record a definition and return the canonical identifier."""
-
         canonical_id = self._ensure_identifier(identifier, note_type=note_type)
         if content:
             self._definitions[note_type][canonical_id] = content
@@ -68,7 +66,6 @@ class FootnoteCollector:
 
     def iter_definitions(self, *, note_type_priority: Sequence[str] | None = None) -> Iterator[FootnoteDefinition]:
         """Yield collected definitions in priority order."""
-
         priority = list(note_type_priority or self._orders.keys())
         seen: set[Tuple[str, str]] = set()
 

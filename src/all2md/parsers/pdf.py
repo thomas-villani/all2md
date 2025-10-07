@@ -53,6 +53,7 @@ from all2md.constants import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import (
     PDF_FIELD_MAPPING,
@@ -72,21 +73,20 @@ def _check_pymupdf_version() -> None:
     ------
     DependencyError
         If PyMuPDF version is too old
+
+    Notes
+    -----
+    This function assumes fitz is already imported. It should be called
+    after dependency checking via the @requires_dependencies decorator.
+
     """
-    try:
-        import fitz
-        min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
-        if fitz.pymupdf_version_tuple < min_version:
-            raise DependencyError(
-                converter_name="pdf",
-                version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
-            )
-    except ImportError as e:
+    import fitz
+    min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
+    if fitz.pymupdf_version_tuple < min_version:
         raise DependencyError(
             converter_name="pdf",
-            missing_packages=[("pymupdf", PDF_MIN_PYMUPDF_VERSION)],
-            original_import_error=e
-        ) from e
+            version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
+        )
 
 
 
@@ -108,6 +108,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     -------
     list[list[dict]]
         List of columns, where each column is a list of blocks
+
     """
     if not blocks:
         return [blocks]
@@ -276,6 +277,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
     -------
     str
         Processed text from the rotated line, with rotation indicator
+
     """
     # Extract text from all spans in the rotated line
     text_parts = []
@@ -331,6 +333,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     -------
     str or None
         Formatted markdown link string if overlap detected, None otherwise
+
     """
     if not links or not span.get("text"):
         return None
@@ -441,6 +444,7 @@ def extract_page_images(
     -----
     For large PDFs with many images, use skip_image_extraction=True in PdfOptions
     to avoid memory pressure from decoding images on every page.
+
     """
     # Skip image extraction entirely if requested (performance optimization for large PDFs)
     if options and options.skip_image_extraction:
@@ -553,6 +557,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
     -------
     str or None
         Detected caption text or None if no caption found
+
     """
     # Define search region below and above image
     caption_patterns = [
@@ -600,6 +605,7 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
     -------
     list[PyMuPDF Rect]
         List of bounding boxes for detected tables
+
     """
     # Get page dimensions
     page_rect = page.rect
@@ -697,6 +703,7 @@ class IdentifyHeaders:
         Mapping from font size to markdown header prefix string
     options : PdfOptions
         PDF conversion options used for header detection
+
     """
 
     def __init__(
@@ -723,6 +730,7 @@ class IdentifyHeaders:
             If None, uses the most frequent font size as body text baseline.
         options : PdfOptions or None, optional
             PDF conversion options containing header detection parameters.
+
         """
         self.options = options or PdfOptions()
 
@@ -855,6 +863,7 @@ class IdentifyHeaders:
         -------
         int
             Header level (1-6) or 0 if not a header
+
         """
         fontsize = round(span["size"])  # compute fontsize
         level = self.header_id.get(fontsize, 0)
@@ -916,6 +925,7 @@ class PdfToAstConverter(BaseParser):
         self.options: PdfOptions = options
         self._hdr_identifier: Optional[IdentifyHeaders] = None
 
+    @requires_dependencies("pdf", [("pymupdf", "fitz", f">={PDF_MIN_PYMUPDF_VERSION}")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse PDF document into AST.
 
@@ -932,14 +942,7 @@ class PdfToAstConverter(BaseParser):
             AST document node
 
         """
-        try:
-            import fitz
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="pdf",
-                missing_packages=[("pymupdf", f">={PDF_MIN_PYMUPDF_VERSION}")],
-                original_import_error=e
-            ) from e
+        import fitz
         _check_pymupdf_version()
 
         # Validate and convert input
@@ -1157,7 +1160,6 @@ class PdfToAstConverter(BaseParser):
             AST document node
 
         """
-
         total_pages = len(list(pages_to_use))
         children: list[Node] = []
 

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
-from all2md.exceptions import DependencyError, MalformedFileError
+from all2md.exceptions import MalformedFileError
 from all2md.utils.attachments import create_attachment_sequencer, extract_docx_image_data, process_attachment
 from all2md.utils.metadata import (
     OFFICE_FIELD_MAPPING,
@@ -40,6 +40,7 @@ class ImageData:
         Alternative text for the image
     title : str or None
         Optional title for the image
+
     """
 
     url: str
@@ -95,6 +96,7 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import DocxOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.footnotes import FootnoteCollector
 
 logger = logging.getLogger(__name__)
@@ -148,6 +150,7 @@ class DocxToAstConverter(BaseParser):
         self._comments_map: dict[str, CommentData] = {}
 
 
+    @requires_dependencies("docx", [("python-docx", "docx", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse DOCX document into AST.
 
@@ -172,17 +175,8 @@ class DocxToAstConverter(BaseParser):
             If document loading fails
 
         """
-        # Import dependencies with error handling
-        try:
-            import docx
-            import docx.document
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="docx",
-                missing_packages=[("python-docx", "")],
-                install_command="`pip install all2md[docx]`",
-                original_import_error=e
-            ) from e
+        import docx
+        import docx.document
 
         base_filename = "document"
 
@@ -899,7 +893,6 @@ class DocxToAstConverter(BaseParser):
 
     def _process_footnotes(self, doc: "docx.document.Document") -> None:
         """Populate the collector with footnote definitions from the document."""
-
         collector = self._footnote_collector
         if collector is None:
             return
@@ -931,7 +924,6 @@ class DocxToAstConverter(BaseParser):
 
     def _process_endnotes(self, doc: "docx.document.Document") -> None:
         """Populate the collector with endnote definitions from the document."""
-
         collector = self._footnote_collector
         if collector is None:
             return
@@ -968,7 +960,6 @@ class DocxToAstConverter(BaseParser):
         attr_name: str | None,
     ) -> Any | None:
         """Return a related note part if available."""
-
         if attr_name:
             part = getattr(doc.part, attr_name, None)
             if part is not None:
@@ -987,7 +978,6 @@ class DocxToAstConverter(BaseParser):
 
     def _get_note_part_element(self, note_part: Any) -> Any | None:
         """Return the XML element root for the supplied note part."""
-
         element = getattr(note_part, "element", None)
         if element is not None:
             return element
@@ -1006,7 +996,6 @@ class DocxToAstConverter(BaseParser):
 
     def _build_note_definition_content(self, note_element: Any, note_part: Any) -> list[Node]:
         """Create block content for a single footnote or endnote definition."""
-
         content_nodes: list[Node] = []
         for paragraph_element in note_element.findall(f".//{WORD_PARAGRAPH_TAG}"):
             inline_nodes = self._note_paragraph_to_inline(paragraph_element, note_part)
@@ -1017,7 +1006,6 @@ class DocxToAstConverter(BaseParser):
 
     def _note_paragraph_to_inline(self, paragraph_element: Any, note_part: Any) -> list[Node]:
         """Convert a note paragraph XML element into inline nodes."""
-
         try:
             from docx.text.paragraph import Paragraph
 
@@ -1028,7 +1016,6 @@ class DocxToAstConverter(BaseParser):
 
     def _extract_inline_nodes_from_xml(self, paragraph_element: Any) -> list[Node]:
         """Fallback text extraction when python-docx objects are unavailable."""
-
         text_fragments: list[str] = []
         for text_element in paragraph_element.findall(f".//{WORD_TAG_PREFIX}t"):
             if text_element.text:
@@ -1089,7 +1076,6 @@ class DocxToAstConverter(BaseParser):
 
     def _process_comments(self) -> list[Node]:
         """Render collected comments as block-level nodes."""
-
         nodes: list[Node] = []
         mode = self.options.comment_mode
 
@@ -1384,8 +1370,7 @@ def _omml_to_latex(element: Any) -> str:
 def _iter_block_items(
     parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer=None
 ) -> Any:
-    """
-    Generate a sequence of Paragraph and Table elements in order, handling images.
+    """Generate a sequence of Paragraph and Table elements in order, handling images.
     """
     import docx.document
     from docx.table import Table

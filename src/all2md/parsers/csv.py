@@ -197,7 +197,6 @@ class CsvToAstConverter(BaseParser):
             AST document with table node
 
         """
-
         # Validate and load text
         try:
             doc_input, _ = validate_and_convert_input(input_data, supported_types=["path-like", "file-like", "bytes"])

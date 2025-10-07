@@ -95,8 +95,6 @@ class IpynbToAstConverter(BaseParser):
             If parsing or conversion fails
 
         """
-
-
         try:
             # Load the notebook JSON
             if isinstance(input_data, (str, Path)):

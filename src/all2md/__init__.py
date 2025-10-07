@@ -141,6 +141,7 @@ def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BasePar
     -------
     type[BaseParserOptions] | None
         Parser options class or None for formats that don't have parser options.
+
     """
     try:
         return registry.get_parser_options_class(format)
@@ -160,6 +161,7 @@ def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseR
     -------
     type[BaseRendererOptions] | None
         Renderer options class or None for formats that don't have renderer options.
+
     """
     try:
         return registry.get_renderer_options_class(format)
@@ -194,6 +196,7 @@ def _collect_nested_dataclass_kwargs(options_class: type[BaseParserOptions] | ty
         'network': {'allow_remote_fetch': True},
         'remaining': {'extract_title': False}
     }
+
     """
     nested_kwargs = {}
     remaining_kwargs = {}
@@ -260,8 +263,8 @@ def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs) -> Base
     -------
     BaseParserOptions | None
         Parser options instance or None for formats that don't use parser options.
-    """
 
+    """
     options_class = _get_parser_options_class_for_format(format)
     if not options_class:
         return None
@@ -322,6 +325,7 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs) -> Ba
     -------
     BaseRendererOptions | None
         Renderer options instance or None for formats that don't have renderer options.
+
     """
     options_class = _get_renderer_options_class_for_format(format)
     if not options_class:
@@ -356,6 +360,7 @@ def _split_kwargs_for_parser_and_renderer(
     -------
     tuple[dict, dict]
         (parser_kwargs, renderer_kwargs)
+
     """
     parser_class = _get_parser_options_class_for_format(parser_format)
     renderer_class = _get_renderer_options_class_for_format(renderer_format)
@@ -413,7 +418,7 @@ def to_markdown(
 
     Parameters
     ----------
-    source : str, Path, IO[bytes], or bytes
+    source : str, Path, IO[bytes|str], or bytes
         Source document data, which can be a file path, a file-like object, or raw bytes.
     parser_options : BaseParserOptions, optional
         Pre-configured parser options for format-specific parsing settings
@@ -483,6 +488,7 @@ def to_markdown(
 
     With transforms:
         >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
+
     """
     # Determine format first
     if source_format != "auto":
@@ -666,7 +672,6 @@ def to_ast(
         >>> json_str = serialization.ast_to_json(ast_doc, indent=2)
 
     """
-
     # Detect format
     actual_format = source_format if source_format != "auto" else registry.detect_format(source)
 
@@ -747,8 +752,8 @@ def from_ast(
     With renderer options:
         >>> md_opts = MarkdownOptions(flavor="commonmark")
         >>> markdown = from_ast(ast_doc, "markdown", renderer_options=md_opts)
-    """
 
+    """
     # Prepare renderer options
     if kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**kwargs)
@@ -835,6 +840,7 @@ def from_markdown(
         >>> from_markdown("input.md", "html",
         ...     parser_options=MarkdownParserOptions(flavor="gfm"),
         ...     renderer_options=HtmlOptions(...))
+
     """
     return convert(
         source,
@@ -913,6 +919,7 @@ def convert(
     Bidirectional with transforms:
         >>> convert("input.docx", "output.md",
         ...     transforms=["remove-images", "heading-offset"])
+
     """
     transforms = transforms or []
     hooks = hooks or {}

@@ -72,6 +72,7 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import PdfRendererOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.decorators import requires_dependencies
 
 
 class PdfRenderer(NodeVisitor, BaseRenderer):
@@ -112,6 +113,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._footnote_counter: int = 0
         self._footnotes: list[tuple[int, str]] = []
 
+    @requires_dependencies("pdf_render", [("reportlab", "reportlab", ">=4.0.0")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to a PDF file.
 
@@ -123,35 +125,27 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             Output destination (file path or file-like object)
 
         """
-        # Lazy load reportlab
-        try:
-            from reportlab.lib import colors
-            from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
-            from reportlab.lib.pagesizes import A4, LEGAL, LETTER
-            from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-            from reportlab.lib.units import inch
-            from reportlab.platypus import (
-                Flowable,
-                HRFlowable,
-                Image,
-                ListFlowable,
-                ListItem,
-                PageBreak,
-                Paragraph,
-                Preformatted,
-                SimpleDocTemplate,
-                Spacer,
-                TableStyle,
-            )
-            from reportlab.platypus import (
-                Table as ReportLabTable,
-            )
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="pdf_render",
-                missing_packages=[("reportlab", ">=4.0.0")],
-                original_import_error=e
-            ) from e
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
+        from reportlab.lib.pagesizes import A4, LEGAL, LETTER
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import (
+            Flowable,
+            HRFlowable,
+            Image,
+            ListFlowable,
+            ListItem,
+            PageBreak,
+            Paragraph,
+            Preformatted,
+            SimpleDocTemplate,
+            Spacer,
+            TableStyle,
+        )
+        from reportlab.platypus import (
+            Table as ReportLabTable,
+        )
 
         # Store imports as instance variables
         self._colors = colors

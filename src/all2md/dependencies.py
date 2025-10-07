@@ -31,6 +31,7 @@ def _sanitize_package_name(package_name: str) -> str:
     ------
     ValueError
         If package name contains invalid characters
+
     """
     # Allow alphanumeric, hyphens, underscores, and dots for package names
     # This covers standard PyPI package naming conventions
@@ -70,6 +71,7 @@ def _sanitize_version_spec(version_spec: str) -> str:
     ------
     ValueError
         If version spec contains invalid characters
+
     """
     if not version_spec:
         return version_spec
@@ -105,6 +107,7 @@ def check_package_installed(package_name: str) -> bool:
     -------
     bool
         True if package is installed and importable
+
     """
     return _check_package_installed(package_name)
 
@@ -121,6 +124,7 @@ def get_package_version(package_name: str) -> Optional[str]:
     -------
     str or None
         Version string if package installed, None otherwise
+
     """
     # For version checking, we need to use the pip package name, not import name
     # Most tools use the actual package name for version info
@@ -156,6 +160,7 @@ def check_version_requirement(
     -------
     tuple
         (meets_requirement, installed_version)
+
     """
     installed_version = get_package_version(package_name)
     if not installed_version:
@@ -180,6 +185,7 @@ def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
     -------
     dict
         Mapping of format names to required packages as (install_name, import_name, version_spec) tuples
+
     """
     # Ensure auto-discovery has been performed before listing formats
     registry.auto_discover()
@@ -202,6 +208,7 @@ def check_all_dependencies() -> Dict[str, Dict[str, bool]]:
     -------
     dict
         Nested dict of format -> package -> is_installed
+
     """
     all_deps = get_all_dependencies()
     status = {}
@@ -231,6 +238,7 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
     -------
     list
         List of (package_name, version_spec) tuples for missing packages
+
     """
     # Get metadata for the specific format
     metadata = registry.get_format_info(format_name)
@@ -271,6 +279,7 @@ def get_missing_dependencies_for_file(
     -------
     list
         List of (package_name, version_spec) tuples for missing packages
+
     """
     # Get metadata for the specific format
     metadata = registry.get_format_info(format_name)
@@ -313,6 +322,7 @@ def generate_install_command(packages: List[Tuple[str, str]]) -> str:
     -------
     str
         Pip install command
+
     """
     if not packages:
         return ""
@@ -344,6 +354,7 @@ def install_dependencies(
     -------
     tuple
         (success, output_message)
+
     """
     if not packages:
         return True, "No packages to install"
@@ -386,6 +397,7 @@ def print_dependency_report() -> str:
     -------
     str
         Formatted dependency report
+
     """
     status = check_all_dependencies()
     lines = ["All2MD Dependency Status", "=" * 40]
@@ -419,6 +431,7 @@ def suggest_minimal_install() -> str:
     -------
     str
         Pip install command for common formats
+
     """
     # Common formats that most users need
     common_formats = ["pdf", "docx", "html"]
@@ -440,6 +453,7 @@ def suggest_full_install() -> str:
     -------
     str
         Pip install command for all formats
+
     """
     all_deps = get_all_dependencies()
     all_packages = set()
@@ -463,6 +477,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     -------
     int
         Exit code (0 for success, 1 for failure)
+
     """
     import argparse
 

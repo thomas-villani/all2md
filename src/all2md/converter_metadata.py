@@ -78,6 +78,7 @@ class ConverterMetadata:
         Human-readable description of the converter
     priority : int
         Priority for format detection (higher = checked first)
+
     """
 
     format_name: str
@@ -105,6 +106,7 @@ class ConverterMetadata:
         -------
         list[tuple[str, str, str]]
             Combined parser and renderer packages
+
         """
         return self.parser_required_packages + self.renderer_required_packages
 
@@ -115,6 +117,7 @@ class ConverterMetadata:
         -------
         str
             Pip install command for all required packages
+
         """
         if not self.required_packages:
             return ""
@@ -144,6 +147,7 @@ class ConverterMetadata:
         -------
         bool
             True if extension matches
+
         """
         if not filename:
             return False
@@ -164,6 +168,7 @@ class ConverterMetadata:
         -------
         bool
             True if MIME type matches
+
         """
         return mime_type in self.mime_types if mime_type else False
 
@@ -181,6 +186,7 @@ class ConverterMetadata:
         -------
         bool
             True if any magic byte pattern matches
+
         """
         if not content or not self.magic_bytes:
             return False
@@ -221,6 +227,7 @@ class ConverterMetadata:
         -------
         list[tuple[str, str, str]]
             Required packages as (install_name, import_name, version_spec) tuples for this content
+
         """
         # Default implementation returns packages based on operation type
         # Subclasses can override this logic to use content/input_data for context-aware detection
@@ -240,6 +247,7 @@ class ConverterMetadata:
         -------
         str
             Display name for parser class
+
         """
         if self.parser_class is None:
             return "N/A"
@@ -267,6 +275,7 @@ class ConverterMetadata:
         -------
         str
             Display name for renderer class
+
         """
         if self.renderer_class is None:
             return "N/A"
@@ -294,6 +303,7 @@ class ConverterMetadata:
         -------
         str
             Combined display string in format "Parser: X | Renderer: Y"
+
         """
         parser_name = self.get_parser_display_name()
         renderer_name = self.get_renderer_display_name()

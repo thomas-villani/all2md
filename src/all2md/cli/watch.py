@@ -42,6 +42,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         Whether to watch directories recursively
     exclude_patterns : List[str], optional
         Patterns to exclude from processing
+
     """
 
     def __init__(
@@ -95,6 +96,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         -------
         bool
             True if file should be processed
+
         """
         path = Path(file_path)
 
@@ -136,6 +138,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         ----------
         file_path : str
             Path to the file to convert
+
         """
         from all2md import to_markdown
         from all2md.cli import generate_output_path
@@ -195,6 +198,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         ----------
         event : FileSystemEvent
             The file system event
+
         """
         if event.is_directory:
             return
@@ -209,6 +213,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         ----------
         event : FileSystemEvent
             The file system event
+
         """
         if event.is_directory:
             return
@@ -223,6 +228,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         ----------
         event : FileSystemEvent
             The file system event
+
         """
         if event.is_directory:
             return
@@ -270,6 +276,7 @@ def run_watch_mode(
     -------
     int
         Exit code (0 for success)
+
     """
     try:
         from watchdog.observers import Observer

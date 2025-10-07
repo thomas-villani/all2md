@@ -49,6 +49,7 @@ def split_ast_by_separator(doc: Document) -> list[list[Node]]:
     -----
     ThematicBreak nodes are consumed during splitting and not included
     in the output chunks.
+
     """
     from all2md.ast.nodes import ThematicBreak
 
@@ -114,6 +115,7 @@ def split_ast_by_heading(
     The heading itself is included in the returned tuple but NOT in
     the content_nodes list. This allows renderers to use the heading
     for titles while rendering content separately.
+
     """
     from all2md.ast.nodes import Heading
 
@@ -191,6 +193,7 @@ def auto_split_ast(
     -----
     The return format is always (Heading | None, list[Node]) tuples
     for consistency, even when using separator-based splitting.
+
     """
     from all2md.ast.nodes import ThematicBreak
 
@@ -232,6 +235,7 @@ def extract_heading_text(heading: Heading | None) -> str:
     ... ])
     >>> extract_heading_text(heading)
     'Chapter One'
+
     """
     from all2md.ast.nodes import Text
 

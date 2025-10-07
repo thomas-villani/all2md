@@ -20,6 +20,7 @@ from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCel
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
@@ -132,6 +133,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         from all2md.options import OdsSpreadsheetOptions
         self.options: OdsSpreadsheetOptions = options
 
+    @requires_dependencies("ods", [("odfpy", "odf", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse ODS spreadsheet into an AST.
 
@@ -155,15 +157,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             If input data is invalid or inaccessible
 
         """
-        # Import odfpy
-        try:
-            from odf import opendocument
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="ods",
-                missing_packages=[("odfpy", "")],
-                original_import_error=e
-            ) from e
+        from odf import opendocument
 
         # Load ODS document
         try:

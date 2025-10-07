@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
-from all2md import DependencyError, PptxOptions
+from all2md import PptxOptions
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 from all2md.utils.inputs import parse_page_ranges, validate_and_convert_input
 from all2md.utils.security import validate_zip_archive
@@ -56,6 +56,7 @@ from all2md.utils.attachments import (
     generate_attachment_filename,
     process_attachment,
 )
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import OFFICE_FIELD_MAPPING, DocumentMetadata, map_properties_to_metadata
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,7 @@ class PptxToAstConverter(BaseParser):
         self._attachment_sequencer = create_attachment_sequencer()
 
 
+    @requires_dependencies("pptx", [("python-pptx", "pptx", ">=1.0.2")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse PPTX input into an AST Document.
 
@@ -113,16 +115,8 @@ class PptxToAstConverter(BaseParser):
             If python-pptx is not installed
 
         """
-        try:
-            from pptx import Presentation
-            from pptx.presentation import Presentation as PresentationType
-
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="pptx",
-                missing_packages=[("python-pptx", ">=1.0.2")],
-                original_import_error=e
-            ) from e
+        from pptx import Presentation
+        from pptx.presentation import Presentation as PresentationType
 
         # Validate and convert input
         try:
@@ -744,7 +738,6 @@ class PptxToAstConverter(BaseParser):
             List of AST nodes (paragraphs, lists, etc.)
 
         """
-
         nodes: list[Node] = []
         slide_context = _analyze_slide_context(frame)
 
@@ -945,7 +938,6 @@ class PptxToAstConverter(BaseParser):
             Image node if image can be processed
 
         """
-
         try:
             # Extract image data
             image_data, extension = extract_pptx_image_data(shape)
@@ -1063,6 +1055,7 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
     -------
     tuple[str | None, str | None]
         (list_type, list_style) where list_type is "bullet" or "number"
+
     """
     try:
         # Access paragraph properties XML element
@@ -1113,6 +1106,7 @@ def _detect_list_item(paragraph: Any, slide_context: dict | None = None) -> tupl
     -------
     tuple[bool, str]
         (is_list_item, list_type) where list_type is "bullet" or "number"
+
     """
     # First try XML-based detection for proper list formatting
     xml_list_type, xml_list_style = _detect_list_formatting_xml(paragraph)
@@ -1168,6 +1162,7 @@ def _analyze_slide_context(frame: Any) -> dict:
     -------
     dict
         Context information about the slide
+
     """
     context = {
         'has_numbered_list': False,

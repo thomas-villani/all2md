@@ -392,6 +392,7 @@ def get_exit_code_for_exception(exception: Exception) -> int:
     -------
     int
         The appropriate exit code for the exception type
+
     """
     from all2md.exceptions import (
         DependencyError,

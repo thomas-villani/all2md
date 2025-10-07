@@ -33,8 +33,13 @@ from pathlib import Path
 from typing import Union
 from urllib.parse import urlparse
 
-from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN, \
-    DEFAULT_MAX_COMPRESSION_RATIO, DEFAULT_MAX_UNCOMPRESSED_SIZE, DEFAULT_MAX_ZIP_ENTRIES
+from all2md.constants import (
+    DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_UNCOMPRESSED_SIZE,
+    DEFAULT_MAX_ZIP_ENTRIES,
+    MAX_LANGUAGE_IDENTIFIER_LENGTH,
+    SAFE_LANGUAGE_IDENTIFIER_PATTERN,
+)
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 
 logger = logging.getLogger(__name__)
@@ -76,6 +81,7 @@ def validate_local_file_access(
     False
     >>> validate_local_file_access("file://./image.png", allow_local_files=True, allow_cwd_files=True)
     True
+
     """
     if not file_url.startswith("file://"):
         return True  # Not a local file URL, validation doesn't apply
@@ -172,6 +178,7 @@ def validate_zip_archive(
 
     >>> validate_zip_archive("malicious.zip")  # doctest: +SKIP
     ZipFileSecurityError: ZIP archive has suspicious compression ratio: 1000:1
+
     """
     try:
         with zipfile.ZipFile(file_path, 'r') as zf:
@@ -254,6 +261,7 @@ def sanitize_language_identifier(language: str) -> str:
     -----
     This function is used by both HTML and Markdown parsers to ensure
     consistent security validation of code block language identifiers.
+
     """
     if not language:
         return ""

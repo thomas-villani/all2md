@@ -17,8 +17,9 @@ from typing import IO, Any, Iterable, Optional, Union
 
 from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, MalformedFileError
+from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
@@ -251,6 +252,7 @@ class XlsxToAstConverter(BaseParser):
         from all2md.options import XlsxOptions
         self.options: XlsxOptions = options
 
+    @requires_dependencies("xlsx", [("openpyxl", "openpyxl", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse the XLSX file into an AST.
 
@@ -277,15 +279,7 @@ class XlsxToAstConverter(BaseParser):
             If input data is invalid or inaccessible
 
         """
-        # Import openpyxl
-        try:
-            import openpyxl
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="xlsx",
-                missing_packages=[("openpyxl", "")],
-                original_import_error=e
-            ) from e
+        import openpyxl
 
         # Load workbook
         try:

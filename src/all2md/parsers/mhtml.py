@@ -16,10 +16,11 @@ from typing import IO, Any, Union
 
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, ParsingError
+from all2md.exceptions import ParsingError
 from all2md.options import MhtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
@@ -43,6 +44,7 @@ class MhtmlToAstConverter(BaseParser):
         self.options: MhtmlOptions = options
         self._html_parser = HtmlToAstConverter(self.options)
 
+    @requires_dependencies("mhtml", [("beautifulsoup4", "bs4", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse MHTML file into an AST Document.
 
@@ -62,15 +64,6 @@ class MhtmlToAstConverter(BaseParser):
             If parsing fails due to invalid MHTML format
 
         """
-        try:
-            import bs4
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="mhtml",
-                missing_packages=[("bs4", "")],
-                original_import_error=e
-            ) from e
-
         # Parse MHTML message
         try:
             doc_input, input_type = validate_and_convert_input(

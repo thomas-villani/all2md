@@ -103,6 +103,7 @@ class DocumentMetadata:
         Date and time when the document was converted
     custom : dict[str, Any]
         Custom metadata fields specific to document format
+
     """
 
     title: Optional[str] = None
@@ -130,6 +131,7 @@ class DocumentMetadata:
         -------
         dict
             Dictionary containing only non-None metadata fields
+
         """
         result: Dict[str, Any] = {}
 
@@ -195,6 +197,7 @@ def format_yaml_value(value: Any) -> str:
     -------
     str
         YAML-formatted string representation
+
     """
     if value is None:
         return 'null'
@@ -463,6 +466,7 @@ def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[s
     -------
     str | None
         Non-empty string value, or None if not found or empty
+
     """
     def get_non_empty_value(attr_name: str) -> Optional[str]:
         if hasattr(obj, attr_name):
@@ -495,6 +499,7 @@ def extract_keywords_from_string(keywords_str: str) -> List[str]:
     -------
     list[str]
         List of cleaned keyword strings
+
     """
     if not keywords_str or not keywords_str.strip():
         return []
@@ -543,6 +548,7 @@ def map_properties_to_metadata(
     ...     'author': ['author', 'Author']
     ... }
     >>> metadata = map_properties_to_metadata(pdf_meta, mapping)
+
     """
     metadata = DocumentMetadata()
     custom_handlers = custom_handlers or {}
@@ -599,6 +605,7 @@ def extract_dict_metadata(
     -------
     DocumentMetadata
         Populated metadata object
+
     """
     # Create a simple object wrapper for the dictionary to work with existing functions
     class DictWrapper:
@@ -631,6 +638,7 @@ def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadat
     -------
     str
         Content with metadata prepended if enabled, otherwise unchanged content
+
     """
     if extract_metadata and metadata:
         frontmatter = format_yaml_frontmatter(metadata)

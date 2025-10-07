@@ -112,6 +112,7 @@ class ProgressEvent:
         -------
         str
             Formatted event description
+
         """
         progress = f"({self.current}/{self.total})" if self.total > 0 else ""
         return f"[{self.event_type.upper()}] {self.message} {progress}".strip()

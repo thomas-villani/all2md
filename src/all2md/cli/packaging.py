@@ -39,6 +39,7 @@ def organize_assets(
     -------
     dict[Path, Path]
         Mapping of original asset paths to new organized paths
+
     """
     asset_mapping: dict[Path, Path] = {}
 
@@ -132,6 +133,7 @@ def update_markdown_asset_links(
         Mapping of original asset paths to new locations
     output_dir : Path
         Output directory (for calculating relative paths)
+
     """
     if not markdown_file.exists():
         return
@@ -221,6 +223,7 @@ def create_output_zip(
     ------
     ValueError
         If output_dir doesn't exist
+
     """
     if not output_dir.exists():
         raise ValueError(f"Output directory does not exist: {output_dir}")

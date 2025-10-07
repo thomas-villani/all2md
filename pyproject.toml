@@ -139,9 +139,7 @@ select = [
     "B",  # flake8-bugbear
     "I",  # import-related rules
 ]
-ignore = [
-    "C901"
-]
+ignore = []
 
 
 [tool.mypy]

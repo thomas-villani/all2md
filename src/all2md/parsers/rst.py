@@ -43,6 +43,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, ParsingError
 from all2md.options import RstParserOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ class RestructuredTextParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: RstParserOptions = options
 
+    @requires_dependencies("rst", [("docutils", "docutils", ">=0.18")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse RST input into AST Document.
 
@@ -108,18 +110,9 @@ class RestructuredTextParser(BaseParser):
         # Load RST content from various input types
         rst_content = self._load_rst_content(input_data)
 
-        # TODO: Isn't docutils a builtin?
-        try:
-            from docutils.core import publish_doctree
-            from docutils.parsers.rst import roles
-            from docutils.utils import SystemMessage
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="rst",
-                missing_packages=[("docutils", ">=0.18")],
-                install_command="pip install 'all2md[rst]'",
-                original_import_error=e
-            ) from e
+        from docutils.core import publish_doctree
+        from docutils.parsers.rst import roles
+        from docutils.utils import SystemMessage
 
         # Parse RST to docutils document tree
         try:

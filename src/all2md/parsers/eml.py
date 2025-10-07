@@ -19,6 +19,7 @@ from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Union
 
+from all2md import DependencyError
 from all2md.ast import Document, Heading, HTMLInline, Node, Paragraph, Text, ThematicBreak
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
@@ -41,6 +42,7 @@ def _parse_date_with_fallback(msg: EmailMessage | Message) -> datetime.datetime 
     -------
     datetime.datetime | None
         Parsed datetime in UTC, or None if no valid date found.
+
     """
     # Try Date header first (most common)
     date_str = msg.get("Date")
@@ -82,6 +84,7 @@ def _parse_date_safely(date_str: str | None) -> datetime.datetime | None:
     -------
     datetime.datetime | None
         Parsed datetime in UTC, or None if parsing fails.
+
     """
     if not date_str:
         return None
@@ -111,6 +114,7 @@ def _format_date(dt: datetime.datetime | None, options: EmlOptions) -> str:
     -------
     str
         Formatted date string, or empty string if dt is None.
+
     """
     if dt is None:
         return ""
@@ -151,6 +155,7 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
     - Optionally converts HTML to Markdown using html2markdown
     - Manages different character encodings with UTF-8 fallback
     - Uses error-safe decoding to handle malformed content
+
     """
     if not message.is_multipart():
         # Simple message - extract content directly
@@ -204,6 +209,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
     -------
     str
         Extracted text content with proper encoding.
+
     """
     try:
         # Get charset with fallback
@@ -233,7 +239,6 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
             return ""
 
 
-# FIXME: we are removing html_to_markdown
 def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     """Convert HTML content to Markdown using html2markdown.
 
@@ -248,6 +253,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     -------
     str
         Converted Markdown content.
+
     """
     try:
         from all2md import to_markdown
@@ -269,10 +275,13 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         )
 
         # Convert HTML to Markdown
-        from io import StringIO
-        return to_markdown(StringIO(html_content), source_format="html", parser_options=html_options, renderer_options=md_options)
+        from io import BytesIO
+        return to_markdown(BytesIO(html_content.encode("utf-8")),
+                           source_format="html",
+                           parser_options=html_options,
+                           renderer_options=md_options)
 
-    except ImportError:
+    except (ImportError, DependencyError):
         # html2markdown not available, return HTML as-is
         return html_content
     except Exception:
@@ -318,6 +327,7 @@ def parse_single_message(msg: EmailMessage | Message, options: EmlOptions) -> di
     - Extracts content with multipart handling and HTML conversion
     - Preserves thread information through message IDs and references
     - Optionally normalizes headers and preserves raw values
+
     """
     # Extract and normalize headers
     headers = _extract_headers(msg, options)
@@ -366,6 +376,7 @@ def _extract_headers(msg: EmailMessage | Message, options: EmlOptions) -> dict[s
     -------
     dict[str, Any]
         Dictionary containing processed headers.
+
     """
     headers: dict[str, Any] = {}
     raw_headers: dict[str, str] = {}
@@ -406,6 +417,7 @@ def _normalize_header_value(value: str, header_name: str) -> str:
     -------
     str
         Normalized header value.
+
     """
     if not value:
         return ""
@@ -441,6 +453,7 @@ def _normalize_email_addresses(addresses: str, options: EmlOptions) -> str:
     -------
     str
         Normalized address string.
+
     """
     if not addresses or not options.normalize_headers:
         return addresses
@@ -498,6 +511,7 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
     - Preserves content that doesn't match header patterns
     - Converts dates to UTC timezone for consistency
     - Returns single-item list if no chain splitting is detected
+
     """
     # Enhanced email header pattern
     email_matcher = re.compile(
@@ -585,6 +599,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
     -------
     str
         Markdown representation of attachments
+
     """
     if options.attachment_mode == "skip":
         return ""
@@ -672,6 +687,7 @@ def clean_message(raw: str, options: EmlOptions) -> str:
     - Converts standalone quote markers to empty lines
     - Preserves overall message structure and readability
     - Configurable URL cleaning patterns for different security services
+
     """
     if not raw:
         return ""
@@ -704,6 +720,7 @@ def _clean_wrapped_urls(content: str, url_wrappers: list[str]) -> str:
     -------
     str
         Content with wrapped URLs cleaned.
+
     """
     lines = content.split('\n')
     cleaned_lines = []
@@ -736,6 +753,7 @@ def _unwrap_url(match: re.Match[str]) -> str:
     -------
     str
         Unwrapped URL or original wrapped URL if unwrapping fails.
+
     """
     try:
         from urllib.parse import unquote
@@ -757,6 +775,7 @@ def _clean_quoted_content(content: str) -> str:
     -------
     str
         Content with quotes cleaned and normalized.
+
     """
     lines = content.split('\n')
     cleaned_lines = []
@@ -831,8 +850,6 @@ class EmlToAstConverter(BaseParser):
             If input type is not supported
 
         """
-
-
         # Parse the email message
         try:
             if isinstance(input_data, (str, Path)):

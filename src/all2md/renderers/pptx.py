@@ -67,6 +67,7 @@ from all2md.renderers._split_utils import (
     split_ast_by_separator,
 )
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.decorators import requires_dependencies
 
 
 class PptxRenderer(NodeVisitor, BaseRenderer):
@@ -107,6 +108,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._current_textbox: TextFrame | None = None
         self._current_paragraph = None
 
+    @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to a PPTX file.
 
@@ -125,16 +127,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             If PPTX generation fails
 
         """
-        # Lazy load python-pptx
-        try:
-            from pptx import Presentation
-            from pptx.util import Inches, Pt
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="pptx_render",
-                missing_packages=[("python-pptx", ">=0.6.21")],
-                original_import_error=e
-            ) from e
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
 
         # Store imports
         self._Inches = Inches

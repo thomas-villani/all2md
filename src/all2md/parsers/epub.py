@@ -20,6 +20,7 @@ from all2md.exceptions import ParsingError, ValidationError, ZipFileSecurityErro
 from all2md.options import EpubOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
 
@@ -43,6 +44,7 @@ class EpubToAstConverter(BaseParser):
         self.options: EpubOptions = options
         self.html_parser = HtmlToAstConverter(self.options.html_options)
 
+    @requires_dependencies("epub", [("ebooklib", "ebooklib", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse EPUB file into an AST Document.
 
@@ -62,17 +64,7 @@ class EpubToAstConverter(BaseParser):
             If parsing fails due to invalid EPUB format
 
         """
-        try:
-            import ebooklib
-            from ebooklib import epub
-        except ImportError as e:
-            from all2md.exceptions import DependencyError
-            raise DependencyError(
-                converter_name="epub",
-                missing_packages=[("ebooklib", "")],
-                install_command="pip install 'all2md[epub]'",
-                original_import_error=e
-            ) from e
+        from ebooklib import epub
 
         # Handle file-like objects by creating a temporary file
         temp_file = None

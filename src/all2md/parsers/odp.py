@@ -36,6 +36,7 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
@@ -60,6 +61,7 @@ class OdpToAstConverter(BaseParser):
 
     """
 
+    @requires_dependencies("odp", [("odfpy", "odf", "")])
     def __init__(self, options: Any = None, progress_callback=None):
         # Import here to avoid circular dependency
         from all2md.options import OdpOptions
@@ -71,14 +73,7 @@ class OdpToAstConverter(BaseParser):
         from all2md.options import OdpOptions
         self.options: OdpOptions = options
 
-        try:
-            from odf import namespaces
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="odp",
-                missing_packages=[("odfpy", "")],
-                original_import_error=e
-            ) from e
+        from odf import namespaces
 
         self._list_level = 0
         self._current_slide = 0
@@ -111,15 +106,7 @@ class OdpToAstConverter(BaseParser):
             If required dependencies are not installed
 
         """
-        try:
-            from odf import opendocument
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="odp",
-                missing_packages=[("odfpy", "")],
-                original_import_error=e
-            ) from e
-
+        from odf import opendocument
 
         # Validate ZIP archive security for file-based inputs
         if isinstance(input_data, (str, Path)) and Path(input_data).exists():
@@ -341,7 +328,6 @@ class OdpToAstConverter(BaseParser):
             Resulting AST node(s)
 
         """
-
         if not hasattr(element, "qname"):
             return None
 
@@ -401,7 +387,6 @@ class OdpToAstConverter(BaseParser):
             List of inline AST nodes
 
         """
-
         nodes: list[Node] = []
 
         for node in element.childNodes:

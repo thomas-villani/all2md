@@ -60,6 +60,7 @@ class TrackingStoreAction(argparse.Action):
             Help text for the argument
         metavar : Optional[Union[str, tuple[str, ...]]]
             Display name for the argument value
+
         """
         # Check environment variable and set as default if present
         env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
@@ -106,6 +107,7 @@ class TrackingStoreAction(argparse.Action):
             The parsed values
         option_string : Optional[str]
             The option string that was used
+
         """
         # Store the actual value
         setattr(namespace, self.dest, values)
@@ -144,6 +146,7 @@ class TrackingStoreTrueAction(argparse.Action):
             Whether this argument is required
         help : Optional[str]
             Help text for the argument
+
         """
         # Check environment variable and set as default if present
         env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
@@ -181,6 +184,7 @@ class TrackingStoreTrueAction(argparse.Action):
             The parsed values (ignored for store_true)
         option_string : Optional[str]
             The option string that was used
+
         """
         setattr(namespace, self.dest, True)
 
@@ -218,6 +222,7 @@ class TrackingStoreFalseAction(argparse.Action):
             Whether this argument is required
         help : Optional[str]
             Help text for the argument
+
         """
         # Check environment variable and set as default if present
         env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
@@ -256,6 +261,7 @@ class TrackingStoreFalseAction(argparse.Action):
             The parsed values (ignored for store_false)
         option_string : Optional[str]
             The option string that was used
+
         """
         setattr(namespace, self.dest, False)
 
@@ -309,6 +315,7 @@ class TrackingAppendAction(argparse.Action):
             Help text for the argument
         metavar : Optional[Union[str, tuple[str, ...]]]
             Display name for the argument value
+
         """
         # Check environment variable and set as default if present
         env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
@@ -349,6 +356,7 @@ class TrackingAppendAction(argparse.Action):
             The parsed values
         option_string : Optional[str]
             The option string that was used
+
         """
         # Get existing list or create new one
         items = getattr(namespace, self.dest, None)
@@ -400,6 +408,7 @@ class TrackingPositiveIntAction(argparse.Action):
             Help text for the argument
         metavar : Optional[Union[str, tuple[str, ...]]]
             Display name for the argument value
+
         """
         # Check environment variable and set as default if present
         env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
@@ -444,6 +453,7 @@ class TrackingPositiveIntAction(argparse.Action):
             The parsed values
         option_string : Optional[str]
             The option string that was used
+
         """
         # Handle nargs='?' case where values can be None (use const)
         if values is None:
@@ -481,6 +491,7 @@ class DynamicVersionAction(argparse._VersionAction):
         ----------
         version_callback : callable, optional
             Function that returns the version string when called
+
         """
         # Store callback and use placeholder version for parent
         self.version_callback = version_callback
@@ -526,6 +537,7 @@ def parse_dot_notation(dot_string: str, value: Any) -> dict:
     {'pdf': {'pages': [1, 2, 3]}}
     >>> parse_dot_notation("markdown.emphasis_symbol", "_")
     {'markdown': {'emphasis_symbol': '_'}}
+
     """
     parts = dot_string.split('.')
     result = {}
@@ -560,6 +572,7 @@ def merge_nested_dicts(base: dict, update: dict) -> dict:
     >>> update = {'pdf': {'password': 'secret'}}
     >>> merge_nested_dicts(base, update)
     {'pdf': {'pages': [1, 2], 'password': 'secret'}}
+
     """
     result: dict = base.copy()
 

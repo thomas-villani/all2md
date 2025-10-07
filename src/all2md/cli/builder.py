@@ -53,6 +53,7 @@ class DynamicCLIBuilder:
         -------
         Type
             Resolved field type
+
         """
         try:
             # Use get_type_hints to resolve string annotations
@@ -78,6 +79,7 @@ class DynamicCLIBuilder:
         -------
         tuple[Type, bool]
             Tuple of (underlying_type, is_optional)
+
         """
         # Handle Union types (including Optional which is Union[T, None])
         if hasattr(field_type, '__origin__') and field_type.__origin__ is Union:
@@ -121,6 +123,7 @@ class DynamicCLIBuilder:
         -------
         dict
             Argparse kwargs for type and action
+
         """
         kwargs = {}
 
@@ -179,6 +182,7 @@ class DynamicCLIBuilder:
         -------
         str
             Kebab case CLI name
+
         """
         return name.replace('_', '-')
 
@@ -201,6 +205,7 @@ class DynamicCLIBuilder:
         -------
         str
             CLI argument name with -- prefix
+
         """
         # Convert to kebab-case
         kebab_name = self.snake_to_kebab(field_name)
@@ -246,6 +251,7 @@ class DynamicCLIBuilder:
         -------
         dict
             Kwargs for argparse.add_argument()
+
         """
         kwargs = {}
 
@@ -300,6 +306,7 @@ class DynamicCLIBuilder:
             Name for argument group
         exclude_base_fields : bool, default=False
             If True, skip fields that are defined in BaseParserOptions
+
         """
         if not is_dataclass(options_class):
             return
@@ -415,6 +422,7 @@ class DynamicCLIBuilder:
             Prefix for argument names (e.g., 'pdf')
         group_name : str, optional
             Name for argument group
+
         """
         self._add_options_arguments_internal(
             parser, options_class, format_prefix, group_name, exclude_base_fields=False
@@ -437,6 +445,7 @@ class DynamicCLIBuilder:
             Prefix for argument names (e.g., 'pdf')
         group_name : str, optional
             Name for argument group
+
         """
         self._add_options_arguments_internal(
             parser, options_class, format_prefix, group_name, exclude_base_fields=True
@@ -452,6 +461,7 @@ class DynamicCLIBuilder:
         ----------
         parser : ArgumentParser
             Parser to add transform arguments to
+
         """
         try:
             from all2md.transforms import registry as transform_registry
@@ -531,6 +541,7 @@ class DynamicCLIBuilder:
         -------
         ArgumentParser
             Configured parser
+
         """
         parser = argparse.ArgumentParser(
             prog="all2md",
@@ -697,6 +708,7 @@ Examples:
         -------
         str or None
             Best matching argument name, or None if no good match
+
         """
         # Remove -- prefix for comparison
         arg_clean = unknown_arg.lstrip('-').replace('-', '_')
@@ -730,6 +742,7 @@ Examples:
         -------
         dict
             Mapped options dictionary ready for to_markdown()
+
         """
         # Start with JSON options if provided, processing dot notation keys
         options = {}
@@ -925,6 +938,7 @@ Examples:
         ------
         argparse.ArgumentTypeError
             If value type validation fails or choices validation fails
+
         """
         # If not explicitly provided, skip it
         if not was_provided:

@@ -46,9 +46,9 @@ from all2md.ast import (
     ThematicBreak,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError
 from all2md.options import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
 
@@ -86,6 +86,7 @@ class MarkdownToAstConverter(BaseParser):
         self.options: MarkdownParserOptions = options
         self._footnote_definitions: dict[str, list[Node]] = {}
 
+    @requires_dependencies("markdown", [("mistune", "mistune", ">=3.0.0")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Markdown input into AST Document.
 
@@ -107,15 +108,7 @@ class MarkdownToAstConverter(BaseParser):
         # Load markdown content from various input types
         markdown_content = self._load_markdown_content(input_data)
 
-        try:
-            import mistune
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="markdown",
-                missing_packages=[("mistune", ">=3.0.0")],
-                install_command="pip install 'all2md[markdown]'",
-                original_import_error=e
-            ) from e
+        import mistune
 
         # Configure mistune plugins based on options
         plugins = []

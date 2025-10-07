@@ -42,6 +42,7 @@ Use environment variables for defaults:
     $ export ALL2MD_OUTPUT_DIR=./converted
     $ export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
     $ all2md *.pdf  # Uses environment defaults
+
 """
 
 import argparse
@@ -211,6 +212,7 @@ def _configure_logging(
         Path to log file for writing logs
     trace_mode : bool, default False
         Enable trace mode with timestamps and detailed formatting
+
     """
     # Create root logger
     root_logger = logging.getLogger()
@@ -442,6 +444,7 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     ------
     Exception
         If the configuration file cannot be written
+
     """
     # Exclude special arguments that shouldn't be saved
     exclude_args = {
@@ -510,6 +513,7 @@ def collect_input_files(
     -------
     List[Path]
         List of file paths to process
+
     """
     from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
@@ -598,6 +602,7 @@ def generate_output_path(
     -------
     Path
         Output file path
+
     """
     # Generate output filename
     output_name = input_file.stem + '.md'
@@ -630,7 +635,6 @@ def convert_single_file(
         show_progress: bool = False
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown."""
-
     from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
 
     try:
@@ -681,6 +685,7 @@ def convert_single_file_for_collation(
     -------
     Tuple[int, str, Optional[str]]
         Exit code (0 for success), markdown content, and error message if failed
+
     """
     from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
 
@@ -730,6 +735,7 @@ def process_with_rich_output(
     -------
     int
         Exit code (0 for success, highest error code otherwise)
+
     """
     from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
 
@@ -956,6 +962,7 @@ def process_with_progress_bar(
     -------
     int
         Exit code (0 for success, highest error code otherwise)
+
     """
     from all2md.constants import EXIT_SUCCESS
 
@@ -1035,6 +1042,7 @@ def process_files_simple(
     -------
     int
         Exit code (0 for success, highest error code otherwise)
+
     """
     from all2md.constants import EXIT_SUCCESS
 
@@ -1099,6 +1107,7 @@ def process_files_collated(
     -------
     int
         Exit code (0 for success, highest error code otherwise)
+
     """
     from all2md.constants import EXIT_SUCCESS
 
@@ -1121,6 +1130,7 @@ def process_files_collated(
         -------
         int
             Exit code (0 for success)
+
         """
         nonlocal max_exit_code
         exit_code, content, error = convert_single_file_for_collation(
@@ -1252,6 +1262,7 @@ def process_dry_run(
     -------
     int
         Exit code (always 0 for dry run)
+
     """
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement
@@ -1463,6 +1474,7 @@ def process_detect_only(
     -------
     int
         Exit code (0 for success, 1 if any detection issues)
+
     """
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement
@@ -1642,6 +1654,7 @@ def handle_list_formats_command(args: Optional[list[str]] = None) -> int:
     -------
     int
         Exit code (0 for success)
+
     """
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement, get_package_version
@@ -1926,6 +1939,7 @@ def handle_list_transforms_command(args: Optional[list[str]] = None) -> int:
     -------
     int
         Exit code (0 for success)
+
     """
     try:
         from all2md.transforms import registry as transform_registry
@@ -2345,6 +2359,7 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
     -------
     int or None
         Exit code if dependency command was handled, None otherwise
+
     """
     if not args:
         args = sys.argv[1:]

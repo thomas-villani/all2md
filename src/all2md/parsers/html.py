@@ -49,7 +49,6 @@ from all2md.constants import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import (
-    DependencyError,
     FileAccessError,
     MalformedFileError,
     NetworkSecurityError,
@@ -59,6 +58,7 @@ from all2md.exceptions import (
 from all2md.options import HtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
@@ -86,6 +86,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
     ------
     ParsingError
         If file cannot be read with any encoding
+
     """
     encodings_to_try = ["utf-8", "utf-8-sig"]
 
@@ -157,6 +158,7 @@ class HtmlToAstConverter(BaseParser):
         self._in_code_block = False
         self._heading_level_offset = 0
 
+    @requires_dependencies("html", [("beautifulsoup4", "bs4", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse HTML document into an AST.
 
@@ -186,15 +188,6 @@ class HtmlToAstConverter(BaseParser):
             If input type is not supported
 
         """
-        try:
-            import bs4
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="html",
-                missing_packages=[("bs4", "")],
-                original_import_error=e
-            ) from e
-
         if self.options.attachment_mode not in ("skip", "alt_text"):
             pass
 
@@ -609,7 +602,6 @@ class HtmlToAstConverter(BaseParser):
             True if element should be kept, False if it should be removed
 
         """
-
         if not self.options.strip_dangerous_elements:
             return True
 
@@ -800,7 +792,6 @@ class HtmlToAstConverter(BaseParser):
             List item node
 
         """
-
         # Process children, separating inline content from nested lists
         children: list[Node] = []
         inline_content: list[Node] = []
@@ -1172,7 +1163,6 @@ class HtmlToAstConverter(BaseParser):
             Image node
 
         """
-
         src = node.get("src", "")
         alt_text = node.get("alt", "")
         title = node.get("title")
@@ -1271,7 +1261,6 @@ class HtmlToAstConverter(BaseParser):
             Resolved absolute URL or original URL
 
         """
-
         if not self.options.attachment_base_url or urlparse(url).scheme:
             return url
         return urljoin(self.options.attachment_base_url, url)
@@ -1354,7 +1343,6 @@ class HtmlToAstConverter(BaseParser):
             If download fails, URL is invalid, or security validation fails
 
         """
-
         # Check global network disable flag
         if is_network_disabled():
             raise Exception("Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable")
@@ -1620,7 +1608,6 @@ class HtmlToAstConverter(BaseParser):
             Sanitized URL, or empty string if the URL contains a dangerous scheme
 
         """
-
         if not url or not url.strip():
             return ""
 

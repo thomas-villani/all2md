@@ -29,6 +29,7 @@ from all2md.renderers._split_utils import (
     split_ast_by_separator,
 )
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.decorators import requires_dependencies
 from all2md.renderers.html import HtmlRenderer
 
 
@@ -73,6 +74,7 @@ class EpubRenderer(BaseRenderer):
         )
         self.html_renderer = HtmlRenderer(html_options)
 
+    @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to an EPUB file.
 
@@ -91,15 +93,7 @@ class EpubRenderer(BaseRenderer):
             If EPUB generation fails
 
         """
-        # Lazy load ebooklib
-        try:
-            from ebooklib import epub
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="epub_render",
-                missing_packages=[("ebooklib", ">=0.17")],
-                original_import_error=e
-            ) from e
+        from ebooklib import epub
 
         # Create EPUB book
         book = epub.EpubBook()

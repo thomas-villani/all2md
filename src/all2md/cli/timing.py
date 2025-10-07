@@ -33,6 +33,7 @@ class TimingContext:
     >>> with TimingContext("PDF parsing"):
     ...     parse_pdf(document)
     [DEBUG] PDF parsing completed in 2.45s
+
     """
 
     def __init__(
@@ -75,6 +76,7 @@ class TimingContext:
         -------
         float
             Elapsed time in seconds
+
         """
         if self.start_time is None:
             return 0.0
@@ -108,6 +110,7 @@ def instrument_timing(
     >>> @instrument_timing("PDF conversion")
     ... def convert_pdf(path):
     ...     return process(path)
+
     """
     def decorator(func: F) -> F:
         op_name = operation_name or func.__name__
@@ -143,6 +146,7 @@ def timing(operation_name: str, logger_instance: Optional[logging.Logger] = None
     >>> with timing("File processing") as timer:
     ...     process_files()
     ...     print(f"Processed in {timer.elapsed:.2f}s")
+
     """
     ctx = TimingContext(operation_name, logger_instance)
     yield ctx.__enter__()
@@ -170,6 +174,7 @@ def format_duration(seconds: float) -> str:
     '1m 5.5s'
     >>> format_duration(3665)
     '1h 1m 5s'
+
     """
     if seconds < 0.001:
         return f"{seconds * 1_000_000:.0f}µs"
@@ -201,6 +206,7 @@ class OperationTimer:
     >>> # ... do work ...
     >>> timer.stop("rendering")
     >>> timer.report()
+
     """
 
     def __init__(self) -> None:
@@ -214,6 +220,7 @@ class OperationTimer:
         ----------
         operation_name : str
             Name of the operation
+
         """
         self._active[operation_name] = time.perf_counter()
 
@@ -234,6 +241,7 @@ class OperationTimer:
         ------
         ValueError
             If operation was not started
+
         """
         if operation_name not in self._active:
             raise ValueError(f"Operation '{operation_name}' was not started")
@@ -259,6 +267,7 @@ class OperationTimer:
         -------
         dict[str, float]
             Statistics including total, count, mean, min, max
+
         """
         if operation_name not in self.operations:
             return {
@@ -290,6 +299,7 @@ class OperationTimer:
         -------
         str
             Formatted timing report
+
         """
         log = logger_instance or logger
 

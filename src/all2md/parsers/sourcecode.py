@@ -406,6 +406,7 @@ def _detect_language_from_extension(filename: str) -> str:
     -------
     str
         Language identifier for syntax highlighting, defaults to 'text'
+
     """
     if not filename:
         return "text"

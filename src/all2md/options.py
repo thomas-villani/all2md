@@ -147,7 +147,9 @@ class BaseRendererOptions(_CloneMixin):
     Notes
     -----
     Subclasses should define format-specific rendering options as frozen dataclass fields.
+
     """
+
     pass
 
 
@@ -231,6 +233,7 @@ class MarkdownOptions(BaseRendererOptions):
         requested representation is unavailable on a node, the renderer falls
         back to any available representation while preserving flavor
         constraints.
+
     """
 
     escape_special: bool = field(
@@ -442,6 +445,7 @@ class DocxRendererOptions(BaseRendererOptions):
         Font size for code blocks and inline code.
     preserve_formatting : bool, default True
         Whether to preserve text formatting (bold, italic, etc.).
+
     """
 
     default_font: str = field(
@@ -520,6 +524,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         - "mathjax": Include MathJax CDN script
         - "katex": Include KaTeX CDN script
         - "none": Render math as plain text
+
     """
 
     standalone: bool = field(
@@ -605,6 +610,7 @@ class PdfRendererOptions(BaseRendererOptions):
         Add page numbers to footer.
     include_toc : bool, default False
         Generate table of contents from headings.
+
     """
 
     page_size: Literal["letter", "a4", "legal"] = field(
@@ -701,6 +707,7 @@ class EpubRendererOptions(BaseRendererOptions):
         Include cover image in EPUB package.
     cover_image_path : str or None, default None
         Path to cover image file. Only used if include_cover=True.
+
     """
 
     chapter_split_mode: Literal["separator", "heading", "auto"] = field(
@@ -792,6 +799,7 @@ class PptxRendererOptions(BaseRendererOptions):
         Default font size in points for body text.
     title_font_size : int, default 44
         Font size for slide titles.
+
     """
 
     slide_split_mode: Literal["separator", "heading", "auto"] = field(
@@ -863,6 +871,7 @@ class NetworkFetchOptions(_CloneMixin):
         Timeout in seconds for remote URL fetching.
     max_remote_asset_bytes : int, default 20MB
         Maximum allowed size in bytes for downloaded remote assets.
+
     """
 
     allow_remote_fetch: bool = field(
@@ -931,6 +940,7 @@ class LocalFileAccessOptions(_CloneMixin):
         List of directories denied for local file access.
     allow_cwd_files : bool, default False
         Whether to allow local files from current working directory and subdirectories.
+
     """
 
     allow_local_files: bool = field(
@@ -979,7 +989,9 @@ class BaseParserOptions(_CloneMixin):
     Notes
     -----
     Subclasses should define format-specific parsing options as frozen dataclass fields.
+
     """
+
     attachment_mode: AttachmentMode = field(
         default=DEFAULT_ATTACHMENT_MODE,
         metadata={
@@ -1145,6 +1157,7 @@ class PdfOptions(BaseParserOptions):
         ...     header_percentile_threshold=80,
         ...     header_use_all_caps=True
         ... )
+
     """
 
     pages: list[int] | str | None = field(
@@ -1384,6 +1397,7 @@ class DocxOptions(BaseParserOptions):
     Convert with custom bullet symbols:
         >>> md_opts = MarkdownOptions(bullet_symbols="•→◦")
         >>> options = DocxOptions(markdown_options=md_opts)
+
     """
 
     preserve_tables: bool = field(
@@ -1474,6 +1488,7 @@ class HtmlOptions(BaseParserOptions):
 
     Convert with content sanitization:
         >>> options = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=True)
+
     """
 
     extract_title: bool = field(
@@ -1599,6 +1614,7 @@ class PptxOptions(BaseParserOptions):
 
     Convert slides only (no notes):
         >>> options = PptxOptions(include_notes=False)
+
     """
 
     include_slide_numbers: bool = field(
@@ -1685,6 +1701,7 @@ class EmlOptions(BaseParserOptions):
 
     Disable quote cleaning and URL unwrapping:
         >>> options = EmlOptions(clean_quotes=False, clean_wrapped_urls=False)
+
     """
 
     include_headers: bool = field(
@@ -1801,7 +1818,9 @@ class RtfOptions(BaseParserOptions):
     Parameters
     ----------
     Inherited from `BaseParserOptions`
+
     """
+
     pass
 
 
@@ -1832,6 +1851,7 @@ class IpynbOptions(BaseParserOptions):
         If None, outputs are not truncated.
     truncate_output_message : str or None, default DEFAULT_TRUNCATE_OUTPUT_MESSAGE
         The message to place to indicate truncated output.
+
     """
 
     include_inputs: bool = field(
@@ -1888,6 +1908,7 @@ class OdtOptions(BaseParserOptions):
         Whether to include footnotes in output.
     include_endnotes : bool, default True
         Whether to include endnotes in output.
+
     """
 
     preserve_tables: bool = field(
@@ -1936,6 +1957,7 @@ class OdpOptions(BaseParserOptions):
         Template for slide separators. Supports placeholders: {page_num}, {total_pages}.
     slides : str or None, default None
         Slide selection (e.g., "1,3-5,8" for slides 1, 3-5, and 8).
+
     """
 
     preserve_tables: bool = field(
@@ -1982,6 +2004,7 @@ class EpubOptions(BaseParserOptions):
         a separator is placed between chapters.
     include_toc : bool, default True
         Whether to generate and prepend a Markdown Table of Contents.
+
     """
 
     merge_chapters: bool = field(
@@ -2015,7 +2038,9 @@ class MhtmlOptions(HtmlOptions):
     Parameters
     ----------
     Inherited from HtmlOptions
+
     """
+
     pass
 
 
@@ -2049,6 +2074,7 @@ class XlsxOptions(BaseParserOptions):
         Transform header case: preserve, title, upper, or lower.
     detect_merged_cells : bool, default True
         Attempt to handle merged cells.
+
     """
 
     sheets: Union[list[str], str, None] = None
@@ -2104,6 +2130,7 @@ class OdsSpreadsheetOptions(BaseParserOptions):
         Transform header case: preserve, title, upper, or lower.
     has_header : bool, default True
         Whether the first row contains column headers.
+
     """
 
     sheets: Union[list[str], str, None] = None
@@ -2156,6 +2183,7 @@ class CsvOptions(BaseParserOptions):
         Whether to skip completely empty rows.
     strip_whitespace : bool, default False
         Whether to strip leading/trailing whitespace from all cells.
+
     """
 
     detect_csv_dialect: bool = True
@@ -2200,6 +2228,7 @@ class SourceCodeOptions(BaseParserOptions):
         Whether to include the original filename as a comment at the top of the
         code block. The comment style is automatically chosen based on the
         detected or specified language.
+
     """
 
     detect_language: bool = field(
@@ -2253,6 +2282,7 @@ class ZipOptions(BaseParserOptions):
         Whether to extract non-parseable files (images, CSS, etc.) to attachment directory.
     skip_empty_files : bool, default True
         Whether to skip files with no content or that fail to parse.
+
     """
 
     include_patterns: Optional[list[str]] = field(
@@ -2348,6 +2378,7 @@ class MarkdownParserOptions(BaseParserOptions):
     preserve_html : bool, default True
         Whether to preserve raw HTML in the AST (HTMLBlock/HTMLInline nodes).
         When False, HTML is stripped.
+
     """
 
     flavor: FlavorType = field(
@@ -2434,6 +2465,7 @@ class RstParserOptions(BaseParserOptions):
         Whether to preserve unknown directives as code blocks.
         When True, unknown directives become CodeBlock nodes.
         When False, they are processed through docutils default handling.
+
     """
 
     parse_directives: bool = field(
@@ -2480,6 +2512,7 @@ class RstRendererOptions(BaseRendererOptions):
         - "directive": Use .. code-block:: directive
     line_length : int, default 80
         Target line length for wrapping text.
+
     """
 
     heading_chars: str = field(
@@ -2556,6 +2589,7 @@ def validate_flavor_compatibility(
       AND `unsupported_table_mode="drop"`
     - Setting table-specific options with CommonMark unless using
       `unsupported_table_mode="force"` or `"html"`
+
     """
     from all2md.utils.flavors import (
         CommonMarkFlavor,
@@ -2671,6 +2705,7 @@ def get_flavor_defaults(flavor: FlavorType) -> dict[str, Any]:
     - **MarkdownPlus**: Everything enabled, always force
         - unsupported_table_mode: "force"
         - unsupported_inline_mode: "force"
+
     """
     # CommonMark: strict spec, use HTML for unsupported features
     if flavor == "commonmark":
@@ -2732,5 +2767,6 @@ def create_updated_options(options: Any, **kwargs: Any) -> Any:
     >>> original = PdfOptions(pages=[1, 2, 3])
     >>> updated = create_updated_options(original, attachment_mode="base64", pages=[1])
     >>> # original remains unchanged, updated has new values
+
     """
     return replace(options, **kwargs)

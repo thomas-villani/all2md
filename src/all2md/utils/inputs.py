@@ -78,6 +78,7 @@ def is_path_like(obj: Any) -> bool:
     True
     >>> is_path_like(BytesIO(b"data"))
     False
+
     """
     return isinstance(obj, (str, Path))
 
@@ -102,6 +103,7 @@ def is_file_like(obj: Any) -> bool:
     True
     >>> is_file_like("not_file_like")
     False
+
     """
     return hasattr(obj, "read") and callable(obj.read)
 
@@ -143,6 +145,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
     Traceback (most recent call last):
     ...
     all2md.exceptions.PageRangeError: Invalid page number: 0. Pages must be >= 1.
+
     """
     if pages is None:
         return None
@@ -239,6 +242,7 @@ def validate_and_convert_input(
     >>> data, type_desc = validate_and_convert_input(BytesIO(b"content"))
     >>> print(type_desc)
     file
+
     """
     if supported_types is None:
         supported_types = ["path-like", "file-like", "bytes", "document objects"]
@@ -326,6 +330,7 @@ def escape_markdown_special(text: str, escape_chars: str | None = None) -> str:
     'This \\*should\\* not be italic'
     >>> escape_markdown_special("Link: [text](url)")
     'Link: \\[text\\]\\(url\\)'
+
     """
     if escape_chars is None:
         escape_chars = MARKDOWN_SPECIAL_CHARS
@@ -369,6 +374,7 @@ def format_special_text(text: str, format_type: str, mode: str = "html") -> str:
     '^superscript^'
     >>> format_special_text("subscript", "subscript", "ignore")
     'subscript'
+
     """
     if mode == "ignore":
         return text
@@ -431,6 +437,7 @@ def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str
     For hash style:
     - Supports levels 1-6 (# to ######)
     - Levels beyond 6 are clamped to 6
+
     """
     # Clamp level to valid ranges
     level = max(1, min(level, 6))

@@ -35,6 +35,7 @@ def _check_package_installed(import_name: str) -> bool:
     -------
     bool
         True if package is installed and importable
+
     """
     try:
         importlib.import_module(import_name)
@@ -59,6 +60,7 @@ def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[
     -------
     Optional[type]
         The loaded options class or None
+
     """
     if options_class_spec is None:
         return None
@@ -109,6 +111,7 @@ def _load_parser_class(parser_class_spec: Union[str, type, None], format_name: s
     -------
     Optional[type]
         The loaded parser class or None
+
     """
     if parser_class_spec is None:
         return None
@@ -159,6 +162,7 @@ def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_nam
     -------
     Optional[type]
         The loaded renderer class or None
+
     """
     if renderer_class_spec is None:
         return None
@@ -208,6 +212,7 @@ class ConverterRegistry:
         Registered parsers by format name
     _initialized : bool
         Whether auto-discovery has been run
+
     """
 
     _instance: Optional[ConverterRegistry] = None
@@ -234,6 +239,7 @@ class ConverterRegistry:
         -----
         If a converter with the same format_name is already registered, it will
         be overwritten and a warning will be logged.
+
         """
         if metadata.format_name in self._converters:
             logger.warning(
@@ -255,6 +261,7 @@ class ConverterRegistry:
         -------
         bool
             True if unregistered, False if not found
+
         """
         if format_name in self._converters:
             del self._converters[format_name]
@@ -279,6 +286,7 @@ class ConverterRegistry:
         ------
         FormatError
             If format not registered
+
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
@@ -307,6 +315,7 @@ class ConverterRegistry:
         ------
         FormatError
             If format not registered
+
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
@@ -423,6 +432,7 @@ class ConverterRegistry:
         -------
         str
             Detected format name
+
         """
         # If hint provided and valid, use it
         if hint and hint in self._converters:
@@ -488,6 +498,7 @@ class ConverterRegistry:
         -------
         str or None
             Format name if detected
+
         """
         # Sort by priority for extension matching
         sorted_converters = sorted(
@@ -522,6 +533,7 @@ class ConverterRegistry:
         -------
         str or None
             Format name if detected
+
         """
         # Sort by priority for content matching
         sorted_converters = sorted(
@@ -550,6 +562,7 @@ class ConverterRegistry:
         -------
         list[str]
             Sorted list of format names
+
         """
         return sorted(self._converters.keys())
 
@@ -565,6 +578,7 @@ class ConverterRegistry:
         -------
         ConverterMetadata or None
             Metadata if format registered
+
         """
         return self._converters.get(format_name)
 
@@ -589,6 +603,7 @@ class ConverterRegistry:
         -------
         dict
             Format names mapped to list of missing packages
+
         """
         missing = {}
 
@@ -680,6 +695,7 @@ class ConverterRegistry:
         -------
         List[str]
             List of module names found in the parsers package
+
         """
         converter_modules = []
 

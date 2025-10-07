@@ -79,6 +79,7 @@ def _sanitize_footnote_label(attachment_name: str) -> str:
     'file_1'
     >>> _sanitize_footnote_label("document%20name.pdf")
     'document_20name'
+
     """
     if not attachment_name:
         return "attachment"
@@ -127,6 +128,7 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
     'passwd'
     >>> sanitize_attachment_filename("file<>|name?.txt")
     'filename.txt'
+
     """
     if not filename or not filename.strip():
         return "attachment"
@@ -248,6 +250,7 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
     >>> # If image.png exists, returns image-1.png
     >>> ensure_unique_attachment_path(Path("./attachments/image.png"))
     Path('./attachments/image-1.png')
+
     """
     if not base_path.exists():
         return base_path
@@ -306,6 +309,7 @@ def process_attachment(
     -------
     str
         Markdown representation of the attachment
+
     """
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")
@@ -468,6 +472,7 @@ def extract_pptx_image_data(shape: Any) -> bytes | None:
     -------
     bytes | None
         Raw image bytes, or None if extraction fails
+
     """
     try:
         image = shape.image
@@ -491,6 +496,7 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, s
     -------
     tuple[bytes | None, str | None]
         Tuple of (raw image bytes, file extension), or (None, None) if extraction fails
+
     """
     try:
         # Get the relationship target
@@ -579,6 +585,7 @@ def generate_attachment_filename(
     'presentation_slide3_img1.png'
     >>> generate_attachment_filename("article", format_type="general", sequence_num=5)
     'article_img5.png'
+
     """
     if format_type == "pdf":
         if page_num is None:
@@ -606,6 +613,7 @@ def create_attachment_sequencer() -> Callable[[str, str], tuple[str, int]]:
     >>> sequencer("doc", "pdf", page_num=1)  # Returns: ('doc_p1_img1.png', 1)
     >>> sequencer("doc", "pdf", page_num=1)  # Returns: ('doc_p1_img2.png', 2)
     >>> sequencer("doc", "pdf", page_num=2)  # Returns: ('doc_p2_img1.png', 1)
+
     """
     used_filenames: set[str] = set()
     sequence_counters: dict[str, int] = {}
@@ -617,6 +625,7 @@ def create_attachment_sequencer() -> Callable[[str, str], tuple[str, int]]:
         -------
         tuple[str, int]
             Tuple of (filename, sequence_number)
+
         """
         # Create a key for this specific context
         if format_type == "pdf":

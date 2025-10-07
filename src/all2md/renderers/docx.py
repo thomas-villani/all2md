@@ -18,7 +18,7 @@ import base64
 import re
 import tempfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union, Optional
+from typing import IO, TYPE_CHECKING, Optional, Union
 from urllib.parse import urlparse
 
 from all2md.exceptions import DependencyError
@@ -68,6 +68,7 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.decorators import requires_dependencies
 
 
 # TODO: add a new option that allows the user to specify a "template" source docx file to use (allows styles)
@@ -109,6 +110,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._in_table: bool = False
         self._temp_files: list[str] = []
 
+    @requires_dependencies("docx_render", [("python-docx", "docx", ">=1.2.0")])
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to a DOCX file.
 
@@ -120,20 +122,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Output destination (file path or file-like object)
 
         """
-        # Lazy load python-docx
-        try:
-            from docx import Document as WordDocument
-            from docx.enum.style import WD_STYLE_TYPE
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
-            from docx.oxml import OxmlElement
-            from docx.oxml.ns import qn
-            from docx.shared import Inches, Pt, RGBColor
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="docx_render",
-                missing_packages=[("python-docx", ">=1.2.0")],
-                original_import_error=e
-            ) from e
+        from docx import Document as WordDocument
+        from docx.enum.style import WD_STYLE_TYPE
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        from docx.shared import Inches, Pt, RGBColor
 
         # Store imports as instance variables for use in other methods
         self._Document = WordDocument

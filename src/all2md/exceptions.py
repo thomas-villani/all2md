@@ -49,6 +49,7 @@ class All2MdError(Exception):
         The error message
     original_error : Exception or None
         The wrapped original exception, if any
+
     """
 
     def __init__(self, message: str, original_error: Exception | None = None):
@@ -82,6 +83,7 @@ class ValidationError(All2MdError):
         The name of the problematic parameter
     parameter_value : any
         The value that caused the error
+
     """
 
     def __init__(
@@ -107,6 +109,7 @@ class PageRangeError(ValidationError):
         The invalid page range value
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     def __init__(
@@ -145,6 +148,7 @@ class FileError(All2MdError):
     ----------
     file_path : str or None
         Path to the file that caused the error
+
     """
 
     def __init__(
@@ -168,6 +172,7 @@ class FileNotFoundError(FileError):
         Custom error message. If not provided, uses default message
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     def __init__(
@@ -194,6 +199,7 @@ class FileAccessError(FileError):
         Custom error message. If not provided, uses default message
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     def __init__(
@@ -218,6 +224,7 @@ class MalformedFileError(FileError):
         Description of what is malformed
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     def __init__(
@@ -252,6 +259,7 @@ class FormatError(All2MdError):
         The format that was not supported
     supported_formats : list[str] or None
         Available supported formats
+
     """
 
     def __init__(
@@ -297,6 +305,7 @@ class ParsingError(All2MdError):
     ----------
     parsing_stage : str or None
         Where in the parsing process the error occurred
+
     """
 
     def __init__(
@@ -329,6 +338,7 @@ class PasswordProtectedError(ParsingError):
     ----------
     filename : str or None
         The name of the password-protected file, if provided
+
     """
 
     def __init__(
@@ -369,6 +379,7 @@ class RenderingError(All2MdError):
     ----------
     rendering_stage : str or None
         Where in the rendering process the error occurred
+
     """
 
     def __init__(
@@ -397,6 +408,7 @@ class OutputWriteError(RenderingError):
     ----------
     file_path : str
         Path to the file that failed to write
+
     """
 
     def __init__(
@@ -430,6 +442,7 @@ class TransformError(All2MdError):
     ----------
     transform_name : str or None
         Name of the transform that failed
+
     """
 
     def __init__(
@@ -457,6 +470,7 @@ class SecurityError(All2MdError):
         Description of the security violation
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     pass
@@ -473,6 +487,7 @@ class NetworkSecurityError(SecurityError):
         Description of the network security violation
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     pass
@@ -489,6 +504,7 @@ class ZipFileSecurityError(SecurityError):
         Description of the zip file security violation
     original_error : Exception, optional
         The original exception that caused this error
+
     """
 
     pass
@@ -525,6 +541,7 @@ class DependencyError(All2MdError):
         Packages with version mismatches
     install_command : str
         Command to install missing dependencies
+
     """
 
     def __init__(

@@ -34,6 +34,7 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
     ------
     argparse.ArgumentTypeError
         If transform is unknown or required parameters are missing
+
     """
     if not hasattr(parsed_args, 'transforms') or not parsed_args.transforms:
         return None
@@ -120,6 +121,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
       MhtmlOptions.local_files (LocalFileAccessOptions)
     - allow_remote_fetch, require_https, etc. -> EmlOptions.html_network
       (NetworkFetchOptions)
+
     """
     import sys
 
@@ -180,6 +182,7 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     ------
     argparse.ArgumentTypeError
         If options JSON file cannot be loaded or transform building fails
+
     """
     # Load options from JSON file if specified
     json_options = None
@@ -218,6 +221,7 @@ def validate_arguments(parsed_args: argparse.Namespace, files: Optional[List[Pat
     Side Effects
     ------------
     Prints error messages to stderr for invalid arguments
+
     """
     # Validate attachment options
     if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":
@@ -263,6 +267,7 @@ def process_stdin(
     -------
     int
         Exit code (0 for success, see constants.py for complete exit code list)
+
     """
     # Read from stdin
     try:
@@ -345,6 +350,7 @@ def process_multi_file(
     -------
     int
         Exit code (0 for success, highest error code otherwise; see constants.py for complete list)
+
     """
     # Import processing functions
     from all2md.cli import (
@@ -449,6 +455,7 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
     -------
     int
         Exit code (0 for success)
+
     """
     import logging
     from pathlib import Path
@@ -533,6 +540,7 @@ def load_options_from_json(json_file_path: str) -> dict:
     ------
     argparse.ArgumentTypeError
         If the JSON file cannot be read or parsed
+
     """
     try:
         json_path = Path(json_file_path)
@@ -571,6 +579,7 @@ def merge_exclusion_patterns_from_json(
     -------
     Optional[List[str]]
         Updated exclusion patterns or None if no changes
+
     """
     if 'exclude' in json_options and parsed_args.exclude is None:
         return json_options['exclude']

@@ -57,6 +57,7 @@ def _is_private_or_reserved_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address
     -------
     bool
         True if IP should be blocked, False if allowed
+
     """
     if isinstance(ip, ipaddress.IPv4Address):
         # IPv4 restricted ranges
@@ -107,6 +108,7 @@ def _resolve_hostname_to_ips(hostname: str) -> list[ipaddress.IPv4Address | ipad
     ------
     NetworkSecurityError
         If hostname resolution fails or contains invalid addresses
+
     """
     try:
         # Get all address info for the hostname
@@ -145,6 +147,7 @@ def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None)
     -------
     bool
         True if hostname is allowed, False otherwise
+
     """
     if allowed_hosts is None:
         return True
@@ -197,6 +200,7 @@ def validate_url_security(
     ------
     NetworkSecurityError
         If URL fails security validation
+
     """
     try:
         parsed = urlparse(url)
@@ -275,6 +279,7 @@ def create_secure_http_client(
     -------
     httpx.Client
         Configured HTTP client with security constraints
+
     """
     import httpx
 
@@ -391,6 +396,7 @@ def fetch_content_securely(
     ------
     NetworkSecurityError
         If URL fails security validation or fetch constraints
+
     """
     # Check global network disable first
     if is_network_disabled():
@@ -505,6 +511,7 @@ def fetch_image_securely(
     ------
     NetworkSecurityError
         If URL fails security validation or fetch constraints
+
     """
     return fetch_content_securely(
         url=url,
@@ -523,5 +530,6 @@ def is_network_disabled() -> bool:
     -------
     bool
         True if network access should be disabled, False otherwise
+
     """
     return os.getenv('ALL2MD_DISABLE_NETWORK', '').lower() in ('true', '1', 'yes', 'on')

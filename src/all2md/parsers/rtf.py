@@ -30,6 +30,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, ParsingError, ValidationError
 from all2md.options import RtfOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -54,6 +55,7 @@ class RtfToAstConverter(BaseParser):
 
     """
 
+    @requires_dependencies("rtf", [("pyth3", "pyth", "")])
     def __init__(
         self,
         options: RtfOptions | None = None,
@@ -64,26 +66,19 @@ class RtfToAstConverter(BaseParser):
         self.options: RtfOptions = options
 
         # Import pyth types for use in converter methods
-        try:
-            from pyth.document import Document as PythDocument
-            from pyth.document import Image as PythImage
-            from pyth.document import List as PythList
-            from pyth.document import ListEntry as PythListEntry
-            from pyth.document import Paragraph as PythParagraph
-            from pyth.document import Text as PythText
+        from pyth.document import Document as PythDocument
+        from pyth.document import Image as PythImage
+        from pyth.document import List as PythList
+        from pyth.document import ListEntry as PythListEntry
+        from pyth.document import Paragraph as PythParagraph
+        from pyth.document import Text as PythText
 
-            self.PythParagraph = PythParagraph
-            self.PythList = PythList
-            self.PythListEntry = PythListEntry
-            self.PythText = PythText
-            self.PythImage = PythImage
-            self.PythDocument = PythDocument
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="rtf",
-                missing_packages=[("pyth3", "")],
-                original_import_error=e
-            ) from e
+        self.PythParagraph = PythParagraph
+        self.PythList = PythList
+        self.PythListEntry = PythListEntry
+        self.PythText = PythText
+        self.PythImage = PythImage
+        self.PythDocument = PythDocument
 
         self._base_filename = "document"
         self._attachment_sequencer = create_attachment_sequencer()
@@ -108,15 +103,7 @@ class RtfToAstConverter(BaseParser):
             If parsing fails or required dependencies are missing
 
         """
-        # Lazy import of pyth dependencies
-        try:
-            from pyth.plugins.rtf15.reader import Rtf15Reader
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="rtf",
-                missing_packages=[("pyth3", "")],
-                original_import_error=e
-            ) from e
+        from pyth.plugins.rtf15.reader import Rtf15Reader
 
         doc = None
         try:
