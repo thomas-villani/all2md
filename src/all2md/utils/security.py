@@ -29,7 +29,7 @@ Functions
 import logging
 import re
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Union
 from urllib.parse import urlparse
 
@@ -195,7 +195,11 @@ def validate_zip_archive(
 
             for entry in entries:
                 # Check for path traversal attempts
-                if '..' in entry.filename or entry.filename.startswith('/'):
+                name = entry.filename
+                # Normalize backslashes to handle Windows paths
+                name_norm = name.replace('\\', '/')
+                p = PurePosixPath(name_norm)
+                if any(part == '..' for part in p.parts) or name_norm.startswith('/'):
                     raise ZipFileSecurityError(
                         f"ZIP archive contains suspicious path: {entry.filename}"
                     )
