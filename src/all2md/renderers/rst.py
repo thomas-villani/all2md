@@ -210,16 +210,11 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
             docinfo_fields.append(f":Author: {metadata['author']}")
         if 'creation_date' in metadata:
             docinfo_fields.append(f":Date: {metadata['creation_date']}")
-        if 'version' in metadata or 'custom_properties' in metadata:
-            custom = metadata.get('custom_properties', {})
-            if 'version' in custom:
-                docinfo_fields.append(f":Version: {custom['version']}")
 
         # Add other custom properties
-        if 'custom_properties' in metadata:
-            for key, value in metadata['custom_properties'].items():
-                if key not in ('version',):
-                    docinfo_fields.append(f":{key.title()}: {value}")
+        if 'custom' in metadata:
+            for key, value in metadata['custom'].items():
+                docinfo_fields.append(f":{key.title()}: {value}")
 
         if docinfo_fields:
             for field in docinfo_fields:

@@ -886,6 +886,7 @@ Examples:
                     f"Use 'all2md --help' to see available options."
                 )
             else:
+                # BUG: we are warning about some of the valid options (e.g. --rich)
                 # Warn about unknown arguments
                 for msg in error_messages:
                     warnings.warn(msg, UserWarning, stacklevel=2)

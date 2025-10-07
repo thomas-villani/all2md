@@ -76,7 +76,9 @@ class RestructuredTextParser(BaseParser):
     """
 
     def __init__(self, options: RstParserOptions | None = None, progress_callback=None):
-        super().__init__(options or RstParserOptions(), progress_callback)
+        options = options or RstParserOptions()
+        super().__init__(options, progress_callback)
+        self.options: RstParserOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse RST input into AST Document.
@@ -691,7 +693,7 @@ class RestructuredTextParser(BaseParser):
                     elif isinstance(field, docutils_nodes.date):
                         metadata.creation_date = field.astext()
                     elif isinstance(field, docutils_nodes.version):
-                        metadata.custom_properties['version'] = field.astext()
+                        metadata.custom['version'] = field.astext()
                     elif isinstance(field, docutils_nodes.field):
                         # Custom field
                         field_name = None
@@ -702,7 +704,7 @@ class RestructuredTextParser(BaseParser):
                             elif isinstance(subfield, docutils_nodes.field_body):
                                 field_body = subfield.astext()
                         if field_name and field_body:
-                            metadata.custom_properties[field_name.lower()] = field_body
+                            metadata.custom[field_name.lower()] = field_body
 
         # Try to extract title from first section or standalone title
         for child in document.children:

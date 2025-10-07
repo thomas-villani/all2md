@@ -33,7 +33,8 @@ from pathlib import Path
 from typing import Union
 from urllib.parse import urlparse
 
-from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN
+from all2md.constants import MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN, \
+    DEFAULT_MAX_COMPRESSION_RATIO, DEFAULT_MAX_UNCOMPRESSED_SIZE, DEFAULT_MAX_ZIP_ENTRIES
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 
 logger = logging.getLogger(__name__)
@@ -136,9 +137,9 @@ def validate_local_file_access(
 
 def validate_zip_archive(
         file_path: Union[str, Path],
-        max_compression_ratio: float = 100.0,
-        max_uncompressed_size: int = 1024 * 1024 * 1024,  # 1GB
-        max_entries: int = 10000
+        max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
+        max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,  # 1GB
+        max_entries: int = DEFAULT_MAX_ZIP_ENTRIES
 ) -> None:
     """Validate a ZIP archive for security threats before processing.
 

@@ -176,7 +176,7 @@ def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None)
 def validate_url_security(
         url: str,
         allowed_hosts: list[str] | None = None,
-        require_https: bool = False
+        require_https: bool = True
 ) -> None:
     """Validate URL for security before making HTTP requests.
 
@@ -212,6 +212,9 @@ def validate_url_security(
 
     if require_https and parsed.scheme != 'https':
         raise NetworkSecurityError(f"HTTPS required but got: {parsed.scheme}")
+
+    if not require_https and parsed.scheme == "http":
+        logger.warning(f"Fetching {url} over insecure HTTP. Consider using HTTPS.")
 
     # Validate hostname exists
     hostname = parsed.hostname
