@@ -10,7 +10,7 @@ import pytest
 
 from all2md import to_markdown
 from all2md.options import PdfOptions
-from tests.fixtures.generators.pdf_test_fixtures import (
+from fixtures.generators.pdf_test_fixtures import (
     create_pdf_with_formatting,
     create_pdf_with_figures,
     create_pdf_with_tables,

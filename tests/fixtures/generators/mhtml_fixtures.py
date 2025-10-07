@@ -34,7 +34,7 @@ Content-Location: http://example.com/test.html
 <body>
     <h1>Test MHTML Document</h1>
     <p>This is a simple MHTML document with <strong>bold</strong> and <em>italic</em> text.</p>
-    <p>It also contains a <a href="http://example.com">link</a>.</p>
+    <p>It also contains a <a href="https://example.com">link</a>.</p>
     <ul>
         <li>First item</li>
         <li>Second item</li>

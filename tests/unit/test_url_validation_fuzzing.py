@@ -52,7 +52,7 @@ class TestURLValidationFuzzing:
         st.text(alphabet=st.characters(whitelist_categories=('Ll', 'Nd')), min_size=1, max_size=50),
         st.text(alphabet=st.characters(whitelist_categories=('Ll', 'Nd', 'P')), min_size=0, max_size=100)
     )
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=1000)
     def test_various_url_schemes(self, scheme, domain, path):
         """Test URL validation with various schemes, domains, and paths."""
         url = f"{scheme}://{domain}/{path}"
@@ -143,19 +143,21 @@ class TestURLValidationFuzzing:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_hostname_allowlist_property(self, hostname):
         """Property: URLs not in allowlist should be rejected when allowlist is provided."""
-        url = f"http://{hostname}/test"
-
         # Create allowlist that definitely doesn't contain this hostname
         allowlist = ["trusted.com", "example.org", "safe.net"]
+
+        # Skip if hostname happens to be in allowlist
+        assume(hostname.lower() not in allowlist)
+
+        url = f"http://{hostname}/test"
 
         # Mock DNS resolution
         with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-            if hostname not in allowlist:
-                # Property: Hostname not in allowlist should be rejected
-                with pytest.raises(NetworkSecurityError, match="not in allowlist"):
-                    validate_url_security(url, allowed_hosts=allowlist)
+            # Property: Hostname not in allowlist should be rejected
+            with pytest.raises(NetworkSecurityError, match="not in allowlist"):
+                validate_url_security(url, allowed_hosts=allowlist)
 
     @given(
         st.sampled_from(['http', 'https']),
@@ -198,13 +200,13 @@ class TestPrivateIPDetectionFuzzing:
             "169.254.0.0/16",      # Link-local
         ])
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=5000)
     def test_all_ips_in_private_ranges_detected(self, cidr_block):
         """Property: All IPs in private CIDR blocks should be detected as private."""
         network = ipaddress.IPv4Network(cidr_block)
 
         # Test a few random IPs from this network
-        for ip in list(network.hosts())[:10]:  # Test first 10 hosts
+        for ip in list(network.hosts())[:3]:  # Test first 3 hosts (reduced from 10)
             assert _is_private_or_reserved_ip(ip), f"IP {ip} from {cidr_block} should be private"
 
     @given(

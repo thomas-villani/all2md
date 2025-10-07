@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.utils import cleanup_test_dir, create_test_temp_dir
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.e2e
@@ -333,7 +333,7 @@ def example_function():
 
     def test_odf_file_conversion_real(self):
         """Test converting a real ODT file to Markdown."""
-        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_formatting, save_odt_to_file
+        from fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_formatting, save_odt_to_file
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODT generation")
@@ -367,7 +367,7 @@ def example_function():
 
     def test_odf_with_attachment_options(self):
         """Test ODT conversion with attachment handling."""
-        from tests.fixtures.generators.odf_fixtures import (
+        from fixtures.generators.odf_fixtures import (
             HAS_ODFPY,
             create_comprehensive_odt_test_document,
             save_odt_to_file,
@@ -406,7 +406,7 @@ def example_function():
 
     def test_odf_table_options(self):
         """Test ODT table handling options."""
-        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_tables, save_odt_to_file
+        from fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_tables, save_odt_to_file
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODT generation")
@@ -437,7 +437,7 @@ def example_function():
 
     def test_odf_lists_conversion(self):
         """Test ODT list conversion."""
-        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_lists, save_odt_to_file
+        from fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_lists, save_odt_to_file
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODT generation")
@@ -465,7 +465,7 @@ def example_function():
     @pytest.mark.odf
     def test_odp_presentation_conversion(self):
         """Test ODP presentation file conversion."""
-        from tests.fixtures.generators.odf_fixtures import HAS_ODFPY, create_odp_with_slides
+        from fixtures.generators.odf_fixtures import HAS_ODFPY, create_odp_with_slides
 
         if not HAS_ODFPY:
             pytest.skip("odfpy not available for ODP generation")
@@ -520,7 +520,7 @@ def example_function():
     @pytest.mark.odf
     def test_odf_complex_options_combination(self):
         """Test ODT conversion with complex option combinations."""
-        from tests.fixtures.generators.odf_fixtures import (
+        from fixtures.generators.odf_fixtures import (
             HAS_ODFPY,
             create_comprehensive_odt_test_document,
             save_odt_to_file,
@@ -561,7 +561,7 @@ def example_function():
     @pytest.mark.ipynb
     def test_ipynb_basic_conversion_e2e(self):
         """Test end-to-end Jupyter Notebook conversion."""
-        from tests.fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
+        from fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
 
         notebook = create_simple_notebook()
         ipynb_file = self.temp_dir / "simple.ipynb"
@@ -583,7 +583,7 @@ def example_function():
     @pytest.mark.ipynb
     def test_ipynb_with_images_e2e(self):
         """Test end-to-end Jupyter Notebook conversion with images."""
-        from tests.fixtures.generators.ipynb_fixtures import create_notebook_with_images, save_notebook_to_file
+        from fixtures.generators.ipynb_fixtures import create_notebook_with_images, save_notebook_to_file
 
         notebook = create_notebook_with_images()
         ipynb_file = self.temp_dir / "with_images.ipynb"
@@ -603,7 +603,7 @@ def example_function():
     @pytest.mark.ipynb
     def test_ipynb_with_output_file_e2e(self):
         """Test end-to-end Jupyter Notebook conversion with output file."""
-        from tests.fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
+        from fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
 
         notebook = create_simple_notebook()
         ipynb_file = self.temp_dir / "input.ipynb"
@@ -624,7 +624,7 @@ def example_function():
     @pytest.mark.ipynb
     def test_ipynb_with_attachment_download_e2e(self):
         """Test Jupyter Notebook conversion with image download."""
-        from tests.fixtures.generators.ipynb_fixtures import create_notebook_with_images, save_notebook_to_file
+        from fixtures.generators.ipynb_fixtures import create_notebook_with_images, save_notebook_to_file
 
         notebook = create_notebook_with_images()
         ipynb_file = self.temp_dir / "with_plots.ipynb"
@@ -654,7 +654,7 @@ def example_function():
     @pytest.mark.ipynb
     def test_ipynb_truncation_e2e(self):
         """Test Jupyter Notebook conversion with output truncation."""
-        from tests.fixtures.generators.ipynb_fixtures import create_notebook_with_long_outputs, save_notebook_to_file
+        from fixtures.generators.ipynb_fixtures import create_notebook_with_long_outputs, save_notebook_to_file
 
         notebook = create_notebook_with_long_outputs()
         ipynb_file = self.temp_dir / "long_outputs.ipynb"
@@ -722,7 +722,7 @@ def example_function():
     @pytest.mark.ipynb
     def test_ipynb_complex_options_combination_e2e(self):
         """Test Jupyter Notebook conversion with complex option combinations."""
-        from tests.fixtures.generators.ipynb_fixtures import create_data_science_notebook, save_notebook_to_file
+        from fixtures.generators.ipynb_fixtures import create_data_science_notebook, save_notebook_to_file
 
         notebook = create_data_science_notebook()
         ipynb_file = self.temp_dir / "data_science.ipynb"
@@ -787,7 +787,7 @@ class TestEpubCLIEndToEnd:
         except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
-        from tests.fixtures.generators.epub_fixtures import create_simple_epub
+        from fixtures.generators.epub_fixtures import create_simple_epub
 
         # Create test EPUB file
         epub_content = create_simple_epub()
@@ -806,7 +806,7 @@ class TestEpubCLIEndToEnd:
         assert "Chapter 2: Content" in output
         assert "**bold text**" in output
         assert "*italic text*" in output
-        assert "[link](http://example.com)" in output
+        assert "[link](https://example.com)" in output
 
     def test_epub_with_output_file(self):
         """Test EPUB conversion to output file."""
@@ -817,7 +817,7 @@ class TestEpubCLIEndToEnd:
         except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
-        from tests.fixtures.generators.epub_fixtures import create_simple_epub
+        from fixtures.generators.epub_fixtures import create_simple_epub
 
         epub_content = create_simple_epub()
         epub_file = self.temp_dir / "test_book.epub"
@@ -848,7 +848,7 @@ class TestEpubCLIEndToEnd:
         except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
-        from tests.fixtures.generators.epub_fixtures import create_epub_with_images
+        from fixtures.generators.epub_fixtures import create_epub_with_images
 
         epub_content = create_epub_with_images()
         epub_file = self.temp_dir / "test_with_images.epub"
@@ -876,7 +876,7 @@ class TestEpubCLIEndToEnd:
         except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
-        from tests.fixtures.generators.epub_fixtures import create_epub_with_images
+        from fixtures.generators.epub_fixtures import create_epub_with_images
 
         epub_content = create_epub_with_images()
         epub_file = self.temp_dir / "test_with_images.epub"
@@ -908,7 +908,7 @@ class TestEpubCLIEndToEnd:
         except Exception:
             pytest.skip("ebooklib not available for EPUB tests")
 
-        from tests.fixtures.generators.epub_fixtures import create_simple_epub
+        from fixtures.generators.epub_fixtures import create_simple_epub
 
         epub_content = create_simple_epub()
         epub_file = self.temp_dir / "test.epub"
@@ -959,7 +959,7 @@ class TestMhtmlCLIEndToEnd:
 
     def test_mhtml_basic_conversion(self):
         """Test basic MHTML conversion via CLI."""
-        from tests.fixtures.generators.mhtml_fixtures import create_simple_mhtml
+        from fixtures.generators.mhtml_fixtures import create_simple_mhtml
 
         # Create test MHTML file
         mhtml_content = create_simple_mhtml()
@@ -981,7 +981,7 @@ class TestMhtmlCLIEndToEnd:
 
     def test_mhtml_with_output_file(self):
         """Test MHTML conversion to output file."""
-        from tests.fixtures.generators.mhtml_fixtures import create_simple_mhtml
+        from fixtures.generators.mhtml_fixtures import create_simple_mhtml
 
         mhtml_content = create_simple_mhtml()
         mhtml_file = self.temp_dir / "test_page.mht"
@@ -1005,7 +1005,7 @@ class TestMhtmlCLIEndToEnd:
 
     def test_mhtml_with_images(self):
         """Test MHTML conversion with embedded images."""
-        from tests.fixtures.generators.mhtml_fixtures import create_mhtml_with_image
+        from fixtures.generators.mhtml_fixtures import create_mhtml_with_image
 
         mhtml_content = create_mhtml_with_image()
         mhtml_file = self.temp_dir / "test_with_images.mht"
@@ -1026,7 +1026,7 @@ class TestMhtmlCLIEndToEnd:
 
     def test_mhtml_with_download_images(self):
         """Test MHTML conversion with image download."""
-        from tests.fixtures.generators.mhtml_fixtures import create_mhtml_with_image
+        from fixtures.generators.mhtml_fixtures import create_mhtml_with_image
 
         mhtml_content = create_mhtml_with_image()
         mhtml_file = self.temp_dir / "test_with_images.mht"
@@ -1051,7 +1051,7 @@ class TestMhtmlCLIEndToEnd:
 
     def test_mhtml_ms_word_artifacts(self):
         """Test MHTML conversion with MS Word artifacts."""
-        from tests.fixtures.generators.mhtml_fixtures import create_mhtml_with_ms_word_artifacts
+        from fixtures.generators.mhtml_fixtures import create_mhtml_with_ms_word_artifacts
 
         mhtml_content = create_mhtml_with_ms_word_artifacts()
         mhtml_file = self.temp_dir / "test_word_artifacts.mht"
@@ -1070,7 +1070,7 @@ class TestMhtmlCLIEndToEnd:
 
     def test_mhtml_format_override(self):
         """Test MHTML format override."""
-        from tests.fixtures.generators.mhtml_fixtures import create_simple_mhtml
+        from fixtures.generators.mhtml_fixtures import create_simple_mhtml
 
         mhtml_content = create_simple_mhtml()
         mhtml_file = self.temp_dir / "test.mht"

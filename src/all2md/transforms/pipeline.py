@@ -55,6 +55,7 @@ from typing import Any, Optional, Union
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
 from all2md.options import BaseRendererOptions, MarkdownOptions
+from all2md.progress import ProgressCallback
 
 from .hooks import HookCallable, HookContext, HookManager, HookTarget
 from .registry import TransformRegistry
@@ -155,6 +156,8 @@ class Pipeline:
         Defaults to MarkdownRenderer with default options
     options : BaseRendererOptions or MarkdownOptions, optional
         Options for rendering (used if renderer is string or class, ignored if instance)
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates during rendering
 
     Examples
     --------
@@ -182,12 +185,14 @@ class Pipeline:
         transforms: Optional[list[Union[str, NodeTransformer]]] = None,
         hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
         renderer: Optional[Union[str, type, Any]] = None,
-        options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None
+        options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
+        progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize pipeline with transforms, hooks, renderer, and options."""
         self.transforms = transforms or []
         self.hook_manager = HookManager()
         self.registry = TransformRegistry()
+        self.progress_callback = progress_callback
 
         # Set up renderer
         self.renderer = self._setup_renderer(renderer, options)
@@ -650,6 +655,7 @@ def render(
     hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
     renderer: Optional[Union[str, type, Any]] = None,
     options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
+    progress_callback: Optional[ProgressCallback] = None,
     **kwargs
 ) -> Union[str, bytes]:
     """Render document with transforms and hooks using specified renderer.
@@ -676,6 +682,8 @@ def render(
         Defaults to MarkdownRenderer
     options : BaseRendererOptions or MarkdownOptions, optional
         Options for rendering (used if renderer is string or class)
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates during rendering
     **kwargs
         Additional keyword arguments passed to MarkdownOptions if
         options is not provided and renderer is markdown
@@ -744,7 +752,8 @@ def render(
         transforms=transforms,
         hooks=hooks,
         renderer=renderer,
-        options=options
+        options=options,
+        progress_callback=progress_callback
     )
 
     return pipeline.execute(document)

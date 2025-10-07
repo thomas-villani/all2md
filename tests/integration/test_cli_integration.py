@@ -10,7 +10,7 @@ import pytest
 
 from all2md.cli import main
 from all2md.exceptions import MalformedFileError, ParsingError
-from tests.utils import cleanup_test_dir, create_test_temp_dir
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration
@@ -107,7 +107,7 @@ class TestCLIIntegration:
             assert result == 0
             # Verify format was overridden
             call_args = mock_to_markdown.call_args
-            assert call_args[1]["format"] == "txt"
+            assert call_args[1]["source_format"] == "txt"
 
     def test_attachment_validation_warning(self, capsys):
         """Test warning when attachment-output-dir used without download mode."""
@@ -334,7 +334,7 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs["format"] == "html"
+            assert kwargs["source_format"] == "html"
             assert kwargs["extract_title"] is True
             assert kwargs["strip_dangerous_elements"] is True
             assert kwargs["attachment_mode"] == "download"
@@ -420,7 +420,7 @@ class TestCLIIntegration:
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs["format"] == "odf"
+            assert kwargs["source_format"] == "odf"
 
     def test_odf_attachment_handling(self):
         """Test ODF attachment handling options."""
@@ -534,7 +534,7 @@ class TestCLIIntegration:
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs["format"] == "ipynb"
+            assert kwargs["source_format"] == "ipynb"
 
     def test_ipynb_attachment_handling(self):
         """Test Jupyter Notebook image attachment handling options."""

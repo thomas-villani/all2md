@@ -10,7 +10,7 @@ import pytest
 
 from all2md import to_markdown
 from all2md.options import PptxOptions, MarkdownOptions
-from tests.fixtures.generators.pptx_fixtures import (
+from fixtures.generators.pptx_fixtures import (
     create_pptx_with_basic_slides,
     save_pptx_to_bytes
 )

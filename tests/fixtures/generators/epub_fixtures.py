@@ -49,7 +49,7 @@ def create_simple_epub() -> bytes:
         <body>
             <h1>Chapter 1: Introduction</h1>
             <p>This is the first chapter with <strong>bold text</strong> and <em>italic text</em>.</p>
-            <p>This paragraph contains a <a href="http://example.com">link</a>.</p>
+            <p>This paragraph contains a <a href="https://example.com">link</a>.</p>
         </body>
     </html>
     """

@@ -14,7 +14,7 @@ from all2md.options import PptxOptions
 from all2md.ast import Table, CodeBlock
 from all2md.ast.transforms import extract_nodes
 from all2md.renderers.markdown import MarkdownRenderer
-from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPptxChartsAdvanced:

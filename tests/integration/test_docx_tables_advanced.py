@@ -5,7 +5,7 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from all2md import to_markdown as docx_to_markdown
-from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxTablesAdvanced:

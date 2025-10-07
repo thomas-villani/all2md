@@ -5,7 +5,7 @@ from docx.shared import Inches
 
 from all2md import to_markdown as docx_to_markdown
 from all2md.options import DocxOptions
-from tests.utils import MINIMAL_PNG_BYTES, assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
+from utils import MINIMAL_PNG_BYTES, assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxImagesAdvanced:

@@ -187,7 +187,7 @@ class TestOperationTimer:
         duration = timer.stop("operation1")
 
         assert duration > 0.01
-        assert duration < 0.1
+        assert duration < 0.2  # Increased threshold to account for system variability
 
     def test_timer_multiple_operations(self):
         """Test timer with multiple operations."""

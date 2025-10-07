@@ -18,7 +18,7 @@ from hypothesis import given, strategies as st, settings, HealthCheck
 from io import BytesIO
 
 from all2md import to_markdown
-from all2md.options import HtmlOptions
+from all2md.options import HtmlOptions, NetworkFetchOptions
 from all2md.parsers.html import HtmlToAstConverter as HtmlParser
 
 
@@ -94,7 +94,9 @@ class TestLinkURLSanitizationFuzzing:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_safe_schemes_allowed(self, safe_prefix, domain):
         """Property: Safe URL schemes should be allowed."""
-        parser = HtmlParser(HtmlOptions())
+        # Create parser with require_https=False to allow testing http:// URLs
+        options = HtmlOptions(network=NetworkFetchOptions(require_https=False))
+        parser = HtmlParser(options)
         url = safe_prefix + domain
 
         result = parser._sanitize_link_url(url)

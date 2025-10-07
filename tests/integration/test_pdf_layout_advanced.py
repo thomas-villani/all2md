@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from all2md import to_markdown as pdf_to_markdown
 from all2md.parsers.pdf import detect_columns, IdentifyHeaders
 from all2md.options import PdfOptions
-from tests.utils import cleanup_test_dir, create_test_temp_dir
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
 class TestPdfLayoutAdvanced:
@@ -144,6 +144,7 @@ class TestPdfLayoutAdvanced:
         mock_doc.page_count = 1
         mock_doc.name = "test.pdf"
         mock_doc.metadata = {}  # Add metadata dict for extraction
+        mock_doc.is_encrypted = False  # Not password-protected
         mock_fitz_open.return_value = mock_doc
 
         options = PdfOptions(handle_rotated_text=True)

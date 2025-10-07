@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from all2md import to_markdown as pdf_to_markdown
 from all2md.parsers.pdf import IdentifyHeaders
 from all2md.options import PdfOptions
-from tests.utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPdfFormatting:
@@ -136,6 +136,7 @@ class TestPdfFormatting:
         mock_doc.page_count = 1
         mock_doc.name = "test.pdf"  # Add name for format detection
         mock_doc.metadata = {}  # Add metadata dict for extraction
+        mock_doc.is_encrypted = False  # Not password-protected
         mock_fitz_open.return_value = mock_doc
 
         result = pdf_to_markdown(mock_doc, source_format="pdf")
@@ -338,6 +339,7 @@ class TestPdfFormatting:
         mock_doc.page_count = 1
         mock_doc.name = "test.pdf"  # Add name for format detection
         mock_doc.metadata = {}  # Add metadata dict for extraction
+        mock_doc.is_encrypted = False  # Not password-protected
         mock_fitz_open.return_value = mock_doc
 
         result = pdf_to_markdown(mock_doc, source_format="pdf")

@@ -7,7 +7,7 @@ using real PDF fixtures to test font flag interpretation and emphasis mapping.
 import pytest
 
 from all2md.parsers.pdf import IdentifyHeaders
-from tests.fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
+from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
 
 @pytest.mark.unit

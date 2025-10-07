@@ -11,7 +11,7 @@ from pptx import Presentation
 from all2md import to_markdown
 from all2md.exceptions import All2MdError
 from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions
-from tests.utils import (
+from utils import (
     DocxTestGenerator,
     EmlTestGenerator,
     assert_markdown_valid,

@@ -17,7 +17,7 @@ Basic progress tracking:
     >>> def my_progress_handler(event: ProgressEvent):
     ...     print(f"{event.event_type}: {event.message} ({event.current}/{event.total})")
     >>>
-    >>> markdown = to_markdown("document.pdf", progress=my_progress_handler)
+    >>> markdown = to_markdown("document.pdf", progress_callback=my_progress_handler)
 
 Advanced progress handling with metadata:
 
@@ -29,7 +29,7 @@ Advanced progress handling with metadata:
     ...     else:
     ...         print(f"{event.message}")
     >>>
-    >>> markdown = to_markdown("document.pdf", progress=detailed_handler)
+    >>> markdown = to_markdown("document.pdf", progress_callback=detailed_handler)
 
 """
 

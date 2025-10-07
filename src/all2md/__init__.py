@@ -407,7 +407,7 @@ def to_markdown(
         flavor: Optional[str] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
-        progress: Optional[ProgressCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
         **kwargs
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
@@ -440,7 +440,7 @@ def to_markdown(
     hooks : dict, optional
         Transform hooks to execute during processing. Maps hook names to
         callable functions that execute at specific points in the transform pipeline.
-    progress : ProgressCallback, optional
+    progress_callback : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
@@ -535,11 +535,11 @@ def to_markdown(
         # Log timing for parsing stage in trace mode
         if logger.isEnabledFor(logging.DEBUG):
             start_time = time.perf_counter()
-            ast_doc = to_ast(source, parser_options=final_parser_options, source_format=actual_format, progress=progress)
+            ast_doc = to_ast(source, parser_options=final_parser_options, source_format=actual_format, progress_callback=progress_callback)
             parse_time = time.perf_counter() - start_time
             logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
         else:
-            ast_doc = to_ast(source, parser_options=final_parser_options, source_format=actual_format, progress=progress)
+            ast_doc = to_ast(source, parser_options=final_parser_options, source_format=actual_format, progress_callback=progress_callback)
     except DependencyError:
         raise
     except FormatError as e:
@@ -606,7 +606,7 @@ def to_ast(
         *,
         parser_options: Optional[BaseParserOptions] = None,
         source_format: DocumentFormat = "auto",
-        progress: Optional[ProgressCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
         **kwargs
 ):
     """Convert document to AST (Abstract Syntax Tree) format.
@@ -626,7 +626,7 @@ def to_ast(
     source_format : DocumentFormat, default "auto"
         Explicitly specify the source document format. If "auto", the format is
         detected from the filename or content.
-    progress : ProgressCallback, optional
+    progress_callback : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
@@ -691,7 +691,7 @@ def to_ast(
     # Use the parser class system to convert to AST
     try:
         parser_class = registry.get_parser(actual_format)
-        parser = parser_class(options=final_parser_options, progress_callback=progress)
+        parser = parser_class(options=final_parser_options, progress_callback=progress_callback)
         ast_doc = parser.parse(source)
         return ast_doc
 
@@ -700,7 +700,6 @@ def to_ast(
     except Exception as e:
         raise ParsingError(f"AST conversion failed: {e!r}", parsing_stage="ast_conversion", original_error=e) from e
 
-# TODO: progress is not implemented.
 def from_ast(
         ast_doc: ast.Document,
         target_format: DocumentFormat,
@@ -709,7 +708,7 @@ def from_ast(
         renderer_options: Optional[BaseRendererOptions] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
-        progress: Optional[ProgressCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
     """Render AST document to a target format.
@@ -728,7 +727,7 @@ def from_ast(
         AST transforms to apply before rendering
     hooks : dict, optional
         Transform hooks to execute during processing
-    progress : ProgressCallback, optional
+    progress_callback : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
@@ -768,7 +767,8 @@ def from_ast(
         transforms=transforms or [],
         hooks=hooks or {},
         renderer=target_format,
-        options=final_renderer_options
+        options=final_renderer_options,
+        progress_callback=progress_callback
     )
 
     # Handle output
@@ -795,7 +795,7 @@ def from_markdown(
         renderer_options: Optional[BaseRendererOptions] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
-        progress: Optional[ProgressCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
     """Convert Markdown content to another format.
@@ -816,7 +816,7 @@ def from_markdown(
         AST transforms to apply
     hooks : dict, optional
         Transform hooks to execute
-    progress : ProgressCallback, optional
+    progress_callback : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
@@ -851,7 +851,7 @@ def from_markdown(
         target_format=target_format,
         transforms=transforms,
         hooks=hooks,
-        progress=progress,
+        progress_callback=progress_callback,
         **kwargs,
     )
 
@@ -867,7 +867,7 @@ def convert(
         hooks: Optional[dict] = None,
         renderer: Optional[Union[str, type, object]] = None,
         flavor: Optional[str] = None,
-        progress: Optional[ProgressCallback] = None,
+        progress_callback: Optional[ProgressCallback] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
     """Convert between document formats.
@@ -894,7 +894,7 @@ def convert(
         Custom renderer (overrides target_format)
     flavor : str, optional
         Markdown flavor shorthand for renderer_options
-    progress : ProgressCallback, optional
+    progress_callback : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
@@ -957,7 +957,7 @@ def convert(
         source,
         parser_options=final_parser_options,
         source_format=actual_source_format,
-        progress=progress,
+        progress_callback=progress_callback,
     )
 
     # Prepare renderer options
@@ -980,6 +980,7 @@ def convert(
         hooks=hooks,
         renderer=renderer_spec,
         options=final_renderer_options,
+        progress_callback=progress_callback,
     )
 
     # Handle output

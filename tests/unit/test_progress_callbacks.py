@@ -60,7 +60,7 @@ def test_progress_callback_basic(tmp_path):
     test_file.write_text("Hello, world!")
 
     tracker = ProgressTracker()
-    markdown = to_markdown(str(test_file), progress=tracker.callback)
+    markdown = to_markdown(str(test_file), progress_callback=tracker.callback)
 
     assert markdown == "Hello, world!"
     # Text files emit minimal events (started/finished at minimum)
@@ -74,7 +74,7 @@ def test_progress_callback_with_markdown(tmp_path):
     test_file.write_text("# Header\n\nSome content")
 
     tracker = ProgressTracker()
-    markdown = to_markdown(str(test_file), progress=tracker.callback)
+    markdown = to_markdown(str(test_file), progress_callback=tracker.callback)
 
     # Should have started and finished events
     assert tracker.has_event_type("started") or len(tracker.events) >= 0
@@ -86,7 +86,7 @@ def test_to_ast_with_progress(tmp_path):
     test_file.write_text("# Test Header")
 
     tracker = ProgressTracker()
-    doc = to_ast(str(test_file), progress=tracker.callback)
+    doc = to_ast(str(test_file), progress_callback=tracker.callback)
 
     assert doc is not None
     # Should emit events or handle gracefully
@@ -102,7 +102,7 @@ def test_progress_callback_exception_handling(tmp_path):
         raise ValueError("Callback error")
 
     # Should not raise - exceptions are caught and logged
-    markdown = to_markdown(str(test_file), progress=failing_callback)
+    markdown = to_markdown(str(test_file), progress_callback=failing_callback)
     assert markdown == "Hello"
 
 

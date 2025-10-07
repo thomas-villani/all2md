@@ -467,7 +467,7 @@ class TestLinkSchemeSecurityIntegration:
         <a href="JAVASCRIPT:alert('XSS')">Upper</a>
         <a href="JavaScript:alert('XSS')">Mixed</a>
         <a href="JaVaScRiPt:alert('XSS')">Weird</a>
-        <a href="HTTP://example.com">HTTP Upper</a>
+        <a href="HTTPS://example.com">HTTPS Upper</a>
         '''
 
         result = html_to_markdown(html_content, source_format="html")
@@ -477,8 +477,8 @@ class TestLinkSchemeSecurityIntegration:
         assert "[Mixed]()" in result
         assert "[Weird]()" in result
 
-        # HTTP in uppercase should still work
-        assert "[HTTP Upper](HTTP://example.com)" in result or "[HTTP Upper](http://example.com)" in result
+        # HTTPS in uppercase should still work
+        assert "[HTTPS Upper](HTTPS://example.com)" in result or "[HTTPS Upper](https://example.com)" in result
 
 
 class TestHtmlFileUrlSecurity:

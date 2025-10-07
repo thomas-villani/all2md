@@ -12,14 +12,14 @@ import pytest
 from all2md import to_markdown as epub_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import EpubOptions, MarkdownOptions
-from tests.fixtures.generators.epub_fixtures import (
+from fixtures.generators.epub_fixtures import (
     create_epub_file,
     create_epub_with_footnotes,
     create_epub_with_images,
     create_epub_with_nested_toc,
     create_simple_epub,
 )
-from tests.utils import assert_markdown_valid
+from utils import assert_markdown_valid
 
 # Skip tests if ebooklib is not available
 try:
@@ -50,7 +50,7 @@ class TestEpubIntegrationBasic:
         assert "Chapter 2: Content" in result
         assert "**bold text**" in result
         assert "*italic text*" in result
-        assert "[link](http://example.com)" in result
+        assert "[link](https://example.com)" in result
         assert_markdown_valid(result)
 
     def test_simple_epub_with_bytesio(self):

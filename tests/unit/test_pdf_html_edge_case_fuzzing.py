@@ -169,7 +169,7 @@ class TestPDFEdgeCaseFuzzing:
 
     def test_pdf_truncated_file(self):
         """Test truncated PDF file."""
-        from tests.fixtures.generators.pdf_test_fixtures import create_pdf_with_formatting
+        from fixtures.generators.pdf_test_fixtures import create_pdf_with_formatting
 
         # Create valid PDF and get bytes
         pdf_doc = create_pdf_with_formatting()
@@ -191,7 +191,7 @@ class TestFormatDetectionFuzzing:
     """Fuzz test format detection with ambiguous inputs."""
 
     @given(st.binary(min_size=4, max_size=100))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=1000)
     def test_format_detection_with_random_headers(self, header_bytes):
         """Test format detection doesn't crash on random file headers."""
         from all2md.exceptions import FormatError, ParsingError
@@ -209,7 +209,7 @@ class TestFormatDetectionFuzzing:
 
     def test_ambiguous_extension_content(self):
         """Test file with HTML extension but PDF content."""
-        from tests.fixtures.generators.pdf_test_fixtures import create_pdf_with_formatting
+        from fixtures.generators.pdf_test_fixtures import create_pdf_with_formatting
 
         pdf_doc = create_pdf_with_formatting()
         pdf_bytes = pdf_doc.tobytes()

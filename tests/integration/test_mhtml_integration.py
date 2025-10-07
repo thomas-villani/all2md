@@ -12,7 +12,7 @@ import pytest
 from all2md import to_markdown as mhtml_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownOptions, MhtmlOptions
-from tests.fixtures.generators.mhtml_fixtures import (
+from fixtures.generators.mhtml_fixtures import (
     create_malformed_mhtml,
     create_mhtml_file,
     create_mhtml_with_complex_html,
@@ -21,7 +21,7 @@ from tests.fixtures.generators.mhtml_fixtures import (
     create_mhtml_with_multiple_assets,
     create_simple_mhtml,
 )
-from tests.utils import assert_markdown_valid
+from utils import assert_markdown_valid
 
 
 @pytest.mark.integration
@@ -40,7 +40,7 @@ class TestMhtmlIntegrationBasic:
         assert "Test MHTML Document" in result
         assert "**bold**" in result
         assert "*italic*" in result
-        assert "[link](http://example.com)" in result
+        assert "[link](https://example.com)" in result
         assert "* First item" in result
         assert "* Second item" in result
         assert "* Third item" in result
