@@ -43,6 +43,9 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
     Heading,
@@ -79,6 +82,9 @@ _NODE_TYPE_MAP = {
     "BlockQuote": BlockQuote,
     "List": List,
     "ListItem": ListItem,
+    "DefinitionList": DefinitionList,
+    "DefinitionTerm": DefinitionTerm,
+    "DefinitionDescription": DefinitionDescription,
     "Table": Table,
     "TableRow": TableRow,
     "TableCell": TableCell,
@@ -190,6 +196,30 @@ def ast_to_dict(node: Node | SourceLocation) -> dict[str, Any]:
         result["children"] = [ast_to_dict(child) for child in node.children]
         if node.task_status:
             result["task_status"] = node.task_status
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, DefinitionList):
+        result["items"] = [
+            {
+                "term": ast_to_dict(term),
+                "descriptions": [ast_to_dict(d) for d in descriptions],
+            }
+            for (term, descriptions) in node.items
+        ]
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, DefinitionTerm):
+        result["content"] = [ast_to_dict(child) for child in node.content]
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, DefinitionDescription):
+        result["content"] = [ast_to_dict(child) for child in node.content]
         result["metadata"] = node.metadata
         if node.source_location:
             result["source_location"] = ast_to_dict(node.source_location)
@@ -412,6 +442,34 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
         return ListItem(
             children=deserialize_children(data.get("children", [])),
             task_status=data.get("task_status"),
+            metadata=metadata,
+            source_location=source_location,
+        )
+
+    elif node_type == "DefinitionList":
+        items = [
+            (
+                dict_to_ast(item["term"]),
+                [dict_to_ast(d) for d in item["descriptions"]],
+            )
+            for item in data.get("items", [])
+        ]
+        return DefinitionList(
+            items=items,  # type: ignore
+            metadata=metadata,
+            source_location=source_location,
+        )
+
+    elif node_type == "DefinitionTerm":
+        return DefinitionTerm(
+            content=deserialize_children(data.get("content", [])),
+            metadata=metadata,
+            source_location=source_location,
+        )
+
+    elif node_type == "DefinitionDescription":
+        return DefinitionDescription(
+            content=deserialize_children(data.get("content", [])),
             metadata=metadata,
             source_location=source_location,
         )

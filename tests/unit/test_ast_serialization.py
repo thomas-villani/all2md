@@ -5,16 +5,18 @@ import json
 import pytest
 
 from all2md.ast import (
-    Code,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
     Heading,
     Image,
-    MathBlock,
-    MathInline,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Paragraph,
     SourceLocation,
     Strong,
@@ -365,3 +367,93 @@ class TestLinkAndImageSerialization:
         assert restored.content[0].alt_text == "Test image"
         assert restored.content[0].width == 100
         assert restored.content[0].height == 200
+
+
+@pytest.mark.unit
+class TestDefinitionListSerialization:
+    """Test serialization of definition list nodes."""
+
+    def test_definition_list_to_dict(self) -> None:
+        """Test converting DefinitionList to dict."""
+        term = DefinitionTerm(content=[Text(content="Term 1")])
+        desc1 = DefinitionDescription(content=[Text(content="Description 1")])
+        desc2 = DefinitionDescription(content=[Text(content="Description 2")])
+        dl = DefinitionList(items=[(term, [desc1, desc2])])
+
+        result = ast_to_dict(dl)
+
+        assert result["node_type"] == "DefinitionList"
+        assert len(result["items"]) == 1
+        assert result["items"][0]["term"]["node_type"] == "DefinitionTerm"
+        assert len(result["items"][0]["descriptions"]) == 2
+        assert result["items"][0]["descriptions"][0]["node_type"] == "DefinitionDescription"
+
+    def test_definition_list_roundtrip(self) -> None:
+        """Test round-trip conversion of definition list."""
+        term1 = DefinitionTerm(content=[Text(content="API")])
+        desc1 = DefinitionDescription(content=[Text(content="Application Programming Interface")])
+
+        term2 = DefinitionTerm(content=[Text(content="CPU")])
+        desc2a = DefinitionDescription(content=[Text(content="Central Processing Unit")])
+        desc2b = DefinitionDescription(content=[Text(content="The main processor in a computer")])
+
+        dl = DefinitionList(items=[(term1, [desc1]), (term2, [desc2a, desc2b])])
+
+        doc = Document(children=[dl])
+        json_str = ast_to_json(doc)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, Document)
+        assert isinstance(restored.children[0], DefinitionList)
+
+        restored_dl = restored.children[0]
+        assert len(restored_dl.items) == 2
+
+        # Check first item
+        first_term, first_descs = restored_dl.items[0]
+        assert isinstance(first_term, DefinitionTerm)
+        assert len(first_term.content) == 1
+        assert isinstance(first_term.content[0], Text)
+        assert first_term.content[0].content == "API"
+        assert len(first_descs) == 1
+        assert isinstance(first_descs[0], DefinitionDescription)
+
+        # Check second item
+        second_term, second_descs = restored_dl.items[1]
+        assert isinstance(second_term, DefinitionTerm)
+        assert second_term.content[0].content == "CPU"  # type: ignore
+        assert len(second_descs) == 2
+        assert isinstance(second_descs[0], DefinitionDescription)
+        assert isinstance(second_descs[1], DefinitionDescription)
+
+    def test_definition_list_with_metadata(self) -> None:
+        """Test definition list with metadata preservation."""
+        term = DefinitionTerm(content=[Text(content="Term")], metadata={"lang": "en"})
+        desc = DefinitionDescription(content=[Text(content="Desc")], metadata={"author": "Alice"})
+        dl = DefinitionList(items=[(term, [desc])], metadata={"source": "glossary"})
+
+        json_str = ast_to_json(dl)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, DefinitionList)
+        assert restored.metadata["source"] == "glossary"
+
+        restored_term, restored_descs = restored.items[0]
+        assert restored_term.metadata["lang"] == "en"
+        assert restored_descs[0].metadata["author"] == "Alice"
+
+    def test_definition_list_with_source_location(self) -> None:
+        """Test definition list with source location preservation."""
+        loc = SourceLocation(format="html", element_id="glossary-1")
+        term = DefinitionTerm(content=[Text(content="Term")], source_location=loc)
+        desc = DefinitionDescription(content=[Text(content="Desc")])
+        dl = DefinitionList(items=[(term, [desc])])
+
+        json_str = ast_to_json(dl)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, DefinitionList)
+        restored_term, _ = restored.items[0]
+        assert restored_term.source_location is not None
+        assert restored_term.source_location.format == "html"
+        assert restored_term.source_location.element_id == "glossary-1"
