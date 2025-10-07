@@ -97,7 +97,8 @@ class EpubRenderer(BaseRenderer):
         except ImportError as e:
             raise DependencyError(
                 converter_name="epub_render",
-                missing_packages=[("ebooklib", "ebooklib", ">=0.17")],
+                missing_packages=[("ebooklib", ">=0.17")],
+                original_import_error=e
             ) from e
 
         # Create EPUB book

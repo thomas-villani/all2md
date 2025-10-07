@@ -18,13 +18,13 @@ import base64
 import re
 import tempfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union
+from typing import IO, TYPE_CHECKING, Union, Optional
 from urllib.parse import urlparse
 
 from all2md.exceptions import DependencyError
 
 if TYPE_CHECKING:
-    from docx import Document
+    from docx import Document as WordDocument
     from docx.text.paragraph import Paragraph
 
 from all2md.ast.nodes import (
@@ -70,6 +70,7 @@ from all2md.options import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
 
 
+# TODO: add a new option that allows the user to specify a "template" source docx file to use (allows styles)
 class DocxRenderer(NodeVisitor, BaseRenderer):
     """Render AST nodes to DOCX format.
 
@@ -102,7 +103,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         options = options or DocxRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: DocxRendererOptions = options
-        self.document: Document | None = None
+        self.document: Optional[WordDocument] = None  # Word document
         self._current_paragraph: Paragraph | None = None
         self._list_level: int = 0
         self._in_table: bool = False
@@ -121,7 +122,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """
         # Lazy load python-docx
         try:
-            from docx import Document
+            from docx import Document as WordDocument
             from docx.enum.style import WD_STYLE_TYPE
             from docx.enum.text import WD_ALIGN_PARAGRAPH
             from docx.oxml import OxmlElement
@@ -130,11 +131,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         except ImportError as e:
             raise DependencyError(
                 converter_name="docx_render",
-                missing_packages=[("python-docx", "docx", ">=1.2.0")],
+                missing_packages=[("python-docx", ">=1.2.0")],
+                original_import_error=e
             ) from e
 
         # Store imports as instance variables for use in other methods
-        self._Document = Document
+        self._Document = WordDocument
         self._WD_STYLE_TYPE = WD_STYLE_TYPE
         self._WD_ALIGN_PARAGRAPH = WD_ALIGN_PARAGRAPH
         self._OxmlElement = OxmlElement
@@ -144,7 +146,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._RGBColor = RGBColor
 
         # Create new Word document
-        self.document = Document()
+        self.document = WordDocument()
 
         # Set default font
         self._set_document_defaults()

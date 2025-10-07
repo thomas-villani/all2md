@@ -132,7 +132,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         except ImportError as e:
             raise DependencyError(
                 converter_name="pptx_render",
-                missing_packages=[("python-pptx", "python-pptx", ">=0.6.21")],
+                missing_packages=[("python-pptx", ">=0.6.21")],
+                original_import_error=e
             ) from e
 
         # Store imports
@@ -253,17 +254,25 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         slide = prs.slides.add_slide(layout)
 
         # Set title
-        if heading and self.options.use_heading_as_slide_title:
-            title = extract_heading_text(heading)
-        else:
-            title = ""
+        title = ""
+        nodes_to_render = content_nodes
+
+        if self.options.use_heading_as_slide_title:
+            if heading:
+                # Heading provided by splitting strategy (heading mode)
+                title = extract_heading_text(heading)
+            elif content_nodes and isinstance(content_nodes[0], Heading):
+                # Extract first heading from content (separator mode)
+                title = extract_heading_text(content_nodes[0])
+                # Don't render the heading again in content
+                nodes_to_render = content_nodes[1:]
 
         # Add title to slide if it has a title placeholder
         if slide.shapes.title and title:
             slide.shapes.title.text = title
 
         # Render content nodes
-        self._render_slide_content(slide, content_nodes)
+        self._render_slide_content(slide, nodes_to_render)
 
         return slide
 

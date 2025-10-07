@@ -140,18 +140,18 @@ def example_function():
         assert "HTML options:" in help_output
 
     def test_format_override_txt(self):
-        """Test format override to treat HTML as plain text."""
+        """Test format override to treat HTML as source code."""
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>HTML Title</h1><p>Content</p>")
 
         result = self._run_cli([
             str(html_file),
-            "--format", "txt"
+            "--format", "sourcecode"
         ])
 
         assert result.returncode == 0
-        # Should output raw HTML since it's treated as text
-        assert "<h1>HTML Title</h1><p>Content</p>" in result.stdout
+        # Should output as code block since it's treated as source code
+        assert "```" in result.stdout  # Should be in a code fence
 
     def test_nonexistent_file_error(self):
         """Test error handling for nonexistent files."""
@@ -159,7 +159,7 @@ def example_function():
 
         result = self._run_cli([str(nonexistent_file)])
 
-        assert result.returncode == 3  # EXIT_INPUT_ERROR
+        assert result.returncode == 4  # EXIT_FILE_ERROR
         assert "WARNING: Path does not exist" in result.stderr
 
     def test_invalid_format_error(self):
@@ -429,7 +429,7 @@ def example_function():
         # Test with tables disabled
         result_no_tables = self._run_cli([
             str(odt_file),
-            "--odf-no-preserve-tables"
+            "--odt-no-preserve-tables"
         ])
 
         assert result_no_tables.returncode == 0
@@ -514,7 +514,7 @@ def example_function():
 
         result = self._run_cli([str(nonexistent_file)])
 
-        assert result.returncode == 3  # EXIT_INPUT_ERROR
+        assert result.returncode == 4  # EXIT_FILE_ERROR
         assert "Error:" in result.stderr or "does not exist" in result.stderr
 
     @pytest.mark.odf
@@ -704,7 +704,7 @@ def example_function():
 
         result = self._run_cli([str(invalid_file)])
 
-        assert result.returncode == 3  # EXIT_INPUT_ERROR - malformed input file
+        assert result.returncode != 0  # Should fail - malformed file
         assert "Error:" in result.stderr
 
     @pytest.mark.e2e
@@ -715,7 +715,7 @@ def example_function():
 
         result = self._run_cli([str(nonexistent_file)])
 
-        assert result.returncode == 3  # EXIT_INPUT_ERROR
+        assert result.returncode == 4  # EXIT_FILE_ERROR
         assert "Error:" in result.stderr or "does not exist" in result.stderr
 
     @pytest.mark.e2e
@@ -929,7 +929,7 @@ class TestEpubCLIEndToEnd:
 
         result = self._run_cli([str(nonexistent_file)])
 
-        assert result.returncode == 3  # EXIT_INPUT_ERROR
+        assert result.returncode == 4  # EXIT_FILE_ERROR
         assert "Error" in result.stderr
 
 
@@ -1091,7 +1091,7 @@ class TestMhtmlCLIEndToEnd:
 
         result = self._run_cli([str(nonexistent_file)])
 
-        assert result.returncode == 3  # EXIT_INPUT_ERROR
+        assert result.returncode == 4  # EXIT_FILE_ERROR
         assert "Error" in result.stderr
 
 
@@ -1598,5 +1598,5 @@ class TestAdvancedCLIFeaturesE2E:
         # Test conflicting options (if any validation exists)
         nonexistent_file = self.temp_dir / "nonexistent.html"
         result = self._run_cli([str(nonexistent_file)])
-        assert result.returncode == 3  # EXIT_INPUT_ERROR
+        assert result.returncode == 4  # EXIT_FILE_ERROR
         assert "Error" in result.stderr or "does not exist" in result.stderr

@@ -161,7 +161,8 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         except ImportError as e:
             raise DependencyError(
                 converter_name="ods",
-                missing_packages=[("odfpy", "")]
+                missing_packages=[("odfpy", "")],
+                original_import_error=e
             ) from e
 
         # Load ODS document

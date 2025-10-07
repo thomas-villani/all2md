@@ -41,8 +41,10 @@ except ImportError:
 
 from all2md.ast import (
     BlockQuote,
+    Code,
     CodeBlock,
     Document,
+    Emphasis,
     Heading,
     Image,
     Link,
@@ -796,12 +798,13 @@ class TestPptxRendering:
         sep_prs = Presentation(str(sep_file))
         assert len(sep_prs.slides) == 3
 
-        # Test heading mode (should create 3 slides: H2, H2, content)
+        # Test heading mode (should create 2 slides: H2 "Slide 1", H2 "Slide 2" with remaining content)
+        # Note: In heading mode, content after the last heading is grouped with that heading
         heading_renderer = PptxRenderer(PptxRendererOptions(slide_split_mode="heading"))
         heading_file = tmp_path / "heading.pptx"
         heading_renderer.render(doc, heading_file)
         heading_prs = Presentation(str(heading_file))
-        assert len(heading_prs.slides) == 3
+        assert len(heading_prs.slides) == 2
 
         # Test auto mode (prefers separator)
         auto_renderer = PptxRenderer(PptxRendererOptions(slide_split_mode="auto"))

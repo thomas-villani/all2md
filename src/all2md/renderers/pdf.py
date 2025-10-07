@@ -149,7 +149,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         except ImportError as e:
             raise DependencyError(
                 converter_name="pdf_render",
-                missing_packages=[("reportlab", "reportlab", ">=4.0.0")],
+                missing_packages=[("reportlab", ">=4.0.0")],
+                original_import_error=e
             ) from e
 
         # Store imports as instance variables

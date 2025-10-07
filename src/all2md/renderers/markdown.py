@@ -1153,7 +1153,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             self._output.append('\n')
         self._output.append("$$")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: Union[str, Path, IO[bytes|str]]) -> None:
         """Render AST to markdown and write to output.
 
         Parameters
@@ -1169,7 +1169,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         if isinstance(output, (str, Path)):
             # Write to file
             Path(output).write_text(markdown_text, encoding="utf-8")
-        else:
+        elif isinstance(output, IO):
             # Write to file-like object
             if hasattr(output, 'mode') and 'b' in output.mode:
                 # Binary mode
@@ -1177,3 +1177,5 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             else:
                 # Text mode
                 output.write(markdown_text)
+        else:
+            raise TypeError(f"Output type {type(output)} is not supported")

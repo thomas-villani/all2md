@@ -363,7 +363,7 @@ class ZipToAstConverter(BaseParser):
             # Convert using the detected format
             doc = to_ast(
                 file_obj,
-                format=detected_format,
+                source_format=detected_format,
                 progress=self.progress_callback
             )
 

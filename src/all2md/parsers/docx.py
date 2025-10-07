@@ -180,6 +180,8 @@ class DocxToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="docx",
                 missing_packages=[("python-docx", "")],
+                install_command="`pip install all2md[docx]`",
+                original_import_error=e
             ) from e
 
         base_filename = "document"

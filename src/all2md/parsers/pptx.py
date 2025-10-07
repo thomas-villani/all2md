@@ -121,6 +121,7 @@ class PptxToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="pptx",
                 missing_packages=[("python-pptx", ">=1.0.2")],
+                original_import_error=e
             ) from e
 
         # Validate and convert input

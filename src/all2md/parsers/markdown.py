@@ -81,7 +81,9 @@ class MarkdownToAstConverter(BaseParser):
     """
 
     def __init__(self, options: MarkdownParserOptions | None = None, progress_callback=None):
-        super().__init__(options or MarkdownParserOptions(), progress_callback)
+        options = options or MarkdownParserOptions()
+        super().__init__(options, progress_callback)
+        self.options: MarkdownParserOptions = options
         self._footnote_definitions: dict[str, list[Node]] = {}
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -111,7 +113,8 @@ class MarkdownToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="markdown",
                 missing_packages=[("mistune", ">=3.0.0")],
-                install_command="pip install 'all2md[markdown]'"
+                install_command="pip install 'all2md[markdown]'",
+                original_import_error=e
             ) from e
 
         # Configure mistune plugins based on options

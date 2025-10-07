@@ -106,6 +106,7 @@ class RestructuredTextParser(BaseParser):
         # Load RST content from various input types
         rst_content = self._load_rst_content(input_data)
 
+        # TODO: Isn't docutils a builtin?
         try:
             from docutils.core import publish_doctree
             from docutils.parsers.rst import roles
@@ -113,8 +114,9 @@ class RestructuredTextParser(BaseParser):
         except ImportError as e:
             raise DependencyError(
                 converter_name="rst",
-                missing_packages=[("docutils", "docutils", ">=0.18")],
-                install_command="pip install 'all2md[rst]'"
+                missing_packages=[("docutils", ">=0.18")],
+                install_command="pip install 'all2md[rst]'",
+                original_import_error=e
             ) from e
 
         # Parse RST to docutils document tree

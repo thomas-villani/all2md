@@ -283,7 +283,8 @@ class XlsxToAstConverter(BaseParser):
         except ImportError as e:
             raise DependencyError(
                 converter_name="xlsx",
-                missing_packages=[("openpyxl", "")]
+                missing_packages=[("openpyxl", "")],
+                original_import_error=e
             ) from e
 
         # Load workbook

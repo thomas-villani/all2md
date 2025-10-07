@@ -134,14 +134,14 @@ class TestCLIIntegration:
         with patch("all2md.cli.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test"
 
-            with patch("logging.basicConfig") as mock_logging:
+            with patch("all2md.cli._configure_logging") as mock_logging:
                 result = main([str(html_file), "--log-level", "DEBUG"])
 
                 assert result == 0
                 # Verify logging was configured with DEBUG level
                 mock_logging.assert_called_once()
                 call_args = mock_logging.call_args
-                assert call_args[1]["level"] == 10  # logging.DEBUG
+                assert call_args[0][0] == 10  # logging.DEBUG (first positional arg)
 
     def test_attachment_options_propagation(self):
         """Test that attachment options are properly propagated."""

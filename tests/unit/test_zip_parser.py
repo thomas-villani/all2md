@@ -265,8 +265,8 @@ class TestZipMetadata:
 
         # Check metadata
         assert doc.metadata is not None
-        assert "file_count" in doc.metadata.get("custom", {})
-        assert doc.metadata["custom"]["file_count"] == 2
+        assert "file_count" in doc.metadata
+        assert doc.metadata["file_count"] == 2
 
 
 @pytest.mark.integration

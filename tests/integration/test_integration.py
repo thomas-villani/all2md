@@ -460,22 +460,22 @@ class TestNewAPI:
 
     def test_multiple_format_detections(self):
         """Test detection for various file formats."""
-        # Test CSV detection - CSV is handled by spreadsheet converter
+        # Test CSV detection - CSV has its own converter
         csv_content = b"name,age,city\nJohn,25,NYC\nJane,30,LA"
         csv_io = BytesIO(csv_content)
         csv_io.name = "test.csv"  # Give it a name for format detection
 
-        result = to_markdown(csv_io, source_format="spreadsheet")
+        result = to_markdown(csv_io, source_format="csv")
         assert "|" in result  # Should be markdown table
         assert "John" in result
         assert "Jane" in result
 
-        # Test TSV detection - TSV is handled by spreadsheet converter
+        # Test TSV detection - TSV is handled by CSV converter
         tsv_content = b"name\tage\tcity\nBob\t35\tSF"
         tsv_io = BytesIO(tsv_content)
         tsv_io.name = "test.tsv"  # Give it a name for format detection
 
-        result = to_markdown(tsv_io, source_format="spreadsheet")
+        result = to_markdown(tsv_io, source_format="csv")
         assert "|" in result  # Should be markdown table
         assert "Bob" in result
 

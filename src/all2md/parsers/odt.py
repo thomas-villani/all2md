@@ -77,6 +77,7 @@ class OdtToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="odt",
                 missing_packages=[("odfpy", "")],
+                original_import_error=e
             ) from e
 
         self._list_level = 0
@@ -114,6 +115,7 @@ class OdtToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="odt",
                 missing_packages=[("odfpy", "")],
+                original_import_error=e
             ) from e
 
 

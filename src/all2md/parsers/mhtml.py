@@ -68,6 +68,7 @@ class MhtmlToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="mhtml",
                 missing_packages=[("bs4", "")],
+                original_import_error=e
             ) from e
 
         # Parse MHTML message

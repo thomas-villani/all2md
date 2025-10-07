@@ -750,14 +750,14 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         for line in lines:
             self._output.append(f"   {line}\n")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: Union[str, Path, IO[bytes|str]]) -> None:
         """Render AST to RST and write to output.
 
         Parameters
         ----------
         doc : Document
             AST Document node to render
-        output : str, Path, or IO[bytes]
+        output : str, Path, or IO[bytes|str]
             Output destination (file path or file-like object)
 
         """

@@ -635,7 +635,7 @@ def convert_single_file(
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, format=format_arg, transforms=transforms, **options)
+        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)
 
         # Output the result
         if output_path:
@@ -686,7 +686,7 @@ def convert_single_file_for_collation(
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, format=format_arg, transforms=transforms, **options)
+        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"

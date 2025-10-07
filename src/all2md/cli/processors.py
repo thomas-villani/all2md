@@ -278,7 +278,7 @@ def process_stdin(
     input_source = stdin_data
 
     try:
-        markdown_content = to_markdown(input_source, format=format_arg, transforms=transforms, **options)
+        markdown_content = to_markdown(input_source, source_format=format_arg, transforms=transforms, **options)
 
         if parsed_args.out:
             output_path = Path(parsed_args.out)
@@ -386,7 +386,7 @@ def process_multi_file(
                 from all2md import to_markdown
 
                 # Convert the document
-                markdown_content = to_markdown(file, format=format_arg, transforms=transforms, **options)
+                markdown_content = to_markdown(file, source_format=format_arg, transforms=transforms, **options)
 
                 # Display with pager
                 console = Console()

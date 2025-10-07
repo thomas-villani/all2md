@@ -82,6 +82,7 @@ class RtfToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="rtf",
                 missing_packages=[("pyth3", "")],
+                original_import_error=e
             ) from e
 
         self._base_filename = "document"
@@ -114,6 +115,7 @@ class RtfToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="rtf",
                 missing_packages=[("pyth3", "")],
+                original_import_error=e
             ) from e
 
         doc = None

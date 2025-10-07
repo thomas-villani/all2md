@@ -494,8 +494,7 @@ class ZipFileSecurityError(SecurityError):
     pass
 
 
-# TODO: I think we changed DependencyError to take `missing_packages=("install name", "import name", "version")`
-class DependencyError(ImportError, All2MdError):
+class DependencyError(All2MdError):
     """Exception raised when required dependencies are not available.
 
     This exception is raised when attempting to use a converter that
@@ -534,10 +533,11 @@ class DependencyError(ImportError, All2MdError):
             missing_packages: list[tuple[str, str]],
             version_mismatches: list[tuple[str, str, str]] | None = None,
             install_command: str = "",
-            message: str | None = None
+            message: str | None = None,
+            original_import_error: ImportError | None = None
     ):
         version_mismatches = version_mismatches or []
-
+        self.original_import_error = original_import_error
         if message is None:
             message_parts = []
 

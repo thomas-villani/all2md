@@ -192,6 +192,7 @@ class HtmlToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="html",
                 missing_packages=[("bs4", "")],
+                original_import_error=e
             ) from e
 
         if self.options.attachment_mode not in ("skip", "alt_text"):

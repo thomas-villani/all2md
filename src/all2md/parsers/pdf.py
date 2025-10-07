@@ -84,7 +84,8 @@ def _check_pymupdf_version() -> None:
     except ImportError as e:
         raise DependencyError(
             converter_name="pdf",
-            missing_packages=[("pymupdf", PDF_MIN_PYMUPDF_VERSION)]
+            missing_packages=[("pymupdf", PDF_MIN_PYMUPDF_VERSION)],
+            original_import_error=e
         ) from e
 
 
@@ -937,6 +938,7 @@ class PdfToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="pdf",
                 missing_packages=[("pymupdf", f">={PDF_MIN_PYMUPDF_VERSION}")],
+                original_import_error=e
             ) from e
         _check_pymupdf_version()
 

@@ -70,7 +70,8 @@ class EpubToAstConverter(BaseParser):
             raise DependencyError(
                 converter_name="epub",
                 missing_packages=[("ebooklib", "")],
-                install_command="pip install 'all2md[epub]'"
+                install_command="pip install 'all2md[epub]'",
+                original_import_error=e
             ) from e
 
         # Handle file-like objects by creating a temporary file
