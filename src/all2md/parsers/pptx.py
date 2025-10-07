@@ -49,7 +49,6 @@ from all2md.ast import (
     Table as AstTable,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import PptxOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import (
     create_attachment_sequencer,

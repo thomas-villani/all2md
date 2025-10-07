@@ -484,8 +484,6 @@ def to_markdown(
     With transforms:
         >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
     """
-    if "options" in kwargs:
-        raise ValueError("`options` is deprecated! Use `parse_options` or `renderer_options`")
     # Determine format first
     if source_format != "auto":
         actual_format = source_format
@@ -668,7 +666,6 @@ def to_ast(
         >>> json_str = serialization.ast_to_json(ast_doc, indent=2)
 
     """
-    from all2md.ast import Document
 
     # Detect format
     actual_format = source_format if source_format != "auto" else registry.detect_format(source)
@@ -696,10 +693,11 @@ def to_ast(
     except All2MdError:
         raise
     except Exception as e:
-        raise ParsingError(f"AST conversion failed: {e}", parsing_stage="ast_conversion") from e
+        raise ParsingError(f"AST conversion failed: {e!r}", parsing_stage="ast_conversion", original_error=e) from e
 
+# TODO: progress is not implemented.
 def from_ast(
-        ast_doc: "Document",
+        ast_doc: ast.Document,
         target_format: DocumentFormat,
         output: Union[str, Path, IO[bytes], None] = None,
         *,
@@ -951,7 +949,7 @@ def convert(
     ast_document = to_ast(
         source,
         parser_options=final_parser_options,
-        format=actual_source_format,
+        source_format=actual_source_format,
         progress=progress,
     )
 

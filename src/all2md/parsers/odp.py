@@ -415,9 +415,6 @@ class OdpToAstConverter(BaseParser):
                     style_name = node.getAttribute("stylename")
                     if style_name and doc:
                         # Apply formatting based on style
-                        text_content = "".join(
-                            n.content for n in inner_nodes if isinstance(n, Text)
-                        )
                         # Simple heuristic: check style name for hints
                         if "bold" in style_name.lower() or "strong" in style_name.lower():
                             nodes.append(Strong(content=inner_nodes))

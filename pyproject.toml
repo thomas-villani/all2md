@@ -131,6 +131,7 @@ fix = true
 
 [tool.ruff.lint]
 select = [
+    "D",  # pydocstyle
     "E",  # pycodestyle errors
     "F",  # pyflakes errors
     "W",  # pycodestyle warnings

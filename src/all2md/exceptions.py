@@ -494,6 +494,7 @@ class ZipFileSecurityError(SecurityError):
     pass
 
 
+# TODO: I think we changed DependencyError to take `missing_packages=("install name", "import name", "version")`
 class DependencyError(ImportError, All2MdError):
     """Exception raised when required dependencies are not available.
 

@@ -8,6 +8,8 @@ from dataclass options using field metadata.
 
 import argparse
 import difflib
+import sys
+import warnings
 from dataclasses import fields, is_dataclass
 from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
 
@@ -861,9 +863,6 @@ Examples:
 
         # Validate unknown arguments
         if unknown_args:
-            import sys
-            import warnings
-
             # Check if strict mode is enabled (can be controlled via env var or arg)
             strict_mode = getattr(parsed_args, 'strict_args', False)
 
@@ -889,7 +888,7 @@ Examples:
             else:
                 # Warn about unknown arguments
                 for msg in error_messages:
-                    warnings.warn(msg, UserWarning)
+                    warnings.warn(msg, UserWarning, stacklevel=2)
                     print(f"Warning: {msg}", file=sys.stderr)
 
         return options

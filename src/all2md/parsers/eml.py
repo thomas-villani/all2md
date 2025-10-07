@@ -270,7 +270,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
 
         # Convert HTML to Markdown
         from io import StringIO
-        return to_markdown(StringIO(html_content), format="html", parser_options=html_options, renderer_options=md_options)
+        return to_markdown(StringIO(html_content), source_format="html", parser_options=html_options, renderer_options=md_options)
 
     except ImportError:
         # html2markdown not available, return HTML as-is

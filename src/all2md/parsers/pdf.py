@@ -52,7 +52,6 @@ from all2md.constants import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
-from all2md.options import PdfOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import (
