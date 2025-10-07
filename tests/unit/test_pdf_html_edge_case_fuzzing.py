@@ -30,7 +30,7 @@ class TestHTMLEdgeCaseFuzzing:
     def test_random_binary_as_html(self, binary_data):
         """Property: Random binary data should not crash HTML parser."""
         try:
-            result = to_markdown(BytesIO(binary_data), format='html')
+            result = to_markdown(BytesIO(binary_data), source_format='html')
             # Should return a string (possibly empty)
             assert isinstance(result, str)
         except (UnicodeDecodeError, MalformedFileError):
@@ -42,13 +42,13 @@ class TestHTMLEdgeCaseFuzzing:
 
     def test_html_empty_file(self):
         """Test empty HTML file."""
-        result = to_markdown(BytesIO(b''), format='html')
+        result = to_markdown(BytesIO(b''), source_format='html')
         # Should handle gracefully
         assert isinstance(result, str)
 
     def test_html_whitespace_only(self):
         """Test HTML file with only whitespace."""
-        result = to_markdown(BytesIO(b'   \n\t\r\n   '), format='html')
+        result = to_markdown(BytesIO(b'   \n\t\r\n   '), source_format='html')
         assert isinstance(result, str)
 
     @given(st.integers(min_value=0, max_value=1000000))
@@ -62,7 +62,7 @@ class TestHTMLEdgeCaseFuzzing:
         html = b'<p>' + b'a' * repeat_count + b'</p>'
 
         try:
-            result = to_markdown(BytesIO(html), format='html')
+            result = to_markdown(BytesIO(html), source_format='html')
             assert isinstance(result, str)
         except MemoryError:
             # Expected for very large inputs
@@ -75,7 +75,7 @@ class TestHTMLEdgeCaseFuzzing:
         closing = '</div>' * 100
         html = f'{opening}Content{closing}'
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
         assert isinstance(result, str)
         assert 'content' in result.lower()
 
@@ -84,7 +84,7 @@ class TestHTMLEdgeCaseFuzzing:
     def test_html_random_tag_structure(self, tag_chars):
         """Test HTML with random tag-like characters."""
         try:
-            result = to_markdown(BytesIO(tag_chars.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(tag_chars.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except Exception as e:
             pytest.fail(f"Crash on tag structure: {e}")
@@ -96,7 +96,7 @@ class TestHTMLEdgeCaseFuzzing:
         <p>Valid entity: &amp;</p>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
         assert isinstance(result, str)
 
     def test_html_null_bytes(self):
@@ -104,7 +104,7 @@ class TestHTMLEdgeCaseFuzzing:
         html = b'<p>Text\x00with\x00nulls</p>'
 
         try:
-            result = to_markdown(BytesIO(html), format='html')
+            result = to_markdown(BytesIO(html), source_format='html')
             assert isinstance(result, str)
         except Exception as e:
             pytest.fail(f"Crash on null bytes: {e}")
@@ -121,7 +121,7 @@ class TestPDFEdgeCaseFuzzing:
     def test_random_binary_as_pdf(self, binary_data):
         """Property: Random binary data should not crash PDF parser."""
         try:
-            result = to_markdown(BytesIO(binary_data), format='pdf')
+            result = to_markdown(BytesIO(binary_data), source_format='pdf')
             # Should either succeed or raise MalformedFileError
             assert isinstance(result, str)
         except MalformedFileError:
@@ -136,7 +136,7 @@ class TestPDFEdgeCaseFuzzing:
     def test_pdf_empty_file(self):
         """Test empty PDF file."""
         try:
-            result = to_markdown(BytesIO(b''), format='pdf')
+            result = to_markdown(BytesIO(b''), source_format='pdf')
             assert isinstance(result, str)
         except MalformedFileError:
             # Expected - empty file is not valid PDF
@@ -148,7 +148,7 @@ class TestPDFEdgeCaseFuzzing:
         invalid_pdf = b'NOTAPDF\n' + b'x' * 100
 
         try:
-            result = to_markdown(BytesIO(invalid_pdf), format='pdf')
+            result = to_markdown(BytesIO(invalid_pdf), source_format='pdf')
             # Should either work or raise MalformedFileError
             assert isinstance(result, str)
         except MalformedFileError:
@@ -161,7 +161,7 @@ class TestPDFEdgeCaseFuzzing:
         corrupt_pdf = b'%PDF-1.4\n' + b'\x00\xFF\xFE' * 100
 
         try:
-            result = to_markdown(BytesIO(corrupt_pdf), format='pdf')
+            result = to_markdown(BytesIO(corrupt_pdf), source_format='pdf')
             assert isinstance(result, str)
         except MalformedFileError:
             # Expected for corrupted PDF
@@ -177,7 +177,7 @@ class TestPDFEdgeCaseFuzzing:
         truncated_pdf = valid_pdf[:len(valid_pdf) // 2]  # Take only first half
 
         try:
-            result = to_markdown(BytesIO(truncated_pdf), format='pdf')
+            result = to_markdown(BytesIO(truncated_pdf), source_format='pdf')
             # Might succeed partially or fail
             assert isinstance(result, str)
         except (MalformedFileError, Exception):
@@ -216,7 +216,7 @@ class TestFormatDetectionFuzzing:
 
         # Force HTML format on PDF content
         try:
-            result = to_markdown(BytesIO(pdf_bytes), format='html')
+            result = to_markdown(BytesIO(pdf_bytes), source_format='html')
             # Should handle gracefully
             assert isinstance(result, str)
         except (MalformedFileError, UnicodeDecodeError):
@@ -240,7 +240,7 @@ class TestEncodingEdgeCases:
 
         try:
             encoded = html.encode(encoding)
-            result = to_markdown(BytesIO(encoded), format='html')
+            result = to_markdown(BytesIO(encoded), source_format='html')
 
             # Check if the encoded bytes are valid UTF-8
             try:
@@ -263,7 +263,7 @@ class TestEncodingEdgeCases:
         # UTF-8 BOM
         html_with_bom = b'\xef\xbb\xbf<p>Content</p>'
 
-        result = to_markdown(BytesIO(html_with_bom), format='html')
+        result = to_markdown(BytesIO(html_with_bom), source_format='html')
         assert isinstance(result, str)
         assert 'content' in result.lower()
 
@@ -275,7 +275,7 @@ class TestEncodingEdgeCases:
         <p>العربية, עברית, ไทย</p>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
         assert isinstance(result, str)
 
 
@@ -292,7 +292,7 @@ class TestResourceExhaustionProtection:
         html = ''.join(elements)
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except MemoryError:
             pytest.skip("Memory limit exceeded")
@@ -303,7 +303,7 @@ class TestResourceExhaustionProtection:
         html = f'<p data-value="{long_value}">Content</p>'
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except MemoryError:
             pytest.skip("Memory limit exceeded")

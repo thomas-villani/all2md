@@ -15,19 +15,10 @@ list nesting) during traversal.
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import IO, Union
 
-from all2md.utils.flavors import (
-    CommonMarkFlavor,
-    GFMFlavor,
-    KramdownFlavor,
-    MarkdownFlavor,
-    MarkdownPlusFlavor,
-    MultiMarkdownFlavor,
-    PandocFlavor,
-)
 from all2md.ast.nodes import (
     BlockQuote,
     Code,
@@ -62,9 +53,18 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
+from all2md.ast.visitors import NodeVisitor
 from all2md.options import MarkdownOptions
 from all2md.renderers.base import BaseRenderer
-from all2md.ast.visitors import NodeVisitor
+from all2md.utils.flavors import (
+    CommonMarkFlavor,
+    GFMFlavor,
+    KramdownFlavor,
+    MarkdownFlavor,
+    MarkdownPlusFlavor,
+    MultiMarkdownFlavor,
+    PandocFlavor,
+)
 from all2md.utils.html_utils import render_math_html
 
 
@@ -302,9 +302,9 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
         # Import formatters
         from all2md.utils.metadata import (
-            format_yaml_frontmatter,
-            format_toml_frontmatter,
             format_json_frontmatter,
+            format_toml_frontmatter,
+            format_yaml_frontmatter,
         )
 
         # Select formatter based on metadata_format option

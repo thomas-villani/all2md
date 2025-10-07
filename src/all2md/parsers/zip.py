@@ -15,7 +15,7 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Union
 
 from all2md.ast import Document, Heading, Node, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
@@ -26,11 +26,9 @@ from all2md.exceptions import (
     MalformedFileError,
     ParsingError,
     ValidationError,
-    ZipFileSecurityError,
 )
 from all2md.options import ZipOptions
 from all2md.parsers.base import BaseParser
-from all2md.utils.attachments import sanitize_attachment_filename
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
 

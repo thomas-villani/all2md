@@ -316,31 +316,31 @@ class TestToMarkdownFlavorParameter:
         """Test specifying CommonMark flavor via parameter."""
         # Create a simple text file
         text_content = "Hello World"
-        result = to_markdown(text_content.encode(), format="txt", flavor="commonmark")
+        result = to_markdown(text_content.encode(), source_format="txt", flavor="commonmark")
         assert result == "Hello World"
 
     def test_flavor_parameter_gfm(self):
         """Test specifying GFM flavor via parameter."""
         text_content = "Hello World"
-        result = to_markdown(text_content.encode(), format="txt", flavor="gfm")
+        result = to_markdown(text_content.encode(), source_format="txt", flavor="gfm")
         assert result == "Hello World"
 
     def test_flavor_parameter_multimarkdown(self):
         """Test specifying MultiMarkdown flavor via parameter."""
         text_content = "Hello World"
-        result = to_markdown(text_content.encode(), format="txt", flavor="multimarkdown")
+        result = to_markdown(text_content.encode(), source_format="txt", flavor="multimarkdown")
         assert result == "Hello World"
 
     def test_flavor_parameter_pandoc(self):
         """Test specifying Pandoc flavor via parameter."""
         text_content = "Hello World"
-        result = to_markdown(text_content.encode(), format="txt", flavor="pandoc")
+        result = to_markdown(text_content.encode(), source_format="txt", flavor="pandoc")
         assert result == "Hello World"
 
     def test_flavor_parameter_kramdown(self):
         """Test specifying Kramdown flavor via parameter."""
         text_content = "Hello World"
-        result = to_markdown(text_content.encode(), format="txt", flavor="kramdown")
+        result = to_markdown(text_content.encode(), source_format="txt", flavor="kramdown")
         assert result == "Hello World"
 
     def test_flavor_kwarg_priority(self):
@@ -348,5 +348,5 @@ class TestToMarkdownFlavorParameter:
         text_content = "Hello World"
         options = MarkdownOptions(flavor="commonmark")
         # flavor kwarg should override options
-        result = to_markdown(text_content.encode(), format="txt", renderer_options=options, flavor="gfm")
+        result = to_markdown(text_content.encode(), source_format="txt", renderer_options=options, flavor="gfm")
         assert result == "Hello World"

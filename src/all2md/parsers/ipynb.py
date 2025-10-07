@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import IO, Any, Union
 
-from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph, Text
+from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError

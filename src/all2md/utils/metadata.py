@@ -24,11 +24,11 @@ The metadata extraction supports various document properties like title, author,
 creation date, keywords, and format-specific metadata fields.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Mapping, Optional, Union
-import hashlib
 from pathlib import Path
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 # Standard property mappings for different document formats
 PDF_FIELD_MAPPING = {

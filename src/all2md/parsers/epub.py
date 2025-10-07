@@ -16,7 +16,7 @@ from typing import IO, Any, Union
 
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import ZipFileSecurityError, ParsingError, ValidationError
+from all2md.exceptions import ParsingError, ValidationError, ZipFileSecurityError
 from all2md.options import EpubOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
@@ -118,7 +118,7 @@ class EpubToAstConverter(BaseParser):
             return doc
         else:
             raise ParsingError(
-                f"Failed to read or parse EPUB file: no file read.",
+                "Failed to read or parse EPUB file: no file read.",
                 parsing_stage="document_opening",
             )
 

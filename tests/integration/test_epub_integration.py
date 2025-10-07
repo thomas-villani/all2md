@@ -58,7 +58,7 @@ class TestEpubIntegrationBasic:
         epub_content = create_simple_epub()
         epub_file = io.BytesIO(epub_content)
 
-        result = epub_to_markdown(epub_file, format="epub")
+        result = epub_to_markdown(epub_file, source_format="epub")
 
         assert isinstance(result, str)
         assert "Chapter 1: Introduction" in result

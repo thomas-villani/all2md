@@ -342,14 +342,14 @@ class TestNewAPI:
         html_io = BytesIO(html_content)
 
         # Process as HTML (auto-detection)
-        result_html = to_markdown(html_io, format="html")
+        result_html = to_markdown(html_io, source_format="html")
         assert "# Test" in result_html or "Test" in result_html
         assert "Content" in result_html
         assert "<html>" not in result_html  # Should be converted
 
         # Reset and process as plain text (force format)
         html_io.seek(0)
-        result_text = to_markdown(html_io, format="txt")
+        result_text = to_markdown(html_io, source_format="txt")
         assert "<html>" in result_text  # Should preserve HTML tags
         assert "<body>" in result_text
 
@@ -368,7 +368,7 @@ class TestNewAPI:
             parser_options=base_parser_options,
             renderer_options=md_opts,
             use_hash_headings=True,  # Override the False setting
-            format="html"
+            source_format="html"
         )
 
         assert_markdown_valid(result)
@@ -380,7 +380,7 @@ class TestNewAPI:
 
         result = to_markdown(
             html_io,
-            format="html",
+            source_format="html",
             use_hash_headings=True,
             convert_nbsp=False,
             emphasis_symbol="_"  # MarkdownOptions field
@@ -437,7 +437,7 @@ class TestNewAPI:
         result = to_markdown(
             text_io,
             parser_options=pdf_options,
-            format="txt"  # Force as text since we don't have real PDF
+            source_format="txt"  # Force as text since we don't have real PDF
         )
 
         assert result.strip() == "Simple text content"
@@ -465,7 +465,7 @@ class TestNewAPI:
         csv_io = BytesIO(csv_content)
         csv_io.name = "test.csv"  # Give it a name for format detection
 
-        result = to_markdown(csv_io, format="spreadsheet")
+        result = to_markdown(csv_io, source_format="spreadsheet")
         assert "|" in result  # Should be markdown table
         assert "John" in result
         assert "Jane" in result
@@ -475,7 +475,7 @@ class TestNewAPI:
         tsv_io = BytesIO(tsv_content)
         tsv_io.name = "test.tsv"  # Give it a name for format detection
 
-        result = to_markdown(tsv_io, format="spreadsheet")
+        result = to_markdown(tsv_io, source_format="spreadsheet")
         assert "|" in result  # Should be markdown table
         assert "Bob" in result
 
@@ -486,7 +486,7 @@ class TestNewAPI:
 
         result = to_markdown(
             html_io,
-            format="html",
+            source_format="html",
             emphasis_symbol="_",  # Should affect italic rendering
             bullet_symbols="*-+"
         )
@@ -550,7 +550,7 @@ class TestNewAPI:
         """Test detection for edge cases and unusual file types."""
         # Test with empty file
         empty_io = BytesIO(b"")
-        result = to_markdown(empty_io, format="txt")
+        result = to_markdown(empty_io, source_format="txt")
         assert result == ""
 
         # Test with binary data that doesn't match any signature

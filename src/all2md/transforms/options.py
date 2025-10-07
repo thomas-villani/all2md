@@ -125,7 +125,7 @@ class AddHeadingIdsOptions:
 
 @dataclass
 class RemoveBoilerplateOptions:
-    """Options for RemoveBoilerplateTextTransform.
+    r"""Options for RemoveBoilerplateTextTransform.
 
     Parameters
     ----------

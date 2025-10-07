@@ -18,7 +18,7 @@ class TestHtmlTableParsing:
     def test_basic_table_structure_parsing(self):
         """Test parsing of basic table with thead, tbody structure."""
         html_content = create_html_with_tables()
-        markdown = html_to_markdown(html_content, format="html")
+        markdown = html_to_markdown(html_content, source_format="html")
 
         assert_markdown_valid(markdown)
         # Should contain table headers
@@ -41,7 +41,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
         assert "Test Table Caption" in markdown
 
@@ -63,7 +63,7 @@ class TestHtmlTableParsing:
             </tbody>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should have header separator (various formats possible)
@@ -85,7 +85,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should still create table structure
@@ -113,7 +113,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle empty cells gracefully
@@ -137,7 +137,7 @@ class TestHtmlTableParsing:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Whitespace should be normalized
@@ -164,7 +164,7 @@ class TestHtmlTableFormatting:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve formatting in cells
@@ -187,7 +187,7 @@ class TestHtmlTableFormatting:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should convert links properly in table cells
@@ -207,7 +207,7 @@ class TestHtmlTableFormatting:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve code formatting in cells
@@ -234,7 +234,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
 
         # Should not crash and should produce some output
         assert isinstance(markdown, str)
@@ -259,7 +259,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle nested content appropriately
@@ -284,7 +284,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle entities and special chars
@@ -303,7 +303,7 @@ class TestHtmlTableEdgeCases:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle line breaks appropriately

@@ -28,7 +28,7 @@ class TestPDFGolden:
         pdf_doc = create_pdf_with_formatting()
         pdf_bytes = pdf_doc.tobytes()
 
-        result = to_markdown(BytesIO(pdf_bytes), format='pdf')
+        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf')
         assert result == snapshot
 
     def test_pdf_with_tables(self, snapshot):
@@ -36,7 +36,7 @@ class TestPDFGolden:
         pdf_doc = create_pdf_with_tables()
         pdf_bytes = pdf_doc.tobytes()
 
-        result = to_markdown(BytesIO(pdf_bytes), format='pdf')
+        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf')
         assert result == snapshot
 
     def test_pdf_with_figures(self, snapshot):
@@ -45,7 +45,7 @@ class TestPDFGolden:
         pdf_bytes = pdf_doc.tobytes()
 
         options = PdfOptions(attachment_mode='alt_text')
-        result = to_markdown(BytesIO(pdf_bytes), format='pdf', parser_options=options)
+        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf', parser_options=options)
         assert result == snapshot
 
     def test_pdf_attachment_mode_skip(self, snapshot):
@@ -54,7 +54,7 @@ class TestPDFGolden:
         pdf_bytes = pdf_doc.tobytes()
 
         options = PdfOptions(attachment_mode='skip')
-        result = to_markdown(BytesIO(pdf_bytes), format='pdf', parser_options=options)
+        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf', parser_options=options)
         assert result == snapshot
 
 
@@ -70,7 +70,7 @@ class TestPDFGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='pdf')
+                result = to_markdown(f, source_format='pdf')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")

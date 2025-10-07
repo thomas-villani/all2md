@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md import DependencyError, PptxOptions
-from all2md.exceptions import ZipFileSecurityError, MalformedFileError
-from all2md.utils.inputs import validate_and_convert_input, parse_page_ranges, format_special_text
+from all2md.exceptions import MalformedFileError, ZipFileSecurityError
+from all2md.utils.inputs import parse_page_ranges, validate_and_convert_input
 from all2md.utils.security import validate_zip_archive
 
 if TYPE_CHECKING:
@@ -27,28 +27,36 @@ if TYPE_CHECKING:
     from pptx.text.text import TextFrame
 
 from all2md.ast import (
+    CodeBlock,
     Document,
     Emphasis,
     Heading,
     Image,
     List,
     ListItem,
-    CodeBlock,
     Node,
-    Paragraph as AstParagraph,
     Strong,
-    Table as AstTable,
     TableCell,
     TableRow,
     Text,
     ThematicBreak,
     Underline,
 )
-from all2md.utils.attachments import process_attachment, extract_pptx_image_data, create_attachment_sequencer, \
-    generate_attachment_filename
+from all2md.ast import (
+    Paragraph as AstParagraph,
+)
+from all2md.ast import (
+    Table as AstTable,
+)
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import PptxOptions
 from all2md.parsers.base import BaseParser
+from all2md.utils.attachments import (
+    create_attachment_sequencer,
+    extract_pptx_image_data,
+    generate_attachment_filename,
+    process_attachment,
+)
 from all2md.utils.metadata import OFFICE_FIELD_MAPPING, DocumentMetadata, map_properties_to_metadata
 
 logger = logging.getLogger(__name__)
@@ -76,7 +84,7 @@ class PptxToAstConverter(BaseParser):
         options = options or PptxOptions()
         super().__init__(options, progress_callback)
         self.options: PptxOptions = options
-        
+
         self._current_slide_num = 0
         self._base_filename = "presentation"
         self._attachment_sequencer = create_attachment_sequencer()
@@ -518,7 +526,7 @@ class PptxToAstConverter(BaseParser):
 
         for series_name, x_values, y_values in series_data:
             pairs: list[str] = []
-            for x_val, y_val in zip(x_values, y_values):
+            for x_val, y_val in zip(x_values, y_values, strict=False):
                 x_num = self._coerce_float(x_val)
                 y_num = self._coerce_float(y_val)
                 if x_num is None or y_num is None:

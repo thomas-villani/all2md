@@ -197,7 +197,6 @@ class CsvToAstConverter(BaseParser):
             AST document with table node
 
         """
-        from all2md.utils.inputs import validate_and_convert_input
 
         # Validate and load text
         try:

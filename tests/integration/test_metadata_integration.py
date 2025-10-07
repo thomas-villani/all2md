@@ -305,7 +305,7 @@ Content-Type: text/html; charset=utf-8
         html_bytes = BytesIO(html_content.encode('utf-8'))
         md_options = MarkdownOptions(metadata_frontmatter=True)
         parser_options = HtmlOptions(extract_metadata=True)
-        result = to_markdown(html_bytes, format="html", parser_options=parser_options, renderer_options=md_options)
+        result = to_markdown(html_bytes, source_format="html", parser_options=parser_options, renderer_options=md_options)
 
         # Verify metadata extraction works with file-like objects
         assert result.startswith("---")

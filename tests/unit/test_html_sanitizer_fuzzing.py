@@ -140,7 +140,7 @@ class TestHTMLConversionFuzzing:
     def test_arbitrary_html_dont_crash(self, html_content):
         """Property: Arbitrary HTML content should not cause crashes."""
         try:
-            result = to_markdown(BytesIO(html_content.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html_content.encode('utf-8')), source_format='html')
             # Should always return a string
             assert isinstance(result, str)
         except UnicodeDecodeError:
@@ -160,7 +160,7 @@ class TestHTMLConversionFuzzing:
         """Property: XSS payloads in link URLs should be neutralized."""
         html = f'<a href="{xss_url}">{link_text}</a>'
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
 
         # Link should be present but URL should be empty
         assert link_text in result
@@ -183,7 +183,7 @@ class TestHTMLConversionFuzzing:
         html = ''.join(dangerous_tags) + 'Safe content'
 
         options = HtmlOptions(strip_dangerous_elements=True)
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html', parser_options=options)
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html', parser_options=options)
 
         # Dangerous tags should not appear in output
         for tag in dangerous_tags:
@@ -212,7 +212,7 @@ class TestMalformedHTMLFuzzing:
         html = brackets + content
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except Exception as e:
             pytest.fail(f"Crash on unbalanced tags: {e}")
@@ -227,7 +227,7 @@ class TestMalformedHTMLFuzzing:
         html = f'<{tag_name}>{content}'
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except Exception as e:
             pytest.fail(f"Crash on unclosed tag: {e}")
@@ -241,7 +241,7 @@ class TestMalformedHTMLFuzzing:
         html = ''.join(tag_parts)
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except Exception as e:
             pytest.fail(f"Crash on tag soup: {e}")
@@ -291,7 +291,7 @@ class TestXSSPayloadDatabase:
         options_safe = HtmlOptions(strip_dangerous_elements=True)
 
         result = to_markdown(BytesIO(xss_payload.encode('utf-8', errors='ignore')),
-                           format='html',
+                           source_format='html',
                            parser_options=options_safe)
 
         # Check that dangerous content is not present in output
@@ -328,7 +328,7 @@ class TestHTMLAttributeFuzzing:
         html = f'<div {attr_name}="{attr_value}">content</div>'
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
             # Content should be preserved
             assert 'content' in result
@@ -344,7 +344,7 @@ class TestHTMLAttributeFuzzing:
         html = f'<div data-value="{tricky_value}">content</div>'
 
         try:
-            result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+            result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
             assert isinstance(result, str)
         except Exception as e:
             pytest.fail(f"Crash on attribute value: {e}")
@@ -367,7 +367,7 @@ class TestURLEncodingInHTML:
         html = f'<a href="{encoded_url}">link</a>'
 
         parser = HtmlParser(HtmlOptions())
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
 
         # Should handle gracefully
         assert isinstance(result, str)
@@ -381,7 +381,7 @@ class TestURLEncodingInHTML:
         """Property: HTML entity encoded URLs should not bypass sanitization."""
         html = f'<a href="{entity_string}">link</a>'
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), format='html')
+        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
 
         # Should handle gracefully
         assert isinstance(result, str)

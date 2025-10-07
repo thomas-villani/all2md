@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import IO, Union, Any, Dict
+from typing import IO, Any, Dict, Union
 
 from all2md.ast import CodeBlock, Document
 from all2md.converter_metadata import ConverterMetadata

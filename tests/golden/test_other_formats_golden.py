@@ -27,7 +27,7 @@ class TestPPTXGolden:
         prs = create_pptx_with_basic_slides()
         pptx_bytes = save_pptx_to_bytes(prs)
 
-        result = to_markdown(BytesIO(pptx_bytes), format='pptx')
+        result = to_markdown(BytesIO(pptx_bytes), source_format='pptx')
         assert result == snapshot
 
     def test_pptx_with_slide_numbers(self, snapshot):
@@ -36,7 +36,7 @@ class TestPPTXGolden:
         pptx_bytes = save_pptx_to_bytes(prs)
 
         options = PptxOptions(include_slide_numbers=True)
-        result = to_markdown(BytesIO(pptx_bytes), format='pptx', parser_options=options)
+        result = to_markdown(BytesIO(pptx_bytes), source_format='pptx', parser_options=options)
         assert result == snapshot
 
     def test_pptx_attachment_mode_skip(self, snapshot):
@@ -45,7 +45,7 @@ class TestPPTXGolden:
         pptx_bytes = save_pptx_to_bytes(prs)
 
         options = PptxOptions(attachment_mode='skip')
-        result = to_markdown(BytesIO(pptx_bytes), format='pptx', parser_options=options)
+        result = to_markdown(BytesIO(pptx_bytes), source_format='pptx', parser_options=options)
         assert result == snapshot
 
 
@@ -77,7 +77,7 @@ def hello():
 ```
 """
 
-        result = to_markdown(BytesIO(markdown_input.encode('utf-8')), format='markdown')
+        result = to_markdown(BytesIO(markdown_input.encode('utf-8')), source_format='markdown')
         assert result == snapshot
 
     def test_markdown_roundtrip_with_table(self, snapshot):
@@ -92,7 +92,7 @@ def hello():
 Text after table.
 """
 
-        result = to_markdown(BytesIO(markdown_input.encode('utf-8')), format='markdown')
+        result = to_markdown(BytesIO(markdown_input.encode('utf-8')), source_format='markdown')
         assert result == snapshot
 
 
@@ -107,7 +107,7 @@ class TestFileFormatGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='html')
+                result = to_markdown(f, source_format='html')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")
@@ -118,7 +118,7 @@ class TestFileFormatGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='pptx')
+                result = to_markdown(f, source_format='pptx')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")
@@ -129,7 +129,7 @@ class TestFileFormatGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='odt')
+                result = to_markdown(f, source_format='odt')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")
@@ -140,7 +140,7 @@ class TestFileFormatGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='xlsx')
+                result = to_markdown(f, source_format='xlsx')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")

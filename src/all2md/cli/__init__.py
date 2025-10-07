@@ -70,8 +70,9 @@ def _get_version() -> str:
 def _get_about_info() -> str:
     """Get detailed information about all2md including system info and dependencies."""
     import platform
+
     from all2md.converter_registry import registry
-    from all2md.dependencies import get_package_version, check_version_requirement
+    from all2md.dependencies import check_version_requirement, get_package_version
 
     version_str = _get_version()
 
@@ -2129,12 +2130,12 @@ def _default_extension_for_format(target_format: str) -> str:
 
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
-    from all2md.constants import EXIT_SUCCESS, EXIT_VALIDATION_ERROR, EXIT_FILE_ERROR, get_exit_code_for_exception
     from all2md.cli.processors import (
         process_stdin,
         setup_and_validate_options,
         validate_arguments,
     )
+    from all2md.constants import EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR, get_exit_code_for_exception
 
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 

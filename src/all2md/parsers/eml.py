@@ -12,22 +12,21 @@ from __future__ import annotations
 
 import datetime
 import re
+from email import message_from_binary_file, message_from_bytes, message_from_file, policy
 from email.message import EmailMessage, Message
-from email.utils import parsedate_to_datetime, getaddresses
+from email.utils import getaddresses, parsedate_to_datetime
+from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.ast import Document, Heading, HTMLInline, Node, Paragraph, Text, ThematicBreak
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options import EmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
-from email import message_from_binary_file, message_from_bytes, message_from_file, policy
-from io import StringIO
-
-from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 
 
 def _parse_date_with_fallback(msg: EmailMessage | Message) -> datetime.datetime | None:
@@ -1019,7 +1018,6 @@ class EmlToAstConverter(BaseParser):
             Extracted metadata
 
         """
-        from email.message import EmailMessage, Message
         from email.utils import getaddresses
 
         metadata = DocumentMetadata()

@@ -17,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Union
 
-from all2md.exceptions import DependencyError
 from all2md.utils.html_utils import escape_html, render_math_html
 
 if TYPE_CHECKING:
@@ -174,8 +173,8 @@ class HtmlRenderer(NodeVisitor, BaseRenderer):
 
         # Build HTML document
         parts = ['<!DOCTYPE html>', '<html lang="en">', '<head>']
-        parts.append(f'<meta charset="UTF-8">')
-        parts.append(f'<meta name="viewport" content="width=device-width, initial-scale=1.0">')
+        parts.append('<meta charset="UTF-8">')
+        parts.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
         parts.append(f'<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>')
 
         # Add CSS

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Union, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any, Union
 
 from all2md.ast import (
     Document,
@@ -30,7 +30,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, ParsingError, ValidationError
 from all2md.options import RtfOptions
 from all2md.parsers.base import BaseParser
-from all2md.utils.attachments import process_attachment, create_attachment_sequencer
+from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
@@ -125,7 +125,7 @@ class RtfToAstConverter(BaseParser):
                 with open(doc_input, "rb") as f:
                     doc = Rtf15Reader.read(f)
                 base_filename = Path(doc_input).stem
-            elif input_type in ("file", "bytes"):    
+            elif input_type in ("file", "bytes"):
                 doc = Rtf15Reader.read(doc_input)
                 # Try to get filename from file object's name attribute
                 if hasattr(doc_input, 'name') and doc_input.name not in (None, 'unknown'):
@@ -143,7 +143,7 @@ class RtfToAstConverter(BaseParser):
                 f"Failed to read or parse RTF document: {e!r}",
                 original_error=e,
             ) from e
-        
+
         self._base_filename = base_filename
         # Convert pyth document to AST
         return self.convert_to_ast(doc)

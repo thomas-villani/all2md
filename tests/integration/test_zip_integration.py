@@ -61,7 +61,7 @@ class TestZipIntegration:
         markdown_content = "# Test Document\n\nThis is a test.\n\n## Section 1\n\nSome content here."
         zip_data = create_test_zip_with_markdown(markdown_content)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         assert isinstance(markdown, str)
         assert len(markdown) > 0
@@ -76,7 +76,7 @@ class TestZipIntegration:
         files = {"script.py": python_code}
         zip_data = create_test_zip_with_files(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         assert isinstance(markdown, str)
         assert "script.py" in markdown
@@ -89,7 +89,7 @@ class TestZipIntegration:
         files = {"data.json": json_data}
         zip_data = create_test_zip_with_files(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         assert isinstance(markdown, str)
         assert "data.json" in markdown
@@ -103,7 +103,7 @@ class TestZipIntegration:
         }
         zip_data = create_test_zip_with_files(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         # Check all files are mentioned
         assert "readme.md" in markdown
@@ -118,7 +118,7 @@ class TestZipIntegration:
         markdown_content = "# Test\n\nContent"
         zip_data = create_test_zip_with_markdown(markdown_content)
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         from all2md.ast import Document, Heading
         assert isinstance(doc, Document)
@@ -137,7 +137,7 @@ class TestZipIntegration:
         }
         zip_data = create_test_zip_with_files(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         # Should preserve directory structure in output
         assert "docs" in markdown or "intro.md" in markdown
@@ -171,7 +171,7 @@ class TestZipIntegration:
         # Test with flattened structure
         from all2md.options import ZipOptions
         options = ZipOptions(flatten_structure=True)
-        markdown = to_markdown(zip_data, format="zip", parser_options=options)
+        markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 
         # Filenames should appear without full paths
         assert "file1.md" in markdown
@@ -183,7 +183,7 @@ class TestZipIntegration:
         files = {f"file{i}.md": f"# File {i}\n\nContent {i}".encode() for i in range(10)}
         zip_data = create_test_zip_with_files(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         # Should process all files
         for i in range(10):

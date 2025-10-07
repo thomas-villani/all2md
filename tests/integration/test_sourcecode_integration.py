@@ -45,7 +45,7 @@ print(fibonacci(10))"""
             temp_path = f.name
 
         try:
-            result = to_markdown(temp_path, format="sourcecode")
+            result = to_markdown(temp_path, source_format="sourcecode")
             assert result.startswith("```javascript\n")
             assert content in result
         finally:
@@ -113,7 +113,7 @@ print(fibonacci(10))"""
         assert result == content  # Should be plain text, not wrapped in code block
 
         # However, if we explicitly specify sourcecode format, it should work
-        result_explicit = to_markdown(content.encode("utf-8"), format="sourcecode")
+        result_explicit = to_markdown(content.encode("utf-8"), source_format="sourcecode")
         assert result_explicit.startswith("```text\n")  # Default to text language
         assert "print('Hello from bytes')" in result_explicit
 
@@ -196,7 +196,7 @@ print(fibonacci(10))"""
 
             try:
                 # Explicitly use sourcecode format to bypass other parsers
-                result = to_markdown(temp_path, format="sourcecode")
+                result = to_markdown(temp_path, source_format="sourcecode")
                 assert result.startswith(f"```{expected_lang}\n"), f"Failed for {filename}: expected {expected_lang}"
                 assert content in result
             finally:
@@ -235,7 +235,7 @@ print(fibonacci(10))"""
         # Test with directory
         with tempfile.TemporaryDirectory() as temp_dir:
             with pytest.raises(ParsingError):
-                to_markdown(temp_dir, format="sourcecode")
+                to_markdown(temp_dir, source_format="sourcecode")
 
     def test_format_detection_edge_cases(self):
         """Test edge cases in format detection."""
@@ -273,7 +273,7 @@ CMD ["python", "app.py"]"""
         try:
             # Special files like Dockerfile are only detected when explicitly using sourcecode format
             # because they don't have extensions and the main format detection defaults to txt
-            result = to_markdown(str(dockerfile_path), format="sourcecode")
+            result = to_markdown(str(dockerfile_path), source_format="sourcecode")
             assert result.startswith("```dockerfile\n")
             assert "FROM python:3.9" in result
 

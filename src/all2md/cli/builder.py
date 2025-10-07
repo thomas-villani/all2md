@@ -733,7 +733,7 @@ Examples:
         options = {}
         if json_options:
             # Import helpers for dot notation parsing
-            from all2md.cli.custom_actions import parse_dot_notation, merge_nested_dicts
+            from all2md.cli.custom_actions import merge_nested_dicts, parse_dot_notation
 
             # Process JSON options that may contain dot notation keys
             nested_config = {}

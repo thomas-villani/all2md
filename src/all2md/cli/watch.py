@@ -138,8 +138,8 @@ class ConversionEventHandler(FileSystemEventHandler):
             Path to the file to convert
         """
         from all2md import to_markdown
-        from all2md.exceptions import All2MdError
         from all2md.cli import generate_output_path
+        from all2md.exceptions import All2MdError
 
         path = Path(file_path)
 

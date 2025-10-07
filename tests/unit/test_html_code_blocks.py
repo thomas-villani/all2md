@@ -15,7 +15,7 @@ class TestHtmlCodeBlocks:
 Multiple ``` backticks ``` in content.
 Even `````five````` backticks in a row.</code></pre>'''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should use appropriate fence length to avoid conflicts
@@ -46,7 +46,7 @@ Even `````five````` backticks in a row.</code></pre>'''
         </ul>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle code in different contexts
@@ -79,7 +79,7 @@ Even `````five````` backticks in a row.</code></pre>'''
 }</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should detect and use language specifications
@@ -110,7 +110,7 @@ Even `````five````` backticks in a row.</code></pre>'''
 &lt;/root&gt;</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode HTML entities in code blocks
@@ -135,7 +135,7 @@ print("Multiple lines")
     return f"formatted {string}"</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle both inline and block code appropriately
@@ -160,7 +160,7 @@ echo "Bash script with special chars: $HOME & $(whoami)"
 grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve special characters in code
@@ -188,7 +188,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
         <pre><code>actual_code = True</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle empty blocks gracefully
@@ -220,7 +220,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should maintain table structure with code
@@ -242,7 +242,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 <span class="hljs-punctuation">}</span></code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should extract plain code content, ignoring markup
@@ -270,7 +270,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 \t    return self.value</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve indentation (tabs might be converted to spaces)
@@ -296,7 +296,7 @@ image = "![alt](https://example.com/image.png)"</code></pre>
 wget http://example.com/file.tar.gz</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve URLs in code without converting to links
@@ -324,7 +324,7 @@ planck = 6.626e-34
 # Integral: ∫₀^∞ e^(-x²) dx = √π/2</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve mathematical content
@@ -341,10 +341,10 @@ planck = 6.626e-34
         html_four_backticks = '<pre><code>Code with ````four backticks````</code></pre>'
         html_many_backticks = '<pre><code>Many `````` backticks ``````</code></pre>'
 
-        md_simple = html_to_markdown(html_simple, format="html")
-        md_backticks = html_to_markdown(html_backticks, format="html")
-        md_four = html_to_markdown(html_four_backticks, format="html")
-        md_many = html_to_markdown(html_many_backticks, format="html")
+        md_simple = html_to_markdown(html_simple, source_format="html")
+        md_backticks = html_to_markdown(html_backticks, source_format="html")
+        md_four = html_to_markdown(html_four_backticks, source_format="html")
+        md_many = html_to_markdown(html_many_backticks, source_format="html")
 
         # Should use appropriate fence lengths
         assert md_simple.count('`') >= 6  # At least ``` opening and closing
@@ -369,11 +369,11 @@ planck = 6.626e-34
         # Test 11 backticks in content (exceeds maximum fence length)
         html_eleven = '<pre><code>Code with ```````````eleven backticks```````````</code></pre>'
 
-        md_seven = html_to_markdown(html_seven, format="html")
-        md_eight = html_to_markdown(html_eight, format="html")
-        md_nine = html_to_markdown(html_nine, format="html")
-        md_ten = html_to_markdown(html_ten, format="html")
-        md_eleven = html_to_markdown(html_eleven, format="html")
+        md_seven = html_to_markdown(html_seven, source_format="html")
+        md_eight = html_to_markdown(html_eight, source_format="html")
+        md_nine = html_to_markdown(html_nine, source_format="html")
+        md_ten = html_to_markdown(html_ten, source_format="html")
+        md_eleven = html_to_markdown(html_eleven, source_format="html")
 
         # Should use 8 backticks for fencing when content has 7
         assert "````````" in md_seven
@@ -408,7 +408,7 @@ planck = 6.626e-34
 ```````seven```````
 ````````eight````````</code></pre>'''
 
-        markdown = html_to_markdown(html_mixed, format="html")
+        markdown = html_to_markdown(html_mixed, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should use 9 backticks to fence content containing up to 8
@@ -428,7 +428,7 @@ class TestCodeFenceLanguageSanitization:
         """
         html = '<pre class="python\n# Injected markdown\nmalicious"><code>code = True</code></pre>'
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should not have the injected markdown characters in the fence line
@@ -450,7 +450,7 @@ class TestCodeFenceLanguageSanitization:
         """Test that language identifiers with spaces are blocked."""
         html = '<pre class="python javascript"><code>code = True</code></pre>'
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should not have the space-separated languages
@@ -467,7 +467,7 @@ class TestCodeFenceLanguageSanitization:
         ]
 
         for html in test_cases:
-            markdown = html_to_markdown(html, format="html")
+            markdown = html_to_markdown(html, source_format="html")
             assert_markdown_valid(markdown)
 
             # Should not have the injected content
@@ -489,7 +489,7 @@ class TestCodeFenceLanguageSanitization:
 
         for lang_class, expected_lang in test_cases:
             html = f'<pre class="language-{lang_class}"><code>code = True</code></pre>'
-            markdown = html_to_markdown(html, format="html")
+            markdown = html_to_markdown(html, source_format="html")
             assert_markdown_valid(markdown)
 
             # Should preserve the valid language identifier
@@ -505,7 +505,7 @@ class TestCodeFenceLanguageSanitization:
         <pre class="language-gnu_assembly"><code>mov eax, 1</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # All valid language identifiers should be preserved
@@ -522,7 +522,7 @@ class TestCodeFenceLanguageSanitization:
         <pre data-lang="   "><code>even more</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should use generic code fences without language
@@ -541,7 +541,7 @@ class TestCodeFenceLanguageSanitization:
         long_lang = "a" * 100
         html = f'<pre class="language-{long_lang}"><code>code = True</code></pre>'
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should not include the long language identifier
@@ -560,7 +560,7 @@ class TestCodeFenceLanguageSanitization:
         <pre data-lang="valid-rust"><code>fn main() {}</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Malicious data-lang should be blocked
@@ -588,7 +588,7 @@ class TestCodeFenceLanguageSanitization:
         <pre><code class="language-valid-go">func main() {}</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # language-python should be extracted (BeautifulSoup normalizes the newline)
@@ -616,7 +616,7 @@ class TestCodeFenceLanguageSanitization:
         <pre class="valid_lang"><code>even more</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Valid fallback should be preserved
@@ -641,7 +641,7 @@ class TestCodeFenceLanguageSanitization:
         <pre><code class="language-go">go code</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # All valid patterns should work

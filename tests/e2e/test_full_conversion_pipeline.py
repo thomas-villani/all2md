@@ -39,7 +39,7 @@ class TestFullConversionPipeline:
         # Convert to markdown
         result = to_markdown(
             BytesIO(docx_bytes),
-            format="docx",
+            source_format="docx",
             parser_options=options,
             renderer_options=markdown_options
         )
@@ -68,7 +68,7 @@ class TestFullConversionPipeline:
 
         result = to_markdown(
             BytesIO(html_content.encode('utf-8')),
-            format="html",
+            source_format="html",
             parser_options=options,
             renderer_options=markdown_options
         )
@@ -99,7 +99,7 @@ class TestFullConversionPipeline:
 
         result = to_markdown(
             BytesIO(pptx_bytes),
-            format="pptx",
+            source_format="pptx",
             parser_options=options,
             renderer_options=markdown_options
         )
@@ -135,7 +135,7 @@ class TestFullConversionPipeline:
 
             result = to_markdown(
                 pdf_bytes,
-                format="pdf",
+                source_format="pdf",
                 parser_options=options,
                 renderer_options=markdown_options
             )
@@ -182,10 +182,10 @@ class TestFullConversionPipeline:
 
         # Should handle gracefully
         with pytest.raises(Exception):  # Specific exception depends on implementation
-            to_markdown(BytesIO(invalid_content), format="docx")
+            to_markdown(BytesIO(invalid_content), source_format="docx")
 
         # Test with unsupported format - should fallback to text
-        result = to_markdown(BytesIO(b"content"), format="unsupported")
+        result = to_markdown(BytesIO(b"content"), source_format="unsupported")
         assert result == "content"  # Should fallback to treating as text
 
     def test_large_document_pipeline_performance(self, temp_dir):
@@ -211,7 +211,7 @@ class TestFullConversionPipeline:
         docx_bytes = save_docx_to_bytes(doc)
 
         # Convert (should complete without timeout)
-        result = to_markdown(BytesIO(docx_bytes), format="docx")
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx")
 
         assert_markdown_valid(result)
         assert "Large Document Test" in result
@@ -245,7 +245,7 @@ class TestFullConversionPipeline:
 
         result = to_markdown(
             BytesIO(html.encode('utf-8')),
-            format="html",
+            source_format="html",
             parser_options=options_test
         )
 
@@ -263,7 +263,7 @@ class TestFullConversionPipeline:
 
         result2 = to_markdown(
             BytesIO(html.encode('utf-8')),
-            format="html",
+            source_format="html",
             parser_options=options_test2
         )
 
@@ -318,7 +318,7 @@ class TestFullConversionPipeline:
 
         result = to_markdown(
             BytesIO(docx_bytes),
-            format="docx",
+            source_format="docx",
             parser_options=docx_options,
             renderer_options=markdown_options
         )
@@ -354,7 +354,7 @@ class TestFullConversionPipeline:
         # Convert all documents
         results = []
         for content, extension, _expected_format in documents:
-            result = to_markdown(BytesIO(content), format=extension.lstrip('.'))
+            result = to_markdown(BytesIO(content), source_format=extension.lstrip('.'))
             results.append(result)
 
             # Verify each conversion

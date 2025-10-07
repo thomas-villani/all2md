@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass, field
 import itertools
 import re
-from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 from all2md.ast import FootnoteDefinition, Node
 

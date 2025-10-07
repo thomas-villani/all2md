@@ -11,8 +11,9 @@ enabling multiple rendering strategies and improved testability.
 
 from __future__ import annotations
 
-import os
 import html
+import logging
+import os
 import re
 from pathlib import Path
 from typing import IO, Any, Union
@@ -26,7 +27,6 @@ from all2md.ast import (
     Emphasis,
     Heading,
     HTMLBlock,
-    HTMLInline,
     Image,
     LineBreak,
     Link,
@@ -42,19 +42,27 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md.utils.network_security import fetch_image_securely, is_network_disabled
-from all2md.constants import (DANGEROUS_HTML_ATTRIBUTES, DANGEROUS_HTML_ELEMENTS, DANGEROUS_SCHEMES,
-                              MAX_LANGUAGE_IDENTIFIER_LENGTH, SAFE_LANGUAGE_IDENTIFIER_PATTERN)
+from all2md.constants import (
+    DANGEROUS_HTML_ATTRIBUTES,
+    DANGEROUS_HTML_ELEMENTS,
+    DANGEROUS_SCHEMES,
+)
 from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import (
+    DependencyError,
+    FileAccessError,
+    MalformedFileError,
+    NetworkSecurityError,
+    ParsingError,
+    ValidationError,
+)
 from all2md.options import HtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
-from all2md.utils.metadata import DocumentMetadata
-from all2md.exceptions import DependencyError, FileAccessError, MalformedFileError, NetworkSecurityError, ParsingError, ValidationError
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
-from all2md.utils.security import validate_local_file_access, sanitize_language_identifier
-
-import logging
+from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.security import sanitize_language_identifier, validate_local_file_access
 
 logger = logging.getLogger(__name__)
 

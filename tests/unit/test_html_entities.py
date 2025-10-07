@@ -16,7 +16,7 @@ class TestHtmlEntities:
         <p>Registered &reg; and section &sect;</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode common entities
@@ -38,7 +38,7 @@ class TestHtmlEntities:
         <p>Mixed: &#65; &#x42; &#67; &#x44;</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode numeric references
@@ -60,8 +60,8 @@ class TestHtmlEntities:
         options_preserve = HtmlOptions(convert_nbsp=True)
         options_no_preserve = HtmlOptions(convert_nbsp=False)
 
-        md_preserve = html_to_markdown(html, parser_options=options_preserve, format="html")
-        md_no_preserve = html_to_markdown(html, parser_options=options_no_preserve, format="html")
+        md_preserve = html_to_markdown(html, parser_options=options_preserve, source_format="html")
+        md_no_preserve = html_to_markdown(html, parser_options=options_no_preserve, source_format="html")
 
         assert_markdown_valid(md_preserve)
         assert_markdown_valid(md_no_preserve)
@@ -86,7 +86,7 @@ class TestHtmlEntities:
 }</code></pre>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode entities in all contexts
@@ -104,7 +104,7 @@ class TestHtmlEntities:
         <abbr title="HyperText &amp; Markup Language">HTML</abbr>
         '''
 
-        markdown = html_to_markdown(html, parser_options=HtmlOptions(attachment_mode="alt_text"), format="html")
+        markdown = html_to_markdown(html, parser_options=HtmlOptions(attachment_mode="alt_text"), source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle entities in attributes
@@ -121,7 +121,7 @@ class TestHtmlEntities:
         <p>Numbers: &#999999; &#xFFFFF;</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle invalid entities gracefully
@@ -140,7 +140,7 @@ class TestHtmlEntities:
         <p>Logic: &and; &or; &not; &exist; &forall;</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode mathematical symbols
@@ -162,7 +162,7 @@ class TestHtmlEntities:
         <p>Music: &sharp; &flat; &natural;</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode special symbols
@@ -196,7 +196,7 @@ class TestHtmlEntities:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode entities in table context
@@ -219,7 +219,7 @@ class TestHtmlEntities:
         </ol>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode entities in list context
@@ -239,7 +239,7 @@ class TestHtmlEntities:
         </blockquote>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should decode entities in blockquote context
@@ -257,7 +257,7 @@ class TestHtmlEntities:
         Punctuation: &hellip; and &mdash; dashes, plus currency &euro;100.</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle all entity types in one paragraph
@@ -281,7 +281,7 @@ class TestHtmlEntities:
         <p>Multiple&hellip;&hellip;&hellip;dots</p>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle entities with different spacing

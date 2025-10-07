@@ -54,7 +54,7 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
             metadata = transform_registry.get_metadata(transform_name)
         except ValueError as e:
             print(f"Error: Unknown transform '{transform_name}'", file=sys.stderr)
-            print(f"Use 'all2md list-transforms' to see available transforms", file=sys.stderr)
+            print("Use 'all2md list-transforms' to see available transforms", file=sys.stderr)
             raise argparse.ArgumentTypeError(f"Unknown transform: {transform_name}") from e
 
         # Extract parameters from CLI args

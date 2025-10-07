@@ -9,14 +9,12 @@ It replaces the combined ODF parser with a focused text document parser.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Union
 
-from all2md.exceptions import MalformedFileError
 from all2md.ast import (
-    Code,
     Document,
     Emphasis,
     Heading,
@@ -36,7 +34,7 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, ParsingError
+from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
@@ -182,7 +180,6 @@ class OdtToAstConverter(BaseParser):
             Resulting AST node(s)
 
         """
-        from odf import draw, table, text
 
         if not hasattr(element, "qname"):
             return None
@@ -218,7 +215,6 @@ class OdtToAstConverter(BaseParser):
             List of inline AST nodes
 
         """
-        from odf import text
 
         nodes: list[Node] = []
 

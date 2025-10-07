@@ -51,7 +51,7 @@ class TestMhtmlIntegrationBasic:
         mhtml_content = create_simple_mhtml()
         mhtml_file = io.BytesIO(mhtml_content)
 
-        result = mhtml_to_markdown(mhtml_file, format="mhtml")
+        result = mhtml_to_markdown(mhtml_file, source_format="mhtml")
 
         assert isinstance(result, str)
         assert "Test MHTML Document" in result

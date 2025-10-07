@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, IO, Optional, Union
+from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document
 from all2md.options import BaseParserOptions

@@ -5,7 +5,6 @@ from __future__ import annotations
 from html import escape as _html_escape
 from typing import Literal
 
-
 MathNotation = Literal["latex", "mathml", "html"]
 
 

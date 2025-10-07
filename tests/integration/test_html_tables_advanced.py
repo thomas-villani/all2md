@@ -49,7 +49,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should include caption
@@ -95,7 +95,7 @@ class TestHtmlTablesAdvanced:
             </tr>
         </table>
         '''
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle spanning cells reasonably
@@ -132,7 +132,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html", parser_options=HtmlOptions(detect_table_alignment=True))
+        markdown = html_to_markdown(html, source_format="html", parser_options=HtmlOptions(detect_table_alignment=True))
         assert_markdown_valid(markdown)
 
         # Should detect and apply alignment
@@ -185,7 +185,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve formatting in cells
@@ -221,7 +221,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should still generate valid table (first row becomes header)
@@ -255,7 +255,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle empty cells gracefully
@@ -302,7 +302,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle multiple header rows
@@ -335,7 +335,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle mixed th/td elements
@@ -367,7 +367,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should ignore CSS classes but preserve content
@@ -402,7 +402,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle malformed structure gracefully
@@ -446,7 +446,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should handle block content in cells
@@ -484,7 +484,7 @@ class TestHtmlTablesAdvanced:
         </table>
         '''
 
-        markdown = html_to_markdown(html, format="html")
+        markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve content while ignoring accessibility attributes

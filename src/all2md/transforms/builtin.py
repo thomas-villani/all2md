@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any
 
 from all2md.ast.nodes import (
     Document,

@@ -15,10 +15,10 @@ import io
 import logging
 import mimetypes
 from pathlib import Path
-from typing import IO, Callable, Dict, List, Optional, Tuple, Union
+from typing import IO, Dict, List, Optional, Union
 
 from .converter_metadata import ConverterMetadata
-from .exceptions import DependencyError, FormatError
+from .exceptions import FormatError
 
 logger = logging.getLogger(__name__)
 

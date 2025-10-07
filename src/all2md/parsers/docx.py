@@ -11,21 +11,21 @@ enabling multiple rendering strategies and improved testability.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 
-from all2md.utils.security import validate_zip_archive
-from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
-from all2md.utils.attachments import extract_docx_image_data, process_attachment, create_attachment_sequencer
+from all2md.exceptions import DependencyError, MalformedFileError
+from all2md.utils.attachments import create_attachment_sequencer, extract_docx_image_data, process_attachment
 from all2md.utils.metadata import (
     OFFICE_FIELD_MAPPING,
     DocumentMetadata,
     map_properties_to_metadata,
 )
+from all2md.utils.security import validate_zip_archive
 
 
 @dataclass
@@ -60,7 +60,6 @@ if TYPE_CHECKING:
     import docx.document
     from docx.table import Table
     from docx.text.paragraph import Paragraph
-    from docx.text.hyperlink import Hyperlink
 
 
 from all2md.ast import (
@@ -78,16 +77,20 @@ from all2md.ast import (
     MathBlock,
     MathInline,
     Node,
-    Paragraph as AstParagraph,
     Strikethrough,
     Strong,
     Subscript,
     Superscript,
-    Table as AstTable,
     TableCell,
     TableRow,
     Text,
     Underline,
+)
+from all2md.ast import (
+    Paragraph as AstParagraph,
+)
+from all2md.ast import (
+    Table as AstTable,
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import DocxOptions

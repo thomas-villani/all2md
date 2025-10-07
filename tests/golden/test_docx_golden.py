@@ -29,7 +29,7 @@ class TestDOCXGolden:
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
         assert result == snapshot
 
     def test_docx_with_formatting(self, snapshot):
@@ -37,7 +37,7 @@ class TestDOCXGolden:
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
         assert result == snapshot
 
     def test_docx_with_lists(self, snapshot):
@@ -45,7 +45,7 @@ class TestDOCXGolden:
         doc = create_docx_with_lists()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
         assert result == snapshot
 
     def test_docx_with_table(self, snapshot):
@@ -53,7 +53,7 @@ class TestDOCXGolden:
         doc = create_docx_with_tables()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
         assert result == snapshot
 
     def test_docx_with_attachment_mode_skip(self, snapshot):
@@ -62,7 +62,7 @@ class TestDOCXGolden:
         docx_bytes = save_docx_to_bytes(doc)
 
         options = DocxOptions(attachment_mode='skip')
-        result = to_markdown(BytesIO(docx_bytes), format='docx', parser_options=options)
+        result = to_markdown(BytesIO(docx_bytes), source_format='docx', parser_options=options)
         assert result == snapshot
 
     def test_docx_with_attachment_mode_alt_text(self, snapshot):
@@ -71,7 +71,7 @@ class TestDOCXGolden:
         docx_bytes = save_docx_to_bytes(doc)
 
         options = DocxOptions(attachment_mode='alt_text')
-        result = to_markdown(BytesIO(docx_bytes), format='docx', parser_options=options)
+        result = to_markdown(BytesIO(docx_bytes), source_format='docx', parser_options=options)
         assert result == snapshot
 
 
@@ -87,7 +87,7 @@ class TestDOCXGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='docx')
+                result = to_markdown(f, source_format='docx')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")
@@ -98,7 +98,7 @@ class TestDOCXGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, format='docx')
+                result = to_markdown(f, source_format='docx')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")

@@ -81,9 +81,6 @@ from all2md.ast.nodes import (
     Underline,
 )
 
-# Visitor pattern base
-from all2md.ast.visitors import NodeVisitor, ValidationVisitor
-
 # Serialization
 from all2md.ast.serialization import ast_to_dict, ast_to_json, dict_to_ast, json_to_ast
 
@@ -100,6 +97,9 @@ from all2md.ast.transforms import (
     merge_documents,
     transform_nodes,
 )
+
+# Visitor pattern base
+from all2md.ast.visitors import NodeVisitor, ValidationVisitor
 
 __all__ = [
     # Nodes

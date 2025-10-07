@@ -149,7 +149,7 @@ class TestPdfLayoutAdvanced:
         options = PdfOptions(handle_rotated_text=True)
 
         # This would be called by pdf_to_markdown internally
-        result = pdf_to_markdown(mock_doc, format="pdf", parser_options=options)
+        result = pdf_to_markdown(mock_doc, source_format="pdf", parser_options=options)
         # Should handle rotated text (currently rotated text may be filtered out)
         # The test verifies that the function runs without error with rotated text present
         assert "Normal Text" in result

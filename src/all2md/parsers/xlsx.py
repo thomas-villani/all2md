@@ -15,9 +15,9 @@ import re
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Union
 
-from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import DependencyError, MalformedFileError
 from all2md.parsers.base import BaseParser
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata

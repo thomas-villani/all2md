@@ -48,7 +48,8 @@ from pathlib import Path
 from typing import Any, BinaryIO, Union
 
 from all2md.constants import MARKDOWN_SPECIAL_CHARS
-from all2md.exceptions import FileNotFoundError as All2MdFileNotFoundError, PageRangeError, ValidationError
+from all2md.exceptions import FileNotFoundError as All2MdFileNotFoundError
+from all2md.exceptions import PageRangeError, ValidationError
 
 # Type aliases for clarity
 PathLike = Union[str, Path]

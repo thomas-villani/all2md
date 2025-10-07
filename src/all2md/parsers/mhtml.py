@@ -16,7 +16,7 @@ from typing import IO, Any, Union
 
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import ParsingError, DependencyError
+from all2md.exceptions import DependencyError, ParsingError
 from all2md.options import MhtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter

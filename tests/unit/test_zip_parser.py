@@ -42,7 +42,7 @@ class TestZipParser:
         """Test parsing an empty ZIP archive."""
         zip_data = create_test_zip({})
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         assert isinstance(doc, Document)
         assert len(doc.children) > 0
@@ -56,7 +56,7 @@ class TestZipParser:
         }
         zip_data = create_test_zip(files)
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         assert isinstance(doc, Document)
         # Should have heading for the file
@@ -72,7 +72,7 @@ class TestZipParser:
         }
         zip_data = create_test_zip(files)
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         assert isinstance(doc, Document)
         # Should have headings for each file
@@ -198,7 +198,7 @@ class TestZipParser:
         }
         zip_data = create_test_zip(files)
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         assert isinstance(doc, Document)
         # Should parse the markdown content
@@ -226,14 +226,14 @@ class TestZipParser:
 
         # Should be rejected by security validation
         with pytest.raises(ZipFileSecurityError):
-            to_ast(zip_data, format="zip")
+            to_ast(zip_data, source_format="zip")
 
     def test_invalid_zip(self):
         """Test handling of invalid ZIP data."""
         invalid_data = b"This is not a ZIP file"
 
         with pytest.raises(MalformedFileError):
-            to_ast(invalid_data, format="zip")
+            to_ast(invalid_data, source_format="zip")
 
     def test_zip_with_directory_entries(self):
         """Test that directory entries are skipped."""
@@ -243,7 +243,7 @@ class TestZipParser:
             zf.writestr("dir1/file.txt", b"Content")
         zip_data = zip_buffer.getvalue()
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         # Should only process the file, not the directory
         headings = [node for node in doc.children if isinstance(node, Heading)]
@@ -261,7 +261,7 @@ class TestZipMetadata:
         }
         zip_data = create_test_zip(files)
 
-        doc = to_ast(zip_data, format="zip")
+        doc = to_ast(zip_data, source_format="zip")
 
         # Check metadata
         assert doc.metadata is not None
@@ -280,7 +280,7 @@ class TestZipIntegration:
         }
         zip_data = create_test_zip(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         assert isinstance(markdown, str)
         assert len(markdown) > 0
@@ -296,7 +296,7 @@ class TestZipIntegration:
         }
         zip_data = create_test_zip(files)
 
-        markdown = to_markdown(zip_data, format="zip")
+        markdown = to_markdown(zip_data, source_format="zip")
 
         assert "document.txt" in markdown
         assert "data.json" in markdown

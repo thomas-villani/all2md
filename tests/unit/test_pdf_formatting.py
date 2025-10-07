@@ -138,7 +138,7 @@ class TestPdfFormatting:
         mock_doc.metadata = {}  # Add metadata dict for extraction
         mock_fitz_open.return_value = mock_doc
 
-        result = pdf_to_markdown(mock_doc, format="pdf")
+        result = pdf_to_markdown(mock_doc, source_format="pdf")
 
         assert_markdown_valid(result)
 
@@ -340,7 +340,7 @@ class TestPdfFormatting:
         mock_doc.metadata = {}  # Add metadata dict for extraction
         mock_fitz_open.return_value = mock_doc
 
-        result = pdf_to_markdown(mock_doc, format="pdf")
+        result = pdf_to_markdown(mock_doc, source_format="pdf")
 
         assert_markdown_valid(result)
 

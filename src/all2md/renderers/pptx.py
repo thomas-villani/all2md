@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from pptx.presentation import Presentation
     from pptx.slide import Slide
     from pptx.text.text import TextFrame
-    from pptx.util import Length
 
 from all2md.ast.nodes import (
     BlockQuote,

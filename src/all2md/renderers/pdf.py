@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 from all2md.exceptions import DependencyError
 
 if TYPE_CHECKING:
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import Flowable
 
 from all2md.ast.nodes import (
@@ -761,7 +762,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                     caption_style = self._ParagraphStyle(
                         'ImageCaption',
                         parent=self._styles['Normal'],
-                        alignment=TA_CENTER,
+                        alignment=self._TA_CENTER,
                         fontSize=self.options.font_size - 1,
                         textColor=self._colors.grey,
                     )
@@ -944,7 +945,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
                 # Add indented flowables
                 for flowable in self._flowables:
-                    if isinstance(flowable, Paragraph):
+                    if isinstance(flowable, self._Paragraph):
                         # Create indented style
                         indent_style = self._ParagraphStyle(
                             'DefinitionDesc',

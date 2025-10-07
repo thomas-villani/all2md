@@ -45,8 +45,8 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.exceptions import DependencyError
 from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import DependencyError
 from all2md.options import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.metadata import DocumentMetadata

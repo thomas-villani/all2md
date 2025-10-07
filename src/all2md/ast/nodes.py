@@ -36,7 +36,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
-
 MathNotation = Literal["latex", "mathml", "html"]
 
 

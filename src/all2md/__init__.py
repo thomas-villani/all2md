@@ -76,25 +76,26 @@ all2md.ast : AST node definitions and utilities
 """
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 import logging
-from dataclasses import fields
-from io import BytesIO
 import time
+from dataclasses import fields, is_dataclass
+from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Optional, Union, get_type_hints
-from dataclasses import is_dataclass
+from typing import IO, TYPE_CHECKING, Any, Optional, Union, get_type_hints
+
+if TYPE_CHECKING:
+    from all2md.ast import Document
 
 from all2md.constants import DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError, RenderingError
-from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.options import (
     BaseParserOptions,
     BaseRendererOptions,
+    CsvOptions,
     DocxOptions,
     EmlOptions,
-    CsvOptions,
     EpubOptions,
     HtmlOptions,
     IpynbOptions,
@@ -112,12 +113,14 @@ from all2md.options import (
     ZipOptions,
     create_updated_options,
 )
+from all2md.progress import ProgressCallback, ProgressEvent
 
 # Import parsers to trigger registration
-from . import parsers  # noqa: F401
-
 # Import AST module for advanced users
-from . import ast  # noqa: F401
+from . import (
+    ast,  # noqa: F401
+    parsers,  # noqa: F401
+)
 
 # Import transforms module for AST transformation
 from . import transforms as transforms_module  # noqa: F401
@@ -391,13 +394,14 @@ def _split_kwargs_for_parser_and_renderer(
 
 
 def to_markdown(
-        input: Union[str, Path, IO[bytes], bytes],
+        source: Union[str, Path, IO[bytes], bytes],
         *,
         parser_options: Optional[BaseParserOptions] = None,
         renderer_options: Optional[MarkdownOptions] = None,
-        format: DocumentFormat = "auto",
+        source_format: DocumentFormat = "auto",
         flavor: Optional[str] = None,
         transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
         progress: Optional[ProgressCallback] = None,
         **kwargs
 ) -> str:
@@ -409,16 +413,16 @@ def to_markdown(
 
     Parameters
     ----------
-    input : str, Path, IO[bytes], or bytes
-        Input data, which can be a file path, a file-like object, or raw bytes.
+    source : str, Path, IO[bytes], or bytes
+        Source document data, which can be a file path, a file-like object, or raw bytes.
     parser_options : BaseParserOptions, optional
         Pre-configured parser options for format-specific parsing settings
         (e.g., PdfOptions, DocxOptions, HtmlOptions).
     renderer_options : BaseRendererOptions, optional
         Pre-configured renderer options for Markdown rendering settings
         (e.g., MarkdownOptions).
-    format : DocumentFormat, default "auto"
-        Explicitly specify the document format. If "auto", the format is
+    source_format : DocumentFormat, default "auto"
+        Explicitly specify the source document format. If "auto", the format is
         detected from the filename or content.
     flavor : str, optional
         Markdown flavor/dialect to use for output. Options: "gfm", "commonmark",
@@ -428,6 +432,9 @@ def to_markdown(
         List of AST transforms to apply before rendering. Can be transform names
         (strings) or NodeTransformer instances. Transforms are applied in order.
         See `all2md.transforms` for available transforms.
+    hooks : dict, optional
+        Transform hooks to execute during processing. Maps hook names to
+        callable functions that execute at specific points in the transform pipeline.
     progress : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
@@ -480,16 +487,16 @@ def to_markdown(
     if "options" in kwargs:
         raise ValueError("`options` is deprecated! Use `parse_options` or `renderer_options`")
     # Determine format first
-    if format != "auto":
-        actual_format = format
+    if source_format != "auto":
+        actual_format = source_format
         logger.debug(f"Using explicitly specified format: {actual_format}")
-    elif isinstance(input, (str, Path)):
-        actual_format = registry.detect_format(input, hint=None)
+    elif isinstance(source, (str, Path)):
+        actual_format = registry.detect_format(source, hint=None)
     else:
-        if isinstance(input, bytes):
-            file: IO[bytes] = BytesIO(input)
+        if isinstance(source, bytes):
+            file: IO[bytes] = BytesIO(source)
         else:
-            file: IO[bytes] = input  # type: ignore
+            file: IO[bytes] = source  # type: ignore
         actual_format = registry.detect_format(file, hint=None)
 
     # Split kwargs between parser and renderer
@@ -524,11 +531,11 @@ def to_markdown(
         # Log timing for parsing stage in trace mode
         if logger.isEnabledFor(logging.DEBUG):
             start_time = time.perf_counter()
-            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format, progress=progress)
+            ast_doc = to_ast(source, parser_options=final_parser_options, source_format=actual_format, progress=progress)
             parse_time = time.perf_counter() - start_time
             logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
         else:
-            ast_doc = to_ast(input, parser_options=final_parser_options, format=actual_format, progress=progress)
+            ast_doc = to_ast(source, parser_options=final_parser_options, source_format=actual_format, progress=progress)
     except DependencyError:
         raise
     except FormatError as e:
@@ -538,22 +545,22 @@ def to_markdown(
             actual_format = "txt"
 
         if actual_format == "image":
-            raise FormatError("Invalid input type: `image` not supported.") from e
+            raise FormatError("Invalid source type: `image` not supported.") from e
         else:
             # Plain text handling - return content directly without AST
-            if isinstance(input, (str, Path)):
+            if isinstance(source, (str, Path)):
                 try:
-                    with open(input, 'r', encoding='utf-8', errors='replace') as f:
+                    with open(source, 'r', encoding='utf-8', errors='replace') as f:
                         content = f.read()
                 except Exception as exc:
-                    raise ParsingError(f"Could not read file as UTF-8: {input}") from exc
-            elif isinstance(input, bytes):
+                    raise ParsingError(f"Could not read file as UTF-8: {source}") from exc
+            elif isinstance(source, bytes):
                 try:
-                    content = input.decode("utf-8", errors="replace")
+                    content = source.decode("utf-8", errors="replace")
                 except Exception as exc:
                     raise ParsingError("Could not decode bytes as UTF-8") from exc
             else:
-                file = input  # type: ignore
+                file = source  # type: ignore
                 file.seek(0)
                 try:
                     file_content = file.read()
@@ -572,6 +579,7 @@ def to_markdown(
         content = transforms_module.render(
             ast_doc,
             transforms=transforms or [],
+            hooks=hooks or {},
             renderer="markdown",
             options=final_renderer_options
         )
@@ -581,6 +589,7 @@ def to_markdown(
         content = transforms_module.render(
             ast_doc,
             transforms=transforms or [],
+            hooks=hooks or {},
             renderer="markdown",
             options=final_renderer_options
         )
@@ -589,10 +598,10 @@ def to_markdown(
 
 
 def to_ast(
-        input: Union[str, Path, IO[bytes], bytes],
+        source: Union[str, Path, IO[bytes], bytes],
         *,
         parser_options: Optional[BaseParserOptions] = None,
-        format: DocumentFormat = "auto",
+        source_format: DocumentFormat = "auto",
         progress: Optional[ProgressCallback] = None,
         **kwargs
 ):
@@ -605,13 +614,13 @@ def to_ast(
 
     Parameters
     ----------
-    input : str, Path, IO[bytes], or bytes
-        Input data, which can be a file path, a file-like object, or raw bytes.
+    source : str, Path, IO[bytes], or bytes
+        Source document data, which can be a file path, a file-like object, or raw bytes.
     parser_options : BaseParserOptions, optional
         Pre-configured parser options for format-specific parsing settings
         (e.g., PdfOptions, DocxOptions, HtmlOptions).
-    format : DocumentFormat, default "auto"
-        Explicitly specify the document format. If "auto", the format is
+    source_format : DocumentFormat, default "auto"
+        Explicitly specify the source document format. If "auto", the format is
         detected from the filename or content.
     progress : ProgressCallback, optional
         Optional callback function for progress updates. Receives ProgressEvent
@@ -662,7 +671,7 @@ def to_ast(
     from all2md.ast import Document
 
     # Detect format
-    actual_format = format if format != "auto" else registry.detect_format(input)
+    actual_format = source_format if source_format != "auto" else registry.detect_format(source)
 
     # Get converter metadata
     metadata = registry.get_format_info(actual_format)
@@ -681,7 +690,7 @@ def to_ast(
     try:
         parser_class = registry.get_parser(actual_format)
         parser = parser_class(options=final_parser_options, progress_callback=progress)
-        ast_doc = parser.parse(input)
+        ast_doc = parser.parse(source)
         return ast_doc
 
     except All2MdError:
@@ -697,6 +706,7 @@ def from_ast(
         renderer_options: Optional[BaseRendererOptions] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
+        progress: Optional[ProgressCallback] = None,
         **kwargs
 ) -> Union[None, str, bytes]:
     """Render AST document to a target format.
@@ -715,6 +725,10 @@ def from_ast(
         AST transforms to apply before rendering
     hooks : dict, optional
         Transform hooks to execute during processing
+    progress : ProgressCallback, optional
+        Optional callback function for progress updates. Receives ProgressEvent
+        objects with event_type, message, current/total counts, and metadata.
+        See all2md.progress for details.
     kwargs : Any
         Additional renderer options that override renderer_options
 
@@ -770,7 +784,7 @@ def from_ast(
 
 
 def from_markdown(
-        markdown: Union[str, Path, IO[bytes], IO[str]],
+        source: Union[str, Path, IO[bytes], IO[str]],
         target_format: DocumentFormat,
         output: Union[str, Path, IO[bytes], None] = None,
         *,
@@ -785,8 +799,8 @@ def from_markdown(
 
     Parameters
     ----------
-    markdown : str, Path, IO[bytes], or IO[str]
-        Markdown content as string, file path, or file-like object
+    source : str, Path, IO[bytes], or IO[str]
+        Markdown source content as string, file path, or file-like object
     target_format : DocumentFormat
         Target format name (e.g., "docx", "pdf", "html")
     output : str, Path, IO[bytes], or None, optional
@@ -825,7 +839,7 @@ def from_markdown(
         ...     renderer_options=HtmlOptions(...))
     """
     return convert(
-        markdown,
+        source,
         output=output,
         parser_options=parser_options,
         renderer_options=renderer_options,

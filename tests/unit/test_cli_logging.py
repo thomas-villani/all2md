@@ -234,7 +234,7 @@ class TestTimingInstrumentation:
 
         # Enable DEBUG logging to capture timing logs
         with caplog.at_level(logging.DEBUG):
-            result = to_markdown(b"test content", format="txt")
+            result = to_markdown(b"test content", source_format="txt")
 
             # Check that timing logs were created
             timing_logs = [record for record in caplog.records if 'completed in' in record.message]
@@ -253,7 +253,7 @@ class TestTimingInstrumentation:
 
         # Use WARNING level (normal mode)
         with caplog.at_level(logging.WARNING):
-            result = to_markdown(b"test content", format="txt")
+            result = to_markdown(b"test content", source_format="txt")
 
             # Should not have timing logs at WARNING level
             timing_logs = [record for record in caplog.records if 'completed in' in record.message]
