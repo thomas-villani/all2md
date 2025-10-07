@@ -2,7 +2,6 @@
 """Integration tests for transform CLI."""
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 

@@ -12,8 +12,8 @@ Tests cover:
 
 """
 
+
 import pytest
-from pathlib import Path
 
 try:
     from docx import Document as DocxDocument
@@ -66,7 +66,7 @@ from all2md.options import (
     PdfRendererOptions,
     PptxRendererOptions,
 )
-from all2md.renderers import MarkdownRenderer, HtmlRenderer
+from all2md.renderers import HtmlRenderer, MarkdownRenderer
 
 if DOCX_AVAILABLE:
     from all2md.renderers.docx import DocxRenderer

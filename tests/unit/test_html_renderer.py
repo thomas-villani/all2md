@@ -13,10 +13,10 @@ Tests cover:
 
 """
 
-import pytest
 from io import StringIO
 
-from all2md.options import HtmlRendererOptions
+import pytest
+
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -30,7 +30,6 @@ from all2md.ast import (
     FootnoteReference,
     Heading,
     HTMLBlock,
-    HTMLInline,
     Image,
     LineBreak,
     Link,
@@ -50,6 +49,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.options import HtmlRendererOptions
 from all2md.renderers.html import HtmlRenderer
 
 

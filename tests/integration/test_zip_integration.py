@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md import to_markdown, to_ast
+from all2md import to_ast, to_markdown
 
 
 def create_test_zip_with_markdown(content: str) -> bytes:

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-import all2md
 from all2md import MarkdownOptions, SourceCodeOptions, to_markdown
 from all2md.converter_registry import registry
 

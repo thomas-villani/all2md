@@ -3,18 +3,15 @@
 Tests cover various chart types and edge cases using the AST-based API.
 """
 
-import pytest
 from pptx import Presentation
 from pptx.chart.data import ChartData, XyChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
-
-from all2md.parsers.pptx import PptxToAstConverter
-from all2md.options import PptxOptions
-from all2md.ast import Table, CodeBlock
-from all2md.ast.transforms import extract_nodes
-from all2md.renderers.markdown import MarkdownRenderer
 from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
+
+from all2md.options import PptxOptions
+from all2md.parsers.pptx import PptxToAstConverter
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 class TestPptxChartsAdvanced:
@@ -42,6 +39,7 @@ class TestPptxChartsAdvanced:
         -------
         str
             Rendered markdown
+
         """
         if options is None:
             options = PptxOptions(attachment_mode="alt_text")
@@ -222,7 +220,6 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Scatter Plot Analysis"
 
         # Scatter charts need XyChartData, not ChartData with categories
-        from pptx.chart.data import XyChartData
 
         chart_data = XyChartData()
         series = chart_data.add_series('Data Points')

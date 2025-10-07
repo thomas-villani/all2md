@@ -2,10 +2,11 @@
 
 from unittest.mock import Mock, patch
 
-from all2md import to_markdown as pdf_to_markdown
-from all2md.parsers.pdf import detect_columns, IdentifyHeaders
-from all2md.options import PdfOptions
 from utils import cleanup_test_dir, create_test_temp_dir
+
+from all2md import to_markdown as pdf_to_markdown
+from all2md.options import PdfOptions
+from all2md.parsers.pdf import IdentifyHeaders, detect_columns
 
 
 class TestPdfLayoutAdvanced:

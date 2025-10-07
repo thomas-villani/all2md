@@ -13,9 +13,11 @@ Test Coverage:
 - Property: No script execution vectors
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings, HealthCheck
 from io import BytesIO
+
+import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from all2md import to_markdown
 from all2md.options import HtmlOptions, NetworkFetchOptions

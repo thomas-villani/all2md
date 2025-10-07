@@ -23,8 +23,6 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Union
 from urllib.parse import urlparse
 
-from all2md.exceptions import DependencyError
-
 if TYPE_CHECKING:
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import Flowable
@@ -131,7 +129,6 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import inch
         from reportlab.platypus import (
-            Flowable,
             HRFlowable,
             Image,
             ListFlowable,

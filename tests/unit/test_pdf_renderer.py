@@ -15,9 +15,9 @@ PDF content verification is limited as we mainly test structure, not exact layou
 
 """
 
-import pytest
 from io import BytesIO
-from pathlib import Path
+
+import pytest
 
 try:
     import PyPDF2
@@ -31,7 +31,6 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-from all2md.options import PdfRendererOptions
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -44,8 +43,6 @@ from all2md.ast import (
     FootnoteDefinition,
     FootnoteReference,
     Heading,
-    Image,
-    LineBreak,
     Link,
     List,
     ListItem,
@@ -54,15 +51,13 @@ from all2md.ast import (
     Paragraph,
     Strikethrough,
     Strong,
-    Subscript,
-    Superscript,
     Table,
     TableCell,
     TableRow,
     Text,
     ThematicBreak,
-    Underline,
 )
+from all2md.options import PdfRendererOptions
 
 if REPORTLAB_AVAILABLE:
     from all2md.renderers.pdf import PdfRenderer

@@ -2,7 +2,6 @@
 
 """Unit tests for Markdown to AST converter."""
 
-import pytest
 
 from all2md.ast import (
     BlockQuote,
@@ -10,7 +9,6 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
-    FootnoteReference,
     Heading,
     Image,
     LineBreak,
@@ -21,13 +19,12 @@ from all2md.ast import (
     Strikethrough,
     Strong,
     Table,
-    TableCell,
     TableRow,
     Text,
     ThematicBreak,
 )
-from all2md.parsers.markdown import MarkdownToAstConverter, markdown_to_ast
 from all2md.options import MarkdownParserOptions
+from all2md.parsers.markdown import MarkdownToAstConverter, markdown_to_ast
 
 
 class TestMarkdownBasics:

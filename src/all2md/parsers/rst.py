@@ -40,7 +40,7 @@ from all2md.ast import (
     ThematicBreak,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, ParsingError
+from all2md.exceptions import ParsingError
 from all2md.options import RstParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.utils.decorators import requires_dependencies
@@ -111,8 +111,6 @@ class RestructuredTextParser(BaseParser):
         rst_content = self._load_rst_content(input_data)
 
         from docutils.core import publish_doctree
-        from docutils.parsers.rst import roles
-        from docutils.utils import SystemMessage
 
         # Parse RST to docutils document tree
         try:

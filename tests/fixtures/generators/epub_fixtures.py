@@ -28,6 +28,7 @@ def create_simple_epub() -> bytes:
     ------
     ImportError
         If ebooklib is not installed.
+
     """
     if not ebooklib:
         raise ImportError("ebooklib is required for EPUB fixture generation")
@@ -123,6 +124,7 @@ def create_epub_with_images() -> bytes:
     ------
     ImportError
         If ebooklib is not installed.
+
     """
     if not ebooklib:
         raise ImportError("ebooklib is required for EPUB fixture generation")
@@ -205,6 +207,7 @@ def create_epub_with_footnotes() -> bytes:
     ------
     ImportError
         If ebooklib is not installed.
+
     """
     if not ebooklib:
         raise ImportError("ebooklib is required for EPUB fixture generation")
@@ -273,6 +276,7 @@ def create_epub_with_nested_toc() -> bytes:
     ------
     ImportError
         If ebooklib is not installed.
+
     """
     if not ebooklib:
         raise ImportError("ebooklib is required for EPUB fixture generation")
@@ -345,6 +349,7 @@ def create_epub_file(content: bytes, temp_dir: Optional[Path] = None) -> Path:
     -------
     Path
         Path to the created EPUB file.
+
     """
     if temp_dir is None:
         temp_dir = Path(tempfile.gettempdir())

@@ -12,7 +12,7 @@ from utils import cleanup_test_dir, create_test_temp_dir
 
 # Configure Hypothesis for property-based testing
 try:
-    from hypothesis import settings, Verbosity, Phase
+    from hypothesis import Phase, Verbosity, settings
 
     # Register custom Hypothesis profiles
     settings.register_profile("ci", max_examples=100, verbosity=Verbosity.verbose)
@@ -65,6 +65,7 @@ def temp_dir() -> Generator[Path, None, None]:
     ------
     Path
         Temporary directory path that will be cleaned up after test.
+
     """
     temp_path = create_test_temp_dir()
     try:
@@ -81,6 +82,7 @@ def sample_text() -> str:
     -------
     str
         Standard sample text used across multiple tests.
+
     """
     return """# Sample Document
 
@@ -122,6 +124,7 @@ def minimal_document_content() -> dict:
     -------
     dict
         Dictionary with content for different document elements.
+
     """
     return {
         "title": "Test Document",

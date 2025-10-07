@@ -17,13 +17,13 @@ programmatically is complex. Integration tests cover real PDF files.
 
 """
 
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 import pytest
 
-from all2md.ast import CodeBlock, Document, Heading, Image, Paragraph, Table, Text
-from all2md.parsers.pdf import PdfToAstConverter
+from all2md.ast import Document, Heading, Image, Paragraph, Table
 from all2md.options import PdfOptions
+from all2md.parsers.pdf import PdfToAstConverter
 
 
 def _create_mock_text_block(text, bbox=(0, 0, 100, 20), font_size=12, font_name="Arial", font_flags=0):

@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from utils import cleanup_test_dir, create_test_temp_dir
 
 
@@ -41,6 +40,7 @@ class TestCLIEndToEnd:
         -------
         subprocess.CompletedProcess
             Result of the subprocess execution
+
         """
         cmd = [sys.executable, "-m", "all2md"] + args
         return subprocess.run(

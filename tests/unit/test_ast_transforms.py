@@ -2,7 +2,7 @@
 """Tests for AST transformation utilities."""
 import pytest
 
-from all2md.ast import Document, Emphasis, Heading, Image, Link, Paragraph, Strong, Text
+from all2md.ast import Document, Heading, Image, Link, Paragraph, Strong, Text
 from all2md.ast.transforms import (
     HeadingLevelTransformer,
     LinkRewriter,

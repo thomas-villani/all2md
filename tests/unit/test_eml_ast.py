@@ -19,8 +19,8 @@ import datetime
 import pytest
 
 from all2md.ast import Document, Heading, HTMLInline, Paragraph, Text, ThematicBreak
-from all2md.parsers.eml import EmlToAstConverter
 from all2md.options import EmlOptions
+from all2md.parsers.eml import EmlToAstConverter
 
 
 def _create_test_email(**kwargs):

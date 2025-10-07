@@ -3,13 +3,12 @@
 
 import io
 import zipfile
-from pathlib import Path
 
 import pytest
 
-from all2md import to_markdown, to_ast
-from all2md.ast import Document, Heading, Paragraph, Text
-from all2md.exceptions import ZipFileSecurityError, MalformedFileError
+from all2md import to_ast, to_markdown
+from all2md.ast import Document, Heading
+from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 from all2md.options import ZipOptions
 from all2md.parsers.zip import ZipToAstConverter
 

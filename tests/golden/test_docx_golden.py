@@ -7,15 +7,15 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
-
-from all2md import to_markdown
-from all2md.options import DocxOptions
 from fixtures.generators.docx_fixtures import (
     create_docx_with_formatting,
     create_docx_with_lists,
     create_docx_with_tables,
-    save_docx_to_bytes
+    save_docx_to_bytes,
 )
+
+from all2md import to_markdown
+from all2md.options import DocxOptions
 
 
 @pytest.mark.golden

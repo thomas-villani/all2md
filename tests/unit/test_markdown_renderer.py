@@ -13,7 +13,6 @@ Tests cover:
 
 import pytest
 
-from all2md.options import MarkdownOptions
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -42,7 +41,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-
+from all2md.options import MarkdownOptions
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.utils.flavors import GFMFlavor
 

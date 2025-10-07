@@ -4,8 +4,7 @@ Tests for --watch, --watch-debounce flags and watch mode functionality.
 """
 
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -409,6 +408,7 @@ class TestRunWatchMode:
         """Test watch mode without watchdog installed."""
         import logging
         import sys
+
         from all2md.cli.watch import run_watch_mode
 
         # Temporarily remove watchdog from sys.modules
@@ -605,8 +605,9 @@ class TestWatchModeIntegration:
     )
     def test_watch_mode_actual_file_change(self, tmp_path):
         """Test watch mode with actual file changes (requires watchdog)."""
-        from all2md.cli.watch import run_watch_mode
         import threading
+
+        from all2md.cli.watch import run_watch_mode
 
         test_file = tmp_path / "test.txt"
         test_file.write_text("initial content")
@@ -642,8 +643,9 @@ class TestWatchModeIntegration:
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
     def test_watch_mode_real_file_modification(self, tmp_path):
         """Test watch mode with real file modification events."""
-        from all2md.cli.watch import run_watch_mode
         import threading
+
+        from all2md.cli.watch import run_watch_mode
 
         # Create test file
         test_file = tmp_path / "document.txt"
@@ -693,8 +695,9 @@ class TestWatchModeIntegration:
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
     def test_watch_mode_real_file_creation(self, tmp_path):
         """Test watch mode detects newly created files."""
-        from all2md.cli.watch import run_watch_mode
         import threading
+
+        from all2md.cli.watch import run_watch_mode
 
         output_dir = tmp_path / "output"
 
@@ -735,8 +738,9 @@ class TestWatchModeIntegration:
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
     def test_watch_mode_debounce_rapid_changes(self, tmp_path):
         """Test that debouncing prevents duplicate processing of rapid changes."""
-        from all2md.cli.watch import run_watch_mode
         import threading
+
+        from all2md.cli.watch import run_watch_mode
 
         test_file = tmp_path / "rapid_change.txt"
         test_file.write_text("Initial")
@@ -784,8 +788,9 @@ class TestWatchModeIntegration:
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
     def test_watch_mode_exclude_patterns_real(self, tmp_path):
         """Test that exclude patterns work with real file events."""
-        from all2md.cli.watch import run_watch_mode
         import threading
+
+        from all2md.cli.watch import run_watch_mode
 
         output_dir = tmp_path / "output"
 

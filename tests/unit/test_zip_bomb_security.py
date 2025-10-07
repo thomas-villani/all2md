@@ -12,9 +12,7 @@ Test Coverage:
 - Integration with format parsers (DOCX, PPTX, EPUB, ODF)
 """
 
-import tempfile
 import zipfile
-from pathlib import Path
 
 import pytest
 

@@ -34,7 +34,6 @@ from all2md.ast import (
     ListItem,
     MathBlock,
     MathInline,
-    Node,
     Paragraph,
     SourceLocation,
     Strikethrough,

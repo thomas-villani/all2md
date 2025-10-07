@@ -43,6 +43,7 @@ def create_odt_with_formatting() -> 'OpenDocumentText':
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -121,6 +122,7 @@ def create_odt_with_lists() -> 'OpenDocumentText':
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -234,6 +236,7 @@ def create_odt_with_tables() -> 'OpenDocumentText':
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -356,6 +359,7 @@ def create_odt_with_spaces_and_formatting() -> 'OpenDocumentText':
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -425,6 +429,7 @@ def save_odt_to_file(doc: 'OpenDocumentText', filepath: Path) -> None:
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -449,6 +454,7 @@ def save_odt_to_bytes(doc: 'OpenDocumentText') -> bytes:
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -472,6 +478,7 @@ def create_odp_with_slides() -> 'OpenDocumentPresentation':
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -573,6 +580,7 @@ def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
     ------
     ImportError
         If odfpy library is not available.
+
     """
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")

@@ -1,13 +1,13 @@
 """Advanced tests for HTML nested element handling edge cases."""
 
+from utils import assert_markdown_valid
+
 from all2md import to_markdown as html_to_markdown
 from all2md.options import HtmlOptions
-from utils import assert_markdown_valid
 
 
 class TestHtmlNestedElements:
     """Test complex nested element scenarios in HTML documents."""
-
 
     def test_nested_lists_and_blockquotes(self):
         """Test complex nesting of lists and blockquotes."""

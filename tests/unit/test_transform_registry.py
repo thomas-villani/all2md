@@ -9,16 +9,19 @@ from all2md.transforms import ParameterSpec, TransformMetadata, TransformRegistr
 
 class TransformA(NodeTransformer):
     """Test transform A."""
+
     pass
 
 
 class TransformB(NodeTransformer):
     """Test transform B - depends on A."""
+
     pass
 
 
 class TransformC(NodeTransformer):
     """Test transform C - depends on B."""
+
     pass
 
 

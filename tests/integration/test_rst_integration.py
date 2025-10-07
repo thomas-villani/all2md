@@ -18,17 +18,15 @@ from pathlib import Path
 import pytest
 
 from all2md.ast import (
-    BlockQuote,
     CodeBlock,
     DefinitionList,
     Document,
     Heading,
-    List,
     Paragraph,
     Table,
     Text,
 )
-from all2md.options import RstParserOptions, RstRendererOptions
+from all2md.options import RstRendererOptions
 from all2md.parsers.rst import RestructuredTextParser
 from all2md.renderers.rst import RestructuredTextRenderer
 
@@ -206,7 +204,7 @@ Level 3
         headings2 = [child for child in doc2.children if isinstance(child, Heading)]
 
         assert len(headings1) == len(headings2)
-        for h1, h2 in zip(headings1, headings2):
+        for h1, h2 in zip(headings1, headings2, strict=False):
             assert h1.level == h2.level
 
     def test_inline_formatting_round_trip(self) -> None:

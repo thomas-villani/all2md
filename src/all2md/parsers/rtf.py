@@ -27,11 +27,11 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, ParsingError, ValidationError
+from all2md.exceptions import ParsingError, ValidationError
 from all2md.options import RtfOptions
 from all2md.parsers.base import BaseParser
-from all2md.utils.decorators import requires_dependencies
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 

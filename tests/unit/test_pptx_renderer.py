@@ -13,9 +13,9 @@ Note: These tests require python-pptx to be installed.
 PPTX content verification is limited as we mainly test structure.
 """
 
-import pytest
-from pathlib import Path
 from io import BytesIO
+
+import pytest
 
 try:
     from pptx import Presentation
@@ -23,23 +23,23 @@ try:
 except ImportError:
     PPTX_AVAILABLE = False
 
-from all2md.options import PptxRendererOptions
 from all2md.ast import (
-    Document,
-    Heading,
-    Paragraph,
-    Text,
-    ThematicBreak,
-    Strong,
-    Emphasis,
     Code,
+    CodeBlock,
+    Document,
+    Emphasis,
+    Heading,
     List,
     ListItem,
-    CodeBlock,
+    Paragraph,
+    Strong,
     Table,
     TableCell,
     TableRow,
+    Text,
+    ThematicBreak,
 )
+from all2md.options import PptxRendererOptions
 
 if PPTX_AVAILABLE:
     from all2md.renderers.pptx import PptxRenderer

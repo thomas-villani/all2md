@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast.nodes import Document, Heading, Node
-from all2md.exceptions import DependencyError, RenderingError
+from all2md.exceptions import RenderingError
 from all2md.options import EpubRendererOptions, HtmlRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,
@@ -29,8 +29,8 @@ from all2md.renderers._split_utils import (
     split_ast_by_separator,
 )
 from all2md.renderers.base import BaseRenderer
-from all2md.utils.decorators import requires_dependencies
 from all2md.renderers.html import HtmlRenderer
+from all2md.utils.decorators import requires_dependencies
 
 
 class EpubRenderer(BaseRenderer):

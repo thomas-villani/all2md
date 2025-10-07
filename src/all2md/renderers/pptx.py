@@ -58,7 +58,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.exceptions import DependencyError, RenderingError
+from all2md.exceptions import RenderingError
 from all2md.options import PptxRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,

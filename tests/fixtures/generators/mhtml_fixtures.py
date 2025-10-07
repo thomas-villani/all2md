@@ -17,6 +17,7 @@ def create_simple_mhtml() -> bytes:
     -------
     bytes
         MHTML file content as bytes.
+
     """
     mhtml_content = """MIME-Version: 1.0
 Content-Type: multipart/related;
@@ -55,6 +56,7 @@ def create_mhtml_with_image() -> bytes:
     -------
     bytes
         MHTML file content as bytes.
+
     """
     # Create a simple 1x1 PNG image
     test_image_data = (
@@ -106,6 +108,7 @@ def create_mhtml_with_ms_word_artifacts() -> bytes:
     -------
     bytes
         MHTML file content as bytes.
+
     """
     mhtml_content = """MIME-Version: 1.0
 Content-Type: multipart/related;
@@ -156,6 +159,7 @@ def create_mhtml_with_multiple_assets() -> bytes:
     -------
     bytes
         MHTML file content as bytes.
+
     """
     # Create test images
     test_image1_data = (
@@ -236,6 +240,7 @@ def create_mhtml_with_complex_html() -> bytes:
     -------
     bytes
         MHTML file content as bytes.
+
     """
     mhtml_content = """MIME-Version: 1.0
 Content-Type: multipart/related;
@@ -329,6 +334,7 @@ def create_malformed_mhtml() -> bytes:
     -------
     bytes
         Malformed MHTML file content as bytes.
+
     """
     # Missing proper MIME headers and boundary
     mhtml_content = """This is not a proper MHTML file.
@@ -352,6 +358,7 @@ def create_mhtml_file(content: bytes, temp_dir: Optional[Path] = None) -> Path:
     -------
     Path
         Path to the created MHTML file.
+
     """
     if temp_dir is None:
         temp_dir = Path(tempfile.gettempdir())

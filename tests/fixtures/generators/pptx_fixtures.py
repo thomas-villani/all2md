@@ -23,6 +23,7 @@ def create_pptx_with_basic_slides() -> Presentation:
     -------
     Presentation
         PowerPoint presentation with title, content, and section slides.
+
     """
     prs = Presentation()
 
@@ -103,6 +104,7 @@ def create_pptx_with_tables() -> Presentation:
     -------
     Presentation
         PowerPoint presentation with table slides.
+
     """
     prs = Presentation()
 
@@ -186,6 +188,7 @@ def create_pptx_with_shapes() -> Presentation:
     -------
     Presentation
         PowerPoint presentation with various shapes and text boxes.
+
     """
     prs = Presentation()
 
@@ -262,6 +265,7 @@ def create_pptx_with_charts() -> Presentation:
     -------
     Presentation
         PowerPoint presentation with various chart types.
+
     """
     prs = Presentation()
 
@@ -337,6 +341,7 @@ def create_pptx_with_formatting() -> Presentation:
     -------
     Presentation
         PowerPoint presentation with various text formatting.
+
     """
     prs = Presentation()
 
@@ -430,6 +435,7 @@ def create_minimal_pptx(title: str = "Test Presentation", content: str = "Test c
     -------
     Presentation
         Simple presentation with title and content slide.
+
     """
     prs = Presentation()
 
@@ -460,6 +466,7 @@ def save_pptx_to_bytes(prs: Presentation) -> bytes:
     -------
     bytes
         Presentation as bytes
+
     """
     pptx_io = BytesIO()
     prs.save(pptx_io)
@@ -481,6 +488,7 @@ def create_pptx_file(prs: Presentation, file_path: Optional[Path] = None) -> Pat
     -------
     Path
         Path to the saved file
+
     """
     if file_path is None:
         temp_file = tempfile.NamedTemporaryFile(suffix='.pptx', delete=False)

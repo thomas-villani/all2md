@@ -18,28 +18,23 @@ import pytest
 from pptx import Presentation
 from pptx.chart.data import ChartData
 from pptx.enum.chart import XL_CHART_TYPE
-from pptx.util import Inches, Pt
+from pptx.util import Inches
 
 from all2md.ast import (
+    CodeBlock,
     Document,
     Emphasis,
     Heading,
-    Image,
     List,
-    ListItem,
-    CodeBlock,
     Paragraph,
     Strong,
-    Strikethrough,
-    Subscript,
-    Superscript,
     Table,
     Text,
     Underline,
 )
-from all2md.parsers.pptx import PptxToAstConverter
-from all2md.options import PptxOptions
 from all2md.ast.transforms import extract_nodes
+from all2md.options import PptxOptions
+from all2md.parsers.pptx import PptxToAstConverter
 
 
 @pytest.mark.unit

@@ -1,9 +1,8 @@
 # Copyright (c) 2025 Your Name
 """Tests for watermark transform."""
-import pytest
-from all2md.ast import Document, Image, Paragraph
-
 from all2md_watermark import METADATA, WatermarkTransform
+
+from all2md.ast import Document, Image, Paragraph
 
 
 class TestWatermarkTransform:

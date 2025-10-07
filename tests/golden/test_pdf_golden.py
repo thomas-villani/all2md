@@ -7,14 +7,14 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
+from fixtures.generators.pdf_test_fixtures import (
+    create_pdf_with_figures,
+    create_pdf_with_formatting,
+    create_pdf_with_tables,
+)
 
 from all2md import to_markdown
 from all2md.options import PdfOptions
-from fixtures.generators.pdf_test_fixtures import (
-    create_pdf_with_formatting,
-    create_pdf_with_figures,
-    create_pdf_with_tables,
-)
 
 
 @pytest.mark.golden

@@ -4,8 +4,6 @@ Tests for --zip, --assets-layout flags and packaging utilities.
 """
 
 import zipfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 

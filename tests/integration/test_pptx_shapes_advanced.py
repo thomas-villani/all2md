@@ -11,10 +11,10 @@ pytest.skip("Tests require refactoring for new AST architecture", allow_module_l
 
 from pptx import Presentation
 from pptx.util import Inches, Pt
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 # from all2md.parsers.pptx import _process_shape  # Function no longer exists
 from all2md.options import PptxOptions
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPptxShapesAdvanced:

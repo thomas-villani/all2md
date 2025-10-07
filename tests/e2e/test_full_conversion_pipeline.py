@@ -8,14 +8,14 @@ and conversion across different document types.
 from io import BytesIO
 
 import pytest
-
-from all2md import to_markdown
-from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
 from fixtures.generators.docx_fixtures import create_docx_with_formatting, save_docx_to_bytes
 from fixtures.generators.html_fixtures import create_html_with_tables
 from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, save_pptx_to_bytes
 from utils import assert_markdown_valid
+
+from all2md import to_markdown
+from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
 
 
 @pytest.mark.e2e

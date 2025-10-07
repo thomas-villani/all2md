@@ -6,8 +6,6 @@ optional dependencies for various converter modules.
 
 from __future__ import annotations
 
-import re
-import sys
 from typing import Dict, List, Optional, Tuple
 
 from all2md.converter_registry import _check_package_installed, registry

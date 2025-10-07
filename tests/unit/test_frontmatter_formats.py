@@ -1,14 +1,14 @@
 """Tests for frontmatter format selection (YAML, TOML, JSON)."""
 
-from all2md.utils.metadata import (
-    DocumentMetadata,
-    format_yaml_frontmatter,
-    format_toml_frontmatter,
-    format_json_frontmatter,
-)
+from all2md.ast.nodes import Document, Paragraph, Text
 from all2md.options import MarkdownOptions
 from all2md.renderers.markdown import MarkdownRenderer
-from all2md.ast.nodes import Document, Paragraph, Text
+from all2md.utils.metadata import (
+    DocumentMetadata,
+    format_json_frontmatter,
+    format_toml_frontmatter,
+    format_yaml_frontmatter,
+)
 
 
 def test_format_yaml_frontmatter():

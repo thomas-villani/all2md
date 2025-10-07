@@ -1,11 +1,11 @@
 """Integration tests for PDF image and figure handling using real PDFs."""
 
 import pytest
+from fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md import to_markdown as pdf_to_markdown
 from all2md.options import PdfOptions
-from fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration

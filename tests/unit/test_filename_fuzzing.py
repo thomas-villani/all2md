@@ -13,11 +13,11 @@ Test Coverage:
 - Property: No path traversal in output
 """
 
-import re
 from pathlib import Path
 
 import pytest
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from all2md.utils.attachments import sanitize_attachment_filename
 

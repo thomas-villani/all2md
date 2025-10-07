@@ -18,6 +18,7 @@ def create_simple_notebook() -> Dict[str, Any]:
     -------
     dict
         A minimal notebook with markdown and code cells.
+
     """
     return {
         "cells": [
@@ -54,6 +55,7 @@ def create_notebook_with_images() -> Dict[str, Any]:
     -------
     dict
         A notebook with cells that produce image outputs.
+
     """
     # Create a minimal 1x1 PNG image in base64
     png_data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
@@ -128,6 +130,7 @@ def create_notebook_with_long_outputs() -> Dict[str, Any]:
     -------
     dict
         A notebook with cells producing extensive output.
+
     """
     long_output = [f"Line {i}: This is a very long output line with lots of text.\n" for i in range(50)]
 
@@ -197,6 +200,7 @@ def create_multi_language_notebook() -> Dict[str, Any]:
     -------
     dict
         A notebook with mixed language cells.
+
     """
     return {
         "cells": [
@@ -259,6 +263,7 @@ def create_notebook_with_errors() -> Dict[str, Any]:
     -------
     dict
         A notebook containing cells with error outputs.
+
     """
     return {
         "cells": [
@@ -325,6 +330,7 @@ def create_data_science_notebook() -> Dict[str, Any]:
     -------
     dict
         A realistic data science notebook with various cell types and outputs.
+
     """
     # Simple base64 encoded plot image
     plot_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
@@ -697,6 +703,7 @@ def create_notebook_with_widgets() -> Dict[str, Any]:
     -------
     dict
         A notebook containing widget outputs and rich display elements.
+
     """
     return {
         "cells": [
@@ -781,6 +788,7 @@ def save_notebook_to_file(notebook: Dict[str, Any], filepath: str) -> None:
         The notebook structure to save.
     filepath : str
         The file path where to save the notebook.
+
     """
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(notebook, f, indent=2, ensure_ascii=False)
@@ -799,6 +807,7 @@ def create_all_fixtures(output_dir: str = "test_notebooks") -> Dict[str, str]:
     -------
     dict
         Mapping of notebook names to their file paths.
+
     """
     from pathlib import Path
 

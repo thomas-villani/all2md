@@ -16,6 +16,7 @@ def create_html_with_formatting() -> str:
     -------
     str
         HTML string with bold, italic, code, and other formatting.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -68,6 +69,7 @@ def create_html_with_tables() -> str:
     -------
     str
         HTML string with various table structures.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -169,6 +171,7 @@ def create_html_with_lists() -> str:
     -------
     str
         HTML string with bullet lists, numbered lists, and nested lists.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -237,6 +240,7 @@ def create_html_with_code_blocks() -> str:
     -------
     str
         HTML string with various code block formats.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -295,6 +299,7 @@ def create_html_with_links() -> str:
     -------
     str
         HTML string with different types of hyperlinks.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -344,6 +349,7 @@ def create_html_with_nested_elements() -> str:
     -------
     str
         HTML string with nested elements and complex structure.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -407,6 +413,7 @@ def create_html_with_entities() -> str:
     -------
     str
         HTML string with various HTML entities.
+
     """
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -457,6 +464,7 @@ def create_minimal_html(title: str = "Test Document", content: str = "Test conte
     -------
     str
         Simple HTML document with title and content.
+
     """
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -486,6 +494,7 @@ def create_html_file(html_content: str, file_path: Optional[Path] = None) -> Pat
     -------
     Path
         Path to the saved file
+
     """
     if file_path is None:
         temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8')

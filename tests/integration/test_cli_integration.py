@@ -7,10 +7,10 @@ option propagation, and error handling.
 from unittest.mock import patch
 
 import pytest
+from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md.cli import main
 from all2md.exceptions import MalformedFileError, ParsingError
-from utils import cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration

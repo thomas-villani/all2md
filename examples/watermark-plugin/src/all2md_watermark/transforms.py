@@ -33,6 +33,7 @@ class WatermarkTransform(NodeTransformer):
     >>> # Custom watermark
     >>> transform = WatermarkTransform(text="DRAFT")
     >>> markdown = to_markdown('document.pdf', transforms=[transform])
+
     """
 
     def __init__(self, text: str = "CONFIDENTIAL"):
@@ -42,6 +43,7 @@ class WatermarkTransform(NodeTransformer):
         ----------
         text : str, optional
             Watermark text (default: "CONFIDENTIAL")
+
         """
         super().__init__()
         self.watermark_text = text
@@ -58,6 +60,7 @@ class WatermarkTransform(NodeTransformer):
         -------
         Image
             New image node with watermark in metadata
+
         """
         # Process children first (if any)
         node = super().visit_image(node)

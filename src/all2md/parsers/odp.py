@@ -34,10 +34,10 @@ from all2md.ast import (
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, MalformedFileError
+from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
-from all2md.utils.decorators import requires_dependencies
 from all2md.utils.attachments import process_attachment
+from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
 

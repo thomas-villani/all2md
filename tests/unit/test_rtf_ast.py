@@ -17,33 +17,37 @@ programmatically is complex. Integration tests cover real RTF files.
 
 """
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 from all2md.ast import Document, Emphasis, List, ListItem, Paragraph, Strong, Text, Underline
-from all2md.parsers.rtf import RtfToAstConverter
 from all2md.options import RtfOptions
+from all2md.parsers.rtf import RtfToAstConverter
 
 
 # Create mock classes for pyth types so isinstance checks work correctly
 class MockPythText(Mock):
     """Mock class for pyth Text objects."""
+
     pass
 
 
 class MockPythParagraph(Mock):
     """Mock class for pyth Paragraph objects."""
+
     pass
 
 
 class MockPythList(Mock):
     """Mock class for pyth List objects."""
+
     pass
 
 
 class MockPythListEntry(Mock):
     """Mock class for pyth ListEntry objects."""
+
     pass
 
 

@@ -20,6 +20,7 @@ def create_docx_with_formatting() -> docx.Document:
     -------
     docx.Document
         Document with bold, italic, underline, and combined formatting.
+
     """
     doc = docx.Document()
 
@@ -71,6 +72,7 @@ def create_docx_with_tables() -> docx.Document:
     -------
     docx.Document
         Document with various table structures and formatting.
+
     """
     doc = docx.Document()
 
@@ -153,6 +155,7 @@ def create_docx_with_lists() -> docx.Document:
     -------
     docx.Document
         Document with bullet lists, numbered lists, and nested lists.
+
     """
     doc = docx.Document()
 
@@ -207,6 +210,7 @@ def create_docx_with_images() -> docx.Document:
     -------
     docx.Document
         Document with image placeholders and captions.
+
     """
     doc = docx.Document()
 
@@ -236,6 +240,7 @@ def create_docx_with_links() -> docx.Document:
     -------
     docx.Document
         Document with various types of hyperlinks.
+
     """
     doc = docx.Document()
 
@@ -283,6 +288,7 @@ def create_minimal_docx(title: str = "Test Document", content: str = "Test conte
     -------
     docx.Document
         Simple document with title and content.
+
     """
     doc = docx.Document()
     doc.add_heading(title, level=1)
@@ -302,6 +308,7 @@ def save_docx_to_bytes(doc: docx.Document) -> bytes:
     -------
     bytes
         Document as bytes
+
     """
     doc_io = BytesIO()
     doc.save(doc_io)
@@ -323,6 +330,7 @@ def create_docx_file(doc: docx.Document, file_path: Optional[Path] = None) -> Pa
     -------
     Path
         Path to the saved file
+
     """
     if file_path is None:
         temp_file = tempfile.NamedTemporaryFile(suffix='.docx', delete=False)

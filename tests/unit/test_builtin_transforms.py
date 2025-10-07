@@ -17,7 +17,6 @@ from all2md.transforms.builtin import (
     TextReplacerTransform,
 )
 
-
 # Fixtures
 
 @pytest.fixture
@@ -594,7 +593,7 @@ class TestAddAttachmentFootnotesTransform:
 
     def test_no_section_title(self):
         """Test omitting section title."""
-        from all2md.ast.nodes import Heading, FootnoteDefinition
+        from all2md.ast.nodes import FootnoteDefinition, Heading
 
         doc = Document(children=[
             Paragraph(content=[

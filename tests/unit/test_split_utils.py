@@ -16,18 +16,18 @@ import pytest
 
 from all2md.ast import (
     Document,
+    Emphasis,
     Heading,
     Paragraph,
+    Strong,
     Text,
     ThematicBreak,
-    Strong,
-    Emphasis,
 )
 from all2md.renderers._split_utils import (
-    split_ast_by_separator,
-    split_ast_by_heading,
     auto_split_ast,
     extract_heading_text,
+    split_ast_by_heading,
+    split_ast_by_separator,
 )
 
 

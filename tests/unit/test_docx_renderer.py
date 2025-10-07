@@ -14,8 +14,9 @@ Note: These tests require python-docx to be installed.
 
 """
 
-import pytest
 from io import BytesIO
+
+import pytest
 
 try:
     from docx import Document as DocxDocument
@@ -23,7 +24,6 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
 
-from all2md.options import DocxRendererOptions
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -36,9 +36,7 @@ from all2md.ast import (
     FootnoteDefinition,
     FootnoteReference,
     Heading,
-    Image,
     LineBreak,
-    Link,
     List,
     ListItem,
     MathBlock,
@@ -46,8 +44,6 @@ from all2md.ast import (
     Paragraph,
     Strikethrough,
     Strong,
-    Subscript,
-    Superscript,
     Table,
     TableCell,
     TableRow,
@@ -55,6 +51,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.options import DocxRendererOptions
 
 if DOCX_AVAILABLE:
     from all2md.renderers.docx import DocxRenderer

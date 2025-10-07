@@ -6,9 +6,10 @@ converter_module/converter_function patterns are no longer supported.
 """
 
 import pytest
-from all2md.converter_registry import registry, ConverterRegistry
+
+from all2md.converter_registry import registry
 from all2md.exceptions import FormatError
-from all2md.options import PdfOptions, DocxOptions, HtmlOptions
+from all2md.options import DocxOptions, HtmlOptions, PdfOptions
 
 
 class TestRegistryNewAPI:

@@ -18,25 +18,22 @@ Tests cover:
 from pathlib import Path
 
 import docx
-from docx.oxml import parse_xml
 import pytest
+from docx.oxml import parse_xml
 
 from all2md.ast import (
     BlockQuote,
     Document,
     Emphasis,
-    MathBlock,
-    MathInline,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
-    Image,
-    Link,
     List,
-    ListItem,
+    MathBlock,
+    MathInline,
     Paragraph,
-    Strong,
     Strikethrough,
+    Strong,
     Subscript,
     Superscript,
     Table,
@@ -44,9 +41,8 @@ from all2md.ast import (
     Underline,
 )
 from all2md.ast.transforms import extract_nodes
-from all2md.parsers.docx import DocxToAstConverter
 from all2md.options import DocxOptions
-
+from all2md.parsers.docx import DocxToAstConverter
 
 FIXTURE_FOOTNOTES_DOC = (
     Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "footnotes-endnotes-comments.docx"
@@ -62,7 +58,7 @@ def _inline_text(nodes: list) -> str:
         if isinstance(node, Text):
             parts.append(node.content)
         elif hasattr(node, "content"):
-            child = getattr(node, "content")
+            child = node.content
             if isinstance(child, list):
                 parts.append(_inline_text(child))
     return "".join(parts)
@@ -614,7 +610,6 @@ class TestFootnotes:
 
     def test_footnote_reference_and_definition(self) -> None:
         """Parser should emit references and collect matching definitions."""
-
         ast_doc = self._convert_with_fixture()
         references, definitions = self._extract_notes(ast_doc)
 
@@ -634,7 +629,6 @@ class TestFootnotes:
 
     def test_endnote_reference_and_definition(self) -> None:
         """Endnotes should use prefixed identifiers and be collected."""
-
         ast_doc = self._convert_with_fixture()
         references, definitions = self._extract_notes(ast_doc)
 
@@ -654,7 +648,6 @@ class TestFootnotes:
 
     def test_footnotes_can_be_disabled(self) -> None:
         """Footnotes should be omitted entirely when option disabled."""
-
         ast_doc = self._convert_with_fixture(include_footnotes=False)
         references, definitions = self._extract_notes(ast_doc)
 
@@ -665,7 +658,6 @@ class TestFootnotes:
 
     def test_endnotes_can_be_disabled(self) -> None:
         """Endnotes should be omitted when include_endnotes is False."""
-
         ast_doc = self._convert_with_fixture(include_endnotes=False)
         references, definitions = self._extract_notes(ast_doc)
 

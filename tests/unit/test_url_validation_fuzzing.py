@@ -17,10 +17,11 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
 from all2md.exceptions import NetworkSecurityError
-from all2md.utils.network_security import validate_url_security, _is_private_or_reserved_ip
+from all2md.utils.network_security import _is_private_or_reserved_ip, validate_url_security
 
 
 @pytest.mark.unit

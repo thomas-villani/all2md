@@ -25,6 +25,7 @@ class TestExitCodes:
         -------
         subprocess.CompletedProcess
             The result of the CLI execution
+
         """
         import sys
         cmd = [sys.executable, "-m", "all2md"] + args

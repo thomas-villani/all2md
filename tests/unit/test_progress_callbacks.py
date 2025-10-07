@@ -2,7 +2,8 @@
 """Tests for progress callback functionality."""
 
 import pytest
-from all2md import to_markdown, to_ast, ProgressEvent, ProgressCallback
+
+from all2md import ProgressEvent, to_ast, to_markdown
 from all2md.progress import EventType
 
 

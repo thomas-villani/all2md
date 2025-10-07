@@ -1,8 +1,8 @@
 """Tests for HTML parser enhancements (figure, details, code detection, microdata)."""
 
-from all2md.parsers.html import HtmlToAstConverter
+from all2md.ast.nodes import BlockQuote, CodeBlock, Emphasis, Image, Paragraph, Strong
 from all2md.options import HtmlOptions
-from all2md.ast.nodes import BlockQuote, Paragraph, Image, Strong, Emphasis, CodeBlock
+from all2md.parsers.html import HtmlToAstConverter
 
 
 def test_figure_blockquote_rendering():

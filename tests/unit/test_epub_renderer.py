@@ -13,9 +13,9 @@ Tests cover:
 Note: These tests require ebooklib to be installed.
 """
 
-import pytest
-from pathlib import Path
 from io import BytesIO
+
+import pytest
 
 try:
     import ebooklib
@@ -24,21 +24,21 @@ try:
 except ImportError:
     EBOOKLIB_AVAILABLE = False
 
-from all2md.options import EpubRendererOptions
 from all2md.ast import (
+    CodeBlock,
     Document,
     Heading,
-    Paragraph,
-    Text,
-    ThematicBreak,
-    Strong,
     List,
     ListItem,
-    CodeBlock,
+    Paragraph,
+    Strong,
     Table,
     TableCell,
     TableRow,
+    Text,
+    ThematicBreak,
 )
+from all2md.options import EpubRendererOptions
 
 if EBOOKLIB_AVAILABLE:
     from all2md.renderers.epub import EpubRenderer

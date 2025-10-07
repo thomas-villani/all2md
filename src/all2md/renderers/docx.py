@@ -21,8 +21,6 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Optional, Union
 from urllib.parse import urlparse
 
-from all2md.exceptions import DependencyError
-
 if TYPE_CHECKING:
     from docx import Document as WordDocument
     from docx.text.paragraph import Paragraph

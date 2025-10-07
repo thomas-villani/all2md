@@ -225,6 +225,7 @@ def create_test_pdf_bytes(pdf_type: str) -> bytes:
     -------
     bytes
         PDF document as bytes
+
     """
     if pdf_type == 'images' or pdf_type == 'figures':
         doc = create_pdf_with_figures()
@@ -256,6 +257,7 @@ def create_temp_pdf_file(pdf_type: str) -> Path:
     -------
     Path
         Path to temporary PDF file (caller should clean up)
+
     """
     pdf_bytes = create_test_pdf_bytes(pdf_type)
 
