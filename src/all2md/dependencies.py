@@ -1,98 +1,16 @@
 """Dependency management utilities for all2md.
 
-This module provides utilities for checking, installing, and managing
+This module provides utilities for checking and reporting on
 optional dependencies for various converter modules.
 """
 
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
 from typing import Dict, List, Optional, Tuple
 
 from all2md.converter_registry import _check_package_installed, registry
-
-
-def _sanitize_package_name(package_name: str) -> str:
-    """Sanitize package name to prevent command injection.
-
-    Parameters
-    ----------
-    package_name : str
-        Raw package name to sanitize
-
-    Returns
-    -------
-    str
-        Sanitized package name
-
-    Raises
-    ------
-    ValueError
-        If package name contains invalid characters
-
-    """
-    # Allow alphanumeric, hyphens, underscores, and dots for package names
-    # This covers standard PyPI package naming conventions
-    if not re.match(r'^[a-zA-Z0-9._-]+$', package_name):
-        raise ValueError(f"Invalid package name: {package_name!r}. "
-                         "Package names must contain only letters, numbers, dots, hyphens, and underscores.")
-
-    # Additional safety: reject names that could be shell commands or contain shell metacharacters
-    dangerous_patterns = [
-        r'^\s*$',  # empty or whitespace only
-        r'[;&|`$(){}[\]\\]',  # shell metacharacters
-        r'^\.',  # names starting with dot (hidden files)
-        r'\.\.',  # directory traversal
-    ]
-
-    for pattern in dangerous_patterns:
-        if re.search(pattern, package_name):
-            raise ValueError(f"Invalid package name: {package_name!r}. Contains potentially dangerous characters.")
-
-    return package_name
-
-
-def _sanitize_version_spec(version_spec: str) -> str:
-    """Sanitize version specification to prevent command injection.
-
-    Parameters
-    ----------
-    version_spec : str
-        Raw version specification to sanitize
-
-    Returns
-    -------
-    str
-        Sanitized version specification
-
-    Raises
-    ------
-    ValueError
-        If version spec contains invalid characters
-
-    """
-    if not version_spec:
-        return version_spec
-
-    # Allow standard version specifiers: ==, >=, <=, >, <, !=, ~=, and version numbers
-    # Version numbers can contain digits, dots, letters (for pre/post releases), plus, and hyphens
-    if not re.match(r'^[><=!~]*[a-zA-Z0-9.\-+]+$', version_spec):
-        raise ValueError(f"Invalid version specification: {version_spec!r}. Must be a valid pip version specifier.")
-
-    # Additional safety: reject dangerous patterns
-    dangerous_patterns = [
-        r'[;&|`$(){}[\]\\]',  # shell metacharacters
-        r'\s',  # whitespace
-    ]
-
-    for pattern in dangerous_patterns:
-        if re.search(pattern, version_spec):
-            raise ValueError(f"Invalid version specification: {version_spec!r}. "
-                             "Contains potentially dangerous characters.")
-
-    return version_spec
 
 
 def check_package_installed(package_name: str) -> bool:
@@ -337,59 +255,6 @@ def generate_install_command(packages: List[Tuple[str, str]]) -> str:
     return f"pip install {' '.join(package_strs)}"
 
 
-def install_dependencies(
-        packages: List[Tuple[str, str]],
-        upgrade: bool = False
-) -> Tuple[bool, str]:
-    """Attempt to install missing dependencies.
-
-    Parameters
-    ----------
-    packages : list
-        List of (package_name, version_spec) tuples
-    upgrade : bool
-        Whether to upgrade existing packages
-
-    Returns
-    -------
-    tuple
-        (success, output_message)
-
-    """
-    if not packages:
-        return True, "No packages to install"
-
-    cmd = [sys.executable, "-m", "pip", "install"]
-    if upgrade:
-        cmd.append("--upgrade")
-
-    for package_name, version_spec in packages:
-        # Sanitize package name and version specification to prevent command injection
-        try:
-            safe_package_name = _sanitize_package_name(package_name)
-            safe_version_spec = _sanitize_version_spec(version_spec) if version_spec else ""
-        except ValueError as e:
-            return False, f"Package validation failed: {e}"
-
-        if safe_version_spec:
-            cmd.append(f"{safe_package_name}{safe_version_spec}")
-        else:
-            cmd.append(safe_package_name)
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return True, result.stdout
-    except subprocess.CalledProcessError as e:
-        return False, f"Installation failed: {e.stderr}"
-    except Exception as e:
-        return False, f"Installation failed: {str(e)}"
-
-
 def print_dependency_report() -> str:
     """Generate a human-readable dependency report.
 
@@ -495,19 +360,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         help='Check dependencies for specific format only'
     )
 
-    # install command
-    install_parser = subparsers.add_parser('install', help='Install missing dependencies')
-    install_parser.add_argument(
-        'format',
-        nargs='?',
-        help='Install dependencies for specific format (or all if not specified)'
-    )
-    install_parser.add_argument(
-        '--upgrade',
-        action='store_true',
-        help='Upgrade existing packages'
-    )
-
     args = parser.parse_args(argv)
 
     if args.command == 'check':
@@ -534,38 +386,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if format_status and not all(format_status.values()):
                     return 1
             return 0
-
-    elif args.command == 'install':
-        if args.format:
-            # Install for specific format
-            missing = get_missing_dependencies(args.format)
-            if not missing:
-                print(f"All dependencies for {args.format} are already installed.")
-                return 0
-
-            print(f"Installing dependencies for {args.format}...")
-            success, message = install_dependencies(missing, args.upgrade)
-            print(message)
-            return 0 if success else 1
-        else:
-            # Install all missing dependencies
-            all_deps = get_all_dependencies()
-            all_missing = set()
-
-            for format_name in all_deps:
-                missing = get_missing_dependencies(format_name)
-                for package_tuple in missing:
-                    all_missing.add(package_tuple)
-
-            if not all_missing:
-                print("All dependencies are already installed.")
-                return 0
-
-            all_missing_list = sorted(all_missing)
-            print(f"Installing {len(all_missing_list)} missing packages...")
-            success, message = install_dependencies(all_missing_list, args.upgrade)
-            print(message)
-            return 0 if success else 1
     else:
         parser.print_help()
         return 1

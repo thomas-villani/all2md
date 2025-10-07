@@ -651,14 +651,6 @@ class TestNewEnhancedCLIFeatures:
         result = handle_dependency_commands(['check-deps', 'pdf'])
         assert result is not None
 
-        # Test install-deps command
-        result = handle_dependency_commands(['install-deps'])
-        assert result is not None
-
-        # Test install-deps with format
-        result = handle_dependency_commands(['install-deps', 'pdf'])
-        assert result is not None
-
         # Test non-dependency command
         result = handle_dependency_commands(['test.pdf'])
         assert result is None

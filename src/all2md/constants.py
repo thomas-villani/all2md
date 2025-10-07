@@ -12,7 +12,16 @@ file handling, and Markdown flavor specifications.
 import json
 from pathlib import Path
 from typing import Literal
-
+from all2md.exceptions import (
+        DependencyError,
+        FileError,
+        FormatError,
+        ParsingError,
+        PasswordProtectedError,
+        RenderingError,
+        SecurityError,
+        ValidationError,
+    )
 # =============================================================================
 # Markdown Formatting Constants
 # =============================================================================
@@ -394,16 +403,6 @@ def get_exit_code_for_exception(exception: Exception) -> int:
         The appropriate exit code for the exception type
 
     """
-    from all2md.exceptions import (
-        DependencyError,
-        FileError,
-        FormatError,
-        ParsingError,
-        PasswordProtectedError,
-        RenderingError,
-        SecurityError,
-        ValidationError,
-    )
 
     # Check for password-protected files (most specific)
     if isinstance(exception, PasswordProtectedError):

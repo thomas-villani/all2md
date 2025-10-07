@@ -1150,19 +1150,6 @@ class TestEnhancedCLIIntegration:
         result = main(["check-deps", "pdf"])
         assert result in [0, 1]  # Should either succeed or indicate missing deps
 
-    def test_dependency_install_integration(self):
-        """Test dependency install command integration."""
-        # Note: We don't actually install packages in tests, but we test the CLI path
-        with patch("all2md.dependencies.get_missing_dependencies") as mock_missing:
-            with patch("all2md.dependencies.install_dependencies") as mock_install:
-                # Mock that there are missing dependencies
-                mock_missing.return_value = [("test-package", ">=1.0")]
-                mock_install.return_value = (True, "Mock installation successful")
-
-                result = main(["install-deps", "pdf"])
-                assert result == 0
-                mock_install.assert_called_once()
-
     def test_save_config_integration(self):
         """Test configuration saving integration."""
         config_file = self.temp_dir / "test_config.json"
