@@ -949,7 +949,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_class="LatexParser",
     renderer_class="all2md.renderers.latex.LatexRenderer",
     renders_as_string=True,
-    parser_required_packages=[("pylatexenc", "pylatexenc", "2.10")],
+    parser_required_packages=[("pylatexenc", "pylatexenc", ">=2.10")],
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc",

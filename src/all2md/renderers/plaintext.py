@@ -675,21 +675,3 @@ class PlainTextRenderer(NodeVisitor, BaseRenderer):
         else:
             # Write to file-like object (binary mode)
             output.write(text.encode('utf-8'))
-
-
-# Converter metadata for registry auto-discovery
-CONVERTER_METADATA = ConverterMetadata(
-    format_name="plaintext",
-    extensions=[".txt"],
-    mime_types=["text/plain"],
-    magic_bytes=[],
-    renderer_class="PlainTextRenderer",
-    renders_as_string=True,
-    parser_required_packages=[],
-    renderer_required_packages=[],
-    optional_packages=[],
-    import_error_message="",
-    renderer_options_class="PlainTextOptions",
-    description="Render AST to plain, unformatted text.",
-    priority=1
-)
