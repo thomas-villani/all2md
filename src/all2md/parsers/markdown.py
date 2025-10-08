@@ -720,7 +720,7 @@ def markdown_to_ast(
     markdown_content: str,
     options: MarkdownParserOptions | None = None
 ) -> Document:
-    """Convert Markdown string to AST.
+    r"""Convert Markdown string to AST.
 
     This is a convenience function that creates a converter and parses
     the markdown in one step.

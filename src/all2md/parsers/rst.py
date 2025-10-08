@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 class RestructuredTextParser(BaseParser):
-    """Convert reStructuredText to AST representation.
+    r"""Convert reStructuredText to AST representation.
 
     This converter uses docutils to parse RST and builds an AST that
     matches the structure used throughout all2md, enabling bidirectional
@@ -77,6 +77,7 @@ class RestructuredTextParser(BaseParser):
     """
 
     def __init__(self, options: RstParserOptions | None = None, progress_callback=None):
+        """Initialize the RST parser with options and progress callback."""
         options = options or RstParserOptions()
         super().__init__(options, progress_callback)
         self.options: RstParserOptions = options

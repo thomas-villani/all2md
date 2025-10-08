@@ -1,6 +1,5 @@
 """Type stubs for docx.shared module."""
 
-from typing import Any
 
 class Length:
     """Base class for length measurements."""
@@ -40,6 +39,7 @@ def Inches(inches: float) -> Length:
     -------
     Length
         Length object
+
     """
     ...
 
@@ -56,6 +56,7 @@ def Cm(cm: float) -> Length:
     -------
     Length
         Length object
+
     """
     ...
 
@@ -72,6 +73,7 @@ def Pt(points: float) -> Length:
     -------
     Length
         Length object
+
     """
     ...
 
@@ -88,6 +90,7 @@ def Emu(emu: int) -> Length:
     -------
     Length
         Length object
+
     """
     ...
 
@@ -106,6 +109,7 @@ class RGBColor:
             Green component (0-255)
         b : int
             Blue component (0-255)
+
         """
         ...
 

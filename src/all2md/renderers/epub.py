@@ -63,6 +63,7 @@ class EpubRenderer(BaseRenderer):
     """
 
     def __init__(self, options: EpubRendererOptions | None = None):
+        """Initialize the EPUB renderer with options."""
         options = options or EpubRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: EpubRendererOptions = options

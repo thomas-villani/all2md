@@ -237,6 +237,7 @@ class XlsxToAstConverter(BaseParser):
     """
 
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the XLSX parser with options and progress callback."""
         # Import here to avoid circular dependency
         from all2md.options import XlsxOptions
 

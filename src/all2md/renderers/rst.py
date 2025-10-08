@@ -88,6 +88,7 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
     """
 
     def __init__(self, options: RstRendererOptions | None = None):
+        """Initialize the RST renderer with options."""
         BaseRenderer.__init__(self, options or RstRendererOptions())
         self.options: RstRendererOptions = self.options  # type narrowing
         self._output: list[str] = []

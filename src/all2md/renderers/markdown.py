@@ -99,6 +99,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
     """
 
     def __init__(self, options: MarkdownOptions | None = None):
+        """Initialize the Markdown renderer with options."""
         # Initialize BaseRenderer
         options = options or MarkdownOptions()
         BaseRenderer.__init__(self, options)
@@ -341,7 +342,9 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             return f'"{value_str}"'
 
         # If it starts with a special character or looks like a number/boolean, quote it
-        if value_str and (value_str[0] in ['-', '?', ':'] or value_str.lower() in ['true', 'false', 'yes', 'no', 'null']):
+        if value_str and (
+            value_str[0] in ['-', '?', ':'] or value_str.lower() in ['true', 'false', 'yes', 'no', 'null']
+        ):
             return f'"{value_str}"'
 
         return value_str

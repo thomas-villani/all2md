@@ -12,6 +12,7 @@ def qn(tag: str) -> str:
     -------
     str
         Qualified name with namespace
+
     """
     ...
 
@@ -28,5 +29,6 @@ def nsdecls(*prefixes: str) -> str:
     -------
     str
         Namespace declaration string
+
     """
     ...

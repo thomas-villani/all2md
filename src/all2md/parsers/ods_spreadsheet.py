@@ -119,6 +119,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
     """
 
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
         from all2md.options import OdsSpreadsheetOptions
 

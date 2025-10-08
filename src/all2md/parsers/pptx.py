@@ -81,6 +81,7 @@ class PptxToAstConverter(BaseParser):
         options: PptxOptions | None = None,
         progress_callback: Optional[ProgressCallback] = None
     ):
+        """Initialize the PPTX parser with options and progress callback."""
         options = options or PptxOptions()
         super().__init__(options, progress_callback)
         self.options: PptxOptions = options

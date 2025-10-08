@@ -56,6 +56,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from all2md import to_markdown
 from all2md.cli.builder import DynamicCLIBuilder
+from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import All2MdError
 
 
@@ -641,7 +642,7 @@ def convert_single_file(
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)
+        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)  # type: ignore[arg-type]
 
         # Output the result
         if output_path:
@@ -693,7 +694,7 @@ def convert_single_file_for_collation(
 
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)
+        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)  # type: ignore[arg-type]
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"
@@ -766,8 +767,8 @@ def process_with_rich_output(
         subtitle=f"Processing {len(files)} file(s)"
     ))
 
-    results = []
-    failed = []
+    results: list[tuple[Path, Path | None]] = []
+    failed: list[tuple[Path, str | None]] = []
     max_exit_code = EXIT_SUCCESS
 
     with Progress(
@@ -1289,7 +1290,7 @@ def process_dry_run(
     print()
 
     # Gather format detection information for each file
-    file_info_list = []
+    file_info_list: list[dict[str, Any]] = []
     for file in files:
         # Detect format for this file
         if format_arg != "auto":
@@ -1298,9 +1299,12 @@ def process_dry_run(
         else:
             detected_format = registry.detect_format(file)
             # Try to determine detection method
-            if file.suffix.lower() in [ext for fmt_name in registry.list_formats()
-                                       for ext in registry.get_format_info(fmt_name).extensions
-                                       if registry.get_format_info(fmt_name)]:
+            all_extensions = []
+            for fmt_name in registry.list_formats():
+                fmt_info = registry.get_format_info(fmt_name)
+                if fmt_info:
+                    all_extensions.extend(fmt_info.extensions)
+            if file.suffix.lower() in all_extensions:
                 detection_method = "extension"
             else:
                 detection_method = "content analysis"
@@ -1496,7 +1500,7 @@ def process_detect_only(
     print()
 
     # Gather detection info
-    detection_results = []
+    detection_results: list[dict[str, Any]] = []
     any_issues = False
 
     for file in files:
@@ -1525,7 +1529,7 @@ def process_detect_only(
 
         # Check dependencies
         converter_available = True
-        dependency_status = []
+        dependency_status: list[tuple[str, str, str | None, str | None]] = []
 
         if converter_metadata and converter_metadata.required_packages:
             # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
@@ -1653,7 +1657,7 @@ def process_detect_only(
         return 0
 
 
-def handle_list_formats_command(args: Optional[list[str]] = None) -> int:
+def handle_list_formats_command(args: list[str] | None = None) -> int:
     """Handle list-formats command to show available parsers.
 
     Parameters
@@ -1717,7 +1721,7 @@ Examples:
         formats = [specific_format]
 
     # Gather format information
-    format_info_list = []
+    format_info_list: list[dict[str, Any]] = []
     for format_name in formats:
         metadata = registry.get_format_info(format_name)
         if not metadata:
@@ -1725,7 +1729,7 @@ Examples:
 
         # Check dependency status
         all_available = True
-        dep_status = []
+        dep_status: list[tuple[str, str | None, str, str | None]] = []
 
         # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
         for install_name, _import_name, version_spec in metadata.required_packages:
@@ -1773,16 +1777,17 @@ Examples:
                 # Detailed view for specific format
                 info = format_info_list[0] if format_info_list else None
                 if info:
-                    metadata = info['metadata']
+                    fmt_metadata: ConverterMetadata | None = info['metadata']
+                    assert fmt_metadata is not None  # Already filtered in list construction
 
                     # Create main panel
                     content = []
                     content.append(f"[bold]Format:[/bold] {info['name'].upper()}")
-                    content.append(f"[bold]Description:[/bold] {metadata.description or 'N/A'}")
-                    content.append(f"[bold]Extensions:[/bold] {', '.join(metadata.extensions) or 'N/A'}")
-                    content.append(f"[bold]MIME Types:[/bold] {', '.join(metadata.mime_types) or 'N/A'}")
-                    content.append(f"[bold]Converter:[/bold] {metadata.get_converter_display_string()}")
-                    content.append(f"[bold]Priority:[/bold] {metadata.priority}")
+                    content.append(f"[bold]Description:[/bold] {fmt_metadata.description or 'N/A'}")
+                    content.append(f"[bold]Extensions:[/bold] {', '.join(fmt_metadata.extensions) or 'N/A'}")
+                    content.append(f"[bold]MIME Types:[/bold] {', '.join(fmt_metadata.mime_types) or 'N/A'}")
+                    content.append(f"[bold]Converter:[/bold] {fmt_metadata.get_converter_display_string()}")
+                    content.append(f"[bold]Priority:[/bold] {fmt_metadata.priority}")
 
                     console.print(Panel("\n".join(content), title=f"{info['name'].upper()} Format Details"))
 
@@ -1812,7 +1817,7 @@ Examples:
 
                         # Show install command if needed
                         if not info['all_available']:
-                            install_cmd = metadata.get_install_command()
+                            install_cmd = fmt_metadata.get_install_command()
                             console.print(f"\n[yellow]Install with:[/yellow] {install_cmd}")
                     else:
                         console.print("[green]No dependencies required[/green]")
@@ -1880,14 +1885,15 @@ Examples:
         if specific_format:
             info = format_info_list[0] if format_info_list else None
             if info:
-                metadata = info['metadata']
+                metadata_obj: ConverterMetadata | None = info['metadata']
+                assert metadata_obj is not None  # Already filtered in list construction
                 print(f"\n{info['name'].upper()} Format")
                 print("=" * 60)
-                print(f"Description: {metadata.description or 'N/A'}")
-                print(f"Extensions: {', '.join(metadata.extensions) or 'N/A'}")
-                print(f"MIME Types: {', '.join(metadata.mime_types) or 'N/A'}")
-                print(f"Converter: {metadata.get_converter_display_string()}")
-                print(f"Priority: {metadata.priority}")
+                print(f"Description: {metadata_obj.description or 'N/A'}")
+                print(f"Extensions: {', '.join(metadata_obj.extensions) or 'N/A'}")
+                print(f"MIME Types: {', '.join(metadata_obj.mime_types) or 'N/A'}")
+                print(f"Converter: {metadata_obj.get_converter_display_string()}")
+                print(f"Priority: {metadata_obj.priority}")
 
                 if info['dep_status']:
                     print("\nDependencies:")
@@ -1904,7 +1910,7 @@ Examples:
                         print(f"  {status_str} {pkg_name}{version_str}{installed_str}")
 
                     if not info['all_available']:
-                        install_cmd = metadata.get_install_command()
+                        install_cmd = metadata_obj.get_install_command()
                         print(f"\nInstall with: {install_cmd}")
                 else:
                     print("\nNo dependencies required")
@@ -1912,15 +1918,16 @@ Examples:
             print("\nAll2MD Supported Formats")
             print("=" * 60)
             for info in format_info_list:
-                metadata = info['metadata']
+                metadata_obj: ConverterMetadata | None = info['metadata']
+                assert metadata_obj is not None  # Already filtered in list construction
                 status = "[OK]" if info['all_available'] else "[X]"
-                ext_str = ", ".join(metadata.extensions[:4])
-                if len(metadata.extensions) > 4:
-                    ext_str += f" +{len(metadata.extensions) - 4}"
+                ext_str = ", ".join(metadata_obj.extensions[:4])
+                if len(metadata_obj.extensions) > 4:
+                    ext_str += f" +{len(metadata_obj.extensions) - 4}"
 
                 # Capabilities
-                has_parser = metadata.parser_class is not None
-                has_renderer = metadata.renderer_class is not None
+                has_parser = metadata_obj.parser_class is not None
+                has_renderer = metadata_obj.renderer_class is not None
                 if has_parser and has_renderer:
                     capabilities = "[R+W]"
                 elif has_parser:
@@ -1938,7 +1945,7 @@ Examples:
     return 0
 
 
-def handle_list_transforms_command(args: Optional[list[str]] = None) -> int:
+def handle_list_transforms_command(args: list[str] | None = None) -> int:
     """Handle list-transforms command.
 
     Parameters
@@ -2098,7 +2105,7 @@ Examples:
     return 0
 
 
-def handle_convert_command(args: Optional[list[str]] = None) -> Optional[int]:
+def handle_convert_command(args: list[str] | None = None) -> int | None:
     """Handle the `convert` subcommand for bidirectional conversions."""
     if not args:
         args = sys.argv[1:]
@@ -2110,7 +2117,7 @@ def handle_convert_command(args: Optional[list[str]] = None) -> Optional[int]:
     parser = create_parser()
     parsed_args = parser.parse_args(convert_args)
 
-    provided_args = getattr(parsed_args, '_provided_args', set())
+    provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
 
     if 'output_type' not in provided_args:
         parsed_args.output_type = 'auto'
@@ -2277,8 +2284,8 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                 rendered = convert(
                     file,
                     output=None,
-                    source_format=format_arg,
-                    target_format=target_format,
+                    source_format=format_arg,  # type: ignore[arg-type]
+                    target_format=target_format,  # type: ignore[arg-type]
                     transforms=transforms,
                     **options,
                 )
@@ -2304,7 +2311,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
             convert(
                 file,
                 output=output_path,
-                source_format=format_arg,
+                source_format=format_arg,  # type: ignore[arg-type]
                 target_format=target_format,
                 transforms=transforms,
                 **options,
@@ -2358,7 +2365,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
-def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int]:
+def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
     Parameters
@@ -2427,7 +2434,7 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
     return None
 
 
-def main(args: Optional[list[str]] = None) -> int:
+def main(args: list[str] | None = None) -> int:
     """Execute main CLI entry point with focused delegation to specialized processors."""
     from all2md.cli.processors import (
         load_options_from_json,

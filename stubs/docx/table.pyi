@@ -37,6 +37,7 @@ class Table:
         -------
         _Cell
             The cell object
+
         """
         ...
 

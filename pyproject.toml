@@ -145,8 +145,29 @@ select = [
     "I",  # import-related rules
 ]
 ignore = [
-    "C901" # complexity (ignoring for now)
+    "C901",  # complexity (ignoring for now)
+    "D203",  # one-blank-line-before-class (incompatible with D211)
+    "D213",  # multi-line-summary-second-line (incompatible with D212)
 ]
+
+# Relax rules for test files
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in __init__
+    "D301",  # Use r prefix for docstrings with backslashes
+    "D401",  # First line should be in imperative mood
+    "B017",  # assertRaises(Exception) considered evil
+    "E402",  # Module level import not at top (common with pytest.skip)
+    "E501",  # Line too long (tests often have long assertion lines)
+]
+# Ignore undefined names in test file marked for refactoring
+"tests/integration/test_pptx_shapes_advanced.py" = ["F821"]
 
 
 [tool.mypy]

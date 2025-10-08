@@ -258,7 +258,7 @@ class HeadingOffsetTransform(NodeTransformer):
 
 
 class LinkRewriterTransform(NodeTransformer):
-    """Rewrite link URLs using regex pattern matching.
+    r"""Rewrite link URLs using regex pattern matching.
 
     This transform allows flexible URL rewriting using regular expressions.
     Useful for converting relative links to absolute, updating base URLs,

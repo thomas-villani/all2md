@@ -4,8 +4,8 @@ This stub file provides type hints for the python-docx library,
 which lacks official type annotations.
 """
 
-from typing import IO, Any
 from pathlib import Path
+from typing import IO, Any
 
 class Document:
     """Represents a Word document."""
@@ -17,6 +17,7 @@ class Document:
         ----------
         docx : str, Path, IO[bytes], or None
             Path to existing document or file-like object. If None, creates new document.
+
         """
         ...
 
@@ -34,6 +35,7 @@ class Document:
         -------
         Paragraph
             The created paragraph object
+
         """
         ...
 
@@ -51,6 +53,7 @@ class Document:
         -------
         Paragraph
             The created heading paragraph
+
         """
         ...
 
@@ -70,6 +73,7 @@ class Document:
         -------
         Table
             The created table object
+
         """
         ...
 
@@ -80,6 +84,7 @@ class Document:
         ----------
         path_or_stream : str, Path, or IO[bytes]
             Output destination
+
         """
         ...
 

@@ -64,6 +64,7 @@ class OdpToAstConverter(BaseParser):
 
     @requires_dependencies("odp", [("odfpy", "odf", "")])
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the ODP parser with options and progress callback."""
         # Import here to avoid circular dependency
         from all2md.options import OdpOptions
 
@@ -84,7 +85,9 @@ class OdpToAstConverter(BaseParser):
         self.DRAWNS = namespaces.DRAWNS
         self.STYLENS = namespaces.STYLENS
         self.MATHNS = getattr(namespaces, "MATHNS", "http://www.w3.org/1998/Math/MathML")
-        self.PRESENTATIONNS = getattr(namespaces, "PRESENTATIONNS", "urn:oasis:names:tc:opendocument:xmlns:presentation:1.0")
+        self.PRESENTATIONNS = getattr(
+            namespaces, "PRESENTATIONNS", "urn:oasis:names:tc:opendocument:xmlns:presentation:1.0"
+        )
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse ODP document into an AST.

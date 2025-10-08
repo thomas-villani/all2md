@@ -13,11 +13,13 @@ from __future__ import annotations
 import datetime
 import re
 from email import message_from_binary_file, message_from_bytes, message_from_file, policy
+from email.header import decode_header
 from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Union
+from urllib.parse import unquote
 
 from all2md import DependencyError
 from all2md.ast import Document, Heading, HTMLInline, Node, Paragraph, Text, ThematicBreak
@@ -427,7 +429,6 @@ def _normalize_header_value(value: str, header_name: str) -> str:
 
     # Decode any encoded words
     try:
-        from email.header import decode_header
         decoded_parts = []
         for part, encoding in decode_header(normalized):
             if isinstance(part, bytes):
@@ -756,7 +757,6 @@ def _unwrap_url(match: re.Match[str]) -> str:
 
     """
     try:
-        from urllib.parse import unquote
         wrapped_url = match.group(1)
         return unquote(wrapped_url)
     except Exception:
@@ -1036,8 +1036,6 @@ class EmlToAstConverter(BaseParser):
             Extracted metadata
 
         """
-        from email.utils import getaddresses
-
         metadata = DocumentMetadata()
 
         # Extract subject as title

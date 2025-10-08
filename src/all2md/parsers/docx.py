@@ -27,6 +27,63 @@ from all2md.utils.metadata import (
 )
 from all2md.utils.security import validate_zip_archive
 
+if TYPE_CHECKING:
+    import docx.document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+
+from all2md.ast import (
+    BlockQuote,
+    Document,
+    Emphasis,
+    FootnoteReference,
+    Heading,
+    HTMLBlock,
+    HTMLInline,
+    Image,
+    Link,
+    List,
+    ListItem,
+    MathBlock,
+    MathInline,
+    Node,
+    Strikethrough,
+    Strong,
+    Subscript,
+    Superscript,
+    TableCell,
+    TableRow,
+    Text,
+    Underline,
+)
+from all2md.ast import (
+    Paragraph as AstParagraph,
+)
+from all2md.ast import (
+    Table as AstTable,
+)
+from all2md.converter_metadata import ConverterMetadata
+from all2md.options import DocxOptions
+from all2md.parsers.base import BaseParser
+from all2md.utils.decorators import requires_dependencies
+from all2md.utils.footnotes import FootnoteCollector
+
+logger = logging.getLogger(__name__)
+
+
+WORDPROCESSING_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+WORD_TAG_PREFIX = f"{{{WORDPROCESSING_NS}}}"
+WORD_ID_ATTR = f"{WORD_TAG_PREFIX}id"
+WORD_PARAGRAPH_TAG = f"{WORD_TAG_PREFIX}p"
+WORD_FOOTNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}footnoteReference"
+WORD_ENDNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}endnoteReference"
+WORD_COMMENT_REFERENCE_TAG = f"{WORD_TAG_PREFIX}commentReference"
+WORD_COMMENT_RANGE_START_TAG = f"{WORD_TAG_PREFIX}commentRangeStart"
+WORD_COMMENT_RANGE_END_TAG = f"{WORD_TAG_PREFIX}commentRangeEnd"
+MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+MATH_TAG_PREFIX = f"{{{MATH_NS}}}"
+
 
 @dataclass
 class ImageData:
@@ -72,65 +129,6 @@ class CommentData:
     author: str
     date: str
     text: str
-
-
-if TYPE_CHECKING:
-    import docx.document
-    from docx.table import Table
-    from docx.text.paragraph import Paragraph
-
-
-from all2md.ast import (  # noqa: E402
-    BlockQuote,
-    Document,
-    Emphasis,
-    FootnoteReference,
-    Heading,
-    HTMLBlock,
-    HTMLInline,
-    Image,
-    Link,
-    List,
-    ListItem,
-    MathBlock,
-    MathInline,
-    Node,
-    Strikethrough,
-    Strong,
-    Subscript,
-    Superscript,
-    TableCell,
-    TableRow,
-    Text,
-    Underline,
-)
-from all2md.ast import (  # noqa: E402
-    Paragraph as AstParagraph,
-)
-from all2md.ast import (  # noqa: E402
-    Table as AstTable,
-)
-from all2md.converter_metadata import ConverterMetadata  # noqa: E402
-from all2md.options import DocxOptions  # noqa: E402
-from all2md.parsers.base import BaseParser  # noqa: E402
-from all2md.utils.decorators import requires_dependencies  # noqa: E402
-from all2md.utils.footnotes import FootnoteCollector  # noqa: E402
-
-logger = logging.getLogger(__name__)
-
-
-WORDPROCESSING_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-WORD_TAG_PREFIX = f"{{{WORDPROCESSING_NS}}}"
-WORD_ID_ATTR = f"{WORD_TAG_PREFIX}id"
-WORD_PARAGRAPH_TAG = f"{WORD_TAG_PREFIX}p"
-WORD_FOOTNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}footnoteReference"
-WORD_ENDNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}endnoteReference"
-WORD_COMMENT_REFERENCE_TAG = f"{WORD_TAG_PREFIX}commentReference"
-WORD_COMMENT_RANGE_START_TAG = f"{WORD_TAG_PREFIX}commentRangeStart"
-WORD_COMMENT_RANGE_END_TAG = f"{WORD_TAG_PREFIX}commentRangeEnd"
-MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
-MATH_TAG_PREFIX = f"{{{MATH_NS}}}"
-
 
 class DocxToAstConverter(BaseParser):
     """Convert DOCX to AST representation.

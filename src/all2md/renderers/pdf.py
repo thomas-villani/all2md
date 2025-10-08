@@ -102,6 +102,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
     """
 
     def __init__(self, options: PdfRendererOptions | None = None):
+        """Initialize the PDF renderer with options."""
         options = options or PdfRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: PdfRendererOptions = options
@@ -187,7 +188,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             self._flowables.append(self._Spacer(1, 0.2*self._inch))
 
             for num, text in self._footnotes:
-                footnote_para = self._Paragraph(f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal'])
+                footnote_para = self._Paragraph(
+                    f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
+                )
                 self._flowables.append(footnote_para)
                 self._flowables.append(self._Spacer(1, 0.1*self._inch))
 
@@ -646,7 +649,10 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             Thematic break to render
 
         """
-        hr = self._HRFlowable(width="100%", thickness=1, color=self._colors.grey, spaceAfter=0.2*self._inch, spaceBefore=0.2*self._inch)
+        hr = self._HRFlowable(
+            width="100%", thickness=1, color=self._colors.grey,
+            spaceAfter=0.2*self._inch, spaceBefore=0.2*self._inch
+        )
         self._flowables.append(hr)
 
     def visit_html_block(self, node: HTMLBlock) -> None:

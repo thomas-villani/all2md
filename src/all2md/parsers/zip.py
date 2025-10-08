@@ -51,6 +51,7 @@ class ZipToAstConverter(BaseParser):
     """
 
     def __init__(self, options: ZipOptions | None = None, progress_callback=None):
+        """Initialize the ZIP parser with options and progress callback."""
         options = options or ZipOptions()
         super().__init__(options, progress_callback=progress_callback)
         self.options: ZipOptions = options

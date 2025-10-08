@@ -62,6 +62,7 @@ class RtfToAstConverter(BaseParser):
         options: RtfOptions | None = None,
         progress_callback: Optional[ProgressCallback] = None
     ):
+        """Initialize the RTF parser with options and progress callback."""
         options = options or RtfOptions()
         super().__init__(options, progress_callback)
         self.options: RtfOptions = options

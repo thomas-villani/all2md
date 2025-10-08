@@ -87,6 +87,7 @@ class HtmlRenderer(NodeVisitor, BaseRenderer):
     """
 
     def __init__(self, options: HtmlRendererOptions | None = None):
+        """Initialize the HTML renderer with options."""
         options = options or HtmlRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: HtmlRendererOptions = options

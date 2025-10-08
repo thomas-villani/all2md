@@ -64,6 +64,7 @@ class OdtToAstConverter(BaseParser):
 
     @requires_dependencies("odt", [("odfpy", "odf", "")])
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the ODT parser with options and progress callback."""
         # Import here to avoid circular dependency
         from all2md.options import OdtOptions
 

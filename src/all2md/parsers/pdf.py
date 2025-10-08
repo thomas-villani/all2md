@@ -922,6 +922,7 @@ class PdfToAstConverter(BaseParser):
         options: PdfOptions | None = None,
         progress_callback=None
     ):
+        """Initialize the PDF parser with options and progress callback."""
         options = options or PdfOptions()
         super().__init__(options, progress_callback)
         self.options: PdfOptions = options

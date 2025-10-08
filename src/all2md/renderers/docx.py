@@ -98,6 +98,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     """
 
     def __init__(self, options: DocxRendererOptions | None = None):
+        """Initialize the DOCX renderer with options."""
         options = options or DocxRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: DocxRendererOptions = options
@@ -758,7 +759,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """
         # This is a complex operation in python-docx requiring XML manipulation
         part = paragraph.part
-        r_id = part.relate_to(url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True)
+        r_id = part.relate_to(
+            url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True
+        )
 
         hyperlink = self._OxmlElement('w:hyperlink')
         hyperlink.set(self._qn('r:id'), r_id)

@@ -17,5 +17,6 @@ def OxmlElement(tag: str, **kwargs: Any) -> Element:
     -------
     Element
         XML element
+
     """
     ...
