@@ -78,6 +78,9 @@ pdf_render = [
 docx_render = [
     "python-docx>=1.2.0",
 ]
+mcp = [
+    "fastmcp>=2.0.0",
+]
 
 all = [
     "beautifulsoup4>=4.14.2",
@@ -94,6 +97,7 @@ all = [
 
 [project.scripts]
 all2md = "all2md.cli:main"
+all2md-mcp = "all2md.mcp.server:main"
 
 [project.entry-points."all2md.converters"]
 # Entry points for third-party converter plugins
