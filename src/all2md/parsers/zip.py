@@ -15,7 +15,7 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Optional, Union
 
 from all2md.ast import Document, Heading, Node, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
@@ -29,6 +29,7 @@ from all2md.exceptions import (
 )
 from all2md.options import ZipOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
 
@@ -50,7 +51,7 @@ class ZipToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: ZipOptions | None = None, progress_callback=None):
+    def __init__(self, options: ZipOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ZIP parser with options and progress callback."""
         options = options or ZipOptions()
         super().__init__(options, progress_callback=progress_callback)
@@ -123,6 +124,8 @@ class ZipToAstConverter(BaseParser):
             if zip_bytes:
                 zf = zipfile.ZipFile(io.BytesIO(zip_bytes), 'r')
             else:
+                # zip_path must be set if zip_bytes is None
+                assert zip_path is not None
                 zf = zipfile.ZipFile(zip_path, 'r')
         except zipfile.BadZipFile as e:
             raise MalformedFileError(f"Invalid ZIP archive: {e}") from e
@@ -141,17 +144,17 @@ class ZipToAstConverter(BaseParser):
             metadata = self.extract_metadata(zf)
             doc.metadata = metadata.to_dict()
 
+            # Emit finished event
+            self._emit_progress(
+                "finished",
+                "ZIP archive extraction completed",
+                current=1,
+                total=1
+            )
+
             return doc
         finally:
             zf.close()
-
-        # Emit finished event
-        self._emit_progress(
-            "finished",
-            "ZIP archive extraction completed",
-            current=1,
-            total=1
-        )
 
     def convert_to_ast(self, zf: zipfile.ZipFile) -> Document:
         """Convert ZIP archive to AST Document.
@@ -364,7 +367,7 @@ class ZipToAstConverter(BaseParser):
             # Convert using the detected format
             doc = to_ast(
                 file_obj,
-                source_format=detected_format,
+                source_format=detected_format,  # type: ignore[arg-type]
                 progress=self.progress_callback
             )
 

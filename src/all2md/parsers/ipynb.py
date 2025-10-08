@@ -106,10 +106,7 @@ class IpynbToAstConverter(BaseParser):
                 notebook = json.loads(input_data.decode("utf-8"))
             elif hasattr(input_data, "read"):
                 raw_content = input_data.read()
-                if isinstance(raw_content, bytes):
-                    content = raw_content.decode("utf-8")
-                else:
-                    content = raw_content
+                content = raw_content.decode("utf-8")
                 notebook = json.loads(content)
             else:
                 raise ValidationError(f"Unsupported input type: {type(input_data).__name__}")

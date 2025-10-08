@@ -22,6 +22,7 @@ from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
+    from docx.table import _Cell
     from docx.text.paragraph import Paragraph
 
 from all2md.ast.nodes import (
@@ -437,12 +438,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         self._in_table = False
 
-    def _render_table_cell(self, docx_cell, ast_cell: TableCell, is_header: bool = False) -> None:
+    def _render_table_cell(self, docx_cell: _Cell, ast_cell: TableCell, is_header: bool = False) -> None:
         """Render a single table cell.
 
         Parameters
         ----------
-        docx_cell
+        docx_cell : _Cell
             python-docx table cell
         ast_cell : TableCell
             AST table cell node
@@ -694,7 +695,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering
-        self._render_inlines(self._current_paragraph, node.content, italic=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, node.content, italic=True)
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -710,7 +712,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering
-        self._render_inlines(self._current_paragraph, node.content, bold=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, node.content, bold=True)
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -726,7 +729,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering with code font
-        self._render_inlines(self._current_paragraph, [Text(content=node.content)], code_font=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, [Text(content=node.content)], code_font=True)
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.
@@ -742,7 +746,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering (handles links internally)
-        self._render_inlines(self._current_paragraph, [node])
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, [node])
 
     def _add_hyperlink(self, paragraph: Paragraph, url: str, text: str) -> None:
         """Add a hyperlink to a paragraph.
@@ -877,7 +882,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering
-        self._render_inlines(self._current_paragraph, node.content, strike=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, node.content, strike=True)
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.
@@ -893,7 +899,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering
-        self._render_inlines(self._current_paragraph, node.content, underline=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, node.content, underline=True)
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -909,7 +916,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering
-        self._render_inlines(self._current_paragraph, node.content, superscript=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, node.content, superscript=True)
 
     def visit_subscript(self, node: Subscript) -> None:
         """Render a Subscript node.
@@ -925,7 +933,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         # Use efficient inline rendering
-        self._render_inlines(self._current_paragraph, node.content, subscript=True)
+        if self._current_paragraph:
+            self._render_inlines(self._current_paragraph, node.content, subscript=True)
 
     def visit_html_inline(self, node: HTMLInline) -> None:
         """Render an HTMLInline node.
@@ -954,8 +963,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        run = self._current_paragraph.add_run(f'[{node.identifier}]')
-        run.font.superscript = True
+        if self._current_paragraph:
+            run = self._current_paragraph.add_run(f'[{node.identifier}]')
+            run.font.superscript = True
 
     def visit_math_inline(self, node: MathInline) -> None:
         """Render a MathInline node.
@@ -971,13 +981,14 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        content, notation = node.get_preferred_representation("latex")
-        if notation == "latex":
-            text = f'${content}$'
-        else:
-            text = content
+        if self._current_paragraph:
+            content, notation = node.get_preferred_representation("latex")
+            if notation == "latex":
+                text = f'${content}$'
+            else:
+                text = content
 
-        self._current_paragraph.add_run(text)
+            self._current_paragraph.add_run(text)
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render a FootnoteDefinition node.

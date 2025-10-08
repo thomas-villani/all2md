@@ -428,7 +428,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Add paragraph to text frame
-        p = self._current_textbox.add_paragraph()  # type: ignore[no-untyped-call]
+        p = self._current_textbox.add_paragraph()
         self._current_paragraph = p
 
         # Set font size
@@ -453,7 +453,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create paragraph for heading
-        p = self._current_textbox.add_paragraph()  # type: ignore[no-untyped-call]
+        p = self._current_textbox.add_paragraph()
         self._current_paragraph = p
 
         # Make it bold and larger
@@ -821,7 +821,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if not self._current_textbox:
             return
 
-        p = self._current_textbox.add_paragraph()  # type: ignore[no-untyped-call]
+        p = self._current_textbox.add_paragraph()
         self._current_paragraph = p
         p.font.bold = True
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Literal, Optional, Union
 
 from all2md.ast import (
     BlockQuote,
@@ -43,6 +43,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options import RstParserOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 
@@ -76,7 +77,7 @@ class RestructuredTextParser(BaseParser):
 
     """
 
-    def __init__(self, options: RstParserOptions | None = None, progress_callback=None):
+    def __init__(self, options: RstParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the RST parser with options and progress callback."""
         options = options or RstParserOptions()
         super().__init__(options, progress_callback)
@@ -170,12 +171,10 @@ class RestructuredTextParser(BaseParser):
                 # Assume it's RST content
                 return input_data
         else:
-            # File-like object
+            # File-like object - IO[bytes] returns bytes
             input_data.seek(0)
             content_bytes = input_data.read()
-            if isinstance(content_bytes, bytes):
-                return content_bytes.decode("utf-8", errors="replace")
-            return content_bytes
+            return content_bytes.decode("utf-8", errors="replace")
 
     def _process_node(self, node: Any) -> Node | list[Node] | None:
         """Process a docutils node into an AST node.
@@ -252,7 +251,7 @@ class RestructuredTextParser(BaseParser):
         """
         from docutils import nodes as docutils_nodes
 
-        result = []
+        result: list[Node] = []
 
         # Find title and determine heading level
         level = 1
@@ -514,7 +513,7 @@ class RestructuredTextParser(BaseParser):
 
         header = None
         rows = []
-        alignments = []
+        alignments: list[Literal['left', 'center', 'right'] | None] = []
 
         # Find tgroup which contains table structure
         tgroup = None

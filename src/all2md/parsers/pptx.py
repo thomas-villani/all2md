@@ -275,7 +275,7 @@ class PptxToAstConverter(BaseParser):
 
         # Check if shape is a table
         if hasattr(shape, "has_table") and shape.has_table:
-            return self._process_table_to_ast(shape.table)  # type: ignore[attr-defined]
+            return self._process_table_to_ast(shape.table)
 
         # Check if shape is an image
         if hasattr(shape, "image"):
@@ -814,11 +814,11 @@ class PptxToAstConverter(BaseParser):
                 continue
 
             # Get formatting key (bold, italic, underline)
-            format_key: tuple[bool, bool, bool] = (
+            format_key: tuple[bool, bool, bool] | None = (
                 bool(run.font.bold),
                 bool(run.font.italic),
                 bool(run.font.underline),
-            )
+            ) if run.font else None
 
             # Start new group if format changes
             if format_key != current_format:

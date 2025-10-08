@@ -10,10 +10,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from all2md import to_markdown
 from all2md.cli.builder import DynamicCLIBuilder
+from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError
 
 
@@ -283,7 +284,7 @@ def process_stdin(
     input_source = stdin_data
 
     try:
-        markdown_content = to_markdown(input_source, source_format=format_arg, transforms=transforms, **options)
+        markdown_content = to_markdown(input_source, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **options)
 
         if parsed_args.out:
             output_path = Path(parsed_args.out)
@@ -392,7 +393,7 @@ def process_multi_file(
                 from all2md import to_markdown
 
                 # Convert the document
-                markdown_content = to_markdown(file, source_format=format_arg, transforms=transforms, **options)
+                markdown_content = to_markdown(file, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **options)
 
                 # Display with pager
                 console = Console()

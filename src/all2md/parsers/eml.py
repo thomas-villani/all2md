@@ -18,7 +18,7 @@ from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
 from io import StringIO
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Optional, Union
 from urllib.parse import unquote
 
 from all2md import DependencyError
@@ -28,6 +28,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options import EmlOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
 
@@ -818,7 +819,7 @@ class EmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EmlOptions | None = None, progress_callback=None):
+    def __init__(self, options: EmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the EML parser with options and progress callback."""
         options = options or EmlOptions()
         super().__init__(options, progress_callback)
@@ -857,20 +858,14 @@ class EmlToAstConverter(BaseParser):
                 # Use binary file reading to avoid encoding assumptions
                 with open(input_data, 'rb') as f:
                     eml_msg = message_from_binary_file(f, policy=policy.default)
-            elif isinstance(input_data, StringIO):
-                # StringIO already contains text, use text parser
-                eml_msg = message_from_file(input_data, policy=policy.default)
-            elif hasattr(input_data, 'read'):
-                # Handle IO[bytes] - read binary data and parse directly
-                input_data.seek(0)  # Ensure we're at the beginning
-                content = input_data.read()
-                if isinstance(content, bytes):
-                    eml_msg = message_from_bytes(content, policy=policy.default)
-                else:
-                    # If it's text, convert to string and parse
-                    eml_msg = message_from_file(StringIO(str(content)), policy=policy.default)
             elif isinstance(input_data, bytes):
                 eml_msg = message_from_bytes(input_data, policy=policy.default)
+            elif hasattr(input_data, 'read'):
+                # Handle IO[bytes] - read binary data and parse directly
+                if hasattr(input_data, 'seek'):
+                    input_data.seek(0)  # Ensure we're at the beginning
+                content = input_data.read()
+                eml_msg = message_from_bytes(content, policy=policy.default)
             else:
                 raise ValidationError(
                     f"Unsupported input type: {type(input_data).__name__}. Expected str, Path, or binary file object",

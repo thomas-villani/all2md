@@ -15,7 +15,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.exceptions import MalformedFileError
@@ -66,6 +66,7 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import DocxOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.footnotes import FootnoteCollector
 
@@ -152,7 +153,7 @@ class DocxToAstConverter(BaseParser):
     def __init__(
         self,
         options: DocxOptions | None = None,
-        progress_callback=None
+        progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the DOCX parser with options and progress callback."""
         options = options or DocxOptions()
@@ -213,9 +214,9 @@ class DocxToAstConverter(BaseParser):
             if isinstance(input_data, docx.document.Document):
                 doc = input_data
             elif isinstance(input_data, Path):
-                doc = docx.Document(str(input_data))
+                doc = docx.Document(str(input_data))  # type: ignore[assignment]
             else:
-                doc = docx.Document(input_data)
+                doc = docx.Document(input_data)  # type: ignore[assignment,arg-type]
         except Exception as e:
             raise MalformedFileError(
                 f"Failed to open DOCX document: {str(e)}",
@@ -264,7 +265,7 @@ class DocxToAstConverter(BaseParser):
 
         return metadata
 
-    def convert_to_ast(self, doc: "docx.document.Document", base_filename="document") -> Document:
+    def convert_to_ast(self, doc: "docx.document.Document", base_filename: str = "document") -> Document:
         """Convert DOCX document to AST Document.
 
         Parameters
@@ -383,7 +384,7 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         return document
 
-    def _process_paragraph_to_ast(self, paragraph: "Paragraph", doc) -> Node | list[Node] | None:
+    def _process_paragraph_to_ast(self, paragraph: "Paragraph", doc: "docx.document.Document") -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
 
         Parameters
@@ -451,7 +452,7 @@ class DocxToAstConverter(BaseParser):
         if math_blocks:
             if len(math_blocks) == 1:
                 return math_blocks[0]
-            return math_blocks
+            return cast(list[Node], math_blocks)
 
         return None
 
@@ -1027,7 +1028,7 @@ class DocxToAstConverter(BaseParser):
         try:
             from docx.text.paragraph import Paragraph
 
-            paragraph = Paragraph(paragraph_element, note_part)
+            paragraph = Paragraph(paragraph_element, note_part)  # type: ignore[call-arg]
             return self._process_paragraph_runs_to_inline(paragraph)
         except Exception:
             return self._extract_inline_nodes_from_xml(paragraph_element)
@@ -1054,11 +1055,11 @@ class DocxToAstConverter(BaseParser):
         try:
             from docx.opc.constants import RELATIONSHIP_TYPE as RT
         except ImportError:
-            RT = None
+            RT = None  # type: ignore[assignment,misc]
 
         comments_part = getattr(doc.part, "comments_part", None)
         if comments_part is None and RT is not None:
-            comments_part = self._get_note_part(doc, RT.COMMENTS, "comments_part")
+            comments_part = self._get_note_part(doc, RT.COMMENTS, "comments_part")  # type: ignore[attr-defined]
 
         if comments_part is None:
             return comments
@@ -1114,7 +1115,7 @@ class DocxToAstConverter(BaseParser):
                     AstParagraph(content=[Text(content=comment.text)]),
                     AstParagraph(content=[Emphasis(content=[Text(content=f"— {header}")])]),
                 ]
-                nodes.append(BlockQuote(children=blockquote_content))
+                nodes.append(BlockQuote(children=cast(list[Node], blockquote_content)))
 
         return nodes
 
@@ -1180,7 +1181,7 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
     return numbering_defs
 
 
-def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" = None) -> tuple[str | None, int]:
+def _detect_list_level(paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth
@@ -1386,7 +1387,7 @@ def _omml_to_latex(element: Any) -> str:
 
 
 def _iter_block_items(
-    parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer=None
+    parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer: Any = None
 ) -> Any:
     """Generate a sequence of Paragraph and Table elements in order, handling images."""
     import docx.document
@@ -1397,9 +1398,9 @@ def _iter_block_items(
 
     for child in parent_elm.iterchildren():
         if child.tag.endswith("tbl"):
-            yield Table(child, parent)
+            yield Table(child, parent)  # type: ignore[call-arg]
         elif child.tag.endswith("p"):
-            paragraph = Paragraph(child, parent)
+            paragraph = Paragraph(child, parent)  # type: ignore[call-arg]
 
             # Check if paragraph contains an image
             has_image = False
@@ -1429,10 +1430,10 @@ def _iter_block_items(
                     # Handle pre-formatted data URIs (for backward compatibility with tests)
                     if isinstance(raw_image_data, str):
                         # This is already a formatted URI, use it directly
-                        img_data.append(ImageData(url=raw_image_data, alt_text=title or "image", title=title))
+                        img_data.append(ImageData(url=raw_image_data, alt_text=title or "image", title=title))  # type: ignore[unreachable]
                         continue
-                    elif not isinstance(raw_image_data, (bytes, type(None))):
-                        logger.warning(f"Invalid image data type for image '{title or 'unnamed'}', skipping")
+                    if not isinstance(raw_image_data, (bytes, type(None))):
+                        logger.warning(f"Invalid image data type for image '{title or 'unnamed'}', skipping")  # type: ignore[unreachable]
                         raw_image_data = None
 
                     # Use detected extension or fallback to png

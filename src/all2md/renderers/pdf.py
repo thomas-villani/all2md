@@ -20,11 +20,11 @@ import io
 import re
 import tempfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union
+from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.styles import ParagraphStyle, StyleSheet1
     from reportlab.platypus import Flowable
 
 from all2md.ast.nodes import (
@@ -108,7 +108,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self.options: PdfRendererOptions = options
         self._flowables: list[Flowable] = []
         # _styles is initialized in render() before any visitor methods are called
-        self._styles: dict[str, ParagraphStyle] = {}
+        self._styles: Any = None
         self._temp_files: list[str] = []
         self._footnote_counter: int = 0
         self._footnotes: list[tuple[int, str]] = []
@@ -276,13 +276,13 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         }
         return font_bold_map.get(base_font, base_font + '-Bold')
 
-    def _create_styles(self) -> dict[str, ParagraphStyle]:
+    def _create_styles(self) -> StyleSheet1:
         """Create paragraph styles for the document.
 
         Returns
         -------
-        dict
-            Style name to ParagraphStyle mapping
+        StyleSheet1
+            StyleSheet1 object containing paragraph styles
 
         """
         styles = self._getSampleStyleSheet()
@@ -542,7 +542,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         # Create list flowable
         if items:
             list_flowable = self._ListFlowable(
-                items,
+                items,  # type: ignore[arg-type]
                 bulletType='bullet' if not node.ordered else '1',
                 start=node.start if node.ordered else None,
             )
@@ -611,7 +611,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         # Filter out None commands
         style_commands = [cmd for cmd in style_commands if cmd is not None]
 
-        table.setStyle(self._TableStyle(style_commands))
+        table.setStyle(self._TableStyle(style_commands))  # type: ignore[arg-type]
 
         self._flowables.append(table)
         self._flowables.append(self._Spacer(1, 0.2*self._inch))
@@ -761,7 +761,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                     caption_style = self._ParagraphStyle(
                         'ImageCaption',
                         parent=self._styles['Normal'],
-                        alignment=self._TA_CENTER,
+                        alignment=self._TA_CENTER,  # type: ignore[arg-type]
                         fontSize=self.options.font_size - 1,
                         textColor=self._colors.grey,
                     )

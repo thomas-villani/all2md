@@ -80,7 +80,7 @@ import time
 from dataclasses import fields, is_dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union, get_type_hints
+from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast, get_type_hints
 
 if TYPE_CHECKING:
     from all2md.ast import Document  # noqa: F401 - used in docstrings
@@ -818,9 +818,9 @@ def from_ast(
         # File-like object
         if hasattr(output, 'mode') and 'b' in output.mode:
             if isinstance(content, str):
-                output.write(content.encode('utf-8'))  # type: ignore[call-overload]
+                output.write(content.encode('utf-8'))
             else:
-                output.write(content)  # type: ignore[call-overload]
+                output.write(content)
         else:
             if isinstance(content, bytes):
                 output.write(content.decode('utf-8'))  # type: ignore[call-overload]
@@ -1045,11 +1045,11 @@ def convert(
         if isinstance(rendered, str):
             mode = getattr(output, 'mode', '')
             if isinstance(mode, str) and 'b' in mode:
-                output.write(rendered.encode('utf-8'))
+                cast(IO[bytes], output).write(rendered.encode('utf-8'))
             else:
-                output.write(rendered)
+                cast(IO[str], output).write(rendered)
         else:
-            output.write(rendered)
+            cast(IO[bytes], output).write(rendered)
         return None
 
     raise ValueError("Unsupported output destination provided to convert().")

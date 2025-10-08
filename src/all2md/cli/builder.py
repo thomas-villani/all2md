@@ -125,7 +125,7 @@ class DynamicCLIBuilder:
             Argparse kwargs for type and action
 
         """
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
 
         # Handle boolean fields
         if resolved_type is bool:
@@ -284,7 +284,7 @@ class DynamicCLIBuilder:
         return kwargs
 
     def _add_options_arguments_internal(
-            self, parser: argparse.ArgumentParser,
+            self, parser: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
             options_class: Type, format_prefix: Optional[str] = None,
             group_name: Optional[str] = None,
             exclude_base_fields: bool = False
@@ -296,8 +296,8 @@ class DynamicCLIBuilder:
 
         Parameters
         ----------
-        parser : ArgumentParser
-            Parser to add arguments to
+        parser : ArgumentParser or _ArgumentGroup
+            Parser or argument group to add arguments to
         options_class : Type
             Options dataclass type
         format_prefix : str, optional
@@ -318,6 +318,7 @@ class DynamicCLIBuilder:
             base_field_names = {f.name for f in fields(BaseParserOptions)}
 
         # Create argument group if requested
+        group: Union[argparse.ArgumentParser, argparse._ArgumentGroup]
         if group_name:
             group = parser.add_argument_group(group_name)
         else:
@@ -328,7 +329,7 @@ class DynamicCLIBuilder:
             if exclude_base_fields and field.name in base_field_names:
                 continue
 
-            metadata = field.metadata or {}
+            metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
             # Skip excluded fields
             if metadata.get('exclude_from_cli', False):
@@ -499,7 +500,7 @@ class DynamicCLIBuilder:
                         continue
 
                     # Build argparse kwargs from ParameterSpec
-                    kwargs = {
+                    kwargs: Dict[str, Any] = {
                         'help': param_spec.help or f'{param_name} parameter for {transform_name}',
                     }
 
@@ -756,7 +757,7 @@ Examples:
             from all2md.cli.custom_actions import merge_nested_dicts, parse_dot_notation
 
             # Process JSON options that may contain dot notation keys
-            nested_config = {}
+            nested_config: Dict[str, Any] = {}
             for key, value in json_options.items():
                 if '.' in key:
                     # Parse full dot notation into nested dict
@@ -786,13 +787,13 @@ Examples:
         args_dict = vars(parsed_args)
 
         # Get the set of explicitly provided arguments
-        provided_args = getattr(parsed_args, '_provided_args', set())
+        provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
 
         # Auto-discover parsers to get their options classes for validation
         registry.auto_discover()
 
         # Collect all options classes for field validation
-        options_classes = {}
+        options_classes: Dict[str, Type[Any]] = {}
 
         # Add BaseParserOptions
         from all2md.options import BaseParserOptions
@@ -864,7 +865,7 @@ Examples:
                     for field in fields(options_class):
                         if field.name == field_name:
                             processed_value = self._process_argument_value(
-                                field, field.metadata or {}, arg_value, arg_name,
+                                field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
                                 was_provided=True
                             )
                             if processed_value is not None:
@@ -884,7 +885,7 @@ Examples:
                     for field in fields(base_options):
                         if field.name == arg_name:
                             processed_value = self._process_argument_value(
-                                field, field.metadata or {}, arg_value, arg_name,
+                                field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
                                 was_provided=True
                             )
                             if processed_value is not None:

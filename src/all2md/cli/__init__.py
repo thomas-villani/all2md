@@ -1918,16 +1918,16 @@ Examples:
             print("\nAll2MD Supported Formats")
             print("=" * 60)
             for info in format_info_list:
-                metadata_obj: ConverterMetadata | None = info['metadata']
-                assert metadata_obj is not None  # Already filtered in list construction
+                format_meta: ConverterMetadata | None = info['metadata']
+                assert format_meta is not None  # Already filtered in list construction
                 status = "[OK]" if info['all_available'] else "[X]"
-                ext_str = ", ".join(metadata_obj.extensions[:4])
-                if len(metadata_obj.extensions) > 4:
-                    ext_str += f" +{len(metadata_obj.extensions) - 4}"
+                ext_str = ", ".join(format_meta.extensions[:4])
+                if len(format_meta.extensions) > 4:
+                    ext_str += f" +{len(format_meta.extensions) - 4}"
 
                 # Capabilities
-                has_parser = metadata_obj.parser_class is not None
-                has_renderer = metadata_obj.renderer_class is not None
+                has_parser = format_meta.parser_class is not None
+                has_renderer = format_meta.renderer_class is not None
                 if has_parser and has_renderer:
                     capabilities = "[R+W]"
                 elif has_parser:

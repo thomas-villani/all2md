@@ -70,6 +70,11 @@ class Paragraph:
         """Internal XML element."""
         ...
 
+    @property
+    def part(self) -> Any:
+        """Document part containing this paragraph."""
+        ...
+
     def iter_inner_content(self) -> Iterator[Any]:
         """Iterate over inner content (runs, hyperlinks, etc.)."""
         ...

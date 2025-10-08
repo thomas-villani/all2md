@@ -53,6 +53,7 @@ from all2md.constants import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import (
@@ -85,6 +86,7 @@ def _check_pymupdf_version() -> None:
     if fitz.pymupdf_version_tuple < min_version:
         raise DependencyError(
             converter_name="pdf",
+            missing_packages=[],
             version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
         )
 
@@ -147,7 +149,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     # Find consistent gaps that span multiple blocks (likely column separators)
     if whitespace_gaps:
         # Count how many gaps overlap at each position
-        gap_frequency = {}
+        gap_frequency: dict[float, int] = {}
         for gap in whitespace_gaps:
             # Round to nearest 5 points to group similar positions
             gap_pos = round((gap['start'] + gap['end']) / 2 / 5) * 5
@@ -162,7 +164,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
 
             if column_boundaries:
                 # Use these boundaries to split columns
-                columns = [[] for _ in range(len(column_boundaries) + 1)]
+                columns: list[list[dict]] = [[] for _ in range(len(column_boundaries) + 1)]
 
                 for block in blocks:
                     if "bbox" not in block:
@@ -414,7 +416,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
 
 def extract_page_images(
         page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document",
-        attachment_sequencer=None
+        attachment_sequencer: Callable | None = None
 ) -> list[dict]:
     """Extract images from a PDF page with their positions.
 
@@ -710,7 +712,7 @@ class IdentifyHeaders:
 
     def __init__(
             self,
-            doc,  # PyMuPDF Document object
+            doc: Any,  # PyMuPDF Document object
             pages: list[int] | range | None = None,
             body_limit: float | None = None,
             options: PdfOptions | None = None,
@@ -920,7 +922,7 @@ class PdfToAstConverter(BaseParser):
     def __init__(
         self,
         options: PdfOptions | None = None,
-        progress_callback=None
+        progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the PDF parser with options and progress callback."""
         options = options or PdfOptions()
@@ -1025,12 +1027,9 @@ class PdfToAstConverter(BaseParser):
             # For non-file inputs, use a default name
             base_filename = "document"
 
-
         self._hdr_identifier = IdentifyHeaders(doc,
                                                pages=pages_to_use if isinstance(pages_to_use, list) else None,
                                                options=self.options)
-        # Determine pages to use
-        pages_to_use = self.options.pages if self.options.pages else range(doc.page_count)
 
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
@@ -1107,7 +1106,7 @@ class PdfToAstConverter(BaseParser):
             if isinstance(field_names, list):
                 processed_keys.update(field_names)
             else:
-                processed_keys.add(field_names)
+                processed_keys.add(field_names)  # type: ignore[unreachable]
 
         # Skip internal PDF fields
         internal_fields = {'format', 'trapped', 'encryption'}
@@ -1155,7 +1154,7 @@ class PdfToAstConverter(BaseParser):
                 year = int(clean_date[0:4])
                 month = int(clean_date[4:6])
                 day = int(clean_date[6:8])
-                return datetime(year, month, day)
+                return datetime(year, month, day).isoformat()
         except (ValueError, IndexError):
             pass
         return date_str
@@ -1282,10 +1281,15 @@ class PdfToAstConverter(BaseParser):
         tabs = None
         mode = self.options.table_detection_mode.lower()
 
+        # Define EmptyTables class for cases where no tables are found
+        class EmptyTables:
+            tables: list[Any] = []
+
+            def __getitem__(self, index: int) -> Any:
+                return self.tables[index]
+
         if mode == "none":
             # No table detection
-            class EmptyTables:
-                tables = []
             tabs = EmptyTables()
         elif mode == "pymupdf":
             # Only use PyMuPDF table detection
@@ -1295,8 +1299,6 @@ class PdfToAstConverter(BaseParser):
             _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
             # Fallback detection returns rects but not actual table objects we can use
             # For now, just use empty tables (future: could convert rects to table objects)
-            class EmptyTables:
-                tables = []
             tabs = EmptyTables()
         else:  # "both" or default
             # Use PyMuPDF first, fallback to ruling if needed
@@ -1399,8 +1401,8 @@ class PdfToAstConverter(BaseParser):
                     nodes.append(table_node)
             elif rtype == "image":  # An image
                 # idx contains image info dict in this case
-                if isinstance(idx, dict):  # Type guard
-                    img_node = self._create_image_node(idx, page_num)
+                if isinstance(idx, dict):  # type: ignore[unreachable]  # Type guard
+                    img_node = self._create_image_node(idx, page_num)  # type: ignore[unreachable]
                     if img_node:
                         nodes.append(img_node)
 
