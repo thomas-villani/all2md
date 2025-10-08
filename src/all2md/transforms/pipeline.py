@@ -95,6 +95,9 @@ class HookAwareVisitor(NodeTransformer):
     def transform(self, node: Node) -> Node | None:
         """Transform node and apply element hooks.
 
+        The node is pushed onto node_path before processing and remains there
+        during child traversal, ensuring descendants can see full ancestry.
+
         Parameters
         ----------
         node : Node
@@ -106,31 +109,36 @@ class HookAwareVisitor(NodeTransformer):
             Transformed node, or None if removed by hook
 
         """
-        # Get node type for hook lookup
-        node_type = self.hook_manager.get_node_type(node)
+        # Push node onto path for full ancestry tracking
+        # This happens for ALL nodes, not just those with hooks, so that
+        # descendant hooks can see their full ancestry even if some ancestors
+        # don't have hooks registered
+        pushed_node = node
+        self.context.node_path.append(pushed_node)
 
-        # Execute element hook if registered
-        if node_type and self.hook_manager.has_hooks(node_type):
-            # Store reference to the node we push to path before hook execution
-            # This is critical because hooks may return a different node object
-            pushed_node = node
-            self.context.node_path.append(pushed_node)
+        try:
+            # Get node type for hook lookup
+            node_type = self.hook_manager.get_node_type(node)
 
-            try:
+            # Execute element hook if registered
+            if node_type and self.hook_manager.has_hooks(node_type):
                 # Execute hooks for this node type (may replace node variable)
+                # We keep the original pushed_node on the path even if hooks
+                # return a different node object
                 node = self.hook_manager.execute_hooks(node_type, node, self.context)
-            finally:
-                # Always pop the node we originally pushed, even if hook replaced it
-                # Check that we actually have something to pop (defensive programming)
-                if self.context.node_path and self.context.node_path[-1] is pushed_node:
-                    self.context.node_path.pop()
 
-            # Hook removed node
-            if node is None:
-                return None  # type: ignore[unreachable]
+                # Hook removed node
+                if node is None:
+                    return None
 
-        # Continue normal traversal with transformed node
-        return super().transform(node)
+            # Continue normal traversal with node still on path
+            # This ensures children see this node in their ancestry
+            return super().transform(node)
+        finally:
+            # Always pop the originally pushed node after child traversal completes
+            # Check that we actually have something to pop (defensive programming)
+            if self.context.node_path and self.context.node_path[-1] is pushed_node:
+                self.context.node_path.pop()
 
 
 class Pipeline:

@@ -456,3 +456,108 @@ class TestHookAwareVisitor:
 
         # Path should still be clean after node removal
         assert len(context.node_path) == 0, "Node path should be clean even when nodes are removed"
+
+    def test_descendants_can_see_ancestors_in_node_path(self):
+        """Test that descendant hooks can see full ancestry in node_path.
+
+        This test verifies the fix for the node_path maintenance issue where
+        descendants couldn't see their ancestors because parents were popped
+        before child traversal.
+
+        Use case: "act only on images inside blockquotes"
+        """
+        from all2md.ast import BlockQuote
+        from all2md.transforms.pipeline import HookAwareVisitor
+
+        # Create nested structure: Document > BlockQuote > Paragraph > Image
+        doc = Document(children=[
+            BlockQuote(children=[
+                Paragraph(content=[
+                    Image(url="nested.png", alt_text="nested image")
+                ])
+            ])
+        ])
+
+        manager = HookManager()
+        context = HookContext(document=doc, metadata={}, shared={})
+
+        # Track path when image hook executes
+        captured_path = []
+
+        def image_hook(node, ctx):
+            # Capture the full node_path when this hook executes
+            # The path should contain all ancestors: Document, BlockQuote, Paragraph, Image
+            captured_path.extend(ctx.node_path)
+            return node
+
+        # Register hook ONLY on image (not on blockquote or paragraph)
+        manager.register_hook('image', image_hook)
+
+        visitor = HookAwareVisitor(manager, context)
+        visitor.transform(doc)
+
+        # Verify the image hook was called and captured the path
+        assert len(captured_path) > 0, "Image hook should have been called"
+
+        # Verify full ancestry is in the path
+        # Path should contain: [Document, BlockQuote, Paragraph, Image]
+        assert len(captured_path) == 4, f"Expected 4 nodes in path, got {len(captured_path)}"
+
+        # Verify the types are correct in order
+        assert isinstance(captured_path[0], Document), "First ancestor should be Document"
+        assert isinstance(captured_path[1], BlockQuote), "Second ancestor should be BlockQuote"
+        assert isinstance(captured_path[2], Paragraph), "Third ancestor should be Paragraph"
+        assert isinstance(captured_path[3], Image), "Fourth node should be the Image itself"
+
+        # Verify path is cleaned up after transformation
+        assert len(context.node_path) == 0, "Node path should be empty after transformation completes"
+
+    def test_context_aware_hook_can_check_ancestry(self):
+        """Test that hooks can use node_path to make context-aware decisions.
+
+        Example: Process images differently if they're inside a blockquote.
+        """
+        from all2md.ast import BlockQuote
+        from all2md.transforms.pipeline import HookAwareVisitor
+
+        # Create document with image inside blockquote and image outside
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="regular.png", alt_text="regular")
+            ]),
+            BlockQuote(children=[
+                Paragraph(content=[
+                    Image(url="quoted.png", alt_text="quoted")
+                ])
+            ])
+        ])
+
+        manager = HookManager()
+        context = HookContext(document=doc, metadata={}, shared={})
+
+        # Track which images are inside blockquotes
+        images_in_blockquotes = []
+        images_not_in_blockquotes = []
+
+        def context_aware_image_hook(node, ctx):
+            # Check if any ancestor is a BlockQuote
+            is_in_blockquote = any(isinstance(ancestor, BlockQuote) for ancestor in ctx.node_path)
+
+            if is_in_blockquote:
+                images_in_blockquotes.append(node.url)
+            else:
+                images_not_in_blockquotes.append(node.url)
+
+            return node
+
+        manager.register_hook('image', context_aware_image_hook)
+
+        visitor = HookAwareVisitor(manager, context)
+        visitor.transform(doc)
+
+        # Verify the hook correctly identified which images are in blockquotes
+        assert len(images_in_blockquotes) == 1, "Should find one image in blockquote"
+        assert "quoted.png" in images_in_blockquotes, "quoted.png should be in blockquote"
+
+        assert len(images_not_in_blockquotes) == 1, "Should find one image not in blockquote"
+        assert "regular.png" in images_not_in_blockquotes, "regular.png should not be in blockquote"
