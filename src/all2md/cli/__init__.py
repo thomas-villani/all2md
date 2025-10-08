@@ -93,9 +93,12 @@ def _get_about_info() -> str:
     unavailable_formats = []
 
     for format_name in formats:
-        metadata = registry.get_format_info(format_name)
-        if not metadata:
+        metadata_list = registry.get_format_info(format_name)
+        if not metadata_list or len(metadata_list) == 0:
             continue
+
+        # Use the highest priority (first) converter
+        metadata = metadata_list[0]
 
         # Check if all dependencies are satisfied
         all_available = True
@@ -120,23 +123,26 @@ def _get_about_info() -> str:
     # Get unique dependencies across all formats
     all_deps = {}
     for format_name in formats:
-        metadata = registry.get_format_info(format_name)
-        if metadata and metadata.required_packages:
-            for install_name, _import_name, version_spec in metadata.required_packages:
-                if install_name not in all_deps:
-                    installed_version = get_package_version(install_name)
-                    if version_spec:
-                        meets_req, _ = check_version_requirement(install_name, version_spec)
-                        status = 'installed' if meets_req else 'version_mismatch'
-                    else:
-                        meets_req = installed_version is not None
-                        status = 'installed' if meets_req else 'not_installed'
+        metadata_list = registry.get_format_info(format_name)
+        if metadata_list and len(metadata_list) > 0:
+            # Use the highest priority (first) converter
+            metadata = metadata_list[0]
+            if metadata.required_packages:
+                for install_name, _import_name, version_spec in metadata.required_packages:
+                    if install_name not in all_deps:
+                        installed_version = get_package_version(install_name)
+                        if version_spec:
+                            meets_req, _ = check_version_requirement(install_name, version_spec)
+                            status = 'installed' if meets_req else 'version_mismatch'
+                        else:
+                            meets_req = installed_version is not None
+                            status = 'installed' if meets_req else 'not_installed'
 
-                    all_deps[install_name] = {
-                        'version': installed_version,
-                        'required': version_spec,
-                        'status': status
-                    }
+                        all_deps[install_name] = {
+                            'version': installed_version,
+                            'required': version_spec,
+                            'status': status
+                        }
 
     # Build dependency report
     dep_lines = []
@@ -1301,16 +1307,19 @@ def process_dry_run(
             # Try to determine detection method
             all_extensions = []
             for fmt_name in registry.list_formats():
-                fmt_info = registry.get_format_info(fmt_name)
-                if fmt_info:
-                    all_extensions.extend(fmt_info.extensions)
+                fmt_info_list = registry.get_format_info(fmt_name)
+                if fmt_info_list:
+                    # Collect extensions from all converters for this format
+                    for fmt_info in fmt_info_list:
+                        all_extensions.extend(fmt_info.extensions)
             if file.suffix.lower() in all_extensions:
                 detection_method = "extension"
             else:
                 detection_method = "content analysis"
 
         # Get converter metadata
-        converter_metadata = registry.get_format_info(detected_format)
+        converter_metadata_list = registry.get_format_info(detected_format)
+        converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
 
         # Check if converter is available using context-aware dependency checking
         converter_available = True
@@ -1512,7 +1521,8 @@ def process_detect_only(
             detected_format = registry.detect_format(file)
 
             # Determine detection method
-            metadata = registry.get_format_info(detected_format)
+            metadata_list = registry.get_format_info(detected_format)
+            metadata = metadata_list[0] if metadata_list else None
             if metadata and file.suffix.lower() in metadata.extensions:
                 detection_method = "file extension"
             else:
@@ -1525,7 +1535,8 @@ def process_detect_only(
                     detection_method = "magic bytes/content"
 
         # Get converter info
-        converter_metadata = registry.get_format_info(detected_format)
+        converter_metadata_list = registry.get_format_info(detected_format)
+        converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
 
         # Check dependencies
         converter_available = True
@@ -1723,9 +1734,12 @@ Examples:
     # Gather format information
     format_info_list: list[dict[str, Any]] = []
     for format_name in formats:
-        metadata = registry.get_format_info(format_name)
-        if not metadata:
+        metadata_list = registry.get_format_info(format_name)
+        if not metadata_list or len(metadata_list) == 0:
             continue
+
+        # Use the highest priority (first) converter
+        metadata = metadata_list[0]
 
         # Check dependency status
         all_available = True
@@ -2152,9 +2166,12 @@ def _default_extension_for_format(target_format: str) -> str:
         return '.md'
 
     try:
-        metadata = registry.get_format_info(target_format)
-        if metadata and metadata.extensions:
-            return metadata.extensions[0]
+        metadata_list = registry.get_format_info(target_format)
+        if metadata_list and len(metadata_list) > 0:
+            # Use the highest priority (first) converter
+            metadata = metadata_list[0]
+            if metadata.extensions:
+                return metadata.extensions[0]
     except Exception:
         pass
 

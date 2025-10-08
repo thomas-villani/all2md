@@ -85,10 +85,13 @@ class TestRegistryNewAPI:
         formats = registry.list_formats()
 
         for format_name in formats:
-            metadata = registry.get_format_info(format_name)
-            assert metadata is not None
+            metadata_list = registry.get_format_info(format_name)
+            assert metadata_list is not None
+            assert len(metadata_list) > 0
 
-            # New architecture: parser_class should be set
+            # New architecture: parser_class should be set on at least one converter
+            # Check the highest priority (first) converter
+            metadata = metadata_list[0]
             assert metadata.parser_class is not None
 
             # Old architecture fields should be empty or not used
@@ -172,9 +175,13 @@ class TestRegistryAutoDiscovery:
         registry.auto_discover()
 
         for format_name in registry.list_formats():
-            metadata = registry.get_format_info(format_name)
+            metadata_list = registry.get_format_info(format_name)
+            assert metadata_list is not None
+            assert len(metadata_list) > 0
 
-            # Each format should have a parser_class
+            # Each format should have at least one parser_class
+            # Check the highest priority (first) converter
+            metadata = metadata_list[0]
             assert metadata.parser_class is not None
 
 
@@ -227,3 +234,143 @@ class TestEndToEndParsing:
 
         assert ast_doc is not None
         assert hasattr(ast_doc, "children")
+
+
+class TestMultiConverterSupport:
+    """Test support for multiple converters per format with priority-based selection."""
+
+    def setup_method(self):
+        """Set up test with fresh registry."""
+        registry.auto_discover()
+
+    def test_multiple_converters_same_format(self):
+        """Test that multiple converters can be registered for the same format."""
+        from all2md.converter_metadata import ConverterMetadata
+
+        # Create two test converters for a fake format
+        metadata1 = ConverterMetadata(
+            format_name="test_format",
+            parser_class="all2md.parsers.html.HtmlToAstConverter",
+            priority=5
+        )
+        metadata2 = ConverterMetadata(
+            format_name="test_format",
+            parser_class="all2md.parsers.markdown.MarkdownToAstConverter",
+            priority=10
+        )
+
+        # Register both
+        registry.register(metadata1)
+        registry.register(metadata2)
+
+        # Should have both registered
+        metadata_list = registry.get_format_info("test_format")
+        assert metadata_list is not None
+        assert len(metadata_list) == 2
+
+        # Should be sorted by priority (highest first)
+        assert metadata_list[0].priority == 10
+        assert metadata_list[1].priority == 5
+
+    def test_priority_based_parser_selection(self):
+        """Test that get_parser selects highest priority available parser."""
+        from all2md.converter_metadata import ConverterMetadata
+
+        # Create test converters with different priorities
+        # Higher priority parser
+        metadata_high = ConverterMetadata(
+            format_name="test_priority",
+            parser_class="all2md.parsers.html.HtmlToAstConverter",
+            priority=100
+        )
+        # Lower priority parser
+        metadata_low = ConverterMetadata(
+            format_name="test_priority",
+            parser_class="all2md.parsers.markdown.MarkdownToAstConverter",
+            priority=50
+        )
+
+        # Register in reverse priority order
+        registry.register(metadata_low)
+        registry.register(metadata_high)
+
+        # Should get the high priority parser
+        parser_class = registry.get_parser("test_priority")
+        assert parser_class is not None
+        # The high priority one is HtmlToAstConverter
+        assert "Html" in parser_class.__name__
+
+    def test_parser_only_registration(self):
+        """Test registering a parser-only converter without renderer."""
+        from all2md.converter_metadata import ConverterMetadata
+
+        # Register parser-only converter
+        metadata = ConverterMetadata(
+            format_name="test_parser_only",
+            parser_class="all2md.parsers.html.HtmlToAstConverter",
+            renderer_class=None,
+            priority=10
+        )
+        registry.register(metadata)
+
+        # Should be able to get parser
+        parser_class = registry.get_parser("test_parser_only")
+        assert parser_class is not None
+
+        # Should raise error when getting renderer
+        with pytest.raises(FormatError):
+            registry.get_renderer("test_parser_only")
+
+    def test_renderer_only_registration(self):
+        """Test registering a renderer-only converter without parser."""
+        from all2md.converter_metadata import ConverterMetadata
+
+        # Register renderer-only converter
+        metadata = ConverterMetadata(
+            format_name="test_renderer_only",
+            parser_class=None,
+            renderer_class="all2md.renderers.markdown.MarkdownRenderer",
+            priority=10
+        )
+        registry.register(metadata)
+
+        # Should be able to get renderer
+        renderer_class = registry.get_renderer("test_renderer_only")
+        assert renderer_class is not None
+
+        # Should raise error when getting parser
+        with pytest.raises(FormatError):
+            registry.get_parser("test_renderer_only")
+
+    def test_mixed_parser_renderer_converters(self):
+        """Test format with separate parser and renderer converters."""
+        from all2md.converter_metadata import ConverterMetadata
+
+        # Register parser-only converter
+        parser_metadata = ConverterMetadata(
+            format_name="test_mixed",
+            parser_class="all2md.parsers.html.HtmlToAstConverter",
+            renderer_class=None,
+            priority=10
+        )
+        # Register renderer-only converter
+        renderer_metadata = ConverterMetadata(
+            format_name="test_mixed",
+            parser_class=None,
+            renderer_class="all2md.renderers.markdown.MarkdownRenderer",
+            priority=5
+        )
+
+        registry.register(parser_metadata)
+        registry.register(renderer_metadata)
+
+        # Should be able to get both
+        parser_class = registry.get_parser("test_mixed")
+        assert parser_class is not None
+
+        renderer_class = registry.get_renderer("test_mixed")
+        assert renderer_class is not None
+
+        # Should have two converters for this format
+        metadata_list = registry.get_format_info("test_mixed")
+        assert len(metadata_list) == 2

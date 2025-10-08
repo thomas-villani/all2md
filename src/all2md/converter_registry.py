@@ -168,27 +168,33 @@ def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_nam
 
 
 class ConverterRegistry:
-    """Registry for managing document parsers.
+    """Registry for managing document parsers and renderers.
 
-    This class provides a central registry for all parsers, handling:
+    This class provides a central registry for all parsers and renderers, handling:
     - Converter registration and discovery
+    - Priority-based parser/renderer selection
     - Format detection from files/content
     - Lazy loading of converter modules
     - Dependency checking and error handling
+
+    The registry supports multiple parsers and renderers for the same format,
+    with priority-based selection. Higher priority converters are tried first,
+    allowing plugins to override built-in converters or provide fallback options.
 
     Attributes
     ----------
     _instance : ConverterRegistry or None
         Singleton instance of the registry
     _converters : dict
-        Registered parsers by format name
+        Registered converters by format name, with each format mapping to a
+        priority-sorted list of ConverterMetadata objects
     _initialized : bool
         Whether auto-discovery has been run
 
     """
 
     _instance: Optional[ConverterRegistry] = None
-    _converters: Dict[str, ConverterMetadata] = {}
+    _converters: Dict[str, List[ConverterMetadata]] = {}
     _initialized: bool = False
 
     def __new__(cls) -> ConverterRegistry:
@@ -209,17 +215,25 @@ class ConverterRegistry:
 
         Notes
         -----
-        If a converter with the same format_name is already registered, it will
-        be overwritten and a warning will be logged.
+        Multiple converters can be registered for the same format_name with
+        different priorities. When retrieving a parser or renderer, the highest
+        priority converter with available dependencies is used.
+
+        Converters are automatically sorted by priority (highest first) when
+        registered. If no priority is specified, it defaults to 0.
 
         """
-        if metadata.format_name in self._converters:
-            logger.warning(
-                f"Converter '{metadata.format_name}' already registered, overwriting"
+        if metadata.format_name not in self._converters:
+            self._converters[metadata.format_name] = []
+            logger.debug(f"Registered converter: {metadata.format_name} (priority={metadata.priority})")
+        else:
+            logger.debug(
+                f"Adding additional converter for '{metadata.format_name}' (priority={metadata.priority})"
             )
 
-        self._converters[metadata.format_name] = metadata
-        logger.debug(f"Registered converter: {metadata.format_name}")
+        # Add to list and sort by priority (highest first)
+        self._converters[metadata.format_name].append(metadata)
+        self._converters[metadata.format_name].sort(key=lambda m: m.priority, reverse=True)
 
     def unregister(self, format_name: str) -> bool:
         """Unregister a converter.
@@ -259,6 +273,11 @@ class ConverterRegistry:
         FormatError
             If format not registered
 
+        Notes
+        -----
+        Returns the parser options class from the highest priority converter
+        that has a parser_options_class specified.
+
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
@@ -267,8 +286,14 @@ class ConverterRegistry:
                 supported_formats=available
             )
 
-        metadata = self._converters[format_name]
-        return _load_options_class(metadata.parser_options_class)
+        # Get from highest priority converter that has parser options
+        for metadata in self._converters[format_name]:
+            if metadata.parser_options_class is not None:
+                options_class = _load_options_class(metadata.parser_options_class)
+                if options_class is not None:
+                    return options_class
+
+        return None
 
     def get_renderer_options_class(self, format_name: str) -> Optional[type]:
         """Get renderer options class for a format.
@@ -288,6 +313,11 @@ class ConverterRegistry:
         FormatError
             If format not registered
 
+        Notes
+        -----
+        Returns the renderer options class from the highest priority converter
+        that has a renderer_options_class specified.
+
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
@@ -296,11 +326,17 @@ class ConverterRegistry:
                 supported_formats=available
             )
 
-        metadata = self._converters[format_name]
-        return _load_options_class(metadata.renderer_options_class)
+        # Get from highest priority converter that has renderer options
+        for metadata in self._converters[format_name]:
+            if metadata.renderer_options_class is not None:
+                options_class = _load_options_class(metadata.renderer_options_class)
+                if options_class is not None:
+                    return options_class
+
+        return None
 
     def get_parser(self, format_name: str) -> type:
-        """Get parser class for a format.
+        """Get parser class for a format with priority-based selection.
 
         Parameters
         ----------
@@ -315,9 +351,16 @@ class ConverterRegistry:
         Raises
         ------
         FormatError
-            If format not registered or parser not available
+            If format not registered or no parser available
         DependencyError
             If required dependencies not installed
+
+        Notes
+        -----
+        When multiple converters are registered for the same format, this method
+        tries them in priority order (highest first). It returns the first parser
+        that can be successfully loaded. This allows for graceful fallback if
+        high-priority converters have missing dependencies.
 
         """
         if format_name not in self._converters:
@@ -327,21 +370,29 @@ class ConverterRegistry:
                 supported_formats=available
             )
 
-        metadata = self._converters[format_name]
+        # Try each converter in priority order (already sorted)
+        for metadata in self._converters[format_name]:
+            if metadata.parser_class is None:
+                continue
 
-        # Try to load the parser class
-        parser_class = _load_parser_class(metadata.parser_class, format_name)
+            # Try to load the parser class
+            parser_class = _load_parser_class(metadata.parser_class, format_name)
 
-        if parser_class is None:
-            raise FormatError(
-                f"No parser available for format '{format_name}'. "
-                f"Parser class specification: {metadata.parser_class}"
-            )
+            if parser_class is not None:
+                logger.debug(
+                    f"Selected parser for '{format_name}': {metadata.get_parser_display_name()} "
+                    f"(priority={metadata.priority})"
+                )
+                return parser_class
 
-        return parser_class
+        # No parser could be loaded
+        raise FormatError(
+            f"No parser available for format '{format_name}'. "
+            f"Tried {len(self._converters[format_name])} converter(s)."
+        )
 
     def get_renderer(self, format_name: str) -> type:
-        """Get renderer class for a format.
+        """Get renderer class for a format with priority-based selection.
 
         Parameters
         ----------
@@ -356,7 +407,14 @@ class ConverterRegistry:
         Raises
         ------
         FormatError
-            If format not registered or renderer not available
+            If format not registered or no renderer available
+
+        Notes
+        -----
+        When multiple converters are registered for the same format, this method
+        tries them in priority order (highest first). It returns the first renderer
+        that can be successfully loaded. This allows for graceful fallback if
+        high-priority converters have missing dependencies.
 
         """
         if format_name not in self._converters:
@@ -366,18 +424,26 @@ class ConverterRegistry:
                 supported_formats=available
             )
 
-        metadata = self._converters[format_name]
+        # Try each converter in priority order (already sorted)
+        for metadata in self._converters[format_name]:
+            if metadata.renderer_class is None:
+                continue
 
-        # Try to load the renderer class
-        renderer_class = _load_renderer_class(metadata.renderer_class, format_name)
+            # Try to load the renderer class
+            renderer_class = _load_renderer_class(metadata.renderer_class, format_name)
 
-        if renderer_class is None:
-            raise FormatError(
-                f"No renderer available for format '{format_name}'. "
-                f"Renderer class specification: {metadata.renderer_class}"
-            )
+            if renderer_class is not None:
+                logger.debug(
+                    f"Selected renderer for '{format_name}': {metadata.get_renderer_display_name()} "
+                    f"(priority={metadata.priority})"
+                )
+                return renderer_class
 
-        return renderer_class
+        # No renderer could be loaded
+        raise FormatError(
+            f"No renderer available for format '{format_name}'. "
+            f"Tried {len(self._converters[format_name])} converter(s)."
+        )
 
     def detect_format(
             self,
@@ -472,9 +538,14 @@ class ConverterRegistry:
             Format name if detected
 
         """
-        # Sort by priority for extension matching
+        # Flatten all converters and sort by priority
+        all_converters = [
+            (format_name, metadata)
+            for format_name, metadata_list in self._converters.items()
+            for metadata in metadata_list
+        ]
         sorted_converters = sorted(
-            self._converters.items(),
+            all_converters,
             key=lambda x: x[1].priority,
             reverse=True
         )
@@ -507,9 +578,14 @@ class ConverterRegistry:
             Format name if detected
 
         """
-        # Sort by priority for content matching
+        # Flatten all converters and sort by priority
+        all_converters = [
+            (format_name, metadata)
+            for format_name, metadata_list in self._converters.items()
+            for metadata in metadata_list
+        ]
         sorted_converters = sorted(
-            self._converters.items(),
+            all_converters,
             key=lambda x: x[1].priority,
             reverse=True
         )
@@ -538,8 +614,8 @@ class ConverterRegistry:
         """
         return sorted(self._converters.keys())
 
-    def get_format_info(self, format_name: str) -> Optional[ConverterMetadata]:
-        """Get metadata for a specific format.
+    def get_format_info(self, format_name: str) -> Optional[List[ConverterMetadata]]:
+        """Get metadata list for a specific format.
 
         Parameters
         ----------
@@ -548,8 +624,14 @@ class ConverterRegistry:
 
         Returns
         -------
-        ConverterMetadata or None
-            Metadata if format registered
+        list of ConverterMetadata or None
+            List of metadata objects for the format (sorted by priority), or None if not registered
+
+        Notes
+        -----
+        Returns all registered converters for the format, sorted by priority (highest first).
+        For backward compatibility with code expecting a single metadata object, you can access
+        the first element of the returned list to get the highest priority converter.
 
         """
         return self._converters.get(format_name)
@@ -608,7 +690,14 @@ class ConverterRegistry:
             if fmt not in self._converters:
                 continue
 
-            metadata = self._converters[fmt]
+            # Check dependencies for all converters for this format
+            # Use the highest priority converter's dependencies
+            metadata_list = self._converters[fmt]
+            if not metadata_list:
+                continue
+
+            # Check the first (highest priority) converter
+            metadata = metadata_list[0]
             format_missing = []
 
             # Use context-aware dependency checking if available
@@ -709,21 +798,12 @@ class ConverterRegistry:
 
                     # Validate that it's actually a ConverterMetadata instance
                     if isinstance(converter_metadata, ConverterMetadata):
-                        # Check if we already have a converter with this format name
-                        if converter_metadata.format_name in self._converters:
-                            dist_name = entry_point.dist.name if entry_point.dist else "unknown"
-                            logger.warning(
-                                f"Plugin '{entry_point.name}' from '{dist_name}' "
-                                f"conflicts with existing converter for format '{converter_metadata.format_name}'. "
-                                f"Skipping plugin."
-                            )
-                            continue
-
+                        # Register the plugin converter (may add to existing format)
                         self.register(converter_metadata)
                         dist_name = entry_point.dist.name if entry_point.dist else "unknown"
                         logger.info(
                             f"Registered plugin converter: {converter_metadata.format_name} "
-                            f"from package '{dist_name}'"
+                            f"(priority={converter_metadata.priority}) from package '{dist_name}'"
                         )
                     else:
                         dist_name = entry_point.dist.name if entry_point.dist else "unknown"

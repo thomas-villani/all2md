@@ -111,7 +111,7 @@ class TestListFormatsCommand:
         mock_metadata.priority = 100
         mock_metadata.required_packages = []
 
-        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+        mock_registry.get_format_info = Mock(return_value=[mock_metadata])
 
         # Test execution (plain text mode)
         result = handle_list_formats_command([])
@@ -136,7 +136,7 @@ class TestListFormatsCommand:
         # required_packages is a list of (install_name, import_name, version_spec) tuples
         mock_metadata.required_packages = [("pymupdf", "fitz", ">=1.24.0")]
 
-        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+        mock_registry.get_format_info = Mock(return_value=[mock_metadata])
         mock_check_version.return_value = (True, "1.24.0")
 
         result = handle_list_formats_command(['pdf'])
@@ -180,7 +180,7 @@ class TestDetectOnlyMode:
         mock_metadata.mime_types = ['application/pdf']
         mock_metadata.required_packages = []
 
-        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+        mock_registry.get_format_info = Mock(return_value=[mock_metadata])
         mock_registry.list_formats = Mock(return_value=['pdf'])
 
         # Create mock args
@@ -314,7 +314,7 @@ class TestEnhancedDryRun:
         mock_metadata.required_packages = []
         mock_metadata.get_required_packages_for_content = Mock(return_value=[])
 
-        mock_registry.get_format_info = Mock(return_value=mock_metadata)
+        mock_registry.get_format_info = Mock(return_value=[mock_metadata])
 
         args = Mock()
         args.rich = False

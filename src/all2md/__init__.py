@@ -701,9 +701,9 @@ def to_ast(
     # Detect format
     actual_format = source_format if source_format != "auto" else registry.detect_format(source)
 
-    # Get converter metadata
-    metadata = registry.get_format_info(actual_format)
-    if not metadata:
+    # Get converter metadata (returns a list, we just check if it exists)
+    metadata_list = registry.get_format_info(actual_format)
+    if not metadata_list or len(metadata_list) == 0:
         raise FormatError(f"Unknown format: {actual_format}")
 
     # Prepare parser options

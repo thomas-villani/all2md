@@ -108,9 +108,14 @@ def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
 
     dependencies = {}
     for format_name in registry.list_formats():
-        metadata = registry.get_format_info(format_name)
-        if metadata and metadata.required_packages:
-            dependencies[format_name] = metadata.required_packages
+        metadata_list = registry.get_format_info(format_name)
+        if metadata_list and len(metadata_list) > 0:
+            # Use the highest priority (first) converter's dependencies
+            metadata = metadata_list[0]
+            if metadata.required_packages:
+                dependencies[format_name] = metadata.required_packages
+            else:
+                dependencies[format_name] = []  # No dependencies required
         else:
             dependencies[format_name] = []  # No dependencies required
 
@@ -157,8 +162,13 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
 
     """
     # Get metadata for the specific format
-    metadata = registry.get_format_info(format_name)
-    if not metadata or not metadata.required_packages:
+    metadata_list = registry.get_format_info(format_name)
+    if not metadata_list or len(metadata_list) == 0:
+        return []
+
+    # Use the highest priority (first) converter
+    metadata = metadata_list[0]
+    if not metadata.required_packages:
         return []
 
     missing = []
@@ -198,9 +208,12 @@ def get_missing_dependencies_for_file(
 
     """
     # Get metadata for the specific format
-    metadata = registry.get_format_info(format_name)
-    if not metadata:
+    metadata_list = registry.get_format_info(format_name)
+    if not metadata_list or len(metadata_list) == 0:
         return []
+
+    # Use the highest priority (first) converter
+    metadata = metadata_list[0]
 
     # Use context-aware dependency checking if file is provided
     if input_file:
@@ -301,10 +314,13 @@ def suggest_minimal_install() -> str:
     common_packages = set()
 
     for format_name in common_formats:
-        metadata = registry.get_format_info(format_name)
-        if metadata and metadata.required_packages:
-            for install_name, _import_name, version_spec in metadata.required_packages:
-                common_packages.add((install_name, version_spec))
+        metadata_list = registry.get_format_info(format_name)
+        if metadata_list and len(metadata_list) > 0:
+            # Use the highest priority (first) converter
+            metadata = metadata_list[0]
+            if metadata.required_packages:
+                for install_name, _import_name, version_spec in metadata.required_packages:
+                    common_packages.add((install_name, version_spec))
 
     return generate_install_command(sorted(common_packages))
 
