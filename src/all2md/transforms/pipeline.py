@@ -444,16 +444,22 @@ class Pipeline:
         logger.debug(f"Rendering document using {self.renderer.__class__.__name__}")
 
         # Try render_to_string first (for text-based renderers)
-        if hasattr(self.renderer, 'render_to_string'):
+        try:
             return self.renderer.render_to_string(document)
+        except NotImplementedError:
+            pass
+
         # Fall back to render_to_bytes (for binary renderers)
-        elif hasattr(self.renderer, 'render_to_bytes'):
+        try:
             return self.renderer.render_to_bytes(document)
-        else:
-            raise NotImplementedError(
-                f"Renderer {self.renderer.__class__.__name__} must implement "
-                f"either render_to_string() or render_to_bytes()"
-            )
+        except NotImplementedError:
+            pass
+
+        # Neither method is implemented
+        raise NotImplementedError(
+            f"Renderer {self.renderer.__class__.__name__} must implement "
+            f"either render_to_string() or render_to_bytes()"
+        )
 
     def execute(self, document: Document) -> Union[str, bytes]:
         """Execute complete pipeline.

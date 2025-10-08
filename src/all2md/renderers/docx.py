@@ -156,6 +156,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Clean up temp files
         self._cleanup_temp_files()
 
+    # render_to_bytes() is inherited from BaseRenderer
+
     def _set_document_defaults(self) -> None:
         """Set default document styles and formatting."""
         if not self.document:

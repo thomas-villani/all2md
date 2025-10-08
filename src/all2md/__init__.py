@@ -809,21 +809,32 @@ def from_ast(
     if output is None:
         return content
     elif isinstance(output, (str, Path)):
-        if isinstance(content, bytes):
-            Path(output).write_bytes(content)
-        else:
+        # Write to file path
+        if isinstance(content, str):
             Path(output).write_text(content, encoding="utf-8")
+        elif isinstance(content, (bytes, bytearray)):
+            Path(output).write_bytes(content)
+        elif hasattr(content, 'read'):
+            # File-like object (BytesIO from binary renderers)
+            Path(output).write_bytes(content.read())
+        else:
+            raise TypeError(f"Unexpected content type: {type(content)}")
         return None
     else:
-        # File-like object
+        # File-like object output
         if hasattr(output, 'mode') and 'b' in output.mode:
             if isinstance(content, str):
                 output.write(content.encode('utf-8'))
+            elif hasattr(content, 'read'):
+                output.write(content.read())
             else:
                 output.write(content)
         else:
-            if isinstance(content, bytes):
+            if isinstance(content, (bytes, bytearray)):
                 output.write(content.decode('utf-8'))  # type: ignore[call-overload]
+            elif hasattr(content, 'read'):
+                # BytesIO - read and decode
+                output.write(content.read().decode('utf-8'))  # type: ignore[call-overload]
             else:
                 output.write(content)  # type: ignore[call-overload]
         return None
@@ -1037,8 +1048,13 @@ def convert(
         output_path = Path(output)
         if isinstance(rendered, str):
             output_path.write_text(rendered, encoding='utf-8')
-        else:
+        elif isinstance(rendered, (bytes, bytearray)):
             output_path.write_bytes(rendered)
+        elif hasattr(rendered, 'read'):
+            # File-like object (BytesIO from binary renderers)
+            output_path.write_bytes(rendered.read())
+        else:
+            raise TypeError(f"Unexpected rendered type: {type(rendered)}")
         return None
 
     if hasattr(output, 'write'):
@@ -1048,6 +1064,14 @@ def convert(
                 cast(IO[bytes], output).write(rendered.encode('utf-8'))
             else:
                 cast(IO[str], output).write(rendered)
+        elif hasattr(rendered, 'read'):
+            # File-like object (BytesIO from binary renderers)
+            mode = getattr(output, 'mode', '')
+            if isinstance(mode, str) and 'b' in mode:
+                cast(IO[bytes], output).write(rendered.read())
+            else:
+                # Text mode - decode bytes
+                cast(IO[str], output).write(rendered.read().decode('utf-8'))
         else:
             cast(IO[bytes], output).write(rendered)
         return None

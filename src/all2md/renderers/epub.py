@@ -160,6 +160,8 @@ class EpubRenderer(BaseRenderer):
                 original_error=e
             ) from e
 
+    # render_to_bytes() is inherited from BaseRenderer
+
     def _set_metadata(self, book: Any, doc: Document) -> None:
         """Set EPUB metadata from options and document metadata.
 

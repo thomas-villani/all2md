@@ -165,6 +165,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 original_error=e
             ) from e
 
+    # render_to_bytes() is inherited from BaseRenderer
+
     def _split_into_slides(
         self,
         doc: Document

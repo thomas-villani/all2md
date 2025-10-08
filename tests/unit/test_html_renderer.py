@@ -13,7 +13,7 @@ Tests cover:
 
 """
 
-from io import StringIO
+from io import StringIO, BytesIO
 
 import pytest
 
@@ -687,8 +687,8 @@ class TestOutputMethods:
             Paragraph(content=[Text(content="Test content")])
         ])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
-        output = StringIO()
+        output = BytesIO()
         renderer.render(doc, output)
 
         result = output.getvalue()
-        assert "Test content" in result
+        assert b"Test content" in result

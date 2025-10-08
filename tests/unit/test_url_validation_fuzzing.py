@@ -13,6 +13,7 @@ Test Coverage:
 """
 
 import ipaddress
+import itertools
 from unittest.mock import patch
 from urllib.parse import urlparse
 
@@ -158,7 +159,7 @@ class TestURLValidationFuzzing:
 
             # Property: Hostname not in allowlist should be rejected
             with pytest.raises(NetworkSecurityError, match="not in allowlist"):
-                validate_url_security(url, allowed_hosts=allowlist)
+                validate_url_security(url, allowed_hosts=allowlist, require_https=False)
 
     @given(
         st.sampled_from(['http', 'https']),
@@ -207,7 +208,7 @@ class TestPrivateIPDetectionFuzzing:
         network = ipaddress.IPv4Network(cidr_block)
 
         # Test a few random IPs from this network
-        for ip in list(network.hosts())[:3]:  # Test first 3 hosts (reduced from 10)
+        for ip in itertools.islice(network.hosts(), 3):
             assert _is_private_or_reserved_ip(ip), f"IP {ip} from {cidr_block} should be private"
 
     @given(

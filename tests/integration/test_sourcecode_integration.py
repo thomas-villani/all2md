@@ -143,7 +143,8 @@ print(fibonacci(10))"""
         assert "sourcecode" in registry.list_formats()
 
         # Get converter info
-        metadata = registry.get_format_info("sourcecode")
+        metadata = registry.get_format_info("sourcecode")[0]
+
         assert metadata is not None
         assert metadata.format_name == "sourcecode"
         assert ".py" in metadata.extensions

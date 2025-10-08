@@ -469,6 +469,8 @@ class TestEventHooksImplementation:
             Mock(url="http://192.168.1.1/evil")   # Redirect to private IP (unsafe)
         ]
 
+        mock_response.request.extensions = {"redirect_count": 2}
+
         # Mock resolution: safe.example.com -> public IP, but the redirect history contains private IP
         def mock_resolver(hostname):
             if hostname == "safe.example.com":

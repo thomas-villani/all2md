@@ -230,6 +230,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         # Clean up temp files
         self._cleanup_temp_files()
 
+    # render_to_bytes() is inherited from BaseRenderer
+
     def _cleanup_temp_files(self) -> None:
         """Remove temporary files created during rendering."""
         for temp_file in self._temp_files:
