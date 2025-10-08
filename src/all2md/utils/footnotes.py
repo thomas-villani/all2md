@@ -44,7 +44,8 @@ class FootnoteCollector:
     )
     _id_map: Dict[Tuple[str, str], str] = field(default_factory=dict, init=False, repr=False)
 
-    def __post_init__(self) -> None:  # noqa: D401 - simple initializer
+    def __post_init__(self) -> None:
+        """Initialize the auto-number counter after dataclass initialization."""
         self._next_auto_number = itertools.count(self.auto_number_start)
 
     def register_reference(self, identifier: Optional[str], *, note_type: str = "footnote") -> str:

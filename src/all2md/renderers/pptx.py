@@ -617,11 +617,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         pass
 
     def visit_table_row(self, node: TableRow) -> None:
-        """Handled by visit_table."""
+        """Handle table row (delegated to visit_table)."""
         pass
 
     def visit_table_cell(self, node: TableCell) -> None:
-        """Handled by visit_table."""
+        """Handle table cell (delegated to visit_table)."""
         pass
 
     def visit_line_break(self, node: LineBreak) -> None:

@@ -269,7 +269,7 @@ class TestTextFormatting:
         para_node = ast_doc.children[0]
         # Should be nested formatting (order depends on implementation)
         # Just verify we have both Strong and Emphasis somewhere
-        content_str = str(para_node)
+        str(para_node)
         assert "Strong" in str(type(para_node.content[0]))
         # Inner formatting should be Emphasis
         if hasattr(para_node.content[0], 'content'):

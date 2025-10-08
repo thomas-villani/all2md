@@ -14,19 +14,20 @@ import csv
 import io
 import logging
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Any, Optional, Union, cast
 
-from all2md.ast import Document, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import Alignment, Document, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
 
-def _sanitize_cell_text(text: str) -> str:
+def _sanitize_cell_text(text: Any) -> str:
     """Convert cell value to a safe string for AST Text node.
 
     Note: Markdown escaping is handled by the renderer, not here.
@@ -34,7 +35,7 @@ def _sanitize_cell_text(text: str) -> str:
 
     Parameters
     ----------
-    text : str
+    text : Any
         Cell value to sanitize
 
     Returns
@@ -45,14 +46,12 @@ def _sanitize_cell_text(text: str) -> str:
     """
     if text is None:
         return ""
-
     # Simple normalization
-    s = str(text)
-    return s
+    return str(text)
 
 
 def _build_table_ast(
-    header: list[str], rows: list[list[str]], alignments: list[str]
+    header: list[str], rows: list[list[str]], alignments: list[Alignment]
 ) -> Table:
     """Build an AST Table from header, rows, and alignments.
 
@@ -62,7 +61,7 @@ def _build_table_ast(
         Header row cells
     rows : list[list[str]]
         Data rows
-    alignments : list[str]
+    alignments : list[Alignment]
         Column alignments ('left', 'center', 'right')
 
     Returns
@@ -87,13 +86,8 @@ def _build_table_ast(
         ]
         data_rows.append(TableRow(cells=row_cells, is_header=False))
 
-    # Convert alignment strings to the format expected by Table node
-    table_alignments = []
-    for align in alignments:
-        if align in ("left", "center", "right"):
-            table_alignments.append(align)
-        else:
-            table_alignments.append("center")
+    # Table alignments are already the correct type
+    table_alignments: list[Alignment | None] = list(alignments)
 
     return Table(header=header_row, rows=data_rows, alignments=table_alignments)
 
@@ -111,7 +105,8 @@ class CsvToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options=None, progress_callback=None):
+    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the CSV parser with options and progress callback."""
         # Import here to avoid circular dependency
         from all2md.options import CsvOptions
 
@@ -146,7 +141,7 @@ class CsvToAstConverter(BaseParser):
 
         return self.csv_to_ast(input_data, delimiter)
 
-    def _determine_delimiter(self, input_data) -> str:
+    def _determine_delimiter(self, input_data: Union[str, Path, IO[bytes], IO[str], bytes]) -> str:
         """Determine the delimiter for the CSV/TSV file.
 
         Parameters
@@ -179,14 +174,14 @@ class CsvToAstConverter(BaseParser):
 
     def csv_to_ast(
         self,
-        input_data: Union[str, Path, IO[bytes], IO[str]],
+        input_data: Union[str, Path, IO[bytes], IO[str], bytes],
         delimiter: str | None = None,
     ) -> Document:
-        """Convert CSV/TSV to AST Document.
+        r"""Convert CSV/TSV to AST Document.
 
         Parameters
         ----------
-        input_data : Union[str, Path, IO[bytes], IO[str]]
+        input_data : Union[str, Path, IO[bytes], IO[str], bytes]
             Input data
         delimiter : str | None
             Delimiter character to use (e.g., ',' for CSV, '\\t' for TSV)
@@ -215,27 +210,27 @@ class CsvToAstConverter(BaseParser):
         sample = text_stream.read(4096)
         text_stream.seek(0)
 
-        dialect: csv.Dialect
+        dialect_obj: type[csv.Dialect]
         if self.options.csv_delimiter:
             exc_dialect = csv.excel()
             exc_dialect.delimiter = self.options.csv_delimiter
-            dialect = exc_dialect
+            dialect_obj = type(exc_dialect)
         elif self.options.detect_csv_dialect:
             try:
                 sniffer = csv.Sniffer()
-                dialect = sniffer.sniff(sample, delimiters=",\t;|\x1f")
+                dialect_obj = sniffer.sniff(sample, delimiters=",\t;|\x1f")
             except Exception:
                 exc_dialect = csv.excel()
                 if delimiter:
                     exc_dialect.delimiter = delimiter
-                dialect = exc_dialect
+                dialect_obj = type(exc_dialect)
         else:
             exc_dialect = csv.excel()
             if delimiter:
                 exc_dialect.delimiter = delimiter
-            dialect = exc_dialect
+            dialect_obj = type(exc_dialect)
 
-        reader = csv.reader(text_stream, dialect=dialect)
+        reader = csv.reader(text_stream, dialect=dialect_obj)
         rows: list[list[str]] = []
 
         # Calculate maximum rows to read (header + max_rows data rows)
@@ -308,12 +303,12 @@ class CsvToAstConverter(BaseParser):
         header = self._transform_header_case(header)
 
         # Alignments default to center
-        alignments = ["center"] * len(header)
+        alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
 
         # Build table AST
         table = _build_table_ast(header, data_rows, alignments)
 
-        children = [table]
+        children: list[Node] = [table]
 
         if truncated:
             children.append(
@@ -322,7 +317,7 @@ class CsvToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _read_text_stream_for_csv(self, input_data) -> io.StringIO:
+    def _read_text_stream_for_csv(self, input_data: Any) -> io.StringIO:
         """Read binary or text input and return a StringIO for CSV parsing.
 
         Parameters
@@ -391,7 +386,7 @@ class CsvToAstConverter(BaseParser):
             return [cell.lower() for cell in header]
         return header
 
-    def extract_metadata(self, document) -> DocumentMetadata:
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from CSV/TSV document.
 
         Parameters

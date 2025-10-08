@@ -18,7 +18,7 @@ from io import BytesIO
 import pytest
 
 try:
-    import ebooklib
+    import ebooklib  # noqa: F401
     from ebooklib import epub
     EBOOKLIB_AVAILABLE = True
 except ImportError:

@@ -265,7 +265,7 @@ class TestPdfLayoutAdvanced:
         assert header_level > 0  # Should be detected as header
 
         # Rotated text should not interfere with header detection
-        rotated_level = header_analyzer.get_header_level(rotated_sidebar)
+        header_analyzer.get_header_level(rotated_sidebar)
         # Rotated text might or might not be header depending on implementation
 
     def test_column_detection_with_images_and_graphics(self):

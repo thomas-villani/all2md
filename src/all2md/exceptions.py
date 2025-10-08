@@ -53,6 +53,7 @@ class All2MdError(Exception):
     """
 
     def __init__(self, message: str, original_error: Exception | None = None):
+        """Initialize the error with a message and optional original exception."""
         super().__init__(message)
         self.message = message
         self.original_error = original_error
@@ -93,6 +94,7 @@ class ValidationError(All2MdError):
             parameter_value: Any = None,
             original_error: Exception | None = None
     ):
+        """Initialize the validation error with parameter details."""
         super().__init__(message, original_error=original_error)
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value
@@ -118,6 +120,7 @@ class PageRangeError(ValidationError):
             parameter_value: Any = None,
             original_error: Exception | None = None
     ):
+        """Initialize the page range error."""
         super().__init__(
             message,
             parameter_name="pages",
@@ -157,6 +160,7 @@ class FileError(All2MdError):
             file_path: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the file error with path and message."""
         super().__init__(message, original_error=original_error)
         self.file_path = file_path
 
@@ -181,6 +185,7 @@ class FileNotFoundError(FileError):
             message: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the file not found error."""
         if message is None:
             message = f"File not found: {file_path}"
         super().__init__(message, file_path=file_path, original_error=original_error)
@@ -208,6 +213,7 @@ class FileAccessError(FileError):
             message: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the file access error."""
         if message is None:
             message = f"Cannot access file: {file_path}"
         super().__init__(message, file_path=file_path, original_error=original_error)
@@ -233,6 +239,7 @@ class MalformedFileError(FileError):
             file_path: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the malformed file error."""
         super().__init__(message, file_path=file_path, original_error=original_error)
 
 
@@ -267,6 +274,7 @@ class FormatError(All2MdError):
             supported_formats: list[str] | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the format error."""
         if message is None:
             if format_type:
                 message = f"Unsupported format: '{format_type}'"
@@ -314,6 +322,7 @@ class ParsingError(All2MdError):
             parsing_stage: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the parsing error."""
         super().__init__(message, original_error)
         self.parsing_stage = parsing_stage
 
@@ -347,6 +356,7 @@ class PasswordProtectedError(ParsingError):
             filename: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the password protected error."""
         if message is None:
             if filename:
                 message = f"File '{filename}' is password-protected and requires authentication"
@@ -388,6 +398,7 @@ class RenderingError(All2MdError):
             rendering_stage: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the rendering error."""
         super().__init__(message, original_error)
         self.rendering_stage = rendering_stage
 
@@ -417,6 +428,7 @@ class OutputWriteError(RenderingError):
             message: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the output write error."""
         if message is None:
             message = f"Failed to write output file: {file_path}"
         super().__init__(message, rendering_stage="file_write", original_error=original_error)
@@ -451,6 +463,7 @@ class TransformError(All2MdError):
             transform_name: str | None = None,
             original_error: Exception | None = None
     ):
+        """Initialize the transform error."""
         super().__init__(message, original_error)
         self.transform_name = transform_name
 
@@ -553,6 +566,7 @@ class DependencyError(All2MdError):
             message: str | None = None,
             original_import_error: ImportError | None = None
     ):
+        """Initialize the dependency error with package details."""
         version_mismatches = version_mismatches or []
         self.original_import_error = original_import_error
         if message is None:

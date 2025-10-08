@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Optional, Union
 from urllib.parse import urljoin, urlparse
 
 from all2md.ast import (
@@ -57,6 +57,7 @@ from all2md.exceptions import (
 )
 from all2md.options import HtmlOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
@@ -113,7 +114,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
     encodings_to_try.append("latin-1")
 
     # Try each encoding
-    last_error = None
+    last_error: Exception | None = None
     for encoding in encodings_to_try:
         try:
             with open(str(file_path), "r", encoding=encoding) as f:
@@ -150,7 +151,8 @@ class HtmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: HtmlOptions | None = None, progress_callback=None):
+    def __init__(self, options: HtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the HTML parser with options and progress callback."""
         options = options or HtmlOptions()
         super().__init__(options, progress_callback)
         self.options: HtmlOptions = options
@@ -201,8 +203,8 @@ class HtmlToAstConverter(BaseParser):
                     html_content = _read_html_file_with_encoding_fallback(input_data)
                 except Exception as e:
                     raise FileAccessError(
-                        f"Failed to read HTML file: {e!r}",
                         file_path=str(input_data),
+                        message=f"Failed to read HTML file: {e!r}",
                         original_error=e
                     ) from e
             else:
@@ -267,7 +269,7 @@ class HtmlToAstConverter(BaseParser):
 
         """
         from bs4 import BeautifulSoup
-        from bs4.element import Comment
+        from bs4.element import Comment, Tag
 
         # Emit started event
         self._emit_progress(
@@ -341,7 +343,7 @@ class HtmlToAstConverter(BaseParser):
         # Extract title if requested - this will offset all headings by 1 level
         if self.options.extract_title:
             title_tag = soup.find("title")
-            if title_tag and title_tag.string:
+            if isinstance(title_tag, Tag) and title_tag.string:
                 title_heading = Heading(level=1, content=[Text(content=title_tag.string.strip())])
                 children.append(title_heading)
                 # Demote all body headings by 1 level to make room for extracted title
@@ -349,9 +351,11 @@ class HtmlToAstConverter(BaseParser):
 
         # Process body or root element
         body = soup.find("body")
-        root = body if body else soup
+        root = body if isinstance(body, Tag) else soup
 
         for child in root.children:
+            if not isinstance(child, Tag):
+                continue
             nodes = self._process_node_to_ast(child)
             if nodes:
                 if isinstance(nodes, list):
@@ -510,7 +514,7 @@ class HtmlToAstConverter(BaseParser):
 
         # Extract enhanced microdata and structured data if enabled
         if self.options.extract_microdata:
-            microdata = {}
+            microdata: dict[str, Any] = {}
 
             # Extract all Open Graph tags
             og_tags = {}
@@ -1069,7 +1073,7 @@ class HtmlToAstConverter(BaseParser):
             if not alignments:
                 alignments = [None] * len(header.cells)
 
-        return Table(header=header, rows=rows, alignments=alignments, caption=caption)
+        return Table(header=header, rows=rows, alignments=alignments, caption=caption)  # type: ignore[arg-type]
 
     def _process_strong_to_ast(self, node: Any) -> Strong:
         """Process strong/b element to Strong node.

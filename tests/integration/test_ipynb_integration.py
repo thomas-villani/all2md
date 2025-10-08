@@ -1,3 +1,10 @@
+"""Integration tests for Jupyter Notebook (.ipynb) conversion.
+
+This module contains integration tests for converting Jupyter notebooks
+to Markdown, including tests for code cells, markdown cells, output
+handling, and various notebook features.
+
+"""
 import json
 import tempfile
 from concurrent.futures import ThreadPoolExecutor

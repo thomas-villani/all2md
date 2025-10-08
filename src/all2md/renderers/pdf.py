@@ -106,7 +106,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         BaseRenderer.__init__(self, options)
         self.options: PdfRendererOptions = options
         self._flowables: list[Flowable] = []
-        self._styles: dict[str, ParagraphStyle] | None = None
+        # _styles is initialized in render() before any visitor methods are called
+        self._styles: dict[str, ParagraphStyle] = {}
         self._temp_files: list[str] = []
         self._footnote_counter: int = 0
         self._footnotes: list[tuple[int, str]] = []

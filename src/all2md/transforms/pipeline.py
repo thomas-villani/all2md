@@ -119,17 +119,15 @@ class HookAwareVisitor(NodeTransformer):
             try:
                 # Execute hooks for this node type (may replace node variable)
                 node = self.hook_manager.execute_hooks(node_type, node, self.context)
-
-                # Hook removed node
-                if node is None:
-                    self.context.node_path.pop()
-                    return None
-
             finally:
                 # Always pop the node we originally pushed, even if hook replaced it
                 # Check that we actually have something to pop (defensive programming)
                 if self.context.node_path and self.context.node_path[-1] is pushed_node:
                     self.context.node_path.pop()
+
+            # Hook removed node
+            if node is None:
+                return None
 
         # Continue normal traversal with transformed node
         return super().transform(node)
@@ -339,12 +337,21 @@ class Pipeline:
             context.transform_name = transformer.__class__.__name__
 
             try:
-                result = transformer.transform(result)
+                transformed_result = transformer.transform(result)
 
-                if result is None:
+                if transformed_result is None:
                     raise ValueError(
                         f"Transform {transformer.__class__.__name__} returned None"
                     )
+
+                # Type check: transformed_result should be a Document, but mypy sees it as Node
+                from all2md.ast import Document as AstDocument
+                if not isinstance(transformed_result, AstDocument):
+                    raise TypeError(
+                        f"Transform {transformer.__class__.__name__} must return Document, "
+                        f"got {type(transformed_result).__name__}"
+                    )
+                result = transformed_result
 
             except Exception as e:
                 logger.error(
@@ -484,7 +491,7 @@ class Pipeline:
             if result is None:
                 raise ValueError("post_ast hook removed document")
 
-            document = result  # type: ignore
+            document = result
 
         # Apply transforms
         if self.transforms:
@@ -498,7 +505,7 @@ class Pipeline:
             if result is None:
                 raise ValueError("pre_render hook removed document")
 
-            document = result  # type: ignore
+            document = result
 
         # Apply element hooks (after pre_render, before rendering)
         document = self._apply_element_hooks(document, context)
@@ -515,7 +522,7 @@ class Pipeline:
                 raise ValueError("post_render hook removed output")
 
         logger.info("Pipeline execution complete")
-        return output  # type: ignore
+        return output
 
 
 def apply(
@@ -626,7 +633,7 @@ def apply(
         if result is None:
             raise ValueError("post_ast hook removed document")
 
-        document = result  # type: ignore
+        document = result
 
     # Apply transforms
     if pipeline.transforms:
@@ -640,7 +647,7 @@ def apply(
         if result is None:
             raise ValueError("pre_render hook removed document")
 
-        document = result  # type: ignore
+        document = result
 
     # Apply element hooks (after pre_render, would normally be before rendering)
     document = pipeline._apply_element_hooks(document, context)
@@ -656,7 +663,7 @@ def render(
     renderer: Optional[Union[str, type, Any]] = None,
     options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
     progress_callback: Optional[ProgressCallback] = None,
-    **kwargs
+    **kwargs: Any
 ) -> Union[str, bytes]:
     """Render document with transforms and hooks using specified renderer.
 

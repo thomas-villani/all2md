@@ -37,7 +37,7 @@ Deserialize JSON back to AST:
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -380,7 +380,7 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
 
     # Helper to recursively deserialize
     def deserialize_children(children_data: list[dict[str, Any]]) -> list[Node]:
-        return [dict_to_ast(child) for child in children_data]
+        return [cast(Node, dict_to_ast(child)) for child in children_data]
 
     def deserialize_source_location(loc_data: dict[str, Any] | None) -> SourceLocation | None:
         return dict_to_ast(loc_data) if loc_data else None  # type: ignore
@@ -512,7 +512,7 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
         return Text(content=data["content"], metadata=metadata, source_location=source_location)
 
     elif node_type in ("Emphasis", "Strong", "Strikethrough", "Underline", "Superscript", "Subscript"):
-        return node_class(  # type: ignore
+        return node_class(
             content=deserialize_children(data.get("content", [])),
             metadata=metadata,
             source_location=source_location,

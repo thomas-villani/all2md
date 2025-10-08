@@ -623,7 +623,7 @@ def extract_dict_metadata(
 
 
 def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadata], extract_metadata: bool) -> str:
-    """Helper to prepend metadata to content if extraction is enabled.
+    """Prepend metadata to content if extraction is enabled.
 
     Parameters
     ----------

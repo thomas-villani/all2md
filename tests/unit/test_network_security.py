@@ -488,7 +488,7 @@ class TestEventHooksImplementation:
 
         # Should raise NetworkSecurityError when validating redirect chain
         if validate_response_redirects:
-            with pytest.raises(Exception):  # NetworkSecurityError will be raised
+            with pytest.raises(NetworkSecurityError):
                 validate_response_redirects(mock_response)
 
     @patch('all2md.utils.network_security._resolve_hostname_to_ips')
@@ -662,7 +662,7 @@ class TestRedirectLimitEdgeCases:
         validate_response = client.event_hooks['response'][0]
 
         # Should raise due to private IP in redirect
-        with pytest.raises(Exception):  # NetworkSecurityError wrapped
+        with pytest.raises(NetworkSecurityError):
             validate_response(mock_response)
 
 

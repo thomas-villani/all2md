@@ -26,7 +26,7 @@ except ImportError:
     PDF_VERIFICATION_AVAILABLE = False
 
 try:
-    from reportlab.platypus import SimpleDocTemplate
+    from reportlab.platypus import SimpleDocTemplate  # noqa: F401
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False

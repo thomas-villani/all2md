@@ -10,7 +10,7 @@ variable support.
 import argparse
 import logging
 import os
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union
 
 
 class TrackingStoreAction(argparse.Action):
@@ -465,7 +465,7 @@ class TrackingPositiveIntAction(argparse.Action):
 
         # Validate and convert to positive integer
         try:
-            ivalue = int(values)
+            ivalue = int(str(values))
             if ivalue <= 0:
                 parser.error(f"argument {option_string}: {values} is not a positive integer")
             setattr(namespace, self.dest, ivalue)
@@ -484,13 +484,22 @@ class DynamicVersionAction(argparse._VersionAction):
     This replaces the need to modify parser._actions to update version strings.
     """
 
-    def __init__(self, option_strings, version_callback=None, **kwargs):
+    def __init__(
+        self,
+        option_strings: Sequence[str],
+        version_callback: Optional[Callable[[], str]] = None,
+        **kwargs: Any
+    ) -> None:
         """Initialize with a callback to get version dynamically.
 
         Parameters
         ----------
+        option_strings : Sequence[str]
+            Option strings for this action
         version_callback : callable, optional
             Function that returns the version string when called
+        **kwargs : Any
+            Additional keyword arguments passed to parent action
 
         """
         # Store callback and use placeholder version for parent
@@ -507,7 +516,13 @@ class DynamicVersionAction(argparse._VersionAction):
         # Call parent constructor
         super().__init__(option_strings, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None
+    ) -> None:
         """Display version and exit."""
         version = self.version
         if self.version_callback:
@@ -540,7 +555,7 @@ def parse_dot_notation(dot_string: str, value: Any) -> dict:
 
     """
     parts = dot_string.split('.')
-    result = {}
+    result: dict[str, Any] = {}
     current = result
 
     for part in parts[:-1]:

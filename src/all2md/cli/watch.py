@@ -14,6 +14,8 @@ try:
 except ImportError:
     # Stub for when watchdog is not installed
     class FileSystemEventHandler:  # type: ignore
+        """Stub class when watchdog is not installed."""
+
         pass
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         recursive: bool = False,
         exclude_patterns: Optional[List[str]] = None
     ) -> None:
+        """Initialize the conversion event handler with watch settings."""
         self.paths_to_watch = paths_to_watch
         self.output_dir = output_dir
         self.options = options

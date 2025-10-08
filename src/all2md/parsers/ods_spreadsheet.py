@@ -14,12 +14,13 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Optional, Union, cast
 
-from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import Alignment, Document, Heading, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -63,7 +64,7 @@ def _sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
 
 
 def _build_table_ast(
-    header: list[str], rows: list[list[str]], alignments: list[str]
+    header: list[str], rows: list[list[str]], alignments: list[Alignment]
 ) -> Table:
     """Build an AST Table from header, rows, and alignments.
 
@@ -73,7 +74,7 @@ def _build_table_ast(
         Header row cells
     rows : list[list[str]]
         Data rows
-    alignments : list[str]
+    alignments : list[Alignment]
         Column alignments ('left', 'center', 'right')
 
     Returns
@@ -98,13 +99,8 @@ def _build_table_ast(
         ]
         data_rows.append(TableRow(cells=row_cells, is_header=False))
 
-    # Convert alignment strings
-    table_alignments = []
-    for align in alignments:
-        if align in ("left", "center", "right"):
-            table_alignments.append(align)
-        else:
-            table_alignments.append("center")
+    # Table alignments are already the correct type
+    table_alignments: list[Alignment | None] = list(alignments)
 
     return Table(header=header_row, rows=data_rows, alignments=table_alignments)
 
@@ -122,7 +118,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options=None, progress_callback=None):
+    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         # Import here to avoid circular dependency
         from all2md.options import OdsSpreadsheetOptions
 
@@ -190,7 +186,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         from odf.table import Table as OdfTable
         from odf.table import TableCell, TableRow
 
-        children = []
+        children: list[Node] = []
 
         # Extract metadata
         metadata = self.extract_metadata(doc)
@@ -320,7 +316,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
             # Build table
             if header:
-                alignments = ["center"] * len(header)
+                alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
                 table_node = _build_table_ast(header, data_rows, alignments)
                 children.append(table_node)
 

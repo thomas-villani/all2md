@@ -15,15 +15,7 @@ generate HTML output with appropriate semantic markup.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union
-
-from all2md.utils.html_utils import escape_html, render_math_html
-
-if TYPE_CHECKING:
-    try:
-        from jinja2 import Environment, FileSystemLoader, Template
-    except ImportError:
-        pass
+from typing import IO, Union
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -46,6 +38,7 @@ from all2md.ast.nodes import (
     ListItem,
     MathBlock,
     MathInline,
+    MathNotation,
     Node,
     Paragraph,
     Strikethrough,
@@ -62,6 +55,7 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import HtmlRendererOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.html_utils import escape_html, render_math_html
 
 
 class HtmlRenderer(NodeVisitor, BaseRenderer):
@@ -147,10 +141,8 @@ class HtmlRenderer(NodeVisitor, BaseRenderer):
         if isinstance(output, (str, Path)):
             Path(output).write_text(html_text, encoding="utf-8")
         else:
-            if hasattr(output, 'mode') and 'b' in output.mode:
-                output.write(html_text.encode('utf-8'))
-            else:
-                output.write(html_text)
+            # Write to file-like object (binary mode)
+            output.write(html_text.encode('utf-8'))
 
     def _wrap_in_document(self, doc: Document, content: str) -> str:
         """Wrap content in a complete HTML document.
@@ -783,7 +775,7 @@ hr {
             Inline math to render
 
         """
-        preferred = 'latex' if self.options.math_renderer != 'none' else 'mathml'
+        preferred: MathNotation = 'latex' if self.options.math_renderer != 'none' else 'mathml'
         content, notation = node.get_preferred_representation(preferred)
         markup = render_math_html(
             content,
@@ -859,7 +851,7 @@ hr {
             Math block to render
 
         """
-        preferred = 'latex' if self.options.math_renderer != 'none' else 'mathml'
+        preferred: MathNotation = 'latex' if self.options.math_renderer != 'none' else 'mathml'
         content, notation = node.get_preferred_representation(preferred)
         markup = render_math_html(
             content,

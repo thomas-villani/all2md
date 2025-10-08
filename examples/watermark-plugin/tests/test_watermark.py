@@ -98,7 +98,7 @@ class TestMetadata:
         """Test parameter specifications."""
         assert 'text' in METADATA.parameters
         param = METADATA.parameters['text']
-        assert param.type == str
+        assert param.type is str
         assert param.default == "CONFIDENTIAL"
         assert param.cli_flag == '--watermark-text'
 

@@ -266,7 +266,7 @@ class TestHookExecution:
             results.append(2)
             return doc
 
-        markdown = render(
+        render(
             sample_document,
             hooks={'pre_render': [hook1, hook2]}
         )
@@ -307,7 +307,7 @@ class TestContextPassing:
             assert context.metadata['author'] == "Test"
             return doc
 
-        markdown = render(
+        render(
             sample_document,
             hooks={'pre_render': [check_metadata]}
         )
@@ -319,7 +319,7 @@ class TestContextPassing:
             assert isinstance(context.document, Document)
             return doc
 
-        markdown = render(
+        render(
             sample_document,
             hooks={'pre_render': [check_document]}
         )

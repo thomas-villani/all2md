@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Any, Union
 
 from all2md.ast.nodes import Document, Heading, Node
 from all2md.exceptions import RenderingError
@@ -159,7 +159,7 @@ class EpubRenderer(BaseRenderer):
                 original_error=e
             ) from e
 
-    def _set_metadata(self, book: any, doc: Document) -> None:
+    def _set_metadata(self, book: Any, doc: Document) -> None:
         """Set EPUB metadata from options and document metadata.
 
         Parameters

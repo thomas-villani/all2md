@@ -8,7 +8,7 @@ import functools
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Generator, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ class TimingContext:
         logger_instance: Optional[logging.Logger] = None,
         log_level: int = logging.DEBUG
     ) -> None:
+        """Initialize the timing context for an operation."""
         self.operation_name = operation_name
         self.logger = logger_instance or logger
         self.log_level = log_level
@@ -49,11 +50,13 @@ class TimingContext:
         self.end_time: Optional[float] = None
 
     def __enter__(self) -> 'TimingContext':
+        """Enter the timing context and start the timer."""
         self.start_time = time.perf_counter()
         self.logger.log(self.log_level, f"Starting: {self.operation_name}")
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit the timing context and log the elapsed time."""
         self.end_time = time.perf_counter()
         elapsed = self.elapsed
 
@@ -89,7 +92,7 @@ def instrument_timing(
     logger_instance: Optional[logging.Logger] = None,
     log_level: int = logging.DEBUG
 ) -> Callable[[F], F]:
-    """Decorator to automatically time and log function execution.
+    """Automatically time and log function execution.
 
     Parameters
     ----------
@@ -126,7 +129,9 @@ def instrument_timing(
 
 
 @contextmanager
-def timing(operation_name: str, logger_instance: Optional[logging.Logger] = None):
+def timing(
+    operation_name: str, logger_instance: Optional[logging.Logger] = None
+) -> Generator[TimingContext, None, None]:
     """Context manager for timing operations.
 
     Parameters
@@ -210,6 +215,7 @@ class OperationTimer:
     """
 
     def __init__(self) -> None:
+        """Initialize the operation timer with empty tracking dictionaries."""
         self.operations: dict[str, list[float]] = {}
         self._active: dict[str, float] = {}
 
@@ -305,7 +311,7 @@ class OperationTimer:
 
         lines = ["Timing Report", "=" * 60]
 
-        for op_name, durations in sorted(self.operations.items()):
+        for op_name, _durations in sorted(self.operations.items()):
             stats = self.get_stats(op_name)
             lines.append(
                 f"{op_name:30} {format_duration(stats['total']):>12} "

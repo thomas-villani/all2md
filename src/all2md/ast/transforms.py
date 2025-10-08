@@ -348,8 +348,8 @@ class NodeTransformer(NodeVisitor):
         """Transform a DefinitionList node."""
         transformed_items = [
             (
-                self.transform(term),  # type: ignore
-                [self.transform(desc) for desc in descriptions]  # type: ignore
+                self.transform(term),
+                [self.transform(desc) for desc in descriptions]
             )
             for term, descriptions in node.items
         ]
@@ -397,6 +397,7 @@ class NodeCollector(NodeVisitor):
     """
 
     def __init__(self, predicate: Callable[[Node], bool] | None = None):
+        """Initialize the collector with an optional predicate function."""
         self.predicate = predicate or (lambda n: True)
         self.collected: list[Node] = []
 
@@ -724,6 +725,7 @@ class HeadingLevelTransformer(NodeTransformer):
     """
 
     def __init__(self, offset: int, min_level: int = 1, max_level: int = 6):
+        """Initialize the transform with offset and level constraints."""
         self.offset = offset
         self.min_level = min_level
         self.max_level = max_level
@@ -761,6 +763,7 @@ class LinkRewriter(NodeTransformer):
     """
 
     def __init__(self, url_mapper: Callable[[str], str]):
+        """Initialize the transform with a URL mapping function."""
         self.url_mapper = url_mapper
 
     def visit_link(self, node: Link) -> Link:
@@ -807,6 +810,7 @@ class TextReplacer(NodeTransformer):
     """
 
     def __init__(self, pattern: str, replacement: str, use_regex: bool = False):
+        """Initialize the transform with pattern and replacement."""
         self.pattern = pattern
         self.replacement = replacement
         self.use_regex = use_regex

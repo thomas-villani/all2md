@@ -1,3 +1,9 @@
+"""Sphinx documentation configuration for all2md.
+
+This module configures the Sphinx documentation builder for the all2md
+project, including extensions, themes, and HTML output options.
+
+"""
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:

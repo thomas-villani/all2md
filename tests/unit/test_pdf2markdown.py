@@ -1,3 +1,10 @@
+"""Unit tests for PDF to Markdown conversion.
+
+This module contains unit tests for PDF parsing and conversion functionality,
+including text extraction, table detection, formatting preservation, and
+various PDF-specific features.
+
+"""
 import tempfile
 
 import fitz

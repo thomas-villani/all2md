@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Any, Union
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -318,12 +318,12 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         if frontmatter:
             self._output.append(frontmatter)
 
-    def _yaml_escape(self, value: any) -> str:
+    def _yaml_escape(self, value: Any) -> str:
         """Escape a value for YAML output.
 
         Parameters
         ----------
-        value : any
+        value : Any
             Value to escape
 
         Returns
@@ -609,7 +609,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
                 if i == 0 and node.header:
                     self._output.append('\n')
                     alignments = []
-                    for j, alignment in enumerate(node.alignments if node.alignments else []):
+                    for _j, alignment in enumerate(node.alignments if node.alignments else []):
                         # Use exactly 3 dashes for alignment (markdown minimum)
                         if alignment == 'center':
                             alignments.append(':---:')
@@ -1153,7 +1153,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             self._output.append('\n')
         self._output.append("$$")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes|str]]) -> None:
+    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to markdown and write to output.
 
         Parameters
@@ -1169,13 +1169,6 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         if isinstance(output, (str, Path)):
             # Write to file
             Path(output).write_text(markdown_text, encoding="utf-8")
-        elif isinstance(output, IO):
-            # Write to file-like object
-            if hasattr(output, 'mode') and 'b' in output.mode:
-                # Binary mode
-                output.write(markdown_text.encode('utf-8'))
-            else:
-                # Text mode
-                output.write(markdown_text)
         else:
-            raise TypeError(f"Output type {type(output)} is not supported")
+            # Write to file-like object (binary mode)
+            output.write(markdown_text.encode('utf-8'))

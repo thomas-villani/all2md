@@ -329,7 +329,7 @@ def suggest_full_install() -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """Main entry point for dependency management CLI.
+    """Execute dependency management CLI.
 
     Parameters
     ----------

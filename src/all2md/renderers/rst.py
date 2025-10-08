@@ -27,20 +27,31 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     LineBreak,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
+    MathNotation,
     Node,
     Paragraph,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
     Text,
     ThematicBreak,
+    Underline,
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import RstRendererOptions
@@ -679,43 +690,43 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         """
         pass
 
-    def visit_strikethrough(self, node) -> None:
+    def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render strikethrough (not standard in RST)."""
         content = self._render_inline_content(node.content)
         # RST doesn't have native strikethrough, render as text
         self._output.append(content)
 
-    def visit_underline(self, node) -> None:
+    def visit_underline(self, node: Underline) -> None:
         """Render underline (not standard in RST)."""
         content = self._render_inline_content(node.content)
         # RST doesn't have native underline, render as text
         self._output.append(content)
 
-    def visit_superscript(self, node) -> None:
+    def visit_superscript(self, node: Superscript) -> None:
         """Render superscript (not standard in RST)."""
         content = self._render_inline_content(node.content)
         # RST doesn't have native superscript, use role syntax
         self._output.append(f":sup:`{content}`")
 
-    def visit_subscript(self, node) -> None:
+    def visit_subscript(self, node: Subscript) -> None:
         """Render subscript (not standard in RST)."""
         content = self._render_inline_content(node.content)
         # RST doesn't have native subscript, use role syntax
         self._output.append(f":sub:`{content}`")
 
-    def visit_html_inline(self, node) -> None:
+    def visit_html_inline(self, node: HTMLInline) -> None:
         """Render inline HTML (preserve as-is)."""
         self._output.append(node.content)
 
-    def visit_html_block(self, node) -> None:
+    def visit_html_block(self, node: HTMLBlock) -> None:
         """Render HTML block (preserve as-is)."""
         self._output.append(node.content)
 
-    def visit_footnote_reference(self, node) -> None:
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render footnote reference."""
         self._output.append(f"[{node.identifier}]_")
 
-    def visit_footnote_definition(self, node) -> None:
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render footnote definition."""
         self._output.append(f".. [{node.identifier}] ")
         for i, child in enumerate(node.content):
@@ -728,16 +739,16 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
             self._output = saved_output
             self._output.append(child_content)
 
-    def visit_math_inline(self, node) -> None:
+    def visit_math_inline(self, node: MathInline) -> None:
         """Render inline math."""
-        preferred = "latex"  # RST prefers LaTeX for math
+        preferred: MathNotation = "latex"  # RST prefers LaTeX for math
         content, notation = node.get_preferred_representation(preferred)
         # RST uses :math: role for inline math
         self._output.append(f":math:`{content}`")
 
-    def visit_math_block(self, node) -> None:
+    def visit_math_block(self, node: MathBlock) -> None:
         """Render math block."""
-        preferred = "latex"
+        preferred: MathNotation = "latex"
         content, notation = node.get_preferred_representation(preferred)
         # RST uses .. math:: directive for block math
         self._output.append(".. math::\n\n")
@@ -745,14 +756,14 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         for line in lines:
             self._output.append(f"   {line}\n")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes|str]]) -> None:
+    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to RST and write to output.
 
         Parameters
         ----------
         doc : Document
             AST Document node to render
-        output : str, Path, or IO[bytes|str]
+        output : str, Path, or IO[bytes]
             Output destination (file path or file-like object)
 
         """
@@ -762,10 +773,5 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
             # Write to file
             Path(output).write_text(rst_text, encoding="utf-8")
         else:
-            # Write to file-like object
-            if hasattr(output, 'mode') and 'b' in output.mode:
-                # Binary mode
-                output.write(rst_text.encode('utf-8'))
-            else:
-                # Text mode
-                output.write(rst_text)
+            # Write to file-like object (binary mode)
+            output.write(rst_text.encode('utf-8'))

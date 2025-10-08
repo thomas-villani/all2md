@@ -440,7 +440,7 @@ class TestImages:
         """Test that images are detected and converted."""
         prs = Presentation()
         layout = prs.slide_layouts[6]
-        slide = prs.slides.add_slide(layout)
+        prs.slides.add_slide(layout)
 
         # Note: Adding actual image requires file, so we just verify basic functionality
         # In real usage, the converter would detect picture shapes
@@ -477,7 +477,7 @@ class TestBulletLists:
         ast_doc = converter.convert_to_ast(prs)
 
         # Should detect list
-        list_nodes = [child for child in ast_doc.children if isinstance(child, List)]
+        [child for child in ast_doc.children if isinstance(child, List)]
         # Note: List detection depends on implementation details
         # This test may need adjustment based on how bullets are detected
 
@@ -500,7 +500,7 @@ class TestBulletLists:
         p3.level = 0
 
         converter = PptxToAstConverter()
-        ast_doc = converter.convert_to_ast(prs)
+        converter.convert_to_ast(prs)
 
         # Should have nested structure
         # Implementation-dependent test

@@ -113,7 +113,7 @@ class TestLogFileCLIFlag:
         mock_process.return_value = 0
 
         # Run with --log-file
-        result = main([str(test_file), '--log-file', str(log_file), '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), '--log-file', str(log_file), '--output-dir', str(tmp_path / 'out')])
 
         # Should call configure_logging with log_file
         assert mock_config.called
@@ -132,7 +132,7 @@ class TestLogFileCLIFlag:
         mock_process.return_value = 0
 
         # Run with --trace
-        result = main([str(test_file), '--trace', '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), '--trace', '--output-dir', str(tmp_path / 'out')])
 
         # Should call configure_logging with DEBUG and trace_mode=True
         assert mock_config.called
@@ -171,7 +171,7 @@ class TestEnhancedAbout:
         """Test --about shows system information."""
         from all2md.cli import main
 
-        result = main(['--about'])
+        main(['--about'])
 
         captured = capsys.readouterr()
         output = captured.out
@@ -186,7 +186,7 @@ class TestEnhancedAbout:
         """Test --about shows dependency information."""
         from all2md.cli import main
 
-        result = main(['--about'])
+        main(['--about'])
 
         captured = capsys.readouterr()
         output = captured.out
@@ -200,7 +200,7 @@ class TestEnhancedAbout:
         """Test --about shows available formats."""
         from all2md.cli import main
 
-        result = main(['--about'])
+        main(['--about'])
 
         captured = capsys.readouterr()
         output = captured.out
@@ -232,7 +232,7 @@ class TestTimingInstrumentation:
 
         # Enable DEBUG logging to capture timing logs
         with caplog.at_level(logging.DEBUG):
-            result = to_markdown(b"test content", source_format="txt")
+            to_markdown(b"test content", source_format="txt")
 
             # Check that timing logs were created
             timing_logs = [record for record in caplog.records if 'completed in' in record.message]
@@ -251,7 +251,7 @@ class TestTimingInstrumentation:
 
         # Use WARNING level (normal mode)
         with caplog.at_level(logging.WARNING):
-            result = to_markdown(b"test content", source_format="txt")
+            to_markdown(b"test content", source_format="txt")
 
             # Should not have timing logs at WARNING level
             timing_logs = [record for record in caplog.records if 'completed in' in record.message]
@@ -273,7 +273,7 @@ class TestLogFileIntegration:
         output_dir = tmp_path / "out"
 
         # Run conversion with log file
-        result = main([
+        main([
             str(test_file),
             '--log-file', str(log_file),
             '--output-dir', str(output_dir),
@@ -298,7 +298,7 @@ class TestLogFileIntegration:
         output_dir = tmp_path / "out"
 
         # Run with --trace
-        result = main([
+        main([
             str(test_file),
             '--trace',
             '--log-file', str(log_file),

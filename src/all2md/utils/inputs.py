@@ -310,7 +310,7 @@ def validate_and_convert_input(
 
 
 def escape_markdown_special(text: str, escape_chars: str | None = None) -> str:
-    """Escape special Markdown characters in text to prevent formatting.
+    r"""Escape special Markdown characters in text to prevent formatting.
 
     Parameters
     ----------
@@ -402,7 +402,7 @@ def format_special_text(text: str, format_type: str, mode: str = "html") -> str:
 
 
 def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str:
-    """Format a heading in Markdown using either hash or underline style.
+    r"""Format a heading in Markdown using either hash or underline style.
 
     Parameters
     ----------

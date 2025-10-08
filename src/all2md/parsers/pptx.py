@@ -14,10 +14,11 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 from all2md import PptxOptions
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
+from all2md.progress import ProgressCallback
 from all2md.utils.inputs import parse_page_ranges, validate_and_convert_input
 from all2md.utils.security import validate_zip_archive
 
@@ -53,7 +54,6 @@ from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import (
     create_attachment_sequencer,
     extract_pptx_image_data,
-    generate_attachment_filename,
     process_attachment,
 )
 from all2md.utils.decorators import requires_dependencies
@@ -79,7 +79,7 @@ class PptxToAstConverter(BaseParser):
     def __init__(
         self,
         options: PptxOptions | None = None,
-        progress_callback=None
+        progress_callback: Optional[ProgressCallback] = None
     ):
         options = options or PptxOptions()
         super().__init__(options, progress_callback)
@@ -127,7 +127,9 @@ class PptxToAstConverter(BaseParser):
 
             # Validate ZIP archive security for file-based inputs
             if input_type in ("path", "file") and not isinstance(doc_input, PresentationType):
-                validate_zip_archive(doc_input if input_type == "path" else input_data)
+                path_to_validate = doc_input if input_type == "path" else input_data
+                if isinstance(path_to_validate, (str, Path)):
+                    validate_zip_archive(path_to_validate)
 
             # Open presentation based on input type
             if input_type == "object" and isinstance(doc_input, PresentationType):
@@ -141,8 +143,6 @@ class PptxToAstConverter(BaseParser):
         except Exception as e:
             raise MalformedFileError(
                 f"Failed to open PPTX presentation: {e!r}",
-                parameter_name="input_data",
-                parameter_value=input_data,
                 original_error=e
             ) from e
 
@@ -274,7 +274,7 @@ class PptxToAstConverter(BaseParser):
 
         # Check if shape is a table
         if hasattr(shape, "has_table") and shape.has_table:
-            return self._process_table_to_ast(shape.table)
+            return self._process_table_to_ast(shape.table)  # type: ignore[attr-defined]
 
         # Check if shape is an image
         if hasattr(shape, "image"):
@@ -287,7 +287,7 @@ class PptxToAstConverter(BaseParser):
         # For other shapes, skip or handle as needed
         return None
 
-    def _process_chart_to_ast(self, chart) -> Node | list[Node] | None:
+    def _process_chart_to_ast(self, chart: Any) -> Node | list[Node] | None:
         """Process a PPTX chart to AST Table node.
 
         Parameters
@@ -355,7 +355,7 @@ class PptxToAstConverter(BaseParser):
             return output_nodes[0]
         return output_nodes
 
-    def _extract_scatter_chart_data(self, chart) -> list[tuple[str, list[float], list[float]]]:
+    def _extract_scatter_chart_data(self, chart: Any) -> list[tuple[str, list[float], list[float]]]:
         data: list[tuple[str, list[float], list[float]]] = []
 
         for series in chart.series:
@@ -403,7 +403,7 @@ class PptxToAstConverter(BaseParser):
 
         return data
 
-    def _process_scatter_chart_to_table(self, chart) -> AstTable | None:
+    def _process_scatter_chart_to_table(self, chart: Any) -> AstTable | None:
         """Process scatter plot to AST Table with X/Y rows."""
         series_data = self._extract_scatter_chart_data(chart)
         if not series_data:
@@ -411,7 +411,7 @@ class PptxToAstConverter(BaseParser):
 
         return self._scatter_data_to_table(series_data)
 
-    def _extract_standard_chart_data(self, chart) -> tuple[list[str], list[tuple[str, list[Any]]]]:
+    def _extract_standard_chart_data(self, chart: Any) -> tuple[list[str], list[tuple[str, list[Any]]]]:
         categories: list[str] = []
         try:
             if hasattr(chart, 'plots') and chart.plots:
@@ -435,7 +435,7 @@ class PptxToAstConverter(BaseParser):
 
         return categories, series_rows
 
-    def _process_standard_chart_to_table(self, chart) -> AstTable | None:
+    def _process_standard_chart_to_table(self, chart: Any) -> AstTable | None:
         """Process standard chart (bar, column, line, pie) to AST Table."""
         categories, series_rows = self._extract_standard_chart_data(chart)
 
@@ -508,7 +508,7 @@ class PptxToAstConverter(BaseParser):
 
     def _scatter_chart_to_mermaid(
         self,
-        chart,
+        chart: Any,
         series_data: list[tuple[str, list[float], list[float]]],
     ) -> str | None:
         if not series_data:
@@ -567,8 +567,8 @@ class PptxToAstConverter(BaseParser):
 
     def _standard_chart_to_mermaid(
         self,
-        chart,
-        chart_type,
+        chart: Any,
+        chart_type: Any,
         categories: list[str],
         series_rows: list[tuple[str, list[Any]]],
     ) -> str | None:
@@ -665,7 +665,7 @@ class PptxToAstConverter(BaseParser):
         return None
 
     @staticmethod
-    def _get_chart_title(chart) -> str | None:
+    def _get_chart_title(chart: Any) -> str | None:
         try:
             if hasattr(chart, 'has_title') and chart.has_title and chart.chart_title:
                 text_frame = chart.chart_title.text_frame
@@ -676,7 +676,7 @@ class PptxToAstConverter(BaseParser):
         return None
 
     @staticmethod
-    def _get_axis_title(axis) -> str | None:
+    def _get_axis_title(axis: Any) -> str | None:
         if axis is None:
             return None
         try:
@@ -813,10 +813,10 @@ class PptxToAstConverter(BaseParser):
                 continue
 
             # Get formatting key (bold, italic, underline)
-            format_key = (
-                run.font.bold or False,
-                run.font.italic or False,
-                run.font.underline or False,
+            format_key: tuple[bool, bool, bool] = (
+                bool(run.font.bold),
+                bool(run.font.italic),
+                bool(run.font.underline),
             )
 
             # Start new group if format changes
@@ -830,7 +830,7 @@ class PptxToAstConverter(BaseParser):
             current_text.append(text.strip())
 
         # Add final group
-        if current_text:
+        if current_text and current_format is not None:
             grouped_runs.append((" ".join(current_text).strip(), current_format))
 
         # Convert groups to AST nodes
@@ -940,25 +940,20 @@ class PptxToAstConverter(BaseParser):
         """
         try:
             # Extract image data
-            image_data, extension = extract_pptx_image_data(shape)
+            image_data = extract_pptx_image_data(shape)
 
-            if not image_data:
+            if not image_data or not isinstance(image_data, bytes):
                 return None
 
-            # Use sequencer if available
-            if self._attachment_sequencer:
-                image_filename, _ = self._attachment_sequencer(
-                    base_stem=self._base_filename,
-                    format_type="general",
-                    extension=extension or "png"
-                )
-            else:
-                image_filename = generate_attachment_filename(
-                    base_stem=self._base_filename,
-                    format_type="general",
-                    sequence_num=self._current_slide_num,
-                    extension=extension or "png"
-                )
+            # Default extension for PPTX images
+            extension = "png"
+
+            # Use sequencer for sequential attachment names
+            image_filename, _ = self._attachment_sequencer(  # type: ignore[call-arg]
+                base_stem=self._base_filename,
+                format_type="general",
+                extension=extension
+            )
 
             # Process attachment
             processed_image = process_attachment(

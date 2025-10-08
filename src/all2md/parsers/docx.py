@@ -50,6 +50,23 @@ class ImageData:
 
 @dataclass
 class CommentData:
+    """Comment data from DOCX document.
+
+    Parameters
+    ----------
+    identifier : str
+        Comment ID
+    label : str
+        Comment label/number
+    author : str
+        Comment author name
+    date : str
+        Comment date
+    text : str
+        Comment text content
+
+    """
+
     identifier: str
     label: str
     author: str
@@ -63,7 +80,7 @@ if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
 
 
-from all2md.ast import (
+from all2md.ast import (  # noqa: E402
     BlockQuote,
     Document,
     Emphasis,
@@ -87,17 +104,17 @@ from all2md.ast import (
     Text,
     Underline,
 )
-from all2md.ast import (
+from all2md.ast import (  # noqa: E402
     Paragraph as AstParagraph,
 )
-from all2md.ast import (
+from all2md.ast import (  # noqa: E402
     Table as AstTable,
 )
-from all2md.converter_metadata import ConverterMetadata
-from all2md.options import DocxOptions
-from all2md.parsers.base import BaseParser
-from all2md.utils.decorators import requires_dependencies
-from all2md.utils.footnotes import FootnoteCollector
+from all2md.converter_metadata import ConverterMetadata  # noqa: E402
+from all2md.options import DocxOptions  # noqa: E402
+from all2md.parsers.base import BaseParser  # noqa: E402
+from all2md.utils.decorators import requires_dependencies  # noqa: E402
+from all2md.utils.footnotes import FootnoteCollector  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +156,7 @@ class DocxToAstConverter(BaseParser):
         options: DocxOptions | None = None,
         progress_callback=None
     ):
+        """Initialize the DOCX parser with options and progress callback."""
         options = options or DocxOptions()
         super().__init__(options, progress_callback)
         self.options: DocxOptions = options
@@ -255,6 +273,8 @@ class DocxToAstConverter(BaseParser):
         ----------
         doc : docx.document.Document
             DOCX document to convert
+        base_filename : str, default="document"
+            Base filename for attachments
 
         Returns
         -------
@@ -1370,8 +1390,7 @@ def _omml_to_latex(element: Any) -> str:
 def _iter_block_items(
     parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer=None
 ) -> Any:
-    """Generate a sequence of Paragraph and Table elements in order, handling images.
-    """
+    """Generate a sequence of Paragraph and Table elements in order, handling images."""
     import docx.document
     from docx.table import Table
     from docx.text.paragraph import Paragraph

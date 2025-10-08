@@ -301,7 +301,6 @@ class TestURLEncodingFuzzing:
 
         # Test hex notation (if values allow)
         if all(0 <= x <= 255 for x in [a, b, c, d]):
-            url_hex = f"http://0x{a:02x}.0x{b:02x}.0x{c:02x}.0x{d:02x}/test"
 
             is_private = _is_private_or_reserved_ip(ip)
 

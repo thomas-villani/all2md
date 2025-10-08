@@ -100,7 +100,7 @@ class TestInstrumentTiming:
             return "result"
 
         with caplog.at_level(logging.DEBUG):
-            result = test_function()
+            test_function()
 
         # Should use custom name
         assert any("custom operation" in record.message for record in caplog.records)
@@ -214,7 +214,7 @@ class TestOperationTimer:
 
         timer = OperationTimer()
 
-        for i in range(3):
+        for _i in range(3):
             timer.start("operation")
             time.sleep(0.01)
             timer.stop("operation")

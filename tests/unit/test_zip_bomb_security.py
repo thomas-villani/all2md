@@ -139,7 +139,7 @@ class TestEntryCountLimits:
         """Test that empty archives are allowed."""
         zip_path = tmp_path / "empty.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, 'w'):
             pass  # Empty archive
 
         # Should not raise

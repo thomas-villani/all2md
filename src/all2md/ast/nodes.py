@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 MathNotation = Literal["latex", "mathml", "html"]
+Alignment = Literal['left', 'center', 'right']
 
 
 def _normalize_math_representations(

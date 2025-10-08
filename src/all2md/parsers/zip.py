@@ -347,7 +347,7 @@ class ZipToAstConverter(BaseParser):
 
             # Check if we have a parser for this format
             try:
-                parser_class = registry.get_parser(detected_format)
+                _parser_class = registry.get_parser(detected_format)
             except FormatError:
                 # No parser available
                 logger.debug(f"No parser for format '{detected_format}': {file_path}")

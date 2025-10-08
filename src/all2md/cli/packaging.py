@@ -52,7 +52,7 @@ def organize_assets(
 
     # Collect all asset files
     asset_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp'}
-    all_assets = []
+    all_assets: list[Path] = []
 
     for ext in asset_extensions:
         all_assets.extend(attachment_root.rglob(f'*{ext}'))
@@ -274,7 +274,7 @@ def create_output_zip(
     zip_size = zip_path.stat().st_size
 
     # Format sizes for display
-    def format_size(size_bytes: int) -> str:
+    def format_size(size_bytes: int | float) -> str:
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"

@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
@@ -20,6 +20,7 @@ from all2md.exceptions import ParsingError, ValidationError, ZipFileSecurityErro
 from all2md.options import EpubOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
@@ -38,7 +39,8 @@ class EpubToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EpubOptions | None = None, progress_callback=None):
+    def __init__(self, options: EpubOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the EPUB parser with options and progress callback."""
         options = options or EpubOptions()
         super().__init__(options, progress_callback)
         self.options: EpubOptions = options
@@ -180,7 +182,7 @@ class EpubToAstConverter(BaseParser):
             TOC nodes
 
         """
-        nodes = []
+        nodes: list[Node] = []
         toc = book.toc
 
         if not toc:

@@ -9,7 +9,7 @@ from all2md import ProgressEvent, to_markdown
 
 
 def simple_progress_handler(event: ProgressEvent):
-    """Simple progress handler that prints events."""
+    """Handle and print progress events."""
     print(f"[{event.event_type.upper()}] {event.message}")
     if event.total > 0:
         percentage = (event.current / event.total) * 100

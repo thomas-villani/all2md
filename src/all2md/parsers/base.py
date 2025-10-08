@@ -72,7 +72,7 @@ class BaseParser(ABC):
             Optional callback for progress updates during parsing.
 
         """
-        self.options: BaseParserOptions = options
+        self.options: BaseParserOptions | None = options
         self.progress_callback: Optional[ProgressCallback] = progress_callback
 
     @abstractmethod

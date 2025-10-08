@@ -12,7 +12,7 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Literal, Optional, Union
 
 from all2md.ast import (
     BlockQuote,
@@ -48,13 +48,14 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
 
 
 class MarkdownToAstConverter(BaseParser):
-    """Convert Markdown to AST representation.
+    r"""Convert Markdown to AST representation.
 
     This converter uses mistune to parse Markdown and builds an AST that
     matches the structure used throughout all2md, enabling bidirectional
@@ -80,7 +81,12 @@ class MarkdownToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: MarkdownParserOptions | None = None, progress_callback=None):
+    def __init__(
+        self,
+        options: MarkdownParserOptions | None = None,
+        progress_callback: Optional[ProgressCallback] = None
+    ):
+        """Initialize the Markdown parser with options and progress callback."""
         options = options or MarkdownParserOptions()
         super().__init__(options, progress_callback)
         self.options: MarkdownParserOptions = options
@@ -132,8 +138,12 @@ class MarkdownToAstConverter(BaseParser):
         # Parse to tokens
         tokens, state = markdown.parse(markdown_content)
 
-        # Convert tokens to AST
-        children = self._process_tokens(tokens)
+        # Convert tokens to AST (tokens should always be a list for our configuration)
+        if isinstance(tokens, list):
+            children = self._process_tokens(tokens)
+        else:
+            # Fallback for unexpected token format
+            children = []
 
         # Add footnote definitions at end if present
         if self._footnote_definitions:
@@ -175,12 +185,10 @@ class MarkdownToAstConverter(BaseParser):
                 # Assume it's markdown content
                 return input_data
         else:
-            # File-like object
+            # File-like object (IO[bytes])
             input_data.seek(0)
             content_bytes = input_data.read()
-            if isinstance(content_bytes, bytes):
-                return content_bytes.decode("utf-8", errors="replace")
-            return content_bytes
+            return content_bytes.decode("utf-8", errors="replace")
 
     def _process_tokens(self, tokens: list[dict[str, Any]]) -> list[Node]:
         """Process a list of mistune tokens into AST nodes.
@@ -244,7 +252,8 @@ class MarkdownToAstConverter(BaseParser):
         elif token_type == 'block_math':
             return self._process_math_block(token)
         elif token_type == 'footnote_def':
-            return self._process_footnote_def(token)
+            self._process_footnote_def(token)
+            return None
         elif token_type == 'def_list':
             return self._process_definition_list(token)
 
@@ -382,7 +391,7 @@ class MarkdownToAstConverter(BaseParser):
         content = self._process_tokens(children)
 
         # Check for task list checkbox
-        task_status = None
+        task_status: Literal['checked', 'unchecked'] | None = None
         attrs = token.get('attrs', {})
         if 'checked' in attrs:
             task_status = 'checked' if attrs['checked'] else 'unchecked'
@@ -409,7 +418,7 @@ class MarkdownToAstConverter(BaseParser):
         rows = []
         alignments = []
 
-        for i, row_token in enumerate(children):
+        for _i, row_token in enumerate(children):
             row_type = row_token.get('type', '')
             if row_type == 'table_head':
                 # Process header row - cells are direct children of table_head
@@ -545,10 +554,10 @@ class MarkdownToAstConverter(BaseParser):
 
         """
         children = token.get('children', [])
-        items = []
+        items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
 
-        current_term = None
-        current_descriptions = []
+        current_term: DefinitionTerm | None = None
+        current_descriptions: list[DefinitionDescription] = []
 
         for child in children:
             child_type = child.get('type', '')

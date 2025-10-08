@@ -266,7 +266,8 @@ class ConverterMetadata:
             # If simple class name, construct full path
             return f"all2md.parsers.{self.format_name}.{self.parser_class}"
 
-        return str(self.parser_class)
+        # Fallback for any other type
+        return str(self.parser_class)  # type: ignore[unreachable]
 
     def get_renderer_display_name(self) -> str:
         """Get friendly display name for the renderer class.
@@ -294,7 +295,8 @@ class ConverterMetadata:
             # If simple class name, construct full path
             return f"all2md.renderers.{self.format_name}.{self.renderer_class}"
 
-        return str(self.renderer_class)
+        # Fallback for any other type
+        return str(self.renderer_class)  # type: ignore[unreachable]
 
     def get_converter_display_string(self) -> str:
         """Get combined display string showing both parser and renderer.

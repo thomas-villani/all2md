@@ -254,7 +254,6 @@ class RestructuredTextParser(BaseParser):
         result = []
 
         # Find title and determine heading level
-        title_node = None
         level = 1
 
         # Calculate level by counting parent sections

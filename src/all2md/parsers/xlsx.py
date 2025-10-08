@@ -13,12 +13,13 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Union
+from typing import IO, Any, Iterable, Optional, Union, cast
 
-from all2md.ast import Document, Heading, HTMLInline, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import Alignment, Document, Heading, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -84,7 +85,7 @@ def _format_link_or_text(cell: Any, text: str, preserve_newlines: bool = False) 
     return _sanitize_cell_text(text, preserve_newlines)
 
 
-def _alignment_for_cell(cell: Any) -> str:
+def _alignment_for_cell(cell: Any) -> Alignment:
     """Map an openpyxl cell alignment to alignment string.
 
     Parameters
@@ -94,7 +95,7 @@ def _alignment_for_cell(cell: Any) -> str:
 
     Returns
     -------
-    str
+    Alignment
         Alignment: 'left', 'center', 'right', or 'center' (default)
 
     """
@@ -103,7 +104,7 @@ def _alignment_for_cell(cell: Any) -> str:
         if align and getattr(align, "horizontal", None):
             horiz = align.horizontal.lower()
             # Map Excel alignment to our alignment values
-            alignment_map = {
+            alignment_map: dict[str, Alignment] = {
                 "left": "left",
                 "center": "center",
                 "centre": "center",
@@ -119,7 +120,7 @@ def _alignment_for_cell(cell: Any) -> str:
 
 
 def _build_table_ast(
-    header: list[str], rows: list[list[str]], alignments: list[str]
+    header: list[str], rows: list[list[str]], alignments: list[Alignment]
 ) -> Table:
     """Build an AST Table from header, rows, and alignments.
 
@@ -129,7 +130,7 @@ def _build_table_ast(
         Header row cells
     rows : list[list[str]]
         Data rows
-    alignments : list[str]
+    alignments : list[Alignment]
         Column alignments ('left', 'center', 'right')
 
     Returns
@@ -154,14 +155,8 @@ def _build_table_ast(
         ]
         data_rows.append(TableRow(cells=row_cells, is_header=False))
 
-    # Convert alignment strings to the format expected by Table node
-    # Table expects Optional[Literal['left', 'center', 'right']]
-    table_alignments: list[Optional[str]] = []
-    for align in alignments:
-        if align in ("left", "center", "right"):
-            table_alignments.append(align)
-        else:
-            table_alignments.append("center")
+    # Table alignments are already the correct type
+    table_alignments: list[Alignment | None] = list(alignments)
 
     return Table(header=header_row, rows=data_rows, alignments=table_alignments)
 
@@ -241,7 +236,7 @@ class XlsxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Any = None, progress_callback=None):
+    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         # Import here to avoid circular dependency
         from all2md.options import XlsxOptions
 
@@ -309,7 +304,7 @@ class XlsxToAstConverter(BaseParser):
             AST document with table nodes
 
         """
-        children = []
+        children: list[Node] = []
 
         # Extract metadata
         metadata = self.extract_metadata(workbook)
@@ -377,7 +372,7 @@ class XlsxToAstConverter(BaseParser):
             header = self._transform_header_case(header)
 
             # Compute alignments from header cells
-            alignments: list[str] = []
+            alignments: list[Alignment] = []
             try:
                 first_row_cells = next(sheet.iter_rows(min_row=1, max_row=1, values_only=False))
                 for c_idx, cell in enumerate(first_row_cells, start=1):
@@ -385,7 +380,7 @@ class XlsxToAstConverter(BaseParser):
                         break
                     alignments.append(_alignment_for_cell(cell))
             except Exception:
-                alignments = ["center"] * len(header)
+                alignments = cast(list[Alignment], ["center"] * len(header))
 
             # Build table AST
             table = _build_table_ast(header, data, alignments)

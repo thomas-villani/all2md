@@ -70,7 +70,7 @@ class RemoveImagesTransform(NodeTransformer):
 
     """
 
-    def visit_image(self, node: Image) -> None:
+    def visit_image(self, node: Image) -> None:  # type: ignore[override]
         """Remove image by returning None.
 
         Parameters
@@ -567,7 +567,7 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
         self.patterns = patterns if patterns is not None else self.DEFAULT_PATTERNS
         self._compiled = [re.compile(p, re.IGNORECASE) for p in self.patterns]
 
-    def visit_paragraph(self, node: Paragraph) -> Paragraph | None:
+    def visit_paragraph(self, node: Paragraph) -> Paragraph | None:  # type: ignore[override]
         """Remove paragraph if it matches boilerplate pattern.
 
         Parameters

@@ -10,7 +10,7 @@ import pytest
 
 # Check if watchdog is available
 try:
-    from watchdog.observers import Observer
+    from watchdog.observers import Observer  # noqa: F401
     WATCHDOG_AVAILABLE = True
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -340,7 +340,7 @@ class TestRunWatchMode:
         output_dir = tmp_path / "out"
 
         # Run watch mode
-        result = run_watch_mode(
+        run_watch_mode(
             paths=paths,
             output_dir=output_dir,
             options={},
@@ -363,7 +363,7 @@ class TestRunWatchMode:
         mock_sleep.side_effect = KeyboardInterrupt()
 
         # Watch a directory
-        result = run_watch_mode(
+        run_watch_mode(
             paths=[tmp_path],
             output_dir=tmp_path / "out",
             options={},
@@ -483,7 +483,7 @@ class TestWatchCLIIntegration:
 
         mock_watch_mode.return_value = 0
 
-        result = main([
+        main([
             str(test_file),
             '--watch',
             '--output-dir', str(output_dir)
@@ -518,7 +518,7 @@ class TestWatchCLIIntegration:
 
         mock_watch_mode.return_value = 0
 
-        result = main([
+        main([
             str(test_file),
             '--watch',
             '--watch-debounce', '2.5',
@@ -655,7 +655,7 @@ class TestWatchModeIntegration:
 
         # Track when watch mode is ready
         ready_event = threading.Event()
-        stop_event = threading.Event()
+        threading.Event()
 
         def run_watch_thread():
             ready_event.set()

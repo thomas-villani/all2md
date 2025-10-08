@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -232,7 +232,7 @@ class HookManager:
 
     def __init__(self) -> None:
         """Initialize the hook manager."""
-        self._hooks: dict[HookTarget, list[HookCallable]] = {}
+        self._hooks: dict[HookTarget, list[tuple[int, HookCallable]]] = {}
 
     def register_hook(
         self,
@@ -423,7 +423,7 @@ class HookManager:
             DefinitionDescription: 'definition_description',
         }
 
-        return type_map.get(type(node))
+        return cast(Optional[NodeType], type_map.get(type(node)))
 
     def clear(self) -> None:
         """Clear all registered hooks.

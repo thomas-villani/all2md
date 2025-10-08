@@ -363,7 +363,7 @@ class TestPptxChartsAdvanced:
         chart_data1.categories = ['A', 'B', 'C']
         chart_data1.add_series('Series 1', (10, 20, 15))
 
-        chart1 = slide.shapes.add_chart(
+        slide.shapes.add_chart(
             XL_CHART_TYPE.COLUMN_CLUSTERED,
             Inches(1), Inches(1.5), Inches(4), Inches(3),
             chart_data1

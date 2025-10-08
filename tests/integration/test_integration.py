@@ -535,7 +535,7 @@ class TestNewAPI:
             html_file = self.temp_dir / "test.html"
             html_file.write_text("<html><body><h1>Priority Test</h1></body></html>")
 
-            result = to_markdown(str(html_file))
+            to_markdown(str(html_file))
 
             # Check that logs show filename detection succeeded
             # The actual log message is "Format detected from filename: html"

@@ -231,7 +231,7 @@ def validate_zip_archive(
 
 
 def sanitize_language_identifier(language: str) -> str:
-    """Sanitize code fence language identifier to prevent markdown injection.
+    r"""Sanitize code fence language identifier to prevent markdown injection.
 
     Code fence language identifiers must only contain safe characters to prevent
     markdown injection via malicious language strings. This function validates

@@ -199,7 +199,7 @@ class TestHeadingDetection:
 
         # Should detect heading (implementation-specific)
         # May have Heading nodes
-        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        [child for child in ast_doc.children if isinstance(child, Heading)]
         # May or may not detect based on implementation
         assert len(ast_doc.children) >= 2
 
@@ -246,7 +246,7 @@ class TestTableDetection:
         ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
         # Should have table in AST
-        tables = [child for child in ast_doc.children if isinstance(child, Table)]
+        [child for child in ast_doc.children if isinstance(child, Table)]
         # May or may not detect based on implementation
         assert isinstance(ast_doc, Document)
 

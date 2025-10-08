@@ -650,6 +650,7 @@ class ValidationVisitor(NodeVisitor):
     """
 
     def __init__(self, strict: bool = True):
+        """Initialize the validator in strict or lenient mode."""
         self.strict = strict
         self.errors: list[str] = []
 
@@ -796,7 +797,7 @@ class ValidationVisitor(NodeVisitor):
             if notation not in valid_notations:
                 self._add_error(f"MathInline has invalid representation key '{notation}'")
             elif not isinstance(value, str):
-                self._add_error("MathInline representations must be strings")
+                self._add_error("MathInline representations must be strings")  # type: ignore[unreachable]
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Validate a FootnoteDefinition node."""
@@ -831,4 +832,4 @@ class ValidationVisitor(NodeVisitor):
             if notation not in valid_notations:
                 self._add_error(f"MathBlock has invalid representation key '{notation}'")
             elif not isinstance(value, str):
-                self._add_error("MathBlock representations must be strings")
+                self._add_error("MathBlock representations must be strings")  # type: ignore[unreachable]

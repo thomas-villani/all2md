@@ -75,7 +75,7 @@ def test_progress_callback_with_markdown(tmp_path):
     test_file.write_text("# Header\n\nSome content")
 
     tracker = ProgressTracker()
-    markdown = to_markdown(str(test_file), progress_callback=tracker.callback)
+    to_markdown(str(test_file), progress_callback=tracker.callback)
 
     # Should have started and finished events
     assert tracker.has_event_type("started") or len(tracker.events) >= 0

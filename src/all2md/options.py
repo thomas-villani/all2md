@@ -25,9 +25,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal, Optional, Self, Union
 
-# Sentinel value to detect when user didn't explicitly set unsupported modes
-_UNSET = object()
-
 from .constants import (
     DEFAULT_ALLOW_CWD_FILES,
     DEFAULT_ALLOW_LOCAL_FILES,
@@ -133,6 +130,9 @@ from .constants import (
     UnsupportedInlineMode,
     UnsupportedTableMode,
 )
+
+# Sentinel value to detect when user didn't explicitly set unsupported modes
+_UNSET = object()
 
 
 class _CloneMixin:
@@ -293,14 +293,14 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     flavor: FlavorType = field(
-        default=DEFAULT_FLAVOR,  # type: ignore[arg-type]
+        default=DEFAULT_FLAVOR,
         metadata={
             "help": "Markdown flavor/dialect to use for output",
             "choices": ["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
         }
     )
-    unsupported_table_mode: UnsupportedTableMode | Literal[_UNSET] = field(  # type: ignore[valid-type]
-        default=_UNSET,  # type: ignore[arg-type]
+    unsupported_table_mode: UnsupportedTableMode | object = field(
+        default=_UNSET,
         metadata={
             "help": "How to handle tables when flavor doesn't support them: "
                     "drop (skip entirely), ascii (render as ASCII art), "
@@ -308,8 +308,8 @@ class MarkdownOptions(BaseRendererOptions):
             "choices": ["drop", "ascii", "force", "html"]
         }
     )
-    unsupported_inline_mode: UnsupportedInlineMode | Literal[_UNSET] = field(  # type: ignore[valid-type]
-        default=_UNSET,  # type: ignore[arg-type]
+    unsupported_inline_mode: UnsupportedInlineMode | object = field(
+        default=_UNSET,
         metadata={
             "help": "How to handle inline elements unsupported by flavor: "
                     "plain (render content without formatting), "
@@ -351,7 +351,7 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     code_fence_char: CodeFenceChar = field(
-        default=DEFAULT_CODE_FENCE_CHAR,  # type: ignore[arg-type]
+        default=DEFAULT_CODE_FENCE_CHAR,
         metadata={
             "help": "Character to use for code fences (backtick or tilde)",
             "choices": ["`", "~"]
@@ -372,7 +372,7 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     link_style: LinkStyleType = field(
-        default=DEFAULT_LINK_STYLE,  # type: ignore[arg-type]
+        default=DEFAULT_LINK_STYLE,
         metadata={
             "help": "Link style: inline [text](url) or reference [text][ref]",
             "choices": ["inline", "reference"]
@@ -386,7 +386,7 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     math_mode: MathMode = field(
-        default=DEFAULT_MATH_MODE,  # type: ignore[arg-type]
+        default=DEFAULT_MATH_MODE,
         metadata={
             "help": "Preferred math representation: latex, mathml, or html",
             "choices": ["latex", "mathml", "html"]
@@ -399,14 +399,14 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     metadata_format: MetadataFormatType = field(
-        default=DEFAULT_METADATA_FORMAT,  # type: ignore[arg-type]
+        default=DEFAULT_METADATA_FORMAT,
         metadata={
             "help": "Format for metadata frontmatter: yaml, toml, or json",
             "choices": ["yaml", "toml", "json"]
         }
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Apply flavor-aware defaults after initialization.
 
         If unsupported_table_mode or unsupported_inline_mode are unset
@@ -2181,7 +2181,7 @@ class OdsSpreadsheetOptions(BaseParserOptions):
 
 @dataclass(frozen=True)
 class CsvOptions(BaseParserOptions):
-    """Configuration options for CSV/TSV conversion.
+    r"""Configuration options for CSV/TSV conversion.
 
     This dataclass contains settings specific to delimiter-separated value
     file processing, including dialect detection and data limits.
@@ -2407,7 +2407,7 @@ class MarkdownParserOptions(BaseParserOptions):
     """
 
     flavor: FlavorType = field(
-        default=DEFAULT_FLAVOR,  # type: ignore[arg-type]
+        default=DEFAULT_FLAVOR,
         metadata={
             "help": "Markdown flavor to parse (determines enabled extensions)",
             "choices": ["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
@@ -2547,14 +2547,14 @@ class RstRendererOptions(BaseRendererOptions):
         }
     )
     table_style: RstTableStyle = field(
-        default=DEFAULT_RST_TABLE_STYLE,  # type: ignore[arg-type]
+        default=DEFAULT_RST_TABLE_STYLE,
         metadata={
             "help": "Table rendering style",
             "choices": ["grid", "simple"]
         }
     )
     code_directive_style: RstCodeStyle = field(
-        default=DEFAULT_RST_CODE_STYLE,  # type: ignore[arg-type]
+        default=DEFAULT_RST_CODE_STYLE,
         metadata={
             "help": "Code block rendering style",
             "choices": ["double_colon", "directive"]

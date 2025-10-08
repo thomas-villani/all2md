@@ -12,7 +12,7 @@ from __future__ import annotations
 import email
 from email import policy
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
@@ -20,6 +20,7 @@ from all2md.exceptions import ParsingError
 from all2md.options import MhtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
+from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -38,7 +39,8 @@ class MhtmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: MhtmlOptions | None = None, progress_callback=None):
+    def __init__(self, options: MhtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the MHTML parser with options and progress callback."""
         options = options or MhtmlOptions()
         super().__init__(options, progress_callback)
         self.options: MhtmlOptions = options
@@ -124,13 +126,13 @@ class MhtmlToAstConverter(BaseParser):
                 content_type = part.get_content_type()
                 if content_type == 'text/html':
                     payload = part.get_payload(decode=True)
-                    if payload:
+                    if payload and isinstance(payload, bytes):
                         html_content = payload.decode('utf-8', errors='ignore')
                         break
         else:
             if msg.get_content_type() == 'text/html':
                 payload = msg.get_payload(decode=True)
-                if payload:
+                if payload and isinstance(payload, bytes):
                     html_content = payload.decode('utf-8', errors='ignore')
 
         return html_content
@@ -183,17 +185,19 @@ class MhtmlToAstConverter(BaseParser):
         if html_content:
             try:
                 from bs4 import BeautifulSoup
+                from bs4.element import Tag
+
                 soup = BeautifulSoup(html_content, 'html.parser')
 
                 # Get title from HTML if not already set
                 if not metadata.title:
                     title_tag = soup.find('title')
-                    if title_tag and title_tag.string:
+                    if isinstance(title_tag, Tag) and title_tag.string:
                         metadata.title = str(title_tag.string).strip()
 
                 # Extract meta keywords
                 meta_keywords = soup.find('meta', attrs={'name': 'keywords'})
-                if meta_keywords and meta_keywords.get('content'):
+                if isinstance(meta_keywords, Tag) and meta_keywords.get('content'):
                     keywords_str = str(meta_keywords.get('content'))
                     metadata.keywords = [k.strip() for k in keywords_str.split(',')]
 

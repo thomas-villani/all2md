@@ -43,7 +43,7 @@ class TestPptxShapesAdvanced:
         # Arrow
         arrow_left, arrow_top = Inches(3.2), Inches(2.4)
         arrow_width, arrow_height = Inches(1), Inches(0.2)
-        arrow = slide.shapes.add_shape(5, arrow_left, arrow_top, arrow_width, arrow_height)  # Right arrow
+        slide.shapes.add_shape(5, arrow_left, arrow_top, arrow_width, arrow_height)  # Right arrow
 
         # Step 2 box
         left2, top2 = Inches(4.5), Inches(2)
@@ -328,7 +328,7 @@ class TestPptxShapesAdvanced:
         annotation.text_frame.text = "Side note: Additional context here"
 
         # Arrow pointing to something
-        arrow = slide.shapes.add_shape(
+        slide.shapes.add_shape(
             5,  # Right arrow
             Inches(6), Inches(3), Inches(1.5), Inches(0.5)
         )
@@ -451,12 +451,12 @@ class TestPptxShapesAdvanced:
         end_box.text = "End Process"
 
         # Connector lines (simplified as arrows)
-        connector1 = slide.shapes.add_shape(
+        slide.shapes.add_shape(
             5,  # Right arrow
             Inches(3.2), Inches(2.4), Inches(0.6), Inches(0.2)
         )
 
-        connector2 = slide.shapes.add_shape(
+        slide.shapes.add_shape(
             5,  # Right arrow
             Inches(6.2), Inches(2.4), Inches(0.6), Inches(0.2)
         )

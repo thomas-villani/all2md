@@ -47,6 +47,7 @@ class ListBuilder:
     """
 
     def __init__(self, root: Document | None = None):
+        """Initialize the list builder with an optional root document."""
         self.root = root or Document()
         self._list_stack: list[tuple[List, int]] = []
 
@@ -125,6 +126,7 @@ class TableBuilder:
     """
 
     def __init__(self, has_header: bool = False):
+        """Initialize the table builder with optional header flag."""
         self.has_header = has_header
         self.header: TableRow | None = None
         self.rows: list[TableRow] = []
@@ -232,6 +234,7 @@ class DocumentBuilder:
     """
 
     def __init__(self) -> None:
+        """Initialize the document builder with an empty children list."""
         self.children: list[Node] = []
 
     def add_node(self, node: Node) -> DocumentBuilder:

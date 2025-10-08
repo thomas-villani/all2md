@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 from all2md.ast import (
     Document,
@@ -36,6 +36,7 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
@@ -62,7 +63,7 @@ class OdtToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odt", [("odfpy", "odf", "")])
-    def __init__(self, options: Any = None, progress_callback=None):
+    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         # Import here to avoid circular dependency
         from all2md.options import OdtOptions
 
@@ -116,8 +117,6 @@ class OdtToAstConverter(BaseParser):
         except Exception as e:
             raise MalformedFileError(
                 f"Failed to open ODT document: {e!r}",
-                parameter_name="input_data",
-                parameter_value=input_data,
                 original_error=e
             ) from e
 
@@ -272,7 +271,7 @@ class OdtToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | list[MathBlock] | None:
+    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
@@ -284,8 +283,8 @@ class OdtToAstConverter(BaseParser):
 
         Returns
         -------
-        Paragraph, list[MathBlock], or None
-            AST paragraph node
+        Node, list[Node], or None
+            AST paragraph node or math blocks
 
         """
         math_blocks = self._extract_math_blocks(p)
@@ -297,7 +296,8 @@ class OdtToAstConverter(BaseParser):
         if math_blocks:
             if len(math_blocks) == 1:
                 return math_blocks[0]
-            return math_blocks
+            from typing import cast
+            return cast(list[Node], math_blocks)
 
         return None
 
@@ -380,7 +380,10 @@ class OdtToAstConverter(BaseParser):
                     if element.qname == (self.TEXTNS, "p"):
                         para = self._process_paragraph(element, doc)
                         if para:
-                            item_children.append(para)
+                            if isinstance(para, list):
+                                item_children.extend(para)
+                            else:
+                                item_children.append(para)
                     elif element.qname == (self.TEXTNS, "list"):
                         nested_list = self._process_list(element, doc)
                         item_children.append(nested_list)

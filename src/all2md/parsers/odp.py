@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 from all2md.ast import (
     Document,
@@ -36,6 +36,7 @@ from all2md.ast import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
@@ -62,7 +63,7 @@ class OdpToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odp", [("odfpy", "odf", "")])
-    def __init__(self, options: Any = None, progress_callback=None):
+    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         # Import here to avoid circular dependency
         from all2md.options import OdpOptions
 
@@ -118,8 +119,6 @@ class OdpToAstConverter(BaseParser):
         except Exception as e:
             raise MalformedFileError(
                 f"Failed to open ODP document: {e!r}",
-                parameter_name="input_data",
-                parameter_value=input_data,
                 original_error=e
             ) from e
 
@@ -181,10 +180,7 @@ class OdpToAstConverter(BaseParser):
             # Process slide content
             slide_nodes = self._process_slide(element, doc)
             if slide_nodes:
-                if isinstance(slide_nodes, list):
-                    children.extend(slide_nodes)
-                else:
-                    children.append(slide_nodes)
+                children.extend(slide_nodes)
 
         return Document(children=children, metadata=metadata.to_dict())
 
@@ -225,7 +221,7 @@ class OdpToAstConverter(BaseParser):
         if not slides_spec:
             return None
 
-        indices = set()
+        indices: set[int | tuple[int, int | float]] = set()
         for part in slides_spec.split(','):
             part = part.strip()
             if '-' in part:
@@ -240,14 +236,14 @@ class OdpToAstConverter(BaseParser):
                 indices.add(int(part) - 1)
 
         # Expand ranges
-        expanded = set()
+        expanded: set[int] = set()
         max_slide = metadata.custom.get('page_count', 100)  # Fallback to 100 if unknown
         for item in indices:
             if isinstance(item, tuple):
                 start, end = item
                 for i in range(start, min(int(end) + 1, max_slide)):
                     expanded.add(i)
-            else:
+            elif isinstance(item, int):
                 expanded.add(item)
 
         return expanded if expanded else None
@@ -456,7 +452,7 @@ class OdpToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Paragraph | list[MathBlock] | None:
+    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
@@ -468,8 +464,8 @@ class OdpToAstConverter(BaseParser):
 
         Returns
         -------
-        Paragraph, list[MathBlock], or None
-            AST paragraph node
+        Node, list[Node], or None
+            AST paragraph node or math blocks
 
         """
         math_blocks = self._extract_math_blocks(p)
@@ -481,7 +477,8 @@ class OdpToAstConverter(BaseParser):
         if math_blocks:
             if len(math_blocks) == 1:
                 return math_blocks[0]
-            return math_blocks
+            from typing import cast
+            return cast(list[Node], math_blocks)
 
         return None
 
@@ -564,7 +561,10 @@ class OdpToAstConverter(BaseParser):
                     if element.qname == (self.TEXTNS, "p"):
                         para = self._process_paragraph(element, doc)
                         if para:
-                            item_children.append(para)
+                            if isinstance(para, list):
+                                item_children.extend(para)
+                            else:
+                                item_children.append(para)
                     elif element.qname == (self.TEXTNS, "list"):
                         nested_list = self._process_list(element, doc)
                         item_children.append(nested_list)

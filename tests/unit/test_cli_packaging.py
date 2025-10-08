@@ -32,7 +32,7 @@ class TestOrganizeAssets:
         mapping = organize_assets(md_files, output_dir, layout="flat")
 
         # All assets should map to assets/ directory
-        for original, new_path in mapping.items():
+        for _original, new_path in mapping.items():
             assert new_path.parent.name == "assets"
             assert new_path.parent.parent == output_dir
 
@@ -55,7 +55,7 @@ class TestOrganizeAssets:
         mapping = organize_assets(md_files, output_dir, layout="by-stem")
 
         # Assets should be organized by document stem
-        for original, new_path in mapping.items():
+        for _original, new_path in mapping.items():
             # Should be in assets/{stem}/ directory
             assert "assets" in str(new_path)
             assert "doc1" in str(new_path) or "doc2" in str(new_path)
@@ -81,7 +81,7 @@ class TestOrganizeAssets:
         mapping = organize_assets(md_files, output_dir, layout="structured")
 
         # Should preserve relative paths
-        for original, new_path in mapping.items():
+        for _original, new_path in mapping.items():
             # Path should be relative to output_dir
             try:
                 rel_path = new_path.relative_to(output_dir)

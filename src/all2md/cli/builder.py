@@ -289,7 +289,7 @@ class DynamicCLIBuilder:
             group_name: Optional[str] = None,
             exclude_base_fields: bool = False
             ) -> None:
-        """Internal method to add arguments for an options dataclass.
+        """Add arguments for an options dataclass.
 
         This unified implementation is used by both add_options_class_arguments
         and add_format_specific_options to eliminate code duplication.
@@ -504,17 +504,17 @@ class DynamicCLIBuilder:
                     }
 
                     # Set type and action based on parameter type
-                    if param_spec.type == bool:
+                    if param_spec.type is bool:
                         # Boolean parameters use store_true/store_false
                         if param_spec.default is False:
                             kwargs['action'] = 'store_true'
                         else:
                             kwargs['action'] = 'store_false'
-                    elif param_spec.type == int:
+                    elif param_spec.type is int:
                         kwargs['type'] = int
-                    elif param_spec.type == str:
+                    elif param_spec.type is str:
                         kwargs['type'] = str
-                    elif param_spec.type == list:
+                    elif param_spec.type is list:
                         kwargs['nargs'] = '+'
                         if param_spec.default is not None:
                             kwargs['default'] = param_spec.default
@@ -984,7 +984,7 @@ Examples:
                 ) from e
 
         # Validate integer type if specified in metadata
-        if metadata.get('type') == int and arg_value is not None:
+        if metadata.get('type') is int and arg_value is not None:
             if not isinstance(arg_value, int):
                 raise argparse.ArgumentTypeError(
                     f"Argument --{arg_name.replace('_', '-')} expects an integer, "
@@ -992,7 +992,7 @@ Examples:
                 )
 
         # Validate float type if specified in metadata
-        if metadata.get('type') == float and arg_value is not None:
+        if metadata.get('type') is float and arg_value is not None:
             if not isinstance(arg_value, (int, float)):
                 raise argparse.ArgumentTypeError(
                     f"Argument --{arg_name.replace('_', '-')} expects a number, "

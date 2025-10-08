@@ -255,7 +255,7 @@ class TestEnvironmentVariableSupport:
         """Test TrackingStoreAction reads from environment variables."""
         with patch.dict(os.environ, {'ALL2MD_OUTPUT_DIR': '/tmp/output'}):
             parser = argparse.ArgumentParser()
-            action = TrackingStoreAction(
+            TrackingStoreAction(
                 option_strings=["--output-dir"],
                 dest="output_dir"
             )

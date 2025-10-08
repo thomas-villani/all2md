@@ -99,7 +99,7 @@ def _get_about_info() -> str:
         # Check if all dependencies are satisfied
         all_available = True
         if metadata.required_packages:
-            for install_name, import_name, version_spec in metadata.required_packages:
+            for install_name, _import_name, version_spec in metadata.required_packages:
                 if version_spec:
                     meets_req, _ = check_version_requirement(install_name, version_spec)
                     if not meets_req:
@@ -121,7 +121,7 @@ def _get_about_info() -> str:
     for format_name in formats:
         metadata = registry.get_format_info(format_name)
         if metadata and metadata.required_packages:
-            for install_name, import_name, version_spec in metadata.required_packages:
+            for install_name, _import_name, version_spec in metadata.required_packages:
                 if install_name not in all_deps:
                     installed_version = get_package_version(install_name)
                     if version_spec:
@@ -597,6 +597,8 @@ def generate_output_path(
         Whether to preserve directory structure
     base_input_dir : Path, optional
         Base input directory for preserving structure
+    dry_run : bool, default=False
+        If True, don't create directories
 
     Returns
     -------
@@ -777,7 +779,8 @@ def process_with_rich_output(
     ) as progress:
 
         # Check if parallel processing is enabled
-        # parallel can be: 1 (default, sequential), None (--parallel without value, auto CPU count), or N (explicit worker count)
+        # parallel can be: 1 (default, sequential), None (--parallel without value,
+        # auto CPU count), or N (explicit worker count)
         use_parallel = (
             (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
             (isinstance(args.parallel, int) and args.parallel != 1)
@@ -957,6 +960,8 @@ def process_with_progress_bar(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform functions to apply
 
     Returns
     -------
@@ -1037,6 +1042,8 @@ def process_files_simple(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform functions to apply
 
     Returns
     -------
@@ -1102,6 +1109,8 @@ def process_files_collated(
         Conversion options
     format_arg : str
         Format specification
+    transforms : list, optional
+        List of transform functions to apply
 
     Returns
     -------
@@ -1528,7 +1537,9 @@ def process_detect_only(
                         converter_available = False
                         any_issues = True
                         if installed_version:
-                            dependency_status.append((install_name, 'version mismatch', installed_version, version_spec))
+                            dependency_status.append(
+                                (install_name, 'version mismatch', installed_version, version_spec)
+                            )
                         else:
                             dependency_status.append((install_name, 'missing', None, version_spec))
                     else:
@@ -1717,7 +1728,7 @@ Examples:
         dep_status = []
 
         # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
-        for install_name, import_name, version_spec in metadata.required_packages:
+        for install_name, _import_name, version_spec in metadata.required_packages:
             if version_spec:
                 # Use install_name for version checking (pip/metadata lookup)
                 meets_req, installed_version = check_version_requirement(install_name, version_spec)
@@ -2417,7 +2428,7 @@ def handle_dependency_commands(args: Optional[list[str]] = None) -> Optional[int
 
 
 def main(args: Optional[list[str]] = None) -> int:
-    """Main CLI entry point with focused delegation to specialized processors."""
+    """Execute main CLI entry point with focused delegation to specialized processors."""
     from all2md.cli.processors import (
         load_options_from_json,
         merge_exclusion_patterns_from_json,

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 from all2md.ast import (
     Document,
@@ -30,6 +30,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError
 from all2md.options import RtfOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
@@ -59,7 +60,7 @@ class RtfToAstConverter(BaseParser):
     def __init__(
         self,
         options: RtfOptions | None = None,
-        progress_callback=None
+        progress_callback: Optional[ProgressCallback] = None
     ):
         options = options or RtfOptions()
         super().__init__(options, progress_callback)
@@ -335,8 +336,7 @@ class RtfToAstConverter(BaseParser):
         image_data = image.content
 
         # Generate standardized image filename
-
-        filename, _ = self._attachment_sequencer(
+        filename, _ = self._attachment_sequencer(  # type: ignore[call-arg]
             base_stem=self._base_filename, format_type="general", extension="png"
         )
 

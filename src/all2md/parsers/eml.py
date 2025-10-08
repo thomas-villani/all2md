@@ -819,6 +819,7 @@ class EmlToAstConverter(BaseParser):
     """
 
     def __init__(self, options: EmlOptions | None = None, progress_callback=None):
+        """Initialize the EML parser with options and progress callback."""
         options = options or EmlOptions()
         super().__init__(options, progress_callback)
         self.options: EmlOptions = options

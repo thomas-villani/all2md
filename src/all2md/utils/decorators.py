@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import importlib
 from functools import wraps
-from typing import Callable, List, Tuple
+from typing import Any, Callable, List, Tuple
 
 from all2md.exceptions import DependencyError
 
@@ -21,7 +21,7 @@ def requires_dependencies(
     converter_name: str,
     packages: List[Tuple[str, str, str]]
 ) -> Callable:
-    """Decorator to check required dependencies before method execution.
+    """Check required dependencies before method execution.
 
     This decorator eliminates repeated try/except ImportError blocks across
     parsers and renderers by centralizing dependency checking logic. It uses
@@ -90,7 +90,7 @@ def requires_dependencies(
     """
     def decorator(method: Callable) -> Callable:
         @wraps(method)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             missing = []
             original_error = None
 

@@ -14,7 +14,7 @@ import base64
 import json
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any, Optional, Union
 
 from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
@@ -22,6 +22,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options import IpynbOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
 
@@ -67,7 +68,8 @@ class IpynbToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: IpynbOptions | None = None, progress_callback=None):
+    def __init__(self, options: IpynbOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the IPYNB parser with options and progress callback."""
         options = options or IpynbOptions()
         super().__init__(options, progress_callback)
         self.options: IpynbOptions = options
@@ -103,9 +105,11 @@ class IpynbToAstConverter(BaseParser):
             elif isinstance(input_data, bytes):
                 notebook = json.loads(input_data.decode("utf-8"))
             elif hasattr(input_data, "read"):
-                content = input_data.read()
-                if isinstance(content, bytes):
-                    content = content.decode("utf-8")
+                raw_content = input_data.read()
+                if isinstance(raw_content, bytes):
+                    content = raw_content.decode("utf-8")
+                else:
+                    content = raw_content
                 notebook = json.loads(content)
             else:
                 raise ValidationError(f"Unsupported input type: {type(input_data).__name__}")
@@ -173,6 +177,8 @@ class IpynbToAstConverter(BaseParser):
             Cell data
         cell_index : int
             Cell index in notebook
+        language : str
+            Programming language for code cells
 
         Returns
         -------

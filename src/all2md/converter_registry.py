@@ -49,7 +49,7 @@ def _load_class(
     default_module_path: str,
     class_type_name: str
 ) -> Optional[type]:
-    """Generic class loader for parsers, renderers, and options classes.
+    """Load parsers, renderers, and options classes from various specifications.
 
     Parameters
     ----------
@@ -98,10 +98,6 @@ def _load_class(
                     f"not found in {default_module_path}: {e}"
                 )
                 return None
-    else:
-        # This shouldn't happen with proper typing, but handle it gracefully
-        logger.warning(f"Invalid {class_type_name}_class specification type: {type(class_spec)}")
-        return None
 
 
 def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[type]:
@@ -424,9 +420,9 @@ class ConverterRegistry:
 
         # For file-like objects, try to get filename
         elif hasattr(input_data, 'name'):
-            filename = getattr(input_data, 'name', None)
-            if filename and filename != 'unknown':
-                format_name = self._detect_by_filename(filename)
+            file_obj_name: str | None = getattr(input_data, 'name', None)
+            if file_obj_name and file_obj_name != 'unknown':
+                format_name = self._detect_by_filename(file_obj_name)
                 if format_name:
                     logger.debug(f"Format detected from file object name: {format_name}")
                     return format_name

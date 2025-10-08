@@ -13,12 +13,13 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import IO, Any, Dict, Union
+from typing import IO, Any, Dict, Optional, Union
 
 from all2md.ast import CodeBlock, Document
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import SourceCodeOptions
 from all2md.parsers.base import BaseParser
+from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -39,8 +40,9 @@ class SourceCodeToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: SourceCodeOptions | None = None, progress_callback=None):
+    def __init__(self, options: SourceCodeOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         super().__init__(options or SourceCodeOptions(), progress_callback)
+        self.options: SourceCodeOptions = self.options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse source code input into an AST Document.
@@ -80,16 +82,12 @@ class SourceCodeToAstConverter(BaseParser):
             elif isinstance(input_data, bytes):
                 # Decode bytes directly
                 content = input_data.decode("utf-8", errors="replace")
+            elif hasattr(input_data, "read"):
+                # Handle file-like object (IO[bytes])
+                raw_content = input_data.read()
+                content = raw_content.decode("utf-8", errors="replace")
             else:
-                # Handle file-like object
-                if hasattr(input_data, "read"):
-                    raw_content = input_data.read()
-                    if isinstance(raw_content, bytes):
-                        content = raw_content.decode("utf-8", errors="replace")
-                    else:
-                        content = str(raw_content)
-                else:
-                    raise ValueError(f"Unsupported input type: {type(input_data)}")
+                raise ValueError(f"Unsupported input type: {type(input_data)}")
         except Exception as e:
             raise ParsingError(f"Failed to read source code: {e}") from e
 

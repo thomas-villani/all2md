@@ -431,6 +431,8 @@ def extract_page_images(
         PDF options containing image extraction settings
     base_filename : str, default "document"
         Base filename stem for generating standardized image names
+    attachment_sequencer : object, optional
+        Sequencer for generating unique attachment names
 
     Returns
     -------
@@ -1166,6 +1168,8 @@ class PdfToAstConverter(BaseParser):
             PDF document to convert
         pages_to_use : range or list of int
             Pages to process
+        base_filename : str
+            Base filename for attachments
 
         Returns
         -------
@@ -1249,6 +1253,12 @@ class PdfToAstConverter(BaseParser):
             PDF page to process
         page_num : int
             Page number (0-based)
+        base_filename : str
+            Base filename for attachments
+        attachment_sequencer : Callable
+            Sequencer for generating unique attachment names
+        total_pages : int, default=0
+            Total number of pages being processed
 
         Returns
         -------

@@ -46,6 +46,7 @@ from all2md.ast.builder import DocumentBuilder, ListBuilder, TableBuilder
 
 # Core node types
 from all2md.ast.nodes import (
+    Alignment,
     BlockQuote,
     Code,
     CodeBlock,
@@ -105,6 +106,7 @@ __all__ = [
     # Nodes
     "Node",
     "SourceLocation",
+    "Alignment",
     "Document",
     "Heading",
     "Paragraph",

@@ -62,42 +62,42 @@ try:
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
-    DocxRenderer = None
+    DocxRenderer = None  # type: ignore[assignment,misc]
 
 try:
     from all2md.renderers.html import HtmlRenderer
     HTML_AVAILABLE = True
 except ImportError:
     HTML_AVAILABLE = False
-    HtmlRenderer = None
+    HtmlRenderer = None  # type: ignore[assignment,misc]
 
 try:
     from all2md.renderers.pdf import PdfRenderer
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
-    PdfRenderer = None
+    PdfRenderer = None  # type: ignore[assignment,misc]
 
 try:
     from all2md.renderers.epub import EpubRenderer
     EPUB_AVAILABLE = True
 except ImportError:
     EPUB_AVAILABLE = False
-    EpubRenderer = None
+    EpubRenderer = None  # type: ignore[assignment,misc]
 
 try:
     from all2md.renderers.pptx import PptxRenderer
     PPTX_RENDERER_AVAILABLE = True
 except ImportError:
     PPTX_RENDERER_AVAILABLE = False
-    PptxRenderer = None
+    PptxRenderer = None  # type: ignore[assignment,misc]
 
 try:
-    from all2md.renderers.rst import RstRenderer
+    from all2md.renderers.rst import RestructuredTextRenderer as RstRenderer
     RST_AVAILABLE = True
 except ImportError:
     RST_AVAILABLE = False
-    RstRenderer = None
+    RstRenderer = None  # type: ignore[assignment,misc]
 
 __all__ = [
     'BaseRenderer',

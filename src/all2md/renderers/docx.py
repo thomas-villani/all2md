@@ -333,7 +333,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             # Indent the created paragraph
             if self._current_paragraph is not None:
-                self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5)
+                self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5)  # type: ignore[unreachable]
 
             self._current_paragraph = saved_para
 
@@ -348,7 +348,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """
         self._list_level += 1
 
-        for i, item in enumerate(node.items):
+        for _i, item in enumerate(node.items):
             item.accept(self)
 
         self._list_level -= 1

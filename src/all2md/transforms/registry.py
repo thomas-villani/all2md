@@ -285,7 +285,7 @@ class TransformRegistry:
                 transform_eps = entry_points.select(group='all2md.transforms')
             else:
                 # Python 3.9 fallback
-                transform_eps = entry_points.get('all2md.transforms', [])
+                transform_eps = entry_points.get('all2md.transforms', [])  # type: ignore[attr-defined]
 
             for ep in transform_eps:
                 try:

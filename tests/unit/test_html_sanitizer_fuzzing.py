@@ -370,7 +370,7 @@ class TestURLEncodingInHTML:
         encoded_url = percent_chars + hex_chars
         html = f'<a href="{encoded_url}">link</a>'
 
-        parser = HtmlParser(HtmlOptions())
+        HtmlParser(HtmlOptions())
         result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
 
         # Should handle gracefully

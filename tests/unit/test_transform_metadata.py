@@ -22,7 +22,7 @@ class TestParameterSpec:
         """Test basic parameter specification."""
         param = ParameterSpec(type=int, default=10, help="Threshold value")
 
-        assert param.type == int
+        assert param.type is int
         assert param.default == 10
         assert param.help == "Threshold value"
         assert param.required is False

@@ -379,7 +379,7 @@ class TestHookAwareVisitor:
 
         # Create visitor and transform the document
         visitor = HookAwareVisitor(manager, context)
-        result = visitor.transform(doc)
+        visitor.transform(doc)
 
         # Verify the hook was called (path length should be > 0 during execution)
         assert len(path_states) > 0

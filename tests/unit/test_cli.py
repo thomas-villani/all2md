@@ -896,8 +896,8 @@ class TestNewEnhancedCLIFeatures:
             args._provided_args = set()
 
             # Test with rich available
-            with patch('rich.console.Console') as mock_console:
-                with patch('rich.table.Table') as mock_table:
+            with patch('rich.console.Console'):
+                with patch('rich.table.Table'):
                     result = process_dry_run(files, args, "auto")
                     assert result == 0
 

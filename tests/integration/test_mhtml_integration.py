@@ -357,7 +357,7 @@ class TestMhtmlIntegrationPerformance:
         mhtml_content = create_mhtml_with_complex_html()
 
         # Test multiple times to check for consistency
-        for i in range(3):
+        for _i in range(3):
             mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
             result = mhtml_to_markdown(str(mhtml_file))
 
@@ -404,7 +404,7 @@ class TestMhtmlIntegrationPerformance:
         )
 
         # Convert same file multiple times
-        for i in range(3):
+        for _i in range(3):
             mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
             result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
