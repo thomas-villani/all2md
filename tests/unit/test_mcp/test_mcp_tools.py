@@ -1,7 +1,6 @@
 """Unit tests for MCP tool implementations."""
 
 import base64
-from unittest.mock import MagicMock, patch
 
 import pytest
 

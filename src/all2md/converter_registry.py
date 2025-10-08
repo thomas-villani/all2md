@@ -722,19 +722,20 @@ class ConverterRegistry:
         return missing
 
     def auto_discover(self) -> None:
-        """Auto-discover and register parsers from multiple sources.
+        """Auto-discover and register parsers and renderers from multiple sources.
 
         This method:
         1. Scans the parsers directory for Python modules with CONVERTER_METADATA
-        2. Discovers plugins via entry points from installed packages
+        2. Scans the renderers directory for standalone renderer modules with CONVERTER_METADATA
+        3. Discovers plugins via entry points from installed packages
 
-        This enables a true plug-and-play system for both internal and external parsers.
+        This enables a true plug-and-play system for both internal and external converters.
         """
         if self._initialized:
             return
 
         # Discover internal converter modules by scanning the parsers package
-        converter_modules = self._discover_converter_modules()
+        converter_modules = self._discover_converter_modules("parsers")
 
         for module_name in converter_modules:
             try:
@@ -745,47 +746,75 @@ class ConverterRegistry:
                 # Look for CONVERTER_METADATA in the module
                 if hasattr(module, "CONVERTER_METADATA"):
                     self.register(module.CONVERTER_METADATA)
-                    logger.debug(f"Auto-registered internal converter: {module_name}")
+                    logger.debug(f"Auto-registered parser converter: {module_name}")
             except ImportError as e:
                 # Module has unmet dependencies, skip it
-                logger.debug(f"Could not load {module_name}: {e}")
+                logger.debug(f"Could not load parser {module_name}: {e}")
             except Exception as e:
-                logger.warning(f"Error loading {module_name}: {e}")
+                logger.warning(f"Error loading parser {module_name}: {e}")
+
+        # Discover standalone renderer modules by scanning the renderers package
+        renderer_modules = self._discover_converter_modules("renderers")
+
+        for module_name in renderer_modules:
+            try:
+                # Import the module
+                module_path = f"all2md.renderers.{module_name}"
+                module = importlib.import_module(module_path)
+
+                # Look for CONVERTER_METADATA in the module
+                if hasattr(module, "CONVERTER_METADATA"):
+                    self.register(module.CONVERTER_METADATA)
+                    logger.debug(f"Auto-registered standalone renderer: {module_name}")
+            except ImportError as e:
+                # Module has unmet dependencies, skip it
+                logger.debug(f"Could not load renderer {module_name}: {e}")
+            except Exception as e:
+                logger.warning(f"Error loading renderer {module_name}: {e}")
 
         # Discover external plugins via entry points
         self._discover_plugins()
 
         self._initialized = True
 
-    def _discover_converter_modules(self) -> List[str]:
-        """Discover converter modules by scanning the parsers package directory.
+    def _discover_converter_modules(self, package_name: str) -> List[str]:
+        """Discover converter modules by scanning a package directory.
+
+        Parameters
+        ----------
+        package_name : str
+            Name of the package to scan ("parsers" or "renderers")
 
         Returns
         -------
         List[str]
-            List of module names found in the parsers package
+            List of module names found in the package
 
         """
-        converter_modules = []
+        converter_modules: List[str] = []
 
         try:
-            # Import the parsers package to get its path
-            import all2md.parsers as converters_package
-            converters_path = Path(converters_package.__file__).parent
+            # Import the package to get its path
+            package = importlib.import_module(f"all2md.{package_name}")
+            if package.__file__ is None:
+                logger.warning(f"Package {package_name} has no __file__ attribute")
+                return converter_modules
 
-            # Scan for Python files in the parsers directory
-            for file_path in converters_path.glob("*.py"):
+            package_path = Path(package.__file__).parent
+
+            # Scan for Python files in the package directory
+            for file_path in package_path.glob("*.py"):
                 module_name = file_path.stem
 
                 # Skip __init__.py and any private modules
                 if module_name != "__init__" and not module_name.startswith("_"):
                     converter_modules.append(module_name)
 
-            logger.debug(f"Discovered converter modules: {converter_modules}")
+            logger.debug(f"Discovered {package_name} modules: {converter_modules}")
 
         except Exception as e:
-            logger.warning(f"Failed to discover converter modules: {e}")
-            # Fallback to empty list - no parsers will be registered
+            logger.warning(f"Failed to discover {package_name} modules: {e}")
+            # Fallback to empty list - no converters will be registered
 
         return converter_modules
 

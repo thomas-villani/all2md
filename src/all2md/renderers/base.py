@@ -167,4 +167,4 @@ class BaseRenderer(ABC):
         except (NotImplementedError, AttributeError, TypeError):
             raise NotImplementedError(
                 f"{self.__class__.__name__} does not support rendering to bytes."
-            )
+            ) from None

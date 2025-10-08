@@ -27,9 +27,7 @@ from all2md.ast import (
     Document,
     Emphasis,
     Heading,
-    HTMLBlock,
     Image,
-    LineBreak,
     Link,
     List,
     ListItem,
@@ -45,7 +43,6 @@ from all2md.ast import (
     ThematicBreak,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import ParsingError
 from all2md.options import AsciiDocParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
@@ -327,7 +324,7 @@ class AsciiDocLexer:
 
 
 class AsciiDocParser(BaseParser):
-    """Convert AsciiDoc to AST representation.
+    r"""Convert AsciiDoc to AST representation.
 
     This parser implements a custom AsciiDoc parser that converts AsciiDoc
     documents into the all2md AST format. It uses a two-stage process:
@@ -345,7 +342,7 @@ class AsciiDocParser(BaseParser):
     Basic parsing:
 
         >>> parser = AsciiDocParser()
-        >>> doc = parser.parse("= Title\\n\\nThis is *bold*.")
+        >>> doc = parser.parse("= Title\n\nThis is *bold*.")
 
     With options:
 
@@ -573,7 +570,7 @@ class AsciiDocParser(BaseParser):
 
             if token.type == TokenType.ATTRIBUTE:
                 attr_name = token.content
-                attr_value = token.metadata.get('value', '')
+                attr_value = token.metadata.get('value', '') if token.metadata else ''
                 self.attributes[attr_name] = attr_value
 
             self._advance()
@@ -647,7 +644,7 @@ class AsciiDocParser(BaseParser):
 
         """
         token = self._advance()
-        level = token.metadata.get('level', 1)
+        level = token.metadata.get('level', 1) if token.metadata else 1
         content = self._parse_inline(token.content)
 
         return Heading(level=level, content=content)
@@ -886,7 +883,6 @@ class AsciiDocParser(BaseParser):
         # Determine list type from first item
         first_token = self._current_token()
         ordered = first_token.type == TokenType.ORDERED_LIST
-        is_checklist = first_token.type == TokenType.CHECKLIST_ITEM
 
         items: list[ListItem] = []
 
@@ -929,7 +925,8 @@ class AsciiDocParser(BaseParser):
         # Check for task status
         task_status: Literal['checked', 'unchecked'] | None = None
         if token.type == TokenType.CHECKLIST_ITEM:
-            task_status = 'checked' if token.metadata.get('checked') else 'unchecked'
+            is_checked = token.metadata.get('checked') if token.metadata else False
+            task_status = 'checked' if is_checked else 'unchecked'
 
         return ListItem(children=children, task_status=task_status)
 
@@ -953,7 +950,7 @@ class AsciiDocParser(BaseParser):
 
             # Parse description(s)
             descriptions: list[DefinitionDescription] = []
-            description_text = token.metadata.get('description', '').strip()
+            description_text = (token.metadata.get('description', '') if token.metadata else '').strip()
 
             if description_text:
                 desc_content = self._parse_inline(description_text)

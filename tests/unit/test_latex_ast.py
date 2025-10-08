@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for LaTeX parser and renderer."""
 
-import pytest
 
 from all2md.ast import (
     BlockQuote,
@@ -11,7 +10,6 @@ from all2md.ast import (
     Emphasis,
     Heading,
     Image,
-    LineBreak,
     Link,
     List,
     ListItem,
@@ -25,7 +23,6 @@ from all2md.ast import (
     TableCell,
     TableRow,
     Text,
-    ThematicBreak,
     Underline,
 )
 from all2md.options import LatexOptions, LatexParserOptions

@@ -364,7 +364,7 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
         config.write_allowlist = _parse_semicolon_list(args.write_dirs)
 
     if args.attachment_mode is not None:
-        config.attachment_mode = args.attachment_mode  # type: ignore[assignment]
+        config.attachment_mode = args.attachment_mode
 
     if args.attachment_output_dir is not None:
         config.attachment_output_dir = args.attachment_output_dir

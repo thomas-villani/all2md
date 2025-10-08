@@ -89,10 +89,12 @@ class TestRegistryNewAPI:
             assert metadata_list is not None
             assert len(metadata_list) > 0
 
-            # New architecture: parser_class should be set on at least one converter
+            # New architecture: parser_class or renderer_class should be set
+            # Some formats like MediaWiki and PlainText are renderer-only (no parser)
             # Check the highest priority (first) converter
             metadata = metadata_list[0]
-            assert metadata.parser_class is not None
+            assert (metadata.parser_class is not None or
+                   metadata.renderer_class is not None)
 
             # Old architecture fields should be empty or not used
             # (They might still exist for backward compat but shouldn't be relied upon)
@@ -194,7 +196,7 @@ class TestRegistryAutoDiscovery:
         assert "html" in current_formats
 
     def test_auto_discover_registers_parser_classes(self):
-        """Test that auto_discover registers parser_class for each format."""
+        """Test that auto_discover registers parser_class or renderer_class for each format."""
         registry.auto_discover()
 
         for format_name in registry.list_formats():
@@ -202,10 +204,12 @@ class TestRegistryAutoDiscovery:
             assert metadata_list is not None
             assert len(metadata_list) > 0
 
-            # Each format should have at least one parser_class
+            # Each format should have at least one parser_class or renderer_class
+            # Some formats like MediaWiki and PlainText are renderer-only (no parser)
             # Check the highest priority (first) converter
             metadata = metadata_list[0]
-            assert metadata.parser_class is not None
+            assert (metadata.parser_class is not None or
+                   metadata.renderer_class is not None)
 
 
 class TestEndToEndParsing:

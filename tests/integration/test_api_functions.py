@@ -13,9 +13,8 @@ Tests cover various input/output types, format combinations, options handling,
 and transform pipeline integration.
 """
 
-import tempfile
+from importlib.util import find_spec
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
@@ -31,28 +30,16 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-try:
-    from ebooklib import epub
-    EBOOKLIB_AVAILABLE = True
-except ImportError:
-    EBOOKLIB_AVAILABLE = False
-
-try:
-    from pptx import Presentation
-    PPTX_AVAILABLE = True
-except ImportError:
-    PPTX_AVAILABLE = False
+EBOOKLIB_AVAILABLE = find_spec("ebooklib") is not None
+PPTX_AVAILABLE = find_spec("pptx") is not None
 
 from all2md import convert, from_ast, from_markdown, to_ast
 from all2md.ast import (
     BlockQuote,
-    Code,
     CodeBlock,
     Document,
     Emphasis,
     Heading,
-    Image,
-    Link,
     List,
     ListItem,
     Paragraph,
@@ -61,11 +48,8 @@ from all2md.ast import (
     TableCell,
     TableRow,
     Text,
-    ThematicBreak,
 )
 from all2md.options import (
-    DocxRendererOptions,
-    HtmlOptions,
     HtmlRendererOptions,
     MarkdownOptions,
     MarkdownParserOptions,

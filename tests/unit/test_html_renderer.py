@@ -13,7 +13,7 @@ Tests cover:
 
 """
 
-from io import StringIO, BytesIO
+from io import BytesIO
 
 import pytest
 

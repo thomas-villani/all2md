@@ -35,8 +35,6 @@ from all2md.ast import (
     Subscript,
     Superscript,
     Table,
-    TableCell,
-    TableRow,
     Text,
     ThematicBreak,
     Underline,
@@ -50,7 +48,7 @@ from all2md.utils.metadata import DocumentMetadata
 
 
 class LatexParser(BaseParser):
-    """Convert LaTeX to AST representation.
+    r"""Convert LaTeX to AST representation.
 
     This parser implements a LaTeX parser that converts LaTeX documents
     into the all2md AST format. It uses pylatexenc library for parsing
@@ -68,7 +66,7 @@ class LatexParser(BaseParser):
     Basic parsing:
 
         >>> parser = LatexParser()
-        >>> doc = parser.parse("\\section{Title}\\n\\nThis is \\textbf{bold}.")
+        >>> doc = parser.parse("\section{Title}\n\nThis is \textbf{bold}.")
 
     With options:
 
@@ -127,12 +125,12 @@ class LatexParser(BaseParser):
 
         # Try to import pylatexenc
         try:
-            from pylatexenc.latexwalker import LatexWalker, LatexEnvironmentNode, LatexMacroNode, LatexGroupNode
-        except ImportError:
+            from pylatexenc.latexwalker import LatexWalker
+        except ImportError as e:
             raise ParsingError(
                 "LaTeX parsing requires the 'pylatexenc' package. "
                 "Install it with: pip install pylatexenc"
-            )
+            ) from e
 
         # Parse LaTeX using pylatexenc
         try:
@@ -157,9 +155,9 @@ class LatexParser(BaseParser):
                     children.append(ast_nodes)
 
         # Extract metadata
-        metadata = self.extract_metadata(content)
+        doc_metadata: DocumentMetadata = self.extract_metadata(content)
         # Merge with preamble metadata
-        metadata_dict = metadata.to_dict()
+        metadata_dict = doc_metadata.to_dict()
         metadata_dict.update(self.document_metadata)
 
         self._emit_progress("finished", "Parsing complete", current=100, total=100)
@@ -641,7 +639,11 @@ class LatexParser(BaseParser):
 
                     # Wrap in paragraph if not empty
                     if item_nodes:
-                        para = Paragraph(content=item_nodes if all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes) else [Text(content=self._extract_text(item_nodes))])
+                        all_inline = all(
+                            isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes
+                        )
+                        content = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                        para = Paragraph(content=content)
                         items.append(ListItem(children=[para]))
 
         return List(ordered=False, items=items)
@@ -679,7 +681,11 @@ class LatexParser(BaseParser):
 
                     # Wrap in paragraph
                     if item_nodes:
-                        para = Paragraph(content=item_nodes if all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes) else [Text(content=self._extract_text(item_nodes))])
+                        all_inline = all(
+                            isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes
+                        )
+                        content = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                        para = Paragraph(content=content)
                         items.append(ListItem(children=[para]))
 
         return List(ordered=True, items=items)
@@ -764,8 +770,6 @@ class LatexParser(BaseParser):
         """
         # Basic table parsing - this is simplified
         # A full implementation would parse table structure from LaTeX
-        rows = []
-
         # For now, return None and let it be handled as text
         # Full table parsing would require more sophisticated LaTeX parsing
         return None
@@ -887,8 +891,8 @@ class LatexParser(BaseParser):
             List with inline nodes grouped into paragraphs
 
         """
-        grouped = []
-        current_inline = []
+        grouped: list[Node] = []
+        current_inline: list[Node] = []
 
         inline_types = (Text, Strong, Emphasis, Code, Link, Image, Underline, Superscript, Subscript, MathInline)
 

@@ -816,7 +816,7 @@ def from_ast(
             Path(output).write_bytes(content)
         elif hasattr(content, 'read'):
             # File-like object (BytesIO from binary renderers)
-            Path(output).write_bytes(content.read())
+            Path(output).write_bytes(content.read())  # type: ignore[union-attr]
         else:
             raise TypeError(f"Unexpected content type: {type(content)}")
         return None
@@ -834,7 +834,7 @@ def from_ast(
                 output.write(content.decode('utf-8'))  # type: ignore[call-overload]
             elif hasattr(content, 'read'):
                 # BytesIO - read and decode
-                output.write(content.read().decode('utf-8'))  # type: ignore[call-overload]
+                output.write(content.read().decode('utf-8'))
             else:
                 output.write(content)  # type: ignore[call-overload]
         return None
@@ -1052,7 +1052,7 @@ def convert(
             output_path.write_bytes(rendered)
         elif hasattr(rendered, 'read'):
             # File-like object (BytesIO from binary renderers)
-            output_path.write_bytes(rendered.read())
+            output_path.write_bytes(rendered.read())  # type: ignore[union-attr]
         else:
             raise TypeError(f"Unexpected rendered type: {type(rendered)}")
         return None

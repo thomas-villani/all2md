@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for AsciiDoc parser and renderer."""
 
-import pytest
 
 from all2md.ast import (
     Code,

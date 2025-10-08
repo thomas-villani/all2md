@@ -24,7 +24,6 @@ from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -242,7 +241,7 @@ class ChmParser(BaseParser):
             try:
                 # Enumerate all items in CHM
                 def enum_callback(chm_file, ui, context):
-                    """Callback to collect HTML files."""
+                    """Collect HTML files from CHM."""
                     path = ui.path
                     # Check if it's an HTML file
                     if path and (path.endswith('.html') or path.endswith('.htm')):

@@ -15,14 +15,15 @@ Functions
 import logging
 import os
 import sys
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
-    ConvertToMarkdownOutput,
     RenderFromMarkdownInput,
-    RenderFromMarkdownOutput,
 )
 from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
 from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
@@ -30,7 +31,7 @@ from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
 logger = logging.getLogger(__name__)
 
 
-def create_server(config: MCPConfig) -> "FastMCP":  # type: ignore[name-defined]
+def create_server(config: MCPConfig) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
     Parameters
@@ -63,23 +64,29 @@ def create_server(config: MCPConfig) -> "FastMCP":  # type: ignore[name-defined]
             ] = None,
             source_content: Annotated[
                 str | None,
-                "Inline content to convert (plain text or base64-encoded). For text formats (HTML, Markdown): pass plain text. For binary formats (PDF, DOCX): pass base64-encoded and set content_encoding='base64'. Mutually exclusive with source_path."
+                "Inline content to convert (plain text or base64-encoded). For text formats (HTML, "
+                "Markdown): pass plain text. For binary formats (PDF, DOCX): pass base64-encoded and "
+                "set content_encoding='base64'. Mutually exclusive with source_path."
             ] = None,
             content_encoding: Annotated[
                 str | None,
-                "Encoding of source_content: 'plain' (default) or 'base64'. Only relevant when source_content is provided."
+                "Encoding of source_content: 'plain' (default) or 'base64'. Only relevant when "
+                "source_content is provided."
             ] = None,
             source_format: Annotated[
                 str,
-                "Source format for auto-detection or explicit specification. Options: auto (default), pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, xlsx, csv, rst, markdown, txt."
+                "Source format for auto-detection or explicit specification. Options: auto (default), "
+                "pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, xlsx, csv, rst, markdown, txt."
             ] = "auto",
             flavor: Annotated[
                 str | None,
-                "Markdown flavor/dialect for output. Options: gfm (default), commonmark, multimarkdown, pandoc, kramdown, markdown_plus."
+                "Markdown flavor/dialect for output. Options: gfm (default), commonmark, "
+                "multimarkdown, pandoc, kramdown, markdown_plus."
             ] = None,
             pdf_pages: Annotated[
                 str | None,
-                "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' (specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
+                "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' "
+                "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
             ] = None
         ) -> dict:
             """Convert a document to Markdown format.
@@ -132,11 +139,13 @@ def create_server(config: MCPConfig) -> "FastMCP":  # type: ignore[name-defined]
             ] = None,
             output_path: Annotated[
                 str | None,
-                "Output file path. Must be within write allowlist. If not provided, content is returned (base64-encoded for binary formats like PDF/DOCX)."
+                "Output file path. Must be within write allowlist. If not provided, content is "
+                "returned (base64-encoded for binary formats like PDF/DOCX)."
             ] = None,
             flavor: Annotated[
                 str | None,
-                "Markdown flavor for parsing input. Options: gfm (default), commonmark, multimarkdown, pandoc, kramdown, markdown_plus."
+                "Markdown flavor for parsing input. Options: gfm (default), commonmark, "
+                "multimarkdown, pandoc, kramdown, markdown_plus."
             ] = None
         ) -> dict:
             """Convert Markdown content to another format.
@@ -189,7 +198,7 @@ def configure_logging(level: str) -> None:
 
 
 def main() -> None:
-    """Main entry point for all2md-mcp server."""
+    """Run all2md-mcp server."""
     try:
         # Load configuration
         config = load_config()

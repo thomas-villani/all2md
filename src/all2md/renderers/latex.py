@@ -12,7 +12,7 @@ for controlling output format and can generate complete documents or fragments.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Union
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -54,7 +54,7 @@ from all2md.renderers.base import BaseRenderer
 
 
 class LatexRenderer(NodeVisitor, BaseRenderer):
-    """Render AST nodes to LaTeX text.
+    r"""Render AST nodes to LaTeX text.
 
     This class implements the visitor pattern to traverse an AST and
     generate LaTeX output. It supports configurable rendering options
@@ -77,9 +77,9 @@ class LatexRenderer(NodeVisitor, BaseRenderer):
         >>> renderer = LatexRenderer()
         >>> latex = renderer.render_to_string(doc)
         >>> print(latex)
-        \\documentclass{article}
+        \documentclass{article}
         ...
-        \\section{Title}
+        \section{Title}
         ...
 
     """

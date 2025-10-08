@@ -13,16 +13,15 @@ Tests cover:
 
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from all2md.ast import Document, Heading, Paragraph, Strong, Table, Text, ThematicBreak
+from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
 from all2md.options import ChmOptions, HtmlOptions
 from all2md.parsers.chm import ChmParser
 from tests.fixtures.generators.chm_fixtures import (
     create_chm_with_code,
-    create_chm_with_images,
     create_chm_with_nested_toc,
     create_empty_chm,
     create_simple_chm,
@@ -230,14 +229,11 @@ class TestChmErrorHandling:
         # test unless pychm is available
         pytest.importorskip("chm")
 
-        from all2md.exceptions import ParsingError
 
         # This test would require mocking at the import level which is complex
         # For now, we verify the logic by calling convert_to_ast with a mock that fails
         mock_chm = MagicMock()
         mock_chm.LoadCHM.return_value = 0  # Failure
-
-        parser = ChmParser()
 
         # Since LoadCHM would be called in parse(), we can't easily test it
         # without the actual library. Skip this specific test case.

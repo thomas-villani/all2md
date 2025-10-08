@@ -24,7 +24,7 @@ from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from reportlab.lib.styles import ParagraphStyle, StyleSheet1
+    from reportlab.lib.styles import StyleSheet1
     from reportlab.platypus import Flowable
 
 from all2md.ast.nodes import (

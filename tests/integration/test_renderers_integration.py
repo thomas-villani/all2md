@@ -66,7 +66,8 @@ from all2md.options import (
     PdfRendererOptions,
     PptxRendererOptions,
 )
-from all2md.renderers import HtmlRenderer, MarkdownRenderer
+from all2md.renderers import MarkdownRenderer
+from all2md.renderers.html import HtmlRenderer
 
 if DOCX_AVAILABLE:
     from all2md.renderers.docx import DocxRenderer

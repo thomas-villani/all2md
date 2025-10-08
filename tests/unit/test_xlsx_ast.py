@@ -13,11 +13,10 @@ Tests cover:
 """
 
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
-from all2md.ast import Document, Heading, Image, Paragraph, Table, Text
+from all2md.ast import Document, Heading, Image, Table
 from all2md.options import XlsxOptions
 from all2md.parsers.xlsx import XlsxToAstConverter
 

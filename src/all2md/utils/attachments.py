@@ -46,7 +46,7 @@ import os
 import re
 import unicodedata
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
@@ -631,7 +631,9 @@ class AttachmentSequencer(Protocol):
         base_stem: str,
         format_type: str = "general",
         **kwargs: Any,
-    ) -> tuple[str, int]: ...
+    ) -> tuple[str, int]:
+        """Generate unique sequential filename for attachment."""
+        ...
 
 
 def create_attachment_sequencer() -> AttachmentSequencer:

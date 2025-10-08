@@ -8,38 +8,15 @@ to_markdown, to_ast, from_ast, from_markdown, and convert. Focus is on to_ast
 (under-tested) and multi-function workflows that simulate real-world usage.
 """
 
+from importlib.util import find_spec
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 
-try:
-    from docx import Document as DocxDocument
-
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-
-try:
-    from reportlab.platypus import SimpleDocTemplate  # noqa: F401
-
-    REPORTLAB_AVAILABLE = True
-except ImportError:
-    REPORTLAB_AVAILABLE = False
-
-try:
-    import ebooklib
-
-    EBOOKLIB_AVAILABLE = True
-except ImportError:
-    EBOOKLIB_AVAILABLE = False
-
-try:
-    from pptx import Presentation
-
-    PPTX_AVAILABLE = True
-except ImportError:
-    PPTX_AVAILABLE = False
+DOCX_AVAILABLE = find_spec("docx") is not None
+REPORTLAB_AVAILABLE = find_spec("reportlab") is not None
+EBOOKLIB_AVAILABLE = find_spec("ebooklib") is not None
+PPTX_AVAILABLE = find_spec("pptx") is not None
 
 from fixtures.generators.docx_fixtures import create_docx_with_formatting, save_docx_to_bytes
 from fixtures.generators.html_fixtures import create_html_with_tables
@@ -48,10 +25,9 @@ from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, sav
 from utils import assert_markdown_valid
 
 from all2md import convert, from_ast, from_markdown, to_ast, to_markdown
-from all2md.ast import Document, Heading, Image, Paragraph, Strong, Table, Text
+from all2md.ast import Document, Heading, Paragraph, Strong, Table
 from all2md.options import (
     DocxOptions,
-    DocxRendererOptions,
     HtmlOptions,
     HtmlRendererOptions,
     MarkdownOptions,

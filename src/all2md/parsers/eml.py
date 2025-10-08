@@ -12,11 +12,10 @@ from __future__ import annotations
 
 import datetime
 import re
-from email import message_from_binary_file, message_from_bytes, message_from_file, policy
+from email import message_from_binary_file, message_from_bytes, policy
 from email.header import decode_header
 from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
-from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 from urllib.parse import unquote

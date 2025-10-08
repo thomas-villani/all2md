@@ -82,6 +82,9 @@ from .constants import (
     DEFAULT_MAX_DOWNLOAD_BYTES,
     DEFAULT_MAX_IMAGE_SIZE_BYTES,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
+    # MediaWiki-specific constants
+    DEFAULT_MEDIAWIKI_IMAGE_THUMB,
+    DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
     DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_METADATA_FORMAT,
     DEFAULT_NETWORK_TIMEOUT,
@@ -99,9 +102,6 @@ from .constants import (
     DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
     DEFAULT_RST_STRICT_MODE,
     DEFAULT_RST_TABLE_STYLE,
-    # MediaWiki-specific constants
-    DEFAULT_MEDIAWIKI_IMAGE_THUMB,
-    DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
     DEFAULT_SLIDE_NUMBERS,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
@@ -2898,7 +2898,7 @@ class MediaWikiOptions(BaseRendererOptions):
 
 @dataclass(frozen=True)
 class LatexParserOptions(BaseParserOptions):
-    """Configuration options for LaTeX-to-AST parsing.
+    r"""Configuration options for LaTeX-to-AST parsing.
 
     This dataclass contains settings specific to parsing LaTeX documents
     into AST representation using pylatexenc library.
@@ -2907,7 +2907,7 @@ class LatexParserOptions(BaseParserOptions):
     ----------
     parse_preamble : bool, default True
         Whether to parse document preamble for metadata.
-        When True, extracts \\title, \\author, \\date, etc.
+        When True, extracts \title, \author, \date, etc.
     parse_math : bool, default True
         Whether to parse math environments into MathBlock/MathInline nodes.
         When True, preserves LaTeX math notation in AST.

@@ -414,7 +414,9 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         return document
 
-    def _process_paragraph_to_ast(self, paragraph: "Paragraph", doc: "docx.document.Document") -> Node | list[Node] | None:
+    def _process_paragraph_to_ast(
+        self, paragraph: "Paragraph", doc: "docx.document.Document"
+    ) -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
 
         Parameters
@@ -1211,7 +1213,9 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
     return numbering_defs
 
 
-def _detect_list_level(paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None) -> tuple[str | None, int]:
+def _detect_list_level(
+    paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None
+) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth

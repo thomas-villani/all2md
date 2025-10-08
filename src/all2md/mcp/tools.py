@@ -26,8 +26,7 @@ from all2md.mcp.schemas import (
     RenderFromMarkdownInput,
     RenderFromMarkdownOutput,
 )
-from all2md.mcp.security import MCPSecurityError, validate_read_path, validate_write_path
-from all2md.options import PdfOptions
+from all2md.mcp.security import validate_read_path, validate_write_path
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ def convert_to_markdown_impl(
     input_data: ConvertToMarkdownInput,
     config: MCPConfig
 ) -> ConvertToMarkdownOutput:
-    """Implementation of convert_to_markdown tool.
+    """Implement convert_to_markdown tool.
 
     Parameters
     ----------
@@ -163,7 +162,7 @@ def render_from_markdown_impl(
     input_data: RenderFromMarkdownInput,
     config: MCPConfig
 ) -> RenderFromMarkdownOutput:
-    """Implementation of render_from_markdown tool.
+    """Implement render_from_markdown tool.
 
     Parameters
     ----------
