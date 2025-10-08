@@ -27,6 +27,26 @@ from all2md.utils.metadata import DocumentMetadata
 logger = logging.getLogger(__name__)
 
 
+def _make_csv_dialect(delimiter: str) -> type[csv.Dialect]:
+    r"""Create a CSV dialect class with a custom delimiter.
+
+    This function creates a dialect subclass based on csv.excel with a custom
+    delimiter, avoiding the need to mutate dialect instances.
+
+    Parameters
+    ----------
+    delimiter : str
+        The delimiter character (e.g., ',', '\t', ';', '|')
+
+    Returns
+    -------
+    type[csv.Dialect]
+        A dialect class based on csv.excel with the specified delimiter
+
+    """
+    return type('CustomDialect', (csv.excel,), {'delimiter': delimiter})
+
+
 def _sanitize_cell_text(text: Any) -> str:
     """Convert cell value to a safe string for AST Text node.
 
@@ -212,23 +232,15 @@ class CsvToAstConverter(BaseParser):
 
         dialect_obj: type[csv.Dialect]
         if self.options.csv_delimiter:
-            exc_dialect = csv.excel()
-            exc_dialect.delimiter = self.options.csv_delimiter
-            dialect_obj = type(exc_dialect)
+            dialect_obj = _make_csv_dialect(self.options.csv_delimiter)
         elif self.options.detect_csv_dialect:
             try:
                 sniffer = csv.Sniffer()
                 dialect_obj = sniffer.sniff(sample, delimiters=",\t;|\x1f")
             except Exception:
-                exc_dialect = csv.excel()
-                if delimiter:
-                    exc_dialect.delimiter = delimiter
-                dialect_obj = type(exc_dialect)
+                dialect_obj = _make_csv_dialect(delimiter) if delimiter else csv.excel
         else:
-            exc_dialect = csv.excel()
-            if delimiter:
-                exc_dialect.delimiter = delimiter
-            dialect_obj = type(exc_dialect)
+            dialect_obj = _make_csv_dialect(delimiter) if delimiter else csv.excel
 
         reader = csv.reader(text_stream, dialect=dialect_obj)
         rows: list[list[str]] = []
