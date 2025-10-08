@@ -307,18 +307,12 @@ class HtmlToAstConverter(BaseParser):
                     elif not self._sanitize_element(element):
                         elements_to_remove.append(element)
 
-            # Remove collected elements - unwrap to preserve text content
+            # Remove collected elements completely for security (defense-in-depth)
             for element in elements_to_remove:
-                if hasattr(element, 'name') and element.name in DANGEROUS_HTML_ELEMENTS:
-                    # Unwrap dangerous elements like iframe, form, object to keep text
-                    try:
-                        element.unwrap()
-                    except ValueError:
-                        # Element already removed or can't be unwrapped
-                        pass
-                else:
-                    # Decompose elements with dangerous attributes
-                    element.decompose()
+                # Decompose all dangerous elements and elements with dangerous attributes.
+                # This fully removes both tags and their content to prevent fallback content,
+                # misleading text, or edge cases in malformed HTML from being preserved.
+                element.decompose()
 
         # Apply whitelist filters if specified
         if self.options.allowed_elements is not None:

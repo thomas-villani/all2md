@@ -183,7 +183,12 @@ class TestHTMLConversionFuzzing:
     )
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     def test_dangerous_tags_removed_when_strip_enabled(self, dangerous_tags):
-        """Property: Dangerous tags should be removed when strip_dangerous_elements=True."""
+        """Property: Dangerous tags should be removed when strip_dangerous_elements=True.
+
+        All dangerous elements are fully decomposed (removed with content) for security.
+        This implements defense-in-depth: if an element is dangerous enough to strip,
+        its content should also be removed to prevent fallback content exploitation.
+        """
         html = ''.join(dangerous_tags) + 'Safe content'
 
         options = HtmlOptions(strip_dangerous_elements=True)
@@ -193,11 +198,10 @@ class TestHTMLConversionFuzzing:
         for tag in dangerous_tags:
             assert tag.lower() not in result.lower()
 
-        # Safe content should be present for non-script/style tags
-        # For script/style tags, content is removed entirely for security
-        has_script_or_style = any('<script>' in tag.lower() or '<style>' in tag.lower() for tag in dangerous_tags)
-        if not has_script_or_style:
-            assert 'safe content' in result.lower()
+        # All dangerous elements are now fully removed (decomposed) including their content.
+        # Content after dangerous elements should still be preserved if it's outside them.
+        # In this test, BeautifulSoup auto-closes tags, so "Safe content" ends up inside
+        # the last dangerous element and should be removed.
 
 
 @pytest.mark.unit
