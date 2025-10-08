@@ -337,7 +337,7 @@ class RtfToAstConverter(BaseParser):
         image_data = image.content
 
         # Generate standardized image filename
-        filename, _ = self._attachment_sequencer(  # type: ignore[call-arg]
+        filename, _ = self._attachment_sequencer(
             base_stem=self._base_filename, format_type="general", extension="png"
         )
 

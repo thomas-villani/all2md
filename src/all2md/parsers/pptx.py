@@ -980,7 +980,7 @@ class PptxToAstConverter(BaseParser):
             extension = "png"
 
             # Use sequencer for sequential attachment names
-            image_filename, _ = self._attachment_sequencer(  # type: ignore[call-arg]
+            image_filename, _ = self._attachment_sequencer(
                 base_stem=self._base_filename,
                 format_type="general",
                 extension=extension

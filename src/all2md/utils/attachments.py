@@ -46,7 +46,7 @@ import os
 import re
 import unicodedata
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
@@ -599,7 +599,42 @@ def generate_attachment_filename(
         return f"{base_stem}_{attachment_type}{sequence_num}.{extension}"
 
 
-def create_attachment_sequencer() -> Callable[[str, str], tuple[str, int]]:
+class AttachmentSequencer(Protocol):
+    """Protocol for attachment filename sequencer callables.
+
+    This protocol defines the signature for functions returned by
+    create_attachment_sequencer(). The sequencer generates unique,
+    sequential filenames for attachments based on format-specific rules.
+
+    Parameters
+    ----------
+    base_stem : str
+        Base filename stem (without extension) from the source document
+    format_type : str, default "general"
+        Format context - one of "pdf", "pptx", or "general"
+    **kwargs : Any
+        Additional keyword arguments:
+        - page_num : int | None - Page number for PDF format (required if format_type="pdf")
+        - slide_num : int | None - Slide number for PPTX format (required if format_type="pptx")
+        - extension : str - File extension without dot (default: "png")
+        - attachment_type : str - Type of attachment (default: "img")
+
+    Returns
+    -------
+    tuple[str, int]
+        Tuple of (generated filename, sequence number)
+
+    """
+
+    def __call__(
+        self,
+        base_stem: str,
+        format_type: str = "general",
+        **kwargs: Any,
+    ) -> tuple[str, int]: ...
+
+
+def create_attachment_sequencer() -> AttachmentSequencer:
     """Create a closure that tracks attachment sequence numbers to prevent duplicates.
 
     Returns
