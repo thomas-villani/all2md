@@ -814,9 +814,9 @@ def from_ast(
             Path(output).write_text(content, encoding="utf-8")
         elif isinstance(content, (bytes, bytearray)):
             Path(output).write_bytes(content)
-        elif hasattr(content, 'read'):
+        elif hasattr(content, 'read'):  # type: ignore[unreachable]
             # File-like object (BytesIO from binary renderers)
-            Path(output).write_bytes(content.read())  # type: ignore[union-attr]
+            Path(output).write_bytes(content.read())
         else:
             raise TypeError(f"Unexpected content type: {type(content)}")
         return None
@@ -1050,9 +1050,9 @@ def convert(
             output_path.write_text(rendered, encoding='utf-8')
         elif isinstance(rendered, (bytes, bytearray)):
             output_path.write_bytes(rendered)
-        elif hasattr(rendered, 'read'):
+        elif hasattr(rendered, 'read'):  # type: ignore[unreachable]
             # File-like object (BytesIO from binary renderers)
-            output_path.write_bytes(rendered.read())  # type: ignore[union-attr]
+            output_path.write_bytes(rendered.read())
         else:
             raise TypeError(f"Unexpected rendered type: {type(rendered)}")
         return None

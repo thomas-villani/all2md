@@ -16,16 +16,16 @@ Tests cover:
 from unittest.mock import MagicMock
 
 import pytest
-
-from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
-from all2md.options import ChmOptions, HtmlOptions
-from all2md.parsers.chm import ChmParser
-from tests.fixtures.generators.chm_fixtures import (
+from fixtures.generators.chm_fixtures import (
     create_chm_with_code,
     create_chm_with_nested_toc,
     create_empty_chm,
     create_simple_chm,
 )
+
+from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
+from all2md.options import ChmOptions, HtmlOptions
+from all2md.parsers.chm import ChmParser
 
 
 @pytest.mark.unit

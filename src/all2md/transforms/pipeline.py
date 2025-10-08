@@ -129,7 +129,7 @@ class HookAwareVisitor(NodeTransformer):
 
                 # Hook removed node
                 if node is None:
-                    return None
+                    return None  # type: ignore[unreachable]
 
             # Continue normal traversal with node still on path
             # This ensures children see this node in their ancestry

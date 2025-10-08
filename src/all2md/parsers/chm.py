@@ -226,7 +226,7 @@ class ChmParser(BaseParser):
             List of page paths in the CHM file
 
         """
-        pages = []
+        pages: list[str] = []
 
         # Try to get topics from TOC
         try:
@@ -240,7 +240,7 @@ class ChmParser(BaseParser):
         if not pages:
             try:
                 # Enumerate all items in CHM
-                def enum_callback(chm_file, ui, context):
+                def enum_callback(chm_file: Any, ui: Any, context: Any) -> int:
                     """Collect HTML files from CHM."""
                     path = ui.path
                     # Check if it's an HTML file
@@ -421,9 +421,10 @@ class ChmParser(BaseParser):
                     if home_content:
                         # Parse home page to extract title
                         from bs4 import BeautifulSoup
+                        from bs4.element import Tag
                         soup = BeautifulSoup(home_content, 'html.parser')
                         title_tag = soup.find('title')
-                        if title_tag and title_tag.string:
+                        if isinstance(title_tag, Tag) and title_tag.string:
                             metadata.title = title_tag.string.strip()
                 except Exception as e:
                     logger.debug(f"Failed to extract title from home page: {e}")

@@ -16,6 +16,7 @@ Functions
 import base64
 import logging
 from pathlib import Path
+from typing import Any
 
 from all2md import from_markdown, to_markdown
 from all2md.exceptions import All2MdError
@@ -67,6 +68,7 @@ def convert_to_markdown_impl(
         raise ValueError("Must specify either source_path or source_content")
 
     # Prepare source
+    source: Path | bytes
     if input_data.source_path:
         # Validate read access
         validated_path = validate_read_path(
@@ -94,7 +96,7 @@ def convert_to_markdown_impl(
             logger.info(f"Converting text content ({len(input_data.source_content)} characters)")  # type: ignore[arg-type]
 
     # Prepare conversion options
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
 
     # Add PDF-specific options if needed
     if input_data.pdf_pages:
@@ -194,6 +196,7 @@ def render_from_markdown_impl(
         raise ValueError("Must specify either markdown or markdown_path")
 
     # Prepare markdown source
+    markdown_source: str
     if input_data.markdown_path:
         # Validate read access
         validated_path = validate_read_path(
@@ -205,8 +208,8 @@ def render_from_markdown_impl(
 
     else:
         # Use provided markdown content
-        markdown_source = input_data.markdown
-        logger.info(f"Rendering from markdown content ({len(input_data.markdown)} characters)")
+        markdown_source = input_data.markdown or ""
+        logger.info(f"Rendering from markdown content ({len(markdown_source)} characters)")
 
     # Prepare output
     output_arg = None
@@ -220,7 +223,7 @@ def render_from_markdown_impl(
         logger.info(f"Writing output to: {validated_output}")
 
     # Prepare rendering options
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if input_data.flavor:
         kwargs['flavor'] = input_data.flavor
 
@@ -244,13 +247,15 @@ def render_from_markdown_impl(
         # Otherwise, return content
         else:
             # Handle different content types
-            if isinstance(result, str):
+            if result is None:
+                raise ValueError("Rendering returned None unexpectedly")
+            elif isinstance(result, str):
                 content = result
             elif isinstance(result, bytes):
                 # Base64 encode binary content
                 content = base64.b64encode(result).decode('ascii')
                 warnings.append("Binary content returned as base64-encoded string")
-            elif hasattr(result, 'read'):
+            elif hasattr(result, 'read'):  # type: ignore[unreachable]
                 # Handle BytesIO and other file-like objects from binary renderers
                 binary_content = result.read()
                 content = base64.b64encode(binary_content).decode('ascii')
