@@ -529,12 +529,13 @@ def to_markdown(
 
     final_renderer_options: MarkdownOptions
     if renderer_kwargs and renderer_options:
-        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)  # type: ignore[assignment]
+        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
         result = _create_renderer_options_from_kwargs("markdown", **renderer_kwargs)
-        final_renderer_options = result if result else MarkdownOptions()  # type: ignore[assignment]
+        assert result is None or isinstance(result, MarkdownOptions)
+        final_renderer_options = result if result else MarkdownOptions()
     elif renderer_options:
-        final_renderer_options = renderer_options  # type: ignore[assignment]
+        final_renderer_options = renderer_options
     else:
         # Default to GFM flavor
         final_renderer_options = MarkdownOptions()
@@ -571,15 +572,16 @@ def to_markdown(
             raise FormatError("Invalid source type: `image` not supported.") from e
         else:
             # Plain text handling - return content directly without AST
+            plain_text: str
             if isinstance(source, (str, Path)):
                 try:
                     with open(source, 'r', encoding='utf-8', errors='replace') as f:
-                        content = f.read()
+                        plain_text = f.read()
                 except Exception as exc:
                     raise ParsingError(f"Could not read file as UTF-8: {source}") from exc
             elif isinstance(source, bytes):
                 try:
-                    content = source.decode("utf-8", errors="replace")
+                    plain_text = source.decode("utf-8", errors="replace")
                 except Exception as exc:
                     raise ParsingError("Could not decode bytes as UTF-8") from exc
             else:
@@ -588,17 +590,17 @@ def to_markdown(
                 file.seek(0)
                 try:
                     file_content = file.read()
-                    content = file_content.decode("utf-8", errors="replace")
+                    plain_text = file_content.decode("utf-8", errors="replace")
                 except Exception as exc:
                     raise ParsingError("Could not decode file as UTF-8") from exc
 
-            return content.replace("\r\n", "\n").replace("\r", "\n")
+            return plain_text.replace("\r\n", "\n").replace("\r", "\n")
 
     # Apply transforms and render using pipeline
     content: str
     if logger.isEnabledFor(logging.DEBUG):
         start_time = time.perf_counter()
-        result = transforms_module.render(
+        render_result = transforms_module.render(
             ast_doc,
             transforms=transforms or [],
             hooks=hooks or {},
@@ -608,10 +610,10 @@ def to_markdown(
         render_time = time.perf_counter() - start_time
         logger.debug(f"Rendering (markdown) completed in {render_time:.2f}s")
         # Markdown renderer always returns str
-        assert isinstance(result, str), "Markdown renderer should return str"
-        content = result
+        assert isinstance(render_result, str), "Markdown renderer should return str"
+        content = render_result
     else:
-        result = transforms_module.render(
+        render_result = transforms_module.render(
             ast_doc,
             transforms=transforms or [],
             hooks=hooks or {},
@@ -619,8 +621,8 @@ def to_markdown(
             options=final_renderer_options
         )
         # Markdown renderer always returns str
-        assert isinstance(result, str), "Markdown renderer should return str"
-        content = result
+        assert isinstance(render_result, str), "Markdown renderer should return str"
+        content = render_result
 
     return content.replace("\r\n", "\n").replace("\r", "\n")
 
@@ -705,12 +707,19 @@ def to_ast(
         raise FormatError(f"Unknown format: {actual_format}")
 
     # Prepare parser options
+    final_parser_options: BaseParserOptions
     if kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**kwargs)
     elif kwargs:
-        final_parser_options = _create_parser_options_from_kwargs(actual_format, **kwargs)
-    else:
+        opts = _create_parser_options_from_kwargs(actual_format, **kwargs)  # type: ignore[arg-type]
+        if opts is None:
+            raise FormatError(f"Could not create parser options for format: {actual_format}")
+        final_parser_options = opts
+    elif parser_options:
         final_parser_options = parser_options
+    else:
+        # No options provided - use None (parser will use defaults)
+        final_parser_options = None  # type: ignore[assignment]
 
     # Use the parser class system to convert to AST
     try:
@@ -778,6 +787,7 @@ def from_ast(
 
     """
     # Prepare renderer options
+    final_renderer_options: Optional[BaseRendererOptions]
     if kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**kwargs)
     elif kwargs:
@@ -799,14 +809,23 @@ def from_ast(
     if output is None:
         return content
     elif isinstance(output, (str, Path)):
-        Path(output).write_text(content, encoding="utf-8")
+        if isinstance(content, bytes):
+            Path(output).write_bytes(content)
+        else:
+            Path(output).write_text(content, encoding="utf-8")
         return None
     else:
         # File-like object
         if hasattr(output, 'mode') and 'b' in output.mode:
-            output.write(content.encode('utf-8'))
+            if isinstance(content, str):
+                output.write(content.encode('utf-8'))  # type: ignore[call-overload]
+            else:
+                output.write(content)  # type: ignore[call-overload]
         else:
-            output.write(content)
+            if isinstance(content, bytes):
+                output.write(content.decode('utf-8'))  # type: ignore[call-overload]
+            else:
+                output.write(content)  # type: ignore[call-overload]
         return None
 
 
@@ -950,10 +969,11 @@ def convert(
 
     # Detect source format
     actual_source_format = (
-        source_format if source_format != "auto" else registry.detect_format(source)
+        source_format if source_format != "auto" else registry.detect_format(source)  # type: ignore[arg-type]
     )
 
     # Determine target format
+    actual_target_format: str
     if target_format != "auto":
         actual_target_format = target_format
     elif isinstance(renderer, str):
@@ -966,21 +986,22 @@ def convert(
 
     # Split kwargs between parser and renderer
     parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
-        actual_source_format, actual_target_format, kwargs
+        actual_source_format, actual_target_format, kwargs  # type: ignore[arg-type]
     )
 
     # Parse to AST
+    final_parser_options: Optional[BaseParserOptions]
     if parser_kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**parser_kwargs)
     elif parser_kwargs:
-        final_parser_options = _create_parser_options_from_kwargs(actual_source_format, **parser_kwargs)
+        final_parser_options = _create_parser_options_from_kwargs(actual_source_format, **parser_kwargs)  # type: ignore[arg-type]
     else:
         final_parser_options = parser_options
 
     ast_document = to_ast(
-        source,
+        source,  # type: ignore[arg-type]
         parser_options=final_parser_options,
-        source_format=actual_source_format,
+        source_format=actual_source_format,  # type: ignore[arg-type]
         progress_callback=progress_callback,
     )
 
@@ -988,10 +1009,11 @@ def convert(
     if flavor:
         renderer_kwargs['flavor'] = flavor
 
+    final_renderer_options: Optional[BaseRendererOptions]
     if renderer_kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
-        final_renderer_options = _create_renderer_options_from_kwargs(actual_target_format, **renderer_kwargs)
+        final_renderer_options = _create_renderer_options_from_kwargs(actual_target_format, **renderer_kwargs)  # type: ignore[arg-type]
     else:
         final_renderer_options = renderer_options
 

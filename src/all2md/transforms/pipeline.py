@@ -127,7 +127,7 @@ class HookAwareVisitor(NodeTransformer):
 
             # Hook removed node
             if node is None:
-                return None
+                return None  # type: ignore[unreachable]
 
         # Continue normal traversal with transformed node
         return super().transform(node)

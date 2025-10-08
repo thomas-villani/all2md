@@ -153,6 +153,9 @@ ignore = [
 # Python version to check against
 python_version = 3.12
 
+# Path to custom stub files
+mypy_path = "stubs"
+
 # Paths to ignore (similar to ruff exclude)
 exclude = "build|dist|.venv|.mypy_cache"
 
@@ -185,3 +188,8 @@ follow_imports = "normal"
 
 # Cache directory
 cache_dir = ".mypy_cache"
+
+# Override settings for python-docx - use our custom stubs
+[[tool.mypy.overrides]]
+module = "docx.*"
+ignore_missing_imports = false

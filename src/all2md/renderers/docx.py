@@ -18,11 +18,10 @@ import base64
 import re
 import tempfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from docx import Document as WordDocument
     from docx.text.paragraph import Paragraph
 
 from all2md.ast.nodes import (
@@ -102,7 +101,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         options = options or DocxRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: DocxRendererOptions = options
-        self.document: Optional[WordDocument] = None  # Word document
+        self.document: Any = None  # Word document (python-docx Document object)
         self._current_paragraph: Paragraph | None = None
         self._list_level: int = 0
         self._in_table: bool = False
@@ -120,7 +119,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Output destination (file path or file-like object)
 
         """
-        from docx import Document as WordDocument
+        from docx import Document
         from docx.enum.style import WD_STYLE_TYPE
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.oxml import OxmlElement
@@ -128,7 +127,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         from docx.shared import Inches, Pt, RGBColor
 
         # Store imports as instance variables for use in other methods
-        self._Document = WordDocument
+        self._Document = Document
         self._WD_STYLE_TYPE = WD_STYLE_TYPE
         self._WD_ALIGN_PARAGRAPH = WD_ALIGN_PARAGRAPH
         self._OxmlElement = OxmlElement
@@ -138,7 +137,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._RGBColor = RGBColor
 
         # Create new Word document
-        self.document = WordDocument()
+        self.document = self._Document()
 
         # Set default font
         self._set_document_defaults()

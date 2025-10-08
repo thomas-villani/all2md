@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Union
+from typing import IO, TYPE_CHECKING, Any, Union
 
 if TYPE_CHECKING:
     from pptx.presentation import Presentation
@@ -106,7 +106,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         # Rendering state
         self._current_textbox: TextFrame | None = None
-        self._current_paragraph = None
+        self._current_paragraph: Any = None
 
     @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -427,7 +427,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Add paragraph to text frame
-        p = self._current_textbox.add_paragraph()
+        p = self._current_textbox.add_paragraph()  # type: ignore[no-untyped-call]
         self._current_paragraph = p
 
         # Set font size
@@ -452,7 +452,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create paragraph for heading
-        p = self._current_textbox.add_paragraph()
+        p = self._current_textbox.add_paragraph()  # type: ignore[no-untyped-call]
         self._current_paragraph = p
 
         # Make it bold and larger
@@ -820,7 +820,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if not self._current_textbox:
             return
 
-        p = self._current_textbox.add_paragraph()
+        p = self._current_textbox.add_paragraph()  # type: ignore[no-untyped-call]
         self._current_paragraph = p
         p.font.bold = True
 
