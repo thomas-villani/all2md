@@ -46,9 +46,6 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         # Transform system not available
         return None
 
-    # Ensure discovery has happened
-    transform_registry.discover_plugins()
-
     transform_instances = []
 
     for transform_name in parsed_args.transforms:

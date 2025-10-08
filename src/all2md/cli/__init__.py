@@ -2008,8 +2008,7 @@ Examples:
             elif not arg.startswith('-'):
                 specific_transform = arg
 
-    # Discover transforms
-    transform_registry.discover_plugins()
+    # List transforms (auto-discovers on first access)
     transforms = transform_registry.list_transforms()
 
     if specific_transform:

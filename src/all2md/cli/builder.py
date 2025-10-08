@@ -470,9 +470,6 @@ class DynamicCLIBuilder:
             # Transform system not available, skip
             return
 
-        # Discover all transforms
-        transform_registry.discover_plugins()
-
         # Add --transform flag (repeatable, ordered)
         parser.add_argument(
             '--transform', '-t',
