@@ -41,6 +41,9 @@ html = [
     "chardet>=5.2.0",
     "httpx>=0.28.1",
 ]
+latex = [
+    "pylatexenc>=2.10",
+]
 
 dev = [
     "mypy>=1.18.2",
@@ -93,6 +96,7 @@ all = [
     "pyth3>=0.7",
     "chardet>=5.2.0",
     "httpx>=0.28.1",
+    "pylatexenc>=2.10",
 ]
 
 [project.scripts]

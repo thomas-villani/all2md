@@ -291,6 +291,13 @@ DEFAULT_RST_STRICT_MODE = False
 DEFAULT_RST_PRESERVE_RAW_DIRECTIVES = False
 
 # =============================================================================
+# MediaWiki Constants
+# =============================================================================
+
+DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED = True
+DEFAULT_MEDIAWIKI_IMAGE_THUMB = True
+
+# =============================================================================
 # File Extension Lists
 # =============================================================================
 _PLAINTEXT_EXTENSIONS_JSON_FILE = Path(__file__).parent / "_plaintext-exts.json"

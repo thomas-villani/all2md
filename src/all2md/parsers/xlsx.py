@@ -17,11 +17,24 @@ import tempfile
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Union, cast
 
-from all2md.ast import Alignment, Document, Heading, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import (
+    Alignment,
+    Document,
+    Heading,
+    HTMLInline,
+    Image,
+    Node,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+)
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -226,6 +239,231 @@ def _map_merged_cells(sheet: Any) -> dict[str, str]:
     return merged_map
 
 
+def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any) -> list[Image]:
+    """Extract images from an XLSX sheet and convert to Image AST nodes.
+
+    Parameters
+    ----------
+    sheet : Any
+        Openpyxl worksheet
+    base_filename : str
+        Base filename for generating image filenames
+    attachment_sequencer : callable
+        Sequencer for generating unique attachment filenames
+    options : XlsxOptions
+        Conversion options
+
+    Returns
+    -------
+    list[Image]
+        List of Image AST nodes
+
+    """
+    images: list[Image] = []
+
+    try:
+        # Access images through the sheet's _images attribute
+        if not hasattr(sheet, '_images') or not sheet._images:
+            return images
+
+        for img in sheet._images:
+            try:
+                # Get image data
+                image_bytes = img._data() if hasattr(img, '_data') and callable(img._data) else None
+                if not image_bytes and hasattr(img, 'ref'):
+                    # Try alternative method via relationships
+                    image_part = img.ref
+                    if hasattr(image_part, 'blob'):
+                        image_bytes = image_part.blob
+
+                if not image_bytes:
+                    logger.debug("Could not extract image data from XLSX sheet")
+                    continue
+
+                # Determine file extension
+                extension = "png"  # default
+                if hasattr(img, 'format'):
+                    extension = img.format.lower()
+                elif hasattr(img, 'ref') and hasattr(img.ref, 'content_type'):
+                    content_type = img.ref.content_type.lower()
+                    if 'jpeg' in content_type or 'jpg' in content_type:
+                        extension = "jpg"
+                    elif 'png' in content_type:
+                        extension = "png"
+                    elif 'gif' in content_type:
+                        extension = "gif"
+
+                # Generate filename
+                image_filename, _ = attachment_sequencer(
+                    base_stem=base_filename,
+                    format_type="general",
+                    extension=extension,
+                    attachment_type="img"
+                )
+
+                # Get alt text
+                alt_text = getattr(img, 'name', '') or getattr(img, 'title', '') or "image"
+
+                # Process attachment
+                url = process_attachment(
+                    attachment_data=image_bytes,
+                    attachment_name=image_filename,
+                    alt_text=alt_text,
+                    attachment_mode=options.attachment_mode,
+                    attachment_output_dir=options.attachment_output_dir,
+                    attachment_base_url=options.attachment_base_url,
+                    is_image=True,
+                    alt_text_mode=options.alt_text_mode,
+                )
+
+                # Create Image AST node
+                if url:
+                    images.append(Image(url=url, alt_text=alt_text))
+
+            except Exception as e:
+                logger.debug(f"Failed to extract image from XLSX: {e!r}")
+                continue
+
+    except Exception as e:
+        logger.debug(f"Error accessing sheet images: {e!r}")
+
+    return images
+
+
+def _extract_sheet_charts(sheet: Any, base_filename: str, options: Any) -> list[Node]:
+    """Extract charts from an XLSX sheet and convert to AST nodes.
+
+    Parameters
+    ----------
+    sheet : Any
+        Openpyxl worksheet
+    base_filename : str
+        Base filename for context
+    options : XlsxOptions
+        Conversion options
+
+    Returns
+    -------
+    list[Node]
+        List of AST nodes (Tables or Paragraphs) representing charts
+
+    """
+    chart_nodes: list[Node] = []
+
+    if options.chart_mode == "skip":
+        return chart_nodes
+
+    try:
+        # Access charts through the sheet's _charts attribute or ChartSpace objects
+        charts = []
+        if hasattr(sheet, '_charts') and sheet._charts:
+            charts = sheet._charts
+        elif hasattr(sheet, 'charts') and sheet.charts:
+            charts = sheet.charts
+
+        if not charts:
+            return chart_nodes
+
+        for chart in charts:
+            try:
+                if options.chart_mode == "data":
+                    # Extract chart data and convert to table
+                    table_node = _chart_to_table_ast(chart)
+                    if table_node:
+                        chart_nodes.append(table_node)
+
+            except Exception as e:
+                logger.debug(f"Failed to extract chart from XLSX: {e!r}")
+                continue
+
+    except Exception as e:
+        logger.debug(f"Error accessing sheet charts: {e!r}")
+
+    return chart_nodes
+
+
+def _chart_to_table_ast(chart: Any) -> Table | None:
+    """Convert an XLSX chart to a Table AST node.
+
+    Parameters
+    ----------
+    chart : Any
+        Openpyxl chart object
+
+    Returns
+    -------
+    Table | None
+        Table AST node representing chart data, or None if extraction fails
+
+    """
+    try:
+        # Extract chart title (for potential future use)
+        # title = ""
+        # if hasattr(chart, 'title') and chart.title:
+        #     title = str(chart.title)
+
+        # Extract series data
+        series_data: list[tuple[str, list[Any]]] = []
+        categories: list[str] = []
+
+        if hasattr(chart, 'series') and chart.series:
+            for series in chart.series:
+                series_name = getattr(series, 'title', '') or f"Series {len(series_data) + 1}"
+                if hasattr(series_name, 'v'):
+                    series_name = str(series_name.v)
+
+                # Extract values
+                values = []
+                if hasattr(series, 'values') and series.values:
+                    values_ref = series.values
+                    if hasattr(values_ref, 'numRef') and values_ref.numRef:
+                        num_cache = values_ref.numRef.numCache
+                        if num_cache and hasattr(num_cache, 'pt'):
+                            values = [pt.v for pt in num_cache.pt if hasattr(pt, 'v')]
+
+                series_data.append((str(series_name), values))
+
+                # Extract categories from first series
+                if not categories and hasattr(series, 'cat') and series.cat:
+                    cat_ref = series.cat
+                    if hasattr(cat_ref, 'strRef') and cat_ref.strRef:
+                        str_cache = cat_ref.strRef.strCache
+                        if str_cache and hasattr(str_cache, 'pt'):
+                            categories = [str(pt.v) for pt in str_cache.pt if hasattr(pt, 'v')]
+
+        if not series_data:
+            return None
+
+        # Build table with categories as first column
+        header_cells = [TableCell(content=[Text(content="Category")], alignment="left")]
+        for series_name, _ in series_data:
+            header_cells.append(TableCell(content=[Text(content=series_name)], alignment="center"))
+        header_row = TableRow(cells=header_cells, is_header=True)
+
+        # Build data rows
+        data_rows = []
+        max_rows = max(len(values) for _, values in series_data) if series_data else 0
+        for i in range(max_rows):
+            category = categories[i] if i < len(categories) else f"Row {i + 1}"
+            row_cells = [TableCell(content=[Text(content=category)], alignment="left")]
+
+            for _, values in series_data:
+                value = values[i] if i < len(values) else ""
+                row_cells.append(TableCell(content=[Text(content=str(value))], alignment="center"))
+
+            data_rows.append(TableRow(cells=row_cells, is_header=False))
+
+        # Build alignments list with proper typing
+        alignments: list[Alignment | None] = [cast(Alignment | None, "left")]
+        alignments.extend([cast(Alignment | None, "center")] * len(series_data))
+
+        return Table(header=header_row, rows=data_rows, alignments=alignments)
+
+    except Exception as e:
+        logger.debug(f"Failed to convert chart to table: {e!r}")
+        return None
+
+
 class XlsxToAstConverter(BaseParser):
     """Convert XLSX Excel files to AST representation.
 
@@ -346,6 +584,17 @@ class XlsxToAstConverter(BaseParser):
         # Extract metadata
         metadata = self.extract_metadata(workbook)
 
+        # Determine base filename for attachments
+        base_filename = "spreadsheet"
+        try:
+            if hasattr(workbook, 'properties') and workbook.properties and workbook.properties.title:
+                base_filename = workbook.properties.title.replace(' ', '_')
+        except Exception:
+            pass
+
+        # Create attachment sequencer for unique filenames
+        attachment_sequencer = create_attachment_sequencer()
+
         # Select sheets
         sheet_names: list[str] = list(workbook.sheetnames)
         if isinstance(self.options.sheets, list):
@@ -430,6 +679,14 @@ class XlsxToAstConverter(BaseParser):
                 children.append(
                     Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
                 )
+
+            # Extract images from sheet
+            sheet_images = _extract_sheet_images(sheet, base_filename, attachment_sequencer, self.options)
+            children.extend(sheet_images)
+
+            # Extract charts from sheet
+            sheet_charts = _extract_sheet_charts(sheet, base_filename, self.options)
+            children.extend(sheet_charts)
 
         return Document(children=children, metadata=metadata.to_dict())
 

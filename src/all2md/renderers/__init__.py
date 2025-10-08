@@ -55,6 +55,12 @@ Convert AST to PDF:
 
 from all2md.renderers.base import BaseRenderer
 from all2md.renderers.markdown import MarkdownRenderer
+from all2md.renderers.mediawiki import MediaWikiRenderer
+from all2md.renderers.plaintext import PlainTextRenderer
+
+# MediaWiki and PlainText renderers are always available (no optional dependencies)
+MEDIAWIKI_AVAILABLE = True
+PLAINTEXT_AVAILABLE = True
 
 # Import renderers with optional dependencies
 try:
@@ -102,12 +108,16 @@ except ImportError:
 __all__ = [
     'BaseRenderer',
     'MarkdownRenderer',
+    'MediaWikiRenderer',
+    'PlainTextRenderer',
     'DocxRenderer',
     'HtmlRenderer',
     'PdfRenderer',
     'EpubRenderer',
     'PptxRenderer',
     'RstRenderer',
+    'MEDIAWIKI_AVAILABLE',
+    'PLAINTEXT_AVAILABLE',
     'DOCX_AVAILABLE',
     'HTML_AVAILABLE',
     'PDF_AVAILABLE',

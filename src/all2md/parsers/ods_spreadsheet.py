@@ -18,11 +18,24 @@ import tempfile
 from pathlib import Path
 from typing import IO, Any, Optional, Union, cast
 
-from all2md.ast import Alignment, Document, Heading, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import (
+    Alignment,
+    Document,
+    Heading,
+    HTMLInline,
+    Image,
+    Node,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+)
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -106,6 +119,177 @@ def _build_table_ast(
     table_alignments: list[Alignment | None] = list(alignments)
 
     return Table(header=header_row, rows=data_rows, alignments=table_alignments)
+
+
+def _extract_ods_images(
+    doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
+) -> list[Image]:
+    """Extract images from an ODS table and convert to Image AST nodes.
+
+    Parameters
+    ----------
+    doc : Any
+        ODS document object
+    table : Any
+        ODS table object
+    base_filename : str
+        Base filename for generating image filenames
+    attachment_sequencer : callable
+        Sequencer for generating unique attachment filenames
+    options : OdsSpreadsheetOptions
+        Conversion options
+
+    Returns
+    -------
+    list[Image]
+        List of Image AST nodes
+
+    """
+    from odf.draw import Frame
+    from odf.draw import Image as OdfImage
+
+    images: list[Image] = []
+
+    try:
+        # Find all image frames in the table
+        frames = table.getElementsByType(Frame)
+
+        for frame in frames:
+            try:
+                # Get the image element
+                odf_images = frame.getElementsByType(OdfImage)
+                if not odf_images:
+                    continue
+
+                for odf_img in odf_images:
+                    # Get the image reference (href)
+                    href = odf_img.getAttribute('href')
+                    if not href:
+                        continue
+
+                    # Extract image data from document's Pictures directory
+                    image_bytes = None
+                    try:
+                        # Images are stored as Pictures/imagename.ext in the ODF package
+                        # The href is like Pictures/10000000000001F4000001F4ABC123.png
+                        if hasattr(doc, 'Pictures') and href in doc.Pictures:
+                            image_bytes = doc.Pictures[href]
+                        elif hasattr(doc, 'getMediaByPath'):
+                            image_bytes = doc.getMediaByPath(href)
+                    except Exception:
+                        logger.debug(f"Could not access image {href} from ODS document")
+
+                    if not image_bytes:
+                        continue
+
+                    # Determine file extension from href
+                    extension = "png"  # default
+                    if '.' in href:
+                        extension = href.rsplit('.', 1)[-1].lower()
+
+                    # Generate filename
+                    image_filename, _ = attachment_sequencer(
+                        base_stem=base_filename,
+                        format_type="general",
+                        extension=extension,
+                        attachment_type="img"
+                    )
+
+                    # Get alt text from frame or image
+                    alt_text = frame.getAttribute('name') or "image"
+
+                    # Process attachment
+                    url = process_attachment(
+                        attachment_data=image_bytes,
+                        attachment_name=image_filename,
+                        alt_text=alt_text,
+                        attachment_mode=options.attachment_mode,
+                        attachment_output_dir=options.attachment_output_dir,
+                        attachment_base_url=options.attachment_base_url,
+                        is_image=True,
+                        alt_text_mode=options.alt_text_mode,
+                    )
+
+                    # Create Image AST node
+                    if url:
+                        images.append(Image(url=url, alt_text=alt_text))
+
+            except Exception as e:
+                logger.debug(f"Failed to extract image from ODS: {e!r}")
+                continue
+
+    except Exception as e:
+        logger.debug(f"Error accessing ODS images: {e!r}")
+
+    return images
+
+
+def _extract_ods_charts(table: Any, base_filename: str, options: Any) -> list[Node]:
+    """Extract charts from an ODS table and convert to AST nodes.
+
+    Parameters
+    ----------
+    table : Any
+        ODS table object
+    base_filename : str
+        Base filename for context
+    options : OdsSpreadsheetOptions
+        Conversion options
+
+    Returns
+    -------
+    list[Node]
+        List of AST nodes (Tables or Paragraphs) representing charts
+
+    """
+    chart_nodes: list[Node] = []
+
+    if options.chart_mode == "skip":
+        return chart_nodes
+
+    try:
+        from odf.draw import Frame, Object
+
+        # Find all object frames (charts are embedded as objects)
+        frames = table.getElementsByType(Frame)
+
+        for frame in frames:
+            try:
+                objects = frame.getElementsByType(Object)
+                if not objects:
+                    continue
+
+                for obj in objects:
+                    # Check if this is a chart object
+                    href = obj.getAttribute('href')
+                    if not href or 'Object' not in str(href):
+                        continue
+
+                    if options.chart_mode == "data":
+                        # For now, add a placeholder paragraph indicating a chart was found
+                        # Full chart data extraction from ODS is complex as it requires
+                        # parsing the embedded chart subdocument
+                        chart_nodes.append(
+                            Paragraph(
+                                content=[
+                                    Text(
+                                        content=(
+                                            "[Chart detected - data extraction not yet "
+                                            "implemented for ODS]"
+                                        )
+                                    )
+                                ]
+                            )
+                        )
+
+            except Exception as e:
+                logger.debug(f"Failed to extract chart from ODS: {e!r}")
+                continue
+
+    except Exception as e:
+        logger.debug(f"Error accessing ODS charts: {e!r}")
+
+    return chart_nodes
 
 
 class OdsSpreadsheetToAstConverter(BaseParser):
@@ -227,6 +411,22 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         # Extract metadata
         metadata = self.extract_metadata(doc)
+
+        # Determine base filename for attachments
+        base_filename = "spreadsheet"
+        try:
+            if hasattr(doc, 'meta'):
+                from odf.dc import Title
+                titles = doc.meta.getElementsByType(Title)
+                if titles and len(titles) > 0:
+                    title_text = str(titles[0]).strip()
+                    if title_text:
+                        base_filename = title_text.replace(' ', '_')
+        except Exception:
+            pass
+
+        # Create attachment sequencer for unique filenames
+        attachment_sequencer = create_attachment_sequencer()
 
         body = doc.body
         tables = list(body.getElementsByType(OdfTable)) if body else []
@@ -364,6 +564,14 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                 children.append(
                     Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
                 )
+
+            # Extract images from table
+            table_images = _extract_ods_images(doc, table, base_filename, attachment_sequencer, self.options)
+            children.extend(table_images)
+
+            # Extract charts from table
+            table_charts = _extract_ods_charts(table, base_filename, self.options)
+            children.extend(table_charts)
 
         return Document(children=children, metadata=metadata.to_dict())
 

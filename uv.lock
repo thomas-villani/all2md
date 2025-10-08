@@ -21,6 +21,7 @@ all = [
     { name = "chardet" },
     { name = "httpx" },
     { name = "odfpy" },
+    { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pyth3" },
     { name = "python-docx" },
@@ -60,6 +61,9 @@ html = [
     { name = "beautifulsoup4" },
     { name = "chardet" },
     { name = "httpx" },
+]
+latex = [
+    { name = "pylatexenc" },
 ]
 markdown = [
     { name = "mistune" },
@@ -102,6 +106,8 @@ requires-dist = [
     { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "openpyxl", marker = "extra == 'spreadsheet'", specifier = ">=3.1.5" },
+    { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
+    { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.4" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.26.4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.2" },
@@ -1305,6 +1311,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b014
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217 },
 ]
+
+[[package]]
+name = "pylatexenc"
+version = "2.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5d/ab/34ec41718af73c00119d0351b7a2531d2ebddb51833a36448fc7b862be60/pylatexenc-2.10.tar.gz", hash = "sha256:3dd8fd84eb46dc30bee1e23eaab8d8fb5a7f507347b23e5f38ad9675c84f40d3", size = 162597 }
 
 [[package]]
 name = "pymupdf"

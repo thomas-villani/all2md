@@ -99,6 +99,9 @@ from .constants import (
     DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
     DEFAULT_RST_STRICT_MODE,
     DEFAULT_RST_TABLE_STYLE,
+    # MediaWiki-specific constants
+    DEFAULT_MEDIAWIKI_IMAGE_THUMB,
+    DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
     DEFAULT_SLIDE_NUMBERS,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
@@ -2054,6 +2057,49 @@ class EpubOptions(BaseParserOptions):
 
 
 @dataclass(frozen=True)
+class ChmOptions(BaseParserOptions):
+    """Configuration options for CHM-to-Markdown conversion.
+
+    This dataclass contains settings specific to Microsoft Compiled HTML Help (CHM)
+    document processing, including page handling, table of contents generation, and
+    HTML parsing configuration.
+
+    Parameters
+    ----------
+    include_toc : bool, default True
+        Whether to generate and prepend a Markdown Table of Contents from the CHM's
+        internal TOC structure at the start of the document.
+    merge_pages : bool, default True
+        Whether to merge all pages into a single continuous document. If False,
+        pages are separated with thematic breaks.
+    html_options : HtmlOptions or None, default None
+        Options for parsing HTML content within the CHM file. If None, uses default
+        HTML parsing options.
+
+    """
+
+    include_toc: bool = field(
+        default=True,
+        metadata={
+            "help": "Generate and prepend a Markdown Table of Contents from CHM TOC",
+            "cli_name": "no-include-toc"
+        }
+    )
+    merge_pages: bool = field(
+        default=True,
+        metadata={
+            "help": "Merge all pages into a single continuous document",
+            "cli_name": "no-merge-pages"
+        }
+    )
+
+    html_options: HtmlOptions | None = field(
+        default=None,
+        metadata={"exclude_from_cli": True}  # Special field, handled separately
+    )
+
+
+@dataclass(frozen=True)
 class MhtmlOptions(HtmlOptions):
     """Configuration options for MHTML-to-Markdown conversion.
 
@@ -2099,6 +2145,10 @@ class XlsxOptions(BaseParserOptions):
         Transform header case: preserve, title, upper, or lower.
     detect_merged_cells : bool, default True
         Attempt to handle merged cells.
+    chart_mode : {"data", "skip"}, default "skip"
+        How to handle embedded charts:
+        - "data": Extract chart data as markdown tables
+        - "skip": Ignore charts entirely
 
     """
 
@@ -2124,6 +2174,13 @@ class XlsxOptions(BaseParserOptions):
     detect_merged_cells: bool = field(
         default=True,
         metadata={"help": "Attempt to handle merged cells"}
+    )
+    chart_mode: Literal["data", "skip"] = field(
+        default="skip",
+        metadata={
+            "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts)",
+            "choices": ["data", "skip"]
+        }
     )
 
 
@@ -2155,6 +2212,10 @@ class OdsSpreadsheetOptions(BaseParserOptions):
         Transform header case: preserve, title, upper, or lower.
     has_header : bool, default True
         Whether the first row contains column headers.
+    chart_mode : {"data", "skip"}, default "skip"
+        How to handle embedded charts:
+        - "data": Extract chart data as markdown tables
+        - "skip": Ignore charts entirely
 
     """
 
@@ -2176,6 +2237,13 @@ class OdsSpreadsheetOptions(BaseParserOptions):
     header_case: str = field(
         default="preserve",
         metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+    )
+    chart_mode: Literal["data", "skip"] = field(
+        default="skip",
+        metadata={
+            "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts)",
+            "choices": ["data", "skip"]
+        }
     )
 
 
@@ -2690,6 +2758,291 @@ class AsciiDocOptions(BaseRendererOptions):
         metadata={
             "help": "Target line length for wrapping (0 = no wrapping)",
             "type": int
+        }
+    )
+
+
+@dataclass(frozen=True)
+class PlainTextOptions(BaseRendererOptions):
+    r"""Configuration options for plain text rendering.
+
+    This dataclass contains settings for rendering AST documents as
+    plain, unformatted text. All formatting (bold, italic, headings, etc.)
+    is stripped, leaving only the text content.
+
+    Parameters
+    ----------
+    max_line_width : int or None, default 80
+        Maximum line width for wrapping text. Set to None to disable wrapping.
+        When enabled, long lines will be wrapped at word boundaries.
+    table_cell_separator : str, default " | "
+        Separator string to use between table cells.
+    include_table_headers : bool, default True
+        Whether to include table headers in the output.
+        When False, only table body rows are rendered.
+    paragraph_separator : str, default "\n\n"
+        Separator string to use between paragraphs and block elements.
+    list_item_prefix : str, default "- "
+        Prefix to use for list items (both ordered and unordered).
+    preserve_code_blocks : bool, default True
+        Whether to preserve code block content with original formatting.
+        When False, code blocks are treated like regular paragraphs.
+
+    Examples
+    --------
+    Basic plain text rendering:
+        >>> from all2md.ast import Document, Paragraph, Text
+        >>> from all2md.renderers.plaintext import PlainTextRenderer
+        >>> from all2md.options import PlainTextOptions
+        >>> doc = Document(children=[
+        ...     Paragraph(content=[Text(content="Hello world")])
+        ... ])
+        >>> options = PlainTextOptions(max_line_width=None)
+        >>> renderer = PlainTextRenderer(options)
+        >>> text = renderer.render_to_string(doc)
+
+    """
+
+    max_line_width: int | None = field(
+        default=80,
+        metadata={
+            "help": "Maximum line width for wrapping (None = no wrapping)",
+            "type": int,
+        }
+    )
+    table_cell_separator: str = field(
+        default=" | ",
+        metadata={
+            "help": "Separator between table cells",
+            "type": str,
+        }
+    )
+    include_table_headers: bool = field(
+        default=True,
+        metadata={
+            "help": "Include table headers in output",
+            "cli_name": "no-include-table-headers",
+        }
+    )
+    paragraph_separator: str = field(
+        default="\n\n",
+        metadata={
+            "help": "Separator between paragraphs",
+            "type": str,
+        }
+    )
+    list_item_prefix: str = field(
+        default="- ",
+        metadata={
+            "help": "Prefix for list items",
+            "type": str,
+        }
+    )
+    preserve_code_blocks: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve code block formatting",
+            "cli_name": "no-preserve-code-blocks",
+        }
+    )
+
+
+@dataclass(frozen=True)
+class MediaWikiOptions(BaseRendererOptions):
+    """Configuration options for MediaWiki rendering.
+
+    This dataclass contains settings for rendering AST documents as
+    MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
+
+    Parameters
+    ----------
+    use_html_for_unsupported : bool, default True
+        Whether to use HTML tags as fallback for unsupported elements.
+        When True, unsupported formatting uses HTML tags (e.g., <u>underline</u>).
+        When False, unsupported formatting is stripped.
+    image_thumb : bool, default True
+        Whether to render images as thumbnails.
+        When True, images use |thumb option in MediaWiki syntax.
+        When False, images are rendered at full size.
+
+    Examples
+    --------
+    Basic MediaWiki rendering:
+        >>> from all2md.ast import Document, Heading, Text
+        >>> from all2md.renderers.mediawiki import MediaWikiRenderer
+        >>> from all2md.options import MediaWikiOptions
+        >>> doc = Document(children=[
+        ...     Heading(level=1, content=[Text(content="Title")])
+        ... ])
+        >>> options = MediaWikiOptions()
+        >>> renderer = MediaWikiRenderer(options)
+        >>> wiki_text = renderer.render_to_string(doc)
+
+    """
+
+    use_html_for_unsupported: bool = field(
+        default=DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
+        metadata={
+            "help": "Use HTML tags for unsupported elements",
+            "cli_name": "no-use-html-for-unsupported",
+        }
+    )
+    image_thumb: bool = field(
+        default=DEFAULT_MEDIAWIKI_IMAGE_THUMB,
+        metadata={
+            "help": "Render images as thumbnails",
+            "cli_name": "no-image-thumb",
+        }
+    )
+
+
+@dataclass(frozen=True)
+class LatexParserOptions(BaseParserOptions):
+    """Configuration options for LaTeX-to-AST parsing.
+
+    This dataclass contains settings specific to parsing LaTeX documents
+    into AST representation using pylatexenc library.
+
+    Parameters
+    ----------
+    parse_preamble : bool, default True
+        Whether to parse document preamble for metadata.
+        When True, extracts \\title, \\author, \\date, etc.
+    parse_math : bool, default True
+        Whether to parse math environments into MathBlock/MathInline nodes.
+        When True, preserves LaTeX math notation in AST.
+    parse_custom_commands : bool, default False
+        Whether to attempt parsing custom LaTeX commands.
+        SECURITY: Disabled by default to prevent unexpected behavior.
+    strict_mode : bool, default False
+        Whether to raise errors on invalid LaTeX syntax.
+        When False, attempts to recover gracefully.
+    encoding : str, default "utf-8"
+        Text encoding to use when reading LaTeX files.
+    preserve_comments : bool, default False
+        Whether to preserve LaTeX comments in the AST.
+        When True, comments are stored in node metadata.
+
+    """
+
+    parse_preamble: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse document preamble for metadata",
+            "cli_name": "no-parse-preamble"
+        }
+    )
+    parse_math: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse math environments into AST math nodes",
+            "cli_name": "no-parse-math"
+        }
+    )
+    parse_custom_commands: bool = field(
+        default=False,
+        metadata={
+            "help": "Parse custom LaTeX commands (SECURITY: disabled by default)",
+            "cli_name": "parse-custom-commands"
+        }
+    )
+    strict_mode: bool = field(
+        default=False,
+        metadata={
+            "help": "Raise errors on invalid LaTeX syntax"
+        }
+    )
+    encoding: str = field(
+        default="utf-8",
+        metadata={
+            "help": "Text encoding for reading LaTeX files",
+            "type": str
+        }
+    )
+    preserve_comments: bool = field(
+        default=False,
+        metadata={
+            "help": "Preserve LaTeX comments in AST",
+            "cli_name": "preserve-comments"
+        }
+    )
+
+
+@dataclass(frozen=True)
+class LatexOptions(BaseRendererOptions):
+    """Configuration options for AST-to-LaTeX rendering.
+
+    This dataclass contains settings for rendering AST documents as
+    LaTeX output suitable for compilation with pdflatex/xelatex.
+
+    Parameters
+    ----------
+    document_class : str, default "article"
+        LaTeX document class to use (article, report, book, etc.).
+    include_preamble : bool, default True
+        Whether to generate a complete document with preamble.
+        When False, generates only document body (for inclusion).
+    packages : list[str], default ["amsmath", "graphicx", "hyperref"]
+        LaTeX packages to include in preamble.
+    math_mode : {"inline", "display"}, default "display"
+        Preferred math rendering mode for ambiguous cases.
+    line_width : int, default 0
+        Target line width for text wrapping (0 = no wrapping).
+    escape_special : bool, default True
+        Whether to escape special LaTeX characters ($, %, &, etc.).
+        Only disable if input is already LaTeX-safe.
+    use_unicode : bool, default True
+        Whether to allow Unicode characters in output.
+        When False, uses LaTeX escapes for special characters.
+
+    """
+
+    document_class: str = field(
+        default="article",
+        metadata={
+            "help": "LaTeX document class (article, report, book, etc.)",
+            "type": str
+        }
+    )
+    include_preamble: bool = field(
+        default=True,
+        metadata={
+            "help": "Generate complete document with preamble",
+            "cli_name": "no-include-preamble"
+        }
+    )
+    packages: list[str] = field(
+        default_factory=lambda: ["amsmath", "graphicx", "hyperref"],
+        metadata={
+            "help": "LaTeX packages to include in preamble"
+        }
+    )
+    math_mode: Literal["inline", "display"] = field(
+        default="display",
+        metadata={
+            "help": "Preferred math rendering mode",
+            "choices": ["inline", "display"]
+        }
+    )
+    line_width: int = field(
+        default=0,
+        metadata={
+            "help": "Target line width for wrapping (0 = no wrapping)",
+            "type": int
+        }
+    )
+    escape_special: bool = field(
+        default=True,
+        metadata={
+            "help": "Escape special LaTeX characters",
+            "cli_name": "no-escape-special"
+        }
+    )
+    use_unicode: bool = field(
+        default=True,
+        metadata={
+            "help": "Allow Unicode characters in output",
+            "cli_name": "no-use-unicode"
         }
     )
 
