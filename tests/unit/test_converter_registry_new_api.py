@@ -137,6 +137,29 @@ class TestRegistryNewAPI:
         detected = registry.detect_format(html_content)
         assert detected == "html"
 
+    def test_format_detection_with_text_streams(self):
+        """Test that format detection handles text streams (StringIO) correctly."""
+        from io import BytesIO, StringIO
+
+        # Test with BytesIO (binary stream) - should work as before
+        pdf_bytes = b"%PDF-1.4\nBinary PDF content"
+        binary_stream = BytesIO(pdf_bytes)
+        detected = registry.detect_format(binary_stream)
+        assert detected == "pdf"
+
+        # Test with StringIO (text stream) - content should be encoded to bytes
+        # StringIO contains text that would be PDF magic bytes if encoded
+        pdf_text = "%PDF-1.4\nText PDF content"
+        text_stream = StringIO(pdf_text)
+        detected = registry.detect_format(text_stream)
+        assert detected == "pdf"
+
+        # Test with HTML in StringIO
+        html_text = "<!DOCTYPE html><html><body>Test</body></html>"
+        html_stream = StringIO(html_text)
+        detected = registry.detect_format(html_stream)
+        assert detected == "html"
+
     def test_options_class_can_be_instantiated(self):
         """Test that options classes returned by get_parser_options_class are usable."""
         options_class = registry.get_parser_options_class("pdf")

@@ -12,7 +12,9 @@ focused ODS parser.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import IO, Any, Optional, Union, cast
 
@@ -24,6 +26,7 @@ from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.security import validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +158,39 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         """
         from odf import opendocument
+
+        # Validate ZIP archive security for all input types
+        if isinstance(input_data, (str, Path)):
+            # Path/str inputs - validate directly
+            validate_zip_archive(input_data)
+        elif isinstance(input_data, bytes):
+            # Bytes inputs - create temp file, validate, cleanup
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.ods') as tmp:
+                tmp.write(input_data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        elif hasattr(input_data, 'read'):
+            # File-like inputs - read, validate, reset position
+            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+            input_data.seek(0)
+            data = input_data.read()
+            input_data.seek(original_position)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.ods') as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
         # Load ODS document
         try:

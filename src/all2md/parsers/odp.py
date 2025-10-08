@@ -11,6 +11,8 @@ It replaces the combined ODF parser with a focused presentation parser.
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
@@ -112,10 +114,38 @@ class OdpToAstConverter(BaseParser):
         """
         from odf import opendocument
 
-        # Validate ZIP archive security for file-based inputs
-        if isinstance(input_data, (str, Path)) and Path(input_data).exists():
+        # Validate ZIP archive security for all input types
+        if isinstance(input_data, (str, Path)):
+            # Path/str inputs - validate directly
             validate_zip_archive(input_data)
-
+        elif isinstance(input_data, bytes):
+            # Bytes inputs - create temp file, validate, cleanup
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.odp') as tmp:
+                tmp.write(input_data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        elif hasattr(input_data, 'read'):
+            # File-like inputs - read, validate, reset position
+            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+            input_data.seek(0)
+            data = input_data.read()
+            input_data.seek(original_position)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.odp') as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
         try:
             doc = opendocument.load(input_data)

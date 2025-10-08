@@ -12,7 +12,9 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
@@ -204,10 +206,38 @@ class DocxToAstConverter(BaseParser):
             # For non-file inputs that aren't file-like, keep existing base_filename
             pass
 
-        # Validate ZIP archive security for file-based inputs
+        # Validate ZIP archive security for all input types
         if isinstance(input_data, (str, Path)):
-            # Raises a security error if found
+            # Path/str inputs - validate directly
             validate_zip_archive(input_data)
+        elif isinstance(input_data, bytes):
+            # Bytes inputs - create temp file, validate, cleanup
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                tmp.write(input_data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        elif hasattr(input_data, 'read'):
+            # File-like inputs - read, validate, reset position
+            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+            input_data.seek(0)
+            data = input_data.read()
+            input_data.seek(original_position)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
         # Load the document with error handling
         try:

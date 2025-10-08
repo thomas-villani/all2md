@@ -494,7 +494,7 @@ class ConverterRegistry:
                     return format_name
 
         # Try content-based detection
-        content = None
+        content: bytes | str | None = None
         if isinstance(input_data, bytes):
             content = input_data
         elif isinstance(input_data, (str, Path)):
@@ -513,6 +513,10 @@ class ConverterRegistry:
                 input_data.seek(pos)
             except Exception:
                 pass
+
+        # Normalize content to bytes if it's a string (from text streams)
+        if isinstance(content, str):
+            content = content.encode('utf-8', errors='ignore')
 
         if content:
             format_name = self._detect_by_content(content)
@@ -667,7 +671,7 @@ class ConverterRegistry:
         )
 
         # Get content for context-aware dependency checking
-        content = None
+        content: bytes | str | None = None
         if input_data:
             if isinstance(input_data, bytes):
                 content = input_data
@@ -685,6 +689,10 @@ class ConverterRegistry:
                     input_data.seek(pos)
                 except Exception:
                     pass
+
+        # Normalize content to bytes if it's a string (from text streams)
+        if isinstance(content, str):
+            content = content.encode('utf-8', errors='ignore')
 
         for fmt in formats_to_check:
             if fmt not in self._converters:
