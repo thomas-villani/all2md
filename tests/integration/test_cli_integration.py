@@ -77,7 +77,7 @@ class TestCLIIntegration:
         pdf_file = self.temp_dir / "test.pdf"
         pdf_file.write_text("Mock PDF content")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test PDF\n\nContent from pages 1-2"
 
             result = main([str(pdf_file), "--pdf-pages", "1,2", "--pdf-password", "secret", "--pdf-no-detect-columns"])
@@ -89,7 +89,7 @@ class TestCLIIntegration:
             kwargs = call_args[1]
 
             assert "pages" in kwargs
-            assert kwargs["pages"] == "1,2"
+            assert kwargs["pages"] == [1, 2]
             assert kwargs["password"] == "secret"
             assert kwargs["detect_columns"] is False
 
@@ -99,7 +99,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>HTML Content</h1>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "<h1>HTML Content</h1>"
 
             result = main([str(html_file), "--format", "txt"])
@@ -114,7 +114,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test"
 
             result = main([str(html_file), "--attachment-output-dir", "./images"])
@@ -131,9 +131,10 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test"
 
+            # Patch where the function is used, not where it's defined
             with patch("all2md.cli._configure_logging") as mock_logging:
                 result = main([str(html_file), "--log-level", "DEBUG"])
 
@@ -148,7 +149,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test <img src='image.png' alt='test'></p>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "Test ![test](images/image.png)"
 
             result = main(
@@ -178,7 +179,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p><em>italic</em> and <ul><li>item</li></ul></p>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "_italic_ and\n\n- item"
 
             result = main(
@@ -215,7 +216,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = ParsingError("Test conversion error")
 
             result = main([str(html_file)])
@@ -229,7 +230,7 @@ class TestCLIIntegration:
         pdf_file = self.temp_dir / "test.pdf"
         pdf_file.write_text("Mock PDF")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = ImportError("PyMuPDF not found")
 
             result = main([str(pdf_file)])
@@ -243,7 +244,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = RuntimeError("Unexpected error")
 
             result = main([str(html_file)])
@@ -261,7 +262,7 @@ class TestCLIIntegration:
         output_dir = self.temp_dir / "nested" / "dir"
         output_file = output_dir / "output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test"
 
             result = main([str(html_file), "--out", str(output_file)])
@@ -275,7 +276,7 @@ class TestCLIIntegration:
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>Test</h1>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Content"
 
             result = main([str(html_file)])
@@ -301,7 +302,7 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "complex_output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = (
                 "# Complex Test\n\n## Heading\n\n**Bold** and _italic_ text.\n\n![Test image](images/test.png)"
             )
@@ -348,7 +349,7 @@ class TestCLIIntegration:
         odt_file = self.temp_dir / "test.odt"
         odt_file.write_text("Mock ODT content")  # Not a real ODT, but CLI should detect format
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Document\n\nThis is converted from ODT."
 
             result = main([str(odt_file)])
@@ -363,7 +364,7 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = (
                 "# ODT Document\n\nContent with table:\n\n| Col1 | Col2 |\n| --- | --- |\n| A | B |"
             )
@@ -398,7 +399,7 @@ class TestCLIIntegration:
         odp_file = self.temp_dir / "presentation.odp"
         odp_file.write_text("Mock ODP content")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Slide 1\n\nPresentation content\n\n# Slide 2\n\nMore content"
 
             result = main([str(odp_file)])
@@ -412,7 +413,7 @@ class TestCLIIntegration:
         test_file = self.temp_dir / "document.txt"
         test_file.write_text("Mock content")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nForced as ODT"
 
             result = main([str(test_file), "--format", "odf"])
@@ -427,7 +428,7 @@ class TestCLIIntegration:
         odt_file = self.temp_dir / "with_images.odt"
         odt_file.write_text("Mock ODT with images")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\n![Image](image.png)\n\nText with image."
 
             result = main(
@@ -455,7 +456,7 @@ class TestCLIIntegration:
         odt_file = self.temp_dir / "with_tables.odt"
         odt_file.write_text("Mock ODT with tables")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             # Test with tables enabled
             mock_to_markdown.return_value = (
                 "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
@@ -481,7 +482,7 @@ class TestCLIIntegration:
         nonexistent_file = self.temp_dir / "nonexistent.odt"
 
         # Should fail gracefully for nonexistent file
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = MalformedFileError("File not found")
 
             result = main([str(nonexistent_file)])
@@ -510,7 +511,7 @@ class TestCLIIntegration:
         with open(ipynb_file, "w") as f:
             json.dump(notebook_content, f)
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = (
                 "# Test Notebook\n\nThis is a test.\n\n```python\n"
                 "print('Hello, World!')\n```\n\n```\nHello, World!\n```"
@@ -526,7 +527,7 @@ class TestCLIIntegration:
         test_file = self.temp_dir / "document.txt"
         test_file.write_text("Mock notebook content")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nForced as Jupyter Notebook"
 
             result = main([str(test_file), "--format", "ipynb"])
@@ -541,7 +542,7 @@ class TestCLIIntegration:
         ipynb_file = self.temp_dir / "with_plots.ipynb"
         ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Notebook\n\n![cell output](plot.png)\n\nCode with plot."
 
             result = main(
@@ -569,7 +570,7 @@ class TestCLIIntegration:
         ipynb_file = self.temp_dir / "long_output.ipynb"
         ipynb_file.write_text('{"cells": [], "metadata": {}, "nbformat": 4}')
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             # Test basic ipynb conversion
             mock_to_markdown.return_value = "```python\nfor i in range(10): print(i)\n```"
 
@@ -582,7 +583,7 @@ class TestCLIIntegration:
         """Test error handling for Jupyter Notebook conversion."""
         nonexistent_file = self.temp_dir / "nonexistent.ipynb"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.side_effect = MalformedFileError("Invalid JSON")
 
             result = main([str(nonexistent_file)])
@@ -608,7 +609,7 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Output Test\n\n```python\nx = 42\n```"
 
             result = main([str(ipynb_file), "--out", str(output_file)])
@@ -626,7 +627,7 @@ class TestCLIIntegration:
 
         output_file = self.temp_dir / "complex_output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = """# Complex Notebook
 
 Code and outputs with custom settings."""
@@ -646,7 +647,7 @@ Code and outputs with custom settings."""
 
         output_file = self.temp_dir / "complex_output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = """# Complex Document
 
 This is a complex document with:
@@ -715,7 +716,7 @@ class TestAdvancedCLIIntegration:
         output_dir = self.temp_dir / "output"
 
         # Test rich output (may fallback if rich not installed)
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test Document\n\nContent"
 
             result = main(
@@ -741,7 +742,7 @@ class TestAdvancedCLIIntegration:
             html_file.write_text(f"<h1>Document {i}</h1><p>Test content {i}</p>")
             files.append(str(html_file))
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nTest content"
 
             result = main([*files, "--progress", "--no-summary"])
@@ -760,7 +761,7 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "converted"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
 
             def mock_conversion(input_path, **kwargs):
                 if "html" in str(input_path):
@@ -792,7 +793,7 @@ class TestAdvancedCLIIntegration:
 
         output_file = self.temp_dir / "combined.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
 
             def mock_conversion(input_path, **kwargs):
                 # Extract number from filename
@@ -841,7 +842,7 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "output"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             result = main(
@@ -874,7 +875,7 @@ class TestAdvancedCLIIntegration:
         os.environ["ALL2MD_OUTPUT_DIR"] = str(self.temp_dir / "env_output")
 
         try:
-            with patch("all2md.cli.to_markdown") as mock_to_markdown:
+            with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
                 mock_to_markdown.return_value = "# Test\n\nContent"
 
                 # Test using environment variables
@@ -884,7 +885,7 @@ class TestAdvancedCLIIntegration:
                 # Should use env var for output dir (if not overridden)
 
             # Test CLI override of environment variables
-            with patch("all2md.cli.to_markdown") as mock_to_markdown:
+            with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
                 mock_to_markdown.return_value = "# Test\n\nContent"
 
                 cli_output_dir = self.temp_dir / "cli_output"
@@ -914,7 +915,7 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "parallel_output"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
 
             def slow_conversion(input_path, **kwargs):
                 import time
@@ -945,7 +946,7 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "error_output"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
 
             def selective_error(input_path, **kwargs):
                 if "bad" in str(input_path):
@@ -978,7 +979,7 @@ class TestAdvancedCLIIntegration:
             test_file.write_text(f"<h1>Complex {i}</h1><p>Test {i}</p>")
             files.append(str(test_file))
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Complex\n\nTest content"
 
             # Test combination of many new features
@@ -1010,7 +1011,7 @@ class TestAdvancedCLIIntegration:
         output_dir = self.temp_dir / "multi_output"
         images_dir = self.temp_dir / "images"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
 
             def mock_with_images(input_path, **kwargs):
                 if "doc1" in str(input_path):
@@ -1052,7 +1053,7 @@ class TestAdvancedCLIIntegration:
 
         output_dir = self.temp_dir / "formatted_output"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\n_Italic_ and **bold**"
 
             result = main(
@@ -1092,7 +1093,7 @@ class TestAdvancedCLIIntegration:
             file_path.write_text(content)
             file_paths.append(str(file_path))
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
 
             def format_specific_mock(input_path, **kwargs):
                 path_str = str(input_path)
@@ -1178,7 +1179,7 @@ class TestEnhancedCLIIntegration:
             config = json.load(f)
 
         assert "pdf.pages" in config
-        assert config["pdf.pages"] == "1,2,3"
+        assert config["pdf.pages"] == [1, 2, 3]
         assert "markdown.emphasis_symbol" in config
         assert config["markdown.emphasis_symbol"] == "_"
         assert "rich" in config
@@ -1241,7 +1242,7 @@ class TestEnhancedCLIIntegration:
 
         output_dir = self.temp_dir / "output"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             result = main(
@@ -1291,7 +1292,7 @@ class TestEnhancedCLIIntegration:
         for file_path in test_files:
             file_path.write_text("test content")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             result = main(
@@ -1364,7 +1365,7 @@ class TestEnhancedCLIIntegration:
             config = json.load(f)
 
         # Should include all relevant options
-        assert config["pdf.pages"] == "1,3,5"
+        assert config["pdf.pages"] == [1, 3, 5]
         assert config["pdf.password"] == "secret123"
         assert config["pdf.detect_columns"] is False
         assert config["markdown.emphasis_symbol"] == "_"
@@ -1386,7 +1387,7 @@ class TestEnhancedCLIIntegration:
         test_file.write_text("<h1>Test</h1><p><em>Italic</em></p>")
 
         # Use the saved config
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\n_Italic_"
 
             result = main([str(test_file), "--options-json", str(config_file)])
@@ -1439,7 +1440,7 @@ class TestEnhancedCLIIntegration:
         assert not output_dir.exists()
 
         # Now test actual conversion using the config
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nContent"
 
             result = main([str(self.temp_dir), "--options-json", str(config_file), "--no-summary"])
@@ -1479,7 +1480,7 @@ class TestEnhancedCLIIntegration:
         test_file = self.temp_dir / "test.html"
         test_file.write_text("<h1>Test</h1>")
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             # Test with complex exclusion patterns that don't match our file
@@ -1548,7 +1549,7 @@ class TestEnhancedCLIIntegration:
 
         output_file = self.temp_dir / "output.md"
 
-        with patch("all2md.cli.to_markdown") as mock_to_markdown:
+        with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Test\n\nContent"
 
             # Test that all existing patterns still work

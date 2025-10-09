@@ -9,8 +9,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.cli import create_parser, process_dry_run, generate_output_path, save_config_to_file, collect_input_files, \
-    handle_dependency_commands
+from all2md.cli.builder import create_parser
+from all2md.cli.processors import process_dry_run, generate_output_path
+from all2md.cli.commands import save_config_to_file, handle_dependency_commands
 from all2md.cli.builder import DynamicCLIBuilder
 
 
@@ -182,7 +183,8 @@ class TestCLIParser:
         # Test that PDF options exist
         args = parser.parse_args(["test.pdf", "--pdf-pages", "1,2,3"])
         assert hasattr(args, 'pdf.pages')
-        assert getattr(args, 'pdf.pages') == "1,2,3"
+        # Pages are now correctly parsed as a list of integers
+        assert getattr(args, 'pdf.pages') == [1, 2, 3]
 
         # Test that HTML options exist
         args = parser.parse_args(["test.html", "--html-extract-title"])

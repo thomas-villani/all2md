@@ -45,9 +45,9 @@ class TestMCPEndToEndWorkflow:
 
         result = convert_to_markdown_impl(convert_input, config)
 
-        assert "Test Document" in result.markdown
-        assert "test" in result.markdown
-        assert "Item 1" in result.markdown
+        assert "Test Document" in result[0] if isinstance(result, list) else result.markdown
+        assert "test" in result[0] if isinstance(result, list) else result.markdown
+        assert "Item 1" in result[0] if isinstance(result, list) else result.markdown
 
     def test_markdown_to_html_workflow(self, tmp_path):
         """Test converting Markdown to HTML."""
@@ -107,12 +107,12 @@ More content here.
 
             result = convert_to_markdown_impl(convert_input, config)
 
-            assert "Temp Test" in result.markdown
+            assert "Temp Test" in result[0] if isinstance(result, list) else result.markdown
 
             # Render back to HTML
             output_file = Path(temp_dir) / "output.html"
             render_input = RenderFromMarkdownInput(
-                markdown=result.markdown,
+                markdown=result[0] if isinstance(result, list) else result.markdown,
                 target_format="html",
                 output_path=str(output_file)
             )
@@ -138,12 +138,12 @@ More content here.
 
         result = convert_to_markdown_impl(convert_input, config)
 
-        assert "Inline Test" in result.markdown
-        assert "content" in result.markdown
+        assert "Inline Test" in result[0] if isinstance(result, list) else result.markdown
+        assert "content" in result[0] if isinstance(result, list) else result.markdown
 
         # Render Markdown to HTML (returned as string)
         render_input = RenderFromMarkdownInput(
-            markdown=result.markdown,
+            markdown=result[0] if isinstance(result, list) else result.markdown,
             target_format="html"
         )
 

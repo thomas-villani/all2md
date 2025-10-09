@@ -9,10 +9,11 @@ import platform
 import sys
 from importlib.metadata import version
 from pathlib import Path
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
-from all2md import registry, convert
-from all2md.cli import create_parser, process_detect_only, process_dry_run
+from all2md import convert, registry
+from all2md.cli.builder import create_parser
+from all2md.cli.processors import process_detect_only, process_dry_run
 from all2md.converter_metadata import ConverterMetadata
 from all2md.dependencies import check_version_requirement, get_package_version
 
@@ -27,7 +28,6 @@ def _get_version() -> str:
 
 def _get_about_info() -> str:
     """Get detailed information about all2md including system info and dependencies."""
-
     version_str = _get_version()
 
     # System information

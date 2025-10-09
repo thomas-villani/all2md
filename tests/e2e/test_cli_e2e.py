@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 
 import pytest
+
+from all2md.constants import EXIT_PARSING_ERROR
 from utils import cleanup_test_dir, create_test_temp_dir
 
 
@@ -489,7 +491,7 @@ def example_function():
 
         # Should process without major errors
         # Note: ODP conversion might be limited, so we just check it doesn't crash
-        assert result.returncode in [0, 1]  # May fail gracefully if ODP support is limited
+        assert result.returncode == EXIT_PARSING_ERROR
 
     @pytest.mark.odf
     def test_odf_format_override(self):

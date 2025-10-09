@@ -153,9 +153,8 @@ def timing(
     ...     print(f"Processed in {timer.elapsed:.2f}s")
 
     """
-    ctx = TimingContext(operation_name, logger_instance)
-    yield ctx.__enter__()
-    ctx.__exit__(None, None, None)
+    with TimingContext(operation_name, logger_instance) as ctx:
+        yield ctx
 
 
 def format_duration(seconds: float) -> str:

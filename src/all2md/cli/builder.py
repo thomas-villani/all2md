@@ -8,15 +8,17 @@ from dataclass options using field metadata.
 import argparse
 import difflib
 import sys
+import types
 import warnings
 from dataclasses import fields, is_dataclass
-from typing import Any, Dict, Optional, Type, Union, get_args, get_type_hints
+from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_origin, get_type_hints
 
 from all2md.cli.custom_actions import (
     TrackingAppendAction,
+    TrackingPositiveIntAction,
     TrackingStoreAction,
     TrackingStoreFalseAction,
-    TrackingStoreTrueAction, TrackingPositiveIntAction,
+    TrackingStoreTrueAction,
 )
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
@@ -69,6 +71,9 @@ class DynamicCLIBuilder:
     def _handle_optional_type(self, field_type: Type) -> tuple[Type, bool]:
         """Handle Optional/Union types to extract the underlying type.
 
+        Supports both typing.Union and PEP 604 unions (X | Y), as well as
+        Annotated types.
+
         Parameters
         ----------
         field_type : Type
@@ -80,19 +85,29 @@ class DynamicCLIBuilder:
             Tuple of (underlying_type, is_optional)
 
         """
+        # Handle Annotated[T, ...] by unwrapping to the underlying type
+        origin = get_origin(field_type)
+        if origin is Annotated:
+            args = get_args(field_type)
+            if args:
+                # Recursively handle the unwrapped type
+                return self._handle_optional_type(args[0])
+
         # Handle Union types (including Optional which is Union[T, None])
-        if hasattr(field_type, '__origin__') and field_type.__origin__ is Union:
-            args = field_type.__args__
-            if len(args) == 2 and type(None) in args:
-                # This is Optional[SomeType] (Union[SomeType, None])
-                underlying_type = args[0] if args[1] is type(None) else args[1]
+        # This handles both typing.Union and PEP 604 unions (X | Y -> types.UnionType)
+        if origin is Union or origin is types.UnionType:
+            args = get_args(field_type)
+            if type(None) in args:
+                # This is Optional[SomeType] (Union[SomeType, None] or SomeType | None)
+                # Extract the non-None type
+                underlying_type = next(arg for arg in args if arg is not type(None))
                 return underlying_type, True
             else:
                 # Non-Optional Union - return as-is
                 return field_type, False
 
-        # Handle other generic types with __origin__ (like list[int])
-        if hasattr(field_type, '__origin__'):
+        # Handle other generic types with origin (like list[int])
+        if origin is not None:
             return field_type, False
 
         # Regular type
@@ -143,21 +158,47 @@ class DynamicCLIBuilder:
         elif 'choices' in metadata:
             kwargs['choices'] = metadata['choices']
 
-        # Handle list types
-        elif hasattr(resolved_type, '__origin__') and resolved_type.__origin__ is list:
+        # Handle list types using modern typing introspection
+        elif get_origin(resolved_type) is list:
             # Get the list item type if available
-            if hasattr(resolved_type, '__args__') and resolved_type.__args__:
-                item_type = resolved_type.__args__[0]
+            args = get_args(resolved_type)
+            if args:
+                item_type = args[0]
                 if item_type is int:
+                    # Add type function to parse comma-separated integers
+                    def parse_int_list(value: str) -> list[int]:
+                        try:
+                            return [int(x.strip()) for x in value.split(',')]
+                        except ValueError as e:
+                            raise argparse.ArgumentTypeError(
+                                f"Expected comma-separated integers, got: {value}"
+                            ) from e
+                    kwargs['type'] = parse_int_list
                     kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
-                    # Will be handled by custom action or type function
                 else:
-                    kwargs['help'] = kwargs.get('help', '') + ' (comma-separated)'
+                    # Add type function to parse comma-separated strings
+                    def parse_str_list(value: str) -> list[str]:
+                        return [x.strip() for x in value.split(',') if x.strip()]
+                    kwargs['type'] = parse_str_list
+                    kwargs['help'] = kwargs.get('help', '') + ' (comma-separated values)'
             else:
-                kwargs['help'] = kwargs.get('help', '') + ' (comma-separated)'
+                # Fallback for untyped lists
+                def parse_str_list_fallback(value: str) -> list[str]:
+                    return [x.strip() for x in value.split(',') if x.strip()]
+                kwargs['type'] = parse_str_list_fallback
+                kwargs['help'] = kwargs.get('help', '') + ' (comma-separated values)'
 
-        # Handle special metadata types
+        # Handle special metadata types (legacy support for list_int)
         elif metadata.get('type') == 'list_int':
+            # Add type function to parse comma-separated integers
+            def parse_legacy_int_list(value: str) -> list[int]:
+                try:
+                    return [int(x.strip()) for x in value.split(',')]
+                except ValueError as e:
+                    raise argparse.ArgumentTypeError(
+                        f"Expected comma-separated integers, got: {value}"
+                    ) from e
+            kwargs['type'] = parse_legacy_int_list
             kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
 
         # Handle basic types
@@ -354,8 +395,10 @@ class DynamicCLIBuilder:
                 continue
 
             # Determine if this is a boolean with True default for --no-* handling
-            field_type_is_bool = field.type is bool or field.type == 'bool'
-            is_bool_true_default = field_type_is_bool and field.default is True
+            # Use resolved type instead of raw field.type for robust handling
+            resolved_field_type = self._resolve_field_type(field, options_class)
+            underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
+            is_bool_true_default = underlying_field_type is bool and field.default is True
 
             # Get CLI name (explicit or inferred)
             if 'cli_name' in metadata:
@@ -1003,8 +1046,6 @@ Examples:
 
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
-
-
     builder = DynamicCLIBuilder()
     parser = builder.build_parser()
 
