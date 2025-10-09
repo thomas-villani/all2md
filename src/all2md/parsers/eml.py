@@ -866,6 +866,9 @@ class EmlToAstConverter(BaseParser):
             If input type is not supported
 
         """
+        # Reset parser state to prevent leakage across parse calls
+        self._attachment_footnotes = {}
+
         # Parse the email message
         try:
             if isinstance(input_data, (str, Path)):

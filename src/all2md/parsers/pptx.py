@@ -202,8 +202,10 @@ class PptxToAstConverter(BaseParser):
             AST document node
 
         """
-        # Reset footnote collection for this conversion
+        # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
+        self._current_slide_num = 0
+        self._attachment_sequencer = create_attachment_sequencer()
 
         children: list[Node] = []
 

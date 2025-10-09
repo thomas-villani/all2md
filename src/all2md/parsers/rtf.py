@@ -160,8 +160,10 @@ class RtfToAstConverter(BaseParser):
         if not pyth_doc or not hasattr(pyth_doc, "content"):
             return Document(children=[], metadata=metadata.to_dict())
 
-        # Reset footnote collection for this conversion
+        # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
+        self._attachment_sequencer = create_attachment_sequencer()
+        self._list_stack = []
 
         children: list[Node] = []
         for elem in pyth_doc.content:

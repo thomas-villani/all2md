@@ -114,6 +114,9 @@ class MarkdownToAstConverter(BaseParser):
         # Load markdown content from various input types
         markdown_content = self._load_markdown_content(input_data)
 
+        # Reset parser state to prevent leakage across parse calls
+        self._footnote_definitions = {}
+
         import mistune
 
         # Configure mistune plugins based on options

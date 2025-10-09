@@ -269,8 +269,11 @@ class HtmlToAstConverter(BaseParser):
             AST document node
 
         """
-        # Reset footnote collection for this conversion
+        # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
+        self._list_depth = 0
+        self._in_code_block = False
+        self._heading_level_offset = 0
 
         from bs4 import BeautifulSoup
         from bs4.element import Comment, Tag

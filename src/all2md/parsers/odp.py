@@ -170,8 +170,10 @@ class OdpToAstConverter(BaseParser):
         # For ODP, content is in doc.presentation
         content_root = getattr(doc, 'presentation', None)
 
-        # Reset footnote collection for this conversion
+        # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
+        self._list_level = 0
+        self._current_slide = 0
 
         # Extract metadata
         metadata = self.extract_metadata(doc)

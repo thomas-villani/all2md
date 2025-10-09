@@ -113,6 +113,9 @@ class LatexParser(BaseParser):
         # Load content
         content = self._load_content(input_data)
 
+        # Reset parser state to prevent leakage across parse calls
+        self.document_metadata = {}
+
         # Emit progress event
         self._emit_progress("started", "Parsing LaTeX", current=0, total=100)
 

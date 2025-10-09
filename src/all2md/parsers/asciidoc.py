@@ -420,6 +420,11 @@ class AsciiDocParser(BaseParser):
         # Load content
         content = self._load_content(input_data)
 
+        # Reset parser state to prevent leakage across parse calls
+        self.attributes = {}
+        self.tokens = []
+        self.current_token_index = 0
+
         # Emit progress event
         self._emit_progress("started", "Parsing AsciiDoc", current=0, total=100)
 

@@ -166,8 +166,9 @@ class OdtToAstConverter(BaseParser):
         # For ODT, content is in doc.text
         content_root = getattr(doc, 'text', None)
 
-        # Reset footnote collection for this conversion
+        # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
+        self._list_level = 0
 
         # Extract metadata
         metadata = self.extract_metadata(doc)
