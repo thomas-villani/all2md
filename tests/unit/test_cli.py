@@ -9,7 +9,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.cli import create_parser, parse_pdf_pages
+from all2md.cli import create_parser, process_dry_run, generate_output_path, save_config_to_file, collect_input_files, \
+    handle_dependency_commands
 from all2md.cli.builder import DynamicCLIBuilder
 
 
@@ -17,31 +18,6 @@ from all2md.cli.builder import DynamicCLIBuilder
 @pytest.mark.cli
 class TestDynamicCLIBuilder:
     """Test dynamic CLI builder functionality."""
-
-    def test_pdf_pages_parsing_valid(self):
-        """Test parsing of valid PDF page numbers."""
-        # Single page
-        assert parse_pdf_pages("5") == [5]
-
-        # Multiple pages
-        assert parse_pdf_pages("1,2,3") == [1, 2, 3]
-
-        # Pages with spaces
-        assert parse_pdf_pages("1, 2, 3") == [1, 2, 3]
-
-        # Mixed formatting
-        assert parse_pdf_pages("0,5, 10,15") == [0, 5, 10, 15]
-
-    def test_pdf_pages_parsing_invalid(self):
-        """Test parsing of invalid PDF page numbers raises error."""
-        with pytest.raises(argparse.ArgumentTypeError):
-            parse_pdf_pages("invalid")
-
-        with pytest.raises(argparse.ArgumentTypeError):
-            parse_pdf_pages("1,invalid,3")
-
-        with pytest.raises(argparse.ArgumentTypeError):
-            parse_pdf_pages("1.5,2")
 
     def test_snake_to_kebab_conversion(self):
         """Test conversion of snake_case to kebab-case."""
@@ -549,8 +525,6 @@ class TestNewCLIFeatures:
         import tempfile
         from pathlib import Path
 
-        from all2md.cli import collect_input_files
-
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
@@ -583,8 +557,6 @@ class TestNewCLIFeatures:
         """Test output path generation logic."""
         import tempfile
         from pathlib import Path
-
-        from all2md.cli import generate_output_path
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -641,7 +613,6 @@ class TestNewEnhancedCLIFeatures:
 
     def test_dependency_commands_parsing(self):
         """Test parsing of dependency management commands."""
-        from all2md.cli import handle_dependency_commands
 
         # Test check-deps command
         result = handle_dependency_commands(['check-deps'])
@@ -706,8 +677,6 @@ class TestNewEnhancedCLIFeatures:
         import tempfile
         from pathlib import Path
         from unittest.mock import Mock
-
-        from all2md.cli import save_config_to_file
 
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test_config.json"
@@ -818,8 +787,6 @@ class TestNewEnhancedCLIFeatures:
         from io import StringIO
         from pathlib import Path
         from unittest.mock import Mock
-
-        from all2md.cli import process_dry_run
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

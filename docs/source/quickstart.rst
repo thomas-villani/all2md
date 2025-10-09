@@ -272,7 +272,7 @@ For programmatic control, you can process files manually:
 
    # Explicit format specification
    with open('document.pdf', 'rb') as f:
-       markdown = to_markdown(f, format='pdf')
+       markdown = to_markdown(f, source_format='pdf')
 
 Handling Different Formats
 ---------------------------
@@ -287,10 +287,10 @@ all2md automatically detects file formats, but you can also be explicit:
    markdown = to_markdown('document.pdf')
 
    # Explicit format (useful for edge cases)
-   markdown = to_markdown('document.pdf', format='pdf')
+   markdown = to_markdown('document.pdf', source_format='pdf')
 
    # Force text processing for unknown files
-   markdown = to_markdown('unknown_file', format='txt')
+   markdown = to_markdown('unknown_file', source_format='txt')
 
 Email Processing Example
 ~~~~~~~~~~~~~~~~~~~~~~~~

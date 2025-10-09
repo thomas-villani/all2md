@@ -12,7 +12,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.cli import create_parser, handle_list_formats_command, process_detect_only
+from all2md.cli import create_parser, process_detect_only, process_dry_run
+from all2md.cli.commands import handle_list_formats_command
 from all2md.cli.processors import apply_security_preset
 from all2md.exceptions import DependencyError
 
@@ -301,8 +302,6 @@ class TestEnhancedDryRun:
     def test_dry_run_shows_format_detection(self, mock_check_installed, mock_check_version, mock_registry):
         """Test that enhanced dry-run shows format detection info."""
         from pathlib import Path
-
-        from all2md.cli import process_dry_run
 
         # Setup mocks
         mock_registry.auto_discover = Mock()

@@ -588,7 +588,7 @@ Check File Format Detection
    # Force different formats to test detection
    for fmt in ['auto', 'pdf', 'txt']:
        try:
-           result = to_markdown('mysterious_file', format=fmt)
+           result = to_markdown('mysterious_file', source_format=fmt)
            print(f"Format {fmt}: Success ({len(result)} chars)")
        except Exception as e:
            print(f"Format {fmt}: Failed - {e}")

@@ -874,7 +874,7 @@ For most use cases, it's recommended to use pip extras directly rather than prog
                    f"Supported: {', '.join(self.supported_formats)}"
                )
 
-           return to_markdown(filepath, format=format)
+           return to_markdown(filepath, source_format=format)
 
    # Usage
    converter = DocumentConverter()

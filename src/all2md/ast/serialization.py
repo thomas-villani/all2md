@@ -48,6 +48,8 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -90,6 +92,7 @@ _NODE_TYPE_MAP = {
     "TableCell": TableCell,
     "ThematicBreak": ThematicBreak,
     "HTMLBlock": HTMLBlock,
+    "FootnoteDefinition": FootnoteDefinition,
     "Text": Text,
     "Emphasis": Emphasis,
     "Strong": Strong,
@@ -102,6 +105,7 @@ _NODE_TYPE_MAP = {
     "Superscript": Superscript,
     "Subscript": Subscript,
     "HTMLInline": HTMLInline,
+    "FootnoteReference": FootnoteReference,
     "MathInline": MathInline,
     "MathBlock": MathBlock,
     "SourceLocation": SourceLocation,
@@ -326,6 +330,19 @@ def ast_to_dict(node: Node | SourceLocation) -> dict[str, Any]:
 
     elif isinstance(node, HTMLInline):
         result["content"] = node.content
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, FootnoteReference):
+        result["identifier"] = node.identifier
+        result["metadata"] = node.metadata
+        if node.source_location:
+            result["source_location"] = ast_to_dict(node.source_location)
+
+    elif isinstance(node, FootnoteDefinition):
+        result["identifier"] = node.identifier
+        result["content"] = [ast_to_dict(child) for child in node.content]
         result["metadata"] = node.metadata
         if node.source_location:
             result["source_location"] = ast_to_dict(node.source_location)
@@ -561,6 +578,21 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
             content=data.get("content", ""),
             notation=data.get("notation", "latex"),
             representations=data.get("representations", {}).copy(),
+            metadata=metadata,
+            source_location=source_location,
+        )
+
+    elif node_type == "FootnoteReference":
+        return FootnoteReference(
+            identifier=data["identifier"],
+            metadata=metadata,
+            source_location=source_location,
+        )
+
+    elif node_type == "FootnoteDefinition":
+        return FootnoteDefinition(
+            identifier=data["identifier"],
+            content=deserialize_children(data.get("content", [])),
             metadata=metadata,
             source_location=source_location,
         )

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from all2md import to_markdown
-from all2md.constants import PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
+from all2md.constants import PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, EXIT_DEPENDENCY_ERROR
 from all2md.exceptions import All2MdError
 from all2md.cli import generate_output_path
 
@@ -287,7 +287,7 @@ def run_watch_mode(
         from watchdog.observers import Observer
     except ImportError:
         logger.error("Watch mode requires the watchdog library. Install with: pip install all2md[cli_extras]")
-        return 2  # EXIT_DEPENDENCY_ERROR
+        return EXIT_DEPENDENCY_ERROR
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -71,24 +71,71 @@ class ListBuilder:
         task_status : {'checked', 'unchecked'} or None, default = None
             Optional task list status
 
+        Raises
+        ------
+        ValueError
+            If level is less than 1
+
         """
-        while self._list_stack and self._list_stack[-1][1] >= level:
+        if level < 1:
+            raise ValueError(f"Level must be >= 1, got {level}")
+
+        # Pop stack while current level is greater than target level
+        while self._list_stack and self._list_stack[-1][1] > level:
             self._list_stack.pop()
 
-        if self._list_stack and self._list_stack[-1][1] == level - 1:
-            parent_list, _ = self._list_stack[-1]
-        else:
-            current_list = List(ordered=ordered, items=[])
+        # Determine current level
+        current_level = self._list_stack[-1][1] if self._list_stack else 0
 
-            if self._list_stack:
-                parent_item = self._list_stack[-1][0].items[-1]
-                parent_item.children.append(current_list)
+        # Handle same-level continuation or type change
+        if self._list_stack and current_level == level:
+            parent_list, _ = self._list_stack[-1]
+
+            # Check if list type changed at same level
+            if parent_list.ordered != ordered:
+                # Start a sibling list at the same level
+                self._list_stack.pop()
+
+                # Create new list and attach to appropriate parent
+                new_list = List(ordered=ordered, items=[])
+                if level == 1:
+                    # Top-level: attach to root
+                    self.root.children.append(new_list)
+                else:
+                    # Nested: attach to parent level's last item
+                    if self._list_stack:
+                        parent_item = self._list_stack[-1][0].items[-1]
+                        parent_item.children.append(new_list)
+                    else:
+                        # Shouldn't happen, but fallback to root
+                        self.root.children.append(new_list)
+
+                self._list_stack.append((new_list, level))
+                parent_list = new_list
+
+        # Handle nesting down: create intermediate lists as needed
+        while current_level < level:
+            new_list = List(ordered=ordered, items=[])
+
+            if current_level == 0:
+                # First list: attach to root
+                self.root.children.append(new_list)
             else:
-                self.root.children.append(current_list)
+                # Nested list: attach to last item of previous level
+                parent_list = self._list_stack[-1][0]
+                if not parent_list.items:
+                    # Parent list has no items yet, create a placeholder item
+                    placeholder_item = ListItem(children=[])
+                    parent_list.items.append(placeholder_item)
 
-            self._list_stack.append((current_list, level))
-            parent_list, _ = self._list_stack[-1]
+                parent_item = parent_list.items[-1]
+                parent_item.children.append(new_list)
 
+            current_level += 1
+            self._list_stack.append((new_list, current_level))
+
+        # Add the item to the current list
+        parent_list, _ = self._list_stack[-1]
         item = ListItem(children=content, task_status=task_status)
         parent_list.items.append(item)
 

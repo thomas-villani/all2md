@@ -10,6 +10,8 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
     Link,
@@ -457,3 +459,128 @@ class TestDefinitionListSerialization:
         assert restored_term.source_location is not None
         assert restored_term.source_location.format == "html"
         assert restored_term.source_location.element_id == "glossary-1"
+
+
+@pytest.mark.unit
+class TestFootnoteSerialization:
+    """Test serialization of footnote nodes."""
+
+    def test_footnote_reference_to_dict(self) -> None:
+        """Test converting FootnoteReference to dict."""
+        ref = FootnoteReference(identifier="1")
+        result = ast_to_dict(ref)
+
+        assert result["node_type"] == "FootnoteReference"
+        assert result["identifier"] == "1"
+        assert result["metadata"] == {}
+        assert "source_location" not in result or result["source_location"] is None
+
+    def test_footnote_definition_to_dict(self) -> None:
+        """Test converting FootnoteDefinition to dict."""
+        defn = FootnoteDefinition(identifier="note1", content=[Paragraph(content=[Text(content="Footnote text")])])
+        result = ast_to_dict(defn)
+
+        assert result["node_type"] == "FootnoteDefinition"
+        assert result["identifier"] == "note1"
+        assert len(result["content"]) == 1
+        assert result["content"][0]["node_type"] == "Paragraph"
+        assert result["metadata"] == {}
+
+    def test_footnote_reference_roundtrip(self) -> None:
+        """Test round-trip conversion of FootnoteReference."""
+        original = FootnoteReference(identifier="ref1", metadata={"source": "docx"})
+        json_str = ast_to_json(original)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, FootnoteReference)
+        assert restored.identifier == "ref1"
+        assert restored.metadata["source"] == "docx"
+
+    def test_footnote_definition_roundtrip(self) -> None:
+        """Test round-trip conversion of FootnoteDefinition."""
+        original = FootnoteDefinition(
+            identifier="fn2",
+            content=[Paragraph(content=[Text(content="This is a "), Strong(content=[Text(content="footnote")])])],
+        )
+
+        json_str = ast_to_json(original)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, FootnoteDefinition)
+        assert restored.identifier == "fn2"
+        assert len(restored.content) == 1
+        assert isinstance(restored.content[0], Paragraph)
+        assert len(restored.content[0].content) == 2
+        assert isinstance(restored.content[0].content[0], Text)
+        assert isinstance(restored.content[0].content[1], Strong)
+
+    def test_footnote_with_source_location(self) -> None:
+        """Test footnote nodes with source location preservation."""
+        loc = SourceLocation(format="pdf", page=5, line=42)
+        ref = FootnoteReference(identifier="1", source_location=loc)
+
+        json_str = ast_to_json(ref)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, FootnoteReference)
+        assert restored.source_location is not None
+        assert restored.source_location.format == "pdf"
+        assert restored.source_location.page == 5
+        assert restored.source_location.line == 42
+
+    def test_document_with_footnotes_roundtrip(self) -> None:
+        """Test document with footnotes round-trip conversion."""
+        original = Document(
+            children=[
+                Paragraph(content=[Text(content="Main text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="Footnote content")])]),
+            ]
+        )
+
+        json_str = ast_to_json(original)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, Document)
+        assert len(restored.children) == 2
+
+        # Check paragraph with inline footnote reference
+        para = restored.children[0]
+        assert isinstance(para, Paragraph)
+        assert len(para.content) == 2
+        assert isinstance(para.content[1], FootnoteReference)
+        assert para.content[1].identifier == "1"
+
+        # Check footnote definition
+        defn = restored.children[1]
+        assert isinstance(defn, FootnoteDefinition)
+        assert defn.identifier == "1"
+        assert len(defn.content) == 1
+        assert isinstance(defn.content[0], Paragraph)
+
+    def test_multiple_footnotes_with_metadata(self) -> None:
+        """Test multiple footnotes with metadata preservation."""
+        ref1 = FootnoteReference(identifier="a", metadata={"type": "citation"})
+        ref2 = FootnoteReference(identifier="b", metadata={"type": "comment"})
+        defn1 = FootnoteDefinition(
+            identifier="a", content=[Paragraph(content=[Text(content="Citation")])], metadata={"author": "Smith"}
+        )
+        defn2 = FootnoteDefinition(
+            identifier="b", content=[Paragraph(content=[Text(content="Comment")])], metadata={"author": "Jones"}
+        )
+
+        doc = Document(children=[Paragraph(content=[ref1, ref2]), defn1, defn2])
+
+        json_str = ast_to_json(doc)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, Document)
+
+        # Check references
+        para = restored.children[0]
+        assert isinstance(para, Paragraph)
+        assert para.content[0].metadata["type"] == "citation"  # type: ignore
+        assert para.content[1].metadata["type"] == "comment"  # type: ignore
+
+        # Check definitions
+        assert restored.children[1].metadata["author"] == "Smith"  # type: ignore
+        assert restored.children[2].metadata["author"] == "Jones"  # type: ignore

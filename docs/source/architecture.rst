@@ -28,7 +28,7 @@ High-Level Data Flow
    │                  (all2md/__init__.py)                       │
    │                                                             │
    │  Entry points:                                              │
-   │  • to_markdown(input, format="auto")                        │
+   │  • to_markdown(input, source_format="auto")                        │
    │  • to_ast(input, format="auto")                             │
    │  • from_ast(ast, output_format="markdown")                  │
    └────────────────┬────────────────────────────────────────────┘
@@ -117,7 +117,7 @@ Core Components
 .. code-block:: python
 
    # Primary conversion functions
-   to_markdown(input, format="auto", parser_options=None, renderer_options=None)
+   to_markdown(input, source_format="auto", parser_options=None, renderer_options=None)
    to_ast(input, format="auto", parser_options=None)
    from_ast(ast, output_format="markdown", renderer_options=None)
 

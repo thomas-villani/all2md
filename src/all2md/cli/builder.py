@@ -1,10 +1,9 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
 """Dynamic CLI argument builder for all2md.
 
 This module provides a system for automatically generating CLI arguments
 from dataclass options using field metadata.
 """
-
-#  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import argparse
 import difflib
@@ -17,7 +16,7 @@ from all2md.cli.custom_actions import (
     TrackingAppendAction,
     TrackingStoreAction,
     TrackingStoreFalseAction,
-    TrackingStoreTrueAction,
+    TrackingStoreTrueAction, TrackingPositiveIntAction,
 )
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
@@ -1000,3 +999,154 @@ Examples:
         # For explicitly provided arguments, return the value
         # The tracking actions ensure we only get here for user-provided values
         return arg_value
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser using dynamic generation."""
+
+
+    builder = DynamicCLIBuilder()
+    parser = builder.build_parser()
+
+    # Add new CLI options for enhanced features
+    parser.add_argument(
+        '--rich',
+        action=TrackingStoreTrueAction,
+        help='Enable rich terminal output with formatting'
+    )
+
+    parser.add_argument(
+        '--pager',
+        action=TrackingStoreTrueAction,
+        help='Display output using system pager for long documents (stdout only)'
+    )
+
+    parser.add_argument(
+        '--progress',
+        action=TrackingStoreTrueAction,
+        help='Show progress bar for file conversions (automatically enabled for multiple files)'
+    )
+
+    parser.add_argument(
+        '--output-dir',
+        action=TrackingStoreAction,
+        type=str,
+        help='Directory to save converted files (for multi-file processing)'
+    )
+
+    parser.add_argument(
+        '--recursive', '-r',
+        action=TrackingStoreTrueAction,
+        help='Process directories recursively'
+    )
+
+    parser.add_argument(
+        '--parallel', '-p',
+        action=TrackingPositiveIntAction,
+        nargs='?',
+        const=None,
+        default=1,
+        help='Process files in parallel (optionally specify number of workers, must be positive)'
+    )
+
+    parser.add_argument(
+        '--skip-errors',
+        action=TrackingStoreTrueAction,
+        help='Continue processing remaining files if one fails'
+    )
+
+    parser.add_argument(
+        '--preserve-structure',
+        action=TrackingStoreTrueAction,
+        help='Preserve directory structure in output directory'
+    )
+
+    parser.add_argument(
+        '--zip',
+        action=TrackingStoreAction,
+        nargs='?',
+        const='auto',
+        metavar='PATH',
+        help='Create zip archive of output (optionally specify custom path, default: output_dir.zip)'
+    )
+
+    parser.add_argument(
+        '--assets-layout',
+        action=TrackingStoreAction,
+        choices=['flat', 'by-stem', 'structured'],
+        default='flat',
+        help='Asset organization: flat (single assets/ dir), by-stem (assets/{doc}/), structured (preserve structure)'
+    )
+
+    parser.add_argument(
+        '--watch',
+        action=TrackingStoreTrueAction,
+        help='Watch mode: monitor files/directories and convert on change (requires --output-dir)'
+    )
+
+    parser.add_argument(
+        '--watch-debounce',
+        action=TrackingStoreAction,
+        type=float,
+        default=1.0,
+        metavar='SECONDS',
+        help='Debounce delay for watch mode in seconds (default: 1.0)'
+    )
+
+    parser.add_argument(
+        '--collate',
+        action=TrackingStoreTrueAction,
+        help='Combine multiple files into a single output (stdout or file)'
+    )
+
+    parser.add_argument(
+        '--no-summary',
+        action=TrackingStoreTrueAction,
+        help='Disable summary output after processing multiple files'
+    )
+
+    parser.add_argument(
+        '--save-config',
+        type=str,
+        help='Save current CLI arguments to a JSON configuration file'
+    )
+
+    parser.add_argument(
+        '--dry-run',
+        action=TrackingStoreTrueAction,
+        help='Show what would be converted without actually processing files'
+    )
+
+    parser.add_argument(
+        '--detect-only',
+        action=TrackingStoreTrueAction,
+        help='Show format detection results without conversion (useful for debugging batch inputs)'
+    )
+
+    parser.add_argument(
+        '--exclude',
+        action=TrackingAppendAction,
+        metavar='PATTERN',
+        help='Exclude files matching this glob pattern (can be specified multiple times)'
+    )
+
+    # Security preset flags
+    security_group = parser.add_argument_group('Security preset options')
+    security_group.add_argument(
+        '--strict-html-sanitize',
+        action=TrackingStoreTrueAction,
+        help='Enable strict HTML sanitization (disables remote fetch, local files, strips dangerous elements)'
+    )
+    security_group.add_argument(
+        '--safe-mode',
+        action=TrackingStoreTrueAction,
+        help='Balanced security for untrusted input (allows HTTPS remote fetch, strips dangerous elements)'
+    )
+    security_group.add_argument(
+        '--paranoid-mode',
+        action=TrackingStoreTrueAction,
+        help='Maximum security settings (strict restrictions, reduced size limits)'
+    )
+
+
+    return parser

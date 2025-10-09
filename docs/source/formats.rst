@@ -1065,8 +1065,8 @@ all2md uses multiple strategies to detect document formats:
 .. code-block:: python
 
    # Override automatic detection
-   markdown = to_markdown('file.dat', format='pdf')
-   markdown = to_markdown(file_object, format='docx')
+   markdown = to_markdown('file.dat', source_format='pdf')
+   markdown = to_markdown(file_object, source_format='docx')
 
 Programmatic Format Override
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1085,14 +1085,14 @@ You can explicitly force a specific format converter, even when the file extensi
    from all2md import to_markdown
 
    # Force PDF processing regardless of filename
-   markdown = to_markdown('unknown_file', format='pdf')
+   markdown = to_markdown('unknown_file', source_format='pdf')
 
    # Process data as HTML even if extension says .txt
-   markdown = to_markdown('content.txt', format='html')
+   markdown = to_markdown('content.txt', source_format='html')
 
    # Explicitly handle file object as DOCX
    with open('document', 'rb') as f:
-       markdown = to_markdown(f, format='docx')
+       markdown = to_markdown(f, source_format='docx')
 
 **Format Override with Options:**
 
@@ -1108,7 +1108,7 @@ Combine explicit format specification with format-specific options:
        detect_columns=False,
        attachment_mode='base64'
    )
-   markdown = to_markdown('file.dat', format='pdf', options=pdf_options)
+   markdown = to_markdown('file.dat', source_format='pdf', options=pdf_options)
 
    # Or use kwargs for simpler cases
    markdown = to_markdown(
@@ -1124,14 +1124,14 @@ Combine explicit format specification with format-specific options:
 
    md_opts = MarkdownOptions(emphasis_symbol='_', use_hash_headings=False)
    docx_opts = DocxOptions(markdown_options=md_opts)
-   markdown = to_markdown('document.bin', format='docx', options=docx_opts)
+   markdown = to_markdown('document.bin', source_format='docx', options=docx_opts)
 
    # Force HTML processing with security settings
    html_opts = HtmlOptions(
        strip_dangerous_elements=True,
        extract_title=True
    )
-   markdown = to_markdown('content', format='html', options=html_opts)
+   markdown = to_markdown('content', source_format='html', options=html_opts)
 
 **Real-World Use Cases:**
 
@@ -1147,7 +1147,7 @@ Combine explicit format specification with format-specific options:
            tmp.write(response_content)
            tmp.flush()
            # Explicitly specify format since temp file has .tmp extension
-           return to_markdown(tmp.name, format='pdf')
+           return to_markdown(tmp.name, source_format='pdf')
 
    # 2. Handle file objects from database BLOBs
    def convert_blob(file_data, detected_type):
@@ -1155,24 +1155,24 @@ Combine explicit format specification with format-specific options:
        import io
        file_obj = io.BytesIO(file_data)
        # No filename available, must specify format
-       return to_markdown(file_obj, format=detected_type)
+       return to_markdown(file_obj, source_format=detected_type)
 
    # 3. Batch process with format verification
    def safe_convert(filepath, expected_format='auto'):
        """Convert file with format validation."""
        try:
            # Try with expected format
-           return to_markdown(filepath, format=expected_format)
+           return to_markdown(filepath, source_format=expected_format)
        except Exception as e:
            print(f"Failed with {expected_format}, trying auto-detection")
-           return to_markdown(filepath, format='auto')
+           return to_markdown(filepath, source_format='auto')
 
    # 4. Pipeline with format transformation
    def extract_text_from_mixed_sources(files_dict):
        """Process different formats from various sources."""
        results = {}
        for name, (data, fmt) in files_dict.items():
-           results[name] = to_markdown(data, format=fmt)
+           results[name] = to_markdown(data, source_format=fmt)
        return results
 
    # Example usage:
@@ -1197,7 +1197,7 @@ Combine explicit format specification with format-specific options:
 
    for fmt in formats_to_try:
        try:
-           result = to_markdown(test_file, format=fmt)
+           result = to_markdown(test_file, source_format=fmt)
            results[fmt] = {'success': True, 'length': len(result)}
        except Exception as e:
            results[fmt] = {'success': False, 'error': str(e)}
@@ -1432,7 +1432,7 @@ Special handling for file-like objects:
 
    # Scenario 3: Explicit format for file object
    file_obj = BytesIO(pdf_bytes)
-   markdown = to_markdown(file_obj, format='pdf')  # Always PDF
+   markdown = to_markdown(file_obj, source_format='pdf')  # Always PDF
 
 Fallback Behavior
 ~~~~~~~~~~~~~~~~~
@@ -1517,7 +1517,7 @@ Troubleshooting Detection
 .. code-block:: python
 
    # Force correct format
-   markdown = to_markdown("file.dat", format="pdf")
+   markdown = to_markdown("file.dat", source_format="pdf")
 
 **Problem: File object not detected**
 
@@ -1545,7 +1545,7 @@ Troubleshooting Detection
    print(f"Detected as: {detected}")
 
    # Use explicit format if detection is wrong
-   markdown = to_markdown("mysterious_file.xyz", format="pdf")
+   markdown = to_markdown("mysterious_file.xyz", source_format="pdf")
 
 **Problem: Want to skip detection**
 
@@ -1554,7 +1554,7 @@ Troubleshooting Detection
    # Use explicit format parameter instead
    from all2md import to_markdown
 
-   markdown = to_markdown("file.xyz", format='pdf')  # Explicit format
+   markdown = to_markdown("file.xyz", source_format='pdf')  # Explicit format
 
 Detection Best Practices
 ~~~~~~~~~~~~~~~~~~~~~~~~
