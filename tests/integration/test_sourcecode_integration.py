@@ -60,7 +60,9 @@ print(fibonacci(10))"""
             temp_path = f.name
 
         try:
-            result = to_markdown(temp_path, parser_options=options)
+            # Must explicitly specify source_format="sourcecode" since .txt extension
+            # would be detected as "txt" format during auto-detection
+            result = to_markdown(temp_path, source_format="sourcecode", parser_options=options)
             assert result.startswith("```css\n")
             filename = Path(temp_path).name
             assert filename in result

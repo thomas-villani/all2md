@@ -88,8 +88,8 @@ Basic Conversion
    # With options
    options = DocxRendererOptions(
        preserve_formatting=True,
-       include_toc=True,
-       page_size='A4'
+       default_font='Arial',
+       default_font_size=12
    )
    from_markdown('report.md', output_format='docx', output_path='report.docx', renderer_options=options)
 
@@ -154,10 +154,10 @@ Advanced DOCX Customization
        preserve_formatting=True,
        default_font='Calibri',
        default_font_size=11,
-       heading_font='Arial',
-       include_toc=True,
-       page_size='letter',
-       margin_inches=1.0
+       code_font='Courier New',
+       code_font_size=10,
+       table_style='Light Grid Accent 1',
+       use_styles=True
    )
 
    # Render to DOCX
@@ -183,10 +183,10 @@ Basic Conversion
 
    # With options
    options = HtmlRendererOptions(
-       include_css=True,
-       css_framework='github',
+       standalone=True,
+       css_style='embedded',
        syntax_highlighting=True,
-       add_header_ids=True
+       include_toc=False
    )
    html = from_markdown('document.md', output_format='html', renderer_options=options)
 
@@ -202,25 +202,19 @@ HTML Templates and Styling
    from all2md import from_markdown
    from all2md.renderers.html import HtmlRendererOptions
 
-   # Custom CSS
-   custom_css = """
-   body {
-       font-family: 'Georgia', serif;
-       max-width: 800px;
-       margin: 0 auto;
-       padding: 20px;
-   }
-   h1 { color: #2c3e50; }
-   h2 { color: #34495e; }
-   code { background-color: #f4f4f4; }
-   """
+   # Custom CSS file
+   # Create a custom.css file with your styles:
+   # body { font-family: 'Georgia', serif; max-width: 800px; }
+   # h1 { color: #2c3e50; }
+   # h2 { color: #34495e; }
+   # code { background-color: #f4f4f4; }
 
    options = HtmlRendererOptions(
-       include_css=True,
-       custom_css=custom_css,
+       standalone=True,
+       css_style='external',
+       css_file='custom.css',
        syntax_highlighting=True,
-       add_header_ids=True,
-       wrap_in_html=True  # Include <html>, <head>, <body> tags
+       escape_html=True
    )
 
    html = from_markdown('document.md', output_format='html', renderer_options=options)
@@ -234,12 +228,11 @@ Standalone HTML Documents
    from all2md.renderers.html import HtmlRendererOptions
 
    options = HtmlRendererOptions(
-       wrap_in_html=True,
-       include_css=True,
-       css_framework='default',
-       title='My Document',
-       meta_description='A document converted from Markdown',
-       syntax_highlighting=True
+       standalone=True,
+       css_style='embedded',
+       syntax_highlighting=True,
+       include_toc=True,
+       math_renderer='mathjax'
    )
 
    html = from_markdown('article.md', output_format='html', renderer_options=options)
@@ -264,9 +257,10 @@ Basic Conversion
 
    # With options
    options = PdfRendererOptions(
-       page_size='A4',
-       margin_mm=20,
-       font_family='Helvetica',
+       page_size='a4',
+       margin_top=72.0,  # 1 inch (72 points)
+       margin_bottom=72.0,
+       font_name='Helvetica',
        font_size=11,
        include_page_numbers=True
    )
@@ -286,14 +280,15 @@ PDF Styling and Layout
    # Configure PDF rendering
    options = PdfRendererOptions(
        page_size='letter',
-       margin_mm=25,
-       font_family='Times-Roman',
+       margin_top=72.0,  # 1 inch in points
+       margin_bottom=72.0,
+       margin_left=72.0,
+       margin_right=72.0,
+       font_name='Times-Roman',
        font_size=12,
        line_spacing=1.5,
        include_page_numbers=True,
-       page_number_format='Page {page} of {total}',
-       header_text='Confidential Report',
-       footer_text='© 2025 Company Name'
+       include_toc=False
    )
 
    # Render to PDF

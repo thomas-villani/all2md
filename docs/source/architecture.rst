@@ -204,7 +204,7 @@ Core Components
 * ``epub.py`` - EPUB via ebooklib
 * ``ipynb.py`` - Jupyter via nbformat
 * ``eml.py`` - Email via email package
-* ``rtf.py`` - RTF via striprtf
+* ``rtf.py`` - RTF via pyth3
 * ``markdown.py`` - Markdown via mistune
 * ``sourcecode.py`` - 200+ text formats via Pygments
 
@@ -652,7 +652,7 @@ all2md uses optional dependencies grouped by format:
 * ``[odf]`` - odfpy
 * ``[epub]`` - ebooklib
 * ``[eml]`` - (stdlib email package)
-* ``[rtf]`` - striprtf
+* ``[rtf]`` - pyth3
 * ``[markdown]`` - mistune
 * ``[all]`` - All of the above
 

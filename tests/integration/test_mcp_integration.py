@@ -119,7 +119,8 @@ More content here.
 
             render_result = render_from_markdown_impl(render_input, config)
 
-            assert render_result.output_path == str(output_file)
+            # Normalize paths for comparison (Windows can use 8.3 format vs full names)
+            assert Path(render_result.output_path).resolve() == output_file.resolve()
             assert output_file.exists()
 
     def test_inline_content_workflow(self):

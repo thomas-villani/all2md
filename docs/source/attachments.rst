@@ -109,29 +109,35 @@ You can control exactly what text is shown for images using the ``alt_text_mode`
 
    from all2md import PdfOptions
 
-   # Show alt-text only, use empty string if unavailable
+   # Default mode: alt text with filename fallback, markdown-safe
    options = PdfOptions(
        attachment_mode='alt_text',
-       alt_text_mode='alt_only'
+       alt_text_mode='default'
    )
 
-   # Show filename only
+   # Plain filename only (may contain special characters)
    options = PdfOptions(
        attachment_mode='alt_text',
-       alt_text_mode='filename_only'
+       alt_text_mode='plain_filename'
    )
 
-   # Show alt-text, fallback to filename (default)
+   # Strict markdown-safe alt text (sanitized)
    options = PdfOptions(
        attachment_mode='alt_text',
-       alt_text_mode='alt_then_filename'
+       alt_text_mode='strict_markdown'
+   )
+
+   # Alt text as footnote reference
+   options = PdfOptions(
+       attachment_mode='alt_text',
+       alt_text_mode='footnote'
    )
 
 **CLI:**
 
 .. code-block:: bash
 
-   all2md document.pdf --attachment-mode alt_text --alt-text-mode filename_only
+   all2md document.pdf --attachment-mode alt_text --alt-text-mode plain_filename
 
 download
 ~~~~~~~~
@@ -447,8 +453,8 @@ Excel and Spreadsheets (XLSX/ODS)
    from all2md import XlsxOptions
 
    options = XlsxOptions(
-       attachment_mode='base64',  # Embed charts inline
-       include_charts=True
+       attachment_mode='base64',  # Embed images inline
+       chart_mode='data'          # Extract chart data as tables
    )
    markdown = to_markdown('spreadsheet.xlsx', options=options)
 
@@ -494,7 +500,7 @@ When using ``download`` mode, all2md automatically sanitizes filenames to ensure
    "My Image.png"      →  "My_Image.png"
    "file/name.jpg"     →  "file_name.jpg"
    "../../bad.png"     →  "bad.png"
-   "日本語.png"         →  "ri_ben_yu.png"
+   "file (1).jpg"      →  "file_1.jpg"
 
 Security Considerations
 -----------------------

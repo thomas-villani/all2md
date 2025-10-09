@@ -31,7 +31,9 @@ The all2md options system uses a clear inheritance structure that separates univ
    ├── EpubOptions (EPUB e-book options)
    ├── MhtmlOptions (MHTML web archive options)
    ├── ZipOptions (ZIP archive options)
-   └── SpreadsheetOptions (Excel/CSV/TSV options)
+   ├── XlsxOptions (Excel XLSX options)
+   ├── OdsSpreadsheetOptions (OpenDocument Spreadsheet options)
+   └── CsvOptions (CSV/TSV options)
 
    MarkdownOptions (common Markdown formatting - used by all format options)
 
@@ -436,16 +438,13 @@ Configuration for HTML document conversion with security and network features.
 
 .. note::
 
-   **Deprecated Field:** The ``links_as`` field in ``HtmlOptions`` is deprecated and not used by the HTML converter. To control link style (inline vs reference), use ``MarkdownOptions.link_style`` instead:
+   To control link style (inline vs reference) in HTML output, use ``MarkdownOptions.link_style``:
 
    .. code-block:: python
 
-      # Correct way to set link style
+      # Set link style via MarkdownOptions
       md_opts = MarkdownOptions(link_style="reference")
       html_opts = HtmlOptions(markdown_options=md_opts)
-
-      # Not used (deprecated)
-      html_opts = HtmlOptions(links_as="reference")  # This has no effect
 
 PptxOptions
 ~~~~~~~~~~~
@@ -517,34 +516,93 @@ Configuration for email message processing with advanced parsing features.
         ]
       }
 
-SpreadsheetOptions
-~~~~~~~~~~~~~~~~~~
+Spreadsheet Format Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Configuration for Excel, CSV, and TSV file processing.
+all2md provides separate options classes for different spreadsheet formats.
 
-.. autoclass:: all2md.options.SpreadsheetOptions
+XlsxOptions
+^^^^^^^^^^^
+
+Configuration for Excel XLSX file processing.
+
+.. autoclass:: all2md.options.XlsxOptions
    :noindex:
 
-**CLI Prefix:** ``--spreadsheet-``
+**CLI Prefix:** ``--xlsx-``
 
 **Key Features:**
 
-* **Multi-sheet Support:** Process specific sheets or all sheets in XLSX files
+* **Multi-sheet Support:** Process specific sheets or all sheets
 * **Size Limiting:** Configurable row and column limits for large datasets
-* **Format Detection:** Automatic CSV/TSV dialect detection
-* **Formula Handling:** Choose between stored values or formula display in XLSX
+* **Formula Handling:** Choose between stored values or formula display
+* **Chart Handling:** Extract chart data or skip charts entirely
 
 **Example:**
 
 .. code-block:: python
 
-   from all2md.options import SpreadsheetOptions
+   from all2md.options import XlsxOptions
 
-   options = SpreadsheetOptions(
+   options = XlsxOptions(
        sheets=["Sheet1", "Data"],      # Process specific sheets
        include_sheet_titles=True,      # Add sheet name headers
        render_formulas=True,           # Use stored values (not formulas)
        max_rows=1000,                  # Limit rows per sheet
+       max_cols=20,                    # Limit columns
+       chart_mode="data"               # Extract chart data as tables
+   )
+
+OdsSpreadsheetOptions
+^^^^^^^^^^^^^^^^^^^^^
+
+Configuration for OpenDocument Spreadsheet (ODS) file processing.
+
+.. autoclass:: all2md.options.OdsSpreadsheetOptions
+   :noindex:
+
+**CLI Prefix:** ``--ods-``
+
+**Key Features:**
+
+* **Multi-sheet Support:** Process specific sheets or all sheets
+* **Size Limiting:** Configurable row and column limits
+
+**Example:**
+
+.. code-block:: python
+
+   from all2md.options import OdsSpreadsheetOptions
+
+   options = OdsSpreadsheetOptions(
+       sheets=["Sheet1"],              # Process specific sheets
+       include_sheet_titles=True,      # Add sheet name headers
+       max_rows=1000                   # Limit rows per sheet
+   )
+
+CsvOptions
+^^^^^^^^^^
+
+Configuration for CSV and TSV file processing.
+
+.. autoclass:: all2md.options.CsvOptions
+   :noindex:
+
+**CLI Prefix:** ``--csv-``
+
+**Key Features:**
+
+* **Dialect Detection:** Automatic CSV/TSV format detection
+* **Size Limiting:** Configurable row and column limits
+
+**Example:**
+
+.. code-block:: python
+
+   from all2md.options import CsvOptions
+
+   options = CsvOptions(
+       max_rows=1000,                  # Limit rows
        max_cols=20,                    # Limit columns
        detect_csv_dialect=True         # Auto-detect CSV format
    )

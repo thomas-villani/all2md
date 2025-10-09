@@ -1263,35 +1263,34 @@ Check which dependencies are available for a specific format:
    # Show help for check command
    all2md check-deps --help
 
-Install Dependencies
-~~~~~~~~~~~~~~~~~~~~
+Install Missing Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Install missing dependencies for a specific format:
+To install missing dependencies, use pip with the appropriate extra:
 
 .. code-block:: bash
 
    # Install PDF dependencies
-   all2md install-deps pdf
+   pip install all2md[pdf]
 
    # Install PowerPoint dependencies
-   all2md install-deps pptx
+   pip install all2md[pptx]
 
-   # Install all missing dependencies
-   all2md install-deps
+   # Install all optional dependencies
+   pip install all2md[all]
 
-   # Show help for install command
-   all2md install-deps --help
+**Available dependency groups:**
+   * ``[pdf]`` - PyMuPDF for PDF processing
+   * ``[docx]`` - python-docx for Word documents
+   * ``[pptx]`` - python-pptx for PowerPoint
+   * ``[html]`` - BeautifulSoup4 and httpx for HTML
+   * ``[epub]`` - ebooklib for EPUB e-books
+   * ``[rtf]`` - pyth3 for Rich Text Format
+   * ``[odf]`` - odfpy for OpenDocument formats
+   * ``[xlsx]`` - openpyxl for Excel files
+   * ``[all]`` - All optional dependencies
 
-**Supported dependency groups:**
-   * ``pdf`` - PyMuPDF for PDF processing
-   * ``docx`` - python-docx for Word documents
-   * ``pptx`` - python-pptx for PowerPoint
-   * ``html`` - BeautifulSoup4 and httpx for HTML
-   * ``epub`` - ebooklib for EPUB e-books
-   * ``rtf`` - pyth3 for Rich Text Format
-   * ``odf`` - odfpy for OpenDocument formats
-   * ``spreadsheet`` - openpyxl for Excel files
-   * ``all`` - All optional dependencies
+See :doc:`installation` for more details.
 
 Format Detection and Planning
 ------------------------------

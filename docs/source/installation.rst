@@ -393,21 +393,31 @@ Check which dependencies are currently installed:
    all2md check-deps pdf
    all2md check-deps docx
 
-Install Dependencies
-~~~~~~~~~~~~~~~~~~~~
+Check and Install Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Install missing dependencies directly from the command line:
+Check which dependencies are installed:
 
 .. code-block:: bash
 
-   # Install all missing dependencies for all formats
-   all2md install-deps
+   # Check all dependencies
+   all2md check-deps
+
+   # Check dependencies for specific format
+   all2md check-deps pdf
+
+Install missing dependencies using pip:
+
+.. code-block:: bash
+
+   # Install all optional dependencies
+   pip install all2md[all]
 
    # Install dependencies for specific format
-   all2md install-deps pdf
-   all2md install-deps docx
+   pip install all2md[pdf]
+   pip install all2md[docx]
 
-**Note:** Running ``all2md install-deps`` without specifying a format will install dependencies for ALL supported formats, equivalent to ``pip install all2md[all]``.
+**Note:** Installing ``all2md[all]`` will install dependencies for ALL supported formats.
 
 Development Installation
 ------------------------

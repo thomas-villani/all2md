@@ -57,7 +57,6 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.converter_metadata import ConverterMetadata
 from all2md.options import PlainTextOptions
 from all2md.renderers.base import BaseRenderer
 
