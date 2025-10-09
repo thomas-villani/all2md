@@ -196,13 +196,13 @@ class TestFormatDetectionFuzzing:
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=1000)
     def test_format_detection_with_random_headers(self, header_bytes):
         """Test format detection doesn't crash on random file headers."""
-        from all2md.exceptions import FormatError, ParsingError
+        from all2md.exceptions import DependencyError, FormatError, ParsingError
         # Try to convert without specifying format (auto-detect)
         try:
             result = to_markdown(BytesIO(header_bytes))
             assert isinstance(result, str)
-        except (MalformedFileError, UnicodeDecodeError, FormatError, ParsingError):
-            # Expected for unrecognized or invalid formats
+        except (MalformedFileError, UnicodeDecodeError, FormatError, ParsingError, DependencyError):
+            # Expected for unrecognized or invalid formats, or missing dependencies
             pass
         except Exception as e:
             # Should not crash unexpectedly

@@ -72,18 +72,52 @@ class EpubToAstConverter(BaseParser):
         temp_file = None
         book = None
 
-        if hasattr(input_data, 'read') and hasattr(input_data, 'seek'):
-            input_data.seek(0)
+        # Validate ZIP archive security for all input types
+        if isinstance(input_data, (str, Path)):
+            # Path/str inputs - validate directly
+            validate_zip_archive(input_data)
+            epub_path = str(input_data)
+        elif isinstance(input_data, bytes):
+            # Bytes inputs - create temp file, validate, cleanup
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp:
+                tmp.write(input_data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            # Recreate for ebooklib (validation temp file was deleted)
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
-            temp_file.write(input_data.read())
+            temp_file.write(input_data)
+            temp_file.close()
+            epub_path = temp_file.name
+        elif hasattr(input_data, 'read'):
+            # File-like inputs - read, validate, reset position
+            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+            input_data.seek(0)
+            data = input_data.read()
+            input_data.seek(original_position)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+            try:
+                validate_zip_archive(tmp_path)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            # Recreate for ebooklib (validation temp file was deleted)
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+            temp_file.write(data)
             temp_file.close()
             epub_path = temp_file.name
         else:
+            # Fallback - should not reach here with proper type hints
             epub_path = str(input_data)
-
-        # Validate ZIP archive security
-        if not hasattr(input_data, 'read') and Path(epub_path).exists():
-            validate_zip_archive(epub_path)
 
 
         try:

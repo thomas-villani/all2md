@@ -14,6 +14,7 @@ import importlib
 from functools import wraps
 from typing import Any, Callable, List, Tuple
 
+from all2md.dependencies import check_version_requirement
 from all2md.exceptions import DependencyError
 
 
@@ -21,12 +22,13 @@ def requires_dependencies(
     converter_name: str,
     packages: List[Tuple[str, str, str]]
 ) -> Callable:
-    """Check required dependencies before method execution.
+    """Check required dependencies and versions before method execution.
 
     This decorator eliminates repeated try/except ImportError blocks across
-    parsers and renderers by centralizing dependency checking logic. It uses
-    importlib to attempt importing required packages and raises a DependencyError
-    with helpful installation instructions if any are missing.
+    parsers and renderers by centralizing dependency checking logic. It validates
+    both package availability and version requirements, raising a DependencyError
+    with helpful installation instructions if any dependencies are missing or
+    have incompatible versions.
 
     Parameters
     ----------
@@ -47,8 +49,10 @@ def requires_dependencies(
     Raises
     ------
     DependencyError
-        If any required package cannot be imported. The error includes:
+        If any required package is missing or has an incompatible version.
+        The error includes:
         - List of missing packages
+        - List of version mismatches (package, required version, installed version)
         - Installation command
         - Original ImportError for debugging
 
@@ -83,7 +87,8 @@ def requires_dependencies(
     -----
     - The decorator preserves the original ImportError for debugging
     - Uses importlib.import_module for standard, safe importing
-    - Collects all missing packages before raising error
+    - Validates version requirements using packaging.specifiers
+    - Collects all missing packages and version mismatches before raising error
     - Works with both parsers and renderers
     - Compatible with type hints and IDE autocomplete
 
@@ -92,27 +97,41 @@ def requires_dependencies(
         @wraps(method)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             missing = []
+            version_mismatches = []
             original_error = None
 
             # Check each required package
             for install_name, import_name, version_spec in packages:
                 try:
                     importlib.import_module(import_name)
+
+                    # If version spec is provided, validate the version
+                    if version_spec:
+                        meets_requirement, installed_version = check_version_requirement(
+                            install_name, version_spec
+                        )
+                        if not meets_requirement:
+                            # Package is installed but version doesn't match
+                            version_str = installed_version or "unknown"
+                            version_mismatches.append((install_name, version_spec, version_str))
+
                 except ImportError as e:
+                    # Package is not installed at all
                     missing.append((install_name, version_spec))
                     # Capture first import error for debugging
                     if original_error is None:
                         original_error = e
 
-            # If any packages are missing, raise comprehensive error
-            if missing:
+            # If any packages are missing or have version mismatches, raise comprehensive error
+            if missing or version_mismatches:
                 raise DependencyError(
                     converter_name=converter_name,
                     missing_packages=missing,
+                    version_mismatches=version_mismatches,
                     original_import_error=original_error
                 ) from original_error
 
-            # All dependencies present, execute the method
+            # All dependencies present with correct versions, execute the method
             return method(*args, **kwargs)
 
         return wrapper
