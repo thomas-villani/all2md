@@ -80,6 +80,8 @@ from all2md.ast.nodes import (
     Text,
     ThematicBreak,
     Underline,
+    get_node_children,
+    replace_node_children,
 )
 
 # Serialization
@@ -138,6 +140,9 @@ __all__ = [
     "DefinitionList",
     "DefinitionTerm",
     "DefinitionDescription",
+    # Node helpers
+    "get_node_children",
+    "replace_node_children",
     # Visitors
     "NodeVisitor",
     "ValidationVisitor",

@@ -12,7 +12,7 @@ to focus on content extraction.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Sequence
 
 from all2md.ast.nodes import (
     Document,
@@ -182,20 +182,45 @@ class TableBuilder:
 
     def add_row(
         self,
-        cells: list[list[Node]] | list[str],
+        cells: Sequence[str | Sequence[Node]],
         is_header: bool = False,
         alignments: list[Literal['left', 'center', 'right'] | None] | None = None
     ) -> None:
         """Add a row to the table.
 
+        This method accepts a flexible cell specification allowing mixed types
+        per cell. Each cell can be either a plain string (automatically converted
+        to a Text node) or a sequence of inline Node objects.
+
         Parameters
         ----------
-        cells : list of list of Node or list of str
-            Cell contents (either inline nodes or plain text)
+        cells : Sequence of str or Sequence of Node
+            Cell contents where each cell can be:
+            - A plain string (e.g., "Hello")
+            - A sequence of inline nodes (e.g., [Text("Hello"), Strong(content=[Text("world")])])
+
+            Mixed types are supported per-cell. An empty sequence creates an empty row.
+
+            Examples:
+                ["Name", "Age"]  # All strings
+                [[Text("Name")], [Text("Age")]]  # All node sequences
+                ["Name", [Text("Age: "), Strong(content=[Text("30")])]]  # Mixed
+
         is_header : bool, default = False
-            Whether this is a header row
+            Whether this is a header row. If has_header=True and no header exists yet,
+            the first row added will automatically be treated as a header regardless
+            of this parameter.
+
         alignments : list of {'left', 'center', 'right'} or None, optional
-            Column alignments (only used for header rows)
+            Column alignments (only used for header rows). Length should match the
+            number of cells. If not specified and this is a header row, all alignments
+            will be set to None (default alignment).
+
+        Notes
+        -----
+        The flexible typing allows for ergonomic table building while maintaining
+        type safety. The implementation normalizes all inputs to TableCell objects
+        internally.
 
         """
         from all2md.ast.nodes import Text
@@ -209,7 +234,7 @@ class TableBuilder:
             if isinstance(cell_content, str):
                 cell_nodes: list[Node] = [Text(content=cell_content)]
             else:
-                cell_nodes = cell_content
+                cell_nodes = list(cell_content)
 
             table_cells.append(TableCell(content=cell_nodes))
 

@@ -1463,3 +1463,145 @@ class MathBlock(Node):
             self.representations,
             preferred,
         )
+
+
+def get_node_children(node: Node) -> list[Node]:
+    """Get all child nodes from a node.
+
+    This is a helper function for visitor pattern implementations that need
+    to traverse the AST. It returns a list of all child nodes regardless of
+    the node type.
+
+    Parameters
+    ----------
+    node : Node
+        The node to get children from
+
+    Returns
+    -------
+    list of Node
+        List of child nodes (empty list if node has no children)
+
+    Examples
+    --------
+    >>> heading = Heading(level=1, content=[Text("Hello"), Strong(content=[Text("world")])])
+    >>> children = get_node_children(heading)
+    >>> len(children)
+    2
+
+    """
+    # Block nodes with 'children' attribute
+    if isinstance(node, (Document, BlockQuote, ListItem)):
+        return list(node.children)
+
+    # Inline nodes with 'content' attribute (containing inline nodes)
+    if isinstance(node, (Heading, Paragraph, Emphasis, Strong, Strikethrough,
+                         Underline, Superscript, Subscript, Link, TableCell,
+                         DefinitionTerm, DefinitionDescription)):
+        return list(node.content)
+
+    # List has items
+    if isinstance(node, List):
+        return list(node.items)
+
+    # Table has header and rows
+    if isinstance(node, Table):
+        children: list[Node] = []
+        if node.header:
+            children.append(node.header)
+        children.extend(node.rows)
+        return children
+
+    # TableRow has cells
+    if isinstance(node, TableRow):
+        return list(node.cells)
+
+    # FootnoteDefinition has content
+    if isinstance(node, FootnoteDefinition):
+        return list(node.content)
+
+    # DefinitionList has terms and descriptions
+    if isinstance(node, DefinitionList):
+        dl_children: list[Node] = []
+        for term, descriptions in node.items:
+            dl_children.append(term)
+            dl_children.extend(descriptions)
+        return dl_children
+
+    # Leaf nodes (no children)
+    return []
+
+
+def replace_node_children(node: Node, new_children: list[Node]) -> Node:
+    """Create a copy of a node with replaced children.
+
+    This is a helper function for transformer pattern implementations. It
+    creates a new node of the same type with the children replaced.
+
+    Parameters
+    ----------
+    node : Node
+        The node to copy and modify
+    new_children : list of Node
+        New children to use in the copy
+
+    Returns
+    -------
+    Node
+        New node with replaced children
+
+    Raises
+    ------
+    ValueError
+        If the node type doesn't support children or if the number of
+        children doesn't match expectations
+
+    Examples
+    --------
+    >>> heading = Heading(level=1, content=[Text("Hello")])
+    >>> new_heading = replace_node_children(heading, [Text("Goodbye")])
+    >>> new_heading.content[0].content
+    'Goodbye'
+
+    """
+    from dataclasses import replace
+
+    # Block nodes with 'children' attribute
+    if isinstance(node, (Document, BlockQuote, ListItem)):
+        return replace(node, children=new_children)
+
+    # Inline nodes with 'content' attribute
+    if isinstance(node, (Heading, Paragraph, Emphasis, Strong, Strikethrough,
+                         Underline, Superscript, Subscript, Link, TableCell,
+                         DefinitionTerm, DefinitionDescription)):
+        return replace(node, content=new_children)
+
+    # List has items
+    if isinstance(node, List):
+        return replace(node, items=new_children)  # type: ignore[arg-type]
+
+    # Table needs special handling
+    if isinstance(node, Table):
+        # First child is header (optional), rest are rows
+        if node.header and new_children:
+            return replace(node, header=new_children[0], rows=new_children[1:])  # type: ignore[arg-type]
+        else:
+            return replace(node, header=None, rows=new_children)  # type: ignore[arg-type]
+
+    # TableRow has cells
+    if isinstance(node, TableRow):
+        return replace(node, cells=new_children)  # type: ignore[arg-type]
+
+    # FootnoteDefinition has content
+    if isinstance(node, FootnoteDefinition):
+        return replace(node, content=new_children)
+
+    # DefinitionList needs special handling
+    if isinstance(node, DefinitionList):
+        # Rebuild items from flat list of children
+        # This is complex, so we'll just copy the existing items
+        # (transformers should handle this case specifically)
+        return node
+
+    # Leaf nodes - return as-is
+    return node

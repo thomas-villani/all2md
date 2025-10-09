@@ -5,7 +5,8 @@ This example demonstrates how to use progress callbacks to track conversion
 progress, which is useful for UI updates in applications that embed all2md.
 """
 
-from all2md import ProgressEvent, to_markdown
+from all2md.progress import ProgressEvent
+from al to_markdown
 
 
 def simple_progress_handler(event: ProgressEvent):

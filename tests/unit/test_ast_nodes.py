@@ -473,6 +473,173 @@ class TestValidationVisitor:
         doc.accept(visitor)
         assert len(visitor.errors) == 0
 
+    def test_table_inconsistent_column_count(self):
+        """Test that tables with inconsistent column counts are caught."""
+        table = Table(
+            header=TableRow(cells=[
+                TableCell(content=[Text(content="A")]),
+                TableCell(content=[Text(content="B")])
+            ], is_header=True),
+            rows=[
+                TableRow(cells=[
+                    TableCell(content=[Text(content="1")]),
+                    TableCell(content=[Text(content="2")]),
+                    TableCell(content=[Text(content="3")])
+                ])
+            ]
+        )
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_table(table)
+        assert len(visitor.errors) > 0
+        assert "has 3 cells, expected 2" in visitor.errors[0]
+
+    def test_table_invalid_alignments_length(self):
+        """Test that tables with mismatched alignments length are caught."""
+        table = Table(
+            header=TableRow(cells=[
+                TableCell(content=[Text(content="A")]),
+                TableCell(content=[Text(content="B")])
+            ], is_header=True),
+            rows=[],
+            alignments=['left', 'center', 'right']
+        )
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_table(table)
+        assert len(visitor.errors) > 0
+        assert "3 alignments but 2 columns" in visitor.errors[0]
+
+    def test_table_cell_invalid_colspan(self):
+        """Test that table cells with colspan < 1 are caught."""
+        cell = TableCell.__new__(TableCell)
+        cell.content = []
+        cell.colspan = 0
+        cell.rowspan = 1
+        cell.alignment = None
+        cell.metadata = {}
+        cell.source_location = None
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_table_cell(cell)
+        assert len(visitor.errors) > 0
+        assert "colspan must be >= 1" in visitor.errors[0]
+
+    def test_table_cell_invalid_rowspan(self):
+        """Test that table cells with rowspan < 1 are caught."""
+        cell = TableCell.__new__(TableCell)
+        cell.content = []
+        cell.colspan = 1
+        cell.rowspan = -1
+        cell.alignment = None
+        cell.metadata = {}
+        cell.source_location = None
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_table_cell(cell)
+        assert len(visitor.errors) > 0
+        assert "rowspan must be >= 1" in visitor.errors[0]
+
+    def test_list_invalid_start(self):
+        """Test that ordered lists with start < 1 are caught."""
+        lst = List.__new__(List)
+        lst.ordered = True
+        lst.items = [ListItem(children=[])]
+        lst.start = 0
+        lst.tight = True
+        lst.metadata = {}
+        lst.source_location = None
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_list(lst)
+        assert len(visitor.errors) > 0
+        assert "start must be >= 1" in visitor.errors[0]
+
+    def test_list_empty_items(self):
+        """Test that lists with no items are caught."""
+        lst = List(ordered=False, items=[])
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_list(lst)
+        assert len(visitor.errors) > 0
+        assert "must have at least one item" in visitor.errors[0]
+
+    def test_code_block_invalid_fence_length(self):
+        """Test that code blocks with fence_length < 1 are caught."""
+        code = CodeBlock.__new__(CodeBlock)
+        code.content = "test"
+        code.language = None
+        code.fence_char = '`'
+        code.fence_length = 0
+        code.metadata = {}
+        code.source_location = None
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_code_block(code)
+        assert len(visitor.errors) > 0
+        assert "fence_length must be >= 1" in visitor.errors[0]
+
+    def test_code_block_invalid_fence_char(self):
+        """Test that code blocks with invalid fence_char are caught."""
+        code = CodeBlock.__new__(CodeBlock)
+        code.content = "test"
+        code.language = None
+        code.fence_char = '*'
+        code.fence_length = 3
+        code.metadata = {}
+        code.source_location = None
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_code_block(code)
+        assert len(visitor.errors) > 0
+        assert "fence_char must be" in visitor.errors[0]
+
+    def test_link_empty_url(self):
+        """Test that links with empty url are caught."""
+        link = Link(url="", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_link(link)
+        assert len(visitor.errors) > 0
+        assert "url must be non-empty" in visitor.errors[0]
+
+    def test_link_invalid_scheme_strict(self):
+        """Test that links with unrecognized scheme are caught in strict mode."""
+        import pytest
+
+        link = Link(url="unknown://example.com", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="unrecognized scheme"):
+            visitor.visit_link(link)
+
+    def test_link_valid_schemes(self):
+        """Test that links with valid schemes pass validation."""
+        valid_urls = [
+            "http://example.com",
+            "https://example.com",
+            "mailto:test@example.com",
+            "ftp://example.com",
+            "#anchor",
+            "/relative/path",
+            "relative/path"
+        ]
+
+        for url in valid_urls:
+            link = Link(url=url, content=[Text(content="link")])
+            visitor = ValidationVisitor(strict=True)
+            visitor.visit_link(link)
+            assert len(visitor.errors) == 0, f"URL {url} should be valid"
+
+    def test_image_empty_url(self):
+        """Test that images with empty url are caught."""
+        image = Image(url="", alt_text="test")
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_image(image)
+        assert len(visitor.errors) > 0
+        assert "url must be non-empty" in visitor.errors[0]
+
 
 @pytest.mark.unit
 class TestExtendedMarkdownNodes:

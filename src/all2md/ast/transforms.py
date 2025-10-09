@@ -124,6 +124,41 @@ class NodeTransformer(NodeVisitor):
                 result.append(transformed)
         return result
 
+    def _generic_transform(self, node: Node) -> Node:
+        """Generic node transformation using node traversal helpers.
+
+        This method provides a generic way to transform nodes by automatically
+        handling child traversal and reconstruction. Individual visit_* methods
+        can use this for simple transformations or override it for complex cases.
+
+        Parameters
+        ----------
+        node : Node
+            Node to transform
+
+        Returns
+        -------
+        Node
+            Transformed node with children replaced
+
+        Notes
+        -----
+        This method uses get_node_children and replace_node_children helpers
+        to minimize boilerplate in visitor implementations.
+
+        """
+        from all2md.ast.nodes import get_node_children, replace_node_children
+
+        children = get_node_children(node)
+        if not children:
+            # Leaf node - return a copy
+            from dataclasses import replace
+            return replace(node)  # type: ignore[type-var]
+
+        # Transform children and rebuild node
+        transformed_children = self._transform_children(children)
+        return replace_node_children(node, transformed_children)
+
     def visit_document(self, node: Document) -> Document:
         """Transform a Document node."""
         return Document(
@@ -412,6 +447,30 @@ class NodeCollector(NodeVisitor):
         """Visit all children nodes."""
         for child in children:
             child.accept(self)
+
+    def _generic_visit(self, node: Node) -> None:
+        """Generic node collection using node traversal helpers.
+
+        This method provides a generic way to collect nodes by automatically
+        handling child traversal. Individual visit_* methods can use this
+        to reduce boilerplate.
+
+        Parameters
+        ----------
+        node : Node
+            Node to visit
+
+        Notes
+        -----
+        This method uses get_node_children helper to minimize boilerplate
+        in visitor implementations.
+
+        """
+        from all2md.ast.nodes import get_node_children
+
+        self._collect_if_match(node)
+        children = get_node_children(node)
+        self._visit_children(children)
 
     def visit_document(self, node: Document) -> None:
         """Visit a Document node."""

@@ -686,7 +686,13 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Validate a CodeBlock node."""
-        pass
+        # Validate fence_length is >= 1
+        if node.fence_length < 1:
+            self._add_error(f"CodeBlock fence_length must be >= 1, got {node.fence_length}")
+
+        # Validate fence_char is ` or ~
+        if node.fence_char not in {'`', '~'}:
+            self._add_error(f"CodeBlock fence_char must be '`' or '~', got '{node.fence_char}'")
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Validate a BlockQuote node."""
@@ -695,6 +701,14 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_list(self, node: List) -> None:
         """Validate a List node."""
+        # Validate start is >= 1 for ordered lists
+        if node.ordered and node.start < 1:
+            self._add_error(f"Ordered list start must be >= 1, got {node.start}")
+
+        # Validate items list is non-empty
+        if not node.items:
+            self._add_error("List must have at least one item")
+
         for item in node.items:
             item.accept(self)
 
@@ -705,8 +719,30 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_table(self, node: Table) -> None:
         """Validate a Table node."""
+        # Determine expected column count from header or first row
+        expected_cols = None
         if node.header:
+            expected_cols = len(node.header.cells)
             node.header.accept(self)
+        elif node.rows:
+            expected_cols = len(node.rows[0].cells)
+
+        # Validate consistent column counts across all rows
+        if expected_cols is not None:
+            for i, row in enumerate(node.rows):
+                if len(row.cells) != expected_cols:
+                    self._add_error(
+                        f"Table row {i} has {len(row.cells)} cells, expected {expected_cols}"
+                    )
+
+        # Validate alignments length matches column count
+        if node.alignments and expected_cols is not None:
+            if len(node.alignments) != expected_cols:
+                self._add_error(
+                    f"Table has {len(node.alignments)} alignments but {expected_cols} columns"
+                )
+
+        # Visit all rows to validate cells
         for row in node.rows:
             row.accept(self)
 
@@ -717,6 +753,12 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_table_cell(self, node: TableCell) -> None:
         """Validate a TableCell node."""
+        # Validate colspan and rowspan are >= 1
+        if node.colspan < 1:
+            self._add_error(f"TableCell colspan must be >= 1, got {node.colspan}")
+        if node.rowspan < 1:
+            self._add_error(f"TableCell rowspan must be >= 1, got {node.rowspan}")
+
         for child in node.content:
             child.accept(self)
 
@@ -748,12 +790,27 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_link(self, node: Link) -> None:
         """Validate a Link node."""
+        # Validate url is non-empty
+        if not node.url:
+            self._add_error("Link url must be non-empty")
+
+        # Optionally validate schema in strict mode
+        if self.strict and node.url:
+            # Check for common valid schemes
+            valid_schemes = ['http://', 'https://', 'mailto:', 'ftp://', 'ftps://', 'tel:', '#', '/']
+            if not any(node.url.startswith(scheme) for scheme in valid_schemes):
+                # Allow relative URLs (no scheme)
+                if '://' in node.url:
+                    self._add_error(f"Link url has unrecognized scheme: {node.url}")
+
         for child in node.content:
             child.accept(self)
 
     def visit_image(self, node: Image) -> None:
         """Validate an Image node."""
-        pass
+        # Validate url is non-empty
+        if not node.url:
+            self._add_error("Image url must be non-empty")
 
     def visit_line_break(self, node: LineBreak) -> None:
         """Validate a LineBreak node."""

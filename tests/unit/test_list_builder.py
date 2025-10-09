@@ -335,3 +335,89 @@ class TestTableBuilderHasHeader:
         assert table.header is not None
         assert len(table.rows) == 2
         assert all(not row.is_header for row in table.rows)
+
+
+@pytest.mark.unit
+class TestTableBuilderMixedCellTypes:
+    """Test TableBuilder with mixed cell types."""
+
+    def test_all_string_cells(self) -> None:
+        """Test adding rows with all string cells."""
+        from all2md.ast import Strong, Text
+
+        builder = TableBuilder()
+        builder.add_row(["Name", "Age"])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 2
+        assert isinstance(table.rows[0].cells[0].content[0], Text)
+        assert table.rows[0].cells[0].content[0].content == "Name"  # type: ignore
+
+    def test_all_node_sequence_cells(self) -> None:
+        """Test adding rows with all node sequence cells."""
+        from all2md.ast import Strong, Text
+
+        builder = TableBuilder()
+        builder.add_row([
+            [Text(content="Name")],
+            [Text(content="Age")]
+        ])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 2
+        assert isinstance(table.rows[0].cells[0].content[0], Text)
+        assert table.rows[0].cells[0].content[0].content == "Name"  # type: ignore
+
+    def test_mixed_string_and_node_sequence_cells(self) -> None:
+        """Test adding rows with mixed string and node sequence cells."""
+        from all2md.ast import Strong, Text
+
+        builder = TableBuilder()
+        builder.add_row([
+            "Name",
+            [Text(content="Age: "), Strong(content=[Text(content="30")])]
+        ])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 2
+
+        # First cell is plain string
+        assert isinstance(table.rows[0].cells[0].content[0], Text)
+        assert table.rows[0].cells[0].content[0].content == "Name"  # type: ignore
+
+        # Second cell has mixed inline nodes
+        assert len(table.rows[0].cells[1].content) == 2
+        assert isinstance(table.rows[0].cells[1].content[0], Text)
+        assert isinstance(table.rows[0].cells[1].content[1], Strong)
+
+    def test_empty_sequence_cells(self) -> None:
+        """Test adding an empty row."""
+        builder = TableBuilder()
+        builder.add_row([])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 0
+
+    def test_header_with_mixed_cells(self) -> None:
+        """Test adding header row with mixed cell types."""
+        from all2md.ast import Strong, Text
+
+        builder = TableBuilder(has_header=True)
+        builder.add_row([
+            "Name",
+            [Text(content="Age")]
+        ])
+
+        table = builder.get_table()
+
+        assert table.header is not None
+        assert len(table.header.cells) == 2
+        assert table.header.is_header is True
