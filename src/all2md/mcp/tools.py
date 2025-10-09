@@ -115,12 +115,8 @@ def convert_to_markdown_impl(
         if not config.attachment_output_dir:
             raise ValueError("Server not configured for attachment download mode")
 
-        # Validate write access to attachment dir
-        validated_attachment_dir = validate_write_path(
-            config.attachment_output_dir,
-            config.write_allowlist
-        )
-        kwargs['attachment_output_dir'] = str(validated_attachment_dir)
+        # Use attachment dir from config (already validated at startup)
+        kwargs['attachment_output_dir'] = config.attachment_output_dir
 
     # Perform conversion
     try:

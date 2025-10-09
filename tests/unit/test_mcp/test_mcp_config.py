@@ -92,7 +92,20 @@ class TestMCPConfig:
             attachment_mode="download",
             attachment_output_dir="/nonexistent/path"
         )
-        with pytest.raises(ValueError, match="must exist and be a directory"):
+        with pytest.raises(ValueError, match="must exist"):
+            config.validate()
+
+    def test_config_validate_download_mode_dir_must_be_directory(self, tmp_path):
+        """Test that attachment_output_dir must be a directory, not a file."""
+        # Create a file, not a directory
+        file_path = tmp_path / "not_a_dir.txt"
+        file_path.write_text("test")
+
+        config = MCPConfig(
+            attachment_mode="download",
+            attachment_output_dir=str(file_path)
+        )
+        with pytest.raises(ValueError, match="must be a directory, not a file"):
             config.validate()
 
     def test_config_validate_download_mode_valid(self, tmp_path):

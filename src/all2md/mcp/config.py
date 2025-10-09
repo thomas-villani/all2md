@@ -83,15 +83,21 @@ class MCPConfig(CloneFrozenMixin):
 
             # Verify it's a valid directory path
             try:
-                Path(self.attachment_output_dir).resolve(strict=True)
+                resolved_path = Path(self.attachment_output_dir).resolve(strict=True)
             except (OSError, RuntimeError) as e:
                 raise ValueError(
-                    f"attachment_output_dir must exist and be a directory: {self.attachment_output_dir}"
+                    f"attachment_output_dir must exist: {self.attachment_output_dir}"
                 ) from e
+
+            # Ensure it's a directory, not a file
+            if not resolved_path.is_dir():
+                raise ValueError(
+                    f"attachment_output_dir must be a directory, not a file: {self.attachment_output_dir}"
+                )
 
             # If write allowlist exists, verify attachment dir is in it
             if self.write_allowlist is not None:
-                attachment_dir_resolved = Path(self.attachment_output_dir).resolve()
+                attachment_dir_resolved = resolved_path
                 write_dirs_resolved = [Path(p).resolve() for p in self.write_allowlist]
 
                 in_allowlist = False
@@ -136,7 +142,7 @@ def _str_to_bool(value: str | None, default: bool = False) -> bool:
     Parameters
     ----------
     value : str | None
-        String value ("true", "false", "1", "0", "yes", "no", etc.)
+        String value (True iif: "true", "t", "1", "yes", "on")
     default : bool, default False
         Default value if input is None
 
@@ -148,7 +154,7 @@ def _str_to_bool(value: str | None, default: bool = False) -> bool:
     """
     if value is None:
         return default
-    return value.lower() in ('true', '1', 'yes', 'on')
+    return value.lower() in ('true', '1', 'yes', 't', 'on')
 
 
 def load_config_from_env() -> MCPConfig:
@@ -199,7 +205,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         epilog="""
 Environment Variables:
   ALL2MD_MCP_ENABLE_TO_MD          Enable convert_to_markdown tool (default: true)
-  ALL2MD_MCP_ENABLE_FROM_MD        Enable render_from_markdown tool (default: true)
+  ALL2MD_MCP_ENABLE_FROM_MD        Enable render_from_markdown tool (default: false)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
   ALL2MD_MCP_ATTACHMENT_MODE       Attachment handling mode (default: alt_text)
@@ -212,7 +218,7 @@ Examples:
   all2md-mcp
 
   # With specific read/write directories
-  all2md-mcp --read-dirs "/home/user/documents" --write-dirs "/home/user/output"
+  all2md-mcp --enable-from-md --read-dirs "/home/user/documents" --write-dirs "/home/user/output"
 
   # Create temporary workspace (recommended for LLM usage)
   all2md-mcp --temp
@@ -233,13 +239,14 @@ Examples:
     )
 
     # Tool toggles
-    parser.add_argument(
+    to_md_group = parser.add_mutually_exclusive_group()
+    to_md_group.add_argument(
         '--enable-to-md',
         action='store_true',
         dest='enable_to_md',
         help='Enable convert_to_markdown tool (default: true unless --no-to-md)'
     )
-    parser.add_argument(
+    to_md_group.add_argument(
         '--no-to-md',
         action='store_false',
         dest='enable_to_md',
@@ -247,13 +254,14 @@ Examples:
     )
     parser.set_defaults(enable_to_md=None)  # None = use env default
 
-    parser.add_argument(
+    from_md_group = parser.add_mutually_exclusive_group()
+    from_md_group.add_argument(
         '--enable-from-md',
         action='store_true',
         dest='enable_from_md',
         help='Enable render_from_markdown tool (default: true unless --no-from-md)'
     )
-    parser.add_argument(
+    from_md_group.add_argument(
         '--no-from-md',
         action='store_false',
         dest='enable_from_md',
@@ -292,13 +300,14 @@ Examples:
     )
 
     # Network control
-    parser.add_argument(
+    network_group = parser.add_mutually_exclusive_group()
+    network_group.add_argument(
         '--allow-network',
         action='store_false',
         dest='disable_network',
         help='Allow network access (default: network disabled)'
     )
-    parser.add_argument(
+    network_group.add_argument(
         '--disable-network',
         action='store_true',
         dest='disable_network',
@@ -334,6 +343,8 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     # Start with env config as base
     config = load_config_from_env()
 
+    updated_kwargs = {}
+
     # Handle --temp flag first (creates temporary workspace)
     if hasattr(args, 'temp') and args.temp:
         # Create temporary directory for workspace
@@ -341,40 +352,42 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
         logger.info(f"Created temporary workspace: {temp_dir}")
 
         # Set both read and write allowlists to temp directory
-        config.read_allowlist = [temp_dir]
-        config.write_allowlist = [temp_dir]
+        updated_kwargs.update(read_allowlist=[temp_dir], write_allowlist=[temp_dir])
 
         # Create attachments subdirectory if in download mode
         if config.attachment_mode == "download" and not config.attachment_output_dir:
             attachment_dir = Path(temp_dir) / "attachments"
             attachment_dir.mkdir(exist_ok=True)
-            config.attachment_output_dir = str(attachment_dir)
+            updated_kwargs.update(attachment_output_dir=str(attachment_dir))
             logger.info(f"Created attachments directory: {attachment_dir}")
 
     # Override with explicit CLI args (only if provided, takes precedence over --temp)
     if args.enable_to_md is not None:
-        config.enable_to_md = args.enable_to_md
+        updated_kwargs.update(enable_to_md=args.enable_to_md)
 
     if args.enable_from_md is not None:
-        config.enable_from_md = args.enable_from_md
+        updated_kwargs.update(enable_from_md=args.enable_from_md)
 
     if args.read_dirs is not None:
-        config.read_allowlist = _parse_semicolon_list(args.read_dirs)
+        updated_kwargs.update(read_allowlist=_parse_semicolon_list(args.read_dirs))
 
     if args.write_dirs is not None:
-        config.write_allowlist = _parse_semicolon_list(args.write_dirs)
+        updated_kwargs.update(write_allowlist=_parse_semicolon_list(args.write_dirs))
 
     if args.attachment_mode is not None:
-        config.attachment_mode = args.attachment_mode
+        updated_kwargs.update(attachment_mode=args.attachment_mode)
 
     if args.attachment_output_dir is not None:
-        config.attachment_output_dir = args.attachment_output_dir
+        updated_kwargs.update(attachment_output_dir=args.attachment_output_dir)
 
     if args.disable_network is not None:
-        config.disable_network = args.disable_network
+        updated_kwargs.update(disable_network=args.disable_network)
 
     if args.log_level is not None:
-        config.log_level = args.log_level
+        updated_kwargs.update(log_level=args.log_level)
+
+    if updated_kwargs:
+        config = config.create_updated(**updated_kwargs)
 
     return config
 
