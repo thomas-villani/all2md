@@ -30,8 +30,8 @@ class TestPrepareAllowlistDirs:
 
         assert result is not None
         assert len(result) == 2
-        assert str(dir1.resolve()) in result
-        assert str(dir2.resolve()) in result
+        assert dir1.resolve() in result
+        assert dir2.resolve() in result
 
     def test_prepare_allowlist_nonexistent_dir(self, tmp_path):
         """Test that nonexistent directory raises error."""
@@ -67,7 +67,7 @@ class TestValidateReadPath:
         test_file = allowed_dir / "test.txt"
         test_file.write_text("test")
 
-        # Prepare allowlist (returns validated string paths)
+        # Prepare allowlist (returns validated Path objects)
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         result = validate_read_path(
@@ -142,9 +142,11 @@ class TestValidateWritePath:
         allowed_dir.mkdir()
         output_file = allowed_dir / "output.txt"
 
+        allowlist = prepare_allowlist_dirs([str(allowed_dir)])
+
         result = validate_write_path(
             str(output_file),
-            [str(allowed_dir)]
+            allowlist
         )
         assert result.parent == allowed_dir.resolve()
         assert result.name == "output.txt"
@@ -158,10 +160,12 @@ class TestValidateWritePath:
 
         output_file = forbidden_dir / "output.txt"
 
+        allowlist = prepare_allowlist_dirs([str(allowed_dir)])
+
         with pytest.raises(MCPSecurityError, match="not in allowlist"):
             validate_write_path(
                 str(output_file),
-                [str(allowed_dir)]
+                allowlist
             )
 
     def test_validate_write_path_parent_not_exists(self, tmp_path):
@@ -171,10 +175,12 @@ class TestValidateWritePath:
 
         nonexistent_parent = allowed_dir / "nonexistent" / "output.txt"
 
+        allowlist = prepare_allowlist_dirs([str(allowed_dir)])
+
         with pytest.raises(MCPSecurityError, match="parent directory does not exist"):
             validate_write_path(
                 str(nonexistent_parent),
-                [str(allowed_dir)]
+                allowlist
             )
 
     def test_validate_write_path_traversal(self, tmp_path):
@@ -185,8 +191,10 @@ class TestValidateWritePath:
         # Try to escape using ..
         traversal_path = allowed_dir / ".." / "forbidden" / "output.txt"
 
+        allowlist = prepare_allowlist_dirs([str(allowed_dir)])
+
         with pytest.raises(MCPSecurityError, match="parent directory"):
             validate_write_path(
                 str(traversal_path),
-                [str(allowed_dir)]
+                allowlist
             )

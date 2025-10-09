@@ -41,7 +41,7 @@ class MCPSecurityError(All2MdError):
 
 def validate_read_path(
     path: str | Path,
-    read_allowlist_dirs: list[str] | None
+    read_allowlist_dirs: list[str | Path] | None
 ) -> Path:
     """Validate a path is allowed for reading.
 
@@ -49,8 +49,8 @@ def validate_read_path(
     ----------
     path : str | Path
         Path to validate
-    read_allowlist_dirs : list[str] | None
-        List of allowed read directory paths (strings), or None to allow all
+    read_allowlist_dirs : list[str | Path] | None
+        List of allowed read directory paths (strings or resolved Path objects), or None to allow all
 
     Returns
     -------
@@ -61,6 +61,11 @@ def validate_read_path(
     ------
     MCPSecurityError
         If path is not in read allowlist or validation fails
+
+    Notes
+    -----
+    The allowlist comparison uses resolved canonical paths, which are case-normalized
+    on Windows. This prevents bypass via case variations on case-insensitive filesystems.
 
     """
     path_obj = Path(path)
@@ -84,16 +89,22 @@ def validate_read_path(
     # Check if path is in allowlist (if allowlist is provided)
     if read_allowlist_dirs is not None:
         in_allowlist = False
-        for allowed_dir_str in read_allowlist_dirs:
+        for allowed_dir_item in read_allowlist_dirs:
             try:
-                allowed_dir = Path(allowed_dir_str).resolve(strict=True)
+                # Convert to Path if needed (should already be Path if from prepare_allowlist_dirs)
+                allowed_dir = Path(allowed_dir_item) if isinstance(allowed_dir_item, str) else allowed_dir_item
+                # Resolve if not already resolved (e.g., if passing string directly)
+                if isinstance(allowed_dir_item, str):
+                    allowed_dir = allowed_dir.resolve(strict=True)
                 resolved_path.relative_to(allowed_dir)
                 in_allowlist = True
                 break
             except ValueError:
+                # Path is not relative to this allowlist directory
                 continue
             except (OSError, RuntimeError):
-                logger.warning(f"Invalid allowlist directory: {allowed_dir_str}")
+                # Error resolving allowlist path (should not happen if from prepare_allowlist_dirs)
+                logger.warning(f"Invalid allowlist directory: {allowed_dir_item}")
                 continue
 
         if not in_allowlist:
@@ -108,7 +119,7 @@ def validate_read_path(
 
 def validate_write_path(
     path: str | Path,
-    write_allowlist_dirs: list[str] | None
+    write_allowlist_dirs: list[str | Path] | None
 ) -> Path:
     """Validate a path is allowed for writing.
 
@@ -119,8 +130,8 @@ def validate_write_path(
     ----------
     path : str | Path
         Path to validate
-    write_allowlist_dirs : list[str] | None
-        List of allowed write directory paths (strings), or None to allow all
+    write_allowlist_dirs : list[str | Path] | None
+        List of allowed write directory paths (strings or resolved Path objects), or None to allow all
 
     Returns
     -------
@@ -131,6 +142,11 @@ def validate_write_path(
     ------
     MCPSecurityError
         If path is not in write allowlist or validation fails
+
+    Notes
+    -----
+    The allowlist comparison uses resolved canonical paths, which are case-normalized
+    on Windows. This prevents bypass via case variations on case-insensitive filesystems.
 
     """
     path_obj = Path(path)
@@ -185,16 +201,22 @@ def validate_write_path(
     check_path = final_path.parent
 
     in_allowlist = False
-    for allowed_dir_str in write_allowlist_dirs:
+    for allowed_dir_item in write_allowlist_dirs:
         try:
-            allowed_dir = Path(allowed_dir_str).resolve(strict=True)
+            # Convert to Path if needed (should already be Path if from prepare_allowlist_dirs)
+            allowed_dir = Path(allowed_dir_item) if isinstance(allowed_dir_item, str) else allowed_dir_item
+            # Resolve if not already resolved (e.g., if passing string directly)
+            if isinstance(allowed_dir_item, str):
+                allowed_dir = allowed_dir.resolve(strict=True)
             check_path.relative_to(allowed_dir)
             in_allowlist = True
             break
         except ValueError:
+            # Path is not relative to this allowlist directory
             continue
         except (OSError, RuntimeError):
-            logger.warning(f"Invalid allowlist directory: {allowed_dir_str}")
+            # Error resolving allowlist path (should not happen if from prepare_allowlist_dirs)
+            logger.warning(f"Invalid allowlist directory: {allowed_dir_item}")
             continue
 
     if not in_allowlist:
@@ -208,47 +230,55 @@ def validate_write_path(
 
 
 def prepare_allowlist_dirs(
-    paths: list[str] | None
-) -> list[str] | None:
+    paths: list[str | Path] | None
+) -> list[Path] | None:
     """Validate allowlist directory paths.
 
-    Ensures all paths exist and are directories.
+    Ensures all paths exist and are directories. Resolves paths to canonical
+    form, which normalizes case on Windows and follows symlinks.
 
     Parameters
     ----------
-    paths : list[str] | None
-        List of directory paths, or None for no restrictions
+    paths : list[str | Path] | None
+        List of directory paths (as strings or Path objects), or None for no restrictions
 
     Returns
     -------
-    list[str] | None
-        Validated list of directory paths (as strings), or None
+    list[Path] | None
+        Validated list of resolved Path objects, or None
 
     Raises
     ------
     MCPSecurityError
         If any path is invalid or doesn't exist
 
+    Notes
+    -----
+    Paths are resolved to canonical form using Path.resolve(strict=True),
+    which normalizes case on Windows filesystems. This ensures that case
+    variations cannot bypass security checks on case-insensitive systems.
+
     """
     if paths is None:
         return None
 
     validated_paths = []
-    for path_str in paths:
+    for path_item in paths:
         try:
-            path = Path(path_str).resolve(strict=True)
+            # Convert to Path if string, or use as-is if already Path
+            path = Path(path_item).resolve(strict=True)
             if not path.is_dir():
                 raise MCPSecurityError(
-                    f"Allowlist path is not a directory: {path_str}",
-                    path=path_str
+                    f"Allowlist path is not a directory: {path_item}",
+                    path=str(path_item)
                 )
-            # Store as string for compatibility with validate_local_file_access
-            validated_paths.append(str(path))
+            # Store as resolved Path object to avoid re-resolving in validation
+            validated_paths.append(path)
             logger.debug(f"Added to allowlist: {path}")
         except (OSError, RuntimeError) as e:
             raise MCPSecurityError(
-                f"Invalid allowlist path: {path_str} ({e})",
-                path=path_str
+                f"Invalid allowlist path: {path_item} ({e})",
+                path=str(path_item)
             ) from e
 
     return validated_paths

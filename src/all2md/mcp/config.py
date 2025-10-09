@@ -19,7 +19,9 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
+from importlib.metadata import version
 from pathlib import Path
+from typing import cast
 
 from all2md.constants import AttachmentMode
 from all2md.options.base import CloneFrozenMixin
@@ -39,10 +41,12 @@ class MCPConfig(CloneFrozenMixin):
         Whether to enable convert_to_markdown tool (default: True)
     enable_from_md : bool
         Whether to enable render_from_markdown tool (default: False for security)
-    read_allowlist : list[str]
-        List of allowed read directory paths (default: current working directory)
-    write_allowlist : list[str]
-        List of allowed write directory paths (default: current working directory)
+    read_allowlist : list[str | Path] | None
+        List of allowed read directory paths. Initially strings from env/CLI,
+        then converted to resolved Path objects by prepare_allowlist_dirs.
+    write_allowlist : list[str | Path] | None
+        List of allowed write directory paths. Initially strings from env/CLI,
+        then converted to resolved Path objects by prepare_allowlist_dirs.
     attachment_mode : AttachmentMode
         How to handle attachments (skip|alt_text|base64).
         Only "base64" mode enables image extraction for vLLM visibility.
@@ -60,8 +64,8 @@ class MCPConfig(CloneFrozenMixin):
 
     enable_to_md: bool = True
     enable_from_md: bool = False  # Disabled by default for security (writing)
-    read_allowlist: list[str] | None = None  # Will be set to CWD if None
-    write_allowlist: list[str] | None = None  # Will be set to CWD if None
+    read_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
+    write_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     attachment_mode: AttachmentMode = "base64"  # Default to base64 for vLLM visibility
     disable_network: bool = True
     log_level: str = "INFO"
@@ -218,21 +222,21 @@ def load_config_from_env() -> MCPConfig:
 
     """
     # Get allowlists from env, defaulting to CWD if not specified
-    read_allowlist = _parse_semicolon_list(os.getenv('ALL2MD_MCP_ALLOWED_READ_DIRS'))
-    write_allowlist = _parse_semicolon_list(os.getenv('ALL2MD_MCP_ALLOWED_WRITE_DIRS'))
+    read_allowlist_strs = _parse_semicolon_list(os.getenv('ALL2MD_MCP_ALLOWED_READ_DIRS'))
+    write_allowlist_strs = _parse_semicolon_list(os.getenv('ALL2MD_MCP_ALLOWED_WRITE_DIRS'))
 
     # Default to CWD if no allowlists specified
     cwd = os.getcwd()
-    if read_allowlist is None:
-        read_allowlist = [cwd]
-    if write_allowlist is None:
-        write_allowlist = [cwd]
+    if read_allowlist_strs is None:
+        read_allowlist_strs = [cwd]
+    if write_allowlist_strs is None:
+        write_allowlist_strs = [cwd]
 
     return MCPConfig(
         enable_to_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_TO_MD'), default=True),
         enable_from_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_FROM_MD'), default=False),  # Disabled by default
-        read_allowlist=read_allowlist,
-        write_allowlist=write_allowlist,
+        read_allowlist=cast(list[str | Path], read_allowlist_strs),  # Will be validated and converted to Path objects by prepare_allowlist_dirs
+        write_allowlist=cast(list[str | Path], write_allowlist_strs),  # Will be validated and converted to Path objects by prepare_allowlist_dirs
         attachment_mode=_validate_attachment_mode(os.getenv('ALL2MD_MCP_ATTACHMENT_MODE'), default='base64'),
         disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
         log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),
@@ -278,6 +282,18 @@ Examples:
   # Enable writing/rendering (disabled by default)
   all2md-mcp --temp --enable-from-md
         """
+    )
+
+    # Version flag
+    try:
+        version_string = f'all2md-mcp {version("all2md")}'
+    except Exception:
+        version_string = 'all2md-mcp (version unknown)'
+
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=version_string
     )
 
     # Workspace setup

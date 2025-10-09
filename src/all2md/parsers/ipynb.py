@@ -470,11 +470,11 @@ CONVERTER_METADATA = ConverterMetadata(
         (b'{"cells":', 0),
         (b'{ "cells":', 0),
     ],
-    parser_class="IpynbToAstConverter",
+    parser_class=IpynbToAstConverter,
     renderer_class=None,
     parser_required_packages=[],
     renderer_required_packages=[],
-    parser_options_class="IpynbOptions",
+    parser_options_class=IpynbOptions,
     renderer_options_class=None,
     description="Convert Jupyter Notebooks to Markdown",
     priority=7

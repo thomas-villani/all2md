@@ -755,15 +755,15 @@ CONVERTER_METADATA = ConverterMetadata(
     extensions=[".md", ".markdown", ".mdown", ".mkd", ".mkdn"],
     mime_types=["text/markdown", "text/x-markdown"],
     magic_bytes=[],
-    parser_class="MarkdownToAstConverter",
+    parser_class=MarkdownToAstConverter,
     renderer_class="all2md.renderers.markdown.MarkdownRenderer",
     renders_as_string=True,
     parser_required_packages=[("mistune", "mistune", ">=3.0.0")],
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="Markdown parsing requires 'mistune'. Install with: pip install 'all2md[markdown]'",
-    parser_options_class="MarkdownParserOptions",
-    renderer_options_class="MarkdownOptions",
+    parser_options_class=MarkdownParserOptions,
+    renderer_options_class="all2md.options.markdown.MarkdownOptions",
     description="Parse Markdown to AST and render AST to Markdown",
     priority=10
 )

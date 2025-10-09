@@ -946,15 +946,15 @@ CONVERTER_METADATA = ConverterMetadata(
     extensions=[".tex", ".latex"],
     mime_types=["text/x-tex", "application/x-tex", "application/x-latex"],
     magic_bytes=[],  # LaTeX is plain text, no magic bytes
-    parser_class="LatexParser",
+    parser_class=LatexParser,
     renderer_class="all2md.renderers.latex.LatexRenderer",
     renders_as_string=True,
     parser_required_packages=[("pylatexenc", "pylatexenc", ">=2.10")],
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc",
-    parser_options_class="LatexOptions",
-    renderer_options_class="LatexRendererOptions",
+    parser_options_class=LatexOptions,
+    renderer_options_class="all2md.options.latex.LatexRendererOptions",
     description="Parse and render LaTeX format",
     priority=10
 )
