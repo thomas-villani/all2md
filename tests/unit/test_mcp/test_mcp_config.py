@@ -69,8 +69,7 @@ class TestMCPConfig:
         assert config.enable_from_md is False  # Disabled by default for security
         assert config.read_allowlist is None  # Will be set to CWD by load_config_from_env
         assert config.write_allowlist is None  # Will be set to CWD by load_config_from_env
-        assert config.attachment_mode == "alt_text"
-        assert config.attachment_output_dir is None
+        assert config.attachment_mode == "base64"  # Default for vLLM visibility
         assert config.disable_network is True
         assert config.log_level == "INFO"
 
@@ -80,71 +79,25 @@ class TestMCPConfig:
         with pytest.raises(ValueError, match="At least one tool must be enabled"):
             config.validate()
 
-    def test_config_validate_download_mode_needs_dir(self, tmp_path):
-        """Test that download mode requires attachment_output_dir."""
+    def test_config_validate_download_mode_not_allowed(self):
+        """Test that download mode is not allowed in MCP."""
         config = MCPConfig(attachment_mode="download")
-        with pytest.raises(ValueError, match="attachment_output_dir required"):
+        with pytest.raises(ValueError, match="Invalid attachment_mode"):
             config.validate()
 
-    def test_config_validate_download_mode_dir_must_exist(self):
-        """Test that attachment_output_dir must exist."""
+    def test_config_validate_allowed_attachment_modes(self):
+        """Test that only skip, alt_text, and base64 modes are allowed."""
+        # Valid modes should not raise
+        for mode in ['skip', 'alt_text', 'base64']:
+            config = MCPConfig(attachment_mode=mode)
+            config.validate()  # Should not raise
+
+    def test_config_validate_base64_mode_with_network_disabled(self):
+        """Test that base64 mode works with network disabled (for embedded images)."""
         config = MCPConfig(
-            attachment_mode="download",
-            attachment_output_dir="/nonexistent/path"
+            attachment_mode="base64",
+            disable_network=True
         )
-        with pytest.raises(ValueError, match="must exist"):
-            config.validate()
-
-    def test_config_validate_download_mode_dir_must_be_directory(self, tmp_path):
-        """Test that attachment_output_dir must be a directory, not a file."""
-        # Create a file, not a directory
-        file_path = tmp_path / "not_a_dir.txt"
-        file_path.write_text("test")
-
-        config = MCPConfig(
-            attachment_mode="download",
-            attachment_output_dir=str(file_path)
-        )
-        with pytest.raises(ValueError, match="must be a directory, not a file"):
-            config.validate()
-
-    def test_config_validate_download_mode_valid(self, tmp_path):
-        """Test valid download mode configuration."""
-        config = MCPConfig(
-            attachment_mode="download",
-            attachment_output_dir=str(tmp_path)
-        )
-        config.validate()  # Should not raise
-
-    def test_config_validate_attachment_dir_in_write_allowlist(self, tmp_path):
-        """Test that attachment_output_dir must be in write allowlist."""
-        allowed_dir = tmp_path / "allowed"
-        forbidden_dir = tmp_path / "forbidden"
-        allowed_dir.mkdir()
-        forbidden_dir.mkdir()
-
-        config = MCPConfig(
-            attachment_mode="download",
-            attachment_output_dir=str(forbidden_dir),
-            write_allowlist=[str(allowed_dir)]
-        )
-
-        with pytest.raises(ValueError, match="must be within write allowlist"):
-            config.validate()
-
-    def test_config_validate_attachment_dir_in_allowlist_valid(self, tmp_path):
-        """Test valid attachment dir within write allowlist."""
-        allowed_dir = tmp_path / "allowed"
-        attachment_dir = allowed_dir / "attachments"
-        allowed_dir.mkdir()
-        attachment_dir.mkdir()
-
-        config = MCPConfig(
-            attachment_mode="download",
-            attachment_output_dir=str(attachment_dir),
-            write_allowlist=[str(allowed_dir)]
-        )
-
         config.validate()  # Should not raise
 
 
@@ -165,7 +118,7 @@ class TestLoadConfigFromEnv:
         # Should default to CWD
         assert config.read_allowlist == [os.getcwd()]
         assert config.write_allowlist == [os.getcwd()]
-        assert config.attachment_mode == "alt_text"
+        assert config.attachment_mode == "base64"  # Default for vLLM visibility
         assert config.disable_network is True
         assert config.log_level == "INFO"
 

@@ -168,8 +168,15 @@ def convert_to_markdown_impl(
 
     # Add PDF-specific options if needed
     if input_data.pdf_pages:
-        # Parse page spec and pass to PdfOptions
-        kwargs['pages'] = input_data.pdf_pages
+        # Validate page specification format before passing to converter
+        # (Full validation with page count happens in converter)
+        page_spec = input_data.pdf_pages.strip()
+        if not re.match(r'^[\d\s,\-]+$', page_spec):
+            raise ValueError(
+                f"Invalid page range format: '{input_data.pdf_pages}'. "
+                "Expected format like '1-3,5,10-' with only digits, commas, and hyphens."
+            )
+        kwargs['pages'] = page_spec
 
     # Set markdown flavor if specified
     if input_data.flavor:

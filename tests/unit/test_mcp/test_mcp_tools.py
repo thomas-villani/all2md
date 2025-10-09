@@ -36,11 +36,12 @@ class TestConvertToMarkdownImpl:
         # Execute
         result = convert_to_markdown_impl(input_data, config)
 
-        # Verify
-        assert result.markdown is not None
-        assert "Hello World" in result.markdown
-        assert isinstance(result.attachments, list)
-        assert isinstance(result.warnings, list)
+        # Verify - result is now a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        markdown = result[0]
+        assert isinstance(markdown, str)
+        assert "Hello World" in markdown
 
     def test_convert_from_plain_text_content(self):
         """Test converting from plain text content."""
@@ -54,9 +55,13 @@ class TestConvertToMarkdownImpl:
 
         result = convert_to_markdown_impl(input_data, config)
 
-        assert result.markdown is not None
-        assert "Test" in result.markdown
-        assert "Content" in result.markdown
+        # Verify - result is now a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        markdown = result[0]
+        assert isinstance(markdown, str)
+        assert "Test" in markdown
+        assert "Content" in markdown
 
     def test_convert_from_base64_content(self):
         """Test converting from base64-encoded content."""
@@ -74,8 +79,12 @@ class TestConvertToMarkdownImpl:
 
         result = convert_to_markdown_impl(input_data, config)
 
-        assert result.markdown is not None
-        assert "Base64 Test" in result.markdown
+        # Verify - result is now a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        markdown = result[0]
+        assert isinstance(markdown, str)
+        assert "Base64 Test" in markdown
 
     def test_mutually_exclusive_sources_error(self):
         """Test that providing both source_path and source_content raises error."""
@@ -111,6 +120,33 @@ class TestConvertToMarkdownImpl:
         with pytest.raises(ValueError, match="Invalid base64 encoding"):
             convert_to_markdown_impl(input_data, config)
 
+    def test_pdf_pages_validation_rejects_malicious_input(self):
+        """Test that malicious page specs are rejected (security fix)."""
+        config = MCPConfig()
+
+        # Test injection attempts
+        malicious_specs = [
+            "1; DROP TABLE users",
+            "1-3$(echo malicious)",
+            "1-3`whoami`",
+            "1-3; rm -rf /",
+            "../../../etc/passwd",
+        ]
+
+        # Use valid base64 content (doesn't need to be valid PDF for this test)
+        dummy_content = base64.b64encode(b"dummy PDF content").decode('ascii')
+
+        for malicious_spec in malicious_specs:
+            input_data = ConvertToMarkdownInput(
+                source_content=dummy_content,
+                content_encoding="base64",
+                source_format="pdf",
+                pdf_pages=malicious_spec
+            )
+
+            with pytest.raises(ValueError, match="Invalid page range format"):
+                convert_to_markdown_impl(input_data, config)
+
     def test_pdf_pages_option(self, tmp_path):
         """Test PDF page specification option."""
         # This would require a real PDF file, so we'll mock it
@@ -144,7 +180,11 @@ class TestConvertToMarkdownImpl:
 
         result = convert_to_markdown_impl(input_data, config)
 
-        assert result.markdown is not None
+        # Verify - result is now a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        markdown = result[0]
+        assert isinstance(markdown, str)
 
 
 class TestRenderFromMarkdownImpl:

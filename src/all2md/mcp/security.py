@@ -112,6 +112,9 @@ def validate_write_path(
 ) -> Path:
     """Validate a path is allowed for writing.
 
+    Uses security checks consistent with validate_local_file_access to ensure
+    proper path validation and symlink resolution in all cases.
+
     Parameters
     ----------
     path : str | Path
@@ -130,21 +133,9 @@ def validate_write_path(
         If path is not in write allowlist or validation fails
 
     """
-    if write_allowlist_dirs is None:
-        # No restrictions
-        path_obj = Path(path)
-        try:
-            return path_obj.absolute()
-        except (OSError, RuntimeError) as e:
-            raise MCPSecurityError(
-                f"Invalid write path: {path}",
-                path=str(path)
-            ) from e
-
-    # For write paths, parent directory must exist and be in allowlist
     path_obj = Path(path)
 
-    # Check for path traversal
+    # Check for path traversal (always, regardless of allowlist)
     if '..' in path_obj.parts:
         raise MCPSecurityError(
             f"Path contains parent directory references (..): {path}",
@@ -155,7 +146,7 @@ def validate_write_path(
     abs_path = path_obj.absolute()
     parent = abs_path.parent
 
-    # Verify parent exists and is in allowlist
+    # Verify parent exists
     if not parent.exists():
         raise MCPSecurityError(
             f"Write access denied: parent directory does not exist: {parent}",
@@ -171,12 +162,33 @@ def validate_write_path(
             path=str(path)
         ) from e
 
-    # Check if resolved parent is within any allowed directory
+    # Build final path with resolved parent
+    final_path = resolved_parent / abs_path.name
+
+    # If file already exists, resolve it fully to handle symlinks
+    if final_path.exists():
+        try:
+            final_path = final_path.resolve(strict=True)
+        except (OSError, RuntimeError) as e:
+            raise MCPSecurityError(
+                f"Write access denied: cannot resolve existing file: {final_path}",
+                path=str(path)
+            ) from e
+
+    # If no allowlist, allow write after security checks
+    if write_allowlist_dirs is None:
+        logger.debug(f"Write path validated (no allowlist): {final_path}")
+        return final_path
+
+    # Check if final path is within any allowed directory
+    # Use the parent of the final resolved path for checking
+    check_path = final_path.parent
+
     in_allowlist = False
     for allowed_dir_str in write_allowlist_dirs:
         try:
             allowed_dir = Path(allowed_dir_str).resolve(strict=True)
-            resolved_parent.relative_to(allowed_dir)
+            check_path.relative_to(allowed_dir)
             in_allowlist = True
             break
         except ValueError:
@@ -191,10 +203,8 @@ def validate_write_path(
             path=str(path)
         )
 
-    # Return full resolved path
-    resolved_path = resolved_parent / abs_path.name
-    logger.debug(f"Write path validated: {resolved_path}")
-    return resolved_path
+    logger.debug(f"Write path validated: {final_path}")
+    return final_path
 
 
 def prepare_allowlist_dirs(

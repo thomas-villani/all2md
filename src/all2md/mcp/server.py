@@ -16,7 +16,7 @@ import logging
 import os
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Annotated, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
-    ConvertToMarkdownOutput,
     MarkdownFlavor,
     RenderFromMarkdownInput,
     RenderFromMarkdownOutput,
@@ -41,7 +40,7 @@ ContentEncoding = Literal["plain", "base64"]
 
 def create_server(
     config: MCPConfig,
-    convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], ConvertToMarkdownOutput],
+    convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], list[Any]],
     render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput]
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
@@ -228,8 +227,6 @@ def main() -> None:
         logger.info("Starting all2md MCP server")
         logger.info(f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}")
         logger.info(f"Attachment mode: {config.attachment_mode}")
-        if config.attachment_output_dir:
-            logger.info(f"Attachment output dir: {config.attachment_output_dir}")
 
         # Validate and prepare allowlists
         try:
