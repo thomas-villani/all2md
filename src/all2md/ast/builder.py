@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Literal, Sequence
 
 from all2md.ast.nodes import (
+    Alignment,
     Document,
     List,
     ListItem,
@@ -177,14 +178,14 @@ class TableBuilder:
         self.has_header = has_header
         self.header: TableRow | None = None
         self.rows: list[TableRow] = []
-        self.alignments: list[Literal['left', 'center', 'right'] | None] = []
+        self.alignments: list[Alignment | None] = []
         self.caption: str | None = None
 
     def add_row(
         self,
         cells: Sequence[str | Sequence[Node]],
         is_header: bool = False,
-        alignments: list[Literal['left', 'center', 'right'] | None] | None = None
+        alignments: list[Alignment | None] | None = None
     ) -> None:
         """Add a row to the table.
 
@@ -201,7 +202,8 @@ class TableBuilder:
 
             Mixed types are supported per-cell. An empty sequence creates an empty row.
 
-            Examples:
+        Examples
+        --------
                 ["Name", "Age"]  # All strings
                 [[Text("Name")], [Text("Age")]]  # All node sequences
                 ["Name", [Text("Age: "), Strong(content=[Text("30")])]]  # Mixed
@@ -264,7 +266,7 @@ class TableBuilder:
     def set_column_alignment(
         self,
         column_index: int,
-        alignment: Literal['left', 'center', 'right'] | None
+        alignment: Alignment | None
     ) -> None:
         """Set alignment for a specific column.
 

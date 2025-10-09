@@ -9,13 +9,13 @@ from all2md.constants import AttachmentMode, DEFAULT_ATTACHMENT_MODE, AltTextMod
 _UNSET = object()
 
 
-class _CloneMixin:
+class CloneFrozenMixin:
     def create_updated(self, **kwargs: Any) -> Self:
         return replace(self, **kwargs)  # type: ignore
 
 
 @dataclass(frozen=True)
-class BaseRendererOptions(_CloneMixin):
+class BaseRendererOptions(CloneFrozenMixin):
     """Base class for all renderer options.
 
     This class serves as the foundation for format-specific renderer options.
@@ -31,7 +31,7 @@ class BaseRendererOptions(_CloneMixin):
 
 
 @dataclass(frozen=True)
-class BaseParserOptions(_CloneMixin):
+class BaseParserOptions(CloneFrozenMixin):
     """Base class for all parser options.
 
     This class serves as the foundation for format-specific parser options.

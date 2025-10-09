@@ -25,7 +25,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from all2md.options.base import _UNSET, _CloneMixin, BaseRendererOptions, BaseParserOptions
+from all2md.options.base import _UNSET, CloneFrozenMixin, BaseRendererOptions, BaseParserOptions
 from all2md.options.common import NetworkFetchOptions, LocalFileAccessOptions
 from all2md.options.asciidoc import AsciiDocRendererOptions, AsciiDocOptions
 from all2md.options.chm import ChmOptions

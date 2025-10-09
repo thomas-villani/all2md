@@ -234,7 +234,7 @@ def prepare_allowlist_dirs(
                 )
             # Store as string for compatibility with validate_local_file_access
             validated_paths.append(str(path))
-            logger.info(f"Added to allowlist: {path}")
+            logger.debug(f"Added to allowlist: {path}")
         except (OSError, RuntimeError) as e:
             raise MCPSecurityError(
                 f"Invalid allowlist path: {path_str} ({e})",

@@ -641,17 +641,24 @@ class ValidationVisitor(NodeVisitor):
     - Invalid nesting (e.g., block nodes inside inline nodes)
     - Missing required fields
     - Invalid field values
+    - Presence of raw HTML content (when disallowed)
 
     Parameters
     ----------
     strict : bool, default = True
         Whether to raise errors on validation failures
+    allow_raw_html : bool, default = True
+        Whether to allow HTMLBlock and HTMLInline nodes. When False,
+        any raw HTML content will trigger a validation error. This is
+        useful for strict security contexts where user-provided HTML
+        should be rejected.
 
     """
 
-    def __init__(self, strict: bool = True):
-        """Initialize the validator in strict or lenient mode."""
+    def __init__(self, strict: bool = True, allow_raw_html: bool = True):
+        """Initialize the validator with strictness and HTML policy."""
         self.strict = strict
+        self.allow_raw_html = allow_raw_html
         self.errors: list[str] = []
 
     def _add_error(self, message: str) -> None:
@@ -767,8 +774,15 @@ class ValidationVisitor(NodeVisitor):
         pass
 
     def visit_html_block(self, node: HTMLBlock) -> None:
-        """Validate an HTMLBlock node."""
-        pass
+        """Validate an HTMLBlock node.
+
+        Checks if raw HTML is allowed based on the allow_raw_html setting.
+        """
+        if not self.allow_raw_html:
+            self._add_error(
+                "Raw HTML content (HTMLBlock) not allowed in strict mode. "
+                "Consider sanitizing or removing HTML content for security."
+            )
 
     def visit_text(self, node: Text) -> None:
         """Validate a Text node."""
@@ -837,8 +851,15 @@ class ValidationVisitor(NodeVisitor):
             child.accept(self)
 
     def visit_html_inline(self, node: HTMLInline) -> None:
-        """Validate an HTMLInline node."""
-        pass
+        """Validate an HTMLInline node.
+
+        Checks if raw HTML is allowed based on the allow_raw_html setting.
+        """
+        if not self.allow_raw_html:
+            self._add_error(
+                "Raw HTML content (HTMLInline) not allowed in strict mode. "
+                "Consider sanitizing or removing HTML content for security."
+            )
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Validate a FootnoteReference node."""

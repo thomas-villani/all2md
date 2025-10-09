@@ -737,3 +737,96 @@ class TestExtendedMarkdownNodes:
         visitor = ValidationVisitor(strict=True)
         visitor.visit_definition_list(dl)
         assert len(visitor.errors) == 0
+
+
+@pytest.mark.unit
+class TestHTMLValidation:
+    """Tests for HTML node validation with security constraints."""
+
+    def test_html_block_allowed_by_default(self):
+        """Test that HTMLBlock is allowed by default."""
+        html = HTMLBlock(content="<div>Test</div>")
+        visitor = ValidationVisitor(strict=True, allow_raw_html=True)
+
+        visitor.visit_html_block(html)
+        assert len(visitor.errors) == 0
+
+    def test_html_inline_allowed_by_default(self):
+        """Test that HTMLInline is allowed by default."""
+        html = HTMLInline(content="<span>Test</span>")
+        visitor = ValidationVisitor(strict=True, allow_raw_html=True)
+
+        visitor.visit_html_inline(html)
+        assert len(visitor.errors) == 0
+
+    def test_html_block_rejected_in_strict_mode(self):
+        """Test that HTMLBlock is rejected when allow_raw_html=False."""
+        html = HTMLBlock(content="<div>Test</div>")
+        visitor = ValidationVisitor(strict=False, allow_raw_html=False)
+
+        visitor.visit_html_block(html)
+        assert len(visitor.errors) == 1
+        assert "HTMLBlock" in visitor.errors[0]
+        assert "strict mode" in visitor.errors[0]
+
+    def test_html_inline_rejected_in_strict_mode(self):
+        """Test that HTMLInline is rejected when allow_raw_html=False."""
+        html = HTMLInline(content="<span>Test</span>")
+        visitor = ValidationVisitor(strict=False, allow_raw_html=False)
+
+        visitor.visit_html_inline(html)
+        assert len(visitor.errors) == 1
+        assert "HTMLInline" in visitor.errors[0]
+        assert "strict mode" in visitor.errors[0]
+
+    def test_html_block_raises_in_strict_validation(self):
+        """Test that HTMLBlock raises exception in strict validation mode."""
+        html = HTMLBlock(content="<script>alert('xss')</script>")
+        visitor = ValidationVisitor(strict=True, allow_raw_html=False)
+
+        with pytest.raises(ValueError, match="Raw HTML content.*not allowed"):
+            visitor.visit_html_block(html)
+
+    def test_html_inline_raises_in_strict_validation(self):
+        """Test that HTMLInline raises exception in strict validation mode."""
+        html = HTMLInline(content="<img src=x onerror=alert(1)>")
+        visitor = ValidationVisitor(strict=True, allow_raw_html=False)
+
+        with pytest.raises(ValueError, match="Raw HTML content.*not allowed"):
+            visitor.visit_html_inline(html)
+
+    def test_document_with_html_validated(self):
+        """Test validation of entire document containing HTML."""
+        # Document with HTMLBlock
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Safe content")]),
+            HTMLBlock(content="<div>Unsafe HTML</div>")
+        ])
+
+        # Should pass with default settings
+        visitor1 = ValidationVisitor(strict=True, allow_raw_html=True)
+        visitor1.visit_document(doc)
+        assert len(visitor1.errors) == 0
+
+        # Should fail with allow_raw_html=False
+        visitor2 = ValidationVisitor(strict=False, allow_raw_html=False)
+        visitor2.visit_document(doc)
+        assert len(visitor2.errors) == 1
+
+    def test_paragraph_with_html_inline_validated(self):
+        """Test validation of paragraph containing inline HTML."""
+        para = Paragraph(content=[
+            Text(content="Text with "),
+            HTMLInline(content="<strong>HTML</strong>"),
+            Text(content=" inline")
+        ])
+
+        # Should pass with default settings
+        visitor1 = ValidationVisitor(strict=True, allow_raw_html=True)
+        visitor1.visit_paragraph(para)
+        assert len(visitor1.errors) == 0
+
+        # Should fail with allow_raw_html=False
+        visitor2 = ValidationVisitor(strict=False, allow_raw_html=False)
+        visitor2.visit_paragraph(para)
+        assert len(visitor2.errors) == 1

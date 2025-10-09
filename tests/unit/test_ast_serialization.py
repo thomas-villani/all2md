@@ -247,6 +247,58 @@ class TestJsonSerialization:
         assert isinstance(node, Text)
         assert node.content == "Hello"
 
+    def test_schema_version_present(self) -> None:
+        """Test that schema_version is present in serialized JSON."""
+        text = Text(content="Test")
+        json_str = ast_to_json(text)
+        parsed = json.loads(json_str)
+
+        assert "schema_version" in parsed
+        assert parsed["schema_version"] == 1
+
+    def test_unicode_preservation(self) -> None:
+        """Test that Unicode characters are preserved without escaping."""
+        # Text with various Unicode characters
+        unicode_text = "Hello 世界 🌍 café naïve"
+        text = Text(content=unicode_text)
+        json_str = ast_to_json(text)
+
+        # Unicode characters should appear directly in JSON string, not as escapes
+        assert "世界" in json_str
+        assert "🌍" in json_str
+        assert "café" in json_str
+        assert "naïve" in json_str
+        # Should not contain Unicode escapes like \u
+        assert "\\u" not in json_str
+
+        # Verify round-trip preserves content
+        restored = json_to_ast(json_str)
+        assert isinstance(restored, Text)
+        assert restored.content == unicode_text
+
+    def test_backward_compatibility_no_schema_version(self) -> None:
+        """Test backward compatibility with JSON lacking schema_version."""
+        # JSON without schema_version (old format)
+        json_str = '{"node_type": "Text", "content": "Legacy", "metadata": {}, "source_location": null}'
+        node = json_to_ast(json_str)
+
+        assert isinstance(node, Text)
+        assert node.content == "Legacy"
+
+    def test_unsupported_schema_version_rejected(self) -> None:
+        """Test that unsupported schema versions are rejected."""
+        json_str = '{"schema_version": 2, "node_type": "Text", "content": "Future", "metadata": {}}'
+
+        with pytest.raises(ValueError, match="Unsupported schema version: 2"):
+            json_to_ast(json_str)
+
+    def test_invalid_schema_version_type(self) -> None:
+        """Test that non-integer schema versions are rejected."""
+        json_str = '{"schema_version": "1", "node_type": "Text", "content": "Test", "metadata": {}}'
+
+        with pytest.raises(ValueError, match="Schema version must be an integer"):
+            json_to_ast(json_str)
+
 
 @pytest.mark.unit
 class TestRoundTripConversion:

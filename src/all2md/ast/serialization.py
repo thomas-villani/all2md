@@ -601,7 +601,11 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
 
 
 def ast_to_json(node: Node, indent: int | None = None) -> str:
-    """Serialize an AST node to JSON string.
+    """Serialize an AST node to JSON string with schema versioning.
+
+    The serialized JSON includes a schema_version field to enable migration
+    paths for future AST evolution. Unicode characters are preserved without
+    escape sequences for improved readability.
 
     Parameters
     ----------
@@ -613,7 +617,12 @@ def ast_to_json(node: Node, indent: int | None = None) -> str:
     Returns
     -------
     str
-        JSON string representation
+        JSON string representation with schema version
+
+    Notes
+    -----
+    The output format includes a schema_version field:
+        {"schema_version": 1, "node_type": "...", ...}
 
     Examples
     --------
@@ -625,11 +634,19 @@ def ast_to_json(node: Node, indent: int | None = None) -> str:
     >>> print(json_str)
 
     """
-    return json.dumps(ast_to_dict(node), indent=indent)
+    node_dict = ast_to_dict(node)
+    # Add schema version at the root level for future migration support
+    versioned_dict = {"schema_version": 1, **node_dict}
+    # Use ensure_ascii=False to preserve Unicode characters
+    return json.dumps(versioned_dict, indent=indent, ensure_ascii=False)
 
 
 def json_to_ast(json_str: str) -> Node:
     """Deserialize a JSON string to an AST node.
+
+    This function handles schema versioning to support future AST evolution.
+    If no schema_version is present in the JSON (for backward compatibility),
+    it assumes version 1.
 
     Parameters
     ----------
@@ -644,19 +661,38 @@ def json_to_ast(json_str: str) -> Node:
     Raises
     ------
     ValueError
-        If JSON is invalid or contains unknown node types
+        If JSON is invalid, contains unknown node types, or has an
+        unsupported schema version
     json.JSONDecodeError
         If JSON string is malformed
 
+    Notes
+    -----
+    Backward compatibility is maintained for JSON without schema_version field.
+
     Examples
     --------
-    >>> json_str = '{"node_type": "Text", "content": "Hello", "metadata": {}, "source_location": null}'
+    >>> json_str = '{"schema_version": 1, "node_type": "Text", "content": "Hello"}'
     >>> node = json_to_ast(json_str)
     >>> print(node.content)
     Hello
 
     """
     data = json.loads(json_str)
+
+    # Extract and validate schema version
+    schema_version = data.pop("schema_version", None)
+    if schema_version is None:
+        # Backward compatibility: if no version specified, assume version 1
+        schema_version = 1
+    elif not isinstance(schema_version, int):
+        raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
+    elif schema_version != 1:
+        raise ValueError(
+            f"Unsupported schema version: {schema_version}. "
+            f"This version of all2md supports schema version 1 only."
+        )
+
     return dict_to_ast(data)  # type: ignore
 
 

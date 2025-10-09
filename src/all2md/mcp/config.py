@@ -22,12 +22,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from all2md.constants import AttachmentMode
+from all2md.options.base import CloneFrozenMixin
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class MCPConfig:
+@dataclass(frozen=True)
+class MCPConfig(CloneFrozenMixin):
     """MCP server configuration.
 
     All settings are immutable after server startup for security.

@@ -8,11 +8,11 @@ from dataclasses import dataclass, field
 from all2md.constants import DEFAULT_ALLOW_REMOTE_FETCH, DEFAULT_ALLOWED_HOSTS, DEFAULT_REQUIRE_HTTPS, \
     DEFAULT_REQUIRE_HEAD_SUCCESS, DEFAULT_NETWORK_TIMEOUT, DEFAULT_MAX_IMAGE_SIZE_BYTES, \
     DEFAULT_MAX_REQUESTS_PER_SECOND, DEFAULT_MAX_CONCURRENT_REQUESTS, DEFAULT_ALLOW_LOCAL_FILES, DEFAULT_ALLOW_CWD_FILES
-from all2md.options import _CloneMixin
+from all2md.options import CloneFrozenMixin
 
 
 @dataclass(frozen=True)
-class NetworkFetchOptions(_CloneMixin):
+class NetworkFetchOptions(CloneFrozenMixin):
     """Network security options for remote resource fetching.
 
     This dataclass contains settings that control how remote resources
@@ -107,7 +107,7 @@ class NetworkFetchOptions(_CloneMixin):
 
 
 @dataclass(frozen=True)
-class LocalFileAccessOptions(_CloneMixin):
+class LocalFileAccessOptions(CloneFrozenMixin):
     """Local file access security options.
 
     This dataclass contains settings that control access to local files

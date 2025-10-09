@@ -616,7 +616,8 @@ class ThematicBreak(Node):
 class HTMLBlock(Node):
     """Raw HTML block node.
 
-    Represents a block of raw HTML content.
+    Represents a block of raw HTML content. This node preserves HTML as-is
+    without modification or sanitization.
 
     Parameters
     ----------
@@ -626,6 +627,18 @@ class HTMLBlock(Node):
         HTML block metadata
     source_location : SourceLocation or None, default = None
         Source location information
+
+    Warnings
+    --------
+    Security: Raw HTML content is preserved without sanitization. Renderers
+    MUST sanitize user-provided HTML content before rendering to prevent
+    XSS attacks and other security vulnerabilities. For strict security
+    contexts, consider using ValidationVisitor with allow_raw_html=False
+    to reject documents containing raw HTML.
+
+    See Also
+    --------
+    ValidationVisitor : AST validator with optional HTML rejection
 
     """
 
@@ -1100,7 +1113,8 @@ class Subscript(Node):
 class HTMLInline(Node):
     """Inline HTML node.
 
-    Represents inline HTML content.
+    Represents inline HTML content. This node preserves HTML as-is
+    without modification or sanitization.
 
     Parameters
     ----------
@@ -1110,6 +1124,18 @@ class HTMLInline(Node):
         HTML metadata
     source_location : SourceLocation or None, default = None
         Source location information
+
+    Warnings
+    --------
+    Security: Raw HTML content is preserved without sanitization. Renderers
+    MUST sanitize user-provided HTML content before rendering to prevent
+    XSS attacks and other security vulnerabilities. For strict security
+    contexts, consider using ValidationVisitor with allow_raw_html=False
+    to reject documents containing raw HTML.
+
+    See Also
+    --------
+    ValidationVisitor : AST validator with optional HTML rejection
 
     """
 

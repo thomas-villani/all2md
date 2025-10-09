@@ -16,8 +16,8 @@ The module consists of several components:
 
 - nodes: AST node classes representing document structure
 - visitors: Visitor pattern implementation for AST traversal
-- renderer: Markdown rendering from AST
-- flavors: Different markdown dialect support
+- serialization: JSON serialization and deserialization of AST structures
+- transforms: AST transformation utilities (cloning, filtering, rewriting)
 - builder: Helper classes for constructing complex AST structures
 
 Examples
