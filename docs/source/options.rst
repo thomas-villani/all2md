@@ -183,7 +183,7 @@ Many options are boolean flags that default to ``True``. In code, you set them d
 .. code-block:: python
 
    # Python: Explicitly disable column detection
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    options = PdfOptions(
        detect_columns=False,

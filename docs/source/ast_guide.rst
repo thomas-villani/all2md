@@ -46,7 +46,7 @@ Use ``to_ast()`` to convert any supported document to an AST:
    ast_doc = to_ast("report.docx")
 
    # With options (same as to_markdown)
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
    ast_doc = to_ast("document.pdf", options=PdfOptions(pages=[1, 2, 3]))
 
 The AST Document Structure

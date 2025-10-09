@@ -380,7 +380,7 @@ class TestSecurityPresetOptionsMapping:
     def test_safe_mode_creates_html_options_with_nested_fields(self):
         """Test that safe-mode flat keys create proper HtmlOptions with nested dataclasses."""
         from all2md import _create_parser_options_from_kwargs
-        from all2md import HtmlOptions
+        from all2md.options import HtmlOptions
 
         # Simulate what apply_security_preset does
         kwargs = {
@@ -413,7 +413,7 @@ class TestSecurityPresetOptionsMapping:
     def test_paranoid_mode_creates_html_options_with_all_fields(self):
         """Test that paranoid-mode creates HtmlOptions with all security settings."""
         from all2md import _create_parser_options_from_kwargs
-        from all2md import HtmlOptions
+        from all2md.options import HtmlOptions
 
         kwargs = {
             'strip_dangerous_elements': True,
@@ -440,7 +440,7 @@ class TestSecurityPresetOptionsMapping:
     def test_strict_html_sanitize_creates_html_options(self):
         """Test that strict-html-sanitize creates proper HtmlOptions."""
         from all2md import _create_parser_options_from_kwargs
-        from all2md import HtmlOptions
+        from all2md.options import HtmlOptions
 
         kwargs = {
             'strip_dangerous_elements': True,
@@ -461,7 +461,7 @@ class TestSecurityPresetOptionsMapping:
     def test_eml_options_with_html_network_nested_field(self):
         """Test that EmlOptions correctly handles html_network nested field."""
         from all2md import _create_parser_options_from_kwargs
-        from all2md import EmlOptions
+        from all2md.options import EmlOptions
 
         kwargs = {
             'allow_remote_fetch': True,
@@ -481,7 +481,7 @@ class TestSecurityPresetOptionsMapping:
     def test_mhtml_options_with_local_files_nested_field(self):
         """Test that MhtmlOptions correctly handles local_files nested field."""
         from all2md import _create_parser_options_from_kwargs
-        from all2md import MhtmlOptions
+        from all2md.options import MhtmlOptions
 
         kwargs = {
             'allow_local_files': False,
@@ -499,7 +499,7 @@ class TestSecurityPresetOptionsMapping:
     def test_mixed_flat_and_top_level_kwargs(self):
         """Test that mixed flat nested and top-level kwargs work together."""
         from all2md import _create_parser_options_from_kwargs
-        from all2md import HtmlOptions
+        from all2md.options import HtmlOptions
 
         kwargs = {
             'extract_title': True,  # Top-level field

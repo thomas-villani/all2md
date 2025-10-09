@@ -195,7 +195,7 @@ Documents may reference local files using ``file://`` URLs. This can expose sens
 
 .. code-block:: python
 
-   from all2md import HtmlOptions
+   from all2md.options import HtmlOptions
    from all2md.options import LocalFileAccessOptions
 
    # Block all local file access (recommended for untrusted input)

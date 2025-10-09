@@ -43,6 +43,7 @@ from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
+from all2md.options.odp import OdpOptions
 
 if TYPE_CHECKING:
     import odf
@@ -65,17 +66,14 @@ class OdpToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odp", [("odfpy", "odf", "")])
-    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: OdpOptions = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODP parser with options and progress callback."""
-        # Import here to avoid circular dependency
-        from all2md import OdpOptions
 
         options = options or OdpOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
-        from all2md import OdpOptions
         self.options: OdpOptions = options
 
         from odf import namespaces

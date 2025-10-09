@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from all2md import HtmlOptions
+from all2md.options.html import HtmlOptions
 
 
 @dataclass(frozen=True)

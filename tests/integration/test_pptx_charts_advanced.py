@@ -9,7 +9,7 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import PptxOptions
+from all2md.options import PptxOptions
 from all2md.parsers.pptx import PptxToAstConverter
 from all2md.renderers.markdown import MarkdownRenderer
 

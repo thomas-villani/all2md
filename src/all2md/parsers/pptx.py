@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
-from all2md import PptxOptions
+from all2md.options.pptx import PptxOptions
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 from all2md.progress import ProgressCallback
 from all2md.utils.inputs import parse_page_ranges, validate_and_convert_input

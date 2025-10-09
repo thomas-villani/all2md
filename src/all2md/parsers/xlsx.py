@@ -41,6 +41,7 @@ from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
+from all2md.options.xlsx import XlsxOptions
 
 logger = logging.getLogger(__name__)
 
@@ -486,17 +487,14 @@ class XlsxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: XlsxOptions = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the XLSX parser with options and progress callback."""
-        # Import here to avoid circular dependency
-        from all2md import XlsxOptions
 
         options = options or XlsxOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
-        from all2md import XlsxOptions
         self.options: XlsxOptions = options
 
     @requires_dependencies("xlsx", [("openpyxl", "openpyxl", "")])

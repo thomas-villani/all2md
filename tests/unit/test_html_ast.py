@@ -34,7 +34,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md import HtmlOptions
+from all2md.options import HtmlOptions
 from all2md.parsers.html import HtmlToAstConverter
 
 

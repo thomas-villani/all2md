@@ -16,7 +16,7 @@ Tests cover:
 import pytest
 
 from all2md.ast import CodeBlock, Document
-from all2md import SourceCodeOptions
+from all2md.options import SourceCodeOptions
 from all2md.parsers.sourcecode import SourceCodeToAstConverter
 
 

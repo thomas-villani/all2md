@@ -54,7 +54,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from all2md import to_markdown
+from all2md import to_markdown, convert
 from all2md.cli.builder import DynamicCLIBuilder
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import All2MdError
@@ -2278,11 +2278,6 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
             return target_dir / f"{stem}{ext}"
         return None
 
-    try:
-        from all2md import convert
-    except ImportError:
-        print("Error: Unable to import conversion API", file=sys.stderr)
-        return 1
 
     iterator = progress_iterator if use_progress else files
 

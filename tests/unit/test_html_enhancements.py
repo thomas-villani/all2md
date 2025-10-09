@@ -1,7 +1,7 @@
 """Tests for HTML parser enhancements (figure, details, code detection, microdata)."""
 
 from all2md.ast.nodes import BlockQuote, CodeBlock, Emphasis, Image, Paragraph, Strong
-from all2md import HtmlOptions
+from all2md.options import HtmlOptions
 from all2md.parsers.html import HtmlToAstConverter
 
 

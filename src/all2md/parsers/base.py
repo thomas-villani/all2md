@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document
-from all2md import BaseParserOptions
+from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
 
@@ -39,7 +39,7 @@ class BaseParser(ABC):
     --------
     Creating a custom parser:
 
-        >>> from all2md import BaseParserOptions        >>> from all2md.parsers.base import BaseParser
+        >>> from all2md.options.base import BaseParserOptions        >>> from all2md.parsers.base import BaseParser
         >>> from all2md.ast import Document
         >>>
         >>> class MyCustomParser(BaseParser):

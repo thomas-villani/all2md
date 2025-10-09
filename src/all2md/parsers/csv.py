@@ -23,6 +23,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+from all2md.options.csv import CsvOptions
 
 logger = logging.getLogger(__name__)
 
@@ -128,13 +129,8 @@ class CsvToAstConverter(BaseParser):
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the CSV parser with options and progress callback."""
         # Import here to avoid circular dependency
-        from all2md import CsvOptions
-
         options = options or CsvOptions()
         super().__init__(options, progress_callback)
-
-        # Type hint for IDE
-        from all2md import CsvOptions
         self.options: CsvOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], IO[str], bytes]) -> Document:

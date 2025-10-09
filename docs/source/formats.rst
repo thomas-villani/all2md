@@ -1120,7 +1120,7 @@ Combine explicit format specification with format-specific options:
    )
 
    # Force Word processing with custom Markdown formatting
-   from all2md import MarkdownOptions
+   from all2md.options import MarkdownOptions
 
    md_opts = MarkdownOptions(emphasis_symbol='_', use_hash_headings=False)
    docx_opts = DocxOptions(markdown_options=md_opts)

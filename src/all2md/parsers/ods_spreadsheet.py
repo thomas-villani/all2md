@@ -42,6 +42,7 @@ from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import validate_zip_archive
+from all2md.options.ods import OdsSpreadsheetOptions
 
 logger = logging.getLogger(__name__)
 
@@ -314,17 +315,15 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: OdsSpreadsheetOptions = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
-        from all2md import OdsSpreadsheetOptions
 
         options = options or OdsSpreadsheetOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
-        from all2md import OdsSpreadsheetOptions
         self.options: OdsSpreadsheetOptions = options
 
     @requires_dependencies("ods", [("odfpy", "odf", "")])

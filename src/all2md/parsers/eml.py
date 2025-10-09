@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 from urllib.parse import unquote
 
-from all2md import DependencyError, MarkdownOptions, HtmlOptions, EmlOptions
 from all2md.ast import (
     Document,
     FootnoteDefinition,
@@ -34,12 +33,14 @@ from all2md.ast import (
 from all2md.ast import Paragraph as AstParagraph
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError, DependencyError
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
-
+from all2md.options.markdown import MarkdownOptions
+from all2md.options.html import HtmlOptions
+from all2md.options.eml import EmlOptions
 
 def _parse_date_with_fallback(msg: EmailMessage | Message) -> datetime.datetime | None:
     """Parse email date with fallback hierarchy: Date -> Sent -> Received.

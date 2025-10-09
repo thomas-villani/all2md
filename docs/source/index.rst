@@ -46,7 +46,7 @@ Quick Example
    print(markdown)
 
    # With custom options
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    options = PdfOptions(
        pages=[1, 2, 3],  # First 3 pages only

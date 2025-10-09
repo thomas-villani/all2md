@@ -9,7 +9,7 @@ import pytest
 from all2md.ast import FootnoteDefinition, FootnoteReference
 from all2md.ast.transforms import extract_nodes
 from all2md.options import MarkdownOptions
-from all2md import DocxOptions
+from all2md.options import DocxOptions
 from all2md.parsers.docx import DocxToAstConverter
 from all2md.renderers.markdown import MarkdownRenderer
 

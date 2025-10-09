@@ -350,7 +350,7 @@ PDF Processing
 
 .. code-block:: python
 
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    options = PdfOptions(
        pages=[0, 1, 2],                    # Process specific pages
@@ -375,7 +375,7 @@ Word Documents (DOCX)
 
 .. code-block:: python
 
-   from all2md import DocxOptions
+   from all2md.options import DocxOptions
 
    options = DocxOptions(
        preserve_tables=True,               # Maintain table structure
@@ -415,7 +415,7 @@ HTML processing includes sophisticated network security features to prevent SSRF
 
 .. code-block:: python
 
-   from all2md import HtmlOptions
+   from all2md.options import HtmlOptions
    from all2md.options import NetworkFetchOptions
 
    # Secure configuration for web applications

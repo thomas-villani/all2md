@@ -9,6 +9,11 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+from all2md import to_markdown
+from all2md.constants import PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
+from all2md.exceptions import All2MdError
+from all2md.cli import generate_output_path
+
 try:
     from watchdog.events import FileSystemEventHandler
 except ImportError:
@@ -109,7 +114,6 @@ class ConversionEventHandler(FileSystemEventHandler):
             return False
 
         # Check extension - use supported extensions
-        from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
         ALL_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
         if path.suffix.lower() not in ALL_EXTENSIONS:
@@ -143,9 +147,7 @@ class ConversionEventHandler(FileSystemEventHandler):
             Path to the file to convert
 
         """
-        from all2md import to_markdown
-        from all2md.cli import generate_output_path
-        from all2md.exceptions import All2MdError
+
 
         path = Path(file_path)
 

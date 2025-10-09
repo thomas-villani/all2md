@@ -107,7 +107,7 @@ You can control exactly what text is shown for images using the ``alt_text_mode`
 
 .. code-block:: python
 
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    # Default mode: alt text with filename fallback, markdown-safe
    options = PdfOptions(
@@ -195,7 +195,7 @@ Images and files are extracted and saved to the specified directory. Markdown ou
 
 .. code-block:: python
 
-   from all2md import DocxOptions
+   from all2md.options import DocxOptions
 
    options = DocxOptions(
        attachment_mode='download',
@@ -276,7 +276,7 @@ PDF Documents
 
 .. code-block:: python
 
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    options = PdfOptions(
        attachment_mode='download',
@@ -302,7 +302,7 @@ Word Documents (DOCX)
 
 .. code-block:: python
 
-   from all2md import DocxOptions
+   from all2md.options import DocxOptions
 
    options = DocxOptions(
        attachment_mode='download',
@@ -326,7 +326,7 @@ PowerPoint (PPTX)
 
 .. code-block:: python
 
-   from all2md import PptxOptions
+   from all2md.options import PptxOptions
 
    options = PptxOptions(
        attachment_mode='base64',  # Embed all slide images
@@ -350,7 +350,7 @@ HTML and MHTML
 
 .. code-block:: python
 
-   from all2md import HtmlOptions, NetworkSecurityOptions
+   from all2md.options import HtmlOptions, NetworkSecurityOptions
 
    options = HtmlOptions(
        attachment_mode='download',
@@ -380,7 +380,7 @@ Email Files (EML)
 
 .. code-block:: python
 
-   from all2md import EmlOptions
+   from all2md.options import EmlOptions
 
    options = EmlOptions(
        attachment_mode='download',
@@ -405,7 +405,7 @@ EPUB E-books
 
 .. code-block:: python
 
-   from all2md import EpubOptions
+   from all2md.options import EpubOptions
 
    options = EpubOptions(
        attachment_mode='download',
@@ -429,7 +429,7 @@ OpenDocument (ODT/ODP)
 
 .. code-block:: python
 
-   from all2md import OdtOptions
+   from all2md.options import OdtOptions
 
    options = OdtOptions(
        attachment_mode='download',
@@ -450,7 +450,7 @@ Excel and Spreadsheets (XLSX/ODS)
 
 .. code-block:: python
 
-   from all2md import XlsxOptions
+   from all2md.options import XlsxOptions
 
    options = XlsxOptions(
        attachment_mode='base64',  # Embed images inline
@@ -473,7 +473,7 @@ Jupyter Notebooks (IPYNB)
 
 .. code-block:: python
 
-   from all2md import IpynbOptions
+   from all2md.options import IpynbOptions
 
    options = IpynbOptions(
        attachment_mode='base64',  # Embed all plots
@@ -533,7 +533,7 @@ Download Mode Risks
 
 .. code-block:: python
 
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    options = PdfOptions(
        attachment_mode='download',
@@ -567,7 +567,7 @@ HTML documents can reference remote resources. This poses security risks:
 
 .. code-block:: python
 
-   from all2md import HtmlOptions, NetworkSecurityOptions
+   from all2md.options import HtmlOptions, NetworkSecurityOptions
 
    # Strict security (default)
    options = HtmlOptions(

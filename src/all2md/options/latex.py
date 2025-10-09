@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
 @dataclass(frozen=True)

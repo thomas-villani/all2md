@@ -12,12 +12,11 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from all2md import to_markdown
 from all2md.cli.builder import DynamicCLIBuilder
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
 from all2md.constants import get_exit_code_for_exception
-
+from all2md import to_markdown
 
 def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
     """Build transform instances from CLI arguments.
@@ -394,9 +393,6 @@ def process_multi_file(
         if output_path is None and parsed_args.pager:
             try:
                 from rich.console import Console
-
-                from all2md import to_markdown
-
                 # Convert the document
                 markdown_content = to_markdown(
                     file,
@@ -419,8 +415,6 @@ def process_multi_file(
                 print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
                 # Fall through to regular conversion
             except Exception as e:
-                from all2md.constants import get_exit_code_for_exception
-                from all2md.exceptions import DependencyError
 
                 exit_code = get_exit_code_for_exception(e)
                 if isinstance(e, (DependencyError, ImportError)):

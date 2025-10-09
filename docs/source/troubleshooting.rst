@@ -250,7 +250,7 @@ PDF Problems
 
 .. code-block:: python
 
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    # Enable table detection with fallback heuristics
    options = PdfOptions(
@@ -291,7 +291,7 @@ Word Document Issues
 
 .. code-block:: python
 
-   from all2md import DocxOptions, MarkdownOptions
+   from all2md.options import DocxOptions, MarkdownOptions
 
    # Ensure formatting is preserved
    md_options = MarkdownOptions(
@@ -317,7 +317,7 @@ Word Document Issues
 
 .. code-block:: python
 
-   from all2md import DocxOptions
+   from all2md.options import DocxOptions
 
    # Download images to directory
    options = DocxOptions(
@@ -345,7 +345,7 @@ HTML Issues
 
 .. code-block:: python
 
-   from all2md import HtmlOptions
+   from all2md.options import HtmlOptions
 
    options = HtmlOptions(strip_dangerous_elements=True)
 
@@ -371,7 +371,7 @@ HTML Issues
 
 .. code-block:: python
 
-   from all2md import HtmlOptions
+   from all2md.options import HtmlOptions
 
    options = HtmlOptions(
        attachment_mode='download',
@@ -393,7 +393,7 @@ Email Processing Issues
 
 .. code-block:: python
 
-   from all2md import EmlOptions
+   from all2md.options import EmlOptions
 
    # Enable HTML conversion for better encoding handling
    options = EmlOptions(
@@ -409,7 +409,7 @@ Email Processing Issues
 
 .. code-block:: python
 
-   from all2md import EmlOptions
+   from all2md.options import EmlOptions
 
    # Adjust thread processing
    options = EmlOptions(
@@ -441,7 +441,7 @@ Slow Processing
 
 .. code-block:: python
 
-   from all2md import PdfOptions
+   from all2md.options import PdfOptions
 
    # Process specific pages only
    options = PdfOptions(pages=[1, 2, 3])  # First 3 pages

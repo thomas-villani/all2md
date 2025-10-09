@@ -21,7 +21,7 @@ from all2md.cli.custom_actions import (
 )
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
-from all2md import MarkdownOptions
+from all2md.options.markdown import MarkdownOptions
 
 
 class DynamicCLIBuilder:

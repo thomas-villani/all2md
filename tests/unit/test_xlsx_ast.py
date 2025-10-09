@@ -17,7 +17,7 @@ from io import BytesIO
 import pytest
 
 from all2md.ast import Document, Heading, Image, Table
-from all2md import XlsxOptions
+from all2md.options import XlsxOptions
 from all2md.parsers.xlsx import XlsxToAstConverter
 
 try:

@@ -17,7 +17,8 @@ import string
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 
-from all2md import MarkdownOptions, PdfOptions
+from all2md.options.markdown import MarkdownOptions
+from all2md.options.pdf import PdfOptions
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 
 if TYPE_CHECKING:

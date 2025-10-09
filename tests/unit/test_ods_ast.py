@@ -17,7 +17,7 @@ from io import BytesIO
 import pytest
 
 from all2md.ast import Document, Heading, Image, Paragraph, Table, Text
-from all2md import OdsSpreadsheetOptions
+from all2md.options import OdsSpreadsheetOptions
 from all2md.parsers.ods_spreadsheet import OdsSpreadsheetToAstConverter
 
 try:

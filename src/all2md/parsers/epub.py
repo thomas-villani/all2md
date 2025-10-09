@@ -17,7 +17,7 @@ from typing import IO, Any, Optional, Union
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError, ZipFileSecurityError
-from all2md import EpubOptions
+from all2md.options.epub import EpubOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
