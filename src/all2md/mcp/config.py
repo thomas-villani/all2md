@@ -165,6 +165,84 @@ def _str_to_bool(value: str | None, default: bool = False) -> bool:
     return value.lower() in ('true', '1', 'yes', 't', 'on')
 
 
+def _validate_attachment_mode(value: str | None, default: AttachmentMode = "alt_text") -> AttachmentMode:
+    """Validate and normalize attachment mode string.
+
+    Parameters
+    ----------
+    value : str | None
+        Attachment mode string
+    default : AttachmentMode, default "alt_text"
+        Default value if input is None
+
+    Returns
+    -------
+    AttachmentMode
+        Validated attachment mode
+
+    Raises
+    ------
+    ValueError
+        If value is not a valid attachment mode
+
+    """
+    if value is None:
+        return default
+
+    # Normalize to lowercase for case-insensitive comparison
+    normalized = value.lower().strip()
+
+    # Valid attachment modes
+    valid_modes = ('skip', 'alt_text', 'download', 'base64')
+
+    if normalized not in valid_modes:
+        raise ValueError(
+            f"Invalid attachment mode: {value!r}. "
+            f"Must be one of: {', '.join(valid_modes)}"
+        )
+
+    return normalized  # type: ignore[return-value]
+
+
+def _validate_log_level(value: str | None, default: str = "INFO") -> str:
+    """Validate and normalize log level string.
+
+    Parameters
+    ----------
+    value : str | None
+        Log level string
+    default : str, default "INFO"
+        Default value if input is None
+
+    Returns
+    -------
+    str
+        Validated and uppercase log level
+
+    Raises
+    ------
+    ValueError
+        If value is not a valid log level
+
+    """
+    if value is None:
+        return default
+
+    # Normalize to uppercase
+    normalized = value.upper().strip()
+
+    # Valid log levels
+    valid_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+
+    if normalized not in valid_levels:
+        raise ValueError(
+            f"Invalid log level: {value!r}. "
+            f"Must be one of: {', '.join(valid_levels)}"
+        )
+
+    return normalized
+
+
 def load_config_from_env() -> MCPConfig:
     """Load configuration from environment variables.
 
@@ -190,10 +268,10 @@ def load_config_from_env() -> MCPConfig:
         enable_from_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_FROM_MD'), default=False),  # Disabled by default
         read_allowlist=read_allowlist,
         write_allowlist=write_allowlist,
-        attachment_mode=os.getenv('ALL2MD_MCP_ATTACHMENT_MODE', 'alt_text'),  # type: ignore[arg-type]
+        attachment_mode=_validate_attachment_mode(os.getenv('ALL2MD_MCP_ATTACHMENT_MODE'), default='alt_text'),
         attachment_output_dir=os.getenv('ALL2MD_MCP_ATTACHMENT_OUTPUT_DIR'),
         disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
-        log_level=os.getenv('ALL2MD_MCP_LOG_LEVEL', 'INFO').upper(),
+        log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),
     )
 
 
@@ -327,8 +405,7 @@ Examples:
     parser.add_argument(
         '--log-level',
         type=str,
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Logging level (default: INFO)'
+        help='Logging level: DEBUG, INFO, WARNING, ERROR (case-insensitive, default: INFO)'
     )
 
     return parser
@@ -383,7 +460,7 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
         updated_kwargs.update(write_allowlist=_parse_semicolon_list(args.write_dirs))
 
     if args.attachment_mode is not None:
-        updated_kwargs.update(attachment_mode=args.attachment_mode)
+        updated_kwargs.update(attachment_mode=_validate_attachment_mode(args.attachment_mode))
 
     if args.attachment_output_dir is not None:
         updated_kwargs.update(attachment_output_dir=args.attachment_output_dir)
@@ -392,7 +469,7 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
         updated_kwargs.update(disable_network=args.disable_network)
 
     if args.log_level is not None:
-        updated_kwargs.update(log_level=args.log_level)
+        updated_kwargs.update(log_level=_validate_log_level(args.log_level))
 
     if updated_kwargs:
         config = config.create_updated(**updated_kwargs)

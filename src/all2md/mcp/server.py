@@ -16,7 +16,7 @@ import logging
 import os
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal, cast
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -25,12 +25,18 @@ from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
     ConvertToMarkdownOutput,
+    MarkdownFlavor,
     RenderFromMarkdownInput,
     RenderFromMarkdownOutput,
+    SourceFormat,
+    TargetFormat,
 )
 from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
 
 logger = logging.getLogger(__name__)
+
+# Type alias for content encoding
+ContentEncoding = Literal["plain", "base64"]
 
 
 def create_server(
@@ -112,12 +118,13 @@ def create_server(
             - attachments: List of attachment paths (if attachment_mode=download at server level)
             - warnings: List of warning messages from the conversion process
             """
+            # Cast to proper Literal types (FastMCP validates these at the boundary)
             input_obj = ConvertToMarkdownInput(
                 source_path=source_path,
                 source_content=source_content,
-                content_encoding=content_encoding,  # type: ignore[arg-type]
-                source_format=source_format,  # type: ignore[arg-type]
-                flavor=flavor,  # type: ignore[arg-type]
+                content_encoding=cast(ContentEncoding | None, content_encoding),
+                source_format=cast(SourceFormat, source_format),
+                flavor=cast(MarkdownFlavor | None, flavor),
                 pdf_pages=pdf_pages
             )
 
@@ -170,12 +177,13 @@ def create_server(
             - output_path: File path where content was written (if output_path was specified)
             - warnings: List of warning messages from the rendering process
             """
+            # Cast to proper Literal types (FastMCP validates these at the boundary)
             input_obj = RenderFromMarkdownInput(
-                target_format=target_format,  # type: ignore[arg-type]
+                target_format=cast(TargetFormat, target_format),
                 markdown=markdown,
                 markdown_path=markdown_path,
                 output_path=output_path,
-                flavor=flavor  # type: ignore[arg-type]
+                flavor=cast(MarkdownFlavor | None, flavor)
             )
 
             result = render_impl(input_obj, config)
@@ -210,11 +218,15 @@ def configure_logging(level: str) -> None:
 def main() -> None:
     """Run all2md-mcp server."""
     try:
+        # Configure logging with default level first (will be reconfigured if needed)
+        configure_logging("INFO")
+
         # Load configuration
         config = load_config()
 
-        # Configure logging
-        configure_logging(config.log_level)
+        # Reconfigure logging with user-specified level if different
+        if config.log_level != "INFO":
+            configure_logging(config.log_level)
 
         logger.info("Starting all2md MCP server")
         logger.info(f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}")

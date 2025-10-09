@@ -16,9 +16,10 @@ Functions
 import base64
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from all2md import from_markdown, to_markdown
+from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError
 from all2md.mcp.config import MCPConfig
 from all2md.mcp.schemas import (
@@ -84,16 +85,20 @@ def convert_to_markdown_impl(
 
         if encoding == "base64":
             # Decode base64 content
+            if not input_data.source_content:
+                raise ValueError("source_content cannot be empty for base64 encoding")
             try:
-                source_bytes = base64.b64decode(input_data.source_content)  # type: ignore[arg-type]
+                source_bytes = base64.b64decode(input_data.source_content)
                 source = source_bytes
                 logger.info(f"Converting base64 content ({len(source_bytes)} bytes)")
             except Exception as e:
                 raise ValueError(f"Invalid base64 encoding: {e}") from e
         else:
             # Use plain text content (for text-based formats like HTML, Markdown, etc.)
-            source = input_data.source_content.encode('utf-8')  # type: ignore[union-attr]
-            logger.info(f"Converting text content ({len(input_data.source_content)} characters)")  # type: ignore[arg-type]
+            if not input_data.source_content:
+                raise ValueError("source_content cannot be empty")
+            source = input_data.source_content.encode('utf-8')
+            logger.info(f"Converting text content ({len(input_data.source_content)} characters)")
 
     # Prepare conversion options
     kwargs: dict[str, Any] = {}
@@ -120,9 +125,10 @@ def convert_to_markdown_impl(
 
     # Perform conversion
     try:
+        # Cast source_format (SourceFormat is a subset of DocumentFormat)
         markdown = to_markdown(
             source,
-            source_format=input_data.source_format,  # type: ignore[arg-type]
+            source_format=cast(DocumentFormat, input_data.source_format),
             **kwargs
         )
 
@@ -225,9 +231,10 @@ def render_from_markdown_impl(
 
     # Perform rendering
     try:
+        # Cast target_format (TargetFormat is a subset of DocumentFormat)
         result = from_markdown(
             markdown_source,
-            target_format=input_data.target_format,  # type: ignore[arg-type]
+            target_format=cast(DocumentFormat, input_data.target_format),
             output=output_arg,
             **kwargs
         )
