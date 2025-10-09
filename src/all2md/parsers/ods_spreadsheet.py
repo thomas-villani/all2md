@@ -317,14 +317,14 @@ class OdsSpreadsheetToAstConverter(BaseParser):
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
-        from all2md.options import OdsSpreadsheetOptions
+        from all2md import OdsSpreadsheetOptions
 
         options = options or OdsSpreadsheetOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
-        from all2md.options import OdsSpreadsheetOptions
+        from all2md import OdsSpreadsheetOptions
         self.options: OdsSpreadsheetOptions = options
 
     @requires_dependencies("ods", [("odfpy", "odf", "")])

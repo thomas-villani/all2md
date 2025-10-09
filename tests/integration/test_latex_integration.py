@@ -3,7 +3,7 @@
 
 
 from all2md.ast import Document, Heading, MathBlock, MathInline, Paragraph, Text
-from all2md.options import LatexOptions, LatexParserOptions
+from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.parsers.latex import LatexParser
 from all2md.renderers.latex import LatexRenderer
 
@@ -168,7 +168,7 @@ Math: $E = mc^2$
         doc = parser.parse(original_latex)
 
         # Render back to LaTeX (without preamble for comparison)
-        renderer = LatexRenderer(LatexOptions(include_preamble=False))
+        renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         rendered_latex = renderer.render_to_string(doc)
 
         # Check that key elements are preserved
@@ -222,7 +222,7 @@ That was the code.
         doc = parser.parse(latex)
 
         # Render back
-        renderer = LatexRenderer(LatexOptions(include_preamble=False))
+        renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         rendered = renderer.render_to_string(doc)
 
         # Check code block is preserved
@@ -240,7 +240,7 @@ That was the code.
         # Parse should handle nested formatting
         # The exact structure depends on implementation,
         # but we should be able to render it back
-        renderer = LatexRenderer(LatexOptions(include_preamble=False))
+        renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         rendered = renderer.render_to_string(doc)
 
         # Should contain both bold and italic commands
@@ -309,7 +309,7 @@ Smith, J. (2024). Quantum Computing. Journal of Physics.
             )
         ])
 
-        renderer = LatexRenderer(LatexOptions(include_preamble=False))
+        renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         latex = renderer.render_to_string(doc)
 
         # Check table structure
@@ -327,7 +327,7 @@ Smith, J. (2024). Quantum Computing. Journal of Physics.
             Image(url="figure1.png", alt_text="Figure 1: Results")
         ])
 
-        renderer = LatexRenderer(LatexOptions(include_preamble=False))
+        renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         latex = renderer.render_to_string(doc)
 
         assert r"\includegraphics{figure1.png}" in latex
@@ -342,7 +342,7 @@ class TestLatexOptionsIntegration:
             Paragraph(content=[Text(content="Just this paragraph.")])
         ])
 
-        options = LatexOptions(include_preamble=False)
+        options = LatexRendererOptions(include_preamble=False)
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 
@@ -356,7 +356,7 @@ class TestLatexOptionsIntegration:
             Heading(level=1, content=[Text(content="Chapter 1")])
         ])
 
-        options = LatexOptions(document_class="book")
+        options = LatexRendererOptions(document_class="book")
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 
@@ -368,7 +368,7 @@ class TestLatexOptionsIntegration:
             Paragraph(content=[Text(content="Simple text.")])
         ])
 
-        options = LatexOptions(packages=["amsmath"])
+        options = LatexRendererOptions(packages=["amsmath"])
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 
@@ -384,7 +384,7 @@ class TestLatexOptionsIntegration:
             Paragraph(content=[Text(content="$100")])
         ])
 
-        options = LatexOptions(escape_special=False)
+        options = LatexRendererOptions(escape_special=False)
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 
@@ -396,13 +396,13 @@ class TestLatexOptionsIntegration:
         invalid_latex = r"\unknowncommand{test}"
 
         # Non-strict mode should not raise
-        parser_nonstrict = LatexParser(LatexParserOptions(strict_mode=False))
+        parser_nonstrict = LatexParser(LatexOptions(strict_mode=False))
         doc = parser_nonstrict.parse(invalid_latex)
         assert doc is not None
 
         # Strict mode might handle it differently
         # (depending on pylatexenc behavior)
-        parser_strict = LatexParser(LatexParserOptions(strict_mode=True))
+        parser_strict = LatexParser(LatexOptions(strict_mode=True))
         # May or may not raise depending on how pylatexenc handles it
         try:
             parser_strict.parse(invalid_latex)

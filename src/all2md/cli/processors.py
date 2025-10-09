@@ -300,7 +300,11 @@ def process_stdin(
                     from rich.console import Console
                     console = Console()
                     with console.pager(styles=True):
-                        console.print(markdown_content)
+                        if parsed_args.rich:
+                            from rich.markdown import Markdown
+                            console.print(Markdown(markdown_content))
+                        else:
+                            console.print(markdown_content)
                 except ImportError:
                     msg = "Warning: Rich library not installed. Install with: pip install all2md[rich]"
                     print(msg, file=sys.stderr)
@@ -404,7 +408,11 @@ def process_multi_file(
                 # Display with pager
                 console = Console()
                 with console.pager(styles=True):
-                    console.print(markdown_content)
+                    if parsed_args.rich:
+                        from rich.markdown import Markdown
+                        console.print(Markdown(markdown_content))
+                    else:
+                        console.print(markdown_content)
 
                 return 0
             except ImportError:

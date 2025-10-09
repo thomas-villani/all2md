@@ -9,8 +9,7 @@ from io import BytesIO
 
 from utils import MINIMAL_PNG_BYTES, assert_markdown_valid
 
-from all2md import to_markdown as eml_to_markdown
-from all2md.options import EmlOptions
+from all2md import to_markdown as eml_to_markdown, EmlOptions
 
 
 class TestEmlMultipart:

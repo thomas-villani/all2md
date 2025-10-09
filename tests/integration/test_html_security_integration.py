@@ -15,8 +15,8 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
-from all2md import to_markdown as html_to_markdown
-from all2md.options import EmlOptions, HtmlOptions, NetworkFetchOptions
+from all2md import to_markdown as html_to_markdown, HtmlOptions, EmlOptions
+from all2md.options import NetworkFetchOptions
 
 
 class TestHtmlConverterSecurity:
@@ -516,7 +516,7 @@ class TestHtmlFileUrlSecurity:
 
     def test_file_url_allowed_with_cwd_permission(self, tmp_path):
         """Test that file:// URLs work when CWD access is allowed."""
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
 
         # Create test image in current directory
         test_image = Path.cwd() / "test_image.png"
@@ -544,7 +544,7 @@ class TestHtmlFileUrlSecurity:
 
     def test_file_url_blocked_by_denylist(self, tmp_path):
         """Test that denylist blocks file access even when local files are allowed."""
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
 
         # Create test file in a directory
         denied_dir = tmp_path / "denied"
@@ -572,7 +572,7 @@ class TestHtmlFileUrlSecurity:
 
     def test_file_url_allowlist_enforcement(self, tmp_path):
         """Test that allowlist restricts file access to specified directories."""
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
 
         # Create files in different directories
         allowed_dir = tmp_path / "allowed"
@@ -610,7 +610,7 @@ class TestHtmlFileUrlSecurity:
 
     def test_file_url_with_download_mode(self, tmp_path):
         """Test that file:// URLs work with download mode when allowed."""
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
 
         # Create test image
         test_image = tmp_path / "test.png"

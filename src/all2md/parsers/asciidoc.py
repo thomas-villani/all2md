@@ -43,7 +43,7 @@ from all2md.ast import (
     ThematicBreak,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import AsciiDocParserOptions
+from all2md.options.asciidoc import AsciiDocOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
@@ -346,7 +346,7 @@ class AsciiDocParser(BaseParser):
 
     With options:
 
-        >>> options = AsciiDocParserOptions(parse_attributes=True)
+        >>> options = AsciiDocOptions(parse_attributes=True)
         >>> parser = AsciiDocParser(options)
         >>> doc = parser.parse(asciidoc_text)
 
@@ -354,13 +354,13 @@ class AsciiDocParser(BaseParser):
 
     def __init__(
         self,
-        options: AsciiDocParserOptions | None = None,
+        options: AsciiDocOptions | None = None,
         progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the AsciiDoc parser."""
-        options = options or AsciiDocParserOptions()
+        options = options or AsciiDocOptions()
         super().__init__(options, progress_callback)
-        self.options: AsciiDocParserOptions = options
+        self.options: AsciiDocOptions = options
 
         # Parser state
         self.tokens: list[Token] = []
@@ -1148,8 +1148,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="",
-    parser_options_class="AsciiDocParserOptions",
-    renderer_options_class="AsciiDocOptions",
+    parser_options_class="AsciiDocOptions",
+    renderer_options_class="AsciiDocRendererOptions",
     description="Parse and render AsciiDoc format",
     priority=10
 )

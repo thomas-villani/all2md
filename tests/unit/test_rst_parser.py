@@ -33,7 +33,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.options import RstParserOptions
+from all2md.options.rst import RstParserOptions
 from all2md.parsers.rst import RestructuredTextParser
 
 

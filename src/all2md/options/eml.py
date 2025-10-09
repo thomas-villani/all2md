@@ -1,0 +1,165 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+
+# all2md/options/eml.py
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from all2md import BaseParserOptions
+from all2md.constants import DateFormatMode, DEFAULT_DATE_FORMAT_MODE, DEFAULT_DATE_STRFTIME_PATTERN, \
+    DEFAULT_CONVERT_HTML_TO_MARKDOWN, DEFAULT_CLEAN_QUOTES, DEFAULT_DETECT_REPLY_SEPARATORS, DEFAULT_NORMALIZE_HEADERS, \
+    DEFAULT_PRESERVE_RAW_HEADERS, DEFAULT_CLEAN_WRAPPED_URLS, DEFAULT_URL_WRAPPERS, DEFAULT_MAX_ATTACHMENT_SIZE_BYTES
+from all2md.options import NetworkFetchOptions
+
+
+@dataclass(frozen=True)
+class EmlOptions(BaseParserOptions):
+    """Configuration options for EML-to-Markdown conversion.
+
+    This dataclass contains settings specific to email message processing,
+    including robust parsing, date handling, quote processing, and URL cleaning.
+
+    Parameters
+    ----------
+    include_headers : bool, default True
+        Whether to include email headers (From, To, Subject, Date) in output.
+    preserve_thread_structure : bool, default True
+        Whether to maintain email thread/reply chain structure.
+    date_format_mode : {"iso8601", "locale", "strftime"}, default "strftime"
+        How to format dates in output:
+        - "iso8601": Use ISO 8601 format (2023-01-01T10:00:00Z)
+        - "locale": Use system locale-aware formatting
+        - "strftime": Use custom strftime pattern
+    date_strftime_pattern : str, default "%m/%d/%y %H:%M"
+        Custom strftime pattern when date_format_mode is "strftime".
+    convert_html_to_markdown : bool, default False
+        Whether to convert HTML content to Markdown using html2markdown.
+        When True, HTML parts are converted to Markdown; when False, HTML is preserved as-is.
+    clean_quotes : bool, default True
+        Whether to clean and normalize quoted content ("> " prefixes, etc.).
+    detect_reply_separators : bool, default True
+        Whether to detect common reply separators like "On <date>, <name> wrote:".
+    normalize_headers : bool, default True
+        Whether to normalize header casing and whitespace.
+    preserve_raw_headers : bool, default False
+        Whether to preserve both raw and decoded header values.
+    clean_wrapped_urls : bool, default True
+        Whether to clean URL defense/safety wrappers from links.
+    url_wrappers : list[str], default from constants
+        List of URL wrapper domains to clean (urldefense.com, safelinks, etc.).
+
+    Examples
+    --------
+    Convert email with ISO 8601 date formatting:
+        >>> options = EmlOptions(date_format_mode="iso8601")
+
+    Convert with HTML-to-Markdown conversion enabled:
+        >>> options = EmlOptions(convert_html_to_markdown=True)
+
+    Disable quote cleaning and URL unwrapping:
+        >>> options = EmlOptions(clean_quotes=False, clean_wrapped_urls=False)
+
+    """
+
+    include_headers: bool = field(
+        default=True,
+        metadata={
+            "help": "Include email headers (From, To, Subject, Date) in output",
+            "cli_name": "no-include-headers"
+        }
+    )
+    preserve_thread_structure: bool = field(
+        default=True,
+        metadata={
+            "help": "Maintain email thread/reply chain structure",
+            "cli_name": "no-preserve-thread-structure"
+        }
+    )
+    date_format_mode: DateFormatMode = field(
+        default=DEFAULT_DATE_FORMAT_MODE,
+        metadata={"help": "Date formatting mode: iso8601, locale, or strftime"}
+    )
+    date_strftime_pattern: str = field(
+        default=DEFAULT_DATE_STRFTIME_PATTERN,
+        metadata={"help": "Custom strftime pattern for date formatting"}
+    )
+    convert_html_to_markdown: bool = field(
+        default=DEFAULT_CONVERT_HTML_TO_MARKDOWN,
+        metadata={"help": "Convert HTML content to Markdown"}
+    )
+    clean_quotes: bool = field(
+        default=DEFAULT_CLEAN_QUOTES,
+        metadata={"help": "Clean and normalize quoted content"}
+    )
+    detect_reply_separators: bool = field(
+        default=DEFAULT_DETECT_REPLY_SEPARATORS,
+        metadata={"help": "Detect common reply separators"}
+    )
+    normalize_headers: bool = field(
+        default=DEFAULT_NORMALIZE_HEADERS,
+        metadata={"help": "Normalize header casing and whitespace"}
+    )
+    preserve_raw_headers: bool = field(
+        default=DEFAULT_PRESERVE_RAW_HEADERS,
+        metadata={"help": "Preserve both raw and decoded header values"}
+    )
+    clean_wrapped_urls: bool = field(
+        default=DEFAULT_CLEAN_WRAPPED_URLS,
+        metadata={"help": "Clean URL defense/safety wrappers from links"}
+    )
+    url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
+
+    # Network security options for HTML conversion (when convert_html_to_markdown=True)
+    html_network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
+        metadata={
+            "help": "Network security settings for HTML part conversion",
+            "exclude_from_cli": True  # Handled via flattened fields
+        }
+    )
+
+    max_email_attachment_bytes: int = field(
+        default=DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
+        metadata={
+            "help": "Maximum allowed size in bytes for email attachments",
+            "type": int
+        }
+    )
+
+    # Advanced EML options
+    sort_order: str = field(
+        default="asc",
+        metadata={"help": "Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)"}
+    )
+    subject_as_h1: bool = field(
+        default=True,
+        metadata={
+            "help": "Include subject line as H1 heading",
+            "cli_name": "no-subject-as-h1"
+        }
+    )
+    include_attach_section_heading: bool = field(
+        default=True,
+        metadata={
+            "help": "Include heading before attachments section",
+            "cli_name": "no-include-attach-section-heading"
+        }
+    )
+    attach_section_title: str = field(
+        default="Attachments",
+        metadata={"help": "Title for attachments section heading"}
+    )
+    include_html_parts: bool = field(
+        default=True,
+        metadata={
+            "help": "Include HTML content parts from emails",
+            "cli_name": "no-include-html-parts"
+        }
+    )
+    include_plain_parts: bool = field(
+        default=True,
+        metadata={
+            "help": "Include plain text content parts from emails",
+            "cli_name": "no-include-plain-parts"
+        }
+    )

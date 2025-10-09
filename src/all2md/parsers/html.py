@@ -55,7 +55,7 @@ from all2md.exceptions import (
     ParsingError,
     ValidationError,
 )
-from all2md.options import HtmlOptions
+from all2md import HtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment

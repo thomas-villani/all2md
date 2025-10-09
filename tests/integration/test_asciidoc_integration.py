@@ -38,7 +38,8 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.options import AsciiDocOptions, AsciiDocParserOptions, MarkdownOptions
+from all2md.options import MarkdownOptions
+from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
 from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.renderers.asciidoc import AsciiDocRenderer
 from all2md.renderers.markdown import MarkdownRenderer
@@ -98,7 +99,7 @@ class TestAsciiDocIntegrationBasic:
         """Test AsciiDoc parsing with custom options."""
         asciidoc = create_asciidoc_with_attributes()
 
-        options = AsciiDocParserOptions(
+        options = AsciiDocOptions(
             parse_attributes=True,
             resolve_attribute_refs=True
         )
@@ -366,7 +367,7 @@ class TestAsciiDocOptions:
         """Test parsing with attribute resolution."""
         asciidoc = create_asciidoc_with_attributes()
 
-        options = AsciiDocParserOptions(
+        options = AsciiDocOptions(
             parse_attributes=True,
             resolve_attribute_refs=True
         )
@@ -380,7 +381,7 @@ class TestAsciiDocOptions:
         """Test parsing without attribute parsing."""
         asciidoc = create_asciidoc_with_attributes()
 
-        options = AsciiDocParserOptions(parse_attributes=False)
+        options = AsciiDocOptions(parse_attributes=False)
         parser = AsciiDocParser(options=options)
         doc = parser.parse(asciidoc)
 
@@ -394,7 +395,7 @@ class TestAsciiDocOptions:
             Heading(level=2, content=[Text(content="Section")])
         ])
 
-        options = AsciiDocOptions(heading_style="atx")
+        options = AsciiDocRendererOptions(heading_style="atx")
         renderer = AsciiDocRenderer(options=options)
         result = renderer.render_to_string(doc)
 
@@ -408,7 +409,7 @@ class TestAsciiDocOptions:
             Heading(level=2, content=[Text(content="Section")])
         ])
 
-        options = AsciiDocOptions(heading_style="setext")
+        options = AsciiDocRendererOptions(heading_style="setext")
         renderer = AsciiDocRenderer(options=options)
         result = renderer.render_to_string(doc)
 
@@ -425,7 +426,7 @@ class TestAsciiDocOptions:
             ]
         )
 
-        options = AsciiDocOptions(use_attributes=True)
+        options = AsciiDocRendererOptions(use_attributes=True)
         renderer = AsciiDocRenderer(options=options)
         result = renderer.render_to_string(doc)
 
@@ -585,7 +586,7 @@ class TestAsciiDocMetadataIntegration:
             ]
         )
 
-        options = AsciiDocOptions(use_attributes=True)
+        options = AsciiDocRendererOptions(use_attributes=True)
         renderer = AsciiDocRenderer(options=options)
         result = renderer.render_to_string(doc)
 
@@ -597,7 +598,7 @@ class TestAsciiDocMetadataIntegration:
         """Test metadata extraction from AsciiDoc."""
         asciidoc = create_asciidoc_with_attributes()
 
-        options = AsciiDocParserOptions(parse_attributes=True)
+        options = AsciiDocOptions(parse_attributes=True)
         parser = AsciiDocParser(options=options)
         doc = parser.parse(asciidoc)
 

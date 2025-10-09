@@ -49,7 +49,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options import LatexOptions
+from all2md.options.latex import LatexRendererOptions
 from all2md.renderers.base import BaseRenderer
 
 
@@ -62,7 +62,7 @@ class LatexRenderer(NodeVisitor, BaseRenderer):
 
     Parameters
     ----------
-    options : LatexOptions or None, default = None
+    options : LatexRendererOptions or None, default = None
         LaTeX rendering options
 
     Examples
@@ -98,11 +98,11 @@ class LatexRenderer(NodeVisitor, BaseRenderer):
         '^': r'\textasciicircum{}',
     }
 
-    def __init__(self, options: LatexOptions | None = None):
+    def __init__(self, options: LatexRendererOptions | None = None):
         """Initialize the LaTeX renderer with options."""
-        options = options or LatexOptions()
+        options = options or LatexRendererOptions()
         BaseRenderer.__init__(self, options)
-        self.options: LatexOptions = options
+        self.options: LatexRendererOptions = options
         self._output: list[str] = []
         self._in_table: bool = False
 

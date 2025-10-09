@@ -68,14 +68,14 @@ class OdtToAstConverter(BaseParser):
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODT parser with options and progress callback."""
         # Import here to avoid circular dependency
-        from all2md.options import OdtOptions
+        from all2md import OdtOptions
 
         options = options or OdtOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
-        from all2md.options import OdtOptions
+        from all2md import OdtOptions
         self.options: OdtOptions = options
 
         from odf import namespaces

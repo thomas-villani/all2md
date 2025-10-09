@@ -20,7 +20,7 @@ from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options import IpynbOptions
+from all2md import IpynbOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment

@@ -44,7 +44,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options import AsciiDocOptions
+from all2md.options.asciidoc import AsciiDocRendererOptions
 from all2md.renderers.base import BaseRenderer
 
 
@@ -56,7 +56,7 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
 
     Parameters
     ----------
-    options : AsciiDocOptions or None, default = None
+    options : AsciiDocRendererOptions or None, default = None
         AsciiDoc rendering options
 
     Examples
@@ -75,11 +75,11 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
 
     """
 
-    def __init__(self, options: AsciiDocOptions | None = None):
+    def __init__(self, options: AsciiDocRendererOptions | None = None):
         """Initialize the AsciiDoc renderer with options."""
-        options = options or AsciiDocOptions()
+        options = options or AsciiDocRendererOptions()
         BaseRenderer.__init__(self, options)
-        self.options: AsciiDocOptions = options
+        self.options: AsciiDocRendererOptions = options
         self._output: list[str] = []
         self._list_level: int = 0
         self._in_list: bool = False

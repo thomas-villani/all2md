@@ -128,13 +128,13 @@ class CsvToAstConverter(BaseParser):
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the CSV parser with options and progress callback."""
         # Import here to avoid circular dependency
-        from all2md.options import CsvOptions
+        from all2md import CsvOptions
 
         options = options or CsvOptions()
         super().__init__(options, progress_callback)
 
         # Type hint for IDE
-        from all2md.options import CsvOptions
+        from all2md import CsvOptions
         self.options: CsvOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], IO[str], bytes]) -> Document:

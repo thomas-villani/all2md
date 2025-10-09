@@ -39,16 +39,14 @@ Convert AST to Markdown:
 
 Convert AST to HTML (with dynamic loading):
 
-    >>> from all2md.converter_registry import registry
-    >>> from all2md.options import HtmlRendererOptions
+    >>> from all2md.options.html import HtmlRendererOptions    >>> from all2md.converter_registry import registry
     >>> HtmlRenderer = registry.get_renderer("html")
     >>> renderer = HtmlRenderer(HtmlRendererOptions(standalone=True))
     >>> html = renderer.render_to_string(doc)
 
 Convert AST to DOCX (with dynamic loading):
 
-    >>> from all2md.converter_registry import registry
-    >>> from all2md.options import DocxRendererOptions
+    >>> from all2md.options.docx import DocxRendererOptions    >>> from all2md.converter_registry import registry
     >>> DocxRenderer = registry.get_renderer("docx")
     >>> renderer = DocxRenderer(DocxRendererOptions())
     >>> renderer.render(doc, "output.docx")

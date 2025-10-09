@@ -28,7 +28,7 @@ from all2md.ast import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError
-from all2md.options import RtfOptions
+from all2md import RtfOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment

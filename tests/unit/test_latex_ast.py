@@ -25,7 +25,7 @@ from all2md.ast import (
     Text,
     Underline,
 )
-from all2md.options import LatexOptions, LatexParserOptions
+from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.parsers.latex import LatexParser
 from all2md.renderers.latex import LatexRenderer
 
@@ -477,7 +477,7 @@ class TestLatexRenderer:
             Paragraph(content=[Text(content="Just content")])
         ])
 
-        options = LatexOptions(include_preamble=False)
+        options = LatexRendererOptions(include_preamble=False)
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 
@@ -550,7 +550,7 @@ class TestLatexRenderer:
         ])
 
         # Render to LaTeX
-        renderer = LatexRenderer(LatexOptions(include_preamble=False))
+        renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         latex = renderer.render_to_string(original)
 
         # Parse back
@@ -569,7 +569,7 @@ class TestLatexOptions:
 
     def test_parser_options_defaults(self) -> None:
         """Test default parser options."""
-        options = LatexParserOptions()
+        options = LatexOptions()
 
         assert options.parse_preamble is True
         assert options.parse_math is True
@@ -579,7 +579,7 @@ class TestLatexOptions:
 
     def test_renderer_options_defaults(self) -> None:
         """Test default renderer options."""
-        options = LatexOptions()
+        options = LatexRendererOptions()
 
         assert options.document_class == "article"
         assert options.include_preamble is True
@@ -595,7 +595,7 @@ class TestLatexOptions:
             Paragraph(content=[Text(content="Content")])
         ])
 
-        options = LatexOptions(document_class="report")
+        options = LatexRendererOptions(document_class="report")
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 
@@ -607,7 +607,7 @@ class TestLatexOptions:
             Paragraph(content=[Text(content="Content")])
         ])
 
-        options = LatexOptions(packages=["geometry", "fancyhdr"])
+        options = LatexRendererOptions(packages=["geometry", "fancyhdr"])
         renderer = LatexRenderer(options)
         latex = renderer.render_to_string(doc)
 

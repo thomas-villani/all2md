@@ -68,7 +68,7 @@ from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options import PdfRendererOptions
+from all2md.options.pdf import PdfRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 
@@ -89,8 +89,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.ast import Document, Heading, Text
-        >>> from all2md.options import PdfRendererOptions
+        >>> from all2md.options.pdf import PdfRendererOptions        >>> from all2md.ast import Document, Heading, Text
         >>> from all2md.renderers.pdf import PdfRenderer
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Title")])

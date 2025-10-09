@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast import Document
-from all2md.options import BaseRendererOptions
+from all2md import BaseRendererOptions
 
 
 class BaseRenderer(ABC):
@@ -35,9 +35,8 @@ class BaseRenderer(ABC):
     --------
     Creating a custom renderer:
 
-        >>> from all2md.renderers.base import BaseRenderer
+        >>> from all2md import BaseRendererOptions        >>> from all2md.renderers.base import BaseRenderer
         >>> from all2md.ast import Document
-        >>> from all2md.options import BaseRendererOptions
         >>>
         >>> class MyCustomRenderer(BaseRenderer):
         ...     def render(self, doc, output):

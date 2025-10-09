@@ -17,7 +17,7 @@ from typing import IO, Any, Dict, Optional, Union
 
 from all2md.ast import CodeBlock, Document
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import SourceCodeOptions
+from all2md import SourceCodeOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata

@@ -54,7 +54,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options import RstRendererOptions
+from all2md.options.rst import RstRendererOptions
 from all2md.renderers.base import BaseRenderer
 
 
@@ -73,8 +73,7 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.ast import Document, Heading, Text
-        >>> from all2md.options import RstRendererOptions
+        >>> from all2md.options.rst import RstRendererOptions        >>> from all2md.ast import Document, Heading, Text
         >>> from all2md.renderers.rst import RestructuredTextRenderer
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Title")])

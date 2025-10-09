@@ -4,8 +4,8 @@ import docx
 from docx.shared import Inches
 from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import to_markdown as docx_to_markdown
-from all2md.options import DocxOptions, MarkdownOptions
+from all2md import to_markdown as docx_to_markdown, DocxOptions
+from all2md.options import MarkdownOptions
 
 
 class TestDocxListsAdvanced:

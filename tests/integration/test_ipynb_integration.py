@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from all2md import to_markdown as ipynb_to_markdown
+from all2md import to_markdown as ipynb_to_markdown, IpynbOptions
 from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options import IpynbOptions, MarkdownOptions
+from all2md.options import MarkdownOptions
 
 
 @pytest.mark.integration

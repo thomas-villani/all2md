@@ -19,9 +19,9 @@ from fixtures.generators.mhtml_fixtures import (
 )
 from utils import assert_markdown_valid
 
-from all2md import to_markdown as mhtml_to_markdown
+from all2md import to_markdown as mhtml_to_markdown, MhtmlOptions
 from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options import MarkdownOptions, MhtmlOptions
+from all2md.options import MarkdownOptions
 
 
 @pytest.mark.integration
@@ -139,7 +139,7 @@ class TestMhtmlIntegrationImages:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         # Enable local file access to test file:// URL processing
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
         options = MhtmlOptions(
             attachment_mode="base64",
             local_files=LocalFileAccessOptions(
@@ -395,7 +395,8 @@ class TestMhtmlIntegrationPerformance:
         mhtml_content = create_mhtml_with_multiple_assets()
 
         # Enable local file access to test file:// URL processing
-        from all2md.options import LocalFileAccessOptions, MhtmlOptions
+        from all2md.options import MhtmlOptions
+        from all2md.options.common import LocalFileAccessOptions
         options = MhtmlOptions(
             local_files=LocalFileAccessOptions(
                 allow_local_files=True,
@@ -536,7 +537,7 @@ Content-Type: text/html; charset=utf-8
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         # Explicitly disable local file access
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
         local_files_options = LocalFileAccessOptions(
             allow_local_files=False,
             allow_cwd_files=True  # Should be ignored due to master switch
@@ -570,7 +571,7 @@ Content-Type: text/html; charset=utf-8
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         # Enable local files with allowlist
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
         local_files_options = LocalFileAccessOptions(
             allow_local_files=True,
             local_file_allowlist=["/allowed/path"],
@@ -606,7 +607,7 @@ Content-Type: text/html; charset=utf-8
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         # Enable local files with denylist
-        from all2md.options import LocalFileAccessOptions
+        from all2md.options.common import LocalFileAccessOptions
         local_files_options = LocalFileAccessOptions(
             allow_local_files=True,
             local_file_denylist=["/etc", "/var", "/usr"],
@@ -651,7 +652,7 @@ Content-Type: text/html; charset=utf-8
             os.chdir(temp_dir)
 
             # Enable CWD access properly
-            from all2md.options import LocalFileAccessOptions
+            from all2md.options.common import LocalFileAccessOptions
             local_files_options = LocalFileAccessOptions(
                 allow_local_files=True,  # Master switch must be True
                 allow_cwd_files=True

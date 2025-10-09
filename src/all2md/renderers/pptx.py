@@ -59,7 +59,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.exceptions import RenderingError
-from all2md.options import PptxRendererOptions
+from all2md.options.pptx import PptxRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,
     extract_heading_text,
@@ -86,8 +86,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.ast import Document, Heading, Paragraph, Text
-        >>> from all2md.options import PptxRendererOptions
+        >>> from all2md.options.pptx import PptxRendererOptions        >>> from all2md.ast import Document, Heading, Paragraph, Text
         >>> from all2md.renderers.pptx import PptxRenderer
         >>> doc = Document(children=[
         ...     Heading(level=2, content=[Text(content="Slide 1")]),

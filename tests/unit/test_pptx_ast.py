@@ -33,7 +33,7 @@ from all2md.ast import (
     Underline,
 )
 from all2md.ast.transforms import extract_nodes
-from all2md.options import PptxOptions
+from all2md import PptxOptions
 from all2md.parsers.pptx import PptxToAstConverter
 
 

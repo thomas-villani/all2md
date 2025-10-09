@@ -91,33 +91,32 @@ from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError
 from all2md.options import (
-    BaseParserOptions,
-    BaseRendererOptions,
-    CsvOptions,
-    DocxOptions,
-    EmlOptions,
-    EpubOptions,
-    HtmlOptions,
-    IpynbOptions,
-    MarkdownOptions,
-    MarkdownParserOptions,
-    MhtmlOptions,
-    OdpOptions,
-    OdsSpreadsheetOptions,
-    OdtOptions,
     PdfOptions,
-    PptxOptions,
-    RtfOptions,
-    SourceCodeOptions,
-    XlsxOptions,
+    BaseRendererOptions, BaseParserOptions, MarkdownOptions, HtmlOptions,
 )
+from .options.mhtml import MhtmlOptions
+from .options.sourcecode import SourceCodeOptions
+from .options.rtf import RtfOptions
+from .options.odp import OdpOptions
+from .options.xlsx import XlsxOptions
+from .options.ods import OdsSpreadsheetOptions
+from .options.csv import CsvOptions
+from .options.odt import OdtOptions
+from .options.ipynb import IpynbOptions
+from .options.eml import EmlOptions
+from .options.epub import EpubOptions
+from .options.pptx import PptxOptions
+from .options.docx import DocxOptions
+from .options.markdown import MarkdownParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 
 # Import parsers to trigger registration
 # Import AST module for advanced users
 from . import (
     ast,  # noqa: F401
-    parsers,  # noqa: F401
+    parsers, BaseRendererOptions, BaseParserOptions, MarkdownOptions, MarkdownParserOptions, DocxOptions,
+    HtmlOptions, PptxOptions, EpubOptions, EmlOptions, IpynbOptions, OdtOptions, CsvOptions,
+    OdsSpreadsheetOptions, XlsxOptions, OdpOptions, RtfOptions, SourceCodeOptions, MhtmlOptions,  # noqa: F401
 )
 
 # Import transforms module for AST transformation

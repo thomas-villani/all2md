@@ -14,8 +14,8 @@ from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, save_pptx_to_bytes
 from utils import assert_markdown_valid
 
-from all2md import to_markdown
-from all2md.options import DocxOptions, HtmlOptions, MarkdownOptions, PdfOptions, PptxOptions
+from all2md import to_markdown, DocxOptions, HtmlOptions, PptxOptions
+from all2md.options import MarkdownOptions, PdfOptions
 
 
 @pytest.mark.e2e

@@ -1,0 +1,56 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+# all2md/options/mediawiki.py
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+
+from all2md.constants import DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED, DEFAULT_MEDIAWIKI_IMAGE_THUMB
+from all2md.options.base import BaseRendererOptions
+
+@dataclass(frozen=True)
+class MediaWikiOptions(BaseRendererOptions):
+    """Configuration options for MediaWiki rendering.
+
+    This dataclass contains settings for rendering AST documents as
+    MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
+
+    Parameters
+    ----------
+    use_html_for_unsupported : bool, default True
+        Whether to use HTML tags as fallback for unsupported elements.
+        When True, unsupported formatting uses HTML tags (e.g., <u>underline</u>).
+        When False, unsupported formatting is stripped.
+    image_thumb : bool, default True
+        Whether to render images as thumbnails.
+        When True, images use |thumb option in MediaWiki syntax.
+        When False, images are rendered at full size.
+
+    Examples
+    --------
+    Basic MediaWiki rendering:
+        >>> from all2md.ast import Document, Heading, Text
+        >>> from all2md.renderers.mediawiki import MediaWikiRenderer
+        >>> from all2md.options.mediawiki import MediaWikiOptions
+        >>> doc = Document(children=[
+        ...     Heading(level=1, content=[Text(content="Title")])
+        ... ])
+        >>> options = MediaWikiOptions()
+        >>> renderer = MediaWikiRenderer(options)
+        >>> wiki_text = renderer.render_to_string(doc)
+
+    """
+
+    use_html_for_unsupported: bool = field(
+        default=DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
+        metadata={
+            "help": "Use HTML tags for unsupported elements",
+            "cli_name": "no-use-html-for-unsupported",
+        }
+    )
+    image_thumb: bool = field(
+        default=DEFAULT_MEDIAWIKI_IMAGE_THUMB,
+        metadata={
+            "help": "Render images as thumbnails",
+            "cli_name": "no-image-thumb",
+        }
+    )

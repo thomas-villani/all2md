@@ -20,7 +20,9 @@ from fixtures.generators.chm_fixtures import (
 )
 from utils import assert_markdown_valid
 
-from all2md.options import ChmOptions, HtmlOptions, MarkdownOptions
+from all2md.options import MarkdownOptions
+from all2md.options.chm import ChmOptions
+from all2md import HtmlOptions
 from all2md.parsers.chm import ChmParser
 from all2md.renderers.markdown import MarkdownRenderer
 

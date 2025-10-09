@@ -27,7 +27,7 @@ from all2md.exceptions import (
     ParsingError,
     ValidationError,
 )
-from all2md.options import ZipOptions
+from all2md.options.zip import ZipOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata

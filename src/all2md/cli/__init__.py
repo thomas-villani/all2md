@@ -2316,7 +2316,11 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                         from rich.console import Console
                         console = Console()
                         with console.pager(styles=True):
-                            console.print(rendered_text)
+                            if parsed_args.rich:
+                                from rich.markdown import Markdown
+                                console.print(Markdown(rendered_text))
+                            else:
+                                console.print(rendered_text)
                     except ImportError:
                         print(rendered_text)
                 else:

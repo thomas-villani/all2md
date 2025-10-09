@@ -169,7 +169,7 @@ class TestZipIntegration:
         zip_data = create_test_zip_with_files(files)
 
         # Test with flattened structure
-        from all2md.options import ZipOptions
+        from all2md.options.zip import ZipOptions
         options = ZipOptions(flatten_structure=True)
         markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 

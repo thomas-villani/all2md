@@ -49,8 +49,7 @@ class EpubRenderer(BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.ast import Document, Heading, Paragraph, Text
-        >>> from all2md.options import EpubRendererOptions
+        >>> from all2md.options.epub import EpubRendererOptions        >>> from all2md.ast import Document, Heading, Paragraph, Text
         >>> from all2md.renderers.epub import EpubRenderer
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Chapter 1")]),

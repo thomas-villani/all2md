@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 from urllib.parse import unquote
 
-from all2md import DependencyError
+from all2md import DependencyError, MarkdownOptions, HtmlOptions, EmlOptions
 from all2md.ast import (
     Document,
     FootnoteDefinition,
@@ -35,7 +35,6 @@ from all2md.ast import Paragraph as AstParagraph
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options import EmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
@@ -269,7 +268,6 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     """
     try:
         from all2md import to_markdown
-        from all2md.options import HtmlOptions, MarkdownOptions
 
         # Create MarkdownOptions with default hash headings
         md_options = MarkdownOptions(use_hash_headings=True)

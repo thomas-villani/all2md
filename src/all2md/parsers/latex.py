@@ -41,7 +41,7 @@ from all2md.ast import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
-from all2md.options import LatexParserOptions
+from all2md.options.latex import LatexOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
@@ -70,7 +70,7 @@ class LatexParser(BaseParser):
 
     With options:
 
-        >>> options = LatexParserOptions(parse_math=True)
+        >>> options = LatexOptions(parse_math=True)
         >>> parser = LatexParser(options)
         >>> doc = parser.parse(latex_text)
 
@@ -78,13 +78,13 @@ class LatexParser(BaseParser):
 
     def __init__(
         self,
-        options: LatexParserOptions | None = None,
+        options: LatexOptions | None = None,
         progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the LaTeX parser."""
-        options = options or LatexParserOptions()
+        options = options or LatexOptions()
         super().__init__(options, progress_callback)
-        self.options: LatexParserOptions = options
+        self.options: LatexOptions = options
         self.document_metadata: dict[str, Any] = {}
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -953,8 +953,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc",
-    parser_options_class="LatexParserOptions",
-    renderer_options_class="LatexOptions",
+    parser_options_class="LatexOptions",
+    renderer_options_class="LatexRendererOptions",
     description="Parse and render LaTeX format",
     priority=10
 )
