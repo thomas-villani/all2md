@@ -166,7 +166,7 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
 
     # Remove or replace dangerous characters
     # Keep only alphanumeric, dots, hyphens, underscores, and spaces
-    safe_chars = re.sub(r'[^\w\.\-\s]', '', safe_chars)
+    safe_chars = re.sub(r'[^\w.\-\s]', '', safe_chars)
 
     # Replace multiple spaces/dots with single versions
     safe_chars = re.sub(r'\s+', '_', safe_chars)

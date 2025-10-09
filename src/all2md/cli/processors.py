@@ -15,7 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from all2md import to_markdown
 from all2md.cli.builder import DynamicCLIBuilder
 from all2md.constants import DocumentFormat
-from all2md.exceptions import All2MdError
+from all2md.exceptions import All2MdError, DependencyError
+from all2md.constants import get_exit_code_for_exception
 
 
 def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
@@ -310,8 +311,6 @@ def process_stdin(
         return 0
 
     except Exception as e:
-        from all2md.constants import get_exit_code_for_exception
-        from all2md.exceptions import DependencyError
 
         exit_code = get_exit_code_for_exception(e)
 
