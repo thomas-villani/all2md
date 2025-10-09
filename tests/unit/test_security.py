@@ -436,8 +436,8 @@ class TestAttachmentProcessingSecurity:
         )
 
         # Should create a safe filename
-        assert "passwd" in result
-        assert "../" not in result
+        assert "passwd" in result["markdown"]
+        assert "../" not in result["markdown"]
 
         # Check that the file was actually created safely
         created_files = list(self.temp_dir.glob("*"))
@@ -468,8 +468,8 @@ class TestAttachmentProcessingSecurity:
 
         # Should have different filenames
         assert result1 != result2
-        assert "test.txt" in result1
-        assert "test-1.txt" in result2
+        assert "test.txt" in result1["markdown"]
+        assert "test-1.txt" in result2["markdown"]
 
         # Both files should exist
         created_files = list(self.temp_dir.glob("*"))
@@ -491,7 +491,7 @@ class TestAttachmentProcessingSecurity:
 
         # Should normalize the Unicode and convert to lowercase
         # e + combining accent becomes é
-        assert "tést.png" in result
+        assert "tést.png" in result["markdown"]
 
         # Check the actual file created
         created_files = list(self.temp_dir.glob("*"))
@@ -516,7 +516,7 @@ class TestAttachmentProcessingSecurity:
         )
 
         # Should fall back to alt-text mode
-        assert result == "[test.txt]"
+        assert result["markdown"] == "[test.txt]"
 
     def test_windows_reserved_names_in_download(self):
         """Test handling of Windows reserved names in download mode."""
@@ -529,7 +529,7 @@ class TestAttachmentProcessingSecurity:
         )
 
         # Should rename the file to avoid Windows reserved name
-        assert "file_con.txt" in result
+        assert "file_con.txt" in result["markdown"]
 
         # Check the actual file created
         created_files = list(self.temp_dir.glob("*"))
@@ -558,5 +558,5 @@ class TestAttachmentProcessingSecurity:
         )
 
         # Both should normalize to lowercase, so second should get suffix
-        assert "test.txt" in result1
-        assert "test-1.txt" in result2
+        assert "test.txt" in result1["markdown"]
+        assert "test-1.txt" in result2["markdown"]

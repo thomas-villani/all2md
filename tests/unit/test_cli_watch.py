@@ -139,7 +139,7 @@ class TestConversionEventHandler:
         # Should skip
         assert not handler.should_process(str(test_file))
 
-    @patch('all2md.to_markdown')
+    @patch('all2md.cli.watch.to_markdown')
     def test_convert_file_success(self, mock_to_markdown, tmp_path):
         """Test successful file conversion."""
         from all2md.cli.watch import ConversionEventHandler
@@ -168,7 +168,7 @@ class TestConversionEventHandler:
         assert output_file.exists()
         assert output_file.read_text() == "# Test"
 
-    @patch('all2md.to_markdown')
+    @patch('all2md.cli.watch.to_markdown')
     def test_convert_file_handles_error(self, mock_to_markdown, tmp_path, caplog):
         """Test that conversion errors are handled gracefully."""
         from all2md.cli.watch import ConversionEventHandler
@@ -193,7 +193,7 @@ class TestConversionEventHandler:
         # Check error was logged
         assert any("Conversion error" in record.message for record in caplog.records)
 
-    @patch('all2md.to_markdown')
+    @patch('all2md.cli.watch.to_markdown')
     def test_convert_file_clears_processing_flag(self, mock_to_markdown, tmp_path):
         """Test that processing flag is cleared after conversion."""
         from all2md.cli.watch import ConversionEventHandler
