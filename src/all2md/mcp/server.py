@@ -104,7 +104,7 @@ def create_server(
                 "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' "
                 "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
             ] = None
-        ) -> dict:
+        ) -> list:
             """Convert a document to Markdown format.
 
             Supports PDF, Word (DOCX), PowerPoint (PPTX), HTML, email (EML), EPUB,
@@ -113,10 +113,12 @@ def create_server(
             Source input must be provided as either source_path OR source_content (not both).
             Attachment handling (images, embedded files) is configured at server startup and cannot be changed per-call.
 
-            Returns a dictionary with:
-            - markdown: The converted markdown content as a string
-            - attachments: List of attachment paths (if attachment_mode=download at server level)
-            - warnings: List of warning messages from the conversion process
+            Returns a list with markdown text as the first element, followed by FastMCP Image
+            objects for any images found (when attachment_mode=base64). For other attachment
+            modes (skip, alt_text), returns just the markdown text.
+
+            FastMCP automatically converts this list into appropriate MCP content blocks,
+            allowing vLLMs to "see" the images alongside the text.
             """
             # Cast to proper Literal types (FastMCP validates these at the boundary)
             input_obj = ConvertToMarkdownInput(
@@ -128,13 +130,8 @@ def create_server(
                 pdf_pages=pdf_pages
             )
 
-            result = convert_impl(input_obj, config)
-
-            return {
-                "markdown": result.markdown,
-                "attachments": result.attachments,
-                "warnings": result.warnings
-            }
+            # Return list directly - FastMCP converts to content blocks
+            return convert_impl(input_obj, config)
 
         logger.info("Registered tool: convert_to_markdown")
 

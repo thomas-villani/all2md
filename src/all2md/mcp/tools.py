@@ -15,41 +15,104 @@ Functions
 
 import base64
 import logging
+import re
 from pathlib import Path
 from typing import Any, cast
 
-from all2md import from_markdown, to_markdown
+from all2md import from_ast, from_markdown, to_ast
+from all2md.ast.nodes import Image
+from all2md.ast.transforms import NodeCollector
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError
 from all2md.mcp.config import MCPConfig
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
-    ConvertToMarkdownOutput,
     RenderFromMarkdownInput,
     RenderFromMarkdownOutput,
 )
 from all2md.mcp.security import validate_read_path, validate_write_path
 
+try:
+    from fastmcp.utilities.types import Image as FastMCPImage
+except ImportError:
+    FastMCPImage = None  # type: ignore[misc, assignment]
+
 logger = logging.getLogger(__name__)
+
+
+def _extract_images_from_ast(doc: Any) -> list[Any]:
+    """Extract base64-encoded images from AST as FastMCP Image objects.
+
+    Parameters
+    ----------
+    doc : Document
+        AST Document node to extract images from
+
+    Returns
+    -------
+    list[FastMCPImage]
+        List of FastMCP Image objects extracted from data URIs in the AST.
+        Returns empty list if FastMCP is not available or no images found.
+
+    Notes
+    -----
+    This function looks for Image nodes in the AST with data URI urls
+    (format: data:image/FORMAT;base64,DATA) and converts them to FastMCP
+    Image objects that can be sent to vLLMs alongside markdown text.
+
+    """
+    if FastMCPImage is None:
+        logger.warning("FastMCP not available, cannot extract images")
+        return []
+
+    # Collect all Image nodes from AST
+    collector = NodeCollector(predicate=lambda n: isinstance(n, Image))
+    doc.accept(collector)
+
+    fastmcp_images = []
+    for img_node in collector.collected:
+        # Parse data URI: data:image/png;base64,iVBOR...
+        if not isinstance(img_node, Image):
+            continue
+
+        match = re.match(r'data:image/(\w+);base64,(.+)', img_node.url)
+        if match:
+            img_format = match.group(1)
+            b64_data = match.group(2)
+            try:
+                img_bytes = base64.b64decode(b64_data)
+                fastmcp_images.append(FastMCPImage(data=img_bytes, format=img_format))
+                logger.debug(f"Extracted {img_format} image ({len(img_bytes)} bytes)")
+            except Exception as e:
+                logger.warning(f"Failed to decode image data URI: {e}")
+
+    logger.info(f"Extracted {len(fastmcp_images)} images from AST")
+    return fastmcp_images
 
 
 def convert_to_markdown_impl(
     input_data: ConvertToMarkdownInput,
     config: MCPConfig
-) -> ConvertToMarkdownOutput:
+) -> list[Any]:
     """Implement convert_to_markdown tool.
+
+    This implementation uses AST-based processing to extract images as FastMCP
+    Image objects, allowing vLLMs to "see" the images alongside markdown text.
 
     Parameters
     ----------
     input_data : ConvertToMarkdownInput
         Tool input parameters
     config : MCPConfig
-        Server configuration (for attachment settings, allowlists, etc.)
+        Server configuration (for allowlists, etc.)
+        Note: attachment_mode is overridden to "base64" for MCP compatibility
 
     Returns
     -------
-    ConvertToMarkdownOutput
-        Conversion result with markdown content and metadata
+    list
+        List with markdown string as first element, followed by FastMCP Image
+        objects for any images found in the document. FastMCP automatically
+        converts this to appropriate MCP content blocks.
 
     Raises
     ------
@@ -112,47 +175,39 @@ def convert_to_markdown_impl(
     if input_data.flavor:
         kwargs['flavor'] = input_data.flavor
 
-    # Set attachment mode from server config (not per-call!)
+    # Set attachment mode from server config (only skip, alt_text, or base64 allowed)
     kwargs['attachment_mode'] = config.attachment_mode
 
-    # Set attachment output dir if download mode
-    if config.attachment_mode == "download":
-        if not config.attachment_output_dir:
-            raise ValueError("Server not configured for attachment download mode")
-
-        # Use attachment dir from config (already validated at startup)
-        kwargs['attachment_output_dir'] = config.attachment_output_dir
-
-    # Perform conversion
+    # Perform conversion using AST approach
     try:
-        # Cast source_format (SourceFormat is a subset of DocumentFormat)
-        markdown = to_markdown(
+        # Convert to AST first (allows us to extract images)
+        doc = to_ast(
             source,
             source_format=cast(DocumentFormat, input_data.source_format),
             **kwargs
         )
 
-        # Collect attachment paths if in download mode
-        attachments: list[str] = []
-        if config.attachment_mode == "download" and config.attachment_output_dir:
-            # List files in attachment output dir (simplified - in production you'd
-            # track which files were created by this conversion)
-            attachment_dir = Path(config.attachment_output_dir)
-            if attachment_dir.exists() and attachment_dir.is_dir():
-                # For now, just return empty list - proper implementation would
-                # require tracking attachment creation during conversion
-                attachments = []
-                warnings.append(
-                    "Attachment tracking not fully implemented - check attachment_output_dir manually"
-                )
+        # Extract images if in base64 mode (for vLLM visibility)
+        images: list[Any] = []
+        if config.attachment_mode == "base64":
+            images = _extract_images_from_ast(doc)
+            if images:
+                logger.info(f"Extracted {len(images)} images for vLLM")
+
+        # Convert AST to markdown
+        markdown = from_ast(
+            doc,
+            target_format="markdown",
+            **({'flavor': input_data.flavor} if input_data.flavor else {})
+        )
+
+        if not isinstance(markdown, str):
+            raise TypeError(f"Expected markdown string, got {type(markdown)}")
 
         logger.info(f"Conversion successful ({len(markdown)} characters)")
 
-        return ConvertToMarkdownOutput(
-            markdown=markdown,
-            attachments=attachments,
-            warnings=warnings
-        )
+        # Return list with markdown + images (FastMCP handles content blocks)
+        return [markdown] + images
 
     except All2MdError as e:
         logger.error(f"Conversion failed: {e}")

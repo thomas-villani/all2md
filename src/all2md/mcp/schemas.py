@@ -7,9 +7,14 @@ to JSON schemas for the MCP protocol.
 Classes
 -------
 - ConvertToMarkdownInput: Input schema for convert_to_markdown tool
-- ConvertToMarkdownOutput: Output schema for convert_to_markdown tool
 - RenderFromMarkdownInput: Input schema for render_from_markdown tool
 - RenderFromMarkdownOutput: Output schema for render_from_markdown tool
+
+Notes
+-----
+The convert_to_markdown tool returns a list directly (markdown + images),
+not a structured output object, to leverage FastMCP's automatic content
+block conversion for vLLM visibility.
 
 """
 
@@ -67,27 +72,6 @@ class ConvertToMarkdownInput:
     source_format: SourceFormat = "auto"
     flavor: MarkdownFlavor | None = None
     pdf_pages: str | None = None
-
-
-@dataclass
-class ConvertToMarkdownOutput:
-    """Output schema for convert_to_markdown tool.
-
-    Attributes
-    ----------
-    markdown : str
-        Converted markdown content
-    attachments : list[str]
-        List of attachment file paths (if attachment_mode=download).
-        Paths are relative to attachment_output_dir.
-    warnings : list[str]
-        Warning messages from conversion process
-
-    """
-
-    markdown: str
-    attachments: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -44,11 +44,15 @@ class MCPConfig(CloneFrozenMixin):
     write_allowlist : list[str]
         List of allowed write directory paths (default: current working directory)
     attachment_mode : AttachmentMode
-        How to handle attachments (skip|alt_text|download|base64)
-    attachment_output_dir : str | None
-        Directory for downloaded attachments (must be in write allowlist if download mode)
+        How to handle attachments (skip|alt_text|base64).
+        Only "base64" mode enables image extraction for vLLM visibility.
+        Default: "base64" for optimal vLLM experience.
+        Note: With disable_network=True (default), base64 mode works for embedded
+        images (PDF, DOCX, PPTX) but not for external HTML images that require fetching.
     disable_network : bool
-        Whether to disable network access globally
+        Whether to disable network access globally. When True (default), prevents
+        fetching external images from HTML files, but embedded images in PDF/DOCX/PPTX
+        will still work with base64 mode.
     log_level : str
         Logging level (DEBUG|INFO|WARNING|ERROR)
 
@@ -58,8 +62,7 @@ class MCPConfig(CloneFrozenMixin):
     enable_from_md: bool = False  # Disabled by default for security (writing)
     read_allowlist: list[str] | None = None  # Will be set to CWD if None
     write_allowlist: list[str] | None = None  # Will be set to CWD if None
-    attachment_mode: AttachmentMode = "alt_text"
-    attachment_output_dir: str | None = None
+    attachment_mode: AttachmentMode = "base64"  # Default to base64 for vLLM visibility
     disable_network: bool = True
     log_level: str = "INFO"
 
@@ -72,8 +75,8 @@ class MCPConfig(CloneFrozenMixin):
             If configuration is invalid
 
         """
-        # Validate attachment_mode is one of the allowed values
-        allowed_attachment_modes = ('skip', 'alt_text', 'download', 'base64')
+        # Validate attachment_mode is one of the allowed values (no download for MCP)
+        allowed_attachment_modes = ('skip', 'alt_text', 'base64')
         if self.attachment_mode not in allowed_attachment_modes:
             raise ValueError(
                 f"Invalid attachment_mode: {self.attachment_mode}. "
@@ -83,44 +86,6 @@ class MCPConfig(CloneFrozenMixin):
         # At least one tool must be enabled
         if not self.enable_to_md and not self.enable_from_md:
             raise ValueError("At least one tool must be enabled (to_md or from_md)")
-
-        # Attachment output dir required for download mode
-        if self.attachment_mode == "download":
-            if not self.attachment_output_dir:
-                raise ValueError("attachment_output_dir required when attachment_mode=download")
-
-            # Verify it's a valid directory path
-            try:
-                resolved_path = Path(self.attachment_output_dir).resolve(strict=True)
-            except (OSError, RuntimeError) as e:
-                raise ValueError(
-                    f"attachment_output_dir must exist: {self.attachment_output_dir}"
-                ) from e
-
-            # Ensure it's a directory, not a file
-            if not resolved_path.is_dir():
-                raise ValueError(
-                    f"attachment_output_dir must be a directory, not a file: {self.attachment_output_dir}"
-                )
-
-            # If write allowlist exists, verify attachment dir is in it
-            if self.write_allowlist is not None:
-                attachment_dir_resolved = resolved_path
-                write_dirs_resolved = [Path(p).resolve() for p in self.write_allowlist]
-
-                in_allowlist = False
-                for allowed_dir in write_dirs_resolved:
-                    try:
-                        attachment_dir_resolved.relative_to(allowed_dir)
-                        in_allowlist = True
-                        break
-                    except ValueError:
-                        continue
-
-                if not in_allowlist:
-                    raise ValueError(
-                        f"attachment_output_dir must be within write allowlist: {self.attachment_output_dir}"
-                    )
 
 
 def _parse_semicolon_list(value: str | None) -> list[str] | None:
@@ -192,8 +157,8 @@ def _validate_attachment_mode(value: str | None, default: AttachmentMode = "alt_
     # Normalize to lowercase for case-insensitive comparison
     normalized = value.lower().strip()
 
-    # Valid attachment modes
-    valid_modes = ('skip', 'alt_text', 'download', 'base64')
+    # Valid attachment modes (no download for MCP)
+    valid_modes = ('skip', 'alt_text', 'base64')
 
     if normalized not in valid_modes:
         raise ValueError(
@@ -268,8 +233,7 @@ def load_config_from_env() -> MCPConfig:
         enable_from_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_FROM_MD'), default=False),  # Disabled by default
         read_allowlist=read_allowlist,
         write_allowlist=write_allowlist,
-        attachment_mode=_validate_attachment_mode(os.getenv('ALL2MD_MCP_ATTACHMENT_MODE'), default='alt_text'),
-        attachment_output_dir=os.getenv('ALL2MD_MCP_ATTACHMENT_OUTPUT_DIR'),
+        attachment_mode=_validate_attachment_mode(os.getenv('ALL2MD_MCP_ATTACHMENT_MODE'), default='base64'),
         disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
         log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),
     )
@@ -294,8 +258,7 @@ Environment Variables:
   ALL2MD_MCP_ENABLE_FROM_MD        Enable render_from_markdown tool (default: false)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
-  ALL2MD_MCP_ATTACHMENT_MODE       Attachment handling mode (default: alt_text)
-  ALL2MD_MCP_ATTACHMENT_OUTPUT_DIR Directory for downloaded attachments
+  ALL2MD_MCP_ATTACHMENT_MODE       Attachment handling mode: skip, alt_text, base64 (default: base64)
   ALL2MD_DISABLE_NETWORK           Disable network access (default: true)
   ALL2MD_MCP_LOG_LEVEL             Logging level (default: INFO)
 
@@ -374,15 +337,8 @@ Examples:
     parser.add_argument(
         '--attachment-mode',
         type=str,
-        choices=['skip', 'alt_text', 'download', 'base64'],
-        help='How to handle attachments (default: alt_text)'
-    )
-
-    parser.add_argument(
-        '--attachment-output-dir',
-        type=str,
-        metavar='DIR',
-        help='Directory for downloaded attachments (must be in write allowlist)'
+        choices=['skip', 'alt_text', 'base64'],
+        help='How to handle attachments (default: base64 for vLLM visibility)'
     )
 
     # Network control
@@ -439,13 +395,6 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
         # Set both read and write allowlists to temp directory
         updated_kwargs.update(read_allowlist=[temp_dir], write_allowlist=[temp_dir])
 
-        # Create attachments subdirectory if in download mode
-        if config.attachment_mode == "download" and not config.attachment_output_dir:
-            attachment_dir = Path(temp_dir) / "attachments"
-            attachment_dir.mkdir(exist_ok=True)
-            updated_kwargs.update(attachment_output_dir=str(attachment_dir))
-            logger.info(f"Created attachments directory: {attachment_dir}")
-
     # Override with explicit CLI args (only if provided, takes precedence over --temp)
     if args.enable_to_md is not None:
         updated_kwargs.update(enable_to_md=args.enable_to_md)
@@ -461,9 +410,6 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
 
     if args.attachment_mode is not None:
         updated_kwargs.update(attachment_mode=_validate_attachment_mode(args.attachment_mode))
-
-    if args.attachment_output_dir is not None:
-        updated_kwargs.update(attachment_output_dir=args.attachment_output_dir)
 
     if args.disable_network is not None:
         updated_kwargs.update(disable_network=args.disable_network)
