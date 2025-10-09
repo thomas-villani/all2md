@@ -279,7 +279,7 @@ def process_attachment(
         attachment_base_url: str | None = None,
         is_image: bool = True,
         alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
-) -> str:
+) -> dict[str, Any]:
     """Process an attachment according to the specified mode.
 
     Parameters
@@ -307,34 +307,81 @@ def process_attachment(
 
     Returns
     -------
-    str
-        Markdown representation of the attachment
+    dict[str, Any]
+        Dictionary with keys:
+        - "markdown": str - Markdown representation of the attachment
+        - "footnote_label": str | None - Footnote label if alt_text_mode is "footnote"
+        - "footnote_content": str | None - Content for footnote definition
+        - "url": str - URL/path for the attachment (empty for alt_text mode)
 
     """
+    # Helper function to create result dict
+    def _make_result(markdown: str, url: str = "", footnote_label: str | None = None,
+                     footnote_content: str | None = None) -> dict[str, Any]:
+        return {
+            "markdown": markdown,
+            "url": url,
+            "footnote_label": footnote_label,
+            "footnote_content": footnote_content,
+        }
+
+    # Helper function for fallback mode (replicates alt_text logic)
+    def _make_fallback_result() -> dict[str, Any]:
+        if is_image:
+            if alt_text_mode == "strict_markdown":
+                return _make_result(f"![{alt_text or attachment_name}](#)", url="#")
+            elif alt_text_mode == "footnote":
+                footnote_label = _sanitize_footnote_label(attachment_name)
+                markdown = f"![{alt_text or attachment_name}][^{footnote_label}]"
+                footnote_content = alt_text or attachment_name
+                return _make_result(markdown, url="", footnote_label=footnote_label,
+                                  footnote_content=footnote_content)
+            else:
+                return _make_result(f"![{alt_text or attachment_name}]")
+        else:
+            if alt_text_mode == "plain_filename":
+                return _make_result(attachment_name)
+            elif alt_text_mode == "strict_markdown":
+                return _make_result(f"[{attachment_name}](#)", url="#")
+            elif alt_text_mode == "footnote":
+                footnote_label = _sanitize_footnote_label(attachment_name)
+                markdown = f"[{attachment_name}][^{footnote_label}]"
+                footnote_content = attachment_name
+                return _make_result(markdown, url="", footnote_label=footnote_label,
+                                  footnote_content=footnote_content)
+            else:
+                return _make_result(f"[{attachment_name}]")
+
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")
-        return ""
+        return _make_result("")
 
     if attachment_mode == "alt_text":
         if is_image:
             if alt_text_mode == "strict_markdown":
-                return f"![{alt_text or attachment_name}](#)"
+                return _make_result(f"![{alt_text or attachment_name}](#)", url="#")
             elif alt_text_mode == "footnote":
                 # Use footnote format for accessibility with sanitized label
                 footnote_label = _sanitize_footnote_label(attachment_name)
-                return f"![{alt_text or attachment_name}][^{footnote_label}]"
+                markdown = f"![{alt_text or attachment_name}][^{footnote_label}]"
+                footnote_content = alt_text or attachment_name
+                return _make_result(markdown, url="", footnote_label=footnote_label,
+                                  footnote_content=footnote_content)
             else:  # "default" mode
-                return f"![{alt_text or attachment_name}]"
+                return _make_result(f"![{alt_text or attachment_name}]")
         else:
             if alt_text_mode == "plain_filename":
-                return attachment_name
+                return _make_result(attachment_name)
             elif alt_text_mode == "strict_markdown":
-                return f"[{attachment_name}](#)"
+                return _make_result(f"[{attachment_name}](#)", url="#")
             elif alt_text_mode == "footnote":
                 footnote_label = _sanitize_footnote_label(attachment_name)
-                return f"[{attachment_name}][^{footnote_label}]"
+                markdown = f"[{attachment_name}][^{footnote_label}]"
+                footnote_content = attachment_name
+                return _make_result(markdown, url="", footnote_label=footnote_label,
+                                  footnote_content=footnote_content)
             else:  # "default" mode
-                return f"[{attachment_name}]"
+                return _make_result(f"[{attachment_name}]")
 
     if attachment_mode == "base64" and is_image:
         if not attachment_data:
@@ -354,7 +401,8 @@ def process_attachment(
 
             b64_data = base64.b64encode(attachment_data).decode("utf-8")
             data_uri = f"data:{mime_type};base64,{b64_data}"
-            return f"![{alt_text or attachment_name}]({data_uri})"
+            markdown = f"![{alt_text or attachment_name}]({data_uri})"
+            return _make_result(markdown, url=data_uri)
 
     if attachment_mode == "download":
         if not attachment_output_dir:
@@ -366,24 +414,7 @@ def process_attachment(
         except OSError as e:
             logger.error(f"Failed to create attachment directory {attachment_output_dir}: {e}")
             # Fall back to alt-text mode if directory creation fails
-            if is_image:
-                if alt_text_mode == "strict_markdown":
-                    return f"![{alt_text or attachment_name}](#)"
-                elif alt_text_mode == "footnote":
-                    footnote_label = _sanitize_footnote_label(attachment_name)
-                    return f"![{alt_text or attachment_name}][^{footnote_label}]"
-                else:
-                    return f"![{alt_text or attachment_name}]"
-            else:
-                if alt_text_mode == "plain_filename":
-                    return attachment_name
-                elif alt_text_mode == "strict_markdown":
-                    return f"[{attachment_name}](#)"
-                elif alt_text_mode == "footnote":
-                    footnote_label = _sanitize_footnote_label(attachment_name)
-                    return f"[{attachment_name}][^{footnote_label}]"
-                else:
-                    return f"[{attachment_name}]"
+            return _make_fallback_result()
 
         # Sanitize the filename for security
         safe_name = sanitize_attachment_filename(attachment_name)
@@ -403,24 +434,7 @@ def process_attachment(
             except OSError as e:
                 logger.error(f"Failed to write attachment {unique_path}: {e}")
                 # Fall back to alt-text mode if writing fails
-                if is_image:
-                    if alt_text_mode == "strict_markdown":
-                        return f"![{alt_text or attachment_name}](#)"
-                    elif alt_text_mode == "footnote":
-                        footnote_label = _sanitize_footnote_label(attachment_name)
-                        return f"![{alt_text or attachment_name}][^{footnote_label}]"
-                    else:
-                        return f"![{alt_text or attachment_name}]"
-                else:
-                    if alt_text_mode == "plain_filename":
-                        return attachment_name
-                    elif alt_text_mode == "strict_markdown":
-                        return f"[{attachment_name}](#)"
-                    elif alt_text_mode == "footnote":
-                        footnote_label = _sanitize_footnote_label(attachment_name)
-                        return f"[{attachment_name}][^{footnote_label}]"
-                    else:
-                        return f"[{attachment_name}]"
+                return _make_fallback_result()
 
         # Build URL using the final filename
         final_filename = unique_path.name
@@ -433,31 +447,16 @@ def process_attachment(
         display_name = alt_text or safe_name
 
         if is_image:
-            return f"![{display_name}]({url})"
+            markdown = f"![{display_name}]({url})"
         else:
-            return f"[{display_name}]({url})"
+            markdown = f"[{display_name}]({url})"
+
+        return _make_result(markdown, url=url)
 
     # Fallback to alt_text mode if attachment data is missing or mode is unsupported
     logger.info(f"Falling back to alt_text mode for attachment: {attachment_name} "
                 f"(mode: {attachment_mode}, has_data: {attachment_data is not None})")
-    if is_image:
-        if alt_text_mode == "strict_markdown":
-            return f"![{alt_text or attachment_name}](#)"
-        elif alt_text_mode == "footnote":
-            footnote_label = _sanitize_footnote_label(attachment_name)
-            return f"![{alt_text or attachment_name}][^{footnote_label}]"
-        else:  # "default" mode
-            return f"![{alt_text or attachment_name}]"
-    else:
-        if alt_text_mode == "plain_filename":
-            return attachment_name
-        elif alt_text_mode == "strict_markdown":
-            return f"[{attachment_name}](#)"
-        elif alt_text_mode == "footnote":
-            footnote_label = _sanitize_footnote_label(attachment_name)
-            return f"[{attachment_name}][^{footnote_label}]"
-        else:  # "default" mode
-            return f"[{attachment_name}]"
+    return _make_fallback_result()
 
 
 def extract_pptx_image_data(shape: Any) -> bytes | None:

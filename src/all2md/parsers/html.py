@@ -159,6 +159,7 @@ class HtmlToAstConverter(BaseParser):
         self._list_depth = 0
         self._in_code_block = False
         self._heading_level_offset = 0
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
     @requires_dependencies("html", [("beautifulsoup4", "bs4", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -268,6 +269,9 @@ class HtmlToAstConverter(BaseParser):
             AST document node
 
         """
+        # Reset footnote collection for this conversion
+        self._attachment_footnotes = {}
+
         from bs4 import BeautifulSoup
         from bs4.element import Comment, Tag
 
@@ -359,6 +363,24 @@ class HtmlToAstConverter(BaseParser):
 
         # Extract and attach metadata
         metadata = self.extract_metadata(soup)
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            from all2md.ast.nodes import FootnoteDefinition, Paragraph as AstParagraph
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         # Emit finished event
         self._emit_progress(
@@ -1226,7 +1248,7 @@ class HtmlToAstConverter(BaseParser):
                 # No URL or same as original, just use alt text
                 return Image(url=resolved_src, alt_text=alt_text, title=title)
 
-        processed_markdown = process_attachment(
+        result = process_attachment(
             attachment_data=image_data,
             attachment_name=filename,
             alt_text=alt_text or title or filename,
@@ -1237,11 +1259,12 @@ class HtmlToAstConverter(BaseParser):
             alt_text_mode="default",
         )
 
-        # Parse the markdown string to extract the URL
-        # process_attachment returns strings like:
-        # - ![alt](url) for base64/download
-        # - ![alt] for alt_text
-        final_url = self._extract_url_from_markdown_image(processed_markdown)
+        # Collect footnote info if present
+        if result.get("footnote_label") and result.get("footnote_content"):
+            self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
+
+        # Extract URL from result
+        final_url = result.get("url", "")
 
         return Image(url=final_url, alt_text=alt_text, title=title)
 

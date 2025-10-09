@@ -23,7 +23,9 @@ class TestAltTextModes:
             alt_text_mode="default",
             is_image=True
         )
-        assert result == "![Test Image]"
+        assert result["markdown"] == "![Test Image]"
+        assert result["footnote_label"] is None
+        assert result["url"] == ""
 
     def test_default_mode_files(self):
         """Test default mode for files produces standard markdown."""
@@ -35,7 +37,8 @@ class TestAltTextModes:
             alt_text_mode="default",
             is_image=False
         )
-        assert result == "[document.pdf]"
+        assert result["markdown"] == "[document.pdf]"
+        assert result["footnote_label"] is None
 
     def test_plain_filename_mode_images(self):
         """Test plain_filename mode for images still uses markdown syntax."""
@@ -47,7 +50,7 @@ class TestAltTextModes:
             alt_text_mode="plain_filename",
             is_image=True
         )
-        assert result == "![Test Image]"
+        assert result["markdown"] == "![Test Image]"
 
     def test_plain_filename_mode_files(self):
         """Test plain_filename mode for files produces plain text."""
@@ -59,7 +62,7 @@ class TestAltTextModes:
             alt_text_mode="plain_filename",
             is_image=False
         )
-        assert result == "document.pdf"
+        assert result["markdown"] == "document.pdf"
 
     def test_strict_markdown_mode_images(self):
         """Test strict_markdown mode for images includes empty link."""
@@ -71,7 +74,8 @@ class TestAltTextModes:
             alt_text_mode="strict_markdown",
             is_image=True
         )
-        assert result == "![Test Image](#)"
+        assert result["markdown"] == "![Test Image](#)"
+        assert result["url"] == "#"
 
     def test_strict_markdown_mode_files(self):
         """Test strict_markdown mode for files includes empty link."""
@@ -83,7 +87,8 @@ class TestAltTextModes:
             alt_text_mode="strict_markdown",
             is_image=False
         )
-        assert result == "[document.pdf](#)"
+        assert result["markdown"] == "[document.pdf](#)"
+        assert result["url"] == "#"
 
     def test_footnote_mode_images(self):
         """Test footnote mode for images uses footnote reference with sanitized label (no extension)."""
@@ -96,7 +101,10 @@ class TestAltTextModes:
             is_image=True
         )
         # Footnote labels are sanitized and extension is removed for cleaner references
-        assert result == "![Test Image][^test]"
+        assert result["markdown"] == "![Test Image][^test]"
+        assert result["footnote_label"] == "test"
+        assert result["footnote_content"] == "Test Image"
+        assert result["url"] == ""
 
     def test_footnote_mode_files(self):
         """Test footnote mode for files uses footnote reference with sanitized label (no extension)."""
@@ -109,7 +117,9 @@ class TestAltTextModes:
             is_image=False
         )
         # Footnote labels are sanitized and extension is removed for cleaner references
-        assert result == "[document.pdf][^document]"
+        assert result["markdown"] == "[document.pdf][^document]"
+        assert result["footnote_label"] == "document"
+        assert result["footnote_content"] == "document.pdf"
 
     def test_alt_text_fallback_uses_filename(self):
         """Test that empty alt_text falls back to filename."""
@@ -121,7 +131,7 @@ class TestAltTextModes:
             alt_text_mode="default",
             is_image=True
         )
-        assert result == "![test.png]"
+        assert result["markdown"] == "![test.png]"
 
     def test_alt_text_mode_with_download_mode(self):
         """Test that alt_text_mode doesn't affect download mode."""
@@ -137,8 +147,9 @@ class TestAltTextModes:
                 is_image=True
             )
             # Download mode should ignore alt_text_mode
-            assert result.startswith("![Test Image](")
-            assert "test.png" in result
+            assert result["markdown"].startswith("![Test Image](")
+            assert "test.png" in result["markdown"]
+            assert result["url"]  # Should have a URL
 
     def test_alt_text_mode_with_base64_mode(self):
         """Test that alt_text_mode doesn't affect base64 mode."""
@@ -151,7 +162,8 @@ class TestAltTextModes:
             is_image=True
         )
         # Base64 mode should ignore alt_text_mode
-        assert result.startswith("![Test Image](data:")
+        assert result["markdown"].startswith("![Test Image](data:")
+        assert result["url"].startswith("data:")
 
     def test_alt_text_mode_with_skip_mode(self):
         """Test that alt_text_mode doesn't affect skip mode."""
@@ -164,7 +176,7 @@ class TestAltTextModes:
             is_image=True
         )
         # Skip mode should return empty string regardless of alt_text_mode
-        assert result == ""
+        assert result["markdown"] == ""
 
     def test_fallback_respects_alt_text_mode(self):
         """Test that fallback behavior respects alt_text_mode."""
@@ -177,7 +189,7 @@ class TestAltTextModes:
             alt_text_mode="strict_markdown",
             is_image=True
         )
-        assert result == "![Test Image](#)"
+        assert result["markdown"] == "![Test Image](#)"
 
     def test_all_alt_text_modes_enum_values(self):
         """Test that all AltTextMode enum values are handled."""
@@ -193,8 +205,9 @@ class TestAltTextModes:
                 alt_text_mode=mode,
                 is_image=True
             )
-            assert isinstance(result_img, str)
-            assert len(result_img) > 0
+            assert isinstance(result_img, dict)
+            assert "markdown" in result_img
+            assert len(result_img["markdown"]) > 0
 
             # Test with file
             result_file = process_attachment(
@@ -205,8 +218,9 @@ class TestAltTextModes:
                 alt_text_mode=mode,
                 is_image=False
             )
-            assert isinstance(result_file, str)
-            assert len(result_file) > 0
+            assert isinstance(result_file, dict)
+            assert "markdown" in result_file
+            assert len(result_file["markdown"]) > 0
 
 
 if __name__ == "__main__":

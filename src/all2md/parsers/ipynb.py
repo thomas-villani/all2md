@@ -73,6 +73,7 @@ class IpynbToAstConverter(BaseParser):
         options = options or IpynbOptions()
         super().__init__(options, progress_callback)
         self.options: IpynbOptions = options
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Jupyter Notebook input into an AST.
@@ -153,6 +154,9 @@ class IpynbToAstConverter(BaseParser):
                 parsing_stage="ast_conversion",
             )
 
+        # Reset footnote collection for this conversion
+        self._attachment_footnotes = {}
+
         children: list[Node] = []
 
         cells = notebook.get("cells", [])
@@ -160,6 +164,24 @@ class IpynbToAstConverter(BaseParser):
             cell_nodes = self._process_cell(cell, cell_index=i, language=language)
             if cell_nodes:
                 children.extend(cell_nodes)
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            from all2md.ast.nodes import FootnoteDefinition, Heading, Paragraph as AstParagraph, Text
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         # Extract and attach metadata
         metadata = self.extract_metadata(notebook)
@@ -284,7 +306,7 @@ class IpynbToAstConverter(BaseParser):
                         ext = mime_type.split("/")[-1].split("+")[0]
                         filename = f"cell_{cell_index + 1}_output_{output_index + 1}.{ext}"
 
-                        markdown_result = process_attachment(
+                        result = process_attachment(
                             attachment_data=image_bytes,
                             attachment_name=filename,
                             alt_text="cell output",
@@ -295,13 +317,18 @@ class IpynbToAstConverter(BaseParser):
                             alt_text_mode=self.options.alt_text_mode,
                         )
 
+                        # Collect footnote info if present
+                        if result.get("footnote_label") and result.get("footnote_content"):
+                            self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
+
                         # Parse markdown result to extract URL
                         import re
 
+                        markdown_result = result.get("markdown", "")
                         match = re.match(r"!\[([^\]]*)\](?:\(([^)]+)\))?", markdown_result)
                         if match:
                             alt_text = match.group(1) or "cell output"
-                            url = match.group(2) or ""
+                            url = result.get("url", match.group(2) or "")
                             return Image(url=url, alt_text=alt_text, title=None)
 
                     except (ValueError, TypeError) as e:

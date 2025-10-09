@@ -72,6 +72,7 @@ class OdpToAstConverter(BaseParser):
 
         options = options or OdpOptions()
         super().__init__(options, progress_callback)
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
         from all2md.options import OdpOptions
@@ -171,6 +172,9 @@ class OdpToAstConverter(BaseParser):
         # For ODP, content is in doc.presentation
         content_root = getattr(doc, 'presentation', None)
 
+        # Reset footnote collection for this conversion
+        self._attachment_footnotes = {}
+
         # Extract metadata
         metadata = self.extract_metadata(doc)
 
@@ -214,6 +218,24 @@ class OdpToAstConverter(BaseParser):
             slide_nodes = self._process_slide(element, doc)
             if slide_nodes:
                 children.extend(slide_nodes)
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            from all2md.ast.nodes import FootnoteDefinition, Heading, Paragraph as AstParagraph, Text
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         return Document(children=children, metadata=metadata.to_dict())
 
@@ -721,7 +743,7 @@ class OdpToAstConverter(BaseParser):
         alt_text = "image"
 
         # Process attachment
-        markdown_result = process_attachment(
+        result = process_attachment(
             attachment_data=image_data,
             attachment_name=href.split("/")[-1],
             alt_text=alt_text,
@@ -732,13 +754,18 @@ class OdpToAstConverter(BaseParser):
             alt_text_mode=self.options.alt_text_mode,
         )
 
+        # Collect footnote info if present
+        if result.get("footnote_label") and result.get("footnote_content"):
+            self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
+
         # Parse markdown result to extract URL
         import re
 
+        markdown_result = result.get("markdown", "")
         match = re.match(r"!\[([^]]*)](?:\(([^)]+)\))?", markdown_result)
         if match:
             alt_text = match.group(1) or "image"
-            url = match.group(2) or ""
+            url = result.get("url", match.group(2) or "")
             return Image(url=url, alt_text=alt_text, title=None)
 
         return None

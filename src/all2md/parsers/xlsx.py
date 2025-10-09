@@ -20,6 +20,7 @@ from typing import IO, Any, Iterable, Optional, Union, cast
 from all2md.ast import (
     Alignment,
     Document,
+    FootnoteDefinition,
     Heading,
     HTMLInline,
     Image,
@@ -30,6 +31,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
+from all2md.ast import Paragraph as AstParagraph
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
@@ -239,7 +241,7 @@ def _map_merged_cells(sheet: Any) -> dict[str, str]:
     return merged_map
 
 
-def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any) -> list[Image]:
+def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any) -> tuple[list[Image], dict[str, str]]:
     """Extract images from an XLSX sheet and convert to Image AST nodes.
 
     Parameters
@@ -255,16 +257,17 @@ def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: 
 
     Returns
     -------
-    list[Image]
-        List of Image AST nodes
+    tuple[list[Image], dict[str, str]]
+        Tuple of (list of Image AST nodes, footnotes dict)
 
     """
     images: list[Image] = []
+    collected_footnotes: dict[str, str] = {}
 
     try:
         # Access images through the sheet's _images attribute
         if not hasattr(sheet, '_images') or not sheet._images:
-            return images
+            return images, collected_footnotes
 
         for img in sheet._images:
             try:
@@ -305,7 +308,7 @@ def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: 
                 alt_text = getattr(img, 'name', '') or getattr(img, 'title', '') or "image"
 
                 # Process attachment
-                url = process_attachment(
+                result = process_attachment(
                     attachment_data=image_bytes,
                     attachment_name=image_filename,
                     alt_text=alt_text,
@@ -316,8 +319,14 @@ def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: 
                     alt_text_mode=options.alt_text_mode,
                 )
 
+                # Collect footnote info if present
+                if result.get("footnote_label") and result.get("footnote_content"):
+                    collected_footnotes[result["footnote_label"]] = result["footnote_content"]
+
+                url = result.get("url", "")
+
                 # Create Image AST node
-                if url:
+                if url or result.get("markdown"):
                     images.append(Image(url=url, alt_text=alt_text))
 
             except Exception as e:
@@ -327,7 +336,7 @@ def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: 
     except Exception as e:
         logger.debug(f"Error accessing sheet images: {e!r}")
 
-    return images
+    return images, collected_footnotes
 
 
 def _extract_sheet_charts(sheet: Any, base_filename: str, options: Any) -> list[Node]:
@@ -484,6 +493,7 @@ class XlsxToAstConverter(BaseParser):
 
         options = options or XlsxOptions()
         super().__init__(options, progress_callback)
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
         from all2md.options import XlsxOptions
@@ -681,12 +691,30 @@ class XlsxToAstConverter(BaseParser):
                 )
 
             # Extract images from sheet
-            sheet_images = _extract_sheet_images(sheet, base_filename, attachment_sequencer, self.options)
+            sheet_images, sheet_footnotes = _extract_sheet_images(sheet, base_filename, attachment_sequencer, self.options)
+            self._attachment_footnotes.update(sheet_footnotes)
             children.extend(sheet_images)
 
             # Extract charts from sheet
             sheet_charts = _extract_sheet_charts(sheet, base_filename, self.options)
             children.extend(sheet_charts)
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         return Document(children=children, metadata=metadata.to_dict())
 

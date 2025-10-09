@@ -100,12 +100,18 @@ class ImageData:
         Alternative text for the image
     title : str or None
         Optional title for the image
+    footnote_label : str or None
+        Footnote label if using footnote mode
+    footnote_content : str or None
+        Footnote content text
 
     """
 
     url: str
     alt_text: str
     title: str | None = None
+    footnote_label: str | None = None
+    footnote_content: str | None = None
 
 
 @dataclass
@@ -167,6 +173,7 @@ class DocxToAstConverter(BaseParser):
         self._numbering_defs: dict[str, dict[str, str]] | None = None
         self._footnote_collector: FootnoteCollector | None = None
         self._comments_map: dict[str, CommentData] = {}
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
 
     @requires_dependencies("docx", [("python-docx", "docx", "")])
@@ -315,6 +322,7 @@ class DocxToAstConverter(BaseParser):
         self._list_stack = []
         self._footnote_collector = FootnoteCollector()
         self._comments_map = {}
+        self._attachment_footnotes = {}  # Reset attachment footnote collection
 
         # Emit started event
         self._emit_progress(
@@ -340,6 +348,9 @@ class DocxToAstConverter(BaseParser):
             attachment_sequencer=create_attachment_sequencer(),
         ):
             if isinstance(block, ImageData):
+                # Collect footnote info if present
+                if block.footnote_label and block.footnote_content:
+                    self._attachment_footnotes[block.footnote_label] = block.footnote_content
                 # Handle ImageData objects directly
                 image_node = Image(url=block.url, alt_text=block.alt_text, title=block.title)
                 children.append(AstParagraph(content=[image_node]))
@@ -394,6 +405,24 @@ class DocxToAstConverter(BaseParser):
             comments_nodes = self._process_comments()
             if comments_nodes:
                 children.extend(comments_nodes)
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            from all2md.ast.nodes import FootnoteDefinition, Text
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         # Emit finished event
         self._emit_progress(
@@ -1495,7 +1524,7 @@ def _iter_block_items(
                             sequence_num=len(img_data) + 1,
                             extension=extension
                         )
-                    processed_image_url = process_attachment(
+                    result = process_attachment(
                         attachment_data=raw_image_data,
                         attachment_name=image_filename,
                         alt_text=title or "image",
@@ -1506,8 +1535,14 @@ def _iter_block_items(
                         alt_text_mode=options.alt_text_mode,
                     )
 
-                    if processed_image_url:
-                        img_data.append(ImageData(url=processed_image_url, alt_text=title or "image", title=title))
+                    if result.get("markdown"):
+                        img_data.append(ImageData(
+                            url=result.get("url", ""),
+                            alt_text=title or "image",
+                            title=title,
+                            footnote_label=result.get("footnote_label"),
+                            footnote_content=result.get("footnote_content")
+                        ))
 
             if has_image and img_data:
                 # Yield ImageData objects directly

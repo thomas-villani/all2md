@@ -21,7 +21,17 @@ from typing import IO, Any, Optional, Union
 from urllib.parse import unquote
 
 from all2md import DependencyError
-from all2md.ast import Document, Heading, HTMLInline, Node, Paragraph, Text, ThematicBreak
+from all2md.ast import (
+    Document,
+    FootnoteDefinition,
+    Heading,
+    HTMLInline,
+    Node,
+    Paragraph,
+    Text,
+    ThematicBreak,
+)
+from all2md.ast import Paragraph as AstParagraph
 from all2md.constants import DEFAULT_URL_WRAPPERS
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
@@ -583,7 +593,7 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
     return formatted_msgs
 
 
-def process_email_attachments(msg: Message, options: EmlOptions) -> str:
+def process_email_attachments(msg: Message, options: EmlOptions) -> tuple[str, dict[str, str]]:
     """Process email attachments and return markdown representation.
 
     Extracts attachments from an email message and processes them according
@@ -598,14 +608,15 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
 
     Returns
     -------
-    str
-        Markdown representation of attachments
+    tuple[str, dict[str, str]]
+        Tuple of (markdown representation of attachments, footnotes dict)
 
     """
     if options.attachment_mode == "skip":
-        return ""
+        return "", {}
 
     attachments = []
+    collected_footnotes: dict[str, str] = {}
     attachment_count = 0
 
     for part in msg.walk():
@@ -637,7 +648,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
             is_image = content_type.startswith("image/") if content_type else False
 
             # Process using unified attachment handling
-            processed_attachment = process_attachment(
+            result = process_attachment(
                 attachment_data=attachment_data,
                 attachment_name=filename,
                 alt_text=filename,
@@ -648,16 +659,20 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> str:
                 alt_text_mode=options.alt_text_mode,
             )
 
-            if processed_attachment:
-                attachments.append(processed_attachment)
+            # Collect footnote info if present
+            if result.get("footnote_label") and result.get("footnote_content"):
+                collected_footnotes[result["footnote_label"]] = result["footnote_content"]
+
+            if result.get("markdown"):
+                attachments.append(result["markdown"])
 
     if attachments:
         if options.include_attach_section_heading:
             # Format as heading (## Attachments by default)
-            return f"\n\n## {options.attach_section_title}\n\n" + "\n".join(attachments) + "\n"
+            return f"\n\n## {options.attach_section_title}\n\n" + "\n".join(attachments) + "\n", collected_footnotes
         else:
-            return "\n\n" + "\n".join(attachments) + "\n"
-    return ""
+            return "\n\n" + "\n".join(attachments) + "\n", collected_footnotes
+    return "", collected_footnotes
 
 
 def clean_message(raw: str, options: EmlOptions) -> str:
@@ -823,6 +838,7 @@ class EmlToAstConverter(BaseParser):
         options = options or EmlOptions()
         super().__init__(options, progress_callback)
         self.options: EmlOptions = options
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -888,7 +904,9 @@ class EmlToAstConverter(BaseParser):
 
             # Process attachments if needed
             if self.options.attachment_mode != "skip":
-                attachment_content = process_email_attachments(eml_msg, self.options)
+                attachment_content, attachment_footnotes = process_email_attachments(eml_msg, self.options)
+                # Merge footnotes from attachments
+                self._attachment_footnotes.update(attachment_footnotes)
                 if attachment_content:
                     message["content"] += attachment_content
 
@@ -989,6 +1007,23 @@ class EmlToAstConverter(BaseParser):
 
             # Add separator
             children.append(ThematicBreak())
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         return Document(children=children)
 

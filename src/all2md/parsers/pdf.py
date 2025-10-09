@@ -28,6 +28,7 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
+    FootnoteDefinition,
     Heading,
     HTMLBlock,
     Image,
@@ -417,7 +418,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
 def extract_page_images(
         page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document",
         attachment_sequencer: Callable | None = None
-) -> list[dict]:
+) -> tuple[list[dict], dict[str, str]]:
     """Extract images from a PDF page with their positions.
 
     Extracts all images from the page and optionally saves them to disk
@@ -438,11 +439,13 @@ def extract_page_images(
 
     Returns
     -------
-    list[dict]
-        List of dictionaries containing image info:
-        - 'bbox': Image bounding box
-        - 'path': Path to saved image or data URI
-        - 'caption': Detected caption text (if any)
+    tuple[list[dict], dict[str, str]]
+        Tuple containing:
+        - List of dictionaries with image info:
+          - 'bbox': Image bounding box
+          - 'path': Path to saved image or data URI
+          - 'caption': Detected caption text (if any)
+        - Dictionary of footnote definitions (label -> content) collected during processing
 
     Notes
     -----
@@ -450,16 +453,19 @@ def extract_page_images(
     to avoid memory pressure from decoding images on every page.
 
     """
+    # Track footnotes collected during this function
+    collected_footnotes: dict[str, str] = {}
+
     # Skip image extraction entirely if requested (performance optimization for large PDFs)
     if options and options.skip_image_extraction:
-        return []
+        return [], collected_footnotes
 
     if not options or options.attachment_mode == "skip":
-        return []
+        return [], collected_footnotes
 
     # For alt_text mode, only extract if we need image placement markers
     if options.attachment_mode == "alt_text" and not options.image_placement_markers:
-        return []
+        return [], collected_footnotes
 
     import fitz
     images = []
@@ -514,7 +520,7 @@ def extract_page_images(
                     extension=img_extension
                 )
 
-            image_path = process_attachment(
+            result = process_attachment(
                 attachment_data=img_bytes,
                 attachment_name=img_filename,
                 alt_text=f"Image from page {page_num + 1}",
@@ -525,12 +531,16 @@ def extract_page_images(
                 alt_text_mode=options.alt_text_mode,
             )
 
+            # Collect footnote info if present
+            if result.get("footnote_label") and result.get("footnote_content"):
+                collected_footnotes[result["footnote_label"]] = result["footnote_content"]
+
             # Try to detect caption
             caption = None
             if options.include_image_captions:
                 caption = detect_image_caption(page, bbox)
 
-            images.append({"bbox": bbox, "path": image_path, "caption": caption})
+            images.append({"bbox": bbox, "path": result.get("markdown", ""), "caption": caption})
 
             # Clean up
             if pix_rgb != pix:
@@ -541,7 +551,7 @@ def extract_page_images(
             # Skip problematic images
             continue
 
-    return images
+    return images, collected_footnotes
 
 
 def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | None:
@@ -929,6 +939,7 @@ class PdfToAstConverter(BaseParser):
         super().__init__(options, progress_callback)
         self.options: PdfOptions = options
         self._hdr_identifier: Optional[IdentifyHeaders] = None
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
     @requires_dependencies("pdf", [("pymupdf", "fitz", f">={PDF_MIN_PYMUPDF_VERSION}")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -1177,6 +1188,9 @@ class PdfToAstConverter(BaseParser):
             AST document node
 
         """
+        # Reset footnote collection for this conversion
+        self._attachment_footnotes = {}
+
         total_pages = len(list(pages_to_use))
         children: list[Node] = []
 
@@ -1229,6 +1243,24 @@ class PdfToAstConverter(BaseParser):
         # Extract and attach metadata
         metadata = self.extract_metadata(doc)
 
+        # Append footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            from all2md.ast.nodes import FootnoteDefinition, Paragraph as AstParagraph, Text
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
+
         # Emit finished event
         self._emit_progress(
             "finished",
@@ -1273,9 +1305,11 @@ class PdfToAstConverter(BaseParser):
         # Extract images for all attachment modes except "skip"
         page_images = []
         if self.options.attachment_mode != "skip":
-            page_images = extract_page_images(
+            page_images, page_footnotes = extract_page_images(
                 page, page_num, self.options, base_filename, attachment_sequencer
             )
+            # Merge footnotes from this page into the document-wide collection
+            self._attachment_footnotes.update(page_footnotes)
 
         # 1. Locate all tables on page based on table_detection_mode
         tabs = None

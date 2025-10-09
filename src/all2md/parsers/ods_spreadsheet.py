@@ -21,6 +21,7 @@ from typing import IO, Any, Optional, Union, cast
 from all2md.ast import (
     Alignment,
     Document,
+    FootnoteDefinition,
     Heading,
     HTMLInline,
     Image,
@@ -31,6 +32,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
+from all2md.ast import Paragraph as AstParagraph
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.parsers.base import BaseParser
@@ -123,7 +125,7 @@ def _build_table_ast(
 
 def _extract_ods_images(
     doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
-) -> list[Image]:
+) -> tuple[list[Image], dict[str, str]]:
     """Extract images from an ODS table and convert to Image AST nodes.
 
     Parameters
@@ -141,14 +143,15 @@ def _extract_ods_images(
 
     Returns
     -------
-    list[Image]
-        List of Image AST nodes
+    tuple[list[Image], dict[str, str]]
+        Tuple of (list of Image AST nodes, footnotes dict)
 
     """
     from odf.draw import Frame
     from odf.draw import Image as OdfImage
 
     images: list[Image] = []
+    collected_footnotes: dict[str, str] = {}
 
     try:
         # Find all image frames in the table
@@ -199,7 +202,7 @@ def _extract_ods_images(
                     alt_text = frame.getAttribute('name') or "image"
 
                     # Process attachment
-                    url = process_attachment(
+                    result = process_attachment(
                         attachment_data=image_bytes,
                         attachment_name=image_filename,
                         alt_text=alt_text,
@@ -210,8 +213,14 @@ def _extract_ods_images(
                         alt_text_mode=options.alt_text_mode,
                     )
 
+                    # Collect footnote info if present
+                    if result.get("footnote_label") and result.get("footnote_content"):
+                        collected_footnotes[result["footnote_label"]] = result["footnote_content"]
+
+                    url = result.get("url", "")
+
                     # Create Image AST node
-                    if url:
+                    if url or result.get("markdown"):
                         images.append(Image(url=url, alt_text=alt_text))
 
             except Exception as e:
@@ -221,7 +230,7 @@ def _extract_ods_images(
     except Exception as e:
         logger.debug(f"Error accessing ODS images: {e!r}")
 
-    return images
+    return images, collected_footnotes
 
 
 def _extract_ods_charts(table: Any, base_filename: str, options: Any) -> list[Node]:
@@ -312,6 +321,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         options = options or OdsSpreadsheetOptions()
         super().__init__(options, progress_callback)
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
         # Type hint for IDE
         from all2md.options import OdsSpreadsheetOptions
@@ -566,12 +576,30 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                 )
 
             # Extract images from table
-            table_images = _extract_ods_images(doc, table, base_filename, attachment_sequencer, self.options)
+            table_images, table_footnotes = _extract_ods_images(doc, table, base_filename, attachment_sequencer, self.options)
+            self._attachment_footnotes.update(table_footnotes)
             children.extend(table_images)
 
             # Extract charts from table
             table_charts = _extract_ods_charts(table, base_filename, self.options)
             children.extend(table_charts)
+
+        # Append attachment footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         return Document(children=children, metadata=metadata.to_dict())
 

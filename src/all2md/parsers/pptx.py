@@ -33,6 +33,7 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
+    FootnoteDefinition,
     Heading,
     Image,
     List,
@@ -91,6 +92,7 @@ class PptxToAstConverter(BaseParser):
         self._current_slide_num = 0
         self._base_filename = "presentation"
         self._attachment_sequencer = create_attachment_sequencer()
+        self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
 
     @requires_dependencies("pptx", [("python-pptx", "pptx", ">=1.0.2")])
@@ -200,6 +202,9 @@ class PptxToAstConverter(BaseParser):
             AST document node
 
         """
+        # Reset footnote collection for this conversion
+        self._attachment_footnotes = {}
+
         children: list[Node] = []
 
         # Determine which slides to process
@@ -234,6 +239,23 @@ class PptxToAstConverter(BaseParser):
 
         # Extract and attach metadata
         metadata = self.extract_metadata(prs)
+
+        # Append footnote definitions if any were collected
+        if self._attachment_footnotes and self.options.attachments_footnotes_section:
+            # Add section heading
+            children.append(Heading(
+                level=2,
+                content=[Text(content=self.options.attachments_footnotes_section)]
+            ))
+
+            # Add footnote definitions sorted by label
+            for label in sorted(self._attachment_footnotes.keys()):
+                content_text = self._attachment_footnotes[label]
+                definition = FootnoteDefinition(
+                    identifier=label,
+                    content=[AstParagraph(content=[Text(content=content_text)])]
+                )
+                children.append(definition)
 
         # Emit finished event
         self._emit_progress(
@@ -986,8 +1008,8 @@ class PptxToAstConverter(BaseParser):
                 extension=extension
             )
 
-            # Process attachment
-            processed_image = process_attachment(
+            # Process attachment - now returns dict with footnote info
+            result = process_attachment(
                 attachment_data=image_data,
                 attachment_name=image_filename,
                 alt_text="image",
@@ -998,11 +1020,18 @@ class PptxToAstConverter(BaseParser):
                 alt_text_mode=self.options.alt_text_mode,
             )
 
-            # Parse the markdown image string
-            match = re.match(r'^!\[([^]]*)](?:\(([^)]+)\))?$', processed_image)
+            # Collect footnote info if present
+            if result.get("footnote_label") and result.get("footnote_content"):
+                self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
+
+            # Extract URL and alt text from result
+            url = result.get("url", "")
+
+            # Parse the markdown string to extract alt text
+            markdown = result.get("markdown", "")
+            match = re.match(r'^!\[([^]]*)]', markdown)
             if match:
                 alt_text = match.group(1)
-                url = match.group(2) or ""
                 return Image(url=url, alt_text=alt_text, title=None)
 
         except Exception as e:
