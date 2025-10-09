@@ -200,6 +200,10 @@ class TableBuilder:
         """
         from all2md.ast.nodes import Text
 
+        # Auto-detect header row if has_header is True and no header exists yet
+        if self.has_header and self.header is None and not is_header:
+            is_header = True
+
         table_cells: list[TableCell] = []
         for cell_content in cells:
             if isinstance(cell_content, str):
@@ -215,6 +219,9 @@ class TableBuilder:
             self.header = row
             if alignments:
                 self.alignments = alignments
+            elif not self.alignments:
+                # Initialize alignments to match number of columns
+                self.alignments = [None] * len(table_cells)
         else:
             self.rows.append(row)
 

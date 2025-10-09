@@ -2,11 +2,23 @@
 """Tests for AST transformation utilities."""
 import pytest
 
-from all2md.ast import Document, Heading, Image, Link, Paragraph, Strong, Text
+from all2md.ast import (
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
+    Document,
+    Heading,
+    Image,
+    Link,
+    Paragraph,
+    Strong,
+    Text,
+)
 from all2md.ast.transforms import (
     HeadingLevelTransformer,
     LinkRewriter,
     NodeCollector,
+    NodeTransformer,
     TextReplacer,
     clone_node,
     extract_nodes,
@@ -346,3 +358,129 @@ class TestNodeCollector:
 
         assert len(collector.collected) == 2
         assert all(isinstance(n, Heading) for n in collector.collected)
+
+
+@pytest.mark.unit
+class TestDefinitionListTransformation:
+    """Test definition list transformation with None filtering."""
+
+    def test_transform_definition_list_filters_none_term(self) -> None:
+        """Test that None terms are filtered out during transformation."""
+
+        class RemoveFirstTermTransformer(NodeTransformer):
+            def __init__(self):
+                self.first_term_seen = False
+
+            def visit_definition_term(self, node):
+                if not self.first_term_seen:
+                    self.first_term_seen = True
+                    return None
+                return super().visit_definition_term(node)
+
+        dl = DefinitionList(
+            items=[
+                (
+                    DefinitionTerm(content=[Text(content="Term 1")]),
+                    [DefinitionDescription(content=[Text(content="Desc 1")])]
+                ),
+                (
+                    DefinitionTerm(content=[Text(content="Term 2")]),
+                    [DefinitionDescription(content=[Text(content="Desc 2")])]
+                ),
+            ]
+        )
+
+        transformer = RemoveFirstTermTransformer()
+        result = transformer.transform(dl)
+
+        assert isinstance(result, DefinitionList)
+        assert len(result.items) == 1
+        assert result.items[0][0].content[0].content == "Term 2"
+
+    def test_transform_definition_list_filters_none_descriptions(self) -> None:
+        """Test that None descriptions are filtered out during transformation."""
+
+        class RemoveFirstDescriptionTransformer(NodeTransformer):
+            def __init__(self):
+                self.first_desc_seen = False
+
+            def visit_definition_description(self, node):
+                if not self.first_desc_seen:
+                    self.first_desc_seen = True
+                    return None
+                return super().visit_definition_description(node)
+
+        dl = DefinitionList(
+            items=[
+                (
+                    DefinitionTerm(content=[Text(content="Term")]),
+                    [
+                        DefinitionDescription(content=[Text(content="Desc 1")]),
+                        DefinitionDescription(content=[Text(content="Desc 2")])
+                    ]
+                ),
+            ]
+        )
+
+        transformer = RemoveFirstDescriptionTransformer()
+        result = transformer.transform(dl)
+
+        assert isinstance(result, DefinitionList)
+        assert len(result.items) == 1
+        assert len(result.items[0][1]) == 1
+        assert result.items[0][1][0].content[0].content == "Desc 2"
+
+    def test_transform_definition_list_removes_item_if_all_descriptions_none(self) -> None:
+        """Test that items with all None descriptions are removed."""
+
+        class RemoveAllDescriptionsTransformer(NodeTransformer):
+            def visit_definition_description(self, node):
+                return None
+
+        dl = DefinitionList(
+            items=[
+                (
+                    DefinitionTerm(content=[Text(content="Term 1")]),
+                    [DefinitionDescription(content=[Text(content="Desc 1")])]
+                ),
+                (
+                    DefinitionTerm(content=[Text(content="Term 2")]),
+                    [DefinitionDescription(content=[Text(content="Desc 2")])]
+                ),
+            ]
+        )
+
+        transformer = RemoveAllDescriptionsTransformer()
+        result = transformer.transform(dl)
+
+        assert isinstance(result, DefinitionList)
+        assert len(result.items) == 0
+
+    def test_transform_definition_list_preserves_valid_items(self) -> None:
+        """Test that valid items are preserved during transformation."""
+
+        dl = DefinitionList(
+            items=[
+                (
+                    DefinitionTerm(content=[Text(content="Term 1")]),
+                    [DefinitionDescription(content=[Text(content="Desc 1")])]
+                ),
+                (
+                    DefinitionTerm(content=[Text(content="Term 2")]),
+                    [
+                        DefinitionDescription(content=[Text(content="Desc 2a")]),
+                        DefinitionDescription(content=[Text(content="Desc 2b")])
+                    ]
+                ),
+            ]
+        )
+
+        transformer = NodeTransformer()
+        result = transformer.transform(dl)
+
+        assert isinstance(result, DefinitionList)
+        assert len(result.items) == 2
+        assert result.items[0][0].content[0].content == "Term 1"
+        assert len(result.items[0][1]) == 1
+        assert result.items[1][0].content[0].content == "Term 2"
+        assert len(result.items[1][1]) == 2

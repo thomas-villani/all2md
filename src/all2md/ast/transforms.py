@@ -346,13 +346,15 @@ class NodeTransformer(NodeVisitor):
 
     def visit_definition_list(self, node: "DefinitionList") -> "DefinitionList":
         """Transform a DefinitionList node."""
-        transformed_items = [
-            (
-                self.transform(term),
-                [self.transform(desc) for desc in descriptions]
-            )
-            for term, descriptions in node.items
-        ]
+        transformed_items = []
+        for term, descriptions in node.items:
+            t_term = self.transform(term)
+            if t_term is None:
+                continue
+            t_descs = [d for d in (self.transform(desc) for desc in descriptions) if d is not None]
+            if not t_descs:
+                continue
+            transformed_items.append((t_term, t_descs))
         return DefinitionList(
             items=transformed_items,  # type: ignore
             metadata=node.metadata.copy(),
