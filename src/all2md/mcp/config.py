@@ -72,6 +72,14 @@ class MCPConfig(CloneFrozenMixin):
             If configuration is invalid
 
         """
+        # Validate attachment_mode is one of the allowed values
+        allowed_attachment_modes = ('skip', 'alt_text', 'download', 'base64')
+        if self.attachment_mode not in allowed_attachment_modes:
+            raise ValueError(
+                f"Invalid attachment_mode: {self.attachment_mode}. "
+                f"Must be one of: {', '.join(allowed_attachment_modes)}"
+            )
+
         # At least one tool must be enabled
         if not self.enable_to_md and not self.enable_from_md:
             raise ValueError("At least one tool must be enabled (to_md or from_md)")
@@ -343,7 +351,7 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     # Start with env config as base
     config = load_config_from_env()
 
-    updated_kwargs = {}
+    updated_kwargs: dict[str, object] = {}
 
     # Handle --temp flag first (creates temporary workspace)
     if hasattr(args, 'temp') and args.temp:

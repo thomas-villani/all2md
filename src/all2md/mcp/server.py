@@ -15,6 +15,7 @@ Functions
 import logging
 import os
 import sys
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Annotated
 
 if TYPE_CHECKING:
@@ -23,21 +24,30 @@ if TYPE_CHECKING:
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
+    ConvertToMarkdownOutput,
     RenderFromMarkdownInput,
+    RenderFromMarkdownOutput,
 )
 from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
-from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
 
 logger = logging.getLogger(__name__)
 
 
-def create_server(config: MCPConfig) -> "FastMCP":
+def create_server(
+    config: MCPConfig,
+    convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], ConvertToMarkdownOutput],
+    render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput]
+) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
     Parameters
     ----------
     config : MCPConfig
         Server configuration
+    convert_impl : callable
+        Implementation function for convert_to_markdown tool
+    render_impl : callable
+        Implementation function for render_from_markdown tool
 
     Returns
     -------
@@ -111,7 +121,7 @@ def create_server(config: MCPConfig) -> "FastMCP":
                 pdf_pages=pdf_pages
             )
 
-            result = convert_to_markdown_impl(input_obj, config)
+            result = convert_impl(input_obj, config)
 
             return {
                 "markdown": result.markdown,
@@ -168,7 +178,7 @@ def create_server(config: MCPConfig) -> "FastMCP":
                 flavor=flavor  # type: ignore[arg-type]
             )
 
-            result = render_from_markdown_impl(input_obj, config)
+            result = render_impl(input_obj, config)
 
             return {
                 "content": result.content,
@@ -214,8 +224,9 @@ def main() -> None:
 
         # Validate and prepare allowlists
         try:
-            config.read_allowlist = prepare_allowlist_dirs(config.read_allowlist)
-            config.write_allowlist = prepare_allowlist_dirs(config.write_allowlist)
+            prepared_read = prepare_allowlist_dirs(config.read_allowlist)
+            prepared_write = prepare_allowlist_dirs(config.write_allowlist)
+            config = config.create_updated(read_allowlist=prepared_read, write_allowlist=prepared_write)
         except MCPSecurityError as e:
             logger.error(f"Invalid allowlist configuration: {e}")
             sys.exit(1)
@@ -230,15 +241,18 @@ def main() -> None:
             for dir_path in config.write_allowlist:
                 logger.debug(f"  - {dir_path}")
 
-        # Set network disable env var if configured
+        # Set network disable env var if configured (MUST be done before importing all2md)
         if config.disable_network:
             os.environ['ALL2MD_DISABLE_NETWORK'] = 'true'
             logger.info("Network access disabled")
         else:
             logger.warning("Network access enabled - ensure this is intentional!")
 
+        # Import tool implementations after setting env vars
+        from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
+
         # Create and run server
-        mcp = create_server(config)
+        mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl)
 
         logger.info("Server ready, listening on stdio")
         mcp.run()  # Run with default stdio transport
