@@ -37,6 +37,7 @@ from all2md.ast import (
     FootnoteReference,
     Heading,
     LineBreak,
+    Link,
     List,
     ListItem,
     MathBlock,
@@ -277,6 +278,61 @@ class TestInlineFormatting:
 
 @pytest.mark.unit
 @pytest.mark.docx
+class TestLinkRendering:
+    """Tests for hyperlink rendering."""
+
+    def test_simple_link(self, tmp_path):
+        """Test basic hyperlink rendering."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Visit "),
+                Link(url="https://example.com", content=[Text(content="Example")])
+            ])
+        ])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "link.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        assert "Visit" in para.text
+        assert "Example" in para.text
+
+        # Check that hyperlink exists in XML structure
+        from docx.oxml.ns import qn
+        hyperlinks = para._element.findall(qn('w:hyperlink'))
+        assert len(hyperlinks) > 0, "No hyperlinks found in paragraph XML"
+
+        # Verify the hyperlink has proper w:r and w:t structure
+        hyperlink = hyperlinks[0]
+        runs = hyperlink.findall(qn('w:r'))
+        assert len(runs) > 0, "Hyperlink has no w:r elements"
+
+        # Check that text is in w:t element (not directly in w:r)
+        text_elements = runs[0].findall(qn('w:t'))
+        assert len(text_elements) > 0, "Run has no w:t element - text not properly structured"
+        assert text_elements[0].text == "Example", f"Expected 'Example' but got '{text_elements[0].text}'"
+
+    def test_link_with_formatting(self, tmp_path):
+        """Test hyperlink with nested formatting."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="https://example.com", content=[
+                    Strong(content=[Text(content="Bold Link")])
+                ])
+            ])
+        ])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "link_formatted.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        assert "Bold Link" in para.text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
 class TestListRendering:
     """Tests for list rendering."""
 
@@ -401,8 +457,9 @@ class TestBlockElements:
         assert found
 
     def test_blockquote(self, tmp_path):
-        """Test blockquote rendering."""
+        """Test blockquote rendering with indentation."""
         doc = Document(children=[
+            Paragraph(content=[Text(content="Normal text")]),
             BlockQuote(children=[
                 Paragraph(content=[Text(content="Quoted text")])
             ])
@@ -412,12 +469,61 @@ class TestBlockElements:
         renderer.render(doc, output_file)
 
         docx_doc = DocxDocument(str(output_file))
-        found = False
+
+        # Find the quoted paragraph
+        quoted_para = None
+        normal_para = None
         for para in docx_doc.paragraphs:
             if "Quoted text" in para.text:
-                found = True
-                break
-        assert found
+                quoted_para = para
+            elif "Normal text" in para.text:
+                normal_para = para
+
+        assert quoted_para is not None, "Quoted text not found"
+        assert normal_para is not None, "Normal text not found"
+
+        # Verify blockquote has indentation
+        quoted_indent = quoted_para.paragraph_format.left_indent
+        normal_indent = normal_para.paragraph_format.left_indent or 0
+
+        assert quoted_indent is not None, "Blockquote paragraph has no indentation"
+        assert quoted_indent > normal_indent, f"Blockquote indent ({quoted_indent}) should be greater than normal ({normal_indent})"
+
+    def test_nested_blockquote(self, tmp_path):
+        """Test nested blockquote rendering with increased indentation."""
+        doc = Document(children=[
+            BlockQuote(children=[
+                Paragraph(content=[Text(content="Level 1")]),
+                BlockQuote(children=[
+                    Paragraph(content=[Text(content="Level 2")])
+                ])
+            ])
+        ])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "nested_blockquote.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+
+        # Find both paragraphs
+        level1_para = None
+        level2_para = None
+        for para in docx_doc.paragraphs:
+            if "Level 1" in para.text:
+                level1_para = para
+            elif "Level 2" in para.text:
+                level2_para = para
+
+        assert level1_para is not None, "Level 1 text not found"
+        assert level2_para is not None, "Level 2 text not found"
+
+        # Verify nested blockquote has more indentation
+        level1_indent = level1_para.paragraph_format.left_indent
+        level2_indent = level2_para.paragraph_format.left_indent
+
+        assert level1_indent is not None, "Level 1 has no indentation"
+        assert level2_indent is not None, "Level 2 has no indentation"
+        assert level2_indent > level1_indent, f"Level 2 indent ({level2_indent}) should be greater than Level 1 ({level1_indent})"
 
     def test_thematic_break(self, tmp_path):
         """Test horizontal rule rendering."""

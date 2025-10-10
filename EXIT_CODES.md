@@ -224,18 +224,6 @@ def get_exit_code_for_exception(exception: Exception) -> int:
     # Maps exception types to exit codes (see constants.py for implementation)
 ```
 
-### Modified Functions
-
-The following functions were updated to return exit codes instead of boolean values:
-
-- `convert_single_file()` - Returns `(exit_code, file_str, error)`
-- `convert_single_file_for_collation()` - Returns `(exit_code, content, error)`
-- `process_stdin()` - Returns exit code
-- `process_with_rich_output()` - Tracks and returns highest exit code
-- `process_with_progress_bar()` - Tracks and returns highest exit code
-- `process_files_simple()` - Tracks and returns highest exit code
-- `process_files_collated()` - Tracks and returns highest exit code
-
 ## Testing
 
 Comprehensive tests for exit codes are in `tests/e2e/test_exit_codes.py`:

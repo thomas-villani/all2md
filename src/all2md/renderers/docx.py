@@ -109,6 +109,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._in_table: bool = False
         self._temp_files: list[str] = []
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
+        self._blockquote_depth: int = 0  # Track blockquote nesting depth
 
     @requires_dependencies("docx_render", [("python-docx", "docx", ">=1.2.0")])
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
@@ -250,6 +251,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     run.font.size = self._Pt(self.options.heading_font_sizes[level])
                     run.font.bold = True
 
+        # Apply blockquote indentation if inside a blockquote
+        if self._blockquote_depth > 0:
+            heading.paragraph_format.left_indent = self._Inches(0.5 * self._blockquote_depth)
+
         self._current_paragraph = heading
 
         # Render content
@@ -273,6 +278,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Don't create new paragraph if we're already in one (e.g., heading)
         if self._current_paragraph is None:
             self._current_paragraph = self.document.add_paragraph()
+
+            # Apply blockquote indentation if inside a blockquote
+            if self._blockquote_depth > 0:
+                self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5 * self._blockquote_depth)
 
         # Render content
         for child in node.content:
@@ -299,6 +308,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         run = para.add_run(node.content)
         run.font.name = self.options.code_font
         run.font.size = self._Pt(self.options.code_font_size)
+
+        # Apply blockquote indentation if inside a blockquote
+        if self._blockquote_depth > 0:
+            para.paragraph_format.left_indent = self._Inches(0.5 * self._blockquote_depth)
 
         # Set paragraph background (light gray)
         self._set_paragraph_shading(para, "F0F0F0")
@@ -327,19 +340,15 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Block quote to render
 
         """
-        # Render children with increased indentation
-        for child in node.children:
-            # Store current paragraph
-            saved_para = self._current_paragraph
-            self._current_paragraph = None
+        # Increase blockquote depth for indentation tracking
+        self._blockquote_depth += 1
 
+        # Render children (they will check _blockquote_depth and indent themselves)
+        for child in node.children:
             child.accept(self)
 
-            # Indent the created paragraph
-            if self._current_paragraph is not None:
-                self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5)  # type: ignore[unreachable]
-
-            self._current_paragraph = saved_para
+        # Decrease blockquote depth
+        self._blockquote_depth -= 1
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -774,17 +783,26 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True
         )
 
+        # Create hyperlink element
         hyperlink = self._OxmlElement('w:hyperlink')
         hyperlink.set(self._qn('r:id'), r_id)
 
+        # Create run element
         new_run = self._OxmlElement('w:r')
         rPr = self._OxmlElement('w:rPr')
 
-        # Add hyperlink styling
+        # Add hyperlink style
+        r_style = self._OxmlElement('w:rStyle')
+        r_style.set(self._qn('w:val'), 'Hyperlink')
+        rPr.append(r_style)
         new_run.append(rPr)
-        new_run.text = text
-        hyperlink.append(new_run)
 
+        # Create text element (required by OOXML spec)
+        t = self._OxmlElement('w:t')
+        t.text = text
+        new_run.append(t)
+
+        hyperlink.append(new_run)
         paragraph._element.append(hyperlink)
 
     def visit_image(self, node: Image) -> None:
