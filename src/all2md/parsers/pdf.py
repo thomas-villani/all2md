@@ -1915,7 +1915,8 @@ class PdfToAstConverter(BaseParser):
         result: list[Node] = []
 
         for span in spans:
-            span_text = span["text"].strip()
+            span_text = span["text"]
+            # Skip completely empty spans, but preserve single spaces
             if not span_text:
                 continue
 
@@ -1991,12 +1992,24 @@ class PdfToAstConverter(BaseParser):
         in_code_block = False
         code_block_lines: list[str] = []
 
+        # Track accumulated paragraph content
+        paragraph_content: list[Node] = []
+
         for line in block["lines"]:
             # Handle rotated text if enabled, otherwise skip non-horizontal lines
             if line["dir"][1] != 0:  # Non-horizontal lines
                 if self.options.handle_rotated_text:
                     rotated_text = handle_rotated_text(line, None)
                     if rotated_text.strip():
+                        # Flush any accumulated paragraph first
+                        if paragraph_content:
+                            nodes.append(
+                                AstParagraph(
+                                    content=paragraph_content,
+                                    source_location=SourceLocation(format="pdf", page=page_num + 1)
+                                )
+                            )
+                            paragraph_content = []
                         nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
                 continue
 
@@ -2006,8 +2019,8 @@ class PdfToAstConverter(BaseParser):
 
             this_y = line["bbox"][3]  # Current bottom coord
 
-            # Check for still being on same line
-            same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
+            # Calculate vertical gap from previous line
+            vertical_gap = abs(this_y - previous_y) if previous_y > 0 else 0
 
             # Are all spans in line in a mono-spaced font?
             all_mono = all(s["flags"] & 8 for s in spans)
@@ -2015,11 +2028,20 @@ class PdfToAstConverter(BaseParser):
             # Compute text of the line
             text = "".join([s["text"] for s in spans])
 
-            if not same_line:
-                previous_y = this_y
+            previous_y = this_y
 
             # Handle monospace text (code blocks)
             if all_mono:
+                # Flush accumulated paragraph before starting code block
+                if paragraph_content:
+                    nodes.append(
+                        AstParagraph(
+                            content=paragraph_content,
+                            source_location=SourceLocation(format="pdf", page=page_num + 1)
+                        )
+                    )
+                    paragraph_content = []
+
                 if not in_code_block:
                     in_code_block = True
                 # Add line to code block
@@ -2048,6 +2070,16 @@ class PdfToAstConverter(BaseParser):
                 header_level = self._hdr_identifier.get_header_level(first_span)
 
             if header_level > 0:
+                # Flush accumulated paragraph before adding heading
+                if paragraph_content:
+                    nodes.append(
+                        AstParagraph(
+                            content=paragraph_content,
+                            source_location=SourceLocation(format="pdf", page=page_num + 1)
+                        )
+                    )
+                    paragraph_content = []
+
                 # This is a heading
                 inline_content = self._process_text_spans_to_inline(spans, links, page_num)
                 if inline_content:
@@ -2059,15 +2091,34 @@ class PdfToAstConverter(BaseParser):
                         )
                     )
             else:
-                # Regular paragraph
-                inline_content = self._process_text_spans_to_inline(spans, links, page_num)
-                if inline_content:
+                # Regular text - check if we should start a new paragraph
+                # Large vertical gap (> 5 points) indicates paragraph break
+                if vertical_gap > 5 and paragraph_content:
+                    # Flush previous paragraph
                     nodes.append(
                         AstParagraph(
-                            content=inline_content,
+                            content=paragraph_content,
                             source_location=SourceLocation(format="pdf", page=page_num + 1)
                         )
                     )
+                    paragraph_content = []
+
+                # Accumulate inline content
+                inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                if inline_content:
+                    # Add space between lines if we're continuing a paragraph
+                    if paragraph_content:
+                        paragraph_content.append(Text(content=" "))
+                    paragraph_content.extend(inline_content)
+
+        # Flush any remaining paragraph content
+        if paragraph_content:
+            nodes.append(
+                AstParagraph(
+                    content=paragraph_content,
+                    source_location=SourceLocation(format="pdf", page=page_num + 1)
+                )
+            )
 
         # Finalize any remaining code block
         if in_code_block and code_block_lines:
