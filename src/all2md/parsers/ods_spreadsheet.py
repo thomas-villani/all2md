@@ -353,37 +353,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         from odf import opendocument
 
         # Validate ZIP archive security for all input types
-        if isinstance(input_data, (str, Path)):
-            # Path/str inputs - validate directly
-            validate_zip_archive(input_data)
-        elif isinstance(input_data, bytes):
-            # Bytes inputs - create temp file, validate, cleanup
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.ods') as tmp:
-                tmp.write(input_data)
-                tmp_path = tmp.name
-            try:
-                validate_zip_archive(tmp_path)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-        elif hasattr(input_data, 'read'):
-            # File-like inputs - read, validate, reset position
-            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
-            input_data.seek(0)
-            data = input_data.read()
-            input_data.seek(original_position)
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.ods') as tmp:
-                tmp.write(data)
-                tmp_path = tmp.name
-            try:
-                validate_zip_archive(tmp_path)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
+        self._validate_zip_input(input_data, suffix='.ods')
 
         # Load ODS document
         try:
@@ -584,21 +554,12 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             children.extend(table_charts)
 
         # Append attachment footnote definitions if any were collected
-        if self._attachment_footnotes and self.options.attachments_footnotes_section:
-            # Add section heading
-            children.append(Heading(
-                level=2,
-                content=[Text(content=self.options.attachments_footnotes_section)]
-            ))
-
-            # Add footnote definitions sorted by label
-            for label in sorted(self._attachment_footnotes.keys()):
-                content_text = self._attachment_footnotes[label]
-                definition = FootnoteDefinition(
-                    identifier=label,
-                    content=[AstParagraph(content=[Text(content=content_text)])]
-                )
-                children.append(definition)
+        if self.options.attachments_footnotes_section:
+            self._append_attachment_footnotes(
+                children,
+                self._attachment_footnotes,
+                self.options.attachments_footnotes_section
+            )
 
         return Document(children=children, metadata=metadata.to_dict())
 

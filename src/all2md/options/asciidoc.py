@@ -70,6 +70,27 @@ class AsciiDocOptions(BaseParserOptions):
             "cli_name": "no-resolve-attributes"
         }
     )
+    attribute_missing_policy: Literal["keep", "blank", "warn"] = field(
+        default="keep",
+        metadata={
+            "help": "Policy for undefined attribute references: keep literal, use blank, or warn",
+            "choices": ["keep", "blank", "warn"]
+        }
+    )
+    support_unconstrained_formatting: bool = field(
+        default=True,
+        metadata={
+            "help": "Support unconstrained formatting (e.g., **b**old for mid-word)",
+            "cli_name": "no-unconstrained-formatting"
+        }
+    )
+    table_header_detection: Literal["first-row", "attribute-based", "auto"] = field(
+        default="attribute-based",
+        metadata={
+            "help": "How to detect table headers: always first-row, use block attributes, or auto-detect",
+            "choices": ["first-row", "attribute-based", "auto"]
+        }
+    )
 
 
 @dataclass(frozen=True)

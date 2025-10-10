@@ -214,37 +214,7 @@ class DocxToAstConverter(BaseParser):
             pass
 
         # Validate ZIP archive security for all input types
-        if isinstance(input_data, (str, Path)):
-            # Path/str inputs - validate directly
-            validate_zip_archive(input_data)
-        elif isinstance(input_data, bytes):
-            # Bytes inputs - create temp file, validate, cleanup
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                tmp.write(input_data)
-                tmp_path = tmp.name
-            try:
-                validate_zip_archive(tmp_path)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-        elif hasattr(input_data, 'read'):
-            # File-like inputs - read, validate, reset position
-            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
-            input_data.seek(0)
-            data = input_data.read()
-            input_data.seek(original_position)
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                tmp.write(data)
-                tmp_path = tmp.name
-            try:
-                validate_zip_archive(tmp_path)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
+        self._validate_zip_input(input_data, suffix='.docx')
 
         # Load the document with error handling
         try:
@@ -407,22 +377,12 @@ class DocxToAstConverter(BaseParser):
                 children.extend(comments_nodes)
 
         # Append attachment footnote definitions if any were collected
-        if self._attachment_footnotes and self.options.attachments_footnotes_section:
-            # Add section heading
-            from all2md.ast.nodes import FootnoteDefinition, Text
-            children.append(Heading(
-                level=2,
-                content=[Text(content=self.options.attachments_footnotes_section)]
-            ))
-
-            # Add footnote definitions sorted by label
-            for label in sorted(self._attachment_footnotes.keys()):
-                content_text = self._attachment_footnotes[label]
-                definition = FootnoteDefinition(
-                    identifier=label,
-                    content=[AstParagraph(content=[Text(content=content_text)])]
-                )
-                children.append(definition)
+        if self.options.attachments_footnotes_section:
+            self._append_attachment_footnotes(
+                children,
+                self._attachment_footnotes,
+                self.options.attachments_footnotes_section
+            )
 
         # Emit finished event
         self._emit_progress(

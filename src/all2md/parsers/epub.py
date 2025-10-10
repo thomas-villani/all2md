@@ -72,48 +72,30 @@ class EpubToAstConverter(BaseParser):
         temp_file = None
         book = None
 
-        # Validate ZIP archive security for all input types
+        # Validate ZIP archive and get path for ebooklib
+        # Use validated_zip_input context manager to avoid double-reading
+        temp_file = None
         if isinstance(input_data, (str, Path)):
-            # Path/str inputs - validate directly
-            validate_zip_archive(input_data)
+            # Path inputs - validate directly
+            self._validate_zip_input(input_data, suffix='.epub')
             epub_path = str(input_data)
         elif isinstance(input_data, bytes):
-            # Bytes inputs - create temp file, validate, cleanup
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp:
-                tmp.write(input_data)
-                tmp_path = tmp.name
-            try:
-                validate_zip_archive(tmp_path)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-            # Recreate for ebooklib (validation temp file was deleted)
+            # Bytes inputs - create temp file and validate
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
             temp_file.write(input_data)
             temp_file.close()
+            self._validate_zip_input(temp_file.name, suffix='.epub')
             epub_path = temp_file.name
         elif hasattr(input_data, 'read'):
-            # File-like inputs - read, validate, reset position
+            # File-like inputs - read and create temp file
             original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
             input_data.seek(0)
             data = input_data.read()
             input_data.seek(original_position)
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp:
-                tmp.write(data)
-                tmp_path = tmp.name
-            try:
-                validate_zip_archive(tmp_path)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-            # Recreate for ebooklib (validation temp file was deleted)
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
             temp_file.write(data)
             temp_file.close()
+            self._validate_zip_input(temp_file.name, suffix='.epub')
             epub_path = temp_file.name
         else:
             # Fallback - should not reach here with proper type hints

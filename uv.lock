@@ -21,11 +21,15 @@ all = [
     { name = "chardet" },
     { name = "httpx" },
     { name = "odfpy" },
+    { name = "pychm" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+]
+chm = [
+    { name = "pychm" },
 ]
 cli-extras = [
     { name = "rich" },
@@ -33,10 +37,20 @@ cli-extras = [
     { name = "watchdog" },
 ]
 dev = [
+    { name = "beautifulsoup4" },
+    { name = "chardet" },
+    { name = "httpx" },
     { name = "hypothesis" },
     { name = "mypy" },
+    { name = "odfpy" },
+    { name = "pychm" },
+    { name = "pylatexenc" },
+    { name = "pymupdf" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pyth3" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
     { name = "ruff" },
     { name = "sphinx" },
     { name = "sphinx-copybutton" },
@@ -92,6 +106,7 @@ spreadsheet = [
 
 [package.metadata]
 requires-dist = [
+    { name = "all2md", extras = ["all"], marker = "extra == 'dev'" },
     { name = "beautifulsoup4", marker = "extra == 'all'", specifier = ">=4.14.2" },
     { name = "beautifulsoup4", marker = "extra == 'html'", specifier = ">=4.13.5" },
     { name = "chardet", marker = "extra == 'all'", specifier = ">=5.2.0" },
@@ -106,6 +121,8 @@ requires-dist = [
     { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "openpyxl", marker = "extra == 'spreadsheet'", specifier = ">=3.1.5" },
+    { name = "pychm", marker = "extra == 'all'", specifier = ">=0.8.6" },
+    { name = "pychm", marker = "extra == 'chm'", specifier = ">=0.8.6" },
     { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
     { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.4" },
@@ -1192,6 +1209,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538 },
 ]
+
+[[package]]
+name = "pychm"
+version = "0.8.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/3d/2272705cfac544288fdcda172e25f4399c57371780943ad2d1b4acb67092/pychm-0.8.6.tar.gz", hash = "sha256:26606fec1e30cf7506c7afa943460c31e8dac87f35b7f178f437574d654cf672", size = 19562 }
 
 [[package]]
 name = "pycparser"

@@ -1011,21 +1011,12 @@ class EmlToAstConverter(BaseParser):
             children.append(ThematicBreak())
 
         # Append attachment footnote definitions if any were collected
-        if self._attachment_footnotes and self.options.attachments_footnotes_section:
-            # Add section heading
-            children.append(Heading(
-                level=2,
-                content=[Text(content=self.options.attachments_footnotes_section)]
-            ))
-
-            # Add footnote definitions sorted by label
-            for label in sorted(self._attachment_footnotes.keys()):
-                content_text = self._attachment_footnotes[label]
-                definition = FootnoteDefinition(
-                    identifier=label,
-                    content=[AstParagraph(content=[Text(content=content_text)])]
-                )
-                children.append(definition)
+        if self.options.attachments_footnotes_section:
+            self._append_attachment_footnotes(
+                children,
+                self._attachment_footnotes,
+                self.options.attachments_footnotes_section
+            )
 
         return Document(children=children)
 

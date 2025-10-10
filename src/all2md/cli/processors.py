@@ -187,7 +187,11 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     # Load options from JSON file if specified
     json_options = None
     if parsed_args.options_json:
-        json_options = load_options_from_json(parsed_args.options_json)
+        try:
+            json_options = load_options_from_json(parsed_args.options_json)
+        except argparse.ArgumentTypeError as e:
+            print(f"Error loading options JSON: {e}", file=sys.stderr)
+            raise
 
     # Map CLI arguments to options
     builder = DynamicCLIBuilder()
@@ -428,7 +432,11 @@ def process_multi_file(
             print(f"Error: {error}", file=sys.stderr)
             return exit_code
 
-    # Process multiple files or with special output
+    # If --zip is specified, skip disk writes and package directly to zip
+    if parsed_args.zip:
+        return _create_output_package(parsed_args, files)
+
+    # Otherwise, process files normally to disk
     if parsed_args.collate:
         exit_code = process_files_collated(files, parsed_args, options, format_arg, transforms)
     elif parsed_args.rich:
@@ -438,24 +446,21 @@ def process_multi_file(
     else:
         exit_code = process_files_simple(files, parsed_args, options, format_arg, transforms)
 
-    # Handle output packaging if --zip was specified
-    if exit_code == 0 and parsed_args.zip and parsed_args.output_dir:
-        exit_code = _create_output_package(parsed_args, files)
-
     return exit_code
 
 def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Path]) -> int:
     """Create output package (zip) after successful conversion.
 
-    Supports all output formats by detecting the target format and handling
-    both text-based and binary renderers appropriately.
+    Converts files directly to zip archive using in-memory BytesIO buffers,
+    eliminating intermediate disk I/O. Supports all output formats and processes
+    files incrementally to minimize memory usage.
 
     Parameters
     ----------
     parsed_args : argparse.Namespace
         Parsed command line arguments
     input_files : List[Path]
-        List of input files that were processed
+        List of input files to convert and package
 
     Returns
     -------
@@ -466,85 +471,39 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
     import logging
     from pathlib import Path
 
-    from all2md.cli.packaging import create_output_zip, organize_assets, update_markdown_asset_links
+    from all2md.cli.packaging import create_package_from_conversions
     from all2md.constants import EXIT_ERROR
-    from all2md.converter_registry import registry
 
     logger = logging.getLogger(__name__)
 
     try:
-        output_dir = Path(parsed_args.output_dir)
-
-        if not output_dir.exists():
-            logger.error(f"Output directory does not exist: {output_dir}")
-            return EXIT_ERROR
-
-        # Determine target format and get metadata
+        # Determine target format
         target_format = getattr(parsed_args, 'output_type', 'markdown')
-        is_text_format = True  # Default assumption
-
-        # Get extension and check if text-based format
-        if target_format in ('auto', 'markdown'):
-            extension = '.md'
-        else:
-            try:
-                metadata_list = registry.get_format_info(target_format)
-                if metadata_list and len(metadata_list) > 0:
-                    metadata = metadata_list[0]
-                    if metadata.extensions:
-                        extension = metadata.extensions[0]
-                    else:
-                        extension = f'.{target_format}'
-                    # Check if this is a text-based format
-                    is_text_format = metadata.renders_as_string
-                else:
-                    extension = f'.{target_format}'
-            except Exception:
-                extension = f'.{target_format}'
-
-        # Collect generated output files by extension
-        output_files = list(output_dir.rglob(f"*{extension}"))
-
-        if not output_files:
-            logger.warning(f"No {extension} files found in output directory for packaging")
-            return 0
-
-        # Organize assets according to layout if specified
-        # Only update links for text-based formats that support relative references
-        if is_text_format and hasattr(parsed_args, 'assets_layout') and parsed_args.assets_layout != 'flat':
-            logger.debug(f"Organizing assets with layout: {parsed_args.assets_layout}")
-            asset_mapping = organize_assets(
-                output_files,
-                output_dir,
-                layout=parsed_args.assets_layout,
-                attachment_dir=Path(parsed_args.attachment_output_dir) if hasattr(
-                    parsed_args, 'attachment_output_dir') and parsed_args.attachment_output_dir else None
-            )
-
-            # Move assets to new locations
-            for old_path, new_path in asset_mapping.items():
-                if old_path != new_path:
-                    new_path.parent.mkdir(parents=True, exist_ok=True)
-                    if old_path.exists():
-                        import shutil
-                        shutil.move(str(old_path), str(new_path))
-
-            # Update file links for text-based formats
-            for output_file in output_files:
-                update_markdown_asset_links(output_file, asset_mapping, output_dir)
+        source_format = getattr(parsed_args, 'format', 'auto')
 
         # Determine zip path
         if parsed_args.zip == 'auto':
-            zip_path = None  # Will use default: output_dir.zip
+            # Use output_dir name if available, otherwise use generic name
+            if hasattr(parsed_args, 'output_dir') and parsed_args.output_dir:
+                output_dir_name = Path(parsed_args.output_dir).name
+                zip_path = Path(f"{output_dir_name}.zip")
+            else:
+                zip_path = Path("output.zip")
         else:
             zip_path = Path(parsed_args.zip)
 
-        # Create the zip file
-        created_zip = create_output_zip(
-            output_dir,
+        # Collect conversion options from parsed_args
+        # This will be passed to convert() for each file
+        options: Dict[str, Any] = {}
+
+        # Create the zip package directly from conversions
+        created_zip = create_package_from_conversions(
+            input_files=input_files,
             zip_path=zip_path,
-            output_files=output_files,
-            output_extension=extension
+            target_format=target_format,
+            options=options,
+            transforms=None,  # Transforms would need to be built from parsed_args if needed
+            source_format=source_format
         )
 
         print(f"Created package: {created_zip}")

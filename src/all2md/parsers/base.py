@@ -15,10 +15,15 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
-from all2md.ast import Document
+from all2md.ast import Document, Node
 from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import (
+    append_attachment_footnotes as _append_attachment_footnotes_helper,
+    validate_zip_input as _validate_zip_input_helper,
+    validated_zip_input as _validated_zip_input_helper,
+)
 
 
 class BaseParser(ABC):
@@ -111,7 +116,7 @@ class BaseParser(ABC):
             If input data is invalid or inaccessible
 
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def extract_metadata(self, document: Any) -> DocumentMetadata:
@@ -139,7 +144,7 @@ class BaseParser(ABC):
         and return a valid DocumentMetadata object even if empty.
 
         """
-        pass
+        raise NotImplementedError
 
     def _emit_progress(
         self,
@@ -207,3 +212,97 @@ class BaseParser(ABC):
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Progress callback raised exception: {e}", exc_info=True)
+
+    @staticmethod
+    def _validate_zip_input(
+        input_data: Union[str, Path, IO[bytes], bytes],
+        suffix: str = '.zip'
+    ) -> None:
+        """Validate a zip archive across different input types.
+
+        This helper method delegates to the parser_helpers module to perform
+        zip validation for Path, bytes, and IO[bytes] inputs.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The input data to validate
+        suffix : str, default '.zip'
+            File suffix for temporary files (e.g., '.docx', '.xlsx', '.epub')
+
+        Raises
+        ------
+        ZipFileSecurityError
+            If the zip archive contains security threats
+        MalformedFileError
+            If the zip archive is corrupted or invalid
+
+        Notes
+        -----
+        This method should be called early in the parse() method to validate
+        zip-based formats before processing.
+        """
+        _validate_zip_input_helper(input_data, suffix)
+
+    @staticmethod
+    def _validated_zip_input(
+        input_data: Union[str, Path, IO[bytes], bytes],
+        suffix: str = '.zip'
+    ):
+        """Context manager for validated zip input with automatic cleanup.
+
+        This helper method delegates to the parser_helpers module to provide
+        a context manager for zip validation with temp file cleanup.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The input data to validate and parse
+        suffix : str, default '.zip'
+            File suffix for temporary files (e.g., '.docx', '.xlsx', '.epub')
+
+        Yields
+        ------
+        Union[str, Path, IO[bytes], bytes]
+            The validated input data (may be a temp file path for bytes/IO inputs)
+
+        Raises
+        ------
+        ZipFileSecurityError
+            If the zip archive contains security threats
+        MalformedFileError
+            If the zip archive is corrupted or invalid
+
+        Notes
+        -----
+        This method optimizes memory usage by avoiding double-reading of input data.
+        Prefer this over _validate_zip_input() when you need to reuse the validated input.
+        """
+        return _validated_zip_input_helper(input_data, suffix)
+
+    @staticmethod
+    def _append_attachment_footnotes(
+        children: list[Node],
+        attachment_footnotes: dict[str, str],
+        section_title: str = "Attachments"
+    ) -> None:
+        """Append attachment footnote definitions to document children.
+
+        This helper method delegates to the parser_helpers module to append
+        footnote definitions following the standard pattern.
+
+        Parameters
+        ----------
+        children : list[Node]
+            The document's children list to append footnotes to
+        attachment_footnotes : dict[str, str]
+            Dictionary mapping footnote labels to content text
+        section_title : str, default "Attachments"
+            Title for the footnotes section heading
+
+        Notes
+        -----
+        This method modifies the children list in-place. If attachment_footnotes
+        is empty, no changes are made.
+        """
+        _append_attachment_footnotes_helper(children, attachment_footnotes, section_title)

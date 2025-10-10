@@ -44,8 +44,11 @@ html = [
 latex = [
     "pylatexenc>=2.10",
 ]
-
+chm = [
+    "pychm>=0.8.6"
+]
 dev = [
+    "all2md[all]",
     "mypy>=1.18.2",
     "pytest>=8.4.2",
     "ruff>=0.13.3",

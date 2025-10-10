@@ -460,10 +460,7 @@ class DynamicCLIBuilder:
             # Get CLI name (explicit or inferred)
             if 'cli_name' in metadata:
                 cli_meta_name = metadata['cli_name']
-                if cli_meta_name.startswith('no-'):
-                    cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
-                else:
-                    cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
+                cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
             else:
                 cli_name = self.infer_cli_name(field.name, format_prefix, is_bool_true_default)
 
