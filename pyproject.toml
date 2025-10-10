@@ -7,7 +7,9 @@ authors = [
     { name = "Thomas.Villani", email = "thomas.villani@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "rich>=14.1.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/all2md"]
@@ -41,12 +43,15 @@ html = [
     "chardet>=5.2.0",
     "httpx>=0.28.1",
 ]
+sanitizer = [
+    "bleach>=6.2.0",
+]
 latex = [
     "pylatexenc>=2.10",
 ]
-chm = [
-    "pychm>=0.8.6"
-]
+#chm = [
+#    "pychm>=0.8.6"
+#]
 dev = [
     "all2md[all]",
     "mypy>=1.18.2",
@@ -62,13 +67,13 @@ dev = [
     "types-beautifulsoup4",
     "types-lxml",
     "types-docutils",
-    "types-reportlab"
+    "types-reportlab",
 ]
 epub = [
     "ebooklib>=0.19",
 ]
 cli_extras = [
-    "rich>=14.1.0",
+    "rich>=14.2.0",
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
 ]
@@ -97,9 +102,10 @@ all = [
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "pyth3>=0.7",
-    "chardet>=5.2.0",
-    "httpx>=0.28.1",
     "pylatexenc>=2.10",
+    "rich>=14.2.0",
+    "tqdm>=4.66.0",
+    "watchdog>=4.0.0",
 ]
 
 [project.scripts]

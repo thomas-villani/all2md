@@ -60,6 +60,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.html_sanitizer import is_element_safe, sanitize_url
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
@@ -647,37 +648,8 @@ class HtmlToAstConverter(BaseParser):
         if not self.options.strip_dangerous_elements:
             return True
 
-        if hasattr(element, "name"):
-            # Remove dangerous elements
-            if element.name in DANGEROUS_HTML_ELEMENTS:
-                return False
-
-            # Check for dangerous attributes
-            if element.attrs:
-                for attr_name, attr_value in element.attrs.items():
-                    if attr_name in DANGEROUS_HTML_ATTRIBUTES:
-                        return False
-
-                    # Enhanced URL scheme checking for href and src attributes
-                    if isinstance(attr_value, str):
-                        attr_value_lower = attr_value.lower().strip()
-
-                        # Check specific URL attributes for dangerous schemes
-                        if attr_name.lower() in ("href", "src", "action", "formaction"):
-                            # Parse URL to check scheme precisely
-                            parsed = urlparse(attr_value_lower)
-                            if parsed.scheme in ("javascript", "data", "vbscript", "about"):
-                                return False
-                            # Also check for scheme-less dangerous schemes
-                            if any(attr_value_lower.startswith(scheme) for scheme in DANGEROUS_SCHEMES):
-                                return False
-
-                        # Check for dangerous scheme content in other style-related attributes
-                        elif attr_name.lower() in ("style", "background", "expression"):
-                            if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
-                                return False
-
-        return True
+        # Use centralized element safety check from html_sanitizer utility
+        return is_element_safe(element)
 
     def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
         """Process a BeautifulSoup node to AST nodes.

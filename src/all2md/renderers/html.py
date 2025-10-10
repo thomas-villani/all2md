@@ -55,6 +55,7 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import HtmlRendererOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.html_sanitizer import sanitize_html_content, strip_html_tags
 from all2md.utils.html_utils import escape_html, render_math_html
 
 
@@ -164,8 +165,11 @@ class HtmlRenderer(NodeVisitor, BaseRenderer):
         # Extract title from metadata or first heading
         title = doc.metadata.get('title', 'Document') if doc.metadata else 'Document'
 
+        # Get language from metadata or options
+        language = doc.metadata.get('language', self.options.language) if doc.metadata else self.options.language
+
         # Build HTML document
-        parts = ['<!DOCTYPE html>', '<html lang="en">', '<head>']
+        parts = ['<!DOCTYPE html>', f'<html lang="{escape_html(language, enabled=self.options.escape_html)}">', '<head>']
         parts.append('<meta charset="UTF-8">')
         parts.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
         parts.append(f'<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>')
@@ -421,8 +425,9 @@ hr {
         heading_id = f'heading-{self._heading_id_counter}'
         self._heading_id_counter += 1
 
-        # Store for TOC
-        self._headings.append((level, heading_id, content))
+        # Store for TOC (extract plain text to avoid HTML tags in TOC entries)
+        plain_text_content = strip_html_tags(content)
+        self._headings.append((level, heading_id, plain_text_content))
 
         self._output.append(f'<h{level} id="{heading_id}">{content}</h{level}>\n')
 
@@ -595,8 +600,11 @@ hr {
             HTML block to render
 
         """
-        self._output.append(node.content)
-        self._output.append('\n')
+        sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
+        if sanitized:
+            self._output.append(sanitized)
+            if not sanitized.endswith('\n'):
+                self._output.append('\n')
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -753,7 +761,9 @@ hr {
             Inline HTML to render
 
         """
-        self._output.append(node.content)
+        sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
+        if sanitized:
+            self._output.append(sanitized)
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

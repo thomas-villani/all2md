@@ -53,6 +53,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MediaWikiOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.escape import escape_mediawiki
+from all2md.utils.html_sanitizer import sanitize_html_content
 
 
 class MediaWikiRenderer(NodeVisitor, BaseRenderer):
@@ -331,8 +332,9 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
             HTML block to render
 
         """
-        # MediaWiki allows HTML blocks, so pass them through
-        self._output.append(node.content)
+        sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
+        if sanitized:
+            self._output.append(sanitized)
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -516,8 +518,9 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
             Inline HTML to render
 
         """
-        # MediaWiki allows inline HTML, so pass it through
-        self._output.append(node.content)
+        sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
+        if sanitized:
+            self._output.append(sanitized)
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

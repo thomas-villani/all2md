@@ -8,6 +8,7 @@ maintainability and discoverability of configurable parameters.
 Constants are organized by category: formatting, conversion behavior,
 file handling, and Markdown flavor specifications.
 """
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -88,6 +89,12 @@ LinkStyleType = Literal["inline", "reference"]
 CodeFenceChar = Literal["`", "~"]
 MetadataFormatType = Literal["yaml", "toml", "json"]
 
+PageSize = Literal["letter", "a4", "legal"]
+HtmlPassthroughMode = Literal["pass-through", "escape", "drop", "sanitize"]
+
+# ==============================================================================
+
+
 # Attachment handling defaults - defined here after AttachmentMode type
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
@@ -157,6 +164,14 @@ DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
 DEFAULT_TRIM_HEADERS_FOOTERS = False
 DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
 DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
+
+DEFAULT_PDF_PAGE_SIZE = "letter"
+DEFAULT_PDF_MARGIN = 72.0
+DEFAULT_PDF_FONT_FAMILY = "Helvetica"
+DEFAULT_PDF_FONT_SIZE = 12
+DEFAULT_PDF_CODE_FONT = "Courier"
+DEFAULT_PDF_LINE_SPACING = 1.2
+
 
 # =============================================================================
 # HTML to Markdown Constants
@@ -457,10 +472,3 @@ def get_exit_code_for_exception(exception: Exception) -> int:
     return EXIT_ERROR
 
 
-PageSize = Literal["letter", "a4", "legal"]
-DEFAULT_PDF_PAGE_SIZE = "letter"
-DEFAULT_PDF_MARGIN = 72.0
-DEFAULT_PDF_FONT_FAMILY = "Helvetica"
-DEFAULT_PDF_FONT_SIZE = 12
-DEFAULT_PDF_CODE_FONT = "Courier"
-DEFAULT_PDF_LINE_SPACING = 1.2

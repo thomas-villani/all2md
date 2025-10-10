@@ -14,6 +14,9 @@ wheels = [
 name = "all2md"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "rich" },
+]
 
 [package.optional-dependencies]
 all = [
@@ -21,15 +24,14 @@ all = [
     { name = "chardet" },
     { name = "httpx" },
     { name = "odfpy" },
-    { name = "pychm" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
-]
-chm = [
-    { name = "pychm" },
+    { name = "rich" },
+    { name = "tqdm" },
+    { name = "watchdog" },
 ]
 cli-extras = [
     { name = "rich" },
@@ -43,7 +45,6 @@ dev = [
     { name = "hypothesis" },
     { name = "mypy" },
     { name = "odfpy" },
-    { name = "pychm" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pytest" },
@@ -51,16 +52,19 @@ dev = [
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "rich" },
     { name = "ruff" },
     { name = "sphinx" },
     { name = "sphinx-copybutton" },
     { name = "sphinx-rtd-theme" },
     { name = "syrupy" },
+    { name = "tqdm" },
     { name = "types-beautifulsoup4" },
     { name = "types-docutils" },
     { name = "types-lxml" },
     { name = "types-pillow" },
     { name = "types-reportlab" },
+    { name = "watchdog" },
 ]
 docx = [
     { name = "python-docx" },
@@ -100,6 +104,9 @@ pptx = [
 rtf = [
     { name = "pyth3" },
 ]
+sanitizer = [
+    { name = "bleach" },
+]
 spreadsheet = [
     { name = "openpyxl" },
 ]
@@ -109,6 +116,7 @@ requires-dist = [
     { name = "all2md", extras = ["all"], marker = "extra == 'dev'" },
     { name = "beautifulsoup4", marker = "extra == 'all'", specifier = ">=4.14.2" },
     { name = "beautifulsoup4", marker = "extra == 'html'", specifier = ">=4.13.5" },
+    { name = "bleach", marker = "extra == 'sanitizer'", specifier = ">=6.2.0" },
     { name = "chardet", marker = "extra == 'all'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'html'", specifier = ">=5.2.0" },
     { name = "ebooklib", marker = "extra == 'epub'", specifier = ">=0.19" },
@@ -121,8 +129,6 @@ requires-dist = [
     { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "openpyxl", marker = "extra == 'spreadsheet'", specifier = ">=3.1.5" },
-    { name = "pychm", marker = "extra == 'all'", specifier = ">=0.8.6" },
-    { name = "pychm", marker = "extra == 'chm'", specifier = ">=0.8.6" },
     { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
     { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.4" },
@@ -137,18 +143,22 @@ requires-dist = [
     { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
     { name = "reportlab", marker = "extra == 'pdf-render'", specifier = ">=4.0.0" },
-    { name = "rich", marker = "extra == 'cli-extras'", specifier = ">=14.1.0" },
+    { name = "rich", specifier = ">=14.1.0" },
+    { name = "rich", marker = "extra == 'all'", specifier = ">=14.2.0" },
+    { name = "rich", marker = "extra == 'cli-extras'", specifier = ">=14.2.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.3" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=8.2.3" },
     { name = "sphinx-copybutton", marker = "extra == 'dev'", specifier = ">=0.5.2" },
     { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=3.0.2" },
     { name = "syrupy", marker = "extra == 'dev'", specifier = ">=4.6.0" },
+    { name = "tqdm", marker = "extra == 'all'", specifier = ">=4.66.0" },
     { name = "tqdm", marker = "extra == 'cli-extras'", specifier = ">=4.66.0" },
     { name = "types-beautifulsoup4", marker = "extra == 'dev'" },
     { name = "types-docutils", marker = "extra == 'dev'" },
     { name = "types-lxml", marker = "extra == 'dev'" },
     { name = "types-pillow", marker = "extra == 'dev'" },
     { name = "types-reportlab", marker = "extra == 'dev'" },
+    { name = "watchdog", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "watchdog", marker = "extra == 'cli-extras'", specifier = ">=4.0.0" },
 ]
 
@@ -216,6 +226,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/77/e9/df2358efd7659577435e2177bfa69cba6c33216681af51a707193dec162a/beautifulsoup4-4.14.2.tar.gz", hash = "sha256:2a98ab9f944a11acee9cc848508ec28d9228abfd522ef0fad6a02a72e0ded69e", size = 625822 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl", hash = "sha256:5ef6fa3a8cbece8488d66985560f97ed091e22bbc4e9c2338508a9d5de6d4515", size = 106392 },
+]
+
+[[package]]
+name = "bleach"
+version = "6.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "webencodings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/9a/0e33f5054c54d349ea62c277191c020c2d6ef1d65ab2cb1993f91ec846d1/bleach-6.2.0.tar.gz", hash = "sha256:123e894118b8a599fd80d3ec1a6d4cc7ce4e5882b1317a7e1ba69b56e95f991f", size = 203083 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fc/55/96142937f66150805c25c4d0f31ee4132fd33497753400734f9dfdcbdc66/bleach-6.2.0-py3-none-any.whl", hash = "sha256:117d9c6097a7c3d22fd578fcd8d35ff1e125df6736f554da4e432fdd63f31e5e", size = 163406 },
 ]
 
 [[package]]
@@ -663,15 +685,15 @@ wheels = [
 
 [[package]]
 name = "hypothesis"
-version = "6.140.2"
+version = "6.140.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "sortedcontainers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/4a/3c340178b986b44b4f71ddb04625c8fb8bf815e7c7e23a6aabb2ce17e849/hypothesis-6.140.2.tar.gz", hash = "sha256:b3b4a162134eeef8a992621de6c43d80e03d44704a3c3bfb5b9d0661b375b0d2", size = 466699 }
+sdist = { url = "https://files.pythonhosted.org/packages/18/7f/946343e32881b56adc0eba64e428ad2f85251f9ef16e3e4ec1b6ab80199b/hypothesis-6.140.3.tar.gz", hash = "sha256:4f4a09bf77af21e0cc3dffed1ea639812dc75d38f81308ec9fb0e33f8557b0cb", size = 466925 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/7d/7dd3684f9cb707b6b1e808c7f23dd0fa4a96fe106b6accd9b757c9985c50/hypothesis-6.140.2-py3-none-any.whl", hash = "sha256:4524cb84be90961563ef15634e2efe96150bbcce47621a13cff3c1b03a326663", size = 534388 },
+    { url = "https://files.pythonhosted.org/packages/65/2a/0553ac2a8af432df92f2ffc05ca97e7ed64e00c97a371b019ae2690de325/hypothesis-6.140.3-py3-none-any.whl", hash = "sha256:a2cfff51641a58a56081f5c90ae1da6ccf3d043404f411805f7f0e0d75742d0e", size = 534534 },
 ]
 
 [[package]]
@@ -1211,12 +1233,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pychm"
-version = "0.8.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/89/3d/2272705cfac544288fdcda172e25f4399c57371780943ad2d1b4acb67092/pychm-0.8.6.tar.gz", hash = "sha256:26606fec1e30cf7506c7afa943460c31e8dac87f35b7f178f437574d654cf672", size = 19562 }
-
-[[package]]
 name = "pycparser"
 version = "2.23"
 source = { registry = "https://pypi.org/simple" }
@@ -1568,15 +1584,15 @@ wheels = [
 
 [[package]]
 name = "rich"
-version = "14.1.0"
+version = "14.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "pygments" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/75/af448d8e52bf1d8fa6a9d089ca6c07ff4453d86c65c145d0a300bb073b9b/rich-14.1.0.tar.gz", hash = "sha256:e497a48b844b0320d45007cdebfeaeed8db2a4f4bcf49f15e455cfc4af11eaa8", size = 224441 }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/d2/8920e102050a0de7bfabeb4c4614a49248cf8d5d7a8d01885fbb24dc767a/rich-14.2.0.tar.gz", hash = "sha256:73ff50c7c0c1c77c8243079283f4edb376f0f6442433aecb8ce7e6d0b92d1fe4", size = 219990 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/30/3c4d035596d3cf444529e0b2953ad0466f6049528a879d27534700580395/rich-14.1.0-py3-none-any.whl", hash = "sha256:536f5f1785986d6dbdea3c75205c473f970777b4a0d6c6dd1b696aa05a3fa04f", size = 243368 },
+    { url = "https://files.pythonhosted.org/packages/25/7a/b0178788f8dc6cafce37a212c99565fa1fe7872c70c6c9c1e1a372d9d88f/rich-14.2.0-py3-none-any.whl", hash = "sha256:76bc51fe2e57d2b1be1f96c524b890b816e334ab4c1e45888799bfaab0021edd", size = 243393 },
 ]
 
 [[package]]
@@ -2050,6 +2066,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/07/f6/d0e5b343768e8bcb4cda79f0f2f55051bf26177ecd5651f84c07567461cf/watchdog-6.0.0-py3-none-win32.whl", hash = "sha256:07df1fdd701c5d4c8e55ef6cf55b8f0120fe1aef7ef39a1c6fc6bc2e606d517a", size = 79065 },
     { url = "https://files.pythonhosted.org/packages/db/d9/c495884c6e548fce18a8f40568ff120bc3a4b7b99813081c8ac0c936fa64/watchdog-6.0.0-py3-none-win_amd64.whl", hash = "sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680", size = 79070 },
     { url = "https://files.pythonhosted.org/packages/33/e8/e40370e6d74ddba47f002a32919d91310d6074130fe4e17dabcafc15cbf1/watchdog-6.0.0-py3-none-win_ia64.whl", hash = "sha256:a1914259fa9e1454315171103c6a30961236f508b9b623eae470268bbcc6a22f", size = 79067 },
+]
+
+[[package]]
+name = "webencodings"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/02/ae6ceac1baeda530866a85075641cec12989bd8d31af6d5ab4a3e8c92f47/webencodings-0.5.1.tar.gz", hash = "sha256:b36a1c245f2d304965eb4e0a82848379241dc04b865afcc4aab16748587e1923", size = 9721 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/24/2a3e3df732393fed8b3ebf2ec078f05546de641fe1b667ee316ec1dcf3b7/webencodings-0.5.1-py2.py3-none-any.whl", hash = "sha256:a0af1213f3c2226497a97e2b3aa01a7e4bee4f403f95be16fc9acd2947514a78", size = 11774 },
 ]
 
 [[package]]

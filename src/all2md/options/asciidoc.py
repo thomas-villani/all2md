@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from all2md.constants import HtmlPassthroughMode
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -127,6 +128,12 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         Whether to include // comments in rendered output.
     line_length : int, default 0
         Target line length for wrapping text (0 = no wrapping).
+    html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
+        How to handle HTMLBlock and HTMLInline nodes:
+        - "pass-through": Pass through unchanged (use only with trusted content)
+        - "escape": HTML-escape the content
+        - "drop": Remove HTML content entirely
+        - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
 
     """
 
@@ -163,5 +170,12 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Target line length for wrapping (0 = no wrapping)",
             "type": int
+        }
+    )
+    html_passthrough_mode: HtmlPassthroughMode = field(
+        default="pass-through",
+        metadata={
+            "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
+            "choices": ["pass-through", "escape", "drop", "sanitize"]
         }
     )

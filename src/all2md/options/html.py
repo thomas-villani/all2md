@@ -14,7 +14,7 @@ from all2md.constants import (
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
-    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
+    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT, HtmlPassthroughMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
@@ -52,6 +52,15 @@ class HtmlRendererOptions(BaseRendererOptions):
         - "mathjax": Include MathJax CDN script
         - "katex": Include KaTeX CDN script
         - "none": Render math as plain text
+    html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
+        How to handle HTMLBlock and HTMLInline nodes:
+        - "pass-through": Pass through unchanged (use only with trusted content)
+        - "escape": HTML-escape the content
+        - "drop": Remove HTML content entirely
+        - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
+    language : str, default "en"
+        Document language code (ISO 639-1) for the <html lang="..."> attribute.
+        Can be overridden by document metadata.
 
     """
 
@@ -96,6 +105,19 @@ class HtmlRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Math rendering library: mathjax, katex, or none",
             "choices": ["mathjax", "katex", "none"]
+        }
+    )
+    html_passthrough_mode: HtmlPassthroughMode = field(
+        default="pass-through",
+        metadata={
+            "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
+            "choices": ["pass-through", "escape", "drop", "sanitize"]
+        }
+    )
+    language: str = field(
+        default="en",
+        metadata={
+            "help": "Document language code (ISO 639-1) for HTML lang attribute"
         }
     )
 

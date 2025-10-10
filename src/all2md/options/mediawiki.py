@@ -7,8 +7,10 @@ This module defines options for rendering AST to MediaWiki format.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
-from all2md.constants import DEFAULT_MEDIAWIKI_IMAGE_THUMB, DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED
+from all2md.constants import DEFAULT_MEDIAWIKI_IMAGE_THUMB, DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED, \
+    HtmlPassthroughMode
 from all2md.options.base import BaseRendererOptions
 
 
@@ -29,6 +31,12 @@ class MediaWikiOptions(BaseRendererOptions):
         Whether to render images as thumbnails.
         When True, images use |thumb option in MediaWiki syntax.
         When False, images are rendered at full size.
+    html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
+        How to handle HTMLBlock and HTMLInline nodes:
+        - "pass-through": Pass through unchanged (use only with trusted content)
+        - "escape": HTML-escape the content
+        - "drop": Remove HTML content entirely
+        - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
 
     Examples
     --------
@@ -57,5 +65,12 @@ class MediaWikiOptions(BaseRendererOptions):
         metadata={
             "help": "Render images as thumbnails",
             "cli_name": "no-image-thumb",
+        }
+    )
+    html_passthrough_mode: HtmlPassthroughMode = field(
+        default="pass-through",
+        metadata={
+            "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
+            "choices": ["pass-through", "escape", "drop", "sanitize"]
         }
     )

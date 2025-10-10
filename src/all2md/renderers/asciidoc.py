@@ -50,6 +50,7 @@ from all2md.options.asciidoc import AsciiDocRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.escape import escape_asciidoc, escape_asciidoc_attribute
 from all2md.utils.footnotes import FootnoteCollector
+from all2md.utils.html_sanitizer import sanitize_html_content
 
 
 class AsciiDocRenderer(NodeVisitor, BaseRenderer):
@@ -442,8 +443,9 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             HTML block to render
 
         """
-        # Pass through HTML blocks
-        self._output.append(node.content)
+        sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
+        if sanitized:
+            self._output.append(sanitized)
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -600,8 +602,9 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             Inline HTML to render
 
         """
-        # Pass through inline HTML
-        self._output.append(node.content)
+        sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
+        if sanitized:
+            self._output.append(sanitized)
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.
