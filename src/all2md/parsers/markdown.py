@@ -277,9 +277,16 @@ class MarkdownToAstConverter(BaseParser):
             Heading AST node
 
         """
-        level = token.get('attrs', {}).get('level', 1)
+        # Safely extract level with fallback to 1 if attrs or level missing
+        attrs = token.get('attrs', {})
+        level = attrs.get('level', 1) if isinstance(attrs, dict) else 1
+
+        # Ensure level is valid (1-6)
+        if not isinstance(level, int) or level < 1 or level > 6:
+            level = 1
+
         children = token.get('children', [])
-        content = self._process_inline_tokens(children)
+        content = self._process_inline_tokens(children) if isinstance(children, list) else []
 
         return Heading(level=level, content=content)
 
@@ -318,15 +325,33 @@ class MarkdownToAstConverter(BaseParser):
         """
         code_content = token.get('raw', '')
         attrs = token.get('attrs', {})
-        language = attrs.get('info', None)
+        info_string = attrs.get('info', None)
 
-        # Clean up language string (mistune includes it with possible extra data)
-        if language:
-            language = language.strip().split()[0]  # Take first word
-            # Sanitize language identifier for security (prevent markdown injection)
-            language = sanitize_language_identifier(language)
+        # Initialize metadata for code block
+        metadata: dict[str, Any] = {}
+        language = None
 
-        return CodeBlock(content=code_content, language=language if language else None)
+        # Parse language and metadata from info string
+        if info_string:
+            info_string = info_string.strip()
+            # Preserve full info string for renderers that support metadata
+            metadata['info_string'] = info_string
+
+            # Extract language (first word) and additional attributes
+            parts = info_string.split(maxsplit=1)
+            if parts:
+                # Sanitize language identifier for security (prevent markdown injection)
+                language = sanitize_language_identifier(parts[0])
+
+                # Preserve additional metadata if present
+                if len(parts) > 1:
+                    metadata['info_attrs'] = parts[1]
+
+        return CodeBlock(
+            content=code_content,
+            language=language if language else None,
+            metadata=metadata
+        )
 
     def _process_block_quote(self, token: dict[str, Any]) -> BlockQuote:
         """Process block quote token.
@@ -362,12 +387,20 @@ class MarkdownToAstConverter(BaseParser):
 
         """
         attrs = token.get('attrs', {})
+        # Guard against attrs not being a dict
+        if not isinstance(attrs, dict):
+            attrs = {}
+
         ordered = attrs.get('ordered', False)
         start = attrs.get('start', 1)
         tight = attrs.get('tight', True)
 
         children = token.get('children', [])
-        items = [self._process_list_item(child) for child in children]
+        # Guard against children not being a list
+        if not isinstance(children, list):
+            children = []
+
+        items = [self._process_list_item(child) for child in children if isinstance(child, dict)]
 
         return List(
             ordered=ordered,
@@ -650,29 +683,40 @@ class MarkdownToAstConverter(BaseParser):
             return Code(content=content)
 
         elif token_type == 'link':
-            url = token.get('attrs', {}).get('url', '')
-            title = token.get('attrs', {}).get('title', None)
+            attrs = token.get('attrs', {})
+            if not isinstance(attrs, dict):
+                attrs = {}
+            url = attrs.get('url', '')
+            title = attrs.get('title', None)
             children = token.get('children', [])
+            if not isinstance(children, list):
+                children = []
             content = self._process_inline_tokens(children)
             return Link(url=url, content=content, title=title)
 
         elif token_type == 'image':
-            url = token.get('attrs', {}).get('url', '')
-            title = token.get('attrs', {}).get('title', None)
+            attrs = token.get('attrs', {})
+            if not isinstance(attrs, dict):
+                attrs = {}
+            url = attrs.get('url', '')
+            title = attrs.get('title', None)
             # Alt text is in children, not attrs
             children = token.get('children', [])
             alt_text = ''
-            if children:
+            if isinstance(children, list) and children:
                 # Extract text from children
                 alt_parts = []
                 for child in children:
-                    if child.get('type') == 'text':
+                    if isinstance(child, dict) and child.get('type') == 'text':
                         alt_parts.append(child.get('raw', ''))
                 alt_text = ''.join(alt_parts)
             return Image(url=url, alt_text=alt_text, title=title)
 
         elif token_type == 'linebreak':
-            soft = token.get('attrs', {}).get('soft', False)
+            attrs = token.get('attrs', {})
+            if not isinstance(attrs, dict):
+                attrs = {}
+            soft = attrs.get('soft', False)
             return LineBreak(soft=soft)
 
         elif token_type == 'strikethrough':
@@ -691,7 +735,10 @@ class MarkdownToAstConverter(BaseParser):
             return MathInline(content=content)
 
         elif token_type == 'footnote_ref':
-            identifier = token.get('attrs', {}).get('label', '')
+            attrs = token.get('attrs', {})
+            if not isinstance(attrs, dict):
+                attrs = {}
+            identifier = attrs.get('label', '')
             return FootnoteReference(identifier=identifier)
 
         return None

@@ -486,6 +486,53 @@ class TestEdgeCases:
         assert "中文" in text.content
 
 
+class TestCodeBlockMetadata:
+    """Test code block metadata preservation."""
+
+    def test_code_block_with_info_string_metadata(self) -> None:
+        """Test that code blocks preserve info string metadata."""
+        markdown = "```python linenums=1\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language == "python"
+        assert code_block.metadata.get('info_string') == 'python linenums=1'
+        assert code_block.metadata.get('info_attrs') == 'linenums=1'
+
+    def test_code_block_with_complex_metadata(self) -> None:
+        """Test code blocks with complex info string metadata."""
+        markdown = "```javascript {.class #id attr=value}\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language == "javascript"
+        assert code_block.metadata.get('info_string') == 'javascript {.class #id attr=value}'
+        assert code_block.metadata.get('info_attrs') == '{.class #id attr=value}'
+
+    def test_code_block_without_metadata(self) -> None:
+        """Test that code blocks without metadata still work."""
+        markdown = "```python\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language == "python"
+        assert code_block.metadata.get('info_string') == 'python'
+        assert 'info_attrs' not in code_block.metadata
+
+    def test_code_block_with_no_language(self) -> None:
+        """Test that code blocks with no language have no metadata."""
+        markdown = "```\ncode\n```"
+        doc = markdown_to_ast(markdown)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language in [None, ""]
+        assert code_block.metadata == {}
+
+
 class TestCodeBlockLanguageSanitization:
     """Test code block language identifier sanitization."""
 
@@ -567,3 +614,140 @@ class TestCodeBlockLanguageSanitization:
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
         assert code_block.language in [None, ""]
+
+
+class TestMistuneTokenRobustness:
+    """Test robustness against malformed Mistune 3 tokens."""
+
+    def test_heading_with_invalid_level(self) -> None:
+        """Test that headings with invalid levels are handled gracefully."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        # Simulate a malformed token with invalid level
+        malformed_token = {
+            'type': 'heading',
+            'attrs': {'level': 99},  # Invalid level
+            'children': [{'type': 'text', 'raw': 'Test'}]
+        }
+
+        heading = converter._process_heading(malformed_token)
+        assert heading.level == 1  # Should default to 1
+
+    def test_heading_with_missing_attrs(self) -> None:
+        """Test that headings with missing attrs are handled gracefully."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        # Simulate a token with missing attrs
+        malformed_token = {
+            'type': 'heading',
+            'children': [{'type': 'text', 'raw': 'Test'}]
+        }
+
+        heading = converter._process_heading(malformed_token)
+        assert heading.level == 1
+        assert len(heading.content) == 1
+
+    def test_heading_with_non_dict_attrs(self) -> None:
+        """Test that headings with non-dict attrs are handled gracefully."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        # Simulate a token with non-dict attrs
+        malformed_token = {
+            'type': 'heading',
+            'attrs': 'not a dict',
+            'children': [{'type': 'text', 'raw': 'Test'}]
+        }
+
+        heading = converter._process_heading(malformed_token)
+        assert heading.level == 1
+
+    def test_list_with_missing_children(self) -> None:
+        """Test that lists with missing children are handled gracefully."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        # Simulate a token with missing children
+        malformed_token = {
+            'type': 'list',
+            'attrs': {'ordered': True}
+        }
+
+        list_node = converter._process_list(malformed_token)
+        assert len(list_node.items) == 0
+
+    def test_link_with_non_dict_attrs(self) -> None:
+        """Test that links with non-dict attrs are handled gracefully."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        # Simulate a token with non-dict attrs
+        malformed_token = {
+            'type': 'link',
+            'attrs': None,  # Should be a dict
+            'children': [{'type': 'text', 'raw': 'Link'}]
+        }
+
+        link = converter._process_inline_token(malformed_token)
+        assert isinstance(link, Link)
+        assert link.url == ''
+
+    def test_image_with_malformed_children(self) -> None:
+        """Test that images with malformed children are handled gracefully."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        # Simulate a token with malformed children (not a list)
+        malformed_token = {
+            'type': 'image',
+            'attrs': {'url': 'test.png'},
+            'children': 'not a list'
+        }
+
+        image = converter._process_inline_token(malformed_token)
+        assert isinstance(image, Image)
+        assert image.alt_text == ''
+
+    def test_code_block_with_empty_info_string(self) -> None:
+        """Test that code blocks with empty info strings are handled."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        token = {
+            'type': 'block_code',
+            'raw': 'code content',
+            'attrs': {'info': '   '}  # Whitespace only
+        }
+
+        code_block = converter._process_code_block(token)
+        assert code_block.language in [None, ""]
+        # Empty info string still gets stored, which is fine
+        assert code_block.metadata.get('info_string') == ''
+
+    def test_code_block_with_metadata_and_invalid_language(self) -> None:
+        """Test code blocks with metadata but invalid language."""
+        from all2md.parsers.markdown import MarkdownToAstConverter
+
+        converter = MarkdownToAstConverter()
+
+        token = {
+            'type': 'block_code',
+            'raw': 'code content',
+            'attrs': {'info': 'python;rm-rf linenums=1'}
+        }
+
+        code_block = converter._process_code_block(token)
+        # Language should be sanitized to empty
+        assert code_block.language in [None, ""]
+        # But metadata should still preserve the full info string
+        assert 'info_string' in code_block.metadata
+        assert 'info_attrs' in code_block.metadata
