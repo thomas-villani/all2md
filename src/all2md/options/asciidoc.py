@@ -91,6 +91,13 @@ class AsciiDocOptions(BaseParserOptions):
             "choices": ["first-row", "attribute-based", "auto"]
         }
     )
+    honor_hard_breaks: bool = field(
+        default=True,
+        metadata={
+            "help": "Honor explicit line breaks (trailing space + plus)",
+            "cli_name": "no-honor-hard-breaks"
+        }
+    )
 
 
 @dataclass(frozen=True)

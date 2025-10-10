@@ -42,8 +42,9 @@ class SourceCodeToAstConverter(BaseParser):
 
     def __init__(self, options: SourceCodeOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the source code parser with options and progress callback."""
-        super().__init__(options or SourceCodeOptions(), progress_callback)
-        self.options: SourceCodeOptions = self.options
+        options = options or SourceCodeOptions()
+        super().__init__(options, progress_callback)
+        self.options: SourceCodeOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse source code input into an AST Document.

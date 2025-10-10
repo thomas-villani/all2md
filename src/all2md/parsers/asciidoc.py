@@ -28,6 +28,7 @@ from all2md.ast import (
     Emphasis,
     Heading,
     Image,
+    LineBreak,
     Link,
     List,
     ListItem,
@@ -334,7 +335,7 @@ class AsciiDocParser(BaseParser):
     Supported Features
     ------------------
     - Headings (= through ======)
-    - Paragraphs and line breaks
+    - Paragraphs with hard line breaks (trailing ` +`)
     - Inline formatting:
       - Bold: *text* (constrained), **text** (unconstrained)
       - Italic: _text_ (constrained), __text__ (unconstrained)
@@ -348,7 +349,10 @@ class AsciiDocParser(BaseParser):
       - Checklists (* [x] or * [ ])
       - Description lists (term::)
     - Code blocks (----) with language support via [source,lang]
+    - Literal blocks (....) for preformatted text
     - Block quotes (____)
+    - Sidebar blocks (****) rendered as block quotes with role='sidebar'
+    - Example blocks (====) rendered as block quotes with role='example'
     - Tables (|===) with:
       - Attribute-based header detection
       - Escaped pipes (\|) in cells
@@ -456,6 +460,42 @@ class AsciiDocParser(BaseParser):
 
         # Passthrough
         self.passthrough_pattern = re.compile(r'(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])')
+
+        # Combined pattern for efficient scanning (finds ANY special construct)
+        self._compile_combined_inline_pattern()
+
+    def _compile_combined_inline_pattern(self) -> None:
+        """Compile a combined regex pattern for efficient inline scanning.
+
+        This single pattern matches ANY inline construct, allowing us to find
+        the next special element in one search instead of trying all patterns.
+        """
+        patterns = []
+
+        # Add unconstrained patterns first (higher priority)
+        if self.options.support_unconstrained_formatting:
+            patterns.append(r'\*\*([^\*]+?)\*\*')  # Unconstrained bold
+            patterns.append(r'__([^_]+?)__')  # Unconstrained italic
+
+        # Standard patterns
+        patterns.extend([
+            r'(?<!\*)\*([^\*\s][^\*]*?)\*(?!\*)',  # Constrained bold
+            r'(?<!_)_([^_\s][^_]*?)_(?!_)',  # Constrained italic
+            r'`([^`]+?)`',  # Monospace
+            r'~([^~]+?)~',  # Subscript
+            r'\^([^\^]+?)\^',  # Superscript
+            r'link:([^\[]+)\[([^\]]*)\]',  # Explicit link
+            r'(https?://[^\s\[\]]+)',  # Auto-link
+            r'image::([^\[]+)\[([^\]]*)\]',  # Block image
+            r'image:([^\[]+)\[([^\]]*)\]',  # Inline image
+            r'<<([^,\>]+)(?:,([^\>]+))?>>', # Cross-reference
+            r'\{([^\}]+)\}',  # Attribute reference
+            r'(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])',  # Passthrough
+        ])
+
+        # Combine all patterns with alternation
+        combined = '|'.join(f'({p})' for p in patterns)
+        self.combined_inline_pattern = re.compile(combined)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse AsciiDoc input into AST Document.
@@ -744,6 +784,15 @@ class AsciiDocParser(BaseParser):
         if token.type == TokenType.QUOTE_BLOCK_DELIMITER:
             return self._parse_quote_block()
 
+        if token.type == TokenType.LITERAL_BLOCK_DELIMITER:
+            return self._parse_literal_block()
+
+        if token.type == TokenType.SIDEBAR_BLOCK_DELIMITER:
+            return self._parse_sidebar_block()
+
+        if token.type == TokenType.EXAMPLE_BLOCK_DELIMITER:
+            return self._parse_example_block()
+
         if token.type == TokenType.TABLE_DELIMITER:
             return self._parse_table()
 
@@ -801,6 +850,8 @@ class AsciiDocParser(BaseParser):
     def _parse_paragraph(self) -> Paragraph:
         """Parse a paragraph (consecutive text lines).
 
+        Supports hard line breaks via trailing space+plus (` +`).
+
         Returns
         -------
         Paragraph
@@ -821,9 +872,39 @@ class AsciiDocParser(BaseParser):
             if self._current_token().type == TokenType.BLANK_LINE:
                 break
 
-        # Join lines with spaces
-        text = ' '.join(lines)
-        content = self._parse_inline(text)
+        # Process lines with hard break support
+        if self.options.honor_hard_breaks:
+            content: list[Node] = []
+
+            for i, line in enumerate(lines):
+                # Check for hard line break marker (trailing space + plus)
+                has_hard_break = line.endswith(' +')
+
+                # Strip the hard break marker if present
+                if has_hard_break:
+                    line = line[:-2].rstrip()  # Remove ' +' and any additional trailing spaces
+
+                # Parse inline content for this line
+                if line:  # Only parse non-empty lines
+                    line_nodes = self._parse_inline(line)
+                    content.extend(line_nodes)
+
+                # Add line break if needed
+                if has_hard_break:
+                    content.append(LineBreak())
+                elif i < len(lines) - 1:
+                    # Add space between lines (unless it's the last line or has hard break)
+                    if content and not isinstance(content[-1], LineBreak):
+                        # Merge space into previous text node if possible
+                        if content and isinstance(content[-1], Text):
+                            content[-1] = Text(content=content[-1].content + ' ')
+                        else:
+                            content.append(Text(content=' '))
+
+        else:
+            # Original behavior: join all lines with spaces
+            text = ' '.join(lines)
+            content = self._parse_inline(text)
 
         # Apply metadata if present
         metadata = {}
@@ -1096,36 +1177,19 @@ class AsciiDocParser(BaseParser):
                 matched = True
                 continue
 
-            # No pattern matched - consume one character as text
+            # No pattern matched - consume text until next special construct
             if not matched:
-                # Find the next special character or end of string
-                next_special = len(remaining)
-                patterns_to_check = [
-                    self.bold_pattern,
-                    self.italic_pattern,
-                    self.mono_pattern,
-                    self.subscript_pattern,
-                    self.superscript_pattern,
-                    self.link_pattern,
-                    self.auto_link_pattern,
-                    self.image_block_pattern,
-                    self.image_inline_pattern,
-                    self.xref_pattern,
-                    self.attr_ref_pattern,
-                    self.passthrough_pattern,
-                ]
-                # Add unconstrained patterns if enabled
-                if self.bold_unconstrained_pattern:
-                    patterns_to_check.insert(0, self.bold_unconstrained_pattern)
-                if self.italic_unconstrained_pattern:
-                    patterns_to_check.insert(0, self.italic_unconstrained_pattern)
+                # Use combined pattern for efficient scanning
+                next_match = self.combined_inline_pattern.search(remaining[pos:])
 
-                for pattern in patterns_to_check:
-                    match = pattern.search(remaining[pos:])
-                    if match:
-                        next_special = min(next_special, pos + match.start())
+                if next_match:
+                    # Extract text up to the next match
+                    next_special = pos + next_match.start()
+                else:
+                    # No more special constructs, take rest of text
+                    next_special = len(remaining)
 
-                # Extract text up to next special character
+                # Extract text content
                 text_content = remaining[pos:next_special]
                 if text_content:
                     # Restore escapes in plain text
@@ -1313,6 +1377,137 @@ class AsciiDocParser(BaseParser):
             self._advance()
 
         return BlockQuote(children=children)
+
+    def _parse_literal_block(self) -> CodeBlock:
+        """Parse a literal block.
+
+        Literal blocks (....) render content as-is without syntax highlighting.
+
+        Returns
+        -------
+        CodeBlock
+            Code block node without language
+
+        """
+        # Consume pending attributes
+        attrs = self._consume_pending_attrs()
+
+        # Skip opening delimiter
+        self._advance()
+
+        # Collect content until closing delimiter
+        lines = []
+        while self._current_token().type != TokenType.LITERAL_BLOCK_DELIMITER:
+            if self._current_token().type == TokenType.EOF:
+                break
+
+            token = self._advance()
+            if token.type == TokenType.TEXT_LINE:
+                lines.append(token.content)
+            elif token.type == TokenType.BLANK_LINE:
+                lines.append('')
+
+        # Skip closing delimiter
+        if self._current_token().type == TokenType.LITERAL_BLOCK_DELIMITER:
+            self._advance()
+
+        content = '\n'.join(lines)
+
+        # Apply metadata if present
+        metadata = {}
+        if 'id' in attrs:
+            metadata['id'] = attrs['id']
+
+        if metadata:
+            return CodeBlock(content=content, language=None, metadata=metadata)
+        else:
+            return CodeBlock(content=content, language=None)
+
+    def _parse_sidebar_block(self) -> BlockQuote:
+        """Parse a sidebar block.
+
+        Sidebar blocks (****) are rendered as block quotes with role='sidebar'.
+
+        Returns
+        -------
+        BlockQuote
+            Block quote with sidebar role
+
+        """
+        # Consume pending attributes
+        attrs = self._consume_pending_attrs()
+
+        # Skip opening delimiter
+        self._advance()
+
+        # Collect content until closing delimiter
+        children: list[Node] = []
+
+        while self._current_token().type != TokenType.SIDEBAR_BLOCK_DELIMITER:
+            if self._current_token().type == TokenType.EOF:
+                break
+
+            # Parse blocks inside sidebar
+            node = self._parse_block()
+            if node is not None:
+                if isinstance(node, list):
+                    children.extend(node)
+                else:
+                    children.append(node)
+
+        # Skip closing delimiter
+        if self._current_token().type == TokenType.SIDEBAR_BLOCK_DELIMITER:
+            self._advance()
+
+        # Apply metadata with sidebar role
+        metadata = {'role': 'sidebar'}
+        if 'id' in attrs:
+            metadata['id'] = attrs['id']
+
+        return BlockQuote(children=children, metadata=metadata)
+
+    def _parse_example_block(self) -> BlockQuote:
+        """Parse an example block.
+
+        Example blocks (====) are rendered as block quotes with role='example'.
+
+        Returns
+        -------
+        BlockQuote
+            Block quote with example role
+
+        """
+        # Consume pending attributes
+        attrs = self._consume_pending_attrs()
+
+        # Skip opening delimiter
+        self._advance()
+
+        # Collect content until closing delimiter
+        children: list[Node] = []
+
+        while self._current_token().type != TokenType.EXAMPLE_BLOCK_DELIMITER:
+            if self._current_token().type == TokenType.EOF:
+                break
+
+            # Parse blocks inside example
+            node = self._parse_block()
+            if node is not None:
+                if isinstance(node, list):
+                    children.extend(node)
+                else:
+                    children.append(node)
+
+        # Skip closing delimiter
+        if self._current_token().type == TokenType.EXAMPLE_BLOCK_DELIMITER:
+            self._advance()
+
+        # Apply metadata with example role
+        metadata = {'role': 'example'}
+        if 'id' in attrs:
+            metadata['id'] = attrs['id']
+
+        return BlockQuote(children=children, metadata=metadata)
 
     def _parse_table(self) -> Table:
         """Parse a table.

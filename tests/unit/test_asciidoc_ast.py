@@ -3,12 +3,14 @@
 
 
 from all2md.ast import (
+    BlockQuote,
     Code,
     CodeBlock,
     Document,
     Emphasis,
     Heading,
     Image,
+    LineBreak,
     Link,
     List,
     ListItem,
@@ -654,6 +656,180 @@ class TestAsciiDocTableImprovements:
         assert isinstance(table, Table)
         assert table.header is not None
         assert len(table.rows) == 1
+
+
+class TestAsciiDocDelimitedBlocks:
+    """Tests for delimited block parsing."""
+
+    def test_literal_block(self) -> None:
+        """Test literal block parsing."""
+        asciidoc = """....
+This is literal text
+    with preserved    spacing
+....
+"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], CodeBlock)
+        code_block = doc.children[0]
+        assert code_block.language is None  # Literal blocks have no language
+        assert "preserved    spacing" in code_block.content
+
+    def test_sidebar_block(self) -> None:
+        """Test sidebar block parsing."""
+        asciidoc = """****
+This is sidebar content.
+It has multiple lines.
+****"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], BlockQuote)
+        block = doc.children[0]
+        assert block.metadata is not None
+        assert block.metadata.get('role') == 'sidebar'
+
+    def test_example_block(self) -> None:
+        """Test example block parsing."""
+        asciidoc = """====
+This is an example.
+
+With multiple paragraphs.
+===="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], BlockQuote)
+        block = doc.children[0]
+        assert block.metadata is not None
+        assert block.metadata.get('role') == 'example'
+        assert len(block.children) == 2  # Two paragraphs
+
+    def test_thematic_break_vs_code_block(self) -> None:
+        """Test that thematic breaks are distinguished from code blocks."""
+        asciidoc = """Some text
+
+---
+
+More text
+
+----
+Code here
+----"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        # Should have: Paragraph, ThematicBreak, Paragraph, CodeBlock
+        assert len(doc.children) == 4
+        assert isinstance(doc.children[0], Paragraph)
+        assert isinstance(doc.children[1], ThematicBreak)
+        assert isinstance(doc.children[2], Paragraph)
+        assert isinstance(doc.children[3], CodeBlock)
+
+    def test_thematic_break_vs_sidebar(self) -> None:
+        """Test that *** (thematic) is different from **** (sidebar)."""
+        asciidoc = """Text
+
+***
+
+More
+
+****
+Sidebar
+****"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        assert len(doc.children) == 4
+        assert isinstance(doc.children[1], ThematicBreak)
+        assert isinstance(doc.children[3], BlockQuote)
+        assert doc.children[3].metadata.get('role') == 'sidebar'
+
+
+class TestAsciiDocHardLineBreaks:
+    """Tests for hard line break support."""
+
+    def test_hard_line_break_single(self) -> None:
+        """Test single hard line break."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Line one +\nLine two")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        # Should contain text, LineBreak, text
+        assert any(isinstance(node, LineBreak) for node in para.content)
+
+    def test_hard_line_break_multiple(self) -> None:
+        """Test multiple hard line breaks."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Line one +\nLine two +\nLine three")
+
+        para = doc.children[0]
+        line_breaks = [node for node in para.content if isinstance(node, LineBreak)]
+        assert len(line_breaks) == 2
+
+    def test_hard_line_break_with_formatting(self) -> None:
+        """Test hard line break with inline formatting."""
+        parser = AsciiDocParser()
+        doc = parser.parse("This is *bold* +\nAnd _italic_")
+
+        para = doc.children[0]
+        # Should have: Strong, LineBreak, Emphasis
+        assert any(isinstance(node, Strong) for node in para.content)
+        assert any(isinstance(node, LineBreak) for node in para.content)
+        assert any(isinstance(node, Emphasis) for node in para.content)
+
+    def test_no_hard_break_option(self) -> None:
+        """Test that hard breaks can be disabled."""
+        from all2md.options.asciidoc import AsciiDocOptions
+        parser = AsciiDocParser(AsciiDocOptions(honor_hard_breaks=False))
+        doc = parser.parse("Line one +\nLine two")
+
+        para = doc.children[0]
+        # Should NOT have LineBreak when option is disabled
+        assert not any(isinstance(node, LineBreak) for node in para.content)
+
+
+class TestAsciiDocAnchorsAndXrefs:
+    """Tests for anchor and cross-reference resolution."""
+
+    def test_anchor_on_heading_with_xref(self) -> None:
+        """Test that anchors work with cross-references."""
+        parser = AsciiDocParser()
+        doc = parser.parse("[[intro]]\n== Introduction\n\nSee <<intro>>")
+
+        # First child: heading with anchor
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.metadata is not None
+        assert heading.metadata.get('id') == "intro"
+
+        # Second child: paragraph with cross-reference
+        para = doc.children[1]
+        assert isinstance(para, Paragraph)
+        # Find the link node
+        link_found = False
+        for node in para.content:
+            if isinstance(node, Link):
+                link_found = True
+                assert node.url == "#intro"
+        assert link_found
+
+    def test_anchor_with_custom_text_xref(self) -> None:
+        """Test cross-reference with custom text."""
+        parser = AsciiDocParser()
+        doc = parser.parse("[[myid]]\n= Title\n\nSee <<myid,the introduction>>")
+
+        para = doc.children[1]
+        for node in para.content:
+            if isinstance(node, Link):
+                assert node.url == "#myid"
+                # Check that custom text is used
+                assert node.content[0].content == "the introduction"
 
 
 class TestAsciiDocRoundTrip:
