@@ -628,7 +628,8 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append('\n')
+            # Soft breaks render as space in RST
+            self._output.append(' ')
         else:
             # Hard line break in RST requires | at line start
             self._output.append('\n| ')

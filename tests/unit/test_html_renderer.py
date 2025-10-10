@@ -651,7 +651,7 @@ class TestLineBreaks:
         assert "Line 2" in result
 
     def test_soft_line_break(self):
-        """Test soft line break (newline)."""
+        """Test soft line break renders as space."""
         doc = Document(children=[
             Paragraph(content=[
                 Text(content="Line 1"),
@@ -661,7 +661,8 @@ class TestLineBreaks:
         ])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert "Line 1\nLine 2" in result
+        # Soft breaks should render as space in HTML
+        assert "Line 1 Line 2" in result
 
 
 @pytest.mark.unit

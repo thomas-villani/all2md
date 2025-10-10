@@ -259,6 +259,7 @@ class TestTimingInstrumentation:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestLogFileIntegration:
     """Integration tests for log file functionality."""
 

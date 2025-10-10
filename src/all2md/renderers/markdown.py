@@ -1058,8 +1058,16 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
         """
         if not self._flavor.supports_definition_lists():
-            mode = self.options.unsupported_table_mode
-            if mode == "drop":
+            mode = self.options.unsupported_inline_mode
+            if mode == "plain":
+                # Render as plain text, dropping the definition list structure
+                for term, descriptions in node.items:
+                    term_content = self._render_inline_content(term.content)
+                    self._output.append(term_content)
+                    for desc in descriptions:
+                        self._output.append('\n')
+                        for child in desc.content:
+                            child.accept(self)
                 return
             elif mode == "html":
                 self._output.append('<dl>\n')
@@ -1075,6 +1083,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
                         self._output.append('</dd>\n')
                 self._output.append('</dl>')
                 return
+            # else: mode == "force", continue with markdown rendering below
         for i, (term, descriptions) in enumerate(node.items):
             if i > 0:
                 self._output.append('\n')
@@ -1142,14 +1151,16 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             self._output.append(render_math_html(content, notation, inline=False))
             return
 
-        mode = self.options.unsupported_table_mode
-        if mode == "drop":
+        mode = self.options.unsupported_inline_mode
+        if mode == "plain":
+            # Render as plain text content
+            self._output.append(content)
             return
         if mode == "html" or notation != "latex":
             self._output.append(render_math_html(content, notation, inline=False))
             return
 
-        # Mode is force or ascii; fall back to latex block fencing
+        # Mode is force; fall back to latex block fencing
         self._output.append("$$\n")
         self._output.append(content)
         if not content.endswith('\n'):

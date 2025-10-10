@@ -445,7 +445,8 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append("\n")
+            # Soft breaks render as space in MediaWiki
+            self._output.append(" ")
         else:
             # Hard break
             self._output.append("<br />")

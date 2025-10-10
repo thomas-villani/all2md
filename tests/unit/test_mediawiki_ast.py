@@ -404,8 +404,8 @@ class TestMediaWikiRenderer:
         renderer = MediaWikiRenderer()
         output = renderer.render_to_string(doc)
 
-        # Soft line breaks are just newlines
-        assert "Line 1\nLine 2" in output
+        # Soft line breaks render as space in MediaWiki
+        assert "Line 1 Line 2" in output
 
     def test_render_multiple_paragraphs(self) -> None:
         """Test rendering multiple paragraphs."""

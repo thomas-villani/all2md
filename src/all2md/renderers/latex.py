@@ -511,7 +511,8 @@ class LatexRenderer(NodeVisitor, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append('\n')
+            # Soft breaks render as space in LaTeX
+            self._output.append(' ')
         else:
             self._output.append('\\\\')
 

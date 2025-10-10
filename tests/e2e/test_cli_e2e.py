@@ -17,6 +17,7 @@ from all2md.constants import EXIT_PARSING_ERROR
 
 @pytest.mark.e2e
 @pytest.mark.cli
+@pytest.mark.slow
 class TestCLIEndToEnd:
     """End-to-end tests for CLI functionality."""
 
@@ -489,9 +490,7 @@ def example_function():
 
         result = self._run_cli([str(odp_file)])
 
-        # Should process without major errors
-        # Note: ODP conversion might be limited, so we just check it doesn't crash
-        assert result.returncode == EXIT_PARSING_ERROR
+        assert result.returncode == 0
 
     @pytest.mark.odf
     def test_odf_format_override(self):
@@ -757,6 +756,7 @@ def example_function():
 
 @pytest.mark.e2e
 @pytest.mark.epub
+@pytest.mark.slow
 class TestEpubCLIEndToEnd:
     """End-to-end tests for EPUB CLI functionality."""
 
@@ -937,6 +937,7 @@ class TestEpubCLIEndToEnd:
 
 @pytest.mark.e2e
 @pytest.mark.mhtml
+@pytest.mark.slow
 class TestMhtmlCLIEndToEnd:
     """End-to-end tests for MHTML CLI functionality."""
 
@@ -1099,6 +1100,7 @@ class TestMhtmlCLIEndToEnd:
 
 @pytest.mark.e2e
 @pytest.mark.cli
+@pytest.mark.slow
 class TestAdvancedCLIFeaturesE2E:
     """End-to-end tests for advanced CLI features."""
 

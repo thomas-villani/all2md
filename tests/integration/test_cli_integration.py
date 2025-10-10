@@ -1397,7 +1397,7 @@ class TestEnhancedCLIIntegration:
             kwargs = call_args[1]
 
             # Should have loaded options from config
-            assert kwargs["emphasis_symbol"] == "_"
+            assert kwargs["markdown.emphasis_symbol"] == "_"
 
     def test_combined_new_features_integration(self):
         """Test all new features working together."""

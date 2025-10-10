@@ -180,7 +180,8 @@ def test_detect_tables_by_ruling_lines_empty():
             return []
 
     tables = pdf_parser.detect_tables_by_ruling_lines(MockPage())
-    assert tables == []  # No tables in empty page
+    assert len(tables) == 2  # A 2-tuple
+    assert all(len(t) == 0 for t in tables)  # No tables in empty page
 
 
 @pytest.mark.unit

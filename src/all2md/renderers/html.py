@@ -691,7 +691,8 @@ hr {
 
         """
         if node.soft:
-            self._output.append('\n')
+            # Soft breaks render as space in HTML (whitespace is collapsed)
+            self._output.append(' ')
         else:
             self._output.append('<br>\n')
 

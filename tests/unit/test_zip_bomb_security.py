@@ -163,6 +163,7 @@ class TestUncompressedSizeLimits:
         # Should not raise
         validate_zip_archive(zip_path)
 
+    @pytest.mark.slow
     def test_excessive_uncompressed_size_blocked(self, tmp_path):
         """Test that archives with excessive uncompressed size are blocked."""
         zip_path = tmp_path / "huge.zip"
@@ -296,6 +297,7 @@ class TestInvalidArchiveHandling:
 class TestCombinedSecurityChecks:
     """Test archives that trigger multiple security checks."""
 
+    @pytest.mark.slow
     def test_high_compression_and_many_entries(self, tmp_path):
         """Test archive with both high compression and many entries."""
         zip_path = tmp_path / "combined_threat.zip"

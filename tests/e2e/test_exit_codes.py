@@ -10,6 +10,7 @@ import pytest
 
 
 @pytest.mark.e2e
+@pytest.mark.slow
 class TestExitCodes:
     """Test suite for CLI exit codes."""
 

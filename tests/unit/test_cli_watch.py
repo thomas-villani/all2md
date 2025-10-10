@@ -567,6 +567,7 @@ class TestWatchCLIIntegration:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestWatchModeIntegration:
     """Integration tests for watch mode."""
 

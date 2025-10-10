@@ -525,7 +525,8 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append('\n')
+            # Soft breaks render as space in AsciiDoc
+            self._output.append(' ')
         else:
             # Hard break with explicit line break
             self._output.append(' +\n')
