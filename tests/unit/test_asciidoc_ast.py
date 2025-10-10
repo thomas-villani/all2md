@@ -312,7 +312,8 @@ class TestAsciiDocRenderer:
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
-        assert "`code`" in output
+        # Should use + delimiter (AsciiDoc standard), not backticks
+        assert "+code+" in output
 
     def test_render_code_block(self) -> None:
         """Test rendering code block."""
@@ -918,3 +919,381 @@ code here
         assert "footnote:note1[Shared note]" in output
         # Subsequent reference should be empty
         assert "footnote:note1[]" in output
+
+
+class TestAsciiDocHeadingLevels:
+    """Tests for correct heading level mapping."""
+
+    def test_heading_level_1_maps_to_double_equals(self) -> None:
+        """Test that AST level 1 maps to == (section level 1)."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Section 1")])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "== Section 1" in output
+        # Verify it's exactly two equals signs, not one or three
+        assert output.strip().startswith("==")
+        assert not output.strip().startswith("===")
+        assert not output.strip().startswith("= ")
+
+    def test_heading_level_2_maps_to_triple_equals(self) -> None:
+        """Test that AST level 2 maps to === (section level 2)."""
+        doc = Document(children=[
+            Heading(level=2, content=[Text(content="Section 2")])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "=== Section 2" in output
+
+    def test_heading_level_3_maps_to_quadruple_equals(self) -> None:
+        """Test that AST level 3 maps to ==== (section level 3)."""
+        doc = Document(children=[
+            Heading(level=3, content=[Text(content="Section 3")])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "==== Section 3" in output
+
+    def test_heading_levels_1_through_6(self) -> None:
+        """Test all heading levels map correctly."""
+        for level in range(1, 7):
+            doc = Document(children=[
+                Heading(level=level, content=[Text(content=f"Level {level}")])
+            ])
+            renderer = AsciiDocRenderer()
+            output = renderer.render_to_string(doc)
+
+            expected_prefix = '=' * (level + 1)
+            assert f"{expected_prefix} Level {level}" in output
+
+
+class TestAsciiDocInlineCodeDelimiters:
+    """Tests for inline code using + delimiters."""
+
+    def test_simple_code_uses_plus_delimiter(self) -> None:
+        """Test that simple inline code uses + delimiter."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Use "),
+                Code(content="code"),
+                Text(content=" here")
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "+code+" in output
+        assert "`code`" not in output  # Should NOT use backticks
+
+    def test_code_with_backticks_uses_plus_delimiter(self) -> None:
+        """Test that code containing backticks still uses + delimiter."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Code(content="var x = `template`")
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "+var x = `template`+" in output
+
+    def test_code_with_plus_sign_escaped(self) -> None:
+        """Test that + signs in code are escaped by doubling."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Code(content="x + y")
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Plus signs should be doubled for escaping
+        assert "+x ++ y+" in output
+
+    def test_code_with_multiple_plus_signs(self) -> None:
+        """Test that multiple + signs are all escaped."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Code(content="a + b + c")
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "+a ++ b ++ c+" in output
+
+    def test_code_with_double_plus_escaped(self) -> None:
+        """Test that ++ in code is escaped correctly."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Code(content="x++")
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Each + should be doubled: x++ becomes x++++
+        # Full output: +x+++++  (opening +, x, four +s, closing +)
+        assert "+x+++++" in output
+
+
+class TestAsciiDocTableAlignments:
+    """Tests for table column alignment support."""
+
+    def test_table_with_left_alignment(self) -> None:
+        """Test table with left-aligned columns."""
+        from all2md.ast import TableRow, TableCell
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Col1")]),
+                    TableCell(content=[Text(content="Col2")])
+                ]),
+                rows=[
+                    TableRow(cells=[
+                        TableCell(content=[Text(content="A")]),
+                        TableCell(content=[Text(content="B")])
+                    ])
+                ],
+                alignments=['left', 'left']
+            )
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Should include cols attribute with left alignment specs
+        assert '[cols="<,<"]' in output
+
+    def test_table_with_center_alignment(self) -> None:
+        """Test table with center-aligned columns."""
+        from all2md.ast import TableRow, TableCell
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Col1")]),
+                    TableCell(content=[Text(content="Col2")])
+                ]),
+                rows=[],
+                alignments=['center', 'center']
+            )
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert '[cols="^,^"]' in output
+
+    def test_table_with_right_alignment(self) -> None:
+        """Test table with right-aligned columns."""
+        from all2md.ast import TableRow, TableCell
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Col1")]),
+                    TableCell(content=[Text(content="Col2")])
+                ]),
+                rows=[],
+                alignments=['right', 'right']
+            )
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert '[cols=">,>"]' in output
+
+    def test_table_with_mixed_alignments(self) -> None:
+        """Test table with mixed column alignments."""
+        from all2md.ast import TableRow, TableCell
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Left")]),
+                    TableCell(content=[Text(content="Center")]),
+                    TableCell(content=[Text(content="Right")])
+                ]),
+                rows=[],
+                alignments=['left', 'center', 'right']
+            )
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert '[cols="<,^,>"]' in output
+
+    def test_table_with_none_alignment(self) -> None:
+        """Test table with None alignments (defaults)."""
+        from all2md.ast import TableRow, TableCell
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Col1")]),
+                    TableCell(content=[Text(content="Col2")])
+                ]),
+                rows=[],
+                alignments=[None, None]
+            )
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Should not include cols attribute if all alignments are None
+        assert '[cols=' not in output
+
+    def test_table_without_alignments(self) -> None:
+        """Test table without alignment specification."""
+        from all2md.ast import TableRow, TableCell
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Col1")]),
+                    TableCell(content=[Text(content="Col2")])
+                ]),
+                rows=[]
+            )
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Should not include cols attribute
+        assert '[cols=' not in output
+
+
+class TestAsciiDocTaskLists:
+    """Tests for task list rendering."""
+
+    def test_unordered_task_list_checked(self) -> None:
+        """Test unordered task list with checked item."""
+        doc = Document(children=[
+            List(ordered=False, items=[
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Done")])],
+                    task_status='checked'
+                )
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "* [x] Done" in output
+
+    def test_unordered_task_list_unchecked(self) -> None:
+        """Test unordered task list with unchecked item."""
+        doc = Document(children=[
+            List(ordered=False, items=[
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Todo")])],
+                    task_status='unchecked'
+                )
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "* [ ] Todo" in output
+
+    def test_ordered_task_list_checked(self) -> None:
+        """Test ordered task list with checked item."""
+        doc = Document(children=[
+            List(ordered=True, items=[
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Done")])],
+                    task_status='checked'
+                )
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert ". [x] Done" in output
+
+    def test_ordered_task_list_unchecked(self) -> None:
+        """Test ordered task list with unchecked item."""
+        doc = Document(children=[
+            List(ordered=True, items=[
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Todo")])],
+                    task_status='unchecked'
+                )
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert ". [ ] Todo" in output
+
+    def test_mixed_task_list(self) -> None:
+        """Test task list with both checked and unchecked items."""
+        doc = Document(children=[
+            List(ordered=False, items=[
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Done")])],
+                    task_status='checked'
+                ),
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Todo")])],
+                    task_status='unchecked'
+                ),
+                ListItem(
+                    children=[Paragraph(content=[Text(content="Regular item")])],
+                    task_status=None
+                )
+            ])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "* [x] Done" in output
+        assert "* [ ] Todo" in output
+        assert "* Regular item" in output
+
+
+class TestAsciiDocAttributeEscaping:
+    """Tests for attribute value escaping."""
+
+    def test_attribute_with_quotes(self) -> None:
+        """Test that quotes in attributes are escaped."""
+        from all2md.utils.metadata import DocumentMetadata
+        metadata = DocumentMetadata(title='A "Special" Title')
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Content")])
+        ], metadata=metadata.to_dict())
+
+        from all2md.options.asciidoc import AsciiDocRendererOptions
+        renderer = AsciiDocRenderer(AsciiDocRendererOptions(use_attributes=True))
+        output = renderer.render_to_string(doc)
+
+        # Quotes should be escaped
+        assert r'A \"Special\" Title' in output or 'A "Special" Title' in output
+
+    def test_attribute_with_newline(self) -> None:
+        """Test that newlines in attributes are escaped."""
+        from all2md.utils.metadata import DocumentMetadata
+        metadata = DocumentMetadata(subject="Line 1\nLine 2")
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Content")])
+        ], metadata=metadata.to_dict())
+
+        from all2md.options.asciidoc import AsciiDocRendererOptions
+        renderer = AsciiDocRenderer(AsciiDocRendererOptions(use_attributes=True))
+        output = renderer.render_to_string(doc)
+
+        # Newline should be escaped
+        assert r'\n' in output or 'Line 1' in output
+
+    def test_attribute_with_backslash(self) -> None:
+        """Test that backslashes in attributes are escaped."""
+        from all2md.utils.metadata import DocumentMetadata
+        metadata = DocumentMetadata(author=r"User\Name")
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Content")])
+        ], metadata=metadata.to_dict())
+
+        from all2md.options.asciidoc import AsciiDocRendererOptions
+        renderer = AsciiDocRenderer(AsciiDocRendererOptions(use_attributes=True))
+        output = renderer.render_to_string(doc)
+
+        # Should contain the author attribute
+        assert ":author:" in output

@@ -6,6 +6,8 @@ import time
 import pytest
 
 
+@pytest.mark.timing
+@pytest.mark.unit
 class TestTimingContext:
     """Test TimingContext context manager."""
 
@@ -71,7 +73,8 @@ class TestTimingContext:
         info_logs = [r for r in caplog.records if r.levelno == logging.INFO]
         assert len(info_logs) >= 2  # Start and completion
 
-
+@pytest.mark.timing
+@pytest.mark.unit
 class TestInstrumentTiming:
     """Test instrument_timing decorator."""
 
@@ -132,6 +135,7 @@ class TestInstrumentTiming:
         assert any("completed in" in record.message for record in caplog.records)
 
 
+@pytest.mark.unit
 class TestFormatDuration:
     """Test format_duration utility."""
 
@@ -173,6 +177,7 @@ class TestFormatDuration:
         assert "5s" in result
 
 
+@pytest.mark.timing
 class TestOperationTimer:
     """Test OperationTimer class."""
 

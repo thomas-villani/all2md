@@ -233,8 +233,9 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             self._output.append(f"{content}\n{underline}")
         else:
             # ATX style with = prefix
-            # AsciiDoc levels: = is title (h0), == is h1, etc.
-            prefix = '=' * node.level
+            # AsciiDoc levels: = is document title (level 0), == is section level 1, === is section level 2, etc.
+            # Map AST heading levels to AsciiDoc: level 1 -> ==, level 2 -> ===, etc.
+            prefix = '=' * (node.level + 1)
             self._output.append(f"{prefix} {content}")
 
     def visit_paragraph(self, node: Paragraph) -> None:
@@ -363,6 +364,22 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         if node.caption:
             self._output.append(f".{node.caption}\n")
 
+        # Render column alignment specification if alignments are provided
+        if node.alignments:
+            # Map alignment values to AsciiDoc column specs
+            # 'left' -> '<', 'center' -> '^', 'right' -> '>', None -> no spec (defaults to left)
+            alignment_map = {
+                'left': '<',
+                'center': '^',
+                'right': '>',
+                None: ''
+            }
+            col_specs = [alignment_map.get(align, '') for align in node.alignments]
+            # Only add [cols=...] if we have at least one alignment specified
+            if any(spec for spec in col_specs):
+                cols_attr = ','.join(col_specs if col_specs else [''] * len(node.alignments))
+                self._output.append(f"[cols=\"{cols_attr}\"]\n")
+
         self._output.append("|===\n")
 
         # Render header
@@ -474,13 +491,17 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             Code to render
 
         """
-        # For AsciiDoc, if code contains backticks, use + delimiters instead
-        if '`' in node.content:
-            # Use + for inline code when backticks are present
-            self._output.append(f"+{node.content}+")
-        else:
-            # Use standard backtick delimiter
-            self._output.append(f"`{node.content}`")
+        # AsciiDoc standard uses +text+ for monospaced inline (not backticks)
+        # Backticks are only for Markdown compatibility mode
+        content = node.content
+
+        # If content contains +, escape it by doubling
+        if '+' in content:
+            # Double all + characters to escape them
+            content = content.replace('+', '++')
+
+        # Use + delimiter (AsciiDoc standard for monospaced inline)
+        self._output.append(f"+{content}+")
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.

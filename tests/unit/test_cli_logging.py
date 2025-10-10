@@ -216,7 +216,7 @@ class TestEnhancedAbout:
         result = main(['--about'])
         assert result == 0
 
-
+@pytest.mark.timing
 class TestTimingInstrumentation:
     """Test timing instrumentation in conversion pipeline."""
 
