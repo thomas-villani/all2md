@@ -8,6 +8,8 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
     LineBreak,
@@ -882,3 +884,37 @@ code here
 
         assert "----" in output
         assert "code here" in output
+
+    def test_footnote_first_reference_includes_definition(self) -> None:
+        """Test that first footnote reference includes definition inline."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Text with footnote"),
+                FootnoteReference(identifier="note1")
+            ]),
+            FootnoteDefinition(identifier="note1", content=[Text(content="This is the footnote")])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # First reference should include the definition
+        assert "footnote:note1[This is the footnote]" in output
+
+    def test_footnote_subsequent_reference_is_empty(self) -> None:
+        """Test that subsequent footnote references are empty."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="First "),
+                FootnoteReference(identifier="note1"),
+                Text(content=" second "),
+                FootnoteReference(identifier="note1")
+            ]),
+            FootnoteDefinition(identifier="note1", content=[Text(content="Shared note")])
+        ])
+        renderer = AsciiDocRenderer()
+        output = renderer.render_to_string(doc)
+
+        # First reference should have definition
+        assert "footnote:note1[Shared note]" in output
+        # Subsequent reference should be empty
+        assert "footnote:note1[]" in output

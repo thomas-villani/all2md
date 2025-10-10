@@ -11,7 +11,7 @@ Available renderers include:
 - MarkdownRenderer: Render to Markdown text (always available)
 - MediaWikiRenderer: Render to MediaWiki markup (always available)
 - PlainTextRenderer: Render to plain text (always available)
-- HtmlRenderer: Render to HTML (requires jinja2)
+- HtmlRenderer: Render to HTML
 - DocxRenderer: Render to Microsoft Word .docx (requires python-docx)
 - PdfRenderer: Render to PDF (requires reportlab)
 - EpubRenderer: Render to EPUB ebook format (requires ebooklib)

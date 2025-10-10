@@ -110,7 +110,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._styles: Any = None
         self._temp_files: list[str] = []
         self._footnote_counter: int = 0
-        self._footnotes: list[tuple[int, str]] = []
+        self._footnote_id_to_number: dict[str, int] = {}
+        self._footnote_definitions: dict[str, str] = {}
 
     @requires_dependencies("pdf_render", [("reportlab", "reportlab", ">=4.0.0")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -172,7 +173,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         # Reset state
         self._flowables = []
         self._footnote_counter = 0
-        self._footnotes = []
+        self._footnote_id_to_number = {}
+        self._footnote_definitions = {}
 
         # Create styles
         self._styles = self._create_styles()
@@ -181,17 +183,24 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         doc.accept(self)
 
         # Add footnotes if any
-        if self._footnotes:
+        if self._footnote_definitions:
             self._flowables.append(self._Spacer(1, 0.3*self._inch))
             self._flowables.append(self._HRFlowable(width="80%", color=self._colors.grey))
             self._flowables.append(self._Spacer(1, 0.2*self._inch))
 
-            for num, text in self._footnotes:
-                footnote_para = self._Paragraph(
-                    f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
-                )
-                self._flowables.append(footnote_para)
-                self._flowables.append(self._Spacer(1, 0.1*self._inch))
+            # Sort footnotes by their assigned numbers
+            sorted_footnotes = sorted(
+                self._footnote_id_to_number.items(),
+                key=lambda x: x[1]
+            )
+            for identifier, num in sorted_footnotes:
+                text = self._footnote_definitions.get(identifier, "")
+                if text:
+                    footnote_para = self._Paragraph(
+                        f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
+                    )
+                    self._flowables.append(footnote_para)
+                    self._flowables.append(self._Spacer(1, 0.1*self._inch))
 
         # Get page size
         page_size = self._get_page_size()
@@ -402,8 +411,12 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             elif isinstance(node, LineBreak):
                 parts.append('<br/>')
             elif isinstance(node, FootnoteReference):
-                self._footnote_counter += 1
-                parts.append(f'<super>{self._footnote_counter}</super>')
+                # Get or assign a stable number for this footnote identifier
+                if node.identifier not in self._footnote_id_to_number:
+                    self._footnote_counter += 1
+                    self._footnote_id_to_number[node.identifier] = self._footnote_counter
+                footnote_number = self._footnote_id_to_number[node.identifier]
+                parts.append(f'<super>{footnote_number}</super>')
             elif isinstance(node, MathInline):
                 # Render math as plain text (proper rendering would require additional libraries)
                 content, notation = node.get_preferred_representation("latex")
@@ -915,9 +928,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             Footnote definition to render
 
         """
-        # Collect footnote text
+        # Collect footnote text by identifier
         text = self._process_inline_content(node.content if hasattr(node, 'content') else [])
-        self._footnotes.append((self._footnote_counter, text))
+        self._footnote_definitions[node.identifier] = text
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.

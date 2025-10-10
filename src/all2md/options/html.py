@@ -36,8 +36,6 @@ class HtmlRendererOptions(BaseRendererOptions):
         - "none": No styling
     css_file : str or None, default None
         Path to external CSS file (used when css_style="external").
-    template : str or None, default None
-        Path to custom Jinja2 template file. If None, uses built-in template.
     include_toc : bool, default False
         Generate table of contents from headings.
     syntax_highlighting : bool, default True
@@ -69,10 +67,6 @@ class HtmlRendererOptions(BaseRendererOptions):
     css_file: str | None = field(
         default=None,
         metadata={"help": "Path to external CSS file (when css_style='external')"}
-    )
-    template: str | None = field(
-        default=None,
-        metadata={"help": "Path to custom Jinja2 template (None = use built-in)"}
     )
     include_toc: bool = field(
         default=False,

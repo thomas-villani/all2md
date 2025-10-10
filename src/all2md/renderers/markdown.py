@@ -1035,7 +1035,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
                     indent_lines = child_content.split('\n')
                     self._output.append('\n    ' + '\n    '.join(indent_lines))
         else:
-            mode = self.options.unsupported_table_mode
+            mode = self.options.unsupported_inline_mode
             if mode == "drop":
                 return
             elif mode == "html":

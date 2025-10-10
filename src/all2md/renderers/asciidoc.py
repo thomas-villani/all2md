@@ -23,6 +23,8 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -47,6 +49,7 @@ from all2md.ast.visitors import NodeVisitor
 from all2md.options.asciidoc import AsciiDocRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.escape import escape_asciidoc, escape_asciidoc_attribute
+from all2md.utils.footnotes import FootnoteCollector
 
 
 class AsciiDocRenderer(NodeVisitor, BaseRenderer):
@@ -85,6 +88,8 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         self._list_level: int = 0
         self._in_list: bool = False
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
+        self._footnote_collector: FootnoteCollector = FootnoteCollector()
+        self._footnotes_emitted: set[str] = set()  # Track which footnotes have been emitted inline
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to AsciiDoc string.
@@ -104,6 +109,8 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         self._list_level = 0
         self._in_list = False
         self._list_ordered_stack = []
+        self._footnote_collector = FootnoteCollector()
+        self._footnotes_emitted = set()
 
         document.accept(self)
 
@@ -119,6 +126,10 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             Document to render
 
         """
+        # Pre-collect all footnote definitions from the document
+        # This ensures definitions are available when references are rendered
+        self._collect_footnote_definitions(node)
+
         # Render metadata as attributes if enabled
         if self.options.use_attributes and node.metadata:
             self._render_attributes(node.metadata)
@@ -129,6 +140,33 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             # Add blank line between blocks
             if i < len(node.children) - 1:
                 self._output.append('\n\n')
+
+    def _collect_footnote_definitions(self, node: Node) -> None:
+        """Recursively collect all footnote definitions from the document.
+
+        Parameters
+        ----------
+        node : Node
+            Node to search for footnote definitions
+
+        """
+        if isinstance(node, FootnoteDefinition):
+            self._footnote_collector.register_definition(
+                node.identifier,
+                node.content,
+                note_type="footnote"
+            )
+
+        # Recursively search children
+        if hasattr(node, 'children'):
+            for child in node.children:
+                self._collect_footnote_definitions(child)
+
+        # Search content for inline nodes
+        if hasattr(node, 'content') and isinstance(node.content, list):
+            for item in node.content:
+                if isinstance(item, Node):
+                    self._collect_footnote_definitions(item)
 
     def _render_attributes(self, metadata: dict) -> None:
         """Render metadata as AsciiDoc attributes.
@@ -601,29 +639,55 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         # AsciiDoc uses [line-through] for strikethrough
         self._output.append(f"[line-through]#{content}#")
 
-    def visit_footnote_reference(self, node: Any) -> None:
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
 
         Parameters
         ----------
-        node : Any
+        node : FootnoteReference
             Footnote reference to render
 
         """
-        # AsciiDoc uses footnote: macro
-        self._output.append(f"footnote:[{node.identifier}]")
+        # Register the reference and get canonical identifier
+        canonical_id = self._footnote_collector.register_reference(
+            node.identifier,
+            note_type="footnote"
+        )
 
-    def visit_footnote_definition(self, node: Any) -> None:
+        # Check if this is the first occurrence
+        if canonical_id not in self._footnotes_emitted:
+            # First occurrence: emit footnote:id[text]
+            # Get the definition content if available
+            definitions = list(self._footnote_collector.iter_definitions(note_type_priority=["footnote"]))
+            footnote_text = ""
+            for defn in definitions:
+                if defn.identifier == canonical_id:
+                    # Render the footnote content as inline text
+                    footnote_text = self._render_inline_content(defn.content)
+                    break
+
+            if footnote_text:
+                self._output.append(f"footnote:{canonical_id}[{footnote_text}]")
+            else:
+                # No definition found, just emit the reference
+                self._output.append(f"footnote:{canonical_id}[]")
+
+            self._footnotes_emitted.add(canonical_id)
+        else:
+            # Subsequent occurrence: emit footnote:id[]
+            self._output.append(f"footnote:{canonical_id}[]")
+
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render a FootnoteDefinition node.
 
         Parameters
         ----------
-        node : Any
+        node : FootnoteDefinition
             Footnote definition to render
 
         """
-        # Footnote definitions are handled inline in AsciiDoc
-        # This is typically not called directly
+        # Footnote definitions are pre-collected in visit_document
+        # and emitted inline at the first reference, so nothing to do here
         pass
 
     def visit_math_inline(self, node: Any) -> None:

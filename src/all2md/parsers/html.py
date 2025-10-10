@@ -1718,7 +1718,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_class="all2md.renderers.html.HtmlRenderer",
     renders_as_string=True,
     parser_required_packages=[("beautifulsoup4", "bs4", "")],
-    renderer_required_packages=[("jinja2", "jinja2", ">=3.1.0")],
+    renderer_required_packages=[],
     optional_packages=[],
     import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
     parser_options_class=HtmlOptions,

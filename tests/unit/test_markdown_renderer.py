@@ -19,6 +19,8 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -666,3 +668,57 @@ class TestEscaping:
         result = renderer.render_to_string(doc)
         assert "\\*" not in result
         assert "*asterisks*" in result
+
+
+@pytest.mark.unit
+class TestFootnotes:
+    """Tests for footnote rendering."""
+
+    def test_footnote_reference_pandoc_flavor(self):
+        """Test footnote reference with Pandoc flavor (supports footnotes)."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Text"),
+                FootnoteReference(identifier="1")
+            ]),
+            FootnoteDefinition(identifier="1", content=[Text(content="Footnote text")])
+        ])
+        options = MarkdownOptions(flavor="pandoc")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        assert "[^1]" in result
+        assert "[^1]: Footnote text" in result
+
+    def test_footnote_unsupported_flavor_uses_correct_option(self):
+        """Test that unsupported footnote definition uses unsupported_inline_mode (bug fix)."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Text"),
+                FootnoteReference(identifier="note1")
+            ]),
+            FootnoteDefinition(identifier="note1", content=[Text(content="Footnote text")])
+        ])
+        # CommonMark doesn't support footnotes
+        options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="html")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Reference should use HTML
+        assert "<sup>note1</sup>" in result
+        # Definition should use HTML (not drop it)
+        assert '<div id="fn-note1">' in result or "Footnote text" in result
+
+    def test_footnote_definition_drop_mode(self):
+        """Test footnote definition with drop mode for unsupported flavors."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Text")]),
+            FootnoteDefinition(identifier="note1", content=[Text(content="Footnote text")])
+        ])
+        # CommonMark doesn't support footnotes
+        options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="drop")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Definition should be dropped
+        assert "Footnote text" not in result

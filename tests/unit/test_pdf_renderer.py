@@ -611,6 +611,28 @@ class TestFootnotes:
             # Footnote text should appear at bottom
             assert "Footnote text" in text
 
+    def test_multiple_references_same_footnote(self, tmp_path):
+        """Test multiple references to the same footnote use the same number."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="First reference"),
+                FootnoteReference(identifier="note1"),
+                Text(content=" and second reference"),
+                FootnoteReference(identifier="note1")
+            ]),
+            FootnoteDefinition(identifier="note1", content=[Text(content="Shared footnote")])
+        ])
+        renderer = PdfRenderer()
+        output_file = tmp_path / "multiple_refs.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "First reference" in text
+            assert "second reference" in text
+            assert "Shared footnote" in text
+
 
 @pytest.mark.unit
 @pytest.mark.pdf
