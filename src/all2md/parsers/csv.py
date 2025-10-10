@@ -24,93 +24,50 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.spreadsheet import build_table_ast, sanitize_cell_text, transform_header_case
 
 logger = logging.getLogger(__name__)
 
 
-def _make_csv_dialect(delimiter: str) -> type[csv.Dialect]:
-    r"""Create a CSV dialect class with a custom delimiter.
+def _make_csv_dialect(
+    delimiter: str | None = None,
+    quotechar: str | None = None,
+    escapechar: str | None = None,
+    doublequote: bool | None = None
+) -> type[csv.Dialect]:
+    r"""Create a CSV dialect class with custom parameters.
 
-    This function creates a dialect subclass based on csv.excel with a custom
-    delimiter, avoiding the need to mutate dialect instances.
+    This function creates a dialect subclass based on csv.excel with custom
+    parameters, avoiding the need to mutate dialect instances.
 
     Parameters
     ----------
-    delimiter : str
-        The delimiter character (e.g., ',', '\t', ';', '|')
+    delimiter : str | None, default None
+        The delimiter character (e.g., ',', '\\t', ';', '|')
+    quotechar : str | None, default None
+        The quote character (e.g., '"', "'")
+    escapechar : str | None, default None
+        The escape character (e.g., '\\\\')
+    doublequote : bool | None, default None
+        Whether to use double quoting
 
     Returns
     -------
     type[csv.Dialect]
-        A dialect class based on csv.excel with the specified delimiter
+        A dialect class based on csv.excel with the specified parameters
 
     """
-    return type('CustomDialect', (csv.excel,), {'delimiter': delimiter})
+    attrs: dict[str, Any] = {}
+    if delimiter is not None:
+        attrs['delimiter'] = delimiter
+    if quotechar is not None:
+        attrs['quotechar'] = quotechar
+    if escapechar is not None:
+        attrs['escapechar'] = escapechar
+    if doublequote is not None:
+        attrs['doublequote'] = doublequote
 
-
-def _sanitize_cell_text(text: Any) -> str:
-    """Convert cell value to a safe string for AST Text node.
-
-    Note: Markdown escaping is handled by the renderer, not here.
-    We only normalize whitespace and convert to string.
-
-    Parameters
-    ----------
-    text : Any
-        Cell value to sanitize
-
-    Returns
-    -------
-    str
-        Sanitized cell text
-
-    """
-    if text is None:
-        return ""
-    # Simple normalization
-    return str(text)
-
-
-def _build_table_ast(
-    header: list[str], rows: list[list[str]], alignments: list[Alignment]
-) -> Table:
-    """Build an AST Table from header, rows, and alignments.
-
-    Parameters
-    ----------
-    header : list[str]
-        Header row cells
-    rows : list[list[str]]
-        Data rows
-    alignments : list[Alignment]
-        Column alignments ('left', 'center', 'right')
-
-    Returns
-    -------
-    Table
-        AST Table node
-
-    """
-    # Build header row
-    header_cells = [
-        TableCell(content=[Text(content=cell)], alignment=alignments[i] if i < len(alignments) else "center")
-        for i, cell in enumerate(header)
-    ]
-    header_row = TableRow(cells=header_cells, is_header=True)
-
-    # Build data rows
-    data_rows = []
-    for row in rows:
-        row_cells = [
-            TableCell(content=[Text(content=cell)], alignment=alignments[i] if i < len(alignments) else "center")
-            for i, cell in enumerate(row)
-        ]
-        data_rows.append(TableRow(cells=row_cells, is_header=False))
-
-    # Table alignments are already the correct type
-    table_alignments: list[Alignment | None] = list(alignments)
-
-    return Table(header=header_row, rows=data_rows, alignments=table_alignments)
+    return type('CustomDialect', (csv.excel,), attrs)
 
 
 class CsvToAstConverter(BaseParser):
@@ -227,16 +184,24 @@ class CsvToAstConverter(BaseParser):
         text_stream.seek(0)
 
         dialect_obj: type[csv.Dialect]
-        if self.options.csv_delimiter:
-            dialect_obj = _make_csv_dialect(self.options.csv_delimiter)
+
+        # If any custom dialect options are set, create custom dialect
+        if (self.options.csv_delimiter or self.options.csv_quotechar or
+            self.options.csv_escapechar or self.options.csv_doublequote is not None):
+            dialect_obj = _make_csv_dialect(
+                delimiter=self.options.csv_delimiter or delimiter,
+                quotechar=self.options.csv_quotechar,
+                escapechar=self.options.csv_escapechar,
+                doublequote=self.options.csv_doublequote
+            )
         elif self.options.detect_csv_dialect:
             try:
                 sniffer = csv.Sniffer()
                 dialect_obj = sniffer.sniff(sample, delimiters=",\t;|\x1f")
             except Exception:
-                dialect_obj = _make_csv_dialect(delimiter) if delimiter else csv.excel
+                dialect_obj = _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
         else:
-            dialect_obj = _make_csv_dialect(delimiter) if delimiter else csv.excel
+            dialect_obj = _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
 
         reader = csv.reader(text_stream, dialect=dialect_obj)
         rows: list[list[str]] = []
@@ -297,10 +262,10 @@ class CsvToAstConverter(BaseParser):
 
         # Sanitize cells
         if self.options.has_header:
-            header = [_sanitize_cell_text(c).lstrip("\ufeff") for c in header]
+            header = [sanitize_cell_text(c).lstrip("\ufeff") for c in header]
         else:
-            header = [_sanitize_cell_text(c) for c in header]
-        data_rows = [[_sanitize_cell_text(c) for c in r] for r in data_rows]
+            header = [sanitize_cell_text(c) for c in header]
+        data_rows = [[sanitize_cell_text(c) for c in r] for r in data_rows]
 
         # Strip whitespace if requested
         if self.options.strip_whitespace:
@@ -308,13 +273,13 @@ class CsvToAstConverter(BaseParser):
             data_rows = [[c.strip() for c in r] for r in data_rows]
 
         # Apply header case transformation
-        header = self._transform_header_case(header)
+        header = transform_header_case(header, self.options.header_case)
 
         # Alignments default to center
         alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
 
         # Build table AST
-        table = _build_table_ast(header, data_rows, alignments)
+        table = build_table_ast(header, data_rows, alignments)
 
         children: list[Node] = [table]
 
@@ -369,30 +334,6 @@ class CsvToAstConverter(BaseParser):
             content = str(input_data)
 
         return io.StringIO(content or "")
-
-    def _transform_header_case(self, header: list[str]) -> list[str]:
-        """Transform header case based on header_case option.
-
-        Parameters
-        ----------
-        header : list[str]
-            Header row
-
-        Returns
-        -------
-        list[str]
-            Transformed header
-
-        """
-        if self.options.header_case == "preserve":
-            return header
-        elif self.options.header_case == "title":
-            return [cell.title() for cell in header]
-        elif self.options.header_case == "upper":
-            return [cell.upper() for cell in header]
-        elif self.options.header_case == "lower":
-            return [cell.lower() for cell in header]
-        return header
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from CSV/TSV document.

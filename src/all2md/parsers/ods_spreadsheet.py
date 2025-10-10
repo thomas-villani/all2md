@@ -38,85 +38,15 @@ from all2md.utils.attachments import create_attachment_sequencer, process_attach
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.spreadsheet import (
+    build_table_ast,
+    sanitize_cell_text,
+    transform_header_case,
+    trim_columns,
+    trim_rows,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
-    """Convert any cell value to a safe string for AST Text node.
-
-    Note: Markdown escaping is handled by the renderer, not here.
-    We only normalize whitespace and convert to string.
-
-    Parameters
-    ----------
-    text : Any
-        Cell value to sanitize
-    preserve_newlines : bool
-        If True, preserve newlines as <br> tags; if False, replace with spaces
-
-    Returns
-    -------
-    str
-        Sanitized cell text
-
-    """
-    if text is None:
-        s = ""
-    else:
-        s = str(text)
-
-    # Handle newlines based on preserve_newlines option
-    if preserve_newlines:
-        # Keep line breaks as <br> tags
-        s = s.replace("\r\n", "<br>").replace("\r", "<br>").replace("\n", "<br>")
-    else:
-        # Normalize whitespace/newlines inside cells
-        s = s.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
-
-    return s
-
-
-def _build_table_ast(
-    header: list[str], rows: list[list[str]], alignments: list[Alignment]
-) -> Table:
-    """Build an AST Table from header, rows, and alignments.
-
-    Parameters
-    ----------
-    header : list[str]
-        Header row cells
-    rows : list[list[str]]
-        Data rows
-    alignments : list[Alignment]
-        Column alignments ('left', 'center', 'right')
-
-    Returns
-    -------
-    Table
-        AST Table node
-
-    """
-    # Build header row
-    header_cells = [
-        TableCell(content=[Text(content=cell)], alignment=alignments[i] if i < len(alignments) else "center")
-        for i, cell in enumerate(header)
-    ]
-    header_row = TableRow(cells=header_cells, is_header=True)
-
-    # Build data rows
-    data_rows = []
-    for row in rows:
-        row_cells = [
-            TableCell(content=[Text(content=cell)], alignment=alignments[i] if i < len(alignments) else "center")
-            for i, cell in enumerate(row)
-        ]
-        data_rows.append(TableRow(cells=row_cells, is_header=False))
-
-    # Table alignments are already the correct type
-    table_alignments: list[Alignment | None] = list(alignments)
-
-    return Table(header=header_row, rows=data_rows, alignments=table_alignments)
 
 
 def _extract_ods_images(
@@ -504,21 +434,21 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
             # Apply row/column trimming
             all_rows = [header] + data_rows if header else data_rows
-            all_rows = self._trim_rows(all_rows)
-            all_rows = self._trim_columns(all_rows)
+            all_rows = trim_rows(all_rows, self.options.trim_empty)
+            all_rows = trim_columns(all_rows, self.options.trim_empty)
 
             if not all_rows:
                 continue
 
             # Sanitize all cell content
-            header = [_sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
+            header = [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
             data_rows = [
-                [_sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
+                [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
                  for row in all_rows[1:]
             ]
 
             # Apply header case transformation
-            header = self._transform_header_case(header)
+            header = transform_header_case(header, self.options.header_case)
 
             # Ensure all rows have same number of columns
             if header:
@@ -528,7 +458,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             # Build table
             if header:
                 alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
-                table_node = _build_table_ast(header, data_rows, alignments)
+                table_node = build_table_ast(header, data_rows, alignments)
                 children.append(table_node)
 
             # Add truncation indicator if needed
@@ -557,106 +487,6 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             )
 
         return Document(children=children, metadata=metadata.to_dict())
-
-    def _trim_rows(self, rows: list[list[str]]) -> list[list[str]]:
-        """Trim empty rows based on trim_empty option.
-
-        Parameters
-        ----------
-        rows : list[list[str]]
-            Rows to trim
-
-        Returns
-        -------
-        list[list[str]]
-            Trimmed rows
-
-        """
-        if not rows or self.options.trim_empty == "none":
-            return rows
-
-        # Trim leading empty rows
-        if self.options.trim_empty in ("leading", "both"):
-            while rows and all(c == "" for c in rows[0]):
-                rows.pop(0)
-
-        # Trim trailing empty rows
-        if self.options.trim_empty in ("trailing", "both"):
-            while rows and all(c == "" for c in rows[-1]):
-                rows.pop()
-
-        return rows
-
-    def _trim_columns(self, rows: list[list[str]]) -> list[list[str]]:
-        """Trim empty columns based on trim_empty option.
-
-        Parameters
-        ----------
-        rows : list[list[str]]
-            Rows to trim columns from
-
-        Returns
-        -------
-        list[list[str]]
-            Rows with trimmed columns
-
-        """
-        if not rows or self.options.trim_empty == "none":
-            return rows
-
-        if not rows[0]:
-            return rows
-
-        num_cols = len(rows[0])
-
-        # Find leading empty columns
-        leading_empty = 0
-        if self.options.trim_empty in ("leading", "both"):
-            for col_idx in range(num_cols):
-                if all(row[col_idx] == "" if col_idx < len(row) else True for row in rows):
-                    leading_empty += 1
-                else:
-                    break
-
-        # Find trailing empty columns
-        trailing_empty = 0
-        if self.options.trim_empty in ("trailing", "both"):
-            for col_idx in range(num_cols - 1, -1, -1):
-                if all(row[col_idx] == "" if col_idx < len(row) else True for row in rows):
-                    trailing_empty += 1
-                else:
-                    break
-
-        # Trim columns
-        if leading_empty > 0 or trailing_empty > 0:
-            end_col = num_cols - trailing_empty
-            return [row[leading_empty:end_col] for row in rows]
-
-        return rows
-
-    def _transform_header_case(self, header: list[str]) -> list[str]:
-        """Transform header case based on header_case option.
-
-        Parameters
-        ----------
-        header : list[str]
-            Header row
-
-        Returns
-        -------
-        list[str]
-            Transformed header
-
-        """
-        if self.options.header_case == "preserve":
-            return header
-        elif self.options.header_case == "title":
-            return [cell.title() for cell in header]
-        elif self.options.header_case == "upper":
-            return [cell.upper() for cell in header]
-        elif self.options.header_case == "lower":
-            return [cell.lower() for cell in header]
-        return header
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from ODS document.

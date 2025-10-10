@@ -35,6 +35,8 @@ class ZipOptions(BaseParserOptions):
         Whether to extract non-parseable files (images, CSS, etc.) to attachment directory.
     skip_empty_files : bool, default True
         Whether to skip files with no content or that fail to parse.
+    include_resource_manifest : bool, default True
+        Whether to include a manifest table of extracted resources at the end of the document.
 
     """
 
@@ -98,5 +100,13 @@ class ZipOptions(BaseParserOptions):
         metadata={
             "help": "Skip files with no content or parse failures",
             "cli_name": "no-skip-empty"
+        }
+    )
+
+    include_resource_manifest: bool = field(
+        default=True,
+        metadata={
+            "help": "Include manifest table of extracted resources",
+            "cli_name": "no-resource-manifest"
         }
     )

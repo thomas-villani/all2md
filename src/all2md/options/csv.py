@@ -23,6 +23,15 @@ class CsvOptions(BaseParserOptions):
     csv_delimiter : str | None, default None
         Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|').
         When set, disables dialect detection.
+    csv_quotechar : str | None, default None
+        Override quote character (e.g., '"', "'").
+        When set, uses this for quoting.
+    csv_escapechar : str | None, default None
+        Override escape character (e.g., '\\\\').
+        When set, uses this for escaping.
+    csv_doublequote : bool | None, default None
+        Enable/disable double quoting (two quote chars = one literal quote).
+        When set, overrides dialect's doublequote setting.
     has_header : bool, default True
         Whether the first row contains column headers.
         When False, generates generic headers (Column 1, Column 2, etc.).
@@ -43,6 +52,9 @@ class CsvOptions(BaseParserOptions):
 
     detect_csv_dialect: bool = True
     csv_delimiter: Optional[str] = None
+    csv_quotechar: Optional[str] = None
+    csv_escapechar: Optional[str] = None
+    csv_doublequote: Optional[bool] = None
     has_header: bool = True
     max_rows: Optional[int] = None
     max_cols: Optional[int] = None

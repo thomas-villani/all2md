@@ -41,6 +41,11 @@ class OdsSpreadsheetOptions(BaseParserOptions):
         How to handle embedded charts:
         - "data": Extract chart data as markdown tables
         - "skip": Ignore charts entirely
+    merged_cell_mode : {"spans", "flatten", "skip"}, default "flatten"
+        How to handle merged cells:
+        - "spans": Use colspan/rowspan in AST (future enhancement, currently behaves like "flatten")
+        - "flatten": Replace merged followers with empty strings (current behavior)
+        - "skip": Skip merged cell detection entirely
 
     """
 
@@ -68,5 +73,12 @@ class OdsSpreadsheetOptions(BaseParserOptions):
         metadata={
             "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts)",
             "choices": ["data", "skip"]
+        }
+    )
+    merged_cell_mode: Literal["spans", "flatten", "skip"] = field(
+        default="flatten",
+        metadata={
+            "help": "Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'",
+            "choices": ["spans", "flatten", "skip"]
         }
     )

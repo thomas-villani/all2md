@@ -15,9 +15,9 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-from typing import IO, Optional, Union
+from typing import IO, Any, Optional, Union
 
-from all2md.ast import Document, Heading, Node, Paragraph, Text
+from all2md.ast import Alignment, Document, Heading, Node, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.exceptions import (
@@ -56,6 +56,8 @@ class ZipToAstConverter(BaseParser):
         options = options or ZipOptions()
         super().__init__(options, progress_callback=progress_callback)
         self.options: ZipOptions = options
+        # Track extracted resources for manifest
+        self._extracted_resources: list[dict[str, Any]] = []
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse ZIP archive into an AST Document.
@@ -171,6 +173,8 @@ class ZipToAstConverter(BaseParser):
 
         """
         children: list[Node] = []
+        # Reset extracted resources list
+        self._extracted_resources = []
 
         # Get list of files to process
         file_list = self._get_file_list(zf)
@@ -248,6 +252,12 @@ class ZipToAstConverter(BaseParser):
                     )
                 processed_count += 1
                 continue
+
+        # Add resource manifest if requested and resources were extracted
+        if (self.options.include_resource_manifest and
+            self.options.extract_resource_files and
+            self._extracted_resources):
+            self._add_resource_manifest(children)
 
         return Document(children=children)
 
@@ -356,9 +366,10 @@ class ZipToAstConverter(BaseParser):
                 # No parser available
                 logger.debug(f"No parser for format '{detected_format}': {file_path}")
 
-                # If extract_resource_files is enabled and we have an attachment dir,
-                # we could save it here (but that requires knowing the output dir)
-                # For now, just return None
+                # If extract_resource_files is enabled, extract the resource
+                if self.options.extract_resource_files and self.options.attachment_output_dir:
+                    self._extract_resource_file(file_path, file_data)
+
                 return None
 
             # Reset the file object position for parsing
@@ -410,6 +421,83 @@ class ZipToAstConverter(BaseParser):
         }
 
         return metadata
+
+    def _extract_resource_file(self, file_path: str, file_data: bytes) -> None:
+        """Extract a resource file to the attachment directory.
+
+        Parameters
+        ----------
+        file_path : str
+            Path of file in archive
+        file_data : bytes
+            File content bytes
+
+        """
+        if not self.options.attachment_output_dir:
+            return
+
+        try:
+            # Determine output path
+            output_dir = Path(self.options.attachment_output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Preserve directory structure or flatten based on options
+            if self.options.preserve_directory_structure and not self.options.flatten_structure:
+                output_file = output_dir / file_path
+                output_file.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                output_file = output_dir / Path(file_path).name
+
+            # Write the file
+            output_file.write_bytes(file_data)
+
+            # Track for manifest
+            self._extracted_resources.append({
+                "filename": Path(file_path).name,
+                "path": file_path,
+                "size": len(file_data),
+                "output_path": str(output_file)
+            })
+
+            logger.debug(f"Extracted resource: {file_path} -> {output_file}")
+
+        except Exception as e:
+            logger.warning(f"Failed to extract resource {file_path}: {e}")
+
+    def _add_resource_manifest(self, children: list[Node]) -> None:
+        """Add a manifest table of extracted resources to the document.
+
+        Parameters
+        ----------
+        children : list[Node]
+            Document children list to append manifest to
+
+        """
+        # Add heading
+        children.append(Heading(level=2, content=[Text(content="Extracted Resources")]))
+
+        # Build manifest table
+        header_cells = [
+            TableCell(content=[Text(content="Filename")], alignment="left"),
+            TableCell(content=[Text(content="Archive Path")], alignment="left"),
+            TableCell(content=[Text(content="Size (bytes)")], alignment="right"),
+        ]
+        header_row = TableRow(cells=header_cells, is_header=True)
+
+        # Build data rows
+        data_rows = []
+        for resource in self._extracted_resources:
+            row_cells = [
+                TableCell(content=[Text(content=resource["filename"])], alignment="left"),
+                TableCell(content=[Text(content=resource["path"])], alignment="left"),
+                TableCell(content=[Text(content=str(resource["size"]))], alignment="right"),
+            ]
+            data_rows.append(TableRow(cells=row_cells, is_header=False))
+
+        # Create table
+        alignments: list[Alignment | None] = ["left", "left", "right"]
+        table = Table(header=header_row, rows=data_rows, alignments=alignments)
+        children.append(table)
 
 
 # Converter metadata for registry
