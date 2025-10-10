@@ -492,6 +492,133 @@ class TestLists:
         assert "* [x]" in result
         assert "* [ ]" in result
 
+    def test_nested_unordered_list(self):
+        """Test rendering nested unordered lists with proper indentation."""
+        nested_list = List(ordered=False, items=[
+            ListItem(children=[Paragraph(content=[Text(content="Nested 1")])]),
+            ListItem(children=[Paragraph(content=[Text(content="Nested 2")])])
+        ])
+        doc = Document(children=[
+            List(ordered=False, items=[
+                ListItem(children=[
+                    Paragraph(content=[Text(content="Item 1")]),
+                    nested_list
+                ]),
+                ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
+            ])
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        lines = result.split('\n')
+        # First item should not be indented
+        assert lines[0] == "* Item 1"
+        # Nested items should be indented by 2 spaces (marker "* " is 2 chars)
+        assert lines[1] == "  - Nested 1"
+        assert lines[2] == "  - Nested 2"
+        # Second top-level item should not be indented
+        assert lines[3] == "* Item 2"
+
+    def test_nested_ordered_list(self):
+        """Test rendering nested ordered lists with proper indentation."""
+        nested_list = List(ordered=True, items=[
+            ListItem(children=[Paragraph(content=[Text(content="Nested A")])]),
+            ListItem(children=[Paragraph(content=[Text(content="Nested B")])])
+        ])
+        doc = Document(children=[
+            List(ordered=True, items=[
+                ListItem(children=[
+                    Paragraph(content=[Text(content="First")]),
+                    nested_list
+                ]),
+                ListItem(children=[Paragraph(content=[Text(content="Second")])])
+            ])
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        lines = result.split('\n')
+        assert lines[0] == "1. First"
+        # Nested items indented by 3 spaces (marker "1. " is 3 chars)
+        assert lines[1] == "   1. Nested A"
+        assert lines[2] == "   2. Nested B"
+        assert lines[3] == "2. Second"
+
+    def test_multi_paragraph_list_item(self):
+        """Test rendering list items with multiple paragraphs."""
+        doc = Document(children=[
+            List(ordered=False, items=[
+                ListItem(children=[
+                    Paragraph(content=[Text(content="First paragraph")]),
+                    Paragraph(content=[Text(content="Second paragraph")])
+                ]),
+                ListItem(children=[Paragraph(content=[Text(content="Next item")])])
+            ])
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        lines = result.split('\n')
+        assert lines[0] == "* First paragraph"
+        # Second paragraph indented by 2 spaces to align with first
+        assert lines[1] == "  Second paragraph"
+        assert lines[2] == "* Next item"
+
+    def test_deeply_nested_list(self):
+        """Test rendering deeply nested lists (3 levels)."""
+        level3_list = List(ordered=False, items=[
+            ListItem(children=[Paragraph(content=[Text(content="Level 3")])])
+        ])
+        level2_list = List(ordered=False, items=[
+            ListItem(children=[
+                Paragraph(content=[Text(content="Level 2")]),
+                level3_list
+            ])
+        ])
+        doc = Document(children=[
+            List(ordered=False, items=[
+                ListItem(children=[
+                    Paragraph(content=[Text(content="Level 1")]),
+                    level2_list
+                ])
+            ])
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        lines = result.split('\n')
+        assert lines[0] == "* Level 1"
+        assert lines[1] == "  - Level 2"
+        # Level 3 indented by 4 spaces (2 for level 1 + 2 for level 2)
+        assert lines[2] == "    + Level 3"
+
+    def test_ordered_list_varying_marker_widths(self):
+        """Test rendering ordered lists with varying marker widths (1-9, 10-99)."""
+        doc = Document(children=[
+            List(ordered=True, start=8, tight=False, items=[
+                ListItem(children=[
+                    Paragraph(content=[Text(content="Item 8")]),
+                    Paragraph(content=[Text(content="Continuation 8")])
+                ]),
+                ListItem(children=[
+                    Paragraph(content=[Text(content="Item 9")]),
+                    Paragraph(content=[Text(content="Continuation 9")])
+                ]),
+                ListItem(children=[
+                    Paragraph(content=[Text(content="Item 10")]),
+                    Paragraph(content=[Text(content="Continuation 10")])
+                ])
+            ])
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        lines = result.split('\n')
+        # All markers are aligned properly
+        assert lines[0] == "8. Item 8"
+        assert lines[1] == "   Continuation 8"  # 3 spaces (marker "8. ")
+        assert lines[2] == ""  # blank line between items
+        assert lines[3] == "9. Item 9"
+        assert lines[4] == "   Continuation 9"  # 3 spaces (marker "9. ")
+        assert lines[5] == ""  # blank line
+        assert lines[6] == "10. Item 10"
+        assert lines[7] == "    Continuation 10"  # 4 spaces (marker "10. ")
+
 
 @pytest.mark.unit
 class TestTables:

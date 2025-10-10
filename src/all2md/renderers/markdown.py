@@ -109,6 +109,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         self._indent_level: int = 0
         self._in_list: bool = False
         self._list_marker_stack: list[str] = []
+        self._marker_width_stack: list[int] = []
         self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
         self._next_ref_id: int = 1
 
@@ -155,6 +156,7 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
         self._indent_level = 0
         self._in_list = False
         self._list_marker_stack = []
+        self._marker_width_stack = []
         self._link_references = {}
         self._next_ref_id = 1
 
@@ -251,6 +253,10 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
             Indentation spaces
 
         """
+        # For lists, use accumulated marker widths for indentation
+        # This ensures proper alignment in nested lists
+        if self._marker_width_stack:
+            return ' ' * sum(self._marker_width_stack)
         return ' ' * (self._indent_level * self.options.list_indent_width)
 
     def _get_bullet_symbol(self, depth: int) -> str:
@@ -455,6 +461,11 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
         """
         was_in_list = self._in_list
+
+        # Increment indent level for nested lists
+        if self._in_list:
+            self._indent_level += 1
+
         self._in_list = True
 
         for i, item in enumerate(node.items):
@@ -477,6 +488,10 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
         self._in_list = was_in_list
 
+        # Decrement indent level when exiting nested list
+        if was_in_list:
+            self._indent_level -= 1
+
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
 
@@ -495,28 +510,47 @@ class MarkdownRenderer(NodeVisitor, BaseRenderer):
 
         self._output.append(f"{indent}{marker}")
 
+        marker_width = len(marker)
+
         # Render children - first child inline with marker, others indented
         for i, child in enumerate(node.children):
             if i == 0:
-                # First child goes immediately after the marker
+                # First child goes immediately after the marker (no indentation)
+                # Temporarily clear state so first child renders without indent
                 saved_output = self._output
                 self._output = []
+
+                # Save and clear both marker width stack and indent level
+                # so first child doesn't add any indentation
+                saved_stack = self._marker_width_stack.copy()
+                saved_indent_level = self._indent_level
+                self._marker_width_stack.clear()
+                self._indent_level = 0
+
                 child.accept(self)
+
+                # Restore state
+                self._marker_width_stack = saved_stack
+                self._indent_level = saved_indent_level
+
                 child_content = ''.join(self._output)
                 self._output = saved_output
                 self._output.append(child_content)
             else:
-                # Subsequent children (nested lists, paragraphs) are indented
-                # Use marker width for proper alignment
-                marker_width = len(marker)
-                child_indent = indent + (' ' * marker_width)
-                self._output.append(f"\n{child_indent}")
+                # For subsequent children, push marker width to stack first
+                # This ensures nested content sees the correct indentation
+                if i == 1:
+                    self._marker_width_stack.append(marker_width)
 
-                # Save and restore indent level for nested lists
-                saved_indent = self._indent_level
-                self._indent_level = len(indent + (' ' * marker_width)) // self.options.list_indent_width
+                # Subsequent children are indented
+                # Both nested lists and other blocks (paragraphs, code blocks, etc.)
+                # will use _current_indent() which now includes the marker width
+                self._output.append('\n')
                 child.accept(self)
-                self._indent_level = saved_indent
+
+        # Pop marker width from stack if we pushed it
+        if len(node.children) > 1:
+            self._marker_width_stack.pop()
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
