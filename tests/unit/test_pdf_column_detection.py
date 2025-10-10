@@ -292,3 +292,44 @@ def test_column_detection_mixed_layout():
     # With median width check, should recognize full-width blocks and return single column
     # (because median block width is large relative to page)
     assert len(columns) == 1 or len(columns) == 2
+
+
+def test_column_detection_with_spanning_header():
+    """Test that spanning headers don't prevent column detection."""
+    blocks = [
+        # Full-width header that spans both columns
+        {"bbox": [72, 36, 434, 51], "text": "Header spanning both columns"},
+        # Left column blocks
+        {"bbox": [72, 100, 290, 120], "text": "Left column text 1"},
+        {"bbox": [72, 130, 290, 150], "text": "Left column text 2"},
+        {"bbox": [72, 160, 290, 180], "text": "Left column text 3"},
+        # Right column blocks (significant gap after left column)
+        {"bbox": [324, 100, 522, 120], "text": "Right column text 1"},
+        {"bbox": [324, 130, 522, 150], "text": "Right column text 2"},
+        {"bbox": [324, 160, 522, 180], "text": "Right column text 3"},
+    ]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    # Should detect 2 columns despite the spanning header
+    assert len(columns) == 2
+    # Left column should have left blocks (plus possibly the header)
+    assert any(b["bbox"][0] < 100 and b["bbox"][2] < 350 for b in columns[0])
+    # Right column should have right blocks
+    assert any(b["bbox"][0] > 300 for b in columns[1])
+
+
+def test_column_detection_all_spanning_blocks():
+    """Test handling when all blocks span the full width."""
+    blocks = [
+        # All blocks are full-width
+        {"bbox": [50, 100, 500, 120], "text": "Full width 1"},
+        {"bbox": [50, 130, 500, 150], "text": "Full width 2"},
+        {"bbox": [50, 160, 500, 180], "text": "Full width 3"},
+    ]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    # Should return single column when all blocks span full width
+    assert len(columns) == 1
+    assert len(columns[0]) == 3

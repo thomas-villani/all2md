@@ -5,7 +5,6 @@ This module defines options for parsing PDF documents with advanced
 table detection and layout analysis.
 """
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
     DEFAULT_COLUMN_DETECTION_MODE,
@@ -35,7 +34,8 @@ from all2md.constants import (
     DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE,
     DEFAULT_TABLE_RULING_LINE_THRESHOLD,
     DEFAULT_TRIM_HEADERS_FOOTERS,
-    DEFAULT_USE_COLUMN_CLUSTERING,
+    DEFAULT_USE_COLUMN_CLUSTERING, PageSize, DEFAULT_PDF_PAGE_SIZE, DEFAULT_PDF_MARGIN, DEFAULT_PDF_FONT_FAMILY,
+    DEFAULT_PDF_FONT_SIZE, DEFAULT_PDF_CODE_FONT, DEFAULT_PDF_LINE_SPACING,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
@@ -480,35 +480,37 @@ class PdfRendererOptions(BaseRendererOptions):
 
     """
 
-    page_size: Literal["letter", "a4", "legal"] = field(
-        default="letter",
+
+    page_size: PageSize = field(
+        default=DEFAULT_PDF_PAGE_SIZE,
         metadata={
             "help": "Page size: letter, a4, or legal",
             "choices": ["letter", "a4", "legal"]
         }
     )
     margin_top: float = field(
-        default=72.0,
+        default=DEFAULT_PDF_MARGIN,
         metadata={"help": "Top margin in points (72pt = 1 inch)", "type": float}
     )
     margin_bottom: float = field(
-        default=72.0,
+        default=DEFAULT_PDF_MARGIN,
         metadata={"help": "Bottom margin in points", "type": float}
     )
     margin_left: float = field(
-        default=72.0,
+        default=DEFAULT_PDF_MARGIN,
         metadata={"help": "Left margin in points", "type": float}
     )
     margin_right: float = field(
-        default=72.0,
+        default=DEFAULT_PDF_MARGIN,
         metadata={"help": "Right margin in points", "type": float}
     )
+
     font_name: str = field(
-        default="Helvetica",
+        default=DEFAULT_PDF_FONT_FAMILY,
         metadata={"help": "Default font (Helvetica, Times-Roman, Courier)"}
     )
     font_size: int = field(
-        default=11,
+        default=DEFAULT_PDF_FONT_SIZE,
         metadata={"help": "Default font size in points", "type": int}
     )
     heading_fonts: dict[int, tuple[str, int]] | None = field(
@@ -519,11 +521,11 @@ class PdfRendererOptions(BaseRendererOptions):
         }
     )
     code_font: str = field(
-        default="Courier",
+        default=DEFAULT_PDF_CODE_FONT,
         metadata={"help": "Monospace font for code"}
     )
     line_spacing: float = field(
-        default=1.2,
+        default=DEFAULT_PDF_LINE_SPACING,
         metadata={"help": "Line spacing multiplier (1.0 = single)", "type": float}
     )
     include_page_numbers: bool = field(

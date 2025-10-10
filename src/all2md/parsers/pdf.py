@@ -192,15 +192,23 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
     x_coords = []
     block_ranges = []
     block_centers = []
+    block_widths = []
     for block in blocks:
         if "bbox" in block:
             x0, x1 = block["bbox"][0], block["bbox"][2]
             x_coords.append(x0)
             block_ranges.append((x0, x1))
             block_centers.append((x0 + x1) / 2)
+            block_widths.append(x1 - x0)
 
     if len(x_coords) < 2:
         return [blocks]
+
+    # Calculate page width for detecting spanning blocks
+    min_x = min(x0 for x0, x1 in block_ranges)
+    max_x = max(x1 for x0, x1 in block_ranges)
+    page_width = max_x - min_x
+    spanning_threshold = 0.65  # Blocks wider than 65% of page width are considered spanning
 
     # Use k-means clustering if requested
     if use_clustering and block_centers:
@@ -250,15 +258,38 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
 
             return columns
 
-    # Build whitespace map: find gaps between all blocks
-    # Sort block ranges by left edge
-    sorted_ranges = sorted(block_ranges)
+    # Build whitespace map: find gaps between column groups
+    # Group blocks by starting x-position (with small tolerance for alignment variations)
+    from collections import defaultdict
+    x_tolerance = 5.0  # Points tolerance for grouping blocks with similar x0
+    x0_groups = defaultdict(list)
 
-    # Find whitespace gaps (vertical whitespace strips between columns)
+    for i, (x0, x1) in enumerate(block_ranges):
+        width = x1 - x0
+        # Skip blocks that span most of the page (headers, footers, etc)
+        if width > spanning_threshold * page_width:
+            continue
+        # Group by rounded x0 position
+        x0_key = round(x0 / x_tolerance) * x_tolerance
+        x0_groups[x0_key].append((x0, x1, i))
+
+    if not x0_groups:
+        # All blocks are spanning blocks
+        return [blocks]
+
+    # For each group, find the maximum x1 (rightmost edge)
+    group_ranges = []
+    for x0_key in sorted(x0_groups.keys()):
+        group = x0_groups[x0_key]
+        min_x0 = min(x0 for x0, x1, i in group)
+        max_x1 = max(x1 for x0, x1, i in group)
+        group_ranges.append((min_x0, max_x1))
+
+    # Find whitespace gaps between groups (actual column boundaries)
     whitespace_gaps = []
-    for i in range(len(sorted_ranges) - 1):
-        current_right = sorted_ranges[i][1]
-        next_left = sorted_ranges[i + 1][0]
+    for i in range(len(group_ranges) - 1):
+        current_right = group_ranges[i][1]
+        next_left = group_ranges[i + 1][0]
         gap_width = next_left - current_right
 
         if gap_width >= column_gap_threshold:
@@ -1560,106 +1591,125 @@ class PdfToAstConverter(BaseParser):
                 page=page_num + 1
             )
 
-        # 2. Make a list of table boundary boxes, sort by top-left corner
-        # Combine PyMuPDF tables and fallback tables
-        tab_rects = sorted(
-            [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i, "pymupdf") for i, t in enumerate(tabs.tables)]
-            + [(rect, i, "fallback") for i, rect in enumerate(fallback_table_rects)],
-            key=lambda r: (r[0].y0, r[0].x0),
-        )
+        # 2. NEW APPROACH: Process entire page with column-aware table placement
+        # Get all text blocks from the entire page (no clipping by table regions)
+        try:
+            text_flags = fitz.TEXTFLAGS_TEXT
+            if self.options.merge_hyphenated_words:
+                text_flags |= fitz.TEXT_DEHYPHENATE
 
-        # 3. Final list of all text and table rectangles
-        text_rects = []
-        # Compute rectangles outside tables and fill final rect list
-        for i, (r, idx, table_type) in enumerate(tab_rects):
-            if i == 0:  # Compute rect above all tables
-                tr = page.rect
-                tr.y1 = r.y0
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0, ""))
-                text_rects.append(("table", r, idx, table_type))
+            all_blocks = page.get_text(
+                "dict",
+                flags=text_flags,
+                sort=False,
+            )["blocks"]
+        except (AttributeError, KeyError, Exception):
+            return []
+
+        # Filter headers/footers if enabled
+        if self.options.trim_headers_footers:
+            all_blocks = self._filter_headers_footers(all_blocks, page)
+
+        # Build table list first to exclude table regions from text processing
+        table_info = []
+        for i, t in enumerate(tabs.tables):
+            bbox = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+            table_info.append({"bbox": bbox, "idx": i, "type": "pymupdf", "table_obj": t})
+        for i, rect in enumerate(fallback_table_rects):
+            table_info.append({"bbox": rect, "idx": i, "type": "fallback", "lines": fallback_table_lines[i]})
+
+        # Filter out blocks that are inside table regions
+        text_blocks = []
+        for block in all_blocks:
+            if "bbox" not in block:
+                text_blocks.append(block)
                 continue
-            # Read previous rectangle in final list: always a table
-            _, r0, idx0, _ = text_rects[-1]
+            block_rect = fitz.Rect(block["bbox"])
+            # Check if this block overlaps significantly with any table
+            is_in_table = False
+            for table in table_info:
+                overlap = block_rect & table["bbox"]
+                # If more than 50% of block area overlaps with table, exclude it
+                if abs(overlap) > 0.5 * abs(block_rect):
+                    is_in_table = True
+                    break
+            if not is_in_table:
+                text_blocks.append(block)
 
-            # Check if a non-empty text rect is fitting in between tables
-            tr = page.rect
-            tr.y0 = r0.y1
-            tr.y1 = r.y0
-            if not tr.is_empty:  # Empty if two tables overlap vertically
-                text_rects.append(("text", tr, 0, ""))
-
-            text_rects.append(("table", r, idx, table_type))
-
-            # There may also be text below all tables
-            if i == len(tab_rects) - 1:
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0, ""))
-
-        if not text_rects:  # This will happen for table-free pages
-            text_rects.append(("text", page.rect, 0, ""))
+        # Apply column detection to text blocks (excluding table content) if enabled
+        if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
+            columns = detect_columns(
+                text_blocks,
+                self.options.column_gap_threshold,
+                use_clustering=self.options.use_column_clustering
+            )
         else:
-            rtype, r, idx, _ = text_rects[-1]
-            if rtype == "table":
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0, ""))
+            # No column detection - treat as single column
+            columns = [text_blocks]
 
-        # Add image placement markers if enabled
+        # Assign each table to a column based on its x-coordinate
+        for table in table_info:
+            table_center_x = (table["bbox"].x0 + table["bbox"].x1) / 2
+            # Find which column this table belongs to
+            table["column"] = 0  # Default to first column
+            for col_idx, column in enumerate(columns):
+                if column:
+                    # Get x-range of this column
+                    col_x_values = [b["bbox"][0] for b in column if "bbox" in b]
+                    if col_x_values:
+                        col_min_x = min(col_x_values)
+                        col_max_x = max(b["bbox"][2] for b in column if "bbox" in b)
+                        # Check if table center is within this column's x-range
+                        if col_min_x <= table_center_x <= col_max_x:
+                            table["column"] = col_idx
+                            break
+
+        # Process each column with its tables inserted at the correct y-position
+        for col_idx, column in enumerate(columns):
+            # Get tables that belong to this column
+            col_tables = [t for t in table_info if t["column"] == col_idx]
+
+            # Build a combined list of text blocks and tables, sorted by y-coordinate
+            items = []
+            for block in column:
+                if "bbox" in block:
+                    items.append(("block", block["bbox"][1], block))
+            for table in col_tables:
+                items.append(("table", table["bbox"].y0, table))
+
+            # Sort by y-coordinate
+            items.sort(key=lambda x: x[1])
+
+            # Process items in order
+            for item_type, y, item_data in items:
+                if item_type == "block":
+                    # Process text block - get links from page
+                    try:
+                        links = [line for line in page.get_links() if line["kind"] == 2]
+                    except (AttributeError, Exception):
+                        links = []
+                    block_nodes = self._process_single_block_to_ast(item_data, links, page_num)
+                    nodes.extend(block_nodes)
+                elif item_type == "table":
+                    # Process table
+                    if item_data["type"] == "pymupdf":
+                        table_node = self._process_table_to_ast(item_data["table_obj"], page_num)
+                        if table_node:
+                            nodes.append(table_node)
+                    elif item_data["type"] == "fallback":
+                        h_lines, v_lines = item_data["lines"]
+                        table_node = self._extract_table_from_ruling_rect(
+                            page, item_data["bbox"], h_lines, v_lines, page_num
+                        )
+                        if table_node:
+                            nodes.append(table_node)
+
+        # Add images if placement markers enabled
         if page_images and self.options.image_placement_markers:
-            # Sort images by vertical position
-            page_images.sort(key=lambda img: img["bbox"].y0)
-
-            # Insert images at appropriate positions
-            combined_rects: list[tuple[str, fitz.Rect, int | dict, str]] = []
-            img_idx = 0
-
-            for rtype, r, idx, table_type in text_rects:
-                # Check if any images should be placed before this rect
-                while img_idx < len(page_images) and page_images[img_idx]["bbox"].y1 <= r.y0:
-                    img = page_images[img_idx]
-                    combined_rects.append(("image", img["bbox"], img, ""))
-                    img_idx += 1
-
-                combined_rects.append((rtype, r, idx, table_type))
-
-            # Add remaining images
-            while img_idx < len(page_images):
-                img = page_images[img_idx]
-                combined_rects.append(("image", img["bbox"], img, ""))
-                img_idx += 1
-
-            text_rects = combined_rects  # type: ignore[assignment]
-
-        # Process all rectangles and convert to AST nodes
-        for rtype, r, idx, table_type in text_rects:
-            if rtype == "text":  # A text rectangle
-                text_nodes = self._process_text_region_to_ast(page, r, page_num)
-                if text_nodes:
-                    nodes.extend(text_nodes)
-            elif rtype == "table":  # A table rect
-                if table_type == "pymupdf":
-                    # Process PyMuPDF table
-                    table_node = self._process_table_to_ast(tabs[idx], page_num)
-                    if table_node:
-                        nodes.append(table_node)
-                elif table_type == "fallback":
-                    # Process fallback table using ruling lines
-                    h_lines, v_lines = fallback_table_lines[idx]
-                    table_node = self._extract_table_from_ruling_rect(
-                        page, fallback_table_rects[idx], h_lines, v_lines, page_num
-                    )
-                    if table_node:
-                        nodes.append(table_node)
-            elif rtype == "image":  # An image
-                # idx contains image info dict in this case
-                if isinstance(idx, dict):  # type: ignore[unreachable]  # Type guard
-                    img_node = self._create_image_node(idx, page_num)  # type: ignore[unreachable]
-                    if img_node:
-                        nodes.append(img_node)
+            for img in page_images:
+                img_node = self._create_image_node(img, page_num)
+                if img_node:
+                    nodes.append(img_node)
 
         return nodes
 
@@ -1730,24 +1780,17 @@ class PdfToAstConverter(BaseParser):
                     self.options.column_gap_threshold,
                     use_clustering=self.options.use_column_clustering
                 )
-                # Process blocks column by column for proper reading order
-                blocks_to_process = []
-                for column in columns:
-                    # Sort blocks within column by y-coordinate (top to bottom)
-                    column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-                    blocks_to_process.extend(column_sorted)
+                # Process blocks in proper reading order: top-to-bottom, left-to-right
+                blocks_to_process = self._merge_columns_for_reading_order(columns)
             else:  # "auto" mode (default)
                 columns = detect_columns(
                     blocks,
                     self.options.column_gap_threshold,
                     use_clustering=self.options.use_column_clustering
                 )
-                # Process blocks column by column for proper reading order
-                blocks_to_process = []
-                for column in columns:
-                    # Sort blocks within column by y-coordinate (top to bottom)
-                    column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-                    blocks_to_process.extend(column_sorted)
+                # Process blocks in proper reading order: top-to-bottom, left-to-right
+                # Merge columns with position-based sorting instead of column-by-column
+                blocks_to_process = self._merge_columns_for_reading_order(columns)
         else:
             blocks_to_process = blocks
 
@@ -1918,6 +1961,125 @@ class PdfToAstConverter(BaseParser):
             result.append(inline_node)
 
         return result
+
+    def _process_single_block_to_ast(
+        self, block: dict, links: list[dict], page_num: int
+    ) -> list[Node]:
+        """Process a single text block to AST nodes.
+
+        Parameters
+        ----------
+        block : dict
+            Single text block from PyMuPDF
+        links : list of dict
+            Links on the page
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        list of Node
+            List of AST nodes (paragraphs, headings, code blocks)
+
+        """
+        nodes: list[Node] = []
+
+        if "lines" not in block:
+            return nodes
+
+        previous_y = 0
+        in_code_block = False
+        code_block_lines: list[str] = []
+
+        for line in block["lines"]:
+            # Handle rotated text if enabled, otherwise skip non-horizontal lines
+            if line["dir"][1] != 0:  # Non-horizontal lines
+                if self.options.handle_rotated_text:
+                    rotated_text = handle_rotated_text(line, None)
+                    if rotated_text.strip():
+                        nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+                continue
+
+            spans = list(line.get("spans", []))
+            if not spans:
+                continue
+
+            this_y = line["bbox"][3]  # Current bottom coord
+
+            # Check for still being on same line
+            same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
+
+            # Are all spans in line in a mono-spaced font?
+            all_mono = all(s["flags"] & 8 for s in spans)
+
+            # Compute text of the line
+            text = "".join([s["text"] for s in spans])
+
+            if not same_line:
+                previous_y = this_y
+
+            # Handle monospace text (code blocks)
+            if all_mono:
+                if not in_code_block:
+                    in_code_block = True
+                # Add line to code block
+                # Compute approximate indentation
+                delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (spans[0]["size"] * 0.5))
+                code_block_lines.append(" " * delta + text)
+                continue
+
+            # If we were in a code block and now we're not, finalize it
+            if in_code_block:
+                code_content = "\n".join(code_block_lines)
+                nodes.append(
+                    CodeBlock(
+                        content=code_content,
+                        source_location=SourceLocation(format="pdf", page=page_num + 1)
+                    )
+                )
+                in_code_block = False
+                code_block_lines = []
+
+            # Process non-monospace text
+            # Check if first span is a header
+            first_span = spans[0]
+            header_level = 0
+            if self._hdr_identifier:
+                header_level = self._hdr_identifier.get_header_level(first_span)
+
+            if header_level > 0:
+                # This is a heading
+                inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                if inline_content:
+                    nodes.append(
+                        Heading(
+                            level=header_level,
+                            content=inline_content,
+                            source_location=SourceLocation(format="pdf", page=page_num + 1)
+                        )
+                    )
+            else:
+                # Regular paragraph
+                inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                if inline_content:
+                    nodes.append(
+                        AstParagraph(
+                            content=inline_content,
+                            source_location=SourceLocation(format="pdf", page=page_num + 1)
+                        )
+                    )
+
+        # Finalize any remaining code block
+        if in_code_block and code_block_lines:
+            code_content = "\n".join(code_block_lines)
+            nodes.append(
+                CodeBlock(
+                    content=code_content,
+                    source_location=SourceLocation(format="pdf", page=page_num + 1)
+                )
+            )
+
+        return nodes
 
     def _resolve_link_for_span(self, links: list[dict], span: dict) -> str | None:
         """Resolve link URL for a text span.
@@ -2269,6 +2431,38 @@ class PdfToAstConverter(BaseParser):
             filtered_blocks.append(block)
 
         return filtered_blocks
+
+    def _merge_columns_for_reading_order(self, columns: list[list[dict]]) -> list[dict]:
+        """Merge multiple columns into proper reading order.
+
+        For multi-column layouts, the standard reading order is column-by-column:
+        read the entire left column top-to-bottom, then move to the right column
+        and read it top-to-bottom. This matches how PyMuPDF naturally orders blocks
+        and is the expected behavior for most multi-column documents.
+
+        Parameters
+        ----------
+        columns : list[list[dict]]
+            List of columns, where each column is a list of blocks
+
+        Returns
+        -------
+        list[dict]
+            Merged list of blocks in proper reading order
+
+        """
+        if len(columns) <= 1:
+            # Single column or empty, just return flattened
+            return [block for col in columns for block in col]
+
+        # Sort each column by y-coordinate (top to bottom)
+        # Then concatenate: all of column 0, then all of column 1, etc.
+        result = []
+        for column in columns:
+            sorted_column = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+            result.extend(sorted_column)
+
+        return result
 
 
 # Converter metadata for registration

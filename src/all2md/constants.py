@@ -132,6 +132,7 @@ DEFAULT_HANDLE_ROTATED_TEXT = True
 DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
 DEFAULT_COLUMN_DETECTION_MODE = "auto"  # Options: "auto", "force_single", "force_multi", "disabled"
 DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
+DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting blocks that span columns
 
 # Table detection fallback constants
 DEFAULT_TABLE_FALLBACK_DETECTION = True
@@ -454,3 +455,12 @@ def get_exit_code_for_exception(exception: Exception) -> int:
 
     # All other errors (unexpected errors)
     return EXIT_ERROR
+
+
+PageSize = Literal["letter", "a4", "legal"]
+DEFAULT_PDF_PAGE_SIZE = "letter"
+DEFAULT_PDF_MARGIN = 72.0
+DEFAULT_PDF_FONT_FAMILY = "Helvetica"
+DEFAULT_PDF_FONT_SIZE = 12
+DEFAULT_PDF_CODE_FONT = "Courier"
+DEFAULT_PDF_LINE_SPACING = 1.2

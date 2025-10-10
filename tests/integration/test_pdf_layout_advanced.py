@@ -292,3 +292,52 @@ class TestPdfLayoutAdvanced:
         # All blocks should be processed
         total_blocks = sum(len(column) for column in columns)
         assert total_blocks == len(blocks)
+
+    def test_complex_pdf_with_spanning_header(self, tmp_path):
+        """Test column detection on complex.pdf with spanning header."""
+        import fitz
+        from pathlib import Path
+
+        # Use the actual complex.pdf fixture
+        pdf_path = Path("tests/fixtures/documents/complex.pdf")
+        if not pdf_path.exists():
+            # Skip if fixture doesn't exist
+            return
+
+        # Test that column detection works
+        doc = fitz.open(str(pdf_path))
+        page = doc[0]
+        blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+
+        columns = detect_columns(blocks, column_gap_threshold=20)
+
+        # Should detect 2 columns despite spanning header
+        assert len(columns) == 2, f"Expected 2 columns, got {len(columns)}"
+
+        # Verify blocks are distributed across columns
+        assert len(columns[0]) > 0, "Left column should have blocks"
+        assert len(columns[1]) > 0, "Right column should have blocks"
+
+        # Test full conversion
+        options = PdfOptions(detect_columns=True)
+        md_output = pdf_to_markdown(str(pdf_path), options=options)
+
+        # Verify reading order - column-by-column (left then right)
+        # "Section 1" (left column, y=334) should come BEFORE "Section 2" (right column, y=72)
+        # because we read the entire left column first, then the right column
+        section_2_pos = md_output.find("Section 2")
+        section_1_pos = md_output.find("Section 1")
+        complex_pdf_pos = md_output.find("Complex PDF")
+
+        assert section_2_pos > 0, "Should find 'Section 2' in output"
+        assert section_1_pos > 0, "Should find 'Section 1' in output"
+        assert complex_pdf_pos > 0, "Should find 'Complex PDF' in output"
+
+        # Column-by-column reading order
+        assert complex_pdf_pos < section_1_pos < section_2_pos, (
+            f"Expected order: 'Complex PDF' (left col, y=90), then 'Section 1' (left col, y=334), "
+            f"then 'Section 2' (right col, y=72). Got positions: Complex PDF={complex_pdf_pos}, "
+            f"Section 1={section_1_pos}, Section 2={section_2_pos}"
+        )
+
+        doc.close()
