@@ -12,9 +12,7 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import logging
-import os
 import re
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
@@ -27,7 +25,6 @@ from all2md.utils.metadata import (
     DocumentMetadata,
     map_properties_to_metadata,
 )
-from all2md.utils.security import validate_zip_archive
 
 if TYPE_CHECKING:
     import docx.document

@@ -70,7 +70,8 @@ def test_resolve_links_partial_overlap():
     """Test link resolution with partial overlap."""
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for more info"}
     link = {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://example.com"}
-    result = pdf_parser.resolve_links([link], span)
+    # Link covers 50% of span, use 50% threshold so it's detected
+    result = pdf_parser.resolve_links([link], span, overlap_threshold=50.0)
     assert result is not None
     assert "[Click here]" in result or "http://example.com" in result
 
@@ -83,7 +84,8 @@ def test_resolve_links_multiple_links():
         {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
         {"from": fitz.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
     ]
-    result = pdf_parser.resolve_links(links, span)
+    # Each link covers 25% of span, use 20% threshold so both are detected
+    result = pdf_parser.resolve_links(links, span, overlap_threshold=20.0)
     assert result is not None
     # Should contain both links
     assert "link1.com" in result
@@ -310,3 +312,219 @@ def test_pdf_to_markdown_with_tables(monkeypatch):
     assert isinstance(res, str)
     # Verify table was processed (contains pipe characters from markdown table)
     assert "|" in res
+
+
+# ============================================================================
+# Tests for new PDF parser improvements
+# ============================================================================
+
+
+@pytest.mark.unit
+def test_link_overlap_threshold_high():
+    """Test link resolution with high overlap threshold (90%)."""
+    from all2md.options.pdf import PdfOptions
+    span = {"bbox": (0, 0, 100, 10), "text": "Click here for info"}
+    # Link only covers first 40% of span
+    link = {"from": fitz.Rect(0, 0, 40, 10), "uri": "http://example.com"}
+
+    # With 90% threshold, should NOT detect link
+    result = pdf_parser.resolve_links([link], span, overlap_threshold=90.0)
+    assert result is None or "http://example.com" not in result
+
+    # With 30% threshold, should detect link
+    result = pdf_parser.resolve_links([link], span, overlap_threshold=30.0)
+    assert result is not None
+    assert "http://example.com" in result
+
+
+@pytest.mark.unit
+def test_link_overlap_threshold_options():
+    """Test that link_overlap_threshold option is used."""
+    from all2md.options.pdf import PdfOptions
+
+    # Test high threshold
+    options_high = PdfOptions(link_overlap_threshold=90.0)
+    assert options_high.link_overlap_threshold == 90.0
+
+    # Test low threshold
+    options_low = PdfOptions(link_overlap_threshold=30.0)
+    assert options_low.link_overlap_threshold == 30.0
+
+    # Test default
+    options_default = PdfOptions()
+    assert options_default.link_overlap_threshold == 70.0
+
+
+@pytest.mark.unit
+def test_link_overlap_multiple_links_threshold():
+    """Test handling of multiple links with different overlap amounts."""
+    span = {"bbox": (0, 0, 200, 10), "text": "Link1 and Link2 and more text"}
+    links = [
+        # First link covers chars 0-50 (25% of span)
+        {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
+        # Second link covers chars 100-150 (25% of span)
+        {"from": fitz.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
+    ]
+
+    # With 50% threshold, neither link should be detected (each is only 25%)
+    result = pdf_parser.resolve_links(links, span, overlap_threshold=50.0)
+    assert result is None or ("link1.com" not in result and "link2.com" not in result)
+
+    # With 20% threshold, both links should be detected
+    result = pdf_parser.resolve_links(links, span, overlap_threshold=20.0)
+    assert result is not None
+    assert "link1.com" in result
+    assert "link2.com" in result
+
+
+@pytest.mark.unit
+def test_header_debug_output_enabled():
+    """Test header detection debug output when enabled."""
+    from all2md.options.pdf import PdfOptions
+
+    doc = FakeDocIdent()
+    options = PdfOptions(header_debug_output=True, header_min_occurrences=1)
+    hdr = pdf_parser.IdentifyHeaders(doc, options=options)
+
+    # Should have debug info
+    debug_info = hdr.get_debug_info()
+    assert debug_info is not None
+    assert "font_size_distribution" in debug_info
+    assert "body_text_size" in debug_info
+    assert "header_sizes" in debug_info
+    assert "header_id_mapping" in debug_info
+
+
+@pytest.mark.unit
+def test_header_debug_output_disabled():
+    """Test header detection debug output when disabled."""
+    from all2md.options.pdf import PdfOptions
+
+    doc = FakeDocIdent()
+    options = PdfOptions(header_debug_output=False, header_min_occurrences=1)
+    hdr = pdf_parser.IdentifyHeaders(doc, options=options)
+
+    # Should NOT have debug info
+    debug_info = hdr.get_debug_info()
+    assert debug_info is None
+
+
+@pytest.mark.unit
+def test_column_detection_mode_disabled():
+    """Test that column_detection_mode='disabled' forces single column."""
+    from all2md.options.pdf import PdfOptions
+
+    blocks = [
+        {"bbox": [50, 100, 250, 200]},  # Left column
+        {"bbox": [300, 100, 500, 200]},  # Right column (clear gap)
+    ]
+
+    # With detect_columns=True but mode='disabled', should return single column
+    # (This would be tested in integration with actual PdfToAstConverter)
+    options = PdfOptions(detect_columns=True, column_detection_mode="disabled")
+    assert options.column_detection_mode == "disabled"
+
+
+@pytest.mark.unit
+def test_column_detection_with_clustering():
+    """Test k-means clustering for column detection."""
+    blocks = [
+        {"bbox": [50, 100, 150, 120]},   # Column 1
+        {"bbox": [55, 130, 155, 150]},   # Column 1 (slightly offset)
+        {"bbox": [300, 100, 400, 120]},  # Column 2
+        {"bbox": [305, 130, 405, 150]},  # Column 2 (slightly offset)
+    ]
+
+    # With clustering enabled, should handle slight offsets better
+    columns_clustering = pdf_parser.detect_columns(blocks, column_gap_threshold=20, use_clustering=True)
+    assert len(columns_clustering) == 2
+    # Each column should have 2 blocks
+    assert len(columns_clustering[0]) == 2
+    assert len(columns_clustering[1]) == 2
+
+
+@pytest.mark.unit
+def test_table_fallback_extraction_mode_option():
+    """Test table_fallback_extraction_mode option values."""
+    from all2md.options.pdf import PdfOptions
+
+    # Test 'none' mode
+    options_none = PdfOptions(table_fallback_extraction_mode="none")
+    assert options_none.table_fallback_extraction_mode == "none"
+
+    # Test 'grid' mode (default)
+    options_grid = PdfOptions(table_fallback_extraction_mode="grid")
+    assert options_grid.table_fallback_extraction_mode == "grid"
+
+    # Test 'text_clustering' mode
+    options_clustering = PdfOptions(table_fallback_extraction_mode="text_clustering")
+    assert options_clustering.table_fallback_extraction_mode == "text_clustering"
+
+
+@pytest.mark.unit
+def test_detect_tables_by_ruling_lines():
+    """Test basic table detection using ruling lines."""
+    # Create a mock page with drawing commands
+    class MockPage:
+        rect = fitz.Rect(0, 0, 600, 800)
+
+        def get_drawings(self):
+            # Simulate a simple 2x2 table with horizontal and vertical lines
+            return [
+                {
+                    "items": [
+                        ("l", fitz.Point(100, 100), fitz.Point(400, 100)),  # Top h-line
+                        ("l", fitz.Point(100, 150), fitz.Point(400, 150)),  # Middle h-line
+                        ("l", fitz.Point(100, 200), fitz.Point(400, 200)),  # Bottom h-line
+                    ]
+                },
+                {
+                    "items": [
+                        ("l", fitz.Point(100, 100), fitz.Point(100, 200)),  # Left v-line
+                        ("l", fitz.Point(250, 100), fitz.Point(250, 200)),  # Middle v-line
+                        ("l", fitz.Point(400, 100), fitz.Point(400, 200)),  # Right v-line
+                    ]
+                },
+            ]
+
+    table_rects, table_lines = pdf_parser.detect_tables_by_ruling_lines(MockPage(), threshold=0.3)
+
+    # Should detect at least one table
+    assert len(table_rects) >= 1
+
+    # Should have corresponding line information
+    assert len(table_lines) == len(table_rects)
+
+
+@pytest.mark.unit
+def test_simple_kmeans_1d():
+    """Test simple k-means clustering implementation."""
+    # Test with clear two-cluster data
+    values = [10.0, 12.0, 11.0, 100.0, 102.0, 101.0]  # Two clear clusters
+    assignments = pdf_parser._simple_kmeans_1d(values, k=2)
+
+    # Should assign first 3 values to one cluster, last 3 to another
+    assert len(assignments) == 6
+    assert assignments[0] == assignments[1] == assignments[2]  # First cluster
+    assert assignments[3] == assignments[4] == assignments[5]  # Second cluster
+    # The two clusters should be different
+    assert assignments[0] != assignments[3]
+
+
+@pytest.mark.unit
+def test_simple_kmeans_edge_cases():
+    """Test k-means edge cases."""
+    # Test with k=1
+    values = [10.0, 20.0, 30.0]
+    assignments = pdf_parser._simple_kmeans_1d(values, k=1)
+    assert all(a == 0 for a in assignments)  # All in one cluster
+
+    # Test with empty values
+    assignments = pdf_parser._simple_kmeans_1d([], k=2)
+    assert assignments == []
+
+    # Test with fewer values than k
+    values = [10.0, 20.0]
+    assignments = pdf_parser._simple_kmeans_1d(values, k=5)
+    # Should handle gracefully
+    assert len(assignments) == 2

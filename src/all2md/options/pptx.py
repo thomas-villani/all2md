@@ -4,8 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.options.base import BaseParserOptions
-from all2md.constants import DEFAULT_SLIDE_NUMBERS, DEFAULT_PAGE_SEPARATOR
+from all2md.constants import DEFAULT_PAGE_SEPARATOR, DEFAULT_SLIDE_NUMBERS
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 # all2md/options/pptx.py
@@ -43,6 +42,7 @@ class PptxRendererOptions(BaseRendererOptions):
         Font size for slide titles.
 
     """
+
     # TODO: move magic numbers/strings to constants.py
 
     slide_split_mode: Literal["separator", "heading", "auto"] = field(

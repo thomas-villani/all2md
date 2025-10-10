@@ -1,10 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import replace, dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Self
 
-from all2md.constants import AttachmentMode, DEFAULT_ATTACHMENT_MODE, AltTextMode, DEFAULT_ALT_TEXT_MODE, \
-    DEFAULT_ATTACHMENT_OUTPUT_DIR, DEFAULT_ATTACHMENT_BASE_URL, DEFAULT_EXTRACT_METADATA, DEFAULT_MAX_DOWNLOAD_BYTES
+from all2md.constants import (
+    DEFAULT_ALT_TEXT_MODE,
+    DEFAULT_ATTACHMENT_BASE_URL,
+    DEFAULT_ATTACHMENT_MODE,
+    DEFAULT_ATTACHMENT_OUTPUT_DIR,
+    DEFAULT_EXTRACT_METADATA,
+    DEFAULT_MAX_DOWNLOAD_BYTES,
+    AltTextMode,
+    AttachmentMode,
+)
 
 _UNSET = object()
 

@@ -12,16 +12,13 @@ focused ODS parser.
 from __future__ import annotations
 
 import logging
-import os
 import re
-import tempfile
 from pathlib import Path
 from typing import IO, Any, Optional, Union, cast
 
 from all2md.ast import (
     Alignment,
     Document,
-    FootnoteDefinition,
     Heading,
     HTMLInline,
     Image,
@@ -32,17 +29,15 @@ from all2md.ast import (
     TableRow,
     Text,
 )
-from all2md.ast import Paragraph as AstParagraph
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
+from all2md.options.ods import OdsSpreadsheetOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.security import validate_zip_archive
-from all2md.options.ods import OdsSpreadsheetOptions
 
 logger = logging.getLogger(__name__)
 

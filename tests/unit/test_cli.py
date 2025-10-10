@@ -9,10 +9,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.cli.builder import create_parser
-from all2md.cli.processors import process_dry_run, generate_output_path
-from all2md.cli.commands import save_config_to_file, handle_dependency_commands, collect_input_files
-from all2md.cli.builder import DynamicCLIBuilder
+from all2md.cli.builder import DynamicCLIBuilder, create_parser
+from all2md.cli.commands import collect_input_files, handle_dependency_commands, save_config_to_file
+from all2md.cli.processors import generate_output_path, process_dry_run
 
 
 @pytest.mark.unit
@@ -188,7 +187,7 @@ class TestDynamicCLIBuilder:
 
     def test_has_default_helper(self):
         """Test _has_default helper correctly identifies fields with defaults (Issue #11)."""
-        from dataclasses import dataclass, field, MISSING
+        from dataclasses import dataclass, field
 
         builder = DynamicCLIBuilder()
 
@@ -217,7 +216,7 @@ class TestDynamicCLIBuilder:
 
     def test_boolean_field_without_default_gets_store_true(self):
         """Test that boolean field without default gets store_true action (Issue #11)."""
-        from dataclasses import dataclass, field, MISSING
+        from dataclasses import MISSING, dataclass, field
 
         builder = DynamicCLIBuilder()
 
@@ -759,7 +758,6 @@ class TestNewEnhancedCLIFeatures:
 
     def test_dependency_commands_parsing(self):
         """Test parsing of dependency management commands."""
-
         # Test check-deps command
         result = handle_dependency_commands(['check-deps'])
         assert result is not None  # Should return exit code

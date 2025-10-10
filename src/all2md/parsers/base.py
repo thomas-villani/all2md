@@ -21,7 +21,11 @@ from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import (
     append_attachment_footnotes as _append_attachment_footnotes_helper,
+)
+from all2md.utils.parser_helpers import (
     validate_zip_input as _validate_zip_input_helper,
+)
+from all2md.utils.parser_helpers import (
     validated_zip_input as _validated_zip_input_helper,
 )
 
@@ -241,6 +245,7 @@ class BaseParser(ABC):
         -----
         This method should be called early in the parse() method to validate
         zip-based formats before processing.
+
         """
         _validate_zip_input_helper(input_data, suffix)
 
@@ -277,6 +282,7 @@ class BaseParser(ABC):
         -----
         This method optimizes memory usage by avoiding double-reading of input data.
         Prefer this over _validate_zip_input() when you need to reuse the validated input.
+
         """
         return _validated_zip_input_helper(input_data, suffix)
 
@@ -304,5 +310,6 @@ class BaseParser(ABC):
         -----
         This method modifies the children list in-place. If attachment_footnotes
         is empty, no changes are made.
+
         """
         _append_attachment_footnotes_helper(children, attachment_footnotes, section_title)

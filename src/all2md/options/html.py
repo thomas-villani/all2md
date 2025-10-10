@@ -4,11 +4,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from all2md.constants import (
+    DEFAULT_CONVERT_NBSP,
+    DEFAULT_EXTRACT_TITLE,
+    DEFAULT_PRESERVE_NESTED_STRUCTURE,
+    DEFAULT_STRIP_DANGEROUS_ELEMENTS,
+    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.constants import DEFAULT_EXTRACT_TITLE, DEFAULT_CONVERT_NBSP, DEFAULT_STRIP_DANGEROUS_ELEMENTS, \
-    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT, DEFAULT_PRESERVE_NESTED_STRUCTURE
-from all2md.options import NetworkFetchOptions
-from all2md.options.common import LocalFileAccessOptions
+from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
 
 
 # src/all2md/options/html.py

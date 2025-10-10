@@ -11,8 +11,6 @@ It replaces the combined ODF parser with a focused text document parser.
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
@@ -37,13 +35,12 @@ from all2md.ast import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
+from all2md.options.odt import OdtOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.security import validate_zip_archive
-from all2md.options.odt import OdtOptions
 
 if TYPE_CHECKING:
     import odf
@@ -68,7 +65,6 @@ class OdtToAstConverter(BaseParser):
     @requires_dependencies("odt", [("odfpy", "odf", "")])
     def __init__(self, options: OdtOptions = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODT parser with options and progress callback."""
-
         options = options or OdtOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions

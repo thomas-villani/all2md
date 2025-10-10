@@ -26,13 +26,7 @@ from utils import assert_markdown_valid
 
 from all2md import convert, from_ast, from_markdown, to_ast, to_markdown
 from all2md.ast import Document, Heading, Paragraph, Strong, Table
-from all2md.options import (
-    HtmlRendererOptions,
-    MarkdownOptions,
-    PdfOptions,
-    DocxOptions,
-    HtmlOptions
-)
+from all2md.options import DocxOptions, HtmlOptions, HtmlRendererOptions, MarkdownOptions, PdfOptions
 
 
 @pytest.mark.e2e

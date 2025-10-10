@@ -2,10 +2,12 @@
 # all2md/options/mediawiki.py
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
-from all2md.constants import DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED, DEFAULT_MEDIAWIKI_IMAGE_THUMB
+from all2md.constants import DEFAULT_MEDIAWIKI_IMAGE_THUMB, DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED
 from all2md.options.base import BaseRendererOptions
+
 
 @dataclass(frozen=True)
 class MediaWikiOptions(BaseRendererOptions):

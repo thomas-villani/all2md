@@ -458,7 +458,6 @@ class TestDefinitionListTransformation:
 
     def test_transform_definition_list_preserves_valid_items(self) -> None:
         """Test that valid items are preserved during transformation."""
-
         dl = DefinitionList(
             items=[
                 (

@@ -23,7 +23,6 @@ from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.security import validate_zip_archive
 
 
 class EpubToAstConverter(BaseParser):

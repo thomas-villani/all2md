@@ -14,7 +14,7 @@ from fixtures.generators.docx_fixtures import (
     save_docx_to_bytes,
 )
 
-from all2md import to_markdown, DocxOptions
+from all2md import DocxOptions, to_markdown
 
 
 @pytest.mark.golden

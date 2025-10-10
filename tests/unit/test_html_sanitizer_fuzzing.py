@@ -19,7 +19,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from all2md import to_markdown, HtmlOptions
+from all2md import HtmlOptions, to_markdown
 from all2md.options import NetworkFetchOptions
 from all2md.parsers.html import HtmlToAstConverter as HtmlParser
 

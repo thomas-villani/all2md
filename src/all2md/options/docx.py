@@ -2,8 +2,8 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import CommentMode, DEFAULT_COMMENT_MODE
-from all2md.options.base import BaseRendererOptions, BaseParserOptions
+from all2md.constants import DEFAULT_COMMENT_MODE, CommentMode
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
 # src/all2md/options/docx.py

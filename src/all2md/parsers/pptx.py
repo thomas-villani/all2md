@@ -12,17 +12,14 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import logging
-import os
 import re
-import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
-from all2md.options.pptx import PptxOptions
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
+from all2md.options.pptx import PptxOptions
 from all2md.progress import ProgressCallback
 from all2md.utils.inputs import parse_page_ranges, validate_and_convert_input
-from all2md.utils.security import validate_zip_archive
 
 if TYPE_CHECKING:
     from pptx.presentation import Presentation
@@ -33,7 +30,6 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
-    FootnoteDefinition,
     Heading,
     Image,
     List,

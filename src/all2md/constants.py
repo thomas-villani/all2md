@@ -45,6 +45,7 @@ DEFAULT_FONT_SIZE_THRESHOLD_PT = 36
 DEFAULT_INDENTATION_PT_PER_LEVEL = 36
 DEFAULT_OVERLAP_THRESHOLD_PERCENT = 70
 DEFAULT_OVERLAP_THRESHOLD_PX = 5
+DEFAULT_LINK_OVERLAP_THRESHOLD = 70.0  # Percentage overlap required for link detection (0-100)
 
 # Word document formatting
 DEFAULT_BULLETED_LIST_INDENT = 24
@@ -122,17 +123,21 @@ DEFAULT_HEADER_USE_ALL_CAPS = True
 DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
 DEFAULT_HEADER_FONT_SIZE_RATIO = 1.2  # Minimum ratio between header and body text font size
 DEFAULT_HEADER_MAX_LINE_LENGTH = 100  # Maximum character length for text to be considered a header
+DEFAULT_HEADER_DEBUG_OUTPUT = False  # Enable debug output for header detection analysis
 
 # Column detection constants
 DEFAULT_DETECT_COLUMNS = True
 DEFAULT_MERGE_HYPHENATED_WORDS = True
 DEFAULT_HANDLE_ROTATED_TEXT = True
 DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
+DEFAULT_COLUMN_DETECTION_MODE = "auto"  # Options: "auto", "force_single", "force_multi", "disabled"
+DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
 
 # Table detection fallback constants
 DEFAULT_TABLE_FALLBACK_DETECTION = True
 DEFAULT_DETECT_MERGED_CELLS = True
 DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
+DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE = "grid"  # Options: "none", "grid", "text_clustering"
 
 DEFAULT_IMAGE_PLACEMENT_MARKERS = True
 DEFAULT_INCLUDE_IMAGE_CAPTIONS = True

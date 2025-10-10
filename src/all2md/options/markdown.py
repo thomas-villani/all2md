@@ -4,16 +4,35 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from all2md.options.base import BaseParserOptions, BaseRendererOptions, _UNSET
 from all2md.constants import (
-    FlavorType, DEFAULT_FLAVOR, DEFAULT_ESCAPE_SPECIAL, EmphasisSymbol, DEFAULT_BULLET_SYMBOLS,
-    DEFAULT_LIST_INDENT_WIDTH, UnderlineMode, SuperscriptMode, SubscriptMode, DEFAULT_USE_HASH_HEADINGS,
-    UnsupportedTableMode, UnsupportedInlineMode, DEFAULT_HEADING_LEVEL_OFFSET, CodeFenceChar, DEFAULT_CODE_FENCE_CHAR,
-    DEFAULT_CODE_FENCE_MIN, DEFAULT_COLLAPSE_BLANK_LINES, LinkStyleType, DEFAULT_LINK_STYLE, DEFAULT_TABLE_PIPE_ESCAPE,
-    MathMode, DEFAULT_MATH_MODE, DEFAULT_INCLUDE_METADATA_FRONTMATTER, MetadataFormatType, DEFAULT_METADATA_FORMAT,
-    DEFAULT_EMPHASIS_SYMBOL
+    DEFAULT_BULLET_SYMBOLS,
+    DEFAULT_CODE_FENCE_CHAR,
+    DEFAULT_CODE_FENCE_MIN,
+    DEFAULT_COLLAPSE_BLANK_LINES,
+    DEFAULT_EMPHASIS_SYMBOL,
+    DEFAULT_ESCAPE_SPECIAL,
+    DEFAULT_FLAVOR,
+    DEFAULT_HEADING_LEVEL_OFFSET,
+    DEFAULT_INCLUDE_METADATA_FRONTMATTER,
+    DEFAULT_LINK_STYLE,
+    DEFAULT_LIST_INDENT_WIDTH,
+    DEFAULT_MATH_MODE,
+    DEFAULT_METADATA_FORMAT,
+    DEFAULT_TABLE_PIPE_ESCAPE,
+    DEFAULT_USE_HASH_HEADINGS,
+    CodeFenceChar,
+    EmphasisSymbol,
+    FlavorType,
+    LinkStyleType,
+    MathMode,
+    MetadataFormatType,
+    SubscriptMode,
+    SuperscriptMode,
+    UnderlineMode,
+    UnsupportedInlineMode,
+    UnsupportedTableMode,
 )
-
+from all2md.options.base import _UNSET, BaseParserOptions, BaseRendererOptions
 
 
 # src/all2md/options/markdown.py

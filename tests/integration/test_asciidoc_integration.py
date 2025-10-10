@@ -38,7 +38,6 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.options import MarkdownOptions
 from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
 from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.renderers.asciidoc import AsciiDocRenderer

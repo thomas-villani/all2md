@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from all2md import to_markdown
-from all2md.options import MarkdownOptions, SourceCodeOptions
 from all2md.converter_registry import registry
+from all2md.options import MarkdownOptions, SourceCodeOptions
 
 
 class TestSourceCodeIntegration:

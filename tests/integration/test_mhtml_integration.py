@@ -19,7 +19,8 @@ from fixtures.generators.mhtml_fixtures import (
 )
 from utils import assert_markdown_valid
 
-from all2md import to_markdown as mhtml_to_markdown, MhtmlOptions
+from all2md import MhtmlOptions
+from all2md import to_markdown as mhtml_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownOptions
 

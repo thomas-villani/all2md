@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from all2md import to_markdown
-from all2md.constants import PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, EXIT_DEPENDENCY_ERROR
-from all2md.exceptions import All2MdError
 from all2md.cli import generate_output_path
+from all2md.constants import DOCUMENT_EXTENSIONS, EXIT_DEPENDENCY_ERROR, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from all2md.exceptions import All2MdError
 
 try:
     from watchdog.events import FileSystemEventHandler
@@ -147,8 +147,6 @@ class ConversionEventHandler(FileSystemEventHandler):
             Path to the file to convert
 
         """
-
-
         path = Path(file_path)
 
         if not path.exists():

@@ -8,9 +8,7 @@ from dataclass options using field metadata.
 import argparse
 import difflib
 import logging
-import sys
 import types
-import warnings
 from dataclasses import MISSING, fields, is_dataclass
 from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_origin, get_type_hints
 

@@ -5,11 +5,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions
-from all2md.constants import DateFormatMode, DEFAULT_DATE_FORMAT_MODE, DEFAULT_DATE_STRFTIME_PATTERN, \
-    DEFAULT_CONVERT_HTML_TO_MARKDOWN, DEFAULT_CLEAN_QUOTES, DEFAULT_DETECT_REPLY_SEPARATORS, DEFAULT_NORMALIZE_HEADERS, \
-    DEFAULT_PRESERVE_RAW_HEADERS, DEFAULT_CLEAN_WRAPPED_URLS, DEFAULT_URL_WRAPPERS, DEFAULT_MAX_ATTACHMENT_SIZE_BYTES
+from all2md.constants import (
+    DEFAULT_CLEAN_QUOTES,
+    DEFAULT_CLEAN_WRAPPED_URLS,
+    DEFAULT_CONVERT_HTML_TO_MARKDOWN,
+    DEFAULT_DATE_FORMAT_MODE,
+    DEFAULT_DATE_STRFTIME_PATTERN,
+    DEFAULT_DETECT_REPLY_SEPARATORS,
+    DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
+    DEFAULT_NORMALIZE_HEADERS,
+    DEFAULT_PRESERVE_RAW_HEADERS,
+    DEFAULT_URL_WRAPPERS,
+    DateFormatMode,
+)
 from all2md.options import NetworkFetchOptions
+from all2md.options.base import BaseParserOptions
 
 
 @dataclass(frozen=True)

@@ -15,7 +15,7 @@ from utils import (
     create_test_temp_dir,
 )
 
-from all2md import to_markdown, DocxOptions, HtmlOptions
+from all2md import DocxOptions, HtmlOptions, to_markdown
 from all2md.exceptions import All2MdError
 from all2md.options import MarkdownOptions, PdfOptions
 

@@ -17,7 +17,8 @@ from fixtures.generators.epub_fixtures import (
 )
 from utils import assert_markdown_valid
 
-from all2md import to_markdown as epub_to_markdown, EpubOptions
+from all2md import EpubOptions
+from all2md import to_markdown as epub_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownOptions
 

@@ -19,11 +19,11 @@ from typing import IO, Any, Optional, Union, cast
 from all2md.ast import Alignment, Document, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
+from all2md.options.csv import CsvOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
-from all2md.options.csv import CsvOptions
 
 logger = logging.getLogger(__name__)
 

@@ -10,9 +10,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md.constants import EXIT_PARSING_ERROR
-from utils import cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.e2e

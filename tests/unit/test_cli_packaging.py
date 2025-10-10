@@ -4,9 +4,6 @@ Tests for --zip flag and in-memory packaging utilities.
 """
 
 import zipfile
-from pathlib import Path
-
-import pytest
 
 
 class TestCreatePackageFromConversions:

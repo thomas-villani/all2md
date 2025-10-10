@@ -5,10 +5,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.constants import (
+    DEFAULT_RST_CODE_STYLE,
+    DEFAULT_RST_HEADING_CHARS,
+    DEFAULT_RST_LINE_LENGTH,
+    DEFAULT_RST_PARSE_DIRECTIVES,
+    DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
+    DEFAULT_RST_STRICT_MODE,
+    DEFAULT_RST_TABLE_STYLE,
+    RstCodeStyle,
+    RstTableStyle,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.constants import DEFAULT_RST_PARSE_DIRECTIVES, DEFAULT_RST_STRICT_MODE, DEFAULT_RST_PRESERVE_RAW_DIRECTIVES, \
-    DEFAULT_RST_HEADING_CHARS, RstTableStyle, DEFAULT_RST_TABLE_STYLE, RstCodeStyle, DEFAULT_RST_CODE_STYLE, \
-    DEFAULT_RST_LINE_LENGTH
 
 
 @dataclass(frozen=True)

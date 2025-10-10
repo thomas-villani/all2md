@@ -9,8 +9,7 @@ import pytest
 
 from all2md.converter_registry import registry
 from all2md.exceptions import FormatError
-from all2md.options import PdfOptions
-from all2md.options import DocxOptions, HtmlOptions
+from all2md.options import DocxOptions, HtmlOptions, PdfOptions
 
 
 class TestRegistryNewAPI:

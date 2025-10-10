@@ -1,15 +1,38 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_HEADER_PERCENTILE_THRESHOLD, DEFAULT_HEADER_MIN_OCCURRENCES, \
-    DEFAULT_HEADER_USE_FONT_WEIGHT, DEFAULT_HEADER_USE_ALL_CAPS, DEFAULT_HEADER_FONT_SIZE_RATIO, \
-    DEFAULT_HEADER_MAX_LINE_LENGTH, DEFAULT_DETECT_COLUMNS, DEFAULT_MERGE_HYPHENATED_WORDS, DEFAULT_HANDLE_ROTATED_TEXT, \
-    DEFAULT_COLUMN_GAP_THRESHOLD, DEFAULT_TABLE_FALLBACK_DETECTION, DEFAULT_DETECT_MERGED_CELLS, \
-    DEFAULT_TABLE_RULING_LINE_THRESHOLD, DEFAULT_INCLUDE_IMAGE_CAPTIONS, DEFAULT_INCLUDE_PAGE_NUMBERS, \
-    DEFAULT_PAGE_SEPARATOR, DEFAULT_TABLE_DETECTION_MODE, DEFAULT_IMAGE_FORMAT, DEFAULT_IMAGE_QUALITY, \
-    DEFAULT_TRIM_HEADERS_FOOTERS, DEFAULT_HEADER_HEIGHT, DEFAULT_FOOTER_HEIGHT, DEFAULT_IMAGE_PLACEMENT_MARKERS
-from all2md.options.base import BaseRendererOptions, BaseParserOptions
+from all2md.constants import (
+    DEFAULT_COLUMN_DETECTION_MODE,
+    DEFAULT_COLUMN_GAP_THRESHOLD,
+    DEFAULT_DETECT_COLUMNS,
+    DEFAULT_DETECT_MERGED_CELLS,
+    DEFAULT_FOOTER_HEIGHT,
+    DEFAULT_HANDLE_ROTATED_TEXT,
+    DEFAULT_HEADER_DEBUG_OUTPUT,
+    DEFAULT_HEADER_FONT_SIZE_RATIO,
+    DEFAULT_HEADER_HEIGHT,
+    DEFAULT_HEADER_MAX_LINE_LENGTH,
+    DEFAULT_HEADER_MIN_OCCURRENCES,
+    DEFAULT_HEADER_PERCENTILE_THRESHOLD,
+    DEFAULT_HEADER_USE_ALL_CAPS,
+    DEFAULT_HEADER_USE_FONT_WEIGHT,
+    DEFAULT_IMAGE_FORMAT,
+    DEFAULT_IMAGE_PLACEMENT_MARKERS,
+    DEFAULT_IMAGE_QUALITY,
+    DEFAULT_INCLUDE_IMAGE_CAPTIONS,
+    DEFAULT_INCLUDE_PAGE_NUMBERS,
+    DEFAULT_LINK_OVERLAP_THRESHOLD,
+    DEFAULT_MERGE_HYPHENATED_WORDS,
+    DEFAULT_PAGE_SEPARATOR,
+    DEFAULT_TABLE_DETECTION_MODE,
+    DEFAULT_TABLE_FALLBACK_DETECTION,
+    DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE,
+    DEFAULT_TABLE_RULING_LINE_THRESHOLD,
+    DEFAULT_TRIM_HEADERS_FOOTERS,
+    DEFAULT_USE_COLUMN_CLUSTERING,
+)
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
 # src/all2md/options/pdf.py
@@ -48,6 +71,9 @@ class PdfOptions(BaseParserOptions):
         Minimum ratio between header and body text font size.
     header_max_line_length : int, default 100
         Maximum character length for text to be considered a header.
+    header_debug_output : bool, default False
+        Enable debug output for header detection analysis. When enabled,
+        stores font size distribution and classification decisions for inspection.
 
     # Reading order and layout parameters
     detect_columns : bool, default True
@@ -58,6 +84,12 @@ class PdfOptions(BaseParserOptions):
         Process rotated text blocks.
     column_gap_threshold : float, default 20
         Minimum gap between columns in points.
+    column_detection_mode : str, default "auto"
+        Column detection strategy: "auto" (heuristic-based), "force_single" (disable detection),
+        "force_multi" (force multi-column), or "disabled" (same as force_single).
+    use_column_clustering : bool, default False
+        Use k-means clustering on x-coordinates for more robust column detection.
+        Alternative to gap heuristics, better for layouts with irregular column positions.
 
     # Table detection parameters
     enable_table_fallback_detection : bool, default True
@@ -65,7 +97,15 @@ class PdfOptions(BaseParserOptions):
     detect_merged_cells : bool, default True
         Attempt to identify merged cells in tables.
     table_ruling_line_threshold : float, default 0.5
-        Threshold for detecting table ruling lines.
+        Threshold for detecting table ruling lines (0.0-1.0, ratio of line length to page size).
+    table_fallback_extraction_mode : str, default "grid"
+        Table extraction mode for ruling line fallback: "none" (detect only, don't extract),
+        "grid" (grid-based cell segmentation), or "text_clustering" (future: text position clustering).
+
+    link_overlap_threshold : float, default 70.0
+        Percentage overlap required for link detection (0-100). Lower values detect links
+        with less overlap but may incorrectly link non-link text. Higher values reduce
+        false positives but may miss valid links.
 
     image_placement_markers : bool, default True
         Add markers showing image positions.
@@ -116,11 +156,29 @@ class PdfOptions(BaseParserOptions):
         ...     include_page_numbers=True
         ... )
 
-    Configure header detection:
+    Configure header detection with debug output:
         >>> options = PdfOptions(
         ...     header_sample_pages=[0, 1, 2],
         ...     header_percentile_threshold=80,
-        ...     header_use_all_caps=True
+        ...     header_use_all_caps=True,
+        ...     header_debug_output=True  # Enable debug analysis
+        ... )
+
+    Use k-means clustering for robust column detection:
+        >>> options = PdfOptions(
+        ...     use_column_clustering=True,
+        ...     column_gap_threshold=25
+        ... )
+
+    Configure link detection sensitivity:
+        >>> options = PdfOptions(
+        ...     link_overlap_threshold=80.0  # Stricter link detection
+        ... )
+
+    Enable table ruling line extraction:
+        >>> options = PdfOptions(
+        ...     table_detection_mode="ruling",
+        ...     table_fallback_extraction_mode="grid"
         ... )
 
     """
@@ -195,6 +253,12 @@ class PdfOptions(BaseParserOptions):
             "type": int
         }
     )
+    header_debug_output: bool = field(
+        default=DEFAULT_HEADER_DEBUG_OUTPUT,
+        metadata={
+            "help": "Enable debug output for header detection analysis (stores font size distribution)"
+        }
+    )
 
     # Reading order and layout parameters
     detect_columns: bool = field(
@@ -225,6 +289,19 @@ class PdfOptions(BaseParserOptions):
             "type": float
         }
     )
+    column_detection_mode: str = field(
+        default=DEFAULT_COLUMN_DETECTION_MODE,
+        metadata={
+            "help": "Column detection strategy: 'auto', 'force_single', 'force_multi', 'disabled'",
+            "choices": ["auto", "force_single", "force_multi", "disabled"]
+        }
+    )
+    use_column_clustering: bool = field(
+        default=DEFAULT_USE_COLUMN_CLUSTERING,
+        metadata={
+            "help": "Use k-means clustering for more robust column detection (alternative to gap heuristics)"
+        }
+    )
 
     # Table detection parameters
     enable_table_fallback_detection: bool = field(
@@ -246,6 +323,13 @@ class PdfOptions(BaseParserOptions):
         metadata={
             "help": "Threshold for detecting table ruling lines",
             "type": float
+        }
+    )
+    table_fallback_extraction_mode: str = field(
+        default=DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE,
+        metadata={
+            "help": "Table extraction mode for ruling line fallback: 'none', 'grid', 'text_clustering'",
+            "choices": ["none", "grid", "text_clustering"]
         }
     )
 
@@ -323,6 +407,15 @@ class PdfOptions(BaseParserOptions):
         metadata={
             "help": "Height in points to trim from bottom of page (requires trim_headers_footers)",
             "type": int
+        }
+    )
+
+    # Link resolution options
+    link_overlap_threshold: float = field(
+        default=DEFAULT_LINK_OVERLAP_THRESHOLD,
+        metadata={
+            "help": "Percentage overlap required for link detection (0-100). Lower values detect links with less overlap.",
+            "type": float
         }
     )
 

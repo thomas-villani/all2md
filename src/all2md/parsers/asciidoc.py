@@ -31,7 +31,6 @@ from all2md.ast import (
     LineBreak,
     Link,
     List,
-    ListItem,
     Node,
     Paragraph,
     Strong,

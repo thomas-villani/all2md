@@ -12,7 +12,7 @@ the AST. The workflow is:
 This works with any format supported by all2md, making it format-agnostic.
 """
 
-from all2md.ast import Document, Text
+from all2md.ast import Text
 from all2md.ast.transforms import NodeTransformer
 
 
@@ -34,6 +34,7 @@ class LLMTranslateTransform(NodeTransformer):
         If True, skip translating code blocks and inline code
     preserve_links : bool, default = True
         If True, only translate link text, not URLs
+
     """
 
     def __init__(
@@ -103,6 +104,7 @@ def mock_llm_translate(text: str, target_language: str) -> str:
     -------
     str
         Translated text
+
     """
     # For demo purposes, just prepend the target language
     return f"[{target_language.upper()}] {text}"
@@ -131,9 +133,11 @@ def translate_document(
         Target language for translation
     llm_client : callable, optional
         LLM translation function. Uses mock if not provided.
+
     """
-    from all2md import to_ast, from_ast
     import os
+
+    from all2md import from_ast, to_ast
 
     # Use mock LLM if no client provided
     if llm_client is None:
@@ -184,8 +188,10 @@ def openai_translate(text: str, target_language: str) -> str:
     -------
     str
         Translated text
+
     """
     import os
+
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -225,8 +231,10 @@ def anthropic_translate(text: str, target_language: str) -> str:
     -------
     str
         Translated text
+
     """
     import os
+
     from anthropic import Anthropic
 
     client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -247,8 +255,8 @@ def anthropic_translate(text: str, target_language: str) -> str:
 
 def main():
     """Run the translation demo."""
-    import sys
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(description="Translate documents using LLM while preserving format")
     parser.add_argument("input", help="Input document path")

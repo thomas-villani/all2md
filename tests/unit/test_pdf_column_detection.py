@@ -177,3 +177,118 @@ def test_irregular_column_widths():
     # Both columns should have 3 blocks
     assert len(columns[0]) == 3
     assert len(columns[1]) == 3
+
+
+def test_column_detection_with_clustering_enabled():
+    """Test k-means clustering for improved column detection."""
+    blocks = [
+        # Column 1 with slight horizontal variation
+        {"bbox": [50, 100, 150, 120], "text": "C1-1"},
+        {"bbox": [55, 130, 155, 150], "text": "C1-2"},  # Slight right shift
+        {"bbox": [52, 160, 152, 180], "text": "C1-3"},  # Slight right shift
+        # Column 2 with slight horizontal variation
+        {"bbox": [300, 100, 400, 120], "text": "C2-1"},
+        {"bbox": [305, 130, 405, 150], "text": "C2-2"},  # Slight right shift
+        {"bbox": [302, 160, 402, 180], "text": "C2-3"},  # Slight right shift
+    ]
+
+    # With clustering, should group blocks by center position
+    columns = detect_columns(blocks, column_gap_threshold=20, use_clustering=True)
+
+    assert len(columns) == 2
+    assert len(columns[0]) == 3
+    assert len(columns[1]) == 3
+
+
+def test_column_detection_clustering_vs_heuristic():
+    """Compare k-means clustering vs heuristic approaches."""
+    blocks = [
+        # Slightly irregular column positions
+        {"bbox": [50, 100, 200, 120], "text": "L1"},
+        {"bbox": [60, 130, 210, 150], "text": "L2"},
+        {"bbox": [55, 160, 205, 180], "text": "L3"},
+        {"bbox": [300, 100, 450, 120], "text": "R1"},
+        {"bbox": [310, 130, 460, 150], "text": "R2"},
+        {"bbox": [305, 160, 455, 180], "text": "R3"},
+    ]
+
+    # Both should detect 2 columns
+    columns_heuristic = detect_columns(blocks, column_gap_threshold=20, use_clustering=False)
+    columns_clustering = detect_columns(blocks, column_gap_threshold=20, use_clustering=True)
+
+    assert len(columns_heuristic) == 2
+    assert len(columns_clustering) == 2
+
+
+def test_column_detection_newspaper_layout():
+    """Test detection of typical 3-column newspaper layout."""
+    blocks = [
+        # Column 1 (narrow)
+        {"bbox": [30, 100, 150, 120], "text": "Col1-1"},
+        {"bbox": [30, 130, 150, 150], "text": "Col1-2"},
+        {"bbox": [30, 160, 150, 180], "text": "Col1-3"},
+        {"bbox": [30, 190, 150, 210], "text": "Col1-4"},
+        # Column 2 (narrow)
+        {"bbox": [180, 100, 300, 120], "text": "Col2-1"},
+        {"bbox": [180, 130, 300, 150], "text": "Col2-2"},
+        {"bbox": [180, 160, 300, 180], "text": "Col2-3"},
+        {"bbox": [180, 190, 300, 210], "text": "Col2-4"},
+        # Column 3 (narrow)
+        {"bbox": [330, 100, 450, 120], "text": "Col3-1"},
+        {"bbox": [330, 130, 450, 150], "text": "Col3-2"},
+        {"bbox": [330, 160, 450, 180], "text": "Col3-3"},
+        {"bbox": [330, 190, 450, 210], "text": "Col3-4"},
+    ]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    # Should detect 3 columns
+    assert len(columns) == 3
+    # Each column should have 4 blocks
+    assert len(columns[0]) == 4
+    assert len(columns[1]) == 4
+    assert len(columns[2]) == 4
+
+
+def test_column_detection_academic_paper_layout():
+    """Test detection of typical academic 2-column layout."""
+    blocks = [
+        # Left column - typical academic paper width
+        {"bbox": [72, 100, 288, 120], "text": "Abstract text"},
+        {"bbox": [72, 130, 288, 150], "text": "Introduction paragraph"},
+        {"bbox": [72, 160, 288, 180], "text": "More content"},
+        {"bbox": [72, 190, 288, 210], "text": "Even more"},
+        # Right column
+        {"bbox": [324, 100, 540, 120], "text": "Results section"},
+        {"bbox": [324, 130, 540, 150], "text": "Discussion"},
+        {"bbox": [324, 160, 540, 180], "text": "Conclusion"},
+        {"bbox": [324, 190, 540, 210], "text": "References"},
+    ]
+
+    columns = detect_columns(blocks, column_gap_threshold=25)
+
+    # Should detect 2 columns
+    assert len(columns) == 2
+    assert len(columns[0]) == 4
+    assert len(columns[1]) == 4
+
+
+def test_column_detection_mixed_layout():
+    """Test handling of mixed single-column and multi-column layout."""
+    blocks = [
+        # Full-width header
+        {"bbox": [50, 50, 500, 70], "text": "Full Width Title"},
+        # Two-column content
+        {"bbox": [50, 100, 250, 120], "text": "Left 1"},
+        {"bbox": [50, 130, 250, 150], "text": "Left 2"},
+        {"bbox": [300, 100, 500, 120], "text": "Right 1"},
+        {"bbox": [300, 130, 500, 150], "text": "Right 2"},
+        # Full-width footer
+        {"bbox": [50, 180, 500, 200], "text": "Full Width Footer"},
+    ]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    # With median width check, should recognize full-width blocks and return single column
+    # (because median block width is large relative to page)
+    assert len(columns) == 1 or len(columns) == 2

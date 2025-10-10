@@ -51,27 +51,31 @@ import os
 import sys
 from pathlib import Path
 
-from all2md.cli.commands import _get_about_info, _configure_logging, save_config_to_file, collect_input_files, \
-    handle_convert_command, handle_dependency_commands
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
-
+from all2md.cli.commands import (
+    _configure_logging,
+    _get_about_info,
+    collect_input_files,
+    handle_convert_command,
+    handle_dependency_commands,
+    save_config_to_file,
+)
 from all2md.cli.processors import (
-        process_detect_only,
-        process_dry_run,
-        generate_output_path,
-        convert_single_file,
-        load_options_from_json,
-        merge_exclusion_patterns_from_json,
-        process_multi_file,
-        process_stdin,
-        setup_and_validate_options,
-        validate_arguments,
-    )
+    convert_single_file,
+    generate_output_path,
+    load_options_from_json,
+    merge_exclusion_patterns_from_json,
+    process_detect_only,
+    process_dry_run,
+    process_multi_file,
+    process_stdin,
+    setup_and_validate_options,
+    validate_arguments,
+)
+
 
 def main(args: list[str] | None = None) -> int:
     """Execute main CLI entry point with focused delegation to specialized processors."""
-
-
     convert_result = handle_convert_command(args)
     if convert_result is not None:
         return convert_result

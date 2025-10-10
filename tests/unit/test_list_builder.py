@@ -2,7 +2,7 @@
 """Tests for ListBuilder and TableBuilder classes."""
 import pytest
 
-from all2md.ast import List, ListItem, Paragraph, Table, Text
+from all2md.ast import List, ListItem, Paragraph, Text
 from all2md.ast.builder import ListBuilder, TableBuilder
 
 
@@ -343,7 +343,7 @@ class TestTableBuilderMixedCellTypes:
 
     def test_all_string_cells(self) -> None:
         """Test adding rows with all string cells."""
-        from all2md.ast import Strong, Text
+        from all2md.ast import Text
 
         builder = TableBuilder()
         builder.add_row(["Name", "Age"])
@@ -357,7 +357,7 @@ class TestTableBuilderMixedCellTypes:
 
     def test_all_node_sequence_cells(self) -> None:
         """Test adding rows with all node sequence cells."""
-        from all2md.ast import Strong, Text
+        from all2md.ast import Text
 
         builder = TableBuilder()
         builder.add_row([
@@ -408,7 +408,7 @@ class TestTableBuilderMixedCellTypes:
 
     def test_header_with_mixed_cells(self) -> None:
         """Test adding header row with mixed cell types."""
-        from all2md.ast import Strong, Text
+        from all2md.ast import Text
 
         builder = TableBuilder(has_header=True)
         builder.add_row([

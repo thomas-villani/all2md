@@ -33,7 +33,7 @@ except ImportError:
 EBOOKLIB_AVAILABLE = find_spec("ebooklib") is not None
 PPTX_AVAILABLE = find_spec("pptx") is not None
 
-from all2md import convert, from_ast, from_markdown, to_ast, MarkdownParserOptions
+from all2md import MarkdownParserOptions, convert, from_ast, from_markdown, to_ast
 from all2md.ast import (
     BlockQuote,
     CodeBlock,

@@ -29,7 +29,6 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Emphasis,
-    FootnoteDefinition,
     Heading,
     HTMLBlock,
     Image,
@@ -94,7 +93,71 @@ def _check_pymupdf_version() -> None:
 
 
 
-def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[dict]]:
+def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> list[int]:
+    """Simple 1D k-means clustering implementation.
+
+    Parameters
+    ----------
+    values : list of float
+        1D values to cluster (e.g., x-coordinates)
+    k : int
+        Number of clusters
+    max_iterations : int, default 20
+        Maximum iterations for convergence
+
+    Returns
+    -------
+    list of int
+        Cluster assignment for each value (0 to k-1)
+
+    """
+    if not values or k <= 0:
+        return []
+
+    if k == 1:
+        return [0] * len(values)
+
+    if len(values) < k:
+        # Not enough values for k clusters, assign each to its own cluster
+        return list(range(len(values)))
+
+    # Initialize centroids by selecting evenly spaced values
+    sorted_values = sorted(enumerate(values), key=lambda x: x[1])
+    step = len(sorted_values) // k
+    initial_indices = [i * step for i in range(k)]
+    centroids = [sorted_values[i][1] for i in initial_indices]
+
+    assignments = [0] * len(values)
+
+    for _ in range(max_iterations):
+        # Assign each value to nearest centroid
+        new_assignments = []
+        for val in values:
+            distances = [abs(val - centroid) for centroid in centroids]
+            new_assignments.append(distances.index(min(distances)))
+
+        # Check for convergence
+        if new_assignments == assignments:
+            break
+
+        assignments = new_assignments
+
+        # Update centroids
+        new_centroids = []
+        for cluster_id in range(k):
+            cluster_values = [values[i] for i, assign in enumerate(assignments) if assign == cluster_id]
+            if cluster_values:
+                new_centroids.append(sum(cluster_values) / len(cluster_values))
+            else:
+                # Empty cluster, keep previous centroid
+                new_centroids.append(centroids[cluster_id])
+
+        centroids = new_centroids
+
+    return assignments
+
+
+def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clustering: bool = False) -> list[list[dict]]:
     """Detect multi-column layout in text blocks with enhanced whitespace analysis.
 
     Analyzes the x-coordinates of text blocks to identify column boundaries
@@ -107,11 +170,19 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
         List of text blocks from PyMuPDF page extraction
     column_gap_threshold : float, default 20
         Minimum gap between columns in points
+    use_clustering : bool, default False
+        Use k-means clustering on x-coordinates for improved robustness
 
     Returns
     -------
     list[list[dict]]
         List of columns, where each column is a list of blocks
+
+    Notes
+    -----
+    When use_clustering=True, the function uses k-means clustering to identify
+    column groupings based on block center positions. This can be more robust
+    for complex layouts but requires estimating the number of columns first.
 
     """
     if not blocks:
@@ -120,14 +191,64 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20) -> list[list[
     # Extract x-coordinates and build whitespace map
     x_coords = []
     block_ranges = []
+    block_centers = []
     for block in blocks:
         if "bbox" in block:
             x0, x1 = block["bbox"][0], block["bbox"][2]
             x_coords.append(x0)
             block_ranges.append((x0, x1))
+            block_centers.append((x0 + x1) / 2)
 
     if len(x_coords) < 2:
         return [blocks]
+
+    # Use k-means clustering if requested
+    if use_clustering and block_centers:
+        # Estimate number of columns from gap analysis
+        sorted_x = sorted(set(x_coords))
+        num_columns = 1
+        for i in range(1, len(sorted_x)):
+            gap = sorted_x[i] - sorted_x[i - 1]
+            if gap >= column_gap_threshold:
+                num_columns += 1
+
+        # Limit to reasonable number of columns (1-4)
+        num_columns = max(1, min(num_columns, 4))
+
+        if num_columns > 1:
+            # Apply k-means clustering on block centers
+            cluster_assignments = _simple_kmeans_1d(block_centers, num_columns)
+
+            # Group blocks by cluster
+            columns_dict: dict[int, list[dict]] = {i: [] for i in range(num_columns)}
+            for block_idx, (block, cluster_id) in enumerate(zip(blocks, cluster_assignments)):
+                if "bbox" in block:
+                    columns_dict[cluster_id].append(block)
+                else:
+                    # Blocks without bbox go to first cluster
+                    columns_dict[0].append(block)
+
+            # Convert dict to sorted list of columns (left to right)
+            # Sort clusters by their mean x-coordinate
+            cluster_centers = {}
+            for cluster_id, cluster_blocks in columns_dict.items():
+                if cluster_blocks:
+                    centers = [(b["bbox"][0] + b["bbox"][2]) / 2 for b in cluster_blocks if "bbox" in b]
+                    if centers:
+                        cluster_centers[cluster_id] = sum(centers) / len(centers)
+                    else:
+                        cluster_centers[cluster_id] = 0
+                else:
+                    cluster_centers[cluster_id] = 0
+
+            sorted_clusters = sorted(cluster_centers.items(), key=lambda x: x[1])
+            columns = [columns_dict[cluster_id] for cluster_id, _ in sorted_clusters if columns_dict[cluster_id]]
+
+            # Sort blocks within each column by y-coordinate (top to bottom)
+            for column in columns:
+                column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+
+            return columns
 
     # Build whitespace map: find gaps between all blocks
     # Sort block ranges by left edge
@@ -318,7 +439,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
     return combined_text + rotation_note if rotation_note else combined_text
 
 
-def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None) -> str | None:
+def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
     Enhanced to handle partial overlaps and multiple links within a span
@@ -332,11 +453,20 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
         Text span dictionary containing bbox and text information
     md_options : MarkdownOptions or None, optional
         Markdown formatting options for escaping special characters
+    overlap_threshold : float or None, optional
+        Percentage overlap required for link detection (0-100). If None, uses DEFAULT_OVERLAP_THRESHOLD_PERCENT.
 
     Returns
     -------
     str or None
         Formatted markdown link string if overlap detected, None otherwise
+
+    Notes
+    -----
+    The overlap_threshold parameter allows tuning link detection sensitivity:
+    - Higher values (e.g., 80-90) reduce false positives but may miss valid links
+    - Lower values (e.g., 50-60) catch more links but may incorrectly link non-link text
+    - Default (70) provides a good balance for most PDFs
 
     """
     if not links or not span.get("text"):
@@ -345,6 +475,9 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     import fitz
     bbox = fitz.Rect(span["bbox"])  # span bbox
     span_text = span["text"]
+
+    # Use provided threshold or fall back to default
+    threshold_percent = overlap_threshold if overlap_threshold is not None else DEFAULT_OVERLAP_THRESHOLD_PERCENT
 
     # Find all links that overlap with this span
     overlapping_links = []
@@ -360,7 +493,7 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     # If single link covers most of the span, use simple approach
     if len(overlapping_links) == 1:
         link, overlap = overlapping_links[0]
-        bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
+        bbox_area = (threshold_percent / 100.0) * abs(bbox)
         if abs(overlap) >= bbox_area:
             link_text = span_text.strip()
             if md_options and md_options.escape_special:
@@ -380,6 +513,12 @@ def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = 
     overlapping_links.sort(key=lambda x: x[1].x0)
 
     for link, overlap in overlapping_links:
+        # Check if this link meets the threshold
+        bbox_area = (threshold_percent / 100.0) * abs(bbox)
+        if abs(overlap) < bbox_area:
+            # This link doesn't meet the threshold, skip it
+            continue
+
         # Calculate character range for this link
         start_char = max(0, int((overlap.x0 - bbox.x0) / char_width))
         end_char = min(len(span_text), int((overlap.x1 - bbox.x0) / char_width))
@@ -603,7 +742,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
     return None
 
 
-def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> list["fitz.Rect"]:
+def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
     Uses page drawing commands to detect horizontal and vertical lines
@@ -618,8 +757,11 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
 
     Returns
     -------
-    list[PyMuPDF Rect]
-        List of bounding boxes for detected tables
+    tuple[list[PyMuPDF Rect], list[tuple[list, list]]]
+        Tuple containing:
+        - List of bounding boxes for detected tables
+        - List of (h_lines, v_lines) tuples for each table, where each line
+          is a tuple of (x0, y0, x1, y1) coordinates
 
     """
     # Get page dimensions
@@ -688,7 +830,17 @@ def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> 
                     if not overlaps and not table_rect.is_empty:
                         table_rects.append(table_rect)
 
-    return table_rects
+    # Build list of line tuples for each table
+    table_lines = []
+    for table_rect in table_rects:
+        # Find h_lines and v_lines that are part of this table
+        table_h_lines = [line for line in h_lines
+                        if line[1] >= table_rect.y0 and line[1] <= table_rect.y1]
+        table_v_lines = [line for line in v_lines
+                        if line[0] >= table_rect.x0 and line[0] <= table_rect.x1]
+        table_lines.append((table_h_lines, table_v_lines))
+
+    return table_rects, table_lines
 
 
 class IdentifyHeaders:
@@ -718,6 +870,9 @@ class IdentifyHeaders:
         Mapping from font size to markdown header prefix string
     options : PdfOptions
         PDF conversion options used for header detection
+    debug_info : dict or None
+        Debug information about header detection (if header_debug_output is enabled).
+        Contains font size distribution, header sizes, and classification details.
 
     """
 
@@ -748,6 +903,7 @@ class IdentifyHeaders:
 
         """
         self.options = options or PdfOptions()
+        self.debug_info: dict[str, Any] | None = None
 
         # Determine pages to sample for header analysis
         if self.options.header_sample_pages is not None:
@@ -862,6 +1018,23 @@ class IdentifyHeaders:
             # Store level information for later formatting
             self.header_id[size] = level
 
+        # Store debug information if enabled
+        if self.options.header_debug_output:
+            self.debug_info = {
+                "font_size_distribution": fontsizes.copy(),
+                "bold_font_sizes": dict(fontweight_sizes),
+                "allcaps_font_sizes": dict(allcaps_sizes),
+                "body_text_size": body_limit,
+                "header_sizes": sizes.copy(),
+                "header_id_mapping": self.header_id.copy(),
+                "bold_header_sizes": list(self.bold_header_sizes),
+                "allcaps_header_sizes": list(self.allcaps_header_sizes),
+                "percentile_threshold": self.options.header_percentile_threshold,
+                "font_size_ratio": self.options.header_font_size_ratio,
+                "min_occurrences": self.options.header_min_occurrences,
+                "pages_sampled": pages_to_use.copy() if isinstance(pages_to_use, list) else list(pages_to_use),
+            }
+
     def get_header_level(self, span: dict) -> int:
         """Return header level for a text span, or 0 if not a header.
 
@@ -914,6 +1087,39 @@ class IdentifyHeaders:
                 return 0
 
         return level
+
+    def get_debug_info(self) -> dict[str, Any] | None:
+        """Return debug information about header detection.
+
+        Returns
+        -------
+        dict or None
+            Debug information dictionary if header_debug_output was enabled,
+            None otherwise. The dictionary contains:
+            - font_size_distribution: Frequency of each font size
+            - bold_font_sizes: Sizes where bold text was found
+            - allcaps_font_sizes: Sizes where all-caps text was found
+            - body_text_size: Detected body text font size
+            - header_sizes: Font sizes classified as headers
+            - header_id_mapping: Mapping from size to header level
+            - bold_header_sizes: Sizes treated as headers due to bold
+            - allcaps_header_sizes: Sizes treated as headers due to all-caps
+            - percentile_threshold: Threshold used for detection
+            - font_size_ratio: Minimum ratio for header classification
+            - min_occurrences: Minimum occurrences threshold
+            - pages_sampled: Pages analyzed for header detection
+
+        Examples
+        --------
+        >>> options = PdfOptions(header_debug_output=True)
+        >>> hdr = IdentifyHeaders(doc, options=options)
+        >>> debug_info = hdr.get_debug_info()
+        >>> if debug_info:
+        ...     print(f"Body text size: {debug_info['body_text_size']}")
+        ...     print(f"Header sizes: {debug_info['header_sizes']}")
+
+        """
+        return self.debug_info
 
 
 
@@ -1313,6 +1519,9 @@ class PdfToAstConverter(BaseParser):
             def __getitem__(self, index: int) -> Any:
                 return self.tables[index]
 
+        fallback_table_rects = []
+        fallback_table_lines = []
+
         if mode == "none":
             # No table detection
             tabs = EmptyTables()
@@ -1321,72 +1530,78 @@ class PdfToAstConverter(BaseParser):
             tabs = page.find_tables()
         elif mode == "ruling":
             # Only use ruling line detection (fallback method)
-            _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
-            # Fallback detection returns rects but not actual table objects we can use
-            # For now, just use empty tables (future: could convert rects to table objects)
+            fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
+                page, self.options.table_ruling_line_threshold
+            )
+            # Use EmptyTables for PyMuPDF tables, we'll process fallback tables separately
             tabs = EmptyTables()
         else:  # "both" or default
             # Use PyMuPDF first, fallback to ruling if needed
             tabs = page.find_tables()
             if self.options.enable_table_fallback_detection and not tabs.tables:
-                _fallback_rects = detect_tables_by_ruling_lines(page, self.options.table_ruling_line_threshold)
+                fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
+                    page, self.options.table_ruling_line_threshold
+                )
 
         # Emit table detected event if tables found
-        if tabs.tables:
+        total_table_count = len(tabs.tables) + len(fallback_table_rects)
+        if total_table_count > 0:
             self._emit_progress(
                 "table_detected",
-                f"Found {len(tabs.tables)} table{'s' if len(tabs.tables) != 1 else ''} on page {page_num + 1}",
+                f"Found {total_table_count} table{'s' if total_table_count != 1 else ''} on page {page_num + 1}",
                 current=page_num + 1,
                 total=total_pages,
-                table_count=len(tabs.tables),
+                table_count=total_table_count,
                 page=page_num + 1
             )
 
         # 2. Make a list of table boundary boxes, sort by top-left corner
+        # Combine PyMuPDF tables and fallback tables
         tab_rects = sorted(
-            [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i) for i, t in enumerate(tabs.tables)],
+            [(fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i, "pymupdf") for i, t in enumerate(tabs.tables)]
+            + [(rect, i, "fallback") for i, rect in enumerate(fallback_table_rects)],
             key=lambda r: (r[0].y0, r[0].x0),
         )
 
         # 3. Final list of all text and table rectangles
         text_rects = []
         # Compute rectangles outside tables and fill final rect list
-        for i, (r, idx) in enumerate(tab_rects):
+        for i, (r, idx, table_type) in enumerate(tab_rects):
             if i == 0:  # Compute rect above all tables
                 tr = page.rect
                 tr.y1 = r.y0
                 if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-                text_rects.append(("table", r, idx))
+                    text_rects.append(("text", tr, 0, ""))
+                text_rects.append(("table", r, idx, table_type))
                 continue
             # Read previous rectangle in final list: always a table
-            _, r0, idx0 = text_rects[-1]
+            _, r0, idx0, _ = text_rects[-1]
 
             # Check if a non-empty text rect is fitting in between tables
             tr = page.rect
             tr.y0 = r0.y1
             tr.y1 = r.y0
             if not tr.is_empty:  # Empty if two tables overlap vertically
-                text_rects.append(("text", tr, 0))
+                text_rects.append(("text", tr, 0, ""))
 
-            text_rects.append(("table", r, idx))
+            text_rects.append(("table", r, idx, table_type))
 
             # There may also be text below all tables
             if i == len(tab_rects) - 1:
                 tr = page.rect
                 tr.y0 = r.y1
                 if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
+                    text_rects.append(("text", tr, 0, ""))
 
         if not text_rects:  # This will happen for table-free pages
-            text_rects.append(("text", page.rect, 0))
+            text_rects.append(("text", page.rect, 0, ""))
         else:
-            rtype, r, idx = text_rects[-1]
+            rtype, r, idx, _ = text_rects[-1]
             if rtype == "table":
                 tr = page.rect
                 tr.y0 = r.y1
                 if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
+                    text_rects.append(("text", tr, 0, ""))
 
         # Add image placement markers if enabled
         if page_images and self.options.image_placement_markers:
@@ -1394,36 +1609,46 @@ class PdfToAstConverter(BaseParser):
             page_images.sort(key=lambda img: img["bbox"].y0)
 
             # Insert images at appropriate positions
-            combined_rects: list[tuple[str, fitz.Rect, int | dict]] = []
+            combined_rects: list[tuple[str, fitz.Rect, int | dict, str]] = []
             img_idx = 0
 
-            for rtype, r, idx in text_rects:
+            for rtype, r, idx, table_type in text_rects:
                 # Check if any images should be placed before this rect
                 while img_idx < len(page_images) and page_images[img_idx]["bbox"].y1 <= r.y0:
                     img = page_images[img_idx]
-                    combined_rects.append(("image", img["bbox"], img))
+                    combined_rects.append(("image", img["bbox"], img, ""))
                     img_idx += 1
 
-                combined_rects.append((rtype, r, idx))
+                combined_rects.append((rtype, r, idx, table_type))
 
             # Add remaining images
             while img_idx < len(page_images):
                 img = page_images[img_idx]
-                combined_rects.append(("image", img["bbox"], img))
+                combined_rects.append(("image", img["bbox"], img, ""))
                 img_idx += 1
 
             text_rects = combined_rects  # type: ignore[assignment]
 
         # Process all rectangles and convert to AST nodes
-        for rtype, r, idx in text_rects:
+        for rtype, r, idx, table_type in text_rects:
             if rtype == "text":  # A text rectangle
                 text_nodes = self._process_text_region_to_ast(page, r, page_num)
                 if text_nodes:
                     nodes.extend(text_nodes)
             elif rtype == "table":  # A table rect
-                table_node = self._process_table_to_ast(tabs[idx], page_num)
-                if table_node:
-                    nodes.append(table_node)
+                if table_type == "pymupdf":
+                    # Process PyMuPDF table
+                    table_node = self._process_table_to_ast(tabs[idx], page_num)
+                    if table_node:
+                        nodes.append(table_node)
+                elif table_type == "fallback":
+                    # Process fallback table using ruling lines
+                    h_lines, v_lines = fallback_table_lines[idx]
+                    table_node = self._extract_table_from_ruling_rect(
+                        page, fallback_table_rects[idx], h_lines, v_lines, page_num
+                    )
+                    if table_node:
+                        nodes.append(table_node)
             elif rtype == "image":  # An image
                 # idx contains image info dict in this case
                 if isinstance(idx, dict):  # type: ignore[unreachable]  # Type guard
@@ -1486,13 +1711,38 @@ class PdfToAstConverter(BaseParser):
 
         # Apply column detection if enabled
         if self.options.detect_columns:
-            columns: list[list[dict]] = detect_columns(blocks, self.options.column_gap_threshold)
-            # Process blocks column by column for proper reading order
-            blocks_to_process = []
-            for column in columns:
-                # Sort blocks within column by y-coordinate (top to bottom)
-                column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-                blocks_to_process.extend(column_sorted)
+            # Check column_detection_mode option
+            if self.options.column_detection_mode == "disabled":
+                # Force single column (no detection)
+                blocks_to_process = blocks
+            elif self.options.column_detection_mode == "force_single":
+                # Force single column layout
+                blocks_to_process = blocks
+            elif self.options.column_detection_mode == "force_multi":
+                # Force multi-column detection
+                columns: list[list[dict]] = detect_columns(
+                    blocks,
+                    self.options.column_gap_threshold,
+                    use_clustering=self.options.use_column_clustering
+                )
+                # Process blocks column by column for proper reading order
+                blocks_to_process = []
+                for column in columns:
+                    # Sort blocks within column by y-coordinate (top to bottom)
+                    column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+                    blocks_to_process.extend(column_sorted)
+            else:  # "auto" mode (default)
+                columns = detect_columns(
+                    blocks,
+                    self.options.column_gap_threshold,
+                    use_clustering=self.options.use_column_clustering
+                )
+                # Process blocks column by column for proper reading order
+                blocks_to_process = []
+                for column in columns:
+                    # Sort blocks within column by y-coordinate (top to bottom)
+                    column_sorted = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+                    blocks_to_process.extend(column_sorted)
         else:
             blocks_to_process = blocks
 
@@ -1679,6 +1929,11 @@ class PdfToAstConverter(BaseParser):
         str or None
             Link URL if span is part of a link
 
+        Notes
+        -----
+        Uses the link_overlap_threshold option from self.options to determine
+        the minimum overlap required for link detection.
+
         """
         if not links or not span.get("text"):
             return None
@@ -1686,11 +1941,14 @@ class PdfToAstConverter(BaseParser):
         import fitz
         bbox = fitz.Rect(span["bbox"])
 
+        # Use threshold from options
+        threshold_percent = self.options.link_overlap_threshold
+
         # Find all links that overlap with this span
         for link in links:
             hot = link["from"]  # The hot area of the link
             overlap = hot & bbox
-            bbox_area = (DEFAULT_OVERLAP_THRESHOLD_PERCENT / 100.0) * abs(bbox)
+            bbox_area = (threshold_percent / 100.0) * abs(bbox)
             if abs(overlap) >= bbox_area:
                 return link.get("uri")
 
@@ -1817,6 +2075,95 @@ class PdfToAstConverter(BaseParser):
         except Exception as e:
             logger.debug(f"Fallback table processing failed: {e}")
             return None
+
+    def _extract_table_from_ruling_rect(
+        self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
+    ) -> AstTable | None:
+        """Extract table content from a bounding box using ruling lines.
+
+        Implements basic grid-based cell segmentation using detected horizontal
+        and vertical lines to extract text from each cell.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page containing the table
+        table_rect : fitz.Rect
+            Bounding box of the table
+        h_lines : list of tuple
+            Horizontal ruling lines as (x0, y0, x1, y1) tuples
+        v_lines : list of tuple
+            Vertical ruling lines as (x0, y0, x1, y1) tuples
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        AstTable or None
+            Table node if extraction successful
+
+        Notes
+        -----
+        This method uses grid-based cell segmentation. It may not work well
+        for tables without clear ruling lines or with merged cells.
+
+        """
+        if self.options.table_fallback_extraction_mode == "none":
+            return None
+
+        # Sort lines for grid creation
+        h_lines_sorted = sorted(h_lines, key=lambda line: line[1])  # Sort by y-coordinate
+        v_lines_sorted = sorted(v_lines, key=lambda line: line[0])  # Sort by x-coordinate
+
+        if len(h_lines_sorted) < 2 or len(v_lines_sorted) < 2:
+            # Need at least 2 horizontal and 2 vertical lines to form cells
+            return None
+
+        # Create grid cells from line intersections
+        rows: list[TableRow] = []
+
+        # Extract y-coordinates for rows (between consecutive h_lines)
+        row_y_coords = [(h_lines_sorted[i][1], h_lines_sorted[i + 1][1])
+                       for i in range(len(h_lines_sorted) - 1)]
+
+        # Extract x-coordinates for columns (between consecutive v_lines)
+        col_x_coords = [(v_lines_sorted[i][0], v_lines_sorted[i + 1][0])
+                       for i in range(len(v_lines_sorted) - 1)]
+
+        import fitz
+
+        for row_idx, (y0, y1) in enumerate(row_y_coords):
+            cells: list[TableCell] = []
+
+            for col_idx, (x0, x1) in enumerate(col_x_coords):
+                # Create cell rectangle
+                cell_rect = fitz.Rect(x0, y0, x1, y1)
+
+                # Extract text from cell
+                cell_text = page.get_textbox(cell_rect)
+                if cell_text:
+                    cell_text = cell_text.strip()
+                else:
+                    cell_text = ""
+
+                cells.append(TableCell(content=[Text(content=cell_text)]))
+
+            # First row is typically the header
+            is_header = (row_idx == 0)
+            rows.append(TableRow(cells=cells, is_header=is_header))
+
+        if not rows:
+            return None
+
+        # Separate header and data rows
+        header_row = rows[0] if rows else TableRow(cells=[])
+        data_rows = rows[1:] if len(rows) > 1 else []
+
+        return AstTable(
+            header=header_row,
+            rows=data_rows,
+            source_location=SourceLocation(format="pdf", page=page_num + 1)
+        )
 
     def _parse_markdown_table_row(self, row_line: str) -> list[str]:
         """Parse a markdown table row into cell contents.

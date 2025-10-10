@@ -8,7 +8,7 @@ from io import BytesIO
 
 import pytest
 
-from all2md import to_markdown, HtmlOptions
+from all2md import HtmlOptions, to_markdown
 
 
 @pytest.mark.golden

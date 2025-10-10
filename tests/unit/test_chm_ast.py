@@ -24,8 +24,8 @@ from fixtures.generators.chm_fixtures import (
 )
 
 from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
-from all2md.options.chm import ChmOptions
 from all2md.options import HtmlOptions
+from all2md.options.chm import ChmOptions
 from all2md.parsers.chm import ChmParser
 
 

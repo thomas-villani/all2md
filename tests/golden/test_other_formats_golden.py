@@ -9,7 +9,7 @@ from io import BytesIO
 import pytest
 from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, save_pptx_to_bytes
 
-from all2md import to_markdown, PptxOptions
+from all2md import PptxOptions, to_markdown
 
 
 @pytest.mark.golden

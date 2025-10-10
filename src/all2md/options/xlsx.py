@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Union, Optional, Literal
+from typing import Literal, Optional, Union
 
 from all2md.options.base import BaseParserOptions
 
