@@ -762,7 +762,9 @@ class PptxToAstConverter(BaseParser):
                 continue
 
             # Detect if this is a list item
-            is_list_item, list_type = _detect_list_item(paragraph, slide_context)
+            is_list_item, list_type = _detect_list_item(
+                paragraph, slide_context, strict_mode=self.options.strict_list_detection
+            )
 
             if is_list_item:
                 # Check if we need to start a new list or continue current
@@ -1104,10 +1106,14 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
     return None, None
 
 
-def _detect_list_item(paragraph: Any, slide_context: dict | None = None) -> tuple[bool, str]:
+def _detect_list_item(
+    paragraph: Any,
+    slide_context: dict | None = None,
+    strict_mode: bool = False
+) -> tuple[bool, str]:
     """Detect if a paragraph is a list item and determine the list type.
 
-    Uses XML-based detection first, then falls back to heuristics.
+    Uses XML-based detection first, then falls back to heuristics unless strict_mode is enabled.
 
     Parameters
     ----------
@@ -1115,6 +1121,9 @@ def _detect_list_item(paragraph: Any, slide_context: dict | None = None) -> tupl
         The paragraph object to analyze
     slide_context : dict, optional
         Context about the slide to help with detection
+    strict_mode : bool, default False
+        If True, only use XML-based detection (no heuristics).
+        If False, use XML detection with heuristic fallbacks.
 
     Returns
     -------
@@ -1126,6 +1135,10 @@ def _detect_list_item(paragraph: Any, slide_context: dict | None = None) -> tupl
     xml_list_type, xml_list_style = _detect_list_formatting_xml(paragraph)
     if xml_list_type:
         return True, xml_list_type
+
+    # In strict mode, only trust XML detection
+    if strict_mode:
+        return False, "bullet"
 
     # Fall back to level-based detection
     if not hasattr(paragraph, 'level') or paragraph.level is None:

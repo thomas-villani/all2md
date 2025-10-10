@@ -1,4 +1,5 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+"""PPTX parser and renderer options."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +8,6 @@ from typing import Literal
 from all2md.constants import DEFAULT_PAGE_SEPARATOR, DEFAULT_SLIDE_NUMBERS
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
-# all2md/options/pptx.py
 
 @dataclass(frozen=True)
 class PptxRendererOptions(BaseRendererOptions):
@@ -142,7 +142,8 @@ class PptxOptions(BaseParserOptions):
     charts_mode: str = field(
         default="data",
         metadata={
-            "help": "Chart conversion mode: 'data' (tables), 'image' (screenshots), 'mermaid', or 'both'"
+            "help": "Chart conversion mode: 'data' (default, tables only), "
+                   "'mermaid' (diagrams only), or 'both' (tables + diagrams)"
         }
     )
     include_titles_as_h2: bool = field(
@@ -150,5 +151,13 @@ class PptxOptions(BaseParserOptions):
         metadata={
             "help": "Include slide titles as H2 headings",
             "cli_name": "no-include-titles-as-h2"
+        }
+    )
+    strict_list_detection: bool = field(
+        default=False,
+        metadata={
+            "help": "Use strict list detection (XML-only, no heuristics). "
+                   "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
+                   "When False (default), uses XML detection with heuristic fallbacks for unformatted lists."
         }
     )
