@@ -56,6 +56,7 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 from all2md.options.rst import RstRendererOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.escape import escape_rst
 
 
 class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
@@ -547,10 +548,8 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
             Text to render
 
         """
-        # Escape RST special characters if needed
-        text = node.content
-        # RST uses backslash escaping for special chars
-        # Common special chars: * _ ` [ ] # < > |
+        # Escape RST special characters
+        text = escape_rst(node.content)
         self._output.append(text)
 
     def visit_emphasis(self, node: Emphasis) -> None:

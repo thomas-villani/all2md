@@ -46,6 +46,7 @@ from all2md.ast.nodes import (
 from all2md.ast.visitors import NodeVisitor
 from all2md.options.asciidoc import AsciiDocRendererOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.escape import escape_asciidoc, escape_asciidoc_attribute
 
 
 class AsciiDocRenderer(NodeVisitor, BaseRenderer):
@@ -83,6 +84,7 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         self._output: list[str] = []
         self._list_level: int = 0
         self._in_list: bool = False
+        self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to AsciiDoc string.
@@ -101,6 +103,7 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         self._output = []
         self._list_level = 0
         self._in_list = False
+        self._list_ordered_stack = []
 
         document.accept(self)
 
@@ -146,26 +149,33 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
 
         # Render in order: title, author, description, then others
         if 'title' in metadata and metadata['title']:
-            self._output.append(f":title: {metadata['title']}\n")
+            escaped_title = escape_asciidoc_attribute(str(metadata['title']))
+            self._output.append(f":title: {escaped_title}\n")
         if 'author' in metadata and metadata['author']:
-            self._output.append(f":author: {metadata['author']}\n")
+            escaped_author = escape_asciidoc_attribute(str(metadata['author']))
+            self._output.append(f":author: {escaped_author}\n")
         if 'description' in metadata and metadata['description']:
-            self._output.append(f":description: {metadata['description']}\n")
+            escaped_desc = escape_asciidoc_attribute(str(metadata['description']))
+            self._output.append(f":description: {escaped_desc}\n")
         if 'keywords' in metadata and metadata['keywords']:
             # Render keywords as comma-separated string
             if isinstance(metadata['keywords'], list):
                 keywords_str = ', '.join(str(k) for k in metadata['keywords'])
-                self._output.append(f":keywords: {keywords_str}\n")
+                escaped_keywords = escape_asciidoc_attribute(keywords_str)
+                self._output.append(f":keywords: {escaped_keywords}\n")
             else:
-                self._output.append(f":keywords: {metadata['keywords']}\n")
+                escaped_keywords = escape_asciidoc_attribute(str(metadata['keywords']))
+                self._output.append(f":keywords: {escaped_keywords}\n")
         if 'language' in metadata and metadata['language']:
-            self._output.append(f":lang: {metadata['language']}\n")
+            escaped_lang = escape_asciidoc_attribute(str(metadata['language']))
+            self._output.append(f":lang: {escaped_lang}\n")
 
         # Render all other fields (custom attributes)
         for key, value in metadata.items():
             if key not in ('title', 'author', 'description', 'keywords', 'language') and key not in skip_fields:
                 if value:
-                    self._output.append(f":{key}: {value}\n")
+                    escaped_value = escape_asciidoc_attribute(str(value))
+                    self._output.append(f":{key}: {escaped_value}\n")
 
     def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
@@ -252,6 +262,7 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
         was_in_list = self._in_list
         self._in_list = True
         self._list_level += 1
+        self._list_ordered_stack.append(node.ordered)
 
         for i, item in enumerate(node.items):
             item.accept(self)
@@ -259,6 +270,7 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
                 self._output.append('\n')
 
         self._list_level -= 1
+        self._list_ordered_stack.pop()
         self._in_list = was_in_list
 
     def visit_list_item(self, node: ListItem) -> None:
@@ -270,10 +282,12 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             List item to render
 
         """
-        # Determine list marker based on nesting level
+        # Determine list marker based on nesting level and ordered/unordered
         # AsciiDoc uses * for unordered, . for ordered
-        # Multiple chars for nesting: **, ***, etc.
-        marker = '*' * self._list_level
+        # Multiple chars for nesting: **, ***, etc. or .., ..., etc.
+        is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
+        marker_char = '.' if is_ordered else '*'
+        marker = marker_char * self._list_level
 
         # Handle task lists
         if node.task_status:
@@ -385,9 +399,8 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             Text to render
 
         """
-        # Escape special AsciiDoc characters if needed
-        text = node.content
-        # TODO: Add escaping for special characters
+        # Escape special AsciiDoc characters
+        text = escape_asciidoc(node.content)
         self._output.append(text)
 
     def visit_emphasis(self, node: Emphasis) -> None:
@@ -423,7 +436,13 @@ class AsciiDocRenderer(NodeVisitor, BaseRenderer):
             Code to render
 
         """
-        self._output.append(f"`{node.content}`")
+        # For AsciiDoc, if code contains backticks, use + delimiters instead
+        if '`' in node.content:
+            # Use + for inline code when backticks are present
+            self._output.append(f"+{node.content}+")
+        else:
+            # Use standard backtick delimiter
+            self._output.append(f"`{node.content}`")
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.

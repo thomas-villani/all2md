@@ -52,6 +52,7 @@ from all2md.ast.visitors import NodeVisitor
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MediaWikiOptions
 from all2md.renderers.base import BaseRenderer
+from all2md.utils.escape import escape_mediawiki
 
 
 class MediaWikiRenderer(NodeVisitor, BaseRenderer):
@@ -88,6 +89,7 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
         self.options: MediaWikiOptions = options
         self._output: list[str] = []
         self._list_level: int = 0
+        self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to MediaWiki markup string.
@@ -105,6 +107,7 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
         """
         self._output = []
         self._list_level = 0
+        self._list_ordered_stack = []
 
         document.accept(self)
 
@@ -206,6 +209,7 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
 
         """
         self._list_level += 1
+        self._list_ordered_stack.append(node.ordered)
 
         for i, item in enumerate(node.items):
             item.accept(self)
@@ -213,6 +217,7 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
                 self._output.append("\n")
 
         self._list_level -= 1
+        self._list_ordered_stack.pop()
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
@@ -223,10 +228,12 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
             List item to render
 
         """
-        # Determine list marker based on nesting level
+        # Determine list marker based on nesting level and ordered/unordered
         # MediaWiki uses * for unordered, # for ordered
-        # Multiple chars for nesting: **, ***, etc.
-        marker = "*" * self._list_level
+        # Multiple chars for nesting: **, ***, etc. or ##, ###, etc.
+        is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
+        marker_char = "#" if is_ordered else "*"
+        marker = marker_char * self._list_level
 
         self._output.append(f"{marker} ")
 
@@ -336,9 +343,10 @@ class MediaWikiRenderer(NodeVisitor, BaseRenderer):
             Text to render
 
         """
-        # MediaWiki has some special characters that may need escaping
-        # For now, pass through as-is (MediaWiki is fairly lenient)
-        self._output.append(node.content)
+        # MediaWiki is fairly lenient with special characters
+        # but we apply minimal escaping for safety
+        text = escape_mediawiki(node.content)
+        self._output.append(text)
 
     def visit_emphasis(self, node: Emphasis) -> None:
         """Render an Emphasis node.

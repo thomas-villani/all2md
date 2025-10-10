@@ -86,7 +86,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.options.pptx import PptxRendererOptions        >>> from all2md.ast import Document, Heading, Paragraph, Text
+        >>> from all2md.options.pptx import PptxRendererOptions
+        >>> from all2md.ast import Document, Heading, Paragraph, Text
         >>> from all2md.renderers.pptx import PptxRenderer
         >>> doc = Document(children=[
         ...     Heading(level=2, content=[Text(content="Slide 1")]),
@@ -107,6 +108,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Rendering state
         self._current_textbox: TextFrame | None = None
         self._current_paragraph: Any = None
+        self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
+        self._list_item_counters: list[int] = []  # Track item number at each level for ordered lists
 
     @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -567,9 +570,23 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             List to render
 
         """
+        # Track ordered/unordered and initialize counter for ordered lists
+        self._list_ordered_stack.append(node.ordered)
+        if node.ordered:
+            self._list_item_counters.append(node.start if hasattr(node, 'start') else 1)
+        else:
+            self._list_item_counters.append(0)  # Not used for unordered
+
         # Render list items
         for item in node.items:
             item.accept(self)
+            # Increment counter for ordered lists
+            if node.ordered and self._list_item_counters:
+                self._list_item_counters[-1] += 1
+
+        # Clean up state
+        self._list_ordered_stack.pop()
+        self._list_item_counters.pop()
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
@@ -585,7 +602,23 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         # Create paragraph for list item
         p = self._current_textbox.add_paragraph()
-        p.level = 0  # Set bullet level
+
+        # Determine if this is ordered or unordered
+        is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
+
+        if is_ordered:
+            # For ordered lists, manually add number prefix since python-pptx
+            # has limited support for numbered lists
+            item_number = self._list_item_counters[-1] if self._list_item_counters else 1
+            # Add numbered prefix as part of the text
+            p.level = 0  # No bullet for numbered items
+            # We'll add the number as the first run
+            run = p.add_run()
+            run.text = f"{item_number}. "
+        else:
+            # For unordered lists, use bullet level
+            p.level = 0  # Set bullet level
+
         self._current_paragraph = p
 
         # Render children

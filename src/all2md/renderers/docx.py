@@ -108,6 +108,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._list_level: int = 0
         self._in_table: bool = False
         self._temp_files: list[str] = []
+        self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
 
     @requires_dependencies("docx_render", [("python-docx", "docx", ">=1.2.0")])
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
@@ -350,11 +351,13 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         """
         self._list_level += 1
+        self._list_ordered_stack.append(node.ordered)
 
         for _i, item in enumerate(node.items):
             item.accept(self)
 
         self._list_level -= 1
+        self._list_ordered_stack.pop()
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
@@ -371,11 +374,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Create paragraph for list item
         para = self.document.add_paragraph()
 
-        # Determine list style based on parent list
-        if self._list_level > 0:
-            # Use appropriate list style
-            # For now, use simple bullet style
-            para.style = 'List Bullet' if self._list_level == 1 else 'List Bullet'
+        # Determine list style based on ordered/unordered
+        is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
+        if is_ordered:
+            para.style = 'List Number'
+        else:
+            para.style = 'List Bullet'
 
         self._current_paragraph = para
 
