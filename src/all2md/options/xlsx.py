@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/xlsx.py
+"""Configuration options for XLSX (Excel) parsing.
+
+This module defines options for parsing Excel spreadsheet files.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

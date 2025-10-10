@@ -73,6 +73,18 @@ from all2md.cli.processors import (
     validate_arguments,
 )
 
+__all__ = [
+    "main",
+    "DynamicCLIBuilder",
+    "create_parser",
+    "convert_single_file",
+    "generate_output_path",
+    "process_detect_only",
+    "process_dry_run",
+    "process_multi_file",
+    "process_stdin",
+]
+
 
 def main(args: list[str] | None = None) -> int:
     """Execute main CLI entry point with focused delegation to specialized processors."""

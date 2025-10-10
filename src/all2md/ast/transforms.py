@@ -125,7 +125,7 @@ class NodeTransformer(NodeVisitor):
         return result
 
     def _generic_transform(self, node: Node) -> Node:
-        """Generic node transformation using node traversal helpers.
+        """Transform nodes generically using traversal helpers.
 
         This method provides a generic way to transform nodes by automatically
         handling child traversal and reconstruction. Individual visit_* methods
@@ -449,7 +449,7 @@ class NodeCollector(NodeVisitor):
             child.accept(self)
 
     def _generic_visit(self, node: Node) -> None:
-        """Generic node collection using node traversal helpers.
+        """Collect nodes generically using traversal helpers.
 
         This method provides a generic way to collect nodes by automatically
         handling child traversal. Individual visit_* methods can use this

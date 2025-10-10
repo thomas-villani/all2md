@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/odt.py
+"""Configuration options for ODT (OpenDocument Text) parsing.
+
+This module defines options for parsing ODT document files.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

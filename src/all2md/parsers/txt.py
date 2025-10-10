@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import IO, Optional, Union
 
-from all2md.ast import Document, Paragraph, Text
+from all2md.ast import Document, Node, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options import BaseParserOptions
@@ -99,7 +99,7 @@ class PlainTextToAstConverter(BaseParser):
         # This preserves some structure while keeping it simple
         paragraphs = content.split('\n\n')
 
-        children = []
+        children: list[Node] = []
         for para_text in paragraphs:
             # Skip empty paragraphs
             stripped = para_text.strip()

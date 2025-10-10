@@ -1398,7 +1398,7 @@ def process_with_rich_output(
                     file = files[0]
                     try:
                         # Convert the document
-                        markdown_content = to_markdown(file, source_format=format_arg, **options)
+                        markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **options)
 
                         # Render with Rich Markdown
                         from rich.markdown import Markdown
@@ -1485,7 +1485,7 @@ def process_with_rich_output(
                 if len(files) == 1 and not args.out and not args.output_dir:
                     try:
                         # Convert the document
-                        markdown_content = to_markdown(file, source_format=format_arg, **options)
+                        markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **options)
 
                         # Render with Rich Markdown
                         from rich.markdown import Markdown

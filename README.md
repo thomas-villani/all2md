@@ -6,11 +6,23 @@
 [![License](https://img.shields.io/pypi/l/all2md.svg)](https://opensource.org/licenses/MIT)
 [![Python Versions](https://img.shields.io/pypi/pyversions/all2md.svg)](https://pypi.org/project/all2md/)
 
-`all2md` is a powerful, bidirectional document conversion library for Python. It provides a comprehensive solution for transforming a wide range of file formats to and from Markdown, using a sophisticated Abstract Syntax Tree (AST) as an intermediate representation. 
+**Rapid, lightweight conversion of various document formats to and from markdown for LLMs.**
 
-The purpose of this project was to create a single python library for converting a wide array of document types into plaintext formats for use in LLMs using a simple API. 
+`all2md` provides a unified, extensible framework for converting diverse document formats into clean, consistent Markdown. It's designed to be the bridge between complex binary files (like `.docx`, `.pdf`, `.pptx`) and the plain-text world of Large Language Models (LLMs), enabling seamless ingestion and generation of documents.
 
-Designed for developers working with AI, data scientists, and anyone working with document processing pipelines, `all2md` excels at intelligent content extraction, formatting preservation, and structured data conversion. Its modular, plugin-based architecture makes it highly extensible and configurable.
+## The Problem
+
+LLMs excel at processing and generating structured text, with Markdown being a near-perfect format. However, most human-created documents are stored in formats like Microsoft Word, PDF, or PowerPoint. Feeding these directly to an LLM is often inefficient or impossible. Existing converters can be inconsistent, producing messy or hard-to-parse output.
+
+## The Solution
+
+`all2md` solves this by providing a robust, two-way conversion pipeline.
+
+1.  **Ingestion:** Convert any supported document into a clean, standardized Markdown representation.
+2.  **Transformation:** Programmatically clean, modify, or analyze the content *before* it reaches the LLM using a powerful transform pipeline.
+3.  **Generation:** Convert LLM-generated Markdown *back* into rich document formats like `.docx` or `.pdf`.
+
+This approach makes Markdown the universal intermediate format, simplifying document processing workflows for AI applications.
 
 ## Key Features
 

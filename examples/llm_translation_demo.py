@@ -44,6 +44,10 @@ class LLMTranslateTransform(NodeTransformer):
         preserve_code: bool = True,
         preserve_links: bool = True
     ):
+        """Initialize the LLM translation transform.
+
+        See class docstring for parameter descriptions.
+        """
         super().__init__()
         self.target_language = target_language
         self.llm_client = llm_client
@@ -201,7 +205,11 @@ def openai_translate(text: str, target_language: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": f"You are a professional translator. Translate the following text to {target_language}. Preserve all formatting, markdown syntax, and technical terms. Return only the translated text, nothing else."
+                "content": (
+                    f"You are a professional translator. Translate the following text to {target_language}. "
+                    "Preserve all formatting, markdown syntax, and technical terms. "
+                    "Return only the translated text, nothing else."
+                )
             },
             {
                 "role": "user",
@@ -245,7 +253,11 @@ def anthropic_translate(text: str, target_language: str) -> str:
         messages=[
             {
                 "role": "user",
-                "content": f"Translate the following text to {target_language}. Preserve all formatting, markdown syntax, and technical terms. Return only the translated text:\n\n{text}"
+                "content": (
+                    f"Translate the following text to {target_language}. "
+                    "Preserve all formatting, markdown syntax, and technical terms. "
+                    f"Return only the translated text:\n\n{text}"
+                )
             }
         ]
     )

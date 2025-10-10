@@ -30,7 +30,7 @@ class TrackingStoreAction(argparse.Action):
         nargs: Optional[Union[int, str]] = None,
         const: Optional[Any] = None,
         default: Optional[Any] = None,
-        type: Optional[Any] = None,
+        type: Optional[Callable[[str], Any]] = None,
         choices: Optional[Sequence[Any]] = None,
         required: bool = False,
         help: Optional[str] = None,
@@ -285,7 +285,7 @@ class TrackingAppendAction(argparse.Action):
         nargs: Optional[Union[int, str]] = None,
         const: Optional[Any] = None,
         default: Optional[list] = None,
-        type: Optional[Any] = None,
+        type: Optional[Callable[[str], Any]] = None,
         choices: Optional[Sequence[Any]] = None,
         required: bool = False,
         help: Optional[str] = None,
@@ -374,7 +374,7 @@ class TrackingAppendAction(argparse.Action):
             # Apply type converter to each element if provided
             if self.type is not None:
                 try:
-                    converted_values = [self.type(v) for v in values]
+                    converted_values = [self.type(v) for v in values]  # type: ignore[operator]
                     items.extend(converted_values)
                 except (ValueError, TypeError) as e:
                     parser.error(f"argument {option_string}: invalid value(s): {e}")
@@ -383,12 +383,13 @@ class TrackingAppendAction(argparse.Action):
         else:
             # Single value - append normally
             # Apply type converter if provided
+            converted_value: Union[str, Sequence[Any], None] = values
             if self.type is not None and values is not None:
                 try:
-                    values = self.type(values)
+                    converted_value = self.type(values)  # type: ignore[arg-type, assignment, operator]
                 except (ValueError, TypeError) as e:
                     parser.error(f"argument {option_string}: invalid value: {e}")
-            items.append(values)
+            items.append(converted_value)
 
         setattr(namespace, self.dest, items)
 

@@ -235,8 +235,10 @@ def load_config_from_env() -> MCPConfig:
     return MCPConfig(
         enable_to_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_TO_MD'), default=True),
         enable_from_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_FROM_MD'), default=False),  # Disabled by default
-        read_allowlist=cast(list[str | Path], read_allowlist_strs),  # Will be validated and converted to Path objects by prepare_allowlist_dirs
-        write_allowlist=cast(list[str | Path], write_allowlist_strs),  # Will be validated and converted to Path objects by prepare_allowlist_dirs
+        # Will be validated and converted to Path objects by prepare_allowlist_dirs
+        read_allowlist=cast(list[str | Path], read_allowlist_strs),
+        # Will be validated and converted to Path objects by prepare_allowlist_dirs
+        write_allowlist=cast(list[str | Path], write_allowlist_strs),
         attachment_mode=_validate_attachment_mode(os.getenv('ALL2MD_MCP_ATTACHMENT_MODE'), default='base64'),
         disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
         log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),

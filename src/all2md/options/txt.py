@@ -1,5 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 # all2md/options/txt.py
+"""Configuration options for plain text rendering.
+
+This module defines options for rendering AST to plain text format.
+"""
 from dataclasses import dataclass, field
 
 from all2md.options.base import BaseRendererOptions

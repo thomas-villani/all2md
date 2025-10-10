@@ -62,7 +62,7 @@ def _extract_images_from_ast(doc: Any) -> list[Any]:
 
     """
     if FastMCPImage is None:
-        logger.warning("FastMCP not available, cannot extract images")
+        logger.warning("FastMCP not available, cannot extract images")  # type: ignore[unreachable]
         return []
 
     # Collect all Image nodes from AST
@@ -122,8 +122,6 @@ def convert_to_markdown_impl(
         If conversion fails
 
     """
-    warnings: list[str] = []
-
     # Validate mutually exclusive inputs
     if input_data.source_path and input_data.source_content:
         raise ValueError("Cannot specify both source_path and source_content")
@@ -202,10 +200,11 @@ def convert_to_markdown_impl(
                 logger.info(f"Extracted {len(images)} images for vLLM")
 
         # Convert AST to markdown
+        flavor_kwargs: dict[str, Any] = {'flavor': input_data.flavor} if input_data.flavor else {}
         markdown = from_ast(
             doc,
             target_format="markdown",
-            **({'flavor': input_data.flavor} if input_data.flavor else {})
+            **cast(Any, flavor_kwargs)
         )
 
         if not isinstance(markdown, str):

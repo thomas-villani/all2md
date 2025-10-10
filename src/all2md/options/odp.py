@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/odp.py
+"""Configuration options for ODP (OpenDocument Presentation) parsing.
+
+This module defines options for parsing ODP presentation files.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

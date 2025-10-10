@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # ${DIR_PATH}/${FILE_NAME}
+"""Configuration options for MHTML parsing.
+
+This module defines options for parsing MHTML (MIME HTML) web archives.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,3 +1,8 @@
+"""Base classes for parser and renderer options.
+
+This module defines the foundation classes for all format-specific options
+used throughout the all2md conversion pipeline.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
@@ -18,7 +23,26 @@ _UNSET = object()
 
 
 class CloneFrozenMixin:
+    """Mixin providing frozen dataclass cloning capabilities.
+
+    This mixin adds the ability to create modified copies of frozen dataclass
+    instances, which is useful for immutable configuration objects.
+    """
+
     def create_updated(self, **kwargs: Any) -> Self:
+        """Create a new instance with updated field values.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Field names and their new values
+
+        Returns
+        -------
+        Self
+            New instance with specified fields updated
+
+        """
         return replace(self, **kwargs)  # type: ignore
 
 

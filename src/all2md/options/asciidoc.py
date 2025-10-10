@@ -1,6 +1,11 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/asciidoc.py
+"""Configuration options for AsciiDoc parsing and rendering.
+
+This module defines options classes for AsciiDoc format conversion,
+supporting both AST parsing and rendering operations.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

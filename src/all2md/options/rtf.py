@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/rtf.py
+"""Configuration options for RTF (Rich Text Format) parsing.
+
+This module defines options for parsing RTF documents.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

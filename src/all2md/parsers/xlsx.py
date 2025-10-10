@@ -198,7 +198,9 @@ def _get_merged_cell_spans(sheet: Any) -> dict[str, tuple[int, int]]:
     return span_map
 
 
-def _extract_sheet_images(sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any) -> tuple[list[Image], dict[str, str]]:
+def _extract_sheet_images(
+    sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any
+) -> tuple[list[Image], dict[str, str]]:
     """Extract images from an XLSX sheet and convert to Image AST nodes.
 
     Parameters
@@ -443,7 +445,7 @@ class XlsxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: XlsxOptions = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: Optional[XlsxOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the XLSX parser with options and progress callback."""
         options = options or XlsxOptions()
         super().__init__(options, progress_callback)
@@ -578,13 +580,13 @@ class XlsxToAstConverter(BaseParser):
                 str_rows.append(out)
 
             # Trim empty rows based on trim_empty option
-            str_rows = trim_rows(str_rows, self.options.trim_empty)
+            str_rows = trim_rows(str_rows, cast(Any, self.options.trim_empty))
 
             if not str_rows:
                 continue
 
             # Trim empty columns based on trim_empty option
-            str_rows = trim_columns(str_rows, self.options.trim_empty)
+            str_rows = trim_columns(str_rows, cast(Any, self.options.trim_empty))
 
             if not str_rows or not any(str_rows):
                 continue
@@ -619,7 +621,9 @@ class XlsxToAstConverter(BaseParser):
                 )
 
             # Extract images from sheet
-            sheet_images, sheet_footnotes = _extract_sheet_images(sheet, base_filename, attachment_sequencer, self.options)
+            sheet_images, sheet_footnotes = _extract_sheet_images(
+                sheet, base_filename, attachment_sequencer, self.options
+            )
             self._attachment_footnotes.update(sheet_footnotes)
             children.extend(sheet_images)
 

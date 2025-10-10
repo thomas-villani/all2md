@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import IO, Any, Optional, Union, cast
 
-from all2md.ast import Alignment, Document, HTMLInline, Node, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import Alignment, Document, HTMLInline, Node, Paragraph
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.csv import CsvOptions

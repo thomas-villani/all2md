@@ -63,7 +63,7 @@ class OdtToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odt", [("odfpy", "odf", "")])
-    def __init__(self, options: OdtOptions = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: Optional[OdtOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODT parser with options and progress callback."""
         options = options or OdtOptions()
         super().__init__(options, progress_callback)
@@ -537,7 +537,7 @@ class OdtToAstConverter(BaseParser):
         match = re.match(r"!\[([^]]*)](?:\(([^)]+)\))?", markdown_result)
         if match:
             alt_text = match.group(1) or "image"
-            url = result.get("url", match.group(2) or "")
+            url = str(result.get("url", match.group(2) or ""))
             return Image(url=url, alt_text=alt_text, title=None)
 
         return None

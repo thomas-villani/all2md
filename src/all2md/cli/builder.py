@@ -625,7 +625,8 @@ class DynamicCLIBuilder:
                         kwargs['choices'] = param_spec.choices
 
                     # Add default if not a boolean action and default is set
-                    if 'action' not in (TrackingStoreTrueAction, TrackingStoreFalseAction) and param_spec.default is not None:
+                    is_bool_action = 'action' in (TrackingStoreTrueAction, TrackingStoreFalseAction)
+                    if not is_bool_action and param_spec.default is not None:
                         if 'default' not in kwargs:  # Don't override if already set
                             kwargs['default'] = param_spec.default
 

@@ -1,4 +1,8 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+"""Configuration options for EPUB parsing and rendering.
+
+This module defines options for EPUB e-book format conversion.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

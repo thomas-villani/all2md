@@ -1094,7 +1094,7 @@ class AsciiDocParser(BaseParser):
                             attr_value = ""
                         elif self.options.attribute_missing_policy == "warn":
                             import warnings
-                            warnings.warn(f"Undefined attribute reference: {{{attr_name}}}")
+                            warnings.warn(f"Undefined attribute reference: {{{attr_name}}}", stacklevel=2)
                             attr_value = f"{{{attr_name}}}"
                         else:  # keep
                             attr_value = f"{{{attr_name}}}"

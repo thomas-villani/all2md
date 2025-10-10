@@ -244,7 +244,7 @@ class TestDynamicCLIBuilder:
         builder = DynamicCLIBuilder()
 
         # Test that logger.warning is called instead of print
-        with patch.object(logging.getLogger('all2md.cli.builder'), 'warning') as mock_warning:
+        with patch.object(logging.getLogger('all2md.cli.builder'), 'warning') as _mock_warning:
             # Create a parser with an invalid argument to trigger warning
             parser = argparse.ArgumentParser()
             try:

@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/csv.py
+"""Configuration options for CSV parsing.
+
+This module defines options for parsing CSV files with customizable dialects.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

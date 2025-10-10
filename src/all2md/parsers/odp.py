@@ -63,7 +63,7 @@ class OdpToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odp", [("odfpy", "odf", "")])
-    def __init__(self, options: OdpOptions = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: Optional[OdpOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODP parser with options and progress callback."""
         options = options or OdpOptions()
         super().__init__(options, progress_callback)
@@ -721,7 +721,7 @@ class OdpToAstConverter(BaseParser):
         match = re.match(r"!\[([^]]*)](?:\(([^)]+)\))?", markdown_result)
         if match:
             alt_text = match.group(1) or "image"
-            url = result.get("url", match.group(2) or "")
+            url = str(result.get("url", match.group(2) or ""))
             return Image(url=url, alt_text=alt_text, title=None)
 
         return None

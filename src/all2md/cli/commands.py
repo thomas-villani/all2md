@@ -1,6 +1,12 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # src/all2md/cli/commands.py
+"""CLI command handlers and utilities for all2md.
+
+This module provides command-line interface implementation for the all2md
+document conversion library, including command handlers, version info,
+and system diagnostics.
+"""
 import argparse
 import json
 import logging

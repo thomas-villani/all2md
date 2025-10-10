@@ -201,22 +201,20 @@ class TableBuilder:
             - A sequence of inline nodes (e.g., [Text("Hello"), Strong(content=[Text("world")])])
 
             Mixed types are supported per-cell. An empty sequence creates an empty row.
+        is_header : bool, default False
+            Whether this is a header row. If has_header=True and no header exists yet,
+            the first row added will automatically be treated as a header regardless
+            of this parameter.
+        alignments : list of Alignment or None, optional
+            Column alignments (only used for header rows). Length should match the
+            number of cells. If not specified and this is a header row, all alignments
+            will be set to None (default alignment).
 
         Examples
         --------
                 ["Name", "Age"]  # All strings
                 [[Text("Name")], [Text("Age")]]  # All node sequences
                 ["Name", [Text("Age: "), Strong(content=[Text("30")])]]  # Mixed
-
-        is_header : bool, default = False
-            Whether this is a header row. If has_header=True and no header exists yet,
-            the first row added will automatically be treated as a header regardless
-            of this parameter.
-
-        alignments : list of {'left', 'center', 'right'} or None, optional
-            Column alignments (only used for header rows). Length should match the
-            number of cells. If not specified and this is a header row, all alignments
-            will be set to None (default alignment).
 
         Notes
         -----

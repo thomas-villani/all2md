@@ -1,6 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 # all2md/options/mediawiki.py
+"""Configuration options for MediaWiki rendering.
 
+This module defines options for rendering AST to MediaWiki format.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

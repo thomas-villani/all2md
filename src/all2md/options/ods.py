@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/ods.py
+"""Configuration options for ODS (OpenDocument Spreadsheet) parsing.
+
+This module defines options for parsing ODS spreadsheet files.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

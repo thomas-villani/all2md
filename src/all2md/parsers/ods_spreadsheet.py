@@ -24,9 +24,6 @@ from all2md.ast import (
     Image,
     Node,
     Paragraph,
-    Table,
-    TableCell,
-    TableRow,
     Text,
 )
 from all2md.converter_metadata import ConverterMetadata
@@ -240,7 +237,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: OdsSpreadsheetOptions = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
 
@@ -434,8 +431,8 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
             # Apply row/column trimming
             all_rows = [header] + data_rows if header else data_rows
-            all_rows = trim_rows(all_rows, self.options.trim_empty)
-            all_rows = trim_columns(all_rows, self.options.trim_empty)
+            all_rows = trim_rows(all_rows, cast(Any, self.options.trim_empty))
+            all_rows = trim_columns(all_rows, cast(Any, self.options.trim_empty))
 
             if not all_rows:
                 continue
@@ -470,7 +467,9 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                 )
 
             # Extract images from table
-            table_images, table_footnotes = _extract_ods_images(doc, table, base_filename, attachment_sequencer, self.options)
+            table_images, table_footnotes = _extract_ods_images(
+                doc, table, base_filename, attachment_sequencer, self.options
+            )
             self._attachment_footnotes.update(table_footnotes)
             children.extend(table_images)
 

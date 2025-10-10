@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/latex.py
+"""Configuration options for LaTeX parsing and rendering.
+
+This module defines options for LaTeX document conversion.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

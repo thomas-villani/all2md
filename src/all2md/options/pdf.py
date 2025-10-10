@@ -1,4 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+"""Configuration options for PDF parsing.
+
+This module defines options for parsing PDF documents with advanced
+table detection and layout analysis.
+"""
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -414,7 +419,10 @@ class PdfOptions(BaseParserOptions):
     link_overlap_threshold: float = field(
         default=DEFAULT_LINK_OVERLAP_THRESHOLD,
         metadata={
-            "help": "Percentage overlap required for link detection (0-100). Lower values detect links with less overlap.",
+            "help": (
+                "Percentage overlap required for link detection (0-100). "
+                "Lower values detect links with less overlap."
+            ),
             "type": float
         }
     )

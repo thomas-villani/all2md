@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/eml.py
+"""Configuration options for EML (email) parsing.
+
+This module defines options for parsing email files and message chains.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

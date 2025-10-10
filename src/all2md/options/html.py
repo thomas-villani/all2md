@@ -1,4 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+"""Configuration options for HTML parsing and rendering.
+
+This module defines options for HTML document conversion with sanitization
+and security controls.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

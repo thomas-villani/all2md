@@ -1,4 +1,8 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+"""Configuration options for Markdown parsing and rendering.
+
+This module defines options for Markdown conversion with flavor support.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

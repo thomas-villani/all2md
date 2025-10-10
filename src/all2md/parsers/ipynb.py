@@ -318,7 +318,7 @@ class IpynbToAstConverter(BaseParser):
                         match = re.match(r"!\[([^\]]*)\](?:\(([^)]+)\))?", markdown_result)
                         if match:
                             alt_text = match.group(1) or "cell output"
-                            url = result.get("url", match.group(2) or "")
+                            url = str(result.get("url", match.group(2) or ""))
                             return Image(url=url, alt_text=alt_text, title=None)
 
                     except (ValueError, TypeError) as e:

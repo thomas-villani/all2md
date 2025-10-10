@@ -82,7 +82,7 @@ class TestZipResourceExtraction:
                 attachment_output_dir=temp_dir
             )
             parser = ZipToAstConverter(options=options)
-            doc = parser.parse(zip_bytes)
+            _doc = parser.parse(zip_bytes)
 
             # Check that no resources were extracted
             output_dir = Path(temp_dir)
@@ -167,7 +167,7 @@ class TestZipResourceExtraction:
             output_dir = Path(temp_dir)
 
             # Should have subdirectories if resources were extracted
-            subdirs = [d for d in output_dir.rglob('*') if d.is_dir()]
+            _subdirs = [d for d in output_dir.rglob('*') if d.is_dir()]
             # We might have subdirectories if non-parseable files were extracted
             # The exact structure depends on which files are non-parseable
 
@@ -195,7 +195,7 @@ class TestZipResourceExtraction:
             # Check that files are in the root directory (no subdirectories)
             output_dir = Path(temp_dir)
             all_files = list(output_dir.glob('*'))
-            subdirs = [f for f in all_files if f.is_dir()]
+            _subdirs = [f for f in all_files if f.is_dir()]
 
             # Should have no subdirectories (or only temporary ones from other operations)
             # The images should be in the root
@@ -254,7 +254,7 @@ class TestZipResourceManifest:
                 include_resource_manifest=True
             )
             parser = ZipToAstConverter(options=options)
-            doc = parser.parse(zip_bytes)
+            _doc = parser.parse(zip_bytes)
 
             # Check that size was tracked in the extracted resources
             if parser._extracted_resources:

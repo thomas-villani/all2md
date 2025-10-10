@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any, Generator, Optional, Union
 
 from all2md.ast import Document, Node
 from all2md.options.base import BaseParserOptions
@@ -253,7 +253,7 @@ class BaseParser(ABC):
     def _validated_zip_input(
         input_data: Union[str, Path, IO[bytes], bytes],
         suffix: str = '.zip'
-    ):
+    ) -> Any:
         """Context manager for validated zip input with automatic cleanup.
 
         This helper method delegates to the parser_helpers module to provide

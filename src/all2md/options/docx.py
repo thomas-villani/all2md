@@ -1,4 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+"""Configuration options for DOCX parsing and rendering.
+
+This module defines options for Microsoft Word document conversion,
+supporting both AST parsing and rendering operations.
+"""
 from dataclasses import dataclass, field
 from typing import Literal
 

@@ -338,8 +338,10 @@ class HtmlToAstConverter(BaseParser):
 
             for element in soup.find_all():
                 if hasattr(element, "attrs") and hasattr(element, "name"):
+                    allowed_attrs: Union[tuple[str, ...], dict[str, tuple[str, ...]]]
                     if is_per_element:
                         # Per-element allowlist: check element-specific allowed attributes
+                        assert isinstance(self.options.allowed_attributes, dict)
                         allowed_attrs = self.options.allowed_attributes.get(element.name, ())
                     else:
                         # Global allowlist: same attributes allowed for all elements

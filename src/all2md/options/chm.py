@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/chm.py
+"""Configuration options for CHM (Compiled HTML Help) parsing.
+
+This module defines options for parsing Microsoft CHM files.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

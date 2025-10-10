@@ -94,7 +94,7 @@ def _check_pymupdf_version() -> None:
 
 
 def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> list[int]:
-    """Simple 1D k-means clustering implementation.
+    """Cluster 1D values using k-means algorithm.
 
     Parameters
     ----------
@@ -221,7 +221,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
 
             # Group blocks by cluster
             columns_dict: dict[int, list[dict]] = {i: [] for i in range(num_columns)}
-            for block_idx, (block, cluster_id) in enumerate(zip(blocks, cluster_assignments)):
+            for _block_idx, (block, cluster_id) in enumerate(zip(blocks, cluster_assignments, strict=False)):
                 if "bbox" in block:
                     columns_dict[cluster_id].append(block)
                 else:
@@ -287,11 +287,11 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
 
             if column_boundaries:
                 # Use these boundaries to split columns
-                columns: list[list[dict]] = [[] for _ in range(len(column_boundaries) + 1)]
+                whitespace_columns: list[list[dict]] = [[] for _ in range(len(column_boundaries) + 1)]
 
                 for block in blocks:
                     if "bbox" not in block:
-                        columns[0].append(block)
+                        whitespace_columns[0].append(block)
                         continue
 
                     x0 = block["bbox"][0]
@@ -302,22 +302,22 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
                     assigned = False
                     for i, boundary in enumerate(column_boundaries):
                         if block_center < boundary:
-                            columns[i].append(block)
+                            whitespace_columns[i].append(block)
                             assigned = True
                             break
 
                     if not assigned:
-                        columns[-1].append(block)
+                        whitespace_columns[-1].append(block)
 
                 # Sort blocks within each column by y-coordinate (top to bottom)
-                for column in columns:
+                for column in whitespace_columns:
                     column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
 
                 # Remove empty columns
-                columns = [col for col in columns if col]
+                whitespace_columns = [col for col in whitespace_columns if col]
 
-                if len(columns) > 1:
-                    return columns
+                if len(whitespace_columns) > 1:
+                    return whitespace_columns
 
     # If enhanced detection found no columns, return single column
     # Don't fall back to the simple algorithm as it measures wrong gaps
@@ -439,7 +439,10 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
     return combined_text + rotation_note if rotation_note else combined_text
 
 
-def resolve_links(links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None) -> str | None:
+def resolve_links(
+    links: list, span: dict, md_options: MarkdownOptions | None = None,
+    overlap_threshold: float | None = None
+) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
     Enhanced to handle partial overlaps and multiple links within a span
@@ -742,7 +745,9 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
     return None
 
 
-def detect_tables_by_ruling_lines(page: "fitz.Page", threshold: float = 0.5) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
+def detect_tables_by_ruling_lines(
+    page: "fitz.Page", threshold: float = 0.5
+) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
     Uses page drawing commands to detect horizontal and vertical lines
@@ -1500,7 +1505,7 @@ class PdfToAstConverter(BaseParser):
         nodes: list[Node] = []
 
         # Extract images for all attachment modes except "skip"
-        page_images = []
+        page_images: list[Any] = []
         if self.options.attachment_mode != "skip":
             page_images, page_footnotes = extract_page_images(
                 page, page_num, self.options, base_filename, attachment_sequencer
@@ -1519,8 +1524,8 @@ class PdfToAstConverter(BaseParser):
             def __getitem__(self, index: int) -> Any:
                 return self.tables[index]
 
-        fallback_table_rects = []
-        fallback_table_lines = []
+        fallback_table_rects: list[Any] = []
+        fallback_table_lines: list[Any] = []
 
         if mode == "none":
             # No table detection
@@ -2135,7 +2140,7 @@ class PdfToAstConverter(BaseParser):
         for row_idx, (y0, y1) in enumerate(row_y_coords):
             cells: list[TableCell] = []
 
-            for col_idx, (x0, x1) in enumerate(col_x_coords):
+            for _col_idx, (x0, x1) in enumerate(col_x_coords):
                 # Create cell rectangle
                 cell_rect = fitz.Rect(x0, y0, x1, y1)
 

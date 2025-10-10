@@ -1,6 +1,11 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/common.py
+"""Common options shared across multiple parsers and renderers.
+
+This module defines options for file access, network operations, and other
+cross-cutting concerns used throughout the conversion pipeline.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -8,7 +8,7 @@ import logging
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -103,12 +103,12 @@ def create_package_from_conversions(
                 # BytesIO doesn't have a 'mode' attribute, so we need to manually
                 # set it to indicate binary mode for convert()
                 buffer = BytesIO()
-                buffer.mode = 'wb'  # type: ignore[misc, attr-defined]
+                buffer.mode = 'wb'  # type: ignore[misc]
                 convert(
                     source=input_file,
                     output=buffer,
-                    source_format=source_format,
-                    target_format=target_format,
+                    source_format=cast(Any, source_format),
+                    target_format=cast(Any, target_format),
                     transforms=transforms,
                     **conversion_options
                 )

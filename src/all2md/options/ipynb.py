@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/ipynb.py
+"""Configuration options for Jupyter Notebook parsing.
+
+This module defines options for parsing .ipynb files with cell handling.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

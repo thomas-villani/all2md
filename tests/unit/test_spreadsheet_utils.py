@@ -1,7 +1,7 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Tests for shared spreadsheet utility functions."""
 
-from all2md.ast import Table, TableCell, TableRow, Text
+from all2md.ast import Table, TableCell
 from all2md.utils.spreadsheet import (
     build_table_ast,
     create_table_cell,

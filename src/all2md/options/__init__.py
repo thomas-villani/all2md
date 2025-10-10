@@ -81,6 +81,8 @@ def create_updated_options(options: Any, **kwargs: Any) -> Any:
     return replace(options, **kwargs)
 
 __all__ = [
+    "_UNSET",
+    "CloneFrozenMixin",
     "BaseRendererOptions",
     "BaseParserOptions",
     "NetworkFetchOptions",

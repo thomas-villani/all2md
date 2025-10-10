@@ -1,6 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/sourcecode.py
+"""Configuration options for source code parsing.
+
+This module defines options for parsing source code files with syntax highlighting.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

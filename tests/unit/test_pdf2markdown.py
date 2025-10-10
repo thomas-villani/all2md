@@ -168,8 +168,8 @@ def test_detect_columns_single_column():
 
 
 @pytest.mark.unit
-def test_detect_tables_by_ruling_lines():
-    """Test fallback table detection using ruling lines."""
+def test_detect_tables_by_ruling_lines_empty():
+    """Test fallback table detection using ruling lines with empty input."""
 
     # This would need a mock page with drawing commands
     # For now, test that the function exists and handles empty input
@@ -322,7 +322,6 @@ def test_pdf_to_markdown_with_tables(monkeypatch):
 @pytest.mark.unit
 def test_link_overlap_threshold_high():
     """Test link resolution with high overlap threshold (90%)."""
-    from all2md.options.pdf import PdfOptions
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for info"}
     # Link only covers first 40% of span
     link = {"from": fitz.Rect(0, 0, 40, 10), "uri": "http://example.com"}
@@ -413,11 +412,6 @@ def test_header_debug_output_disabled():
 def test_column_detection_mode_disabled():
     """Test that column_detection_mode='disabled' forces single column."""
     from all2md.options.pdf import PdfOptions
-
-    blocks = [
-        {"bbox": [50, 100, 250, 200]},  # Left column
-        {"bbox": [300, 100, 500, 200]},  # Right column (clear gap)
-    ]
 
     # With detect_columns=True but mode='disabled', should return single column
     # (This would be tested in integration with actual PdfToAstConverter)
