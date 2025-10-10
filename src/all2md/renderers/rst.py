@@ -393,6 +393,12 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         node : Table
             Table to render
 
+        Notes
+        -----
+        Multi-line cell content is not supported. Cell content is rendered
+        inline, which may cause formatting issues for complex content like
+        multiple paragraphs or nested lists.
+
         """
         # Collect all rows
         rows_to_render = []
@@ -455,6 +461,12 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         ----------
         node : Table
             Table to render
+
+        Notes
+        -----
+        Multi-line cell content is not supported. Cell content is rendered
+        inline, which may cause formatting issues for complex content like
+        multiple paragraphs or nested lists.
 
         """
         # Collect all rows
@@ -621,17 +633,27 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
     def visit_line_break(self, node: LineBreak) -> None:
         """Render a LineBreak node.
 
+        Soft line breaks render as spaces to maintain paragraph flow.
+        Hard line breaks use RST line block syntax (newline followed by ``| ``),
+        which is the standard way to preserve line structure in reStructuredText.
+
         Parameters
         ----------
         node : LineBreak
             Line break to render
+
+        Notes
+        -----
+        RST does not have a direct equivalent to hard line breaks within paragraphs.
+        The line block syntax (``|``) is the idiomatic approach for preserving
+        explicit line breaks while maintaining semantic structure.
 
         """
         if node.soft:
             # Soft breaks render as space in RST
             self._output.append(' ')
         else:
-            # Hard line break in RST requires | at line start
+            # Hard line break in RST uses line block syntax
             self._output.append('\n| ')
 
     def visit_definition_list(self, node: DefinitionList) -> None:
@@ -691,27 +713,77 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         pass
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
-        """Render strikethrough (not standard in RST)."""
+        """Render a Strikethrough node as plain text.
+
+        Parameters
+        ----------
+        node : Strikethrough
+            Strikethrough node to render
+
+        Notes
+        -----
+        reStructuredText has no native strikethrough syntax. Content is
+        rendered as plain text without any special formatting. This is
+        the standard fallback for unsupported inline formatting in RST.
+
+        """
         content = self._render_inline_content(node.content)
-        # RST doesn't have native strikethrough, render as text
+        # RST doesn't have native strikethrough, render as plain text
         self._output.append(content)
 
     def visit_underline(self, node: Underline) -> None:
-        """Render underline (not standard in RST)."""
+        """Render an Underline node as plain text.
+
+        Parameters
+        ----------
+        node : Underline
+            Underline node to render
+
+        Notes
+        -----
+        reStructuredText has no native underline syntax for inline text.
+        Content is rendered as plain text without any special formatting.
+        This is the standard fallback for unsupported inline formatting in RST.
+
+        """
         content = self._render_inline_content(node.content)
-        # RST doesn't have native underline, render as text
+        # RST doesn't have native underline, render as plain text
         self._output.append(content)
 
     def visit_superscript(self, node: Superscript) -> None:
-        """Render superscript (not standard in RST)."""
+        """Render a Superscript node using RST role syntax.
+
+        Parameters
+        ----------
+        node : Superscript
+            Superscript node to render
+
+        Notes
+        -----
+        Uses RST's ``:sup:`` interpreted text role for superscript formatting.
+        This requires Docutils or Sphinx for proper rendering.
+
+        """
         content = self._render_inline_content(node.content)
-        # RST doesn't have native superscript, use role syntax
+        # RST uses :sup: role syntax for superscript
         self._output.append(f":sup:`{content}`")
 
     def visit_subscript(self, node: Subscript) -> None:
-        """Render subscript (not standard in RST)."""
+        """Render a Subscript node using RST role syntax.
+
+        Parameters
+        ----------
+        node : Subscript
+            Subscript node to render
+
+        Notes
+        -----
+        Uses RST's ``:sub:`` interpreted text role for subscript formatting.
+        This requires Docutils or Sphinx for proper rendering.
+
+        """
         content = self._render_inline_content(node.content)
-        # RST doesn't have native subscript, use role syntax
+        # RST uses :sub: role syntax for subscript
         self._output.append(f":sub:`{content}`")
 
     def visit_html_inline(self, node: HTMLInline) -> None:

@@ -91,6 +91,27 @@ class RstRendererOptions(BaseRendererOptions):
     line_length : int, default 80
         Target line length for wrapping text.
 
+    Notes
+    -----
+    **Text Escaping:**
+        Special RST characters (asterisks, underscores, backticks, brackets, pipes, colons,
+        angle brackets) are automatically escaped in text nodes to prevent unintended formatting.
+
+    **Line Breaks:**
+        Hard line breaks are rendered using RST line block syntax (newline followed by ``| ``).
+        This is the standard approach for preserving line structure in reStructuredText.
+        Soft line breaks render as spaces, consistent with RST paragraph semantics.
+
+    **Unsupported Features:**
+        - **Strikethrough**: RST has no native strikethrough syntax. Content renders as plain text.
+        - **Underline**: RST has no native underline syntax. Content renders as plain text.
+        - **Superscript/Subscript**: Rendered using RST role syntax (``:sup:`` and ``:sub:``).
+
+    **Table Limitations:**
+        Both grid and simple table styles do not support multi-line content within cells.
+        Cell content must be single-line text. Complex cell content (multiple paragraphs,
+        nested lists) will be rendered inline, which may cause formatting issues.
+
     """
 
     heading_chars: str = field(

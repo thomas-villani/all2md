@@ -28,16 +28,21 @@ from all2md.ast import (
     Emphasis,
     Heading,
     Image,
+    LineBreak,
     Link,
     List,
     ListItem,
     Paragraph,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
     Text,
     ThematicBreak,
+    Underline,
 )
 from all2md.options import RstRendererOptions
 from all2md.renderers.rst import RestructuredTextRenderer
@@ -423,3 +428,287 @@ Title
 
         assert "**bold**" in generated_rst
         assert "*italic*" in generated_rst
+
+
+@pytest.mark.unit
+class TestTextEscaping:
+    """Tests for special character escaping in text content."""
+
+    def test_escape_asterisks(self) -> None:
+        """Test that asterisks are escaped in text."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Text with *asterisks* here")])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Asterisks should be escaped with backslashes
+        assert r"\*asterisks\*" in rst
+        assert "*asterisks*" not in rst or r"\*" in rst
+
+    def test_escape_underscores(self) -> None:
+        """Test that underscores are escaped in text."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Text with _underscores_ here")])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Underscores should be escaped
+        assert r"\_underscores\_" in rst
+
+    def test_escape_backticks(self) -> None:
+        """Test that backticks are escaped in text."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Text with `backticks` here")])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Backticks should be escaped
+        assert r"\`backticks\`" in rst
+
+    def test_escape_brackets(self) -> None:
+        """Test that square brackets are escaped in text."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Text with [brackets] here")])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Brackets should be escaped
+        assert r"\[brackets\]" in rst
+
+    def test_escape_pipes(self) -> None:
+        """Test that pipes are escaped in text."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Text with |pipes| here")])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Pipes should be escaped
+        assert r"\|pipes\|" in rst
+
+    def test_escape_multiple_special_chars(self) -> None:
+        """Test escaping multiple special characters together."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Special chars: *bold* _italic_ `code` [ref] |sub| <url>")
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # All special chars should be escaped
+        assert r"\*bold\*" in rst
+        assert r"\_italic\_" in rst
+        assert r"\`code\`" in rst
+        assert r"\[ref\]" in rst
+        assert r"\|sub\|" in rst
+        assert r"\<url\>" in rst
+
+
+@pytest.mark.unit
+class TestUnsupportedFeatures:
+    """Tests for RST unsupported feature fallbacks."""
+
+    def test_strikethrough_renders_as_plain_text(self) -> None:
+        """Test that strikethrough content renders as plain text."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="This is "),
+                Strikethrough(content=[Text(content="struck through")]),
+                Text(content=" text.")
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Should contain the text but without any strikethrough markup
+        assert "struck through" in rst
+        # Should not have any special formatting
+        assert "~~" not in rst
+        assert "This is struck through text." in rst
+
+    def test_underline_renders_as_plain_text(self) -> None:
+        """Test that underline content renders as plain text."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="This is "),
+                Underline(content=[Text(content="underlined")]),
+                Text(content=" text.")
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Should contain the text but without any underline markup
+        assert "underlined" in rst
+        # Should not have any special formatting
+        assert "This is underlined text." in rst
+
+    def test_superscript_uses_role_syntax(self) -> None:
+        """Test that superscript uses :sup: role syntax."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="x"),
+                Superscript(content=[Text(content="2")]),
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Should use :sup: role
+        assert ":sup:`2`" in rst
+
+    def test_subscript_uses_role_syntax(self) -> None:
+        """Test that subscript uses :sub: role syntax."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="H"),
+                Subscript(content=[Text(content="2")]),
+                Text(content="O"),
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Should use :sub: role
+        assert ":sub:`2`" in rst
+
+
+@pytest.mark.unit
+class TestLineBreaks:
+    """Tests for line break rendering."""
+
+    def test_soft_line_break_renders_as_space(self) -> None:
+        """Test that soft line breaks render as spaces."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Line 1"),
+                LineBreak(soft=True),
+                Text(content="Line 2"),
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Soft breaks should render as space
+        assert "Line 1 Line 2" in rst
+
+    def test_hard_line_break_uses_line_block_syntax(self) -> None:
+        """Test that hard line breaks use line block syntax."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Line 1"),
+                LineBreak(soft=False),
+                Text(content="Line 2"),
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Hard breaks should use line block syntax (newline + pipe + space)
+        assert "\n| " in rst
+        assert "Line 1" in rst
+        assert "Line 2" in rst
+
+    def test_multiple_hard_breaks(self) -> None:
+        """Test multiple hard line breaks."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Line 1"),
+                LineBreak(soft=False),
+                Text(content="Line 2"),
+                LineBreak(soft=False),
+                Text(content="Line 3"),
+            ])
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Should have multiple line block markers
+        assert rst.count("\n| ") >= 2
+
+
+@pytest.mark.unit
+class TestTableLimitations:
+    """Tests for table rendering limitations."""
+
+    def test_grid_table_single_line_cells(self) -> None:
+        """Test that grid tables render single-line cells correctly."""
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Header 1")]),
+                    TableCell(content=[Text(content="Header 2")]),
+                ], is_header=True),
+                rows=[
+                    TableRow(cells=[
+                        TableCell(content=[Text(content="Cell 1")]),
+                        TableCell(content=[Text(content="Cell 2")]),
+                    ], is_header=False),
+                ]
+            )
+        ])
+        options = RstRendererOptions(table_style="grid")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        # Should render as grid table
+        assert "+" in rst
+        assert "|" in rst
+        assert "Header 1" in rst
+        assert "Cell 1" in rst
+
+    def test_simple_table_single_line_cells(self) -> None:
+        """Test that simple tables render single-line cells correctly."""
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Col1")]),
+                    TableCell(content=[Text(content="Col2")]),
+                ], is_header=True),
+                rows=[
+                    TableRow(cells=[
+                        TableCell(content=[Text(content="A")]),
+                        TableCell(content=[Text(content="B")]),
+                    ], is_header=False),
+                ]
+            )
+        ])
+        options = RstRendererOptions(table_style="simple")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        # Should render as simple table
+        assert "====" in rst
+        assert "Col1" in rst
+        assert "A" in rst
+
+    def test_table_with_complex_inline_content(self) -> None:
+        """Test table cells with complex inline content (emphasis, code)."""
+        doc = Document(children=[
+            Table(
+                header=TableRow(cells=[
+                    TableCell(content=[Text(content="Header")]),
+                ], is_header=True),
+                rows=[
+                    TableRow(cells=[
+                        TableCell(content=[
+                            Text(content="Text with "),
+                            Emphasis(content=[Text(content="emphasis")]),
+                            Text(content=" and "),
+                            Code(content="code"),
+                        ]),
+                    ], is_header=False),
+                ]
+            )
+        ])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Should render inline formatting within cells
+        assert "*emphasis*" in rst
+        assert "``code``" in rst
