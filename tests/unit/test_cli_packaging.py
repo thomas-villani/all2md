@@ -433,3 +433,107 @@ class TestPackagingIntegration:
         # Verify link was updated
         content = md_file.read_text()
         assert "assets" in content.lower()
+
+
+class TestMultiFormatPackaging:
+    """Test packaging for non-markdown output formats."""
+
+    def test_create_zip_with_html_output(self, tmp_path):
+        """Test creating zip with HTML output files."""
+        from all2md.cli.packaging import create_output_zip
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        # Create HTML files
+        (output_dir / "doc1.html").write_text("<h1>Test 1</h1>")
+        (output_dir / "doc2.html").write_text("<h1>Test 2</h1>")
+
+        # Create zip with HTML extension
+        zip_path = create_output_zip(
+            output_dir,
+            output_extension=".html"
+        )
+
+        # Verify
+        assert zip_path.exists()
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            names = zf.namelist()
+            assert "doc1.html" in names
+            assert "doc2.html" in names
+
+    def test_create_zip_with_pdf_output(self, tmp_path):
+        """Test creating zip with PDF output files."""
+        from all2md.cli.packaging import create_output_zip
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        # Create PDF files (fake binary content)
+        (output_dir / "doc1.pdf").write_bytes(b"%PDF-1.4\nfake pdf")
+        (output_dir / "doc2.pdf").write_bytes(b"%PDF-1.4\nfake pdf")
+
+        # Create zip with PDF extension
+        zip_path = create_output_zip(
+            output_dir,
+            output_extension=".pdf"
+        )
+
+        # Verify
+        assert zip_path.exists()
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            names = zf.namelist()
+            assert "doc1.pdf" in names
+            assert "doc2.pdf" in names
+
+    def test_organize_assets_with_html_files(self, tmp_path):
+        """Test asset organization works with HTML files."""
+        from all2md.cli.packaging import organize_assets
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        # Create HTML files
+        html_files = [output_dir / "doc1.html", output_dir / "doc2.html"]
+        for html_file in html_files:
+            html_file.write_text("<h1>Test</h1>")
+
+        # Create assets
+        (output_dir / "img1.png").write_bytes(b"image1")
+        (output_dir / "img2.jpg").write_bytes(b"image2")
+
+        # Organize with flat layout
+        mapping = organize_assets(html_files, output_dir, layout="flat")
+
+        # All assets should map to assets/ directory
+        for _original, new_path in mapping.items():
+            assert new_path.parent.name == "assets"
+            assert new_path.parent.parent == output_dir
+
+    def test_create_zip_backward_compatibility(self, tmp_path):
+        """Test backward compatibility with markdown_files parameter."""
+        from all2md.cli.packaging import create_output_zip
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        md_files = [
+            output_dir / "doc1.md",
+            output_dir / "doc2.md"
+        ]
+
+        for md_file in md_files:
+            md_file.write_text("# Test")
+
+        # Use deprecated markdown_files parameter
+        zip_path = create_output_zip(
+            output_dir,
+            markdown_files=md_files
+        )
+
+        # Should still work
+        assert zip_path.exists()
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            names = zf.namelist()
+            assert "doc1.md" in names
+            assert "doc2.md" in names

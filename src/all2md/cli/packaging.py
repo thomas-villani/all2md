@@ -24,10 +24,14 @@ def organize_assets(
 ) -> dict[Path, Path]:
     """Organize assets according to specified layout.
 
+    Works with any output format (markdown, HTML, PDF, etc.) to organize
+    associated image and attachment files.
+
     Parameters
     ----------
     markdown_files : List[Path]
-        List of generated markdown files
+        List of generated output files (parameter name kept for backward compatibility,
+        but works with any format)
     output_dir : Path
         Output directory containing files
     layout : AssetLayout, default "flat"
@@ -50,8 +54,11 @@ def organize_assets(
         logger.debug(f"Attachment directory does not exist: {attachment_root}")
         return asset_mapping
 
-    # Collect all asset files
-    asset_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp'}
+    # Collect all asset files (images and common attachment types)
+    asset_extensions = {
+        '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp',  # Images
+        '.pdf', '.txt', '.csv', '.json', '.xml'  # Common attachments
+    }
     all_assets: list[Path] = []
 
     for ext in asset_extensions:
@@ -198,10 +205,15 @@ def update_markdown_asset_links(
 def create_output_zip(
     output_dir: Path,
     zip_path: Optional[Path] = None,
-    markdown_files: Optional[List[Path]] = None,
-    asset_files: Optional[List[Path]] = None
+    output_files: Optional[List[Path]] = None,
+    asset_files: Optional[List[Path]] = None,
+    output_extension: str = ".md",
+    markdown_files: Optional[List[Path]] = None
 ) -> Path:
     """Create a zip archive of conversion output.
+
+    Supports all output formats by accepting any file extension. Works with
+    both text-based formats (markdown, HTML, etc.) and binary formats (PDF, DOCX, etc.).
 
     Parameters
     ----------
@@ -209,10 +221,14 @@ def create_output_zip(
         Directory containing conversion output
     zip_path : Path, optional
         Path for the output zip file. If None, uses output_dir.zip
-    markdown_files : List[Path], optional
-        Specific markdown files to include. If None, includes all .md files
+    output_files : List[Path], optional
+        Specific output files to include. If None, includes all files with output_extension
     asset_files : List[Path], optional
-        Specific asset files to include. If None, includes all common image formats
+        Specific asset files to include. If None, includes all common image/attachment formats
+    output_extension : str, default=".md"
+        File extension for output files to include (e.g., ".md", ".html", ".pdf")
+    markdown_files : List[Path], optional
+        Deprecated. Use output_files instead. Maintained for backward compatibility.
 
     Returns
     -------
@@ -228,6 +244,10 @@ def create_output_zip(
     if not output_dir.exists():
         raise ValueError(f"Output directory does not exist: {output_dir}")
 
+    # Backward compatibility: support markdown_files parameter
+    if markdown_files is not None and output_files is None:
+        output_files = markdown_files
+
     # Determine zip file path
     if zip_path is None:
         zip_path = output_dir.parent / f"{output_dir.name}.zip"
@@ -235,25 +255,25 @@ def create_output_zip(
     # Collect files to include
     files_to_zip: List[Tuple[Path, str]] = []
 
-    if markdown_files is None:
-        # Include all markdown files in output_dir
-        markdown_files = list(output_dir.rglob("*.md"))
+    if output_files is None:
+        # Include all files with the specified extension in output_dir
+        output_files = list(output_dir.rglob(f"*{output_extension}"))
 
     if asset_files is None:
-        # Include all common image formats
-        asset_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp'}
+        # Include all common image and attachment formats
+        asset_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp', '.pdf', '.txt', '.csv'}
         asset_files = []
         for ext in asset_extensions:
             asset_files.extend(output_dir.rglob(f'*{ext}'))
 
-    # Add markdown files with their relative paths
-    for md_file in markdown_files:
+    # Add output files with their relative paths
+    for out_file in output_files:
         try:
-            relative_path = md_file.relative_to(output_dir)
-            files_to_zip.append((md_file, str(relative_path)))
+            relative_path = out_file.relative_to(output_dir)
+            files_to_zip.append((out_file, str(relative_path)))
         except ValueError:
             # File is outside output_dir, skip
-            logger.warning(f"Skipping file outside output directory: {md_file}")
+            logger.warning(f"Skipping file outside output directory: {out_file}")
 
     # Add asset files with their relative paths
     for asset_file in asset_files:

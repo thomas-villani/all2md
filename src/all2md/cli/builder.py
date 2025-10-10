@@ -7,10 +7,11 @@ from dataclass options using field metadata.
 
 import argparse
 import difflib
+import logging
 import sys
 import types
 import warnings
-from dataclasses import fields, is_dataclass
+from dataclasses import MISSING, fields, is_dataclass
 from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_origin, get_type_hints
 
 from all2md.cli.custom_actions import (
@@ -24,6 +25,9 @@ from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.options.markdown import MarkdownOptions
 
+# Module logger for consistent warning/error reporting
+logger = logging.getLogger(__name__)
+
 
 class DynamicCLIBuilder:
     """Builds CLI arguments dynamically from options dataclasses.
@@ -36,6 +40,46 @@ class DynamicCLIBuilder:
     def __init__(self) -> None:
         """Initialize the CLI builder."""
         self.parser: Optional[argparse.ArgumentParser] = None
+        self.dest_to_cli_flag: Dict[str, str] = {}  # Maps dest names to actual CLI flags
+
+    def _has_default(self, field: Any) -> bool:
+        """Check if a dataclass field has a default value.
+
+        Properly handles dataclasses.MISSING to avoid incorrect comparisons.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field to check
+
+        Returns
+        -------
+        bool
+            True if field has a default value or default_factory
+
+        """
+        return field.default is not MISSING or field.default_factory is not MISSING
+
+    def _get_default(self, field: Any) -> Any:
+        """Safely get the default value from a dataclass field.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field
+
+        Returns
+        -------
+        Any
+            Default value, or MISSING if no default
+
+        """
+        if field.default is not MISSING:
+            return field.default
+        elif field.default_factory is not MISSING:
+            # For default_factory, we don't call it - just indicate it exists
+            return field.default_factory
+        return MISSING
 
     def _resolve_field_type(self, field: Any, options_class: Type) -> Type:
         """Resolve field type using typing.get_type_hints for robust type handling.
@@ -143,16 +187,21 @@ class DynamicCLIBuilder:
 
         # Handle boolean fields
         if resolved_type is bool:
-            default_value = field.default
-            if default_value is True and '-no-' in cli_name:
-                # For --no-* flags (True defaults), use store_false
-                kwargs['action'] = 'store_false'
-            elif default_value is False:
-                # For regular boolean flags (False defaults), use store_true
-                kwargs['action'] = 'store_true'
+            # Safely get default value, checking for MISSING
+            if self._has_default(field):
+                default_value = self._get_default(field)
+                if default_value is True and '-no-' in cli_name:
+                    # For --no-* flags (True defaults), use store_false
+                    kwargs['action'] = 'store_false'
+                elif default_value is False:
+                    # For regular boolean flags (False defaults), use store_true
+                    kwargs['action'] = 'store_true'
+                else:
+                    # For other boolean values, use type conversion
+                    kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
             else:
-                # For other boolean fields, use type conversion
-                kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
+                # No default specified - use store_true with False default
+                kwargs['action'] = 'store_true'
 
         # Handle choices from metadata
         elif 'choices' in metadata:
@@ -317,9 +366,12 @@ class DynamicCLIBuilder:
         if 'action' in metadata and not kwargs.get('action'):
             kwargs['action'] = metadata['action']
 
-        # Set default if field has one and it's not None
-        if field.default is not None and not kwargs.get('action'):
-            kwargs['default'] = field.default
+        # Set default if field has one (checking for MISSING)
+        if self._has_default(field) and not kwargs.get('action'):
+            default_val = self._get_default(field)
+            # Only set if not MISSING and not a factory
+            if default_val is not MISSING and not callable(default_val):
+                kwargs['default'] = default_val
 
         return kwargs
 
@@ -398,7 +450,12 @@ class DynamicCLIBuilder:
             # Use resolved type instead of raw field.type for robust handling
             resolved_field_type = self._resolve_field_type(field, options_class)
             underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
-            is_bool_true_default = underlying_field_type is bool and field.default is True
+            # Check for MISSING before accessing field.default
+            is_bool_true_default = (
+                underlying_field_type is bool and
+                self._has_default(field) and
+                self._get_default(field) is True
+            )
 
             # Get CLI name (explicit or inferred)
             if 'cli_name' in metadata:
@@ -445,8 +502,11 @@ class DynamicCLIBuilder:
             # Add the argument
             try:
                 group.add_argument(cli_name, **kwargs)
+                # Track mapping from dest name to actual CLI flag for better suggestions
+                if 'dest' in kwargs:
+                    self.dest_to_cli_flag[kwargs['dest']] = cli_name
             except Exception as e:
-                print(f"Warning: Could not add argument {cli_name}: {e}")
+                logger.warning(f"Could not add argument {cli_name}: {e}")
 
     def add_options_class_arguments(
             self, parser: argparse.ArgumentParser,
@@ -512,10 +572,10 @@ class DynamicCLIBuilder:
             # Transform system not available, skip
             return
 
-        # Add --transform flag (repeatable, ordered)
+        # Add --transform flag (repeatable, ordered) with tracking
         parser.add_argument(
             '--transform', '-t',
-            action='append',
+            action=TrackingAppendAction,
             dest='transforms',
             metavar='NAME',
             help='Apply transform to AST before rendering (repeatable, order matters). '
@@ -543,36 +603,43 @@ class DynamicCLIBuilder:
                         'help': param_spec.help or f'{param_name} parameter for {transform_name}',
                     }
 
-                    # Set type and action based on parameter type
+                    # Set type and action based on parameter type (using tracking actions)
                     if param_spec.type is bool:
-                        # Boolean parameters use store_true/store_false
+                        # Boolean parameters use tracking store_true/store_false
                         if param_spec.default is False:
-                            kwargs['action'] = 'store_true'
+                            kwargs['action'] = TrackingStoreTrueAction
                         else:
-                            kwargs['action'] = 'store_false'
+                            kwargs['action'] = TrackingStoreFalseAction
                     elif param_spec.type is int:
+                        kwargs['action'] = TrackingStoreAction
                         kwargs['type'] = int
                     elif param_spec.type is str:
+                        kwargs['action'] = TrackingStoreAction
                         kwargs['type'] = str
                     elif param_spec.type is list:
+                        kwargs['action'] = TrackingAppendAction
                         kwargs['nargs'] = '+'
                         if param_spec.default is not None:
                             kwargs['default'] = param_spec.default
+                    else:
+                        # Default to tracking store action for other types
+                        kwargs['action'] = TrackingStoreAction
 
                     # Add choices if specified
                     if param_spec.choices:
                         kwargs['choices'] = param_spec.choices
 
-                    # Add default if not an action and default is set
-                    if 'action' not in kwargs and param_spec.default is not None:
-                        kwargs['default'] = param_spec.default
+                    # Add default if not a boolean action and default is set
+                    if 'action' not in (TrackingStoreTrueAction, TrackingStoreFalseAction) and param_spec.default is not None:
+                        if 'default' not in kwargs:  # Don't override if already set
+                            kwargs['default'] = param_spec.default
 
                     # Add the argument
                     transform_group.add_argument(param_spec.cli_flag, **kwargs)
 
             except Exception as e:
                 # Skip problematic transforms
-                print(f"Warning: Could not add CLI args for transform {transform_name}: {e}")
+                logger.warning(f"Could not add CLI args for transform {transform_name}: {e}")
 
     def build_parser(self) -> argparse.ArgumentParser:
         """Build the complete argument parser with dynamic arguments.
@@ -731,7 +798,7 @@ Examples:
                         group_name=group_name
                     )
             except Exception as e:
-                print(f"Warning: Could not process converter {format_name}: {e}")
+                logger.warning(f"Could not process converter {format_name}: {e}")
 
         # Add transform arguments (after format-specific options)
         self.add_transform_arguments(parser)
@@ -739,34 +806,39 @@ Examples:
         self.parser = parser
         return parser
 
-    def _suggest_similar_argument(self, unknown_arg: str, known_args: list[str]) -> str | None:
+    def _suggest_similar_argument(self, unknown_arg: str) -> str | None:
         """Suggest similar argument name using fuzzy matching.
+
+        Uses the dest_to_cli_flag mapping to return actual CLI flags (e.g., --pdf-pages)
+        instead of incorrectly formatted suggestions (e.g., --pdf.pages).
 
         Parameters
         ----------
         unknown_arg : str
-            Unknown argument name (with or without -- prefix)
-        known_args : list[str]
-            List of known argument names
+            Unknown argument dest name (e.g., "pdf.pages")
 
         Returns
         -------
         str or None
-            Best matching argument name, or None if no good match
+            Best matching CLI flag, or None if no good match
 
         """
-        # Remove -- prefix for comparison
-        arg_clean = unknown_arg.lstrip('-').replace('-', '_')
+        # Normalize the unknown argument for comparison (replace dots and hyphens with underscores)
+        arg_clean = unknown_arg.replace('.', '_').replace('-', '_')
 
-        # Build list of known arg names without prefix
-        known_clean = [arg.lstrip('-').replace('-', '_') for arg in known_args]
+        # Build list of known dest names for matching
+        known_dests = list(self.dest_to_cli_flag.keys())
+        known_clean = [dest.replace('.', '_').replace('-', '_') for dest in known_dests]
 
         # Find close matches (similarity threshold 0.6)
         matches = difflib.get_close_matches(arg_clean, known_clean, n=1, cutoff=0.6)
 
         if matches:
-            # Convert back to CLI format (kebab-case with --)
-            return f"--{matches[0].replace('_', '-')}"
+            # Find the original dest name that matches
+            matched_index = known_clean.index(matches[0])
+            matched_dest = known_dests[matched_index]
+            # Return the actual CLI flag from the mapping
+            return self.dest_to_cli_flag[matched_dest]
 
         return None
 
@@ -807,21 +879,23 @@ Examples:
                     # Direct field name (no nesting)
                     options[key] = value
 
-            # Flatten nested config into options dict
-            # This handles format-specific and nested dataclass fields
+            # Flatten nested config into options dict, preserving full dot-notation paths
+            # This prevents name collisions and ensures options are correctly mapped
             for format_key, format_opts in nested_config.items():
                 if isinstance(format_opts, dict):
-                    # Recursively flatten nested dicts
+                    # Recursively flatten nested dicts, preserving prefixes
                     for nested_key, nested_value in format_opts.items():
                         if isinstance(nested_value, dict):
                             # Further nested (e.g., html.network.* fields)
+                            # Keep fully qualified key: "html.network.allowed_hosts"
                             for field_key, field_value in nested_value.items():
-                                options[field_key] = field_value
+                                options[f"{format_key}.{nested_key}.{field_key}"] = field_value
                         else:
                             # One level nested (e.g., pdf.pages)
-                            options[nested_key] = nested_value
+                            # Keep fully qualified key: "pdf.pages"
+                            options[f"{format_key}.{nested_key}"] = nested_value
                 else:
-                    # Top-level value
+                    # Top-level value (no nesting)
                     options[format_key] = format_opts
         args_dict = vars(parsed_args)
 
@@ -852,15 +926,6 @@ Examples:
 
         # Track unknown arguments for validation
         unknown_args = []
-        all_known_arg_names = []
-
-        # Build list of all known argument names for fuzzy matching
-        for prefix, opts_class in options_classes.items():
-            for field in fields(opts_class):
-                if prefix == 'base':
-                    all_known_arg_names.append(field.name)
-                else:
-                    all_known_arg_names.append(f"{prefix}.{field.name}")
 
         # Define CLI-only arguments that should not be mapped to converter options
         # These are arguments handled directly by the CLI layer
@@ -943,8 +1008,8 @@ Examples:
 
             error_messages = []
             for unknown_arg in unknown_args:
-                # Suggest similar argument
-                suggestion = self._suggest_similar_argument(unknown_arg, all_known_arg_names)
+                # Suggest similar argument using dest-to-CLI-flag mapping
+                suggestion = self._suggest_similar_argument(unknown_arg)
 
                 if suggestion:
                     msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. Did you mean {suggestion}?"
@@ -961,10 +1026,9 @@ Examples:
                     f"Use 'all2md --help' to see available options."
                 )
             else:
-                # Warn about unknown arguments
+                # Warn about unknown arguments via logger
                 for msg in error_messages:
-                    warnings.warn(msg, UserWarning, stacklevel=2)
-                    print(f"Warning: {msg}", file=sys.stderr)
+                    logger.warning(msg)
 
         return options
 

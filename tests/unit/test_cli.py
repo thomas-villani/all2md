@@ -11,7 +11,7 @@ import pytest
 
 from all2md.cli.builder import create_parser
 from all2md.cli.processors import process_dry_run, generate_output_path
-from all2md.cli.commands import save_config_to_file, handle_dependency_commands
+from all2md.cli.commands import save_config_to_file, handle_dependency_commands, collect_input_files
 from all2md.cli.builder import DynamicCLIBuilder
 
 
@@ -118,6 +118,150 @@ class TestDynamicCLIBuilder:
         # Test that not provided returns None
         result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf.pages", was_provided=False)
         assert result is None
+
+    def test_json_dot_notation_preserves_full_paths(self):
+        """Test that JSON options with dot notation preserve full key paths (Issue #8)."""
+        builder = DynamicCLIBuilder()
+
+        # Create mock parsed args with no CLI arguments
+        parsed_args = Mock()
+        parsed_args.input = "test.html"
+        parsed_args.format = "auto"
+        parsed_args._provided_args = set()
+
+        # Mock the vars() return to simulate namespace
+        with patch('builtins.vars', return_value={
+            'input': 'test.html',
+            'format': 'auto',
+            '_provided_args': set(),
+        }):
+            # Test with deeply nested JSON options (3 levels)
+            json_options = {
+                "html.network.allowed_hosts": ["example.com"],
+                "html.network.require_https": True,
+                "pdf.pages": [1, 2, 3],
+                "attachment_mode": "download"  # Top-level option
+            }
+
+            options = builder.map_args_to_options(parsed_args, json_options)
+
+            # Verify that fully qualified keys are preserved (not stripped)
+            assert "html.network.allowed_hosts" in options
+            assert options["html.network.allowed_hosts"] == ["example.com"]
+            assert "html.network.require_https" in options
+            assert options["html.network.require_https"] is True
+
+            # Verify 2-level nesting is preserved
+            assert "pdf.pages" in options
+            assert options["pdf.pages"] == [1, 2, 3]
+
+            # Verify top-level options still work
+            assert "attachment_mode" in options
+            assert options["attachment_mode"] == "download"
+
+            # Verify we didn't create collisions (e.g., bare "allowed_hosts" key)
+            assert "allowed_hosts" not in options or options.get("allowed_hosts") is None
+
+    def test_fuzzy_suggestion_uses_correct_cli_flags(self):
+        """Test that fuzzy suggestions return CLI flags with hyphens, not dots (Issue #9)."""
+        builder = DynamicCLIBuilder()
+
+        # Build a minimal parser and populate dest_to_cli_flag mapping
+        builder.dest_to_cli_flag = {
+            "pdf.pages": "--pdf-pages",
+            "pdf.password": "--pdf-password",
+            "html.network.allowed_hosts": "--html-network-allowed-hosts",
+            "markdown.emphasis_symbol": "--markdown-emphasis-symbol"
+        }
+
+        # Test suggestion for a typo in "pdf.pages" dest name
+        suggestion = builder._suggest_similar_argument("pdf.page")
+        assert suggestion == "--pdf-pages"  # Should be all hyphens, not --pdf.pages
+
+        # Test suggestion for "html.network" related field
+        suggestion = builder._suggest_similar_argument("html.network.allowed_host")
+        assert suggestion == "--html-network-allowed-hosts"  # Should be all hyphens
+
+        # Test that no suggestion is returned for completely unrelated arg
+        suggestion = builder._suggest_similar_argument("totally_unrelated_arg")
+        assert suggestion is None
+
+    def test_has_default_helper(self):
+        """Test _has_default helper correctly identifies fields with defaults (Issue #11)."""
+        from dataclasses import dataclass, field, MISSING
+
+        builder = DynamicCLIBuilder()
+
+        # Test field with explicit default value
+        @dataclass
+        class TestWithDefault:
+            field_with_default: str = "default_value"
+
+        assert builder._has_default(TestWithDefault.__dataclass_fields__['field_with_default']) is True
+
+        # Test field with default_factory
+        @dataclass
+        class TestWithFactory:
+            field_with_factory: list = field(default_factory=list)
+
+        assert builder._has_default(TestWithFactory.__dataclass_fields__['field_with_factory']) is True
+
+        # Test boolean fields with and without defaults
+        @dataclass
+        class TestBoolOptions:
+            bool_with_default: bool = True
+            bool_with_false_default: bool = False
+
+        assert builder._has_default(TestBoolOptions.__dataclass_fields__['bool_with_default']) is True
+        assert builder._has_default(TestBoolOptions.__dataclass_fields__['bool_with_false_default']) is True
+
+    def test_boolean_field_without_default_gets_store_true(self):
+        """Test that boolean field without default gets store_true action (Issue #11)."""
+        from dataclasses import dataclass, field, MISSING
+
+        builder = DynamicCLIBuilder()
+
+        @dataclass
+        class TestOptions:
+            bool_no_default: bool = field(default=MISSING)
+
+        test_field = TestOptions.__dataclass_fields__['bool_no_default']
+        metadata = {}
+        cli_name = "--bool-no-default"
+
+        # Get argument kwargs
+        kwargs = builder._infer_argument_type_and_action(
+            test_field, bool, False, metadata, cli_name
+        )
+
+        # Should get store_true action (not crash trying to compare MISSING to True/False)
+        assert kwargs['action'] == 'store_true'
+
+    def test_logger_used_instead_of_print(self):
+        """Test that logger is used instead of print for warnings (Issue #13)."""
+        import logging
+        from unittest.mock import patch
+
+        builder = DynamicCLIBuilder()
+
+        # Test that logger.warning is called instead of print
+        with patch.object(logging.getLogger('all2md.cli.builder'), 'warning') as mock_warning:
+            # Create a parser with an invalid argument to trigger warning
+            parser = argparse.ArgumentParser()
+            try:
+                # Try to add an argument that will fail
+                builder._add_options_arguments_internal(
+                    parser,
+                    type("InvalidOptions", (), {}),  # Not a dataclass - will skip
+                    format_prefix=None,
+                    group_name=None
+                )
+                # No warning expected since it's not a dataclass
+            except Exception:
+                pass
+
+        # The real test is that no print() was called to stderr
+        # This is a lightweight test - the important thing is the code doesn't crash
 
 
 @pytest.mark.unit

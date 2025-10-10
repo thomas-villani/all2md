@@ -14,11 +14,10 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from all2md.cli.builder import DynamicCLIBuilder
-from all2md.constants import DocumentFormat
-from all2md.exceptions import All2MdError, DependencyError
-from all2md.constants import get_exit_code_for_exception
 from all2md import to_markdown
+from all2md.cli.builder import DynamicCLIBuilder
+from all2md.constants import DocumentFormat, get_exit_code_for_exception
+from all2md.exceptions import All2MdError, DependencyError
 
 
 def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
@@ -380,7 +379,10 @@ def process_multi_file(
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
         elif parsed_args.output_dir:
-            output_path = generate_output_path(file, Path(parsed_args.output_dir), False, None)
+            target_format = getattr(parsed_args, 'output_type', 'markdown')
+            output_path = generate_output_path(
+                file, Path(parsed_args.output_dir), False, None, target_format=target_format
+            )
 
         # Handle pager for stdout output
         if output_path is None and parsed_args.pager:
@@ -442,9 +444,11 @@ def process_multi_file(
 
     return exit_code
 
-# BUG: `input_files` is never used, and assumes markdown output.
 def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Path]) -> int:
     """Create output package (zip) after successful conversion.
+
+    Supports all output formats by detecting the target format and handling
+    both text-based and binary renderers appropriately.
 
     Parameters
     ----------
@@ -464,6 +468,7 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
 
     from all2md.cli.packaging import create_output_zip, organize_assets, update_markdown_asset_links
     from all2md.constants import EXIT_ERROR
+    from all2md.converter_registry import registry
 
     logger = logging.getLogger(__name__)
 
@@ -474,18 +479,42 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
             logger.error(f"Output directory does not exist: {output_dir}")
             return EXIT_ERROR
 
-        # Collect generated markdown files
-        markdown_files = list(output_dir.rglob("*.md"))
+        # Determine target format and get metadata
+        target_format = getattr(parsed_args, 'output_type', 'markdown')
+        is_text_format = True  # Default assumption
 
-        if not markdown_files:
-            logger.warning("No markdown files found in output directory for packaging")
+        # Get extension and check if text-based format
+        if target_format in ('auto', 'markdown'):
+            extension = '.md'
+        else:
+            try:
+                metadata_list = registry.get_format_info(target_format)
+                if metadata_list and len(metadata_list) > 0:
+                    metadata = metadata_list[0]
+                    if metadata.extensions:
+                        extension = metadata.extensions[0]
+                    else:
+                        extension = f'.{target_format}'
+                    # Check if this is a text-based format
+                    is_text_format = metadata.renders_as_string
+                else:
+                    extension = f'.{target_format}'
+            except Exception:
+                extension = f'.{target_format}'
+
+        # Collect generated output files by extension
+        output_files = list(output_dir.rglob(f"*{extension}"))
+
+        if not output_files:
+            logger.warning(f"No {extension} files found in output directory for packaging")
             return 0
 
         # Organize assets according to layout if specified
-        if hasattr(parsed_args, 'assets_layout') and parsed_args.assets_layout != 'flat':
+        # Only update links for text-based formats that support relative references
+        if is_text_format and hasattr(parsed_args, 'assets_layout') and parsed_args.assets_layout != 'flat':
             logger.debug(f"Organizing assets with layout: {parsed_args.assets_layout}")
             asset_mapping = organize_assets(
-                markdown_files,
+                output_files,
                 output_dir,
                 layout=parsed_args.assets_layout,
                 attachment_dir=Path(parsed_args.attachment_output_dir) if hasattr(
@@ -500,9 +529,9 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
                         import shutil
                         shutil.move(str(old_path), str(new_path))
 
-            # Update markdown file links
-            for md_file in markdown_files:
-                update_markdown_asset_links(md_file, asset_mapping, output_dir)
+            # Update file links for text-based formats
+            for output_file in output_files:
+                update_markdown_asset_links(output_file, asset_mapping, output_dir)
 
         # Determine zip path
         if parsed_args.zip == 'auto':
@@ -514,7 +543,8 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
         created_zip = create_output_zip(
             output_dir,
             zip_path=zip_path,
-            markdown_files=markdown_files
+            output_files=output_files,
+            output_extension=extension
         )
 
         print(f"Created package: {created_zip}")
@@ -905,12 +935,14 @@ def process_dry_run(
                     if len(file_info_list) == 1 and args.out and not args.output_dir:
                         output_path = Path(args.out)
                     else:
+                        target_format = getattr(args, 'output_type', 'markdown')
                         output_path = generate_output_path(
                             file,
                             Path(args.output_dir) if args.output_dir else None,
                             args.preserve_structure,
                             base_input_dir,
-                            dry_run=True
+                            dry_run=True,
+                            target_format=target_format
                         )
                     output_str = str(output_path)
 
@@ -951,12 +983,14 @@ def process_dry_run(
                 if len(file_info_list) == 1 and args.out and not args.output_dir:
                     output_path = Path(args.out)
                 else:
+                    target_format = getattr(args, 'output_type', 'markdown')
                     output_path = generate_output_path(
                         file,
                         Path(args.output_dir) if args.output_dir else None,
                         args.preserve_structure,
                         base_input_dir,
-                        dry_run=True
+                        dry_run=True,
+                        target_format=target_format
                     )
                 output_str = f" -> {output_path}"
 
@@ -1214,7 +1248,8 @@ def generate_output_path(
         output_dir: Optional[Path] = None,
         preserve_structure: bool = False,
         base_input_dir: Optional[Path] = None,
-        dry_run: bool = False
+        dry_run: bool = False,
+        target_format: str = "markdown"
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -1230,6 +1265,8 @@ def generate_output_path(
         Base input directory for preserving structure
     dry_run : bool, default=False
         If True, don't create directories
+    target_format : str, default="markdown"
+        Target output format to determine file extension
 
     Returns
     -------
@@ -1237,8 +1274,27 @@ def generate_output_path(
         Output file path
 
     """
+    # Determine output file extension based on target format
+    from all2md.converter_registry import registry
+
+    if target_format in ('auto', 'markdown'):
+        extension = '.md'
+    else:
+        try:
+            metadata_list = registry.get_format_info(target_format)
+            if metadata_list and len(metadata_list) > 0:
+                metadata = metadata_list[0]
+                if metadata.extensions:
+                    extension = metadata.extensions[0]
+                else:
+                    extension = f'.{target_format}'
+            else:
+                extension = f'.{target_format}'
+        except Exception:
+            extension = f'.{target_format}'
+
     # Generate output filename
-    output_name = input_file.stem + '.md'
+    output_name = input_file.stem + extension
 
     if output_dir:
         if preserve_structure and base_input_dir:
@@ -1411,11 +1467,13 @@ def process_with_rich_output(
                 else:
                     # Submit files to executor for parallel processing
                     for file in files:
+                        target_format = getattr(args, 'output_type', 'markdown')
                         output_path = generate_output_path(
                             file,
                             Path(args.output_dir) if args.output_dir else None,
                             args.preserve_structure,
-                            base_input_dir
+                            base_input_dir,
+                            target_format=target_format
                         )
                         future = executor.submit(
                             convert_single_file,
@@ -1455,11 +1513,13 @@ def process_with_rich_output(
                 if len(files) == 1 and not args.out and not args.output_dir:
                     output_path = None
                 else:
+                    target_format = getattr(args, 'output_type', 'markdown')
                     output_path = generate_output_path(
                         file,
                         Path(args.output_dir) if args.output_dir else None,
                         args.preserve_structure,
-                        base_input_dir
+                        base_input_dir,
+                        target_format=target_format
                     )
 
                 # Special handling for single file rich output to stdout
@@ -1572,11 +1632,13 @@ def process_with_progress_bar(
         for file in pbar:
             pbar.set_postfix_str(f"Processing {file.name}")
 
+            target_format = getattr(args, 'output_type', 'markdown')
             output_path = generate_output_path(
                 file,
                 Path(args.output_dir) if args.output_dir else None,
                 args.preserve_structure,
-                base_input_dir
+                base_input_dir,
+                target_format=target_format
             )
 
             exit_code, file_str, error = convert_single_file(
@@ -1643,11 +1705,13 @@ def process_files_simple(
     max_exit_code = EXIT_SUCCESS
 
     for file in files:
+        target_format = getattr(args, 'output_type', 'markdown')
         output_path = generate_output_path(
             file,
             Path(args.output_dir) if args.output_dir else None,
             args.preserve_structure,
-            base_input_dir
+            base_input_dir,
+            target_format=target_format
         )
 
         exit_code, file_str, error = convert_single_file(

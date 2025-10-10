@@ -346,6 +346,9 @@ class TrackingAppendAction(argparse.Action):
     ) -> None:
         """Append the value and mark as explicitly provided.
 
+        Handles both single values and lists (from nargs) correctly.
+        For nargs='+', extends the list instead of appending a nested list.
+
         Parameters
         ----------
         parser : argparse.ArgumentParser
@@ -362,10 +365,31 @@ class TrackingAppendAction(argparse.Action):
         items = getattr(namespace, self.dest, None)
         if items is None:
             items = []
+        else:
+            items = items.copy() if isinstance(items, list) else []
 
-        # Append new value
-        items = items.copy() if isinstance(items, list) else []
-        items.append(values)
+        # Handle nargs lists vs single values
+        if isinstance(values, (list, tuple)):
+            # For nargs='+' or nargs=N, extend the list instead of appending
+            # Apply type converter to each element if provided
+            if self.type is not None:
+                try:
+                    converted_values = [self.type(v) for v in values]
+                    items.extend(converted_values)
+                except (ValueError, TypeError) as e:
+                    parser.error(f"argument {option_string}: invalid value(s): {e}")
+            else:
+                items.extend(values)
+        else:
+            # Single value - append normally
+            # Apply type converter if provided
+            if self.type is not None and values is not None:
+                try:
+                    values = self.type(values)
+                except (ValueError, TypeError) as e:
+                    parser.error(f"argument {option_string}: invalid value: {e}")
+            items.append(values)
+
         setattr(namespace, self.dest, items)
 
         # Track that this argument was explicitly provided

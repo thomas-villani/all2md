@@ -179,6 +179,93 @@ class TestTrackingActions:
         assert "new_arg" in namespace._provided_args
         assert len(namespace._provided_args) == 2
 
+    def test_tracking_append_action_single_values(self):
+        """Test TrackingAppendAction with single values (no nargs)."""
+        parser = argparse.ArgumentParser()
+        action = TrackingAppendAction(
+            option_strings=["--exclude"],
+            dest="exclude"
+        )
+
+        namespace = argparse.Namespace()
+
+        # Add first value
+        action(parser, namespace, "*.tmp", "--exclude")
+        assert namespace.exclude == ["*.tmp"]
+        assert "exclude" in namespace._provided_args
+
+        # Add second value
+        action(parser, namespace, "*.bak", "--exclude")
+        assert namespace.exclude == ["*.tmp", "*.bak"]
+
+    def test_tracking_append_action_with_nargs_list(self):
+        """Test TrackingAppendAction with nargs='+' produces flat list (Issue #10)."""
+        parser = argparse.ArgumentParser()
+        action = TrackingAppendAction(
+            option_strings=["--files"],
+            dest="files",
+            nargs='+'
+        )
+
+        namespace = argparse.Namespace()
+
+        # Simulate nargs='+' behavior: argparse passes values as a list
+        values_list = ["file1.txt", "file2.txt", "file3.txt"]
+        action(parser, namespace, values_list, "--files")
+
+        # Should extend, not append the list (flat list, not nested)
+        assert namespace.files == ["file1.txt", "file2.txt", "file3.txt"]
+        assert "files" in namespace._provided_args
+
+        # Add another batch (simulating --files a.txt b.txt --files c.txt d.txt)
+        more_values = ["file4.txt", "file5.txt"]
+        action(parser, namespace, more_values, "--files")
+
+        # Should extend the existing list
+        assert namespace.files == ["file1.txt", "file2.txt", "file3.txt", "file4.txt", "file5.txt"]
+
+    def test_tracking_append_action_with_type_converter(self):
+        """Test TrackingAppendAction applies type converter to each element."""
+        parser = argparse.ArgumentParser()
+        action = TrackingAppendAction(
+            option_strings=["--numbers"],
+            dest="numbers",
+            nargs='+',
+            type=int
+        )
+
+        namespace = argparse.Namespace()
+
+        # Simulate nargs='+' with string values that need conversion
+        values_list = ["1", "2", "3"]
+        action(parser, namespace, values_list, "--numbers")
+
+        # Type converter should be applied to each element
+        assert namespace.numbers == [1, 2, 3]
+        assert all(isinstance(n, int) for n in namespace.numbers)
+
+    def test_tracking_append_action_mixed_single_and_nargs(self):
+        """Test TrackingAppendAction handles mix of single values and nargs lists."""
+        parser = argparse.ArgumentParser()
+        action = TrackingAppendAction(
+            option_strings=["--items"],
+            dest="items"
+        )
+
+        namespace = argparse.Namespace()
+
+        # Single value
+        action(parser, namespace, "single", "--items")
+        assert namespace.items == ["single"]
+
+        # List from nargs (in real usage, this would be from different invocation with nargs)
+        action(parser, namespace, ["multi1", "multi2"], "--items")
+        assert namespace.items == ["single", "multi1", "multi2"]
+
+        # Another single value
+        action(parser, namespace, "another", "--items")
+        assert namespace.items == ["single", "multi1", "multi2", "another"]
+
 
 @pytest.mark.unit
 @pytest.mark.cli
