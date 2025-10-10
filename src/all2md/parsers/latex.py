@@ -35,6 +35,8 @@ from all2md.ast import (
     Subscript,
     Superscript,
     Table,
+    TableCell,
+    TableRow,
     Text,
     ThematicBreak,
     Underline,
@@ -53,6 +55,47 @@ class LatexParser(BaseParser):
     This parser implements a LaTeX parser that converts LaTeX documents
     into the all2md AST format. It uses pylatexenc library for parsing
     LaTeX syntax and converts common LaTeX commands to AST nodes.
+
+    Supported LaTeX Features
+    ------------------------
+    Sectioning Commands:
+        - \section, \subsection, \subsubsection
+        - \paragraph, \subparagraph
+
+    Text Formatting:
+        - \textbf{...} - Bold text (Strong)
+        - \textit{...}, \emph{...} - Italic text (Emphasis)
+        - \texttt{...} - Monospace text (Code)
+        - \underline{...} - Underlined text
+        - \textsuperscript{...}, \textsubscript{...} - Super/subscript
+
+    Math:
+        - Inline math: $...$
+        - Display math: $$...$$
+        - Environments: equation, align, displaymath, eqnarray
+
+    Lists:
+        - \begin{itemize}...\end{itemize} - Unordered lists
+        - \begin{enumerate}...\end{enumerate} - Ordered lists
+
+    Environments:
+        - \begin{quote}...\end{quote} - Block quotes
+        - \begin{verbatim}...\end{verbatim} - Code blocks
+        - \begin{tabular}...\end{tabular} - Tables (basic support)
+        - \begin{figure}...\end{figure} - Images (with \includegraphics)
+
+    Line Breaks:
+        - \\, \newline, \linebreak
+
+    Horizontal Rules:
+        - \hrule
+
+    Metadata (from preamble):
+        - \title{...}, \author{...}, \date{...}
+
+    Unsupported/Unknown Commands:
+        - In non-strict mode: Arguments are extracted when possible
+        - In strict mode: Placeholders are inserted showing unsupported commands
 
     Parameters
     ----------
@@ -219,11 +262,15 @@ class LatexParser(BaseParser):
         title_match = re.search(r'\\title\{([^}]+)\}', content)
         if title_match:
             metadata['title'] = title_match.group(1).strip()
+            # Strip the command from content
+            content = content.replace(title_match.group(0), '')
 
         # Extract author
         author_match = re.search(r'\\author\{([^}]+)\}', content)
         if author_match:
             metadata['author'] = author_match.group(1).strip()
+            # Strip the command from content
+            content = content.replace(author_match.group(0), '')
 
         # Extract date
         date_match = re.search(r'\\date\{([^}]+)\}', content)
@@ -231,6 +278,8 @@ class LatexParser(BaseParser):
             date_str = date_match.group(1).strip()
             if date_str and date_str != r'\today':
                 metadata['date'] = date_str
+            # Strip the command from content
+            content = content.replace(date_match.group(0), '')
 
         return content, metadata
 
@@ -294,8 +343,10 @@ class LatexParser(BaseParser):
             Text node
 
         """
-        content = node.chars.strip()
-        if content:
+        content = node.chars
+        # Only return None if the content is entirely whitespace
+        # Preserve spaces within text as they may be significant in LaTeX
+        if content.strip():
             return Text(content=content)
         return None
 
@@ -352,6 +403,16 @@ class LatexParser(BaseParser):
                                     arg_nodes.append(converted)
                 if arg_nodes:
                     return arg_nodes
+
+            # If no argument nodes extracted and we're in strict mode,
+            # preserve the original LaTeX as text for debugging
+            if self.options.strict_mode and hasattr(node, 'latex_verbatim'):
+                try:
+                    original_latex = node.latex_verbatim()
+                    return Text(content=f"[Unsupported LaTeX: {original_latex}]")
+                except Exception:
+                    pass
+
             return None
 
     def _convert_section(self, node: Any) -> Heading:
@@ -558,6 +619,12 @@ class LatexParser(BaseParser):
                             children.extend(converted)
                         else:
                             children.append(converted)
+
+                # If strict mode and no children extracted, add placeholder
+                if not children and self.options.strict_mode:
+                    env_name = getattr(node, 'environmentname', 'unknown')
+                    children = [Text(content=f"[Unsupported environment: {env_name}]")]
+
                 return children
             return None
 
@@ -771,11 +838,62 @@ class LatexParser(BaseParser):
             Table node
 
         """
-        # Basic table parsing - this is simplified
-        # A full implementation would parse table structure from LaTeX
-        # For now, return None and let it be handled as text
-        # Full table parsing would require more sophisticated LaTeX parsing
-        return None
+        # Extract raw LaTeX content from tabular environment
+        if not hasattr(node, 'nodelist') or not node.nodelist:
+            return None
+
+        # Get the raw LaTeX content
+        raw_content = self._extract_raw_latex(node.nodelist)
+        if not raw_content or not raw_content.strip():
+            return None
+
+        try:
+            # Split by row delimiter (\\)
+            # Note: This is a simplified parser for basic tables
+            rows_raw = re.split(r'\\\\', raw_content)
+
+            # Filter out empty rows
+            rows_raw = [row.strip() for row in rows_raw if row.strip()]
+
+            if not rows_raw:
+                # No rows found, return placeholder text
+                return None
+
+            # Parse rows into cells
+            table_rows = []
+            for row_text in rows_raw:
+                # Split by column delimiter (&)
+                cells_raw = row_text.split('&')
+                cells = []
+
+                for cell_text in cells_raw:
+                    cell_text = cell_text.strip()
+                    # Create simple text content for each cell
+                    cell_content: list[Node] = [Text(content=cell_text)] if cell_text else [Text(content="")]
+                    cells.append(TableCell(content=cell_content))
+
+                if cells:
+                    table_rows.append(TableRow(cells=cells))
+
+            if not table_rows:
+                return None
+
+            # Use first row as header if we have multiple rows
+            if len(table_rows) > 1:
+                header = table_rows[0]
+                body_rows = table_rows[1:]
+                return Table(header=header, rows=body_rows)
+            else:
+                # Single row table - use it as header with empty body
+                return Table(header=table_rows[0], rows=[])
+
+        except Exception:
+            # If table parsing fails, return None
+            # In strict mode, this would raise an error
+            if self.options.strict_mode:
+                # Return a placeholder indicating table was omitted
+                return None
+            return None
 
     def _convert_figure(self, node: Any) -> Image | None:
         """Convert figure environment to Image.

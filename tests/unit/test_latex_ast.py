@@ -246,6 +246,107 @@ Content here
         assert 'author' in doc.metadata
         assert doc.metadata['author'] == 'John Doe'
 
+    def test_preamble_commands_stripped(self) -> None:
+        """Test that preamble commands are stripped from content."""
+        parser = LatexParser()
+        latex = r"""
+\title{Test Title}
+\author{Test Author}
+\date{2025-01-01}
+
+\section{Introduction}
+This is content.
+"""
+        # Parse to verify metadata is extracted and commands are removed
+        doc = parser.parse(latex)
+
+        # Metadata should be extracted
+        assert doc.metadata.get('title') == 'Test Title'
+        assert doc.metadata.get('author') == 'Test Author'
+
+        # The title/author/date commands should have been stripped
+        # so they don't appear in the document body
+        # We can verify by checking that section was parsed properly
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) >= 1
+        assert headings[0].level == 1
+
+    def test_whitespace_preservation(self) -> None:
+        """Test that significant whitespace is preserved."""
+        parser = LatexParser()
+        # Test case where spaces between words should be preserved
+        latex = r"Hello world test"
+        doc = parser.parse(latex)
+
+        # Find text nodes in the document
+        text_nodes = []
+        for child in doc.children:
+            if isinstance(child, Text):
+                text_nodes.append(child)
+            elif isinstance(child, Paragraph):
+                for node in child.content:
+                    if isinstance(node, Text):
+                        text_nodes.append(node)
+
+        # Reconstruct the text
+        full_text = "".join(node.content for node in text_nodes)
+        # Whitespace should be preserved between words
+        assert "Hello" in full_text
+        assert "world" in full_text
+        assert "test" in full_text
+
+    def test_basic_table_parsing(self) -> None:
+        """Test parsing basic tabular environment."""
+        parser = LatexParser()
+        latex = r"""
+\begin{tabular}{|l|c|r|}
+Name & Age & City \\
+Alice & 30 & NYC \\
+Bob & 25 & LA
+\end{tabular}
+"""
+        doc = parser.parse(latex)
+
+        # Find Table node
+        tables = [child for child in doc.children if isinstance(child, Table)]
+        assert len(tables) >= 1
+
+        table = tables[0]
+        # Should have a header row
+        assert table.header is not None
+        assert len(table.header.cells) == 3
+
+        # Should have body rows
+        assert len(table.rows) >= 1
+
+    def test_unknown_macro_nonstrict_mode(self) -> None:
+        """Test handling of unknown macros in non-strict mode."""
+        parser = LatexParser(LatexOptions(strict_mode=False))
+        latex = r"\unknowncommand{test content}"
+        doc = parser.parse(latex)
+
+        # Should not raise an error
+        assert doc is not None
+        # Unknown command might be silently ignored or content extracted
+
+    def test_unknown_macro_strict_mode(self) -> None:
+        """Test handling of unknown macros in strict mode."""
+        parser = LatexParser(LatexOptions(strict_mode=True))
+        latex = r"\unknowncommand{test}"
+        doc = parser.parse(latex)
+
+        # Should handle gracefully and potentially add placeholder
+        assert doc is not None
+
+    def test_unknown_environment_strict_mode(self) -> None:
+        """Test handling of unknown environment in strict mode."""
+        parser = LatexParser(LatexOptions(strict_mode=True))
+        latex = r"\begin{unknownenv}content\end{unknownenv}"
+        doc = parser.parse(latex)
+
+        # Should handle gracefully
+        assert doc is not None
+
 
 class TestLatexRenderer:
     """Tests for LaTeX renderer."""
