@@ -222,10 +222,11 @@ class HtmlToAstConverter(BaseParser):
                     original_error=e
                 ) from e
         else:
-            # Use validate_and_convert_input for other types
+            # Use validate_and_convert_input for other types (file-like objects)
+            # Note: str and bytes are already handled above, so only path-like/file-like reach here
             try:
                 doc_input, input_type = validate_and_convert_input(
-                    input_data, supported_types=["path-like", "file-like", "HTML strings"]
+                    input_data, supported_types=["path-like", "file-like"]
                 )
 
                 if input_type == "path":
@@ -332,11 +333,37 @@ class HtmlToAstConverter(BaseParser):
                 element.unwrap()
 
         if self.options.allowed_attributes is not None:
+            # Support both global allowlist (tuple) and per-element allowlist (dict)
+            is_per_element = isinstance(self.options.allowed_attributes, dict)
+
             for element in soup.find_all():
-                if hasattr(element, "attrs"):
-                    attrs_to_remove = [attr for attr in element.attrs if attr not in self.options.allowed_attributes]
+                if hasattr(element, "attrs") and hasattr(element, "name"):
+                    if is_per_element:
+                        # Per-element allowlist: check element-specific allowed attributes
+                        allowed_attrs = self.options.allowed_attributes.get(element.name, ())
+                    else:
+                        # Global allowlist: same attributes allowed for all elements
+                        allowed_attrs = self.options.allowed_attributes
+
+                    # Remove attributes not in the allowlist
+                    attrs_to_remove = [attr for attr in element.attrs if attr not in allowed_attrs]
                     for attr in attrs_to_remove:
                         del element.attrs[attr]
+
+        # Final security pass: sanitize attributes on all remaining elements (defense-in-depth)
+        # This catches any dangerous attributes that may have been preserved during whitelisting
+        if self.options.strip_dangerous_elements:
+            elements_to_remove = []
+            for element in soup.find_all():
+                if hasattr(element, 'name'):
+                    # Use _sanitize_element to check for dangerous attributes
+                    if not self._sanitize_element(element):
+                        elements_to_remove.append(element)
+
+            # Remove elements that failed final sanitization check
+            for element in elements_to_remove:
+                # Decompose completely for security (don't preserve children from dangerous elements)
+                element.decompose()
 
         # Build document children
         children: list[Node] = []

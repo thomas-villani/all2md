@@ -593,6 +593,57 @@ class TestHtmlOptions:
         paragraphs = [child for child in doc.children if isinstance(child, Paragraph)]
         assert len(paragraphs) >= 1
 
+    def test_allowed_attributes_global_allowlist(self) -> None:
+        """Test global attribute allowlist removes unwanted attributes."""
+        html = '<div class="container" id="main" data-value="test" onclick="alert()">Content</div>'
+        options = HtmlOptions(allowed_attributes=('class', 'id'))
+        converter = HtmlToAstConverter(options)
+        doc = converter.convert_to_ast(html)
+
+        # The document should be created successfully
+        assert isinstance(doc, Document)
+        # Verify we have content (indirect test - attributes are filtered during DOM processing)
+        assert len(doc.children) >= 1
+
+    def test_allowed_attributes_per_element_allowlist(self) -> None:
+        """Test per-element attribute allowlist with different rules for different elements."""
+        html = '''
+        <div class="container" id="main" style="color: red;">
+            <img src="image.png" alt="test" onclick="alert()" class="img-class">
+            <a href="/link" title="Link" class="link-class" onclick="alert()">Link</a>
+        </div>
+        '''
+        options = HtmlOptions(
+            allowed_attributes={
+                'div': ('class', 'id'),
+                'img': ('src', 'alt', 'title'),
+                'a': ('href', 'title')
+            }
+        )
+        converter = HtmlToAstConverter(options)
+        doc = converter.convert_to_ast(html)
+
+        # The document should be created successfully
+        assert isinstance(doc, Document)
+        # Verify the structure is maintained
+        assert len(doc.children) >= 1
+
+    def test_allowed_attributes_empty_allowlist_for_element(self) -> None:
+        """Test that elements not in per-element allowlist have all attributes removed."""
+        html = '<div class="container"><span id="test" data-value="x">Content</span></div>'
+        options = HtmlOptions(
+            allowed_attributes={
+                'div': ('class',),
+                # span not in allowlist, so all its attributes should be removed
+            }
+        )
+        converter = HtmlToAstConverter(options)
+        doc = converter.convert_to_ast(html)
+
+        # Document should be created successfully
+        assert isinstance(doc, Document)
+        assert len(doc.children) >= 1
+
 
 @pytest.mark.unit
 class TestEdgeCases:

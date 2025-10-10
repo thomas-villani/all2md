@@ -117,6 +117,10 @@ class HtmlOptions(BaseParserOptions):
         Whether to automatically detect table column alignment from CSS/attributes.
     preserve_nested_structure : bool, default True
         Whether to maintain proper nesting for blockquotes and other elements.
+    allowed_attributes : tuple[str, ...] | dict[str, tuple[str, ...]] | None, default None
+        Whitelist of allowed HTML attributes. Supports two modes:
+        - Global allowlist: tuple of attribute names applied to all elements
+        - Per-element allowlist: dict mapping element names to tuples of allowed attributes
 
     Examples
     --------
@@ -125,6 +129,16 @@ class HtmlOptions(BaseParserOptions):
 
     Convert with content sanitization:
         >>> options = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=True)
+
+    Use global attribute allowlist:
+        >>> options = HtmlOptions(allowed_attributes=('class', 'id', 'href', 'src'))
+
+    Use per-element attribute allowlist:
+        >>> options = HtmlOptions(allowed_attributes={
+        ...     'img': ('src', 'alt', 'title'),
+        ...     'a': ('href', 'title'),
+        ...     'div': ('class', 'id')
+        ... })
 
     """
 
@@ -200,10 +214,13 @@ class HtmlOptions(BaseParserOptions):
             "action": "append"
         }
     )
-    allowed_attributes: tuple[str, ...] | None = field(
+    allowed_attributes: tuple[str, ...] | dict[str, tuple[str, ...]] | None = field(
         default=None,
         metadata={
-            "help": "Whitelist of allowed HTML attributes (if set, only these are processed)",
+            "help": "Whitelist of allowed HTML attributes. Can be a tuple of attribute names "
+                    "(global allowlist) or a dict mapping element names to tuples of allowed "
+                    "attributes (per-element allowlist). Examples: ('class', 'id') or "
+                    "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}",
             "action": "append"
         }
     )
