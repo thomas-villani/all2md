@@ -7,6 +7,7 @@ from typing import Literal
 
 from all2md.constants import DEFAULT_PAGE_SEPARATOR, DEFAULT_SLIDE_NUMBERS
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.common import NetworkFetchOptions
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,8 @@ class PptxRendererOptions(BaseRendererOptions):
         Default font size in points for body text.
     title_font_size : int, default 44
         Font size for slide titles.
+    network : NetworkFetchOptions, default NetworkFetchOptions()
+        Network security options for fetching remote images in slides.
 
     """
 
@@ -89,6 +92,10 @@ class PptxRendererOptions(BaseRendererOptions):
     title_font_size: int = field(
         default=44,
         metadata={"help": "Font size for slide titles", "type": int}
+    )
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
+        metadata={"help": "Network security options for fetching remote images"}
     )
 
 

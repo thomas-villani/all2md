@@ -14,9 +14,14 @@ content to PowerPoint shapes, and assembles a complete presentation.
 
 from __future__ import annotations
 
+import base64
+import logging
+import re
+import tempfile
 from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
+from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from pptx.presentation import Presentation
@@ -68,6 +73,9 @@ from all2md.renderers._split_utils import (
 )
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+
+logger = logging.getLogger(__name__)
 
 
 class PptxRenderer(NodeVisitor, BaseRenderer):
@@ -110,6 +118,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._current_paragraph: Any = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._list_item_counters: list[int] = []  # Track item number at each level for ordered lists
+        self._temp_files: list[str] = []  # Track temp files for cleanup
 
     @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -166,6 +175,15 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 rendering_stage="rendering",
                 original_error=e
             ) from e
+        finally:
+            # Clean up temporary files
+            import os
+            for temp_file in self._temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.unlink(temp_file)
+                except Exception:
+                    pass  # Ignore cleanup errors
 
     # render_to_bytes() is inherited from BaseRenderer
 
@@ -286,12 +304,33 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             AST nodes to render
 
         """
-        # Try to find content placeholder
+        # Try to find content placeholder with robust detection
         content_placeholder = None
+
+        # Strategy 1: Look for text frame placeholders that aren't the title
         for shape in slide.placeholders:
-            if hasattr(shape, 'text_frame') and shape.placeholder_format.idx == 1:
+            if not hasattr(shape, 'text_frame'):
+                continue
+
+            # Skip title placeholder (usually idx 0)
+            try:
+                if shape.placeholder_format.idx == 0:
+                    continue
+            except Exception:
+                pass
+
+            # Try to find body/content placeholder by type
+            try:
+                # PP_PLACEHOLDER type 2 is body/content
+                if hasattr(shape.placeholder_format, 'type') and shape.placeholder_format.type == 2:
+                    content_placeholder = shape
+                    break
+            except Exception:
+                pass
+
+            # Fallback: Use first non-title placeholder with text frame
+            if content_placeholder is None and shape.has_text_frame:
                 content_placeholder = shape
-                break
 
         if content_placeholder:
             # Use placeholder text frame
@@ -383,9 +422,132 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if not image.url:
             return
 
-        # For now, skip images (would need to handle file paths, base64, etc.)
-        # TODO: Implement image rendering
-        pass
+        try:
+            # Handle different image sources
+            image_file = None
+
+            if image.url.startswith('data:'):
+                # Base64 encoded image
+                image_file = self._decode_base64_image(image.url)
+            elif urlparse(image.url).scheme in ('http', 'https'):
+                # Remote URL - use secure fetching if enabled
+                image_file = self._fetch_remote_image(image.url)
+            else:
+                # Local file path
+                image_file = image.url
+
+            # Add image to slide if we have a valid file
+            if image_file:
+                from pptx.util import Inches
+
+                # Position image in content area
+                left = Inches(1.0)
+                top = Inches(2.5)
+
+                # Add image with default width, maintaining aspect ratio
+                try:
+                    slide.shapes.add_picture(image_file, left, top, width=Inches(4.0))
+                except Exception as e:
+                    logger.warning(f"Failed to add image to slide: {e}")
+
+        except Exception as e:
+            # Log warning but don't fail rendering
+            logger.warning(f"Failed to render image {image.url}: {e}")
+
+    def _decode_base64_image(self, data_uri: str) -> str | None:
+        """Decode base64 image to temporary file.
+
+        Parameters
+        ----------
+        data_uri : str
+            Data URI with base64 encoded image
+
+        Returns
+        -------
+        str or None
+            Path to temporary file, or None if decoding failed
+
+        """
+        try:
+            # Extract base64 data
+            match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
+            if not match:
+                return None
+
+            image_format = match.group(1)
+            base64_data = match.group(2)
+
+            # Decode base64
+            image_data = base64.b64decode(base64_data)
+
+            # Write to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{image_format}') as f:
+                f.write(image_data)
+                temp_path = f.name
+
+            self._temp_files.append(temp_path)
+            return temp_path
+        except Exception as e:
+            logger.warning(f"Failed to decode base64 image: {e}")
+            return None
+
+    def _fetch_remote_image(self, url: str) -> str | None:
+        """Fetch remote image securely.
+
+        Parameters
+        ----------
+        url : str
+            Remote image URL
+
+        Returns
+        -------
+        str or None
+            Path to temporary file with image data, or None if fetch failed
+
+        """
+        # Check global network disable flag
+        if is_network_disabled():
+            logger.debug(f"Network disabled, skipping remote image: {url}")
+            return None
+
+        # Check if remote fetching is allowed
+        if not self.options.network.allow_remote_fetch:
+            logger.debug(f"Remote fetching disabled, skipping image: {url}")
+            return None
+
+        try:
+            # Fetch image data securely
+            image_data = fetch_image_securely(
+                url=url,
+                allowed_hosts=self.options.network.allowed_hosts,
+                require_https=self.options.network.require_https,
+                max_size_bytes=self.options.network.max_remote_asset_bytes,
+                timeout=self.options.network.network_timeout,
+                require_head_success=self.options.network.require_head_success
+            )
+
+            # Determine file extension from URL or content type
+            parsed = urlparse(url)
+            path_lower = parsed.path.lower()
+
+            if path_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
+                ext = path_lower.split('.')[-1]
+            else:
+                # Default to png
+                ext = 'png'
+
+            # Write to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}') as f:
+                f.write(image_data)
+                temp_path = f.name
+
+            self._temp_files.append(temp_path)
+            logger.debug(f"Successfully fetched remote image: {url}")
+            return temp_path
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch remote image {url}: {e}")
+            return None
 
     def _extract_text_from_nodes(self, nodes: list[Node]) -> str:
         """Extract plain text from inline nodes.
@@ -606,18 +768,26 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Determine if this is ordered or unordered
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
 
+        # Calculate nesting level (depth in the stack)
+        nesting_level = len(self._list_ordered_stack) - 1
+        # Limit to reasonable depth for PowerPoint (0-8)
+        nesting_level = min(nesting_level, 8)
+
         if is_ordered:
             # For ordered lists, manually add number prefix since python-pptx
             # has limited support for numbered lists
             item_number = self._list_item_counters[-1] if self._list_item_counters else 1
-            # Add numbered prefix as part of the text
-            p.level = 0  # No bullet for numbered items
-            # We'll add the number as the first run
+
+            # Set indentation level but no bullet (we're adding our own number)
+            p.level = nesting_level
+
+            # Add numbered prefix as the first run with proper spacing
             run = p.add_run()
             run.text = f"{item_number}. "
+            run.font.bold = True  # Make number bold for visibility
         else:
-            # For unordered lists, use bullet level
-            p.level = 0  # Set bullet level
+            # For unordered lists, use PowerPoint's built-in bullet system
+            p.level = nesting_level
 
         self._current_paragraph = p
 
@@ -627,6 +797,9 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 # Render paragraph content directly
                 for inline in child.content:
                     inline.accept(self)
+            elif isinstance(child, List):
+                # Nested list - will be handled by visit_list
+                child.accept(self)
             else:
                 child.accept(self)
 
@@ -810,8 +983,15 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if not self._current_paragraph:
             return
 
+        # Get preferred representation (prefer latex, fallback to others)
+        content, notation = node.get_preferred_representation("latex")
+
         run = self._current_paragraph.add_run()
-        run.text = node.content
+        # Wrap latex in $ delimiters for clarity
+        if notation == "latex":
+            run.text = f"${content}$"
+        else:
+            run.text = content
 
     def visit_math_block(self, node: "MathBlock") -> None:
         """Render math block as plain text.
@@ -825,9 +1005,16 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if not self._current_textbox:
             return
 
+        # Get preferred representation (prefer latex, fallback to others)
+        content, notation = node.get_preferred_representation("latex")
+
         p = self._current_textbox.add_paragraph()
         run = p.add_run()
-        run.text = node.content
+        # Wrap latex in $$ delimiters for clarity
+        if notation == "latex":
+            run.text = f"$${content}$$"
+        else:
+            run.text = content
 
     def visit_definition_list(self, node: "DefinitionList") -> None:
         """Render definition list.
