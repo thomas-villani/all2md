@@ -14,6 +14,8 @@ Subpackages
 
    all2md.ast
    all2md.cli
+   all2md.mcp
+   all2md.options
    all2md.parsers
    all2md.renderers
    all2md.transforms
@@ -30,4 +32,4 @@ Submodules
    all2md.converter_registry
    all2md.dependencies
    all2md.exceptions
-   all2md.options
+   all2md.progress

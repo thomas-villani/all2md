@@ -377,16 +377,29 @@ def process_multi_file(
     if len(files) == 1 and not parsed_args.rich and not parsed_args.progress:
         file = files[0]
 
-        # Determine output path
+        # Determine output path and target format
         output_path: Optional[Path] = None
+        target_format = 'markdown'  # default
+
         if parsed_args.out:
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Auto-detect target format from output filename if --output-type not explicitly provided
+            provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
+            if 'output_type' not in provided_args:
+                from all2md.converter_registry import registry
+                detected = registry.detect_format(output_path)
+                target_format = detected if detected != 'txt' else 'markdown'
+            else:
+                target_format = parsed_args.output_type
         elif parsed_args.output_dir:
             target_format = getattr(parsed_args, 'output_type', 'markdown')
             output_path = generate_output_path(
                 file, Path(parsed_args.output_dir), False, None, target_format=target_format
             )
+        else:
+            target_format = 'markdown'  # stdout, always markdown
 
         # Handle pager for stdout output
         if output_path is None and parsed_args.pager:
@@ -422,7 +435,7 @@ def process_multi_file(
                     print(f"Error: {e}", file=sys.stderr)
                 return exit_code
 
-        exit_code, file_str, error = convert_single_file(file, output_path, options, format_arg, transforms, False)
+        exit_code, file_str, error = convert_single_file(file, output_path, options, format_arg, transforms, False, target_format)
 
         if exit_code == 0:
             if output_path:
@@ -1280,21 +1293,66 @@ def convert_single_file(
         options: Dict[str, Any],
         format_arg: str,
         transforms: Optional[list] = None,
-        show_progress: bool = False
+        show_progress: bool = False,
+        target_format: str = 'markdown'
 ) -> Tuple[int, str, Optional[str]]:
-    """Convert a single file to markdown."""
+    """Convert a single file to the specified target format.
+
+    Parameters
+    ----------
+    input_path : Path
+        Input file path
+    output_path : Path, optional
+        Output file path. If None, prints to stdout (markdown only)
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Source format specification
+    transforms : list, optional
+        List of transform instances to apply
+    show_progress : bool, default False
+        Whether to show progress (currently unused)
+    target_format : str, default 'markdown'
+        Target output format (e.g., 'markdown', 'docx', 'pdf', 'html')
+
+    Returns
+    -------
+    Tuple[int, str, Optional[str]]
+        (exit_code, file_path_str, error_message)
+
+    """
+    from all2md import convert
     from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
 
     try:
-        # Convert the document
-        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)  # type: ignore[arg-type]
-
-        # Output the result
+        # Convert the document using the convert() API for bidirectional conversion
         if output_path:
-            output_path.write_text(markdown_content, encoding="utf-8")
+            # Write to file - convert() handles the target format correctly
+            convert(
+                input_path,
+                output=output_path,
+                source_format=cast(DocumentFormat, format_arg),
+                target_format=cast(DocumentFormat, target_format),
+                transforms=transforms,
+                **options
+            )
             return EXIT_SUCCESS, str(input_path), None
         else:
-            print(markdown_content)
+            # Output to stdout - only markdown is supported for stdout
+            result = convert(
+                input_path,
+                output=None,
+                source_format=cast(DocumentFormat, format_arg),
+                target_format='markdown',
+                transforms=transforms,
+                **options
+            )
+            # convert() returns str for markdown, bytes for binary formats
+            if isinstance(result, bytes):
+                # This shouldn't happen for markdown, but handle it just in case
+                print(result.decode('utf-8', errors='replace'))
+            else:
+                print(result)
             return EXIT_SUCCESS, str(input_path), None
 
     except Exception as e:
@@ -1441,7 +1499,8 @@ def process_with_rich_output(
                             options,
                             format_arg,
                             transforms,
-                            False
+                            False,
+                            target_format
                         )
                         futures[future] = (file, output_path)
 
@@ -1507,7 +1566,8 @@ def process_with_rich_output(
                         options,
                         format_arg,
                         transforms,
-                        False
+                        False,
+                        target_format
                     )
 
                 if exit_code == EXIT_SUCCESS:
@@ -1606,7 +1666,8 @@ def process_with_progress_bar(
                 options,
                 format_arg,
                 transforms,
-                False
+                False,
+                target_format
             )
 
             if exit_code == EXIT_SUCCESS:
@@ -1679,7 +1740,8 @@ def process_files_simple(
             options,
             format_arg,
             transforms,
-            False
+            False,
+            target_format
         )
 
         if exit_code == EXIT_SUCCESS:
