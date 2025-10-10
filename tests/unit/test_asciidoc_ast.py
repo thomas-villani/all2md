@@ -370,6 +370,292 @@ class TestAsciiDocRenderer:
         assert "'''" in output
 
 
+class TestAsciiDocEscaping:
+    """Tests for escape handling."""
+
+    def test_escaped_asterisk(self) -> None:
+        """Test that escaped asterisks are literal."""
+        parser = AsciiDocParser()
+        doc = parser.parse(r"This is \*not bold\*")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert len(para.content) == 1
+        assert isinstance(para.content[0], Text)
+        assert para.content[0].content == "This is *not bold*"
+
+    def test_escaped_underscore(self) -> None:
+        """Test that escaped underscores are literal."""
+        parser = AsciiDocParser()
+        doc = parser.parse(r"This is \_not italic\_")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        assert "_not italic_" in text_content
+
+    def test_escaped_backtick(self) -> None:
+        """Test that escaped backticks are literal."""
+        parser = AsciiDocParser()
+        doc = parser.parse(r"This is \`not code\`")
+
+        para = doc.children[0]
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        assert "`not code`" in text_content
+
+    def test_escaped_curly_brace(self) -> None:
+        """Test that escaped braces are literal."""
+        parser = AsciiDocParser()
+        doc = parser.parse(r"This \{is not\} an attribute ref")
+
+        para = doc.children[0]
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        assert "{is not}" in text_content
+
+
+class TestAsciiDocUnconstrainedFormatting:
+    """Tests for unconstrained formatting (double delimiters)."""
+
+    def test_unconstrained_bold(self) -> None:
+        """Test unconstrained bold with double asterisks."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Make this**b**old in the middle")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        strong_found = False
+        for node in para.content:
+            if isinstance(node, Strong):
+                strong_found = True
+                assert node.content[0].content == "b"
+        assert strong_found
+
+    def test_unconstrained_italic(self) -> None:
+        """Test unconstrained italic with double underscores."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Make this__i__talic in the middle")
+
+        para = doc.children[0]
+        emphasis_found = False
+        for node in para.content:
+            if isinstance(node, Emphasis):
+                emphasis_found = True
+                assert node.content[0].content == "i"
+        assert emphasis_found
+
+    def test_constrained_still_works(self) -> None:
+        """Test that constrained formatting still works."""
+        parser = AsciiDocParser()
+        doc = parser.parse("This is *bold* text")
+
+        para = doc.children[0]
+        strong_found = False
+        for node in para.content:
+            if isinstance(node, Strong):
+                strong_found = True
+                assert node.content[0].content == "bold"
+        assert strong_found
+
+
+class TestAsciiDocAttributeReferences:
+    """Tests for attribute reference handling."""
+
+    def test_attribute_ref_resolved(self) -> None:
+        """Test that attribute references are resolved."""
+        from all2md.options.asciidoc import AsciiDocOptions
+        parser = AsciiDocParser(AsciiDocOptions(parse_attributes=True))
+        doc = parser.parse(":myattr: Hello\n\nThe value is {myattr}")
+
+        para = doc.children[0]
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        assert "Hello" in text_content
+
+    def test_undefined_attribute_kept(self) -> None:
+        """Test that undefined attributes are kept as literals."""
+        from all2md.options.asciidoc import AsciiDocOptions
+        parser = AsciiDocParser(AsciiDocOptions(attribute_missing_policy="keep"))
+        doc = parser.parse("The value is {undefined}")
+
+        para = doc.children[0]
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        assert "{undefined}" in text_content
+
+    def test_undefined_attribute_blank(self) -> None:
+        """Test that undefined attributes can be blanked."""
+        from all2md.options.asciidoc import AsciiDocOptions
+        parser = AsciiDocParser(AsciiDocOptions(attribute_missing_policy="blank"))
+        doc = parser.parse("The value is {undefined}!")
+
+        para = doc.children[0]
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        # Should not contain the attribute reference
+        assert "{undefined}" not in text_content
+        assert "The value is !" in text_content
+
+
+class TestAsciiDocNestedLists:
+    """Tests for nested list support."""
+
+    def test_nested_unordered_list(self) -> None:
+        """Test nested unordered lists."""
+        asciidoc = """* Level 1
+** Level 2
+*** Level 3
+** Back to 2
+* Back to 1"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        assert len(doc.children) == 1
+        root_list = doc.children[0]
+        assert isinstance(root_list, List)
+        assert not root_list.ordered
+        assert len(root_list.items) == 2  # Two level-1 items
+
+        # First level-1 item should have nested list
+        first_item = root_list.items[0]
+        assert len(first_item.children) == 2  # Paragraph + nested list
+        nested_list = first_item.children[1]
+        assert isinstance(nested_list, List)
+        assert len(nested_list.items) == 2  # Two level-2 items
+
+    def test_nested_ordered_list(self) -> None:
+        """Test nested ordered lists."""
+        asciidoc = """. First
+.. Nested first
+.. Nested second
+. Second"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        root_list = doc.children[0]
+        assert isinstance(root_list, List)
+        assert root_list.ordered
+        assert len(root_list.items) == 2
+
+        # Check nesting
+        first_item = root_list.items[0]
+        assert len(first_item.children) == 2
+        nested_list = first_item.children[1]
+        assert isinstance(nested_list, List)
+        assert len(nested_list.items) == 2
+
+    def test_mixed_list_types(self) -> None:
+        """Test mixing ordered and unordered in nesting."""
+        asciidoc = """* Unordered
+.. Nested ordered
+.. Another ordered
+* Back to unordered"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        root_list = doc.children[0]
+        assert not root_list.ordered  # Root is unordered
+        first_item = root_list.items[0]
+        nested_list = first_item.children[1]
+        assert isinstance(nested_list, List)
+        assert nested_list.ordered  # Nested is ordered
+
+
+class TestAsciiDocBlockAttributes:
+    """Tests for block attributes and anchors."""
+
+    def test_anchor_on_heading(self) -> None:
+        """Test anchor ID on heading."""
+        parser = AsciiDocParser()
+        doc = parser.parse("[[my-anchor]]\n== Heading")
+
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.metadata is not None
+        assert heading.metadata.get('id') == "my-anchor"
+
+    def test_block_attribute_id(self) -> None:
+        """Test block attribute with ID."""
+        parser = AsciiDocParser()
+        doc = parser.parse("[#custom-id]\nParagraph text")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert para.metadata is not None
+        assert para.metadata.get('id') == "custom-id"
+
+    def test_code_block_language(self) -> None:
+        """Test code block with language from block attribute."""
+        asciidoc = """[source,python]
+----
+def hello():
+    pass
+----"""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        code_block = doc.children[0]
+        assert isinstance(code_block, CodeBlock)
+        assert code_block.language == "python"
+
+    def test_block_attribute_role(self) -> None:
+        """Test block attribute with role."""
+        parser = AsciiDocParser()
+        doc = parser.parse("[.important]\nThis is important")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert para.metadata is not None
+        assert para.metadata.get('role') == "important"
+
+
+class TestAsciiDocTableImprovements:
+    """Tests for table parsing improvements."""
+
+    def test_table_with_noheader(self) -> None:
+        """Test table with noheader option."""
+        from all2md.options.asciidoc import AsciiDocOptions
+        asciidoc = """[options="noheader"]
+|===
+|Data 1 |Data 2
+|Data 3 |Data 4
+|==="""
+        parser = AsciiDocParser(AsciiDocOptions(table_header_detection="attribute-based"))
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is None  # No header row
+        assert len(table.rows) == 2  # Both rows are data
+
+    def test_table_escaped_pipe(self) -> None:
+        """Test table with escaped pipe in cell."""
+        asciidoc = r"""|===
+|Code |Description
+|\|operator |Pipe operator
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        # Check second row, first cell contains escaped pipe
+        cell_content = table.rows[0].cells[0].content
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in cell_content)
+        assert "|operator" in text_content
+
+    def test_table_default_header(self) -> None:
+        """Test table with default first-row header."""
+        from all2md.options.asciidoc import AsciiDocOptions
+        asciidoc = """|===
+|Header 1 |Header 2
+|Data 1 |Data 2
+|==="""
+        parser = AsciiDocParser(AsciiDocOptions(table_header_detection="first-row"))
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.rows) == 1
+
+
 class TestAsciiDocRoundTrip:
     """Tests for round-trip conversion (parse -> render)."""
 
