@@ -1704,6 +1704,9 @@ class PdfToAstConverter(BaseParser):
                         if table_node:
                             nodes.append(table_node)
 
+        # Merge consecutive paragraphs that don't have significant gaps
+        nodes = self._merge_adjacent_paragraphs(nodes)
+
         # Add images if placement markers enabled
         if page_images and self.options.image_placement_markers:
             for img in page_images:
@@ -1994,6 +1997,7 @@ class PdfToAstConverter(BaseParser):
 
         # Track accumulated paragraph content
         paragraph_content: list[Node] = []
+        paragraph_bbox: tuple[float, float, float, float] | None = None  # (x0, y0, x1, y1)
 
         for line in block["lines"]:
             # Handle rotated text if enabled, otherwise skip non-horizontal lines
@@ -2003,13 +2007,14 @@ class PdfToAstConverter(BaseParser):
                     if rotated_text.strip():
                         # Flush any accumulated paragraph first
                         if paragraph_content:
-                            nodes.append(
-                                AstParagraph(
-                                    content=paragraph_content,
-                                    source_location=SourceLocation(format="pdf", page=page_num + 1)
-                                )
+                            source_loc = SourceLocation(
+                                format="pdf",
+                                page=page_num + 1,
+                                metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                             )
+                            nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                             paragraph_content = []
+                            paragraph_bbox = None
                         nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
                 continue
 
@@ -2034,13 +2039,14 @@ class PdfToAstConverter(BaseParser):
             if all_mono:
                 # Flush accumulated paragraph before starting code block
                 if paragraph_content:
-                    nodes.append(
-                        AstParagraph(
-                            content=paragraph_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1)
-                        )
+                    source_loc = SourceLocation(
+                        format="pdf",
+                        page=page_num + 1,
+                        metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                     )
+                    nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
+                    paragraph_bbox = None
 
                 if not in_code_block:
                     in_code_block = True
@@ -2072,13 +2078,14 @@ class PdfToAstConverter(BaseParser):
             if header_level > 0:
                 # Flush accumulated paragraph before adding heading
                 if paragraph_content:
-                    nodes.append(
-                        AstParagraph(
-                            content=paragraph_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1)
-                        )
+                    source_loc = SourceLocation(
+                        format="pdf",
+                        page=page_num + 1,
+                        metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                     )
+                    nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
+                    paragraph_bbox = None
 
                 # This is a heading
                 inline_content = self._process_text_spans_to_inline(spans, links, page_num)
@@ -2095,13 +2102,14 @@ class PdfToAstConverter(BaseParser):
                 # Large vertical gap (> 5 points) indicates paragraph break
                 if vertical_gap > 5 and paragraph_content:
                     # Flush previous paragraph
-                    nodes.append(
-                        AstParagraph(
-                            content=paragraph_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1)
-                        )
+                    source_loc = SourceLocation(
+                        format="pdf",
+                        page=page_num + 1,
+                        metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                     )
+                    nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
+                    paragraph_bbox = None
 
                 # Accumulate inline content
                 inline_content = self._process_text_spans_to_inline(spans, links, page_num)
@@ -2109,16 +2117,28 @@ class PdfToAstConverter(BaseParser):
                     # Add space between lines if we're continuing a paragraph
                     if paragraph_content:
                         paragraph_content.append(Text(content=" "))
+                    else:
+                        # Starting new paragraph - initialize bbox
+                        paragraph_bbox = line["bbox"]
                     paragraph_content.extend(inline_content)
+                    # Expand bbox to include this line
+                    if paragraph_bbox:
+                        line_bbox = line["bbox"]
+                        paragraph_bbox = (
+                            min(paragraph_bbox[0], line_bbox[0]),  # x0
+                            min(paragraph_bbox[1], line_bbox[1]),  # y0
+                            max(paragraph_bbox[2], line_bbox[2]),  # x1
+                            max(paragraph_bbox[3], line_bbox[3])   # y1
+                        )
 
         # Flush any remaining paragraph content
         if paragraph_content:
-            nodes.append(
-                AstParagraph(
-                    content=paragraph_content,
-                    source_location=SourceLocation(format="pdf", page=page_num + 1)
-                )
+            source_loc = SourceLocation(
+                format="pdf",
+                page=page_num + 1,
+                metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
             )
+            nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
 
         # Finalize any remaining code block
         if in_code_block and code_block_lines:
@@ -2514,6 +2534,204 @@ class PdfToAstConverter(BaseParser):
             result.extend(sorted_column)
 
         return result
+
+    def _merge_adjacent_paragraphs(self, nodes: list[Node]) -> list[Node]:
+        """Merge consecutive paragraph nodes that should be combined.
+
+        In multi-column layouts, PyMuPDF often creates separate blocks for each
+        line of text. This results in many small paragraph nodes that should be
+        merged into cohesive paragraphs. This method combines consecutive
+        Paragraph nodes that have small vertical gaps (< 10 points), indicating
+        they're part of the same logical paragraph.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            List of AST nodes (paragraphs, headings, tables, etc.)
+
+        Returns
+        -------
+        list of Node
+            List of nodes with consecutive paragraphs merged
+
+        Notes
+        -----
+        Only Paragraph nodes with small vertical gaps are merged. Paragraphs
+        with larger gaps (>= 10 points) are kept separate. Headings, code blocks,
+        tables, and other block-level elements act as natural paragraph boundaries.
+
+        This method requires bbox information to be stored in SourceLocation.metadata['bbox'].
+        If bbox information is not available, paragraphs without bbox are not merged.
+
+        """
+        if not nodes:
+            return nodes
+
+        # Threshold for merging paragraphs (in points)
+        # Lines in the same paragraph typically have gaps < 3-5 points (line spacing)
+        # Separate paragraphs or code lines typically have gaps >= 5 points
+        MERGE_THRESHOLD = 5.0
+
+        merged: list[Node] = []
+        accumulated_content: list[Node] = []
+        last_source_location: SourceLocation | None = None
+        last_bbox_bottom: float | None = None
+        last_was_list_item: bool = False
+        first_list_item_x: float | None = None  # Track x-position of first list item for nesting detection
+
+        def starts_with_list_marker(paragraph: AstParagraph) -> bool:
+            """Check if paragraph starts with a list marker.
+
+            Preserves leading spaces for nested list detection.
+            """
+            if not paragraph.content:
+                return False
+
+            # Extract all text content from the paragraph (recursively from inline nodes)
+            def extract_text(nodes: list[Node]) -> str:
+                """Recursively extract text from nodes."""
+                text_parts = []
+                for node in nodes:
+                    if isinstance(node, Text):
+                        text_parts.append(node.content)
+                    elif hasattr(node, 'content') and isinstance(node.content, list):
+                        # Inline formatting nodes (Strong, Emphasis, etc.)
+                        text_parts.append(extract_text(node.content))
+                return ''.join(text_parts)
+
+            full_text = extract_text(paragraph.content)
+            if not full_text:
+                return False
+
+            # Strip leading spaces only for checking, but we need to know if there are any
+            stripped_text = full_text.lstrip()
+            if not stripped_text:
+                return False
+
+            # Check for common list markers (after optional spaces for nesting)
+            if stripped_text[0] in ('-', '*', '+', 'o', '•', '◦', '▪', '▫'):
+                return True
+
+            # Check for numbered lists (1., 2., etc.) after optional spaces
+            # Match patterns like "1. ", "2) ", "10. ", etc.
+            if re.match(r'^\d+[\.\)]\s', stripped_text):
+                return True
+
+            return False
+
+        for node in nodes:
+            if isinstance(node, AstParagraph):
+                # Check if we should merge this paragraph with accumulated content
+                should_merge = True
+
+                # Get bbox from this paragraph
+                current_bbox = None
+                if node.source_location and node.source_location.metadata:
+                    current_bbox = node.source_location.metadata.get("bbox")
+
+                # Don't merge list items with anything
+                # Don't merge anything into list items
+                is_list_item = starts_with_list_marker(node)
+                if is_list_item or last_was_list_item:
+                    should_merge = False
+
+                # Handle list item indentation for nesting
+                if is_list_item and current_bbox:
+                    current_x = current_bbox[0]  # Left x-coordinate
+
+                    # Track the first list item's x position as baseline
+                    if first_list_item_x is None:
+                        first_list_item_x = current_x
+
+                    # Calculate indentation level (each ~20 points = 2 spaces)
+                    x_offset = current_x - first_list_item_x
+                    if x_offset > 5:  # Threshold to detect nesting (5 points tolerance)
+                        # Add indentation spaces to the beginning of the content
+                        indent_spaces = int(x_offset / 10) * 2  # 2 spaces per ~10 points of offset
+                        if indent_spaces > 0 and node.content:
+                            # Prepend spaces to the first Text node
+                            for i, item in enumerate(node.content):
+                                if isinstance(item, Text):
+                                    node.content[i] = Text(
+                                        content=' ' * indent_spaces + item.content,
+                                        metadata=item.metadata,
+                                        source_location=item.source_location
+                                    )
+                                    break
+
+                if should_merge and accumulated_content and last_bbox_bottom is not None and current_bbox:
+                    # Calculate vertical gap between previous and current paragraph
+                    # bbox is (x0, y0, x1, y1) where y0 is top and y1 is bottom
+                    current_bbox_top = current_bbox[1]  # y0 coordinate
+                    vertical_gap = current_bbox_top - last_bbox_bottom
+
+                    # Only merge if gap is small (same logical paragraph)
+                    if vertical_gap >= MERGE_THRESHOLD:
+                        should_merge = False
+                elif not current_bbox or last_bbox_bottom is None:
+                    # If bbox information is missing, don't merge to be safe
+                    should_merge = False if accumulated_content else True
+
+                if should_merge:
+                    # Add space between accumulated content and new content
+                    if accumulated_content and node.content:
+                        accumulated_content.append(Text(content=" "))
+                    # Accumulate this paragraph's content
+                    accumulated_content.extend(node.content)
+                    # Track source location from first paragraph in sequence
+                    if last_source_location is None:
+                        last_source_location = node.source_location
+                    # Update last bbox bottom for next iteration
+                    if current_bbox:
+                        last_bbox_bottom = current_bbox[3]  # y1 coordinate
+                    last_was_list_item = is_list_item
+                else:
+                    # Gap is too large or list item boundary - flush accumulated paragraphs
+                    if accumulated_content:
+                        merged.append(
+                            AstParagraph(
+                                content=accumulated_content,
+                                source_location=last_source_location
+                            )
+                        )
+                    # Start new accumulation with current paragraph
+                    accumulated_content = list(node.content)
+                    last_source_location = node.source_location
+                    if current_bbox:
+                        last_bbox_bottom = current_bbox[3]  # y1 coordinate
+                    else:
+                        last_bbox_bottom = None
+                    last_was_list_item = is_list_item
+                    # Reset list baseline when we're not in a list
+                    if not is_list_item:
+                        first_list_item_x = None
+            else:
+                # Non-paragraph node: flush accumulated paragraphs
+                if accumulated_content:
+                    merged.append(
+                        AstParagraph(
+                            content=accumulated_content,
+                            source_location=last_source_location
+                        )
+                    )
+                    accumulated_content = []
+                    last_source_location = None
+                    last_bbox_bottom = None
+                    last_was_list_item = False
+                    first_list_item_x = None  # Reset list baseline
+                # Add the non-paragraph node
+                merged.append(node)
+
+        # Flush any remaining accumulated content
+        if accumulated_content:
+            merged.append(
+                AstParagraph(
+                    content=accumulated_content,
+                    source_location=last_source_location
+                )
+            )
+
+        return merged
 
 
 # Converter metadata for registration
