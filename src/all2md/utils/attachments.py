@@ -35,7 +35,7 @@ from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 logger = logging.getLogger(__name__)
 
 
-def _sanitize_footnote_label(attachment_name: str) -> str:
+def sanitize_footnote_label(attachment_name: str) -> str:
     """Sanitize attachment name for use as a Markdown footnote label.
 
     Footnote labels in Markdown cannot contain spaces or many special
@@ -54,11 +54,11 @@ def _sanitize_footnote_label(attachment_name: str) -> str:
 
     Examples
     --------
-    >>> _sanitize_footnote_label("my image.png")
+    >>> sanitize_footnote_label("my image.png")
     'my_image'
-    >>> _sanitize_footnote_label("file (1).jpg")
+    >>> sanitize_footnote_label("file (1).jpg")
     'file_1'
-    >>> _sanitize_footnote_label("document%20name.pdf")
+    >>> sanitize_footnote_label("document%20name.pdf")
     'document_20name'
 
     """
@@ -359,7 +359,7 @@ def process_attachment(
             if alt_text_mode == "strict_markdown":
                 return _make_result(f"![{alt_text or attachment_name}](#)", url="#")
             elif alt_text_mode == "footnote":
-                footnote_label = _sanitize_footnote_label(attachment_name)
+                footnote_label = sanitize_footnote_label(attachment_name)
                 markdown = f"![{alt_text or attachment_name}][^{footnote_label}]"
                 footnote_content = alt_text or attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
@@ -372,7 +372,7 @@ def process_attachment(
             elif alt_text_mode == "strict_markdown":
                 return _make_result(f"[{attachment_name}](#)", url="#")
             elif alt_text_mode == "footnote":
-                footnote_label = _sanitize_footnote_label(attachment_name)
+                footnote_label = sanitize_footnote_label(attachment_name)
                 markdown = f"[{attachment_name}][^{footnote_label}]"
                 footnote_content = attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,

@@ -63,6 +63,7 @@ from all2md.ast.transforms import NodeTransformer
 from all2md.ast.utils import extract_text
 from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
 from all2md.transforms.hooks import HookManager
+from all2md.utils.attachments import sanitize_footnote_label
 
 
 class RemoveImagesTransform(NodeTransformer):
@@ -609,12 +610,27 @@ class AddConversionTimestampTransform(NodeTransformer):
     format : str, default = "iso"
         Timestamp format: "iso" for ISO 8601 with timezone, "unix" for Unix timestamp,
         or any strftime format string
+    timespec : str, default = "seconds"
+        Time precision for ISO format timestamps. Valid values are:
+        - "auto": Automatic precision
+        - "hours": Hours precision
+        - "minutes": Minutes precision
+        - "seconds": Seconds precision (default, reduces noisy diffs)
+        - "milliseconds": Milliseconds precision
+        - "microseconds": Microseconds precision
+        Only applies when format="iso". Ignored for other formats.
 
     Examples
     --------
-    Add ISO 8601 timestamp (default, includes UTC timezone):
+    Add ISO 8601 timestamp with second precision (default):
 
         >>> transform = AddConversionTimestampTransform()
+        >>> new_doc = transform.transform(document)
+        >>> # metadata['conversion_timestamp'] = "2025-01-01T12:00:00+00:00"
+
+    Add ISO 8601 timestamp with microsecond precision:
+
+        >>> transform = AddConversionTimestampTransform(timespec="microseconds")
         >>> new_doc = transform.transform(document)
         >>> # metadata['conversion_timestamp'] = "2025-01-01T12:00:00.123456+00:00"
 
@@ -639,10 +655,19 @@ class AddConversionTimestampTransform(NodeTransformer):
     `datetime.now(timezone.utc)`. This ensures consistent timestamps regardless
     of the server's local timezone.
 
+    The default timespec="seconds" is recommended to reduce noisy git diffs
+    when regenerating documents, as subsecond precision is rarely needed for
+    document conversion timestamps.
+
     """
 
-    def __init__(self, field_name: str = "conversion_timestamp", format: str = "iso"):
-        """Initialize with field name and format.
+    def __init__(
+        self,
+        field_name: str = "conversion_timestamp",
+        format: str = "iso",
+        timespec: str = "seconds"
+    ):
+        """Initialize with field name, format, and time precision.
 
         Parameters
         ----------
@@ -650,10 +675,13 @@ class AddConversionTimestampTransform(NodeTransformer):
             Metadata field name
         format : str
             Timestamp format
+        timespec : str
+            Time precision for ISO format (default: "seconds")
 
         """
         self.field_name = field_name
         self.format = format
+        self.timespec = timespec
 
     def visit_document(self, node: Document) -> Document:
         """Add timestamp to document metadata.
@@ -673,7 +701,7 @@ class AddConversionTimestampTransform(NodeTransformer):
         now = datetime.now(timezone.utc)
 
         if self.format == "iso":
-            timestamp = now.isoformat()
+            timestamp = now.isoformat(timespec=self.timespec)
         elif self.format == "unix":
             timestamp = str(int(now.timestamp()))
         else:
@@ -917,7 +945,7 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         if self.add_definitions_for_images and isinstance(node, Image) and not node.url:
             # Extract footnote label from alt_text, metadata, or fallback
             source_text = node.alt_text or node.metadata.get('original_filename') or "attachment"
-            base_label = self._extract_label(source_text)
+            base_label = sanitize_footnote_label(source_text)
 
             if base_label:
                 # Handle duplicate labels with numeric suffix
@@ -934,7 +962,7 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
             # Extract label from link content or metadata
             link_text = self._get_link_text(node)
             source_text = link_text or node.metadata.get('original_filename') or "attachment"
-            base_label = self._extract_label(source_text)
+            base_label = sanitize_footnote_label(source_text)
 
             if base_label:
                 # Handle duplicate labels with numeric suffix
@@ -956,42 +984,6 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         if hasattr(node, 'content') and isinstance(node.content, list):
             for child in node.content:
                 self._collect_footnote_refs(child)
-
-    def _extract_label(self, text: str) -> str:
-        """Extract footnote label from attachment name.
-
-        Mimics the logic in utils.attachments._sanitize_footnote_label.
-
-        Parameters
-        ----------
-        text : str
-            Source text (filename or alt text)
-
-        Returns
-        -------
-        str
-            Sanitized label
-
-        """
-        if not text:
-            return "attachment"
-
-        # Remove file extension
-        if '.' in text:
-            base_name = text.rsplit('.', 1)[0]
-        else:
-            base_name = text
-
-        # Sanitize: replace non-alphanumeric with underscore
-        label = re.sub(r'[^a-zA-Z0-9_-]', '_', base_name.lower().strip())
-
-        # Remove multiple underscores
-        label = re.sub(r'_+', '_', label)
-
-        # Remove leading/trailing underscores
-        label = label.strip('_')
-
-        return label or "attachment"
 
     def _get_link_text(self, node: Link) -> str:
         """Extract text content from link node.

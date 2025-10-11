@@ -532,6 +532,80 @@ class Pipeline:
             f"either render_to_string() or render_to_bytes()"
         )
 
+    def get_diagnostics(self) -> dict[str, Any]:
+        """Get diagnostic information about the pipeline configuration.
+
+        This method returns structured information about the pipeline's
+        configuration, useful for debugging, visualization, and documentation.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary containing:
+            - transforms: List of transform names in execution order
+            - hooks: Dictionary of hook targets with their registered hooks and priorities
+            - renderer: Renderer class name
+            - options: Renderer options class name (if available)
+
+        Examples
+        --------
+        >>> pipeline = Pipeline(
+        ...     transforms=['remove-images', 'heading-offset'],
+        ...     hooks={'image': [my_hook], 'pre_render': [validator]},
+        ...     renderer='markdown'
+        ... )
+        >>> diag = pipeline.get_diagnostics()
+        >>> print(diag['transforms'])
+        ['RemoveImagesTransform', 'HeadingOffsetTransform']
+        >>> print(diag['hooks'])
+        {'image': [{'priority': 0, 'function': 'my_hook'}], ...}
+
+        """
+        diagnostics: dict[str, Any] = {}
+
+        # Resolve and list transforms
+        try:
+            resolved_transforms = self._resolve_transforms()
+            diagnostics['transforms'] = [
+                {
+                    'name': t.__class__.__name__,
+                    'module': t.__class__.__module__,
+                }
+                for t in resolved_transforms
+            ]
+        except Exception as e:
+            diagnostics['transforms'] = f"Error resolving transforms: {e}"
+
+        # List registered hooks by target
+        hooks_info: dict[str, list[dict[str, Any]]] = {}
+        for target, hook_list in self.hook_manager._hooks.items():
+            hooks_info[target] = [
+                {
+                    'priority': priority,
+                    'function': hook.__name__ if hasattr(hook, '__name__') else str(hook),
+                    'module': hook.__module__ if hasattr(hook, '__module__') else None,
+                }
+                for priority, hook in hook_list
+            ]
+        diagnostics['hooks'] = hooks_info
+
+        # Renderer information
+        diagnostics['renderer'] = {
+            'class': self.renderer.__class__.__name__,
+            'module': self.renderer.__class__.__module__,
+        }
+
+        # Options information
+        if self.options:
+            diagnostics['options'] = {
+                'class': self.options.__class__.__name__,
+                'module': self.options.__class__.__module__,
+            }
+        else:
+            diagnostics['options'] = None
+
+        return diagnostics
+
     def execute(self, document: Document) -> Union[str, bytes]:
         """Execute complete pipeline.
 
@@ -773,6 +847,7 @@ def apply(
     document: Document,
     transforms: Optional[list[Union[str, NodeTransformer]]] = None,
     hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
+    progress_callback: Optional[ProgressCallback] = None,
     strict_hooks: bool = False
 ) -> Document:
     """Apply transforms and hooks to document without rendering.
@@ -798,6 +873,8 @@ def apply(
         Dictionary mapping hook targets to lists of hook callables.
         Hook targets can be pipeline stages ('post_ast', 'pre_transform',
         'post_transform', 'pre_render') or node types ('image', 'link', etc.)
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates during processing
     strict_hooks : bool, default = False
         Enable strict mode for hook exception handling. If True, hook exceptions
         are re-raised and abort the pipeline. If False (default), exceptions are
@@ -868,57 +945,215 @@ def apply(
         ...     strict_hooks=True  # Hook failures will abort
         ... )
 
+    With progress tracking:
+
+        >>> def progress_handler(event):
+        ...     print(f"{event.event_type}: {event.message}")
+        >>> processed = apply(doc, transforms=['remove-images'], progress_callback=progress_handler)
+
     """
     logger.info("Starting apply() execution (no rendering)")
+
+    # Helper function to emit progress events
+    def emit_progress(
+        event_type: str,
+        message: str,
+        current: int = 0,
+        total: int = 0,
+        metadata: Optional[dict[str, Any]] = None
+    ) -> None:
+        """Emit a progress event if callback is configured."""
+        if progress_callback is None:
+            return
+
+        try:
+            event = ProgressEvent(
+                event_type=event_type,  # type: ignore
+                message=message,
+                current=current,
+                total=total,
+                metadata=metadata or {}
+            )
+            progress_callback(event)
+        except Exception as e:
+            # Don't let callback errors break the pipeline
+            logger.warning(f"Progress callback failed: {e}", exc_info=True)
 
     # Create a temporary pipeline without a renderer to reuse internals
     # We don't actually call execute(), just use the helper methods
     pipeline = Pipeline(transforms=transforms, hooks=hooks, strict_hooks=strict_hooks)
 
-    # Create context
-    context = HookContext(
-        document=document,
-        metadata=document.metadata.copy(),
-        shared={}
+    # Calculate total stages for progress reporting
+    stage_count = 0
+    current_stage = 0
+
+    # Count stages
+    if pipeline.hook_manager.has_hooks('post_ast'):
+        stage_count += 1
+    if pipeline.transforms:
+        stage_count += len(pipeline._resolve_transforms())
+    if pipeline.hook_manager.has_hooks('pre_render'):
+        stage_count += 1
+    # Element hooks traversal counts as 1 stage
+    stage_count += 1
+
+    # Emit started event
+    emit_progress(
+        "started",
+        "Starting apply() execution (no rendering)",
+        current=0,
+        total=stage_count
     )
 
-    # Post-AST hook (document just came from conversion)
-    if pipeline.hook_manager.has_hooks('post_ast'):
-        logger.debug("Executing post_ast hooks")
-        result = pipeline.hook_manager.execute_hooks('post_ast', document, context)
+    try:
+        # Create context
+        context = HookContext(
+            document=document,
+            metadata=document.metadata.copy(),
+            shared={}
+        )
 
-        if result is None:
-            raise ValueError("post_ast hook removed document")
+        # Post-AST hook (document just came from conversion)
+        if pipeline.hook_manager.has_hooks('post_ast'):
+            logger.debug("Executing post_ast hooks")
+            result = pipeline.hook_manager.execute_hooks('post_ast', document, context)
 
-        document = result
-        # Update context.document to reflect any modifications
+            if result is None:
+                raise ValueError("post_ast hook removed document")
+
+            document = result
+            # Update context.document to reflect any modifications
+            context.document = document
+
+            current_stage += 1
+            emit_progress(
+                "page_done",
+                "Completed post_ast hooks",
+                current=current_stage,
+                total=stage_count
+            )
+
+        # Apply transforms
+        if pipeline.transforms:
+            transforms_list = pipeline._resolve_transforms()
+            for i, transformer in enumerate(transforms_list, 1):
+                # Pre-transform hook
+                if pipeline.hook_manager.has_hooks('pre_transform'):
+                    context.transform_name = transformer.__class__.__name__
+                    result = pipeline.hook_manager.execute_hooks('pre_transform', document, context)
+
+                    if result is None:
+                        raise ValueError("pre_transform hook removed document")
+
+                    document = result
+                    context.document = result
+
+                # Apply transform
+                logger.debug(f"Applying transform: {transformer.__class__.__name__}")
+                context.transform_name = transformer.__class__.__name__
+
+                try:
+                    transformed_result = transformer.transform(document)
+
+                    if transformed_result is None:
+                        raise ValueError(
+                            f"Transform {transformer.__class__.__name__} returned None"
+                        )
+
+                    # Type check: transformed_result should be a Document
+                    if not isinstance(transformed_result, Document):
+                        raise TypeError(
+                            f"Transform {transformer.__class__.__name__} must return Document, "
+                            f"got {type(transformed_result).__name__}"
+                        )
+                    document = transformed_result
+                    context.document = document
+
+                except Exception as e:
+                    logger.error(
+                        f"Transform {transformer.__class__.__name__} failed: {e}",
+                        exc_info=True
+                    )
+                    # Re-raise - transform failures are critical
+                    raise
+
+                # Post-transform hook
+                if pipeline.hook_manager.has_hooks('post_transform'):
+                    result = pipeline.hook_manager.execute_hooks('post_transform', document, context)
+
+                    if result is None:
+                        raise ValueError("post_transform hook removed document")
+
+                    document = result
+                    context.document = result
+
+                # Emit progress after each transform
+                current_stage += 1
+                emit_progress(
+                    "page_done",
+                    f"Completed transform {i}/{len(transforms_list)}: {transformer.__class__.__name__}",
+                    current=current_stage,
+                    total=stage_count,
+                    metadata={"transform": transformer.__class__.__name__}
+                )
+
+            context.transform_name = None
+
+        # Pre-render hook (before element hooks, for document-level validation)
+        if pipeline.hook_manager.has_hooks('pre_render'):
+            logger.debug("Executing pre_render hooks")
+            result = pipeline.hook_manager.execute_hooks('pre_render', document, context)
+
+            if result is None:
+                raise ValueError("pre_render hook removed document")
+
+            document = result
+            # Update context.document to reflect any modifications
+            context.document = document
+
+            current_stage += 1
+            emit_progress(
+                "page_done",
+                "Completed pre_render hooks",
+                current=current_stage,
+                total=stage_count
+            )
+
+        # Apply element hooks (after pre_render, would normally be before rendering)
+        document = pipeline._apply_element_hooks(document, context)
+        # Update context.document to reflect any modifications from element hooks
         context.document = document
 
-    # Apply transforms
-    if pipeline.transforms:
-        document = pipeline._apply_transforms(document, context)
-        # Update context.document to reflect transform modifications
-        context.document = document
+        current_stage += 1
+        emit_progress(
+            "page_done",
+            "Completed element hooks traversal",
+            current=current_stage,
+            total=stage_count
+        )
 
-    # Pre-render hook (before element hooks, for document-level validation)
-    if pipeline.hook_manager.has_hooks('pre_render'):
-        logger.debug("Executing pre_render hooks")
-        result = pipeline.hook_manager.execute_hooks('pre_render', document, context)
+        # Emit finished event
+        emit_progress(
+            "finished",
+            "Apply execution complete",
+            current=stage_count,
+            total=stage_count
+        )
 
-        if result is None:
-            raise ValueError("pre_render hook removed document")
+        logger.info("Apply execution complete")
+        return document
 
-        document = result
-        # Update context.document to reflect any modifications
-        context.document = document
-
-    # Apply element hooks (after pre_render, would normally be before rendering)
-    document = pipeline._apply_element_hooks(document, context)
-    # Update context.document to reflect any modifications from element hooks
-    context.document = document
-
-    logger.info("Apply execution complete")
-    return document
+    except Exception as e:
+        # Emit error event
+        emit_progress(
+            "error",
+            f"Apply execution failed: {e}",
+            current=current_stage,
+            total=stage_count,
+            metadata={"error": str(e)}
+        )
+        # Re-raise the exception
+        raise
 
 
 def render(

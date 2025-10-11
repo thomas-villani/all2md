@@ -115,18 +115,17 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
 
     Notes
     -----
-    Security presets set multiple options to secure defaults. Explicit CLI flags
-    can still override preset values if specified after the preset flag.
+    Security presets set multiple options to secure defaults using format-qualified
+    keys to prevent ambiguity and unintended side effects. Explicit CLI flags
+    can still override preset values if specified.
 
-    The flat keys set by this function are automatically mapped to nested
-    dataclass fields by _create_options_from_kwargs in __init__.py:
-
-    - allow_remote_fetch, require_https, allowed_hosts, network_timeout,
-      max_remote_asset_bytes -> HtmlOptions.network (NetworkFetchOptions)
-    - allow_local_files, allow_cwd_files -> HtmlOptions.local_files,
-      MhtmlOptions.local_files (LocalFileAccessOptions)
-    - allow_remote_fetch, require_https, etc. -> EmlOptions.html_network
-      (NetworkFetchOptions)
+    Format-qualified keys ensure precise targeting:
+    - html.* -> HtmlOptions fields
+    - html.network.* -> HtmlOptions.network (NetworkFetchOptions)
+    - html.local_files.* -> HtmlOptions.local_files (LocalFileAccessOptions)
+    - mhtml.local_files.* -> MhtmlOptions.local_files (LocalFileAccessOptions)
+    - eml.html_network.* -> EmlOptions.html_network (NetworkFetchOptions)
+    - max_attachment_size_bytes -> BaseParserOptions (top-level, no prefix)
 
     """
     import sys
@@ -136,32 +135,55 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
 
     if parsed_args.strict_html_sanitize:
         preset_used = "strict-html-sanitize"
-        # Strict HTML sanitization preset
-        options['strip_dangerous_elements'] = True
-        options['allow_remote_fetch'] = False
-        options['allow_local_files'] = False
-        options['allow_cwd_files'] = False
+        # Strict HTML sanitization preset - use format-qualified keys
+        # HTML options
+        options['html.strip_dangerous_elements'] = True
+        options['html.network.allow_remote_fetch'] = False
+        options['html.local_files.allow_local_files'] = False
+        options['html.local_files.allow_cwd_files'] = False
+        # MHTML options (shares local file access settings)
+        options['mhtml.local_files.allow_local_files'] = False
+        options['mhtml.local_files.allow_cwd_files'] = False
+        # EML options (for HTML content in emails)
+        options['eml.html_network.allow_remote_fetch'] = False
 
     if parsed_args.safe_mode:
         preset_used = "safe-mode"
         # Balanced security for untrusted input
-        options['strip_dangerous_elements'] = True
-        options['allow_remote_fetch'] = True
-        options['require_https'] = True
-        options['allow_local_files'] = False
-        options['allow_cwd_files'] = False
+        # HTML options
+        options['html.strip_dangerous_elements'] = True
+        options['html.network.allow_remote_fetch'] = True
+        options['html.network.require_https'] = True
+        options['html.local_files.allow_local_files'] = False
+        options['html.local_files.allow_cwd_files'] = False
+        # MHTML options
+        options['mhtml.local_files.allow_local_files'] = False
+        options['mhtml.local_files.allow_cwd_files'] = False
+        # EML options
+        options['eml.html_network.allow_remote_fetch'] = True
+        options['eml.html_network.require_https'] = True
 
     if parsed_args.paranoid_mode:
         preset_used = "paranoid-mode"
-        # Maximum security
-        options['strip_dangerous_elements'] = True
-        options['allow_remote_fetch'] = True
-        options['require_https'] = True
-        options['allowed_hosts'] = []  # Validate but allow all HTTPS hosts
-        options['allow_local_files'] = False
-        options['allow_cwd_files'] = False
+        # Maximum security - most restrictive settings
+        # HTML options
+        options['html.strip_dangerous_elements'] = True
+        options['html.network.allow_remote_fetch'] = True
+        options['html.network.require_https'] = True
+        options['html.network.allowed_hosts'] = []  # Validate but allow all HTTPS hosts
+        options['html.network.max_remote_asset_bytes'] = 5 * 1024 * 1024  # 5MB
+        options['html.local_files.allow_local_files'] = False
+        options['html.local_files.allow_cwd_files'] = False
+        # MHTML options
+        options['mhtml.local_files.allow_local_files'] = False
+        options['mhtml.local_files.allow_cwd_files'] = False
+        # EML options
+        options['eml.html_network.allow_remote_fetch'] = True
+        options['eml.html_network.require_https'] = True
+        options['eml.html_network.allowed_hosts'] = []
+        options['eml.html_network.max_remote_asset_bytes'] = 5 * 1024 * 1024  # 5MB
+        # Base options (no format prefix - applies to all formats)
         options['max_attachment_size_bytes'] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
-        options['max_remote_asset_bytes'] = 5 * 1024 * 1024  # 5MB
 
     # Show warning if preset is used
     if preset_used:

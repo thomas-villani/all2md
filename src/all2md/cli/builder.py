@@ -307,8 +307,9 @@ class DynamicCLIBuilder:
 
         # Add format prefix if provided (after no- prefix if applicable)
         if format_prefix:
-            if is_boolean_with_true_default and kebab_name.startswith('no-'):
+            if is_boolean_with_true_default:
                 # Format: --format-no-field-name
+                # At this point, kebab_name always starts with 'no-' due to lines 304-306
                 base_name = kebab_name[3:]  # Remove 'no-' prefix
                 kebab_name = f"{format_prefix}-no-{base_name}"
             else:
@@ -932,7 +933,8 @@ Examples:
             # Core arguments from builder.build_parser
             'input', 'out', 'format', 'output_type', 'options_json',
             'verbose', 'log_level', 'log_file', 'trace',
-            'strict_args', 'version', 'about', '_provided_args',
+            'strict_args', 'about', '_provided_args',
+            # Note: 'version' uses argparse.SUPPRESS and doesn't appear in namespace
             # Multi-file processing arguments from cli.create_parser
             'rich', 'pager', 'progress', 'output_dir', 'recursive',
             'parallel', 'skip_errors', 'preserve_structure', 'zip',

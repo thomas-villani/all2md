@@ -144,7 +144,8 @@ class HookContext:
     transform_name : str, optional
         Name of the current transform (for transform hooks)
     node_path : list[Node], default = empty list
-        Path from document root to current node (for node hooks)
+        Path from document root to current node (for node hooks).
+        WARNING: This list is mutated during tree traversal. Not thread-safe.
 
     Examples
     --------
@@ -246,6 +247,16 @@ class HookManager:
     with full traceback but execution continues with subsequent hooks. This
     provides a fail-safe default that prevents a single problematic hook
     from breaking the entire pipeline.
+
+    Thread Safety
+    -------------
+    **WARNING**: HookManager instances are NOT thread-safe. Hook registration
+    and execution use shared mutable state without synchronization.
+
+    For safe concurrent usage:
+    - Create a separate HookManager instance per thread/pipeline (recommended)
+    - Each Pipeline instance creates its own HookManager (default behavior)
+    - If sharing across threads, wrap access with external locks (e.g., threading.Lock)
 
     """
 
