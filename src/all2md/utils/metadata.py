@@ -603,9 +603,6 @@ def extract_dict_metadata(
         def __getattr__(self, name: str) -> Any:
             return self._data.get(name)
 
-        def __hasattr__(self, name: str) -> bool:
-            return name in self._data
-
     dict_obj = DictWrapper(metadata_dict)
     return map_properties_to_metadata(dict_obj, field_mapping)
 

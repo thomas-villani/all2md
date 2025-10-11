@@ -319,7 +319,11 @@ def process_attachment(
     attachment_output_dir : str | None, default None
         Directory to save attachments in download mode
     attachment_base_url : str | None, default None
-        Base URL for resolving relative URLs
+        Base URL for resolving relative URLs in download mode.
+        Note: Only the filename (not the directory structure) is appended to this URL.
+        For example, if attachment_output_dir="attachments/images" and
+        attachment_base_url="https://example.com/assets/", the resulting URL will be
+        "https://example.com/assets/filename.png" (not ".../assets/attachments/images/filename.png")
     is_image : bool, default True
         Whether this is an image attachment
     alt_text_mode : AltTextMode, default "default"
@@ -381,31 +385,8 @@ def process_attachment(
         return _make_result("")
 
     if attachment_mode == "alt_text":
-        if is_image:
-            if alt_text_mode == "strict_markdown":
-                return _make_result(f"![{alt_text or attachment_name}](#)", url="#")
-            elif alt_text_mode == "footnote":
-                # Use footnote format for accessibility with sanitized label
-                footnote_label = _sanitize_footnote_label(attachment_name)
-                markdown = f"![{alt_text or attachment_name}][^{footnote_label}]"
-                footnote_content = alt_text or attachment_name
-                return _make_result(markdown, url="", footnote_label=footnote_label,
-                                  footnote_content=footnote_content)
-            else:  # "default" mode
-                return _make_result(f"![{alt_text or attachment_name}]")
-        else:
-            if alt_text_mode == "plain_filename":
-                return _make_result(attachment_name)
-            elif alt_text_mode == "strict_markdown":
-                return _make_result(f"[{attachment_name}](#)", url="#")
-            elif alt_text_mode == "footnote":
-                footnote_label = _sanitize_footnote_label(attachment_name)
-                markdown = f"[{attachment_name}][^{footnote_label}]"
-                footnote_content = attachment_name
-                return _make_result(markdown, url="", footnote_label=footnote_label,
-                                  footnote_content=footnote_content)
-            else:  # "default" mode
-                return _make_result(f"[{attachment_name}]")
+        # Use the same logic as fallback mode - they are identical
+        return _make_fallback_result()
 
     if attachment_mode == "base64" and is_image:
         if not attachment_data:
@@ -442,8 +423,10 @@ def process_attachment(
 
         # Check if attachment data is available - cannot create download link without data
         if not attachment_data:
-            logger.warning(f"No attachment data available for download mode: {attachment_name}. "
-                         f"Falling back to alt_text mode.")
+            logger.warning(
+                f"No attachment data available for download mode: {attachment_name}. "
+                f"Falling back to alt_text mode (alt_text_mode={alt_text_mode}, is_image={is_image})."
+            )
             return _make_fallback_result()
 
         # Sanitize the filename for security
@@ -483,8 +466,11 @@ def process_attachment(
         return _make_result(markdown, url=url)
 
     # Fallback to alt_text mode if attachment data is missing or mode is unsupported
-    logger.info(f"Falling back to alt_text mode for attachment: {attachment_name} "
-                f"(mode: {attachment_mode}, has_data: {attachment_data is not None})")
+    logger.debug(
+        f"Falling back to alt_text mode for attachment: {attachment_name} "
+        f"(mode: {attachment_mode}, alt_text_mode: {alt_text_mode}, "
+        f"has_data: {attachment_data is not None}, is_image: {is_image})"
+    )
     return _make_fallback_result()
 
 
@@ -652,6 +638,13 @@ class AttachmentSequencer(Protocol):
     create_attachment_sequencer(). The sequencer generates unique,
     sequential filenames for attachments based on format-specific rules.
 
+    Thread Safety Warning
+    ---------------------
+    Sequencers created by create_attachment_sequencer() are NOT thread-safe.
+    They use shared mutable state without synchronization. Each conversion
+    should create its own sequencer instance, and concurrent conversions
+    must not share the same sequencer.
+
     Parameters
     ----------
     base_stem : str
@@ -684,6 +677,17 @@ class AttachmentSequencer(Protocol):
 
 def create_attachment_sequencer() -> AttachmentSequencer:
     """Create a closure that tracks attachment sequence numbers to prevent duplicates.
+
+    Thread Safety Warning
+    ---------------------
+    The returned sequencer is NOT thread-safe. It maintains shared mutable state
+    (used_filenames set and sequence_counters dict) without locks or synchronization.
+
+    To use in concurrent scenarios, either:
+    1. Create a separate sequencer for each thread/conversion (recommended)
+    2. Wrap the sequencer calls with external synchronization (e.g., threading.Lock)
+
+    Each document conversion should use its own sequencer instance.
 
     Returns
     -------

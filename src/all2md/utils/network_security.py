@@ -340,13 +340,16 @@ def validate_url_security(
     if require_https and parsed.scheme != 'https':
         raise NetworkSecurityError(f"HTTPS required but got: {parsed.scheme}")
 
-    if not require_https and parsed.scheme == "http":
-        logger.warning(f"Fetching {url} over insecure HTTP. Consider using HTTPS.")
-
     # Validate hostname exists
     hostname = parsed.hostname
     if not hostname:
         raise NetworkSecurityError("URL missing hostname")
+
+    if not require_https and parsed.scheme == "http":
+        logger.warning(
+            f"Fetching URL over insecure HTTP (scheme: {parsed.scheme}, hostname: {hostname}). "
+            f"Consider using HTTPS for {url}"
+        )
 
     # Normalize hostname (handle IDN/punycode)
     try:
