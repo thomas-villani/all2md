@@ -14,12 +14,14 @@ to XHTML, and assembles a complete EPUB package.
 
 from __future__ import annotations
 
+import base64
+import re
 import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import IO, Any, Union
 
-from all2md.ast.nodes import Document, Heading, Node
+from all2md.ast.nodes import Document, Heading, Image, Node
 from all2md.exceptions import RenderingError
 from all2md.options import EpubRendererOptions, HtmlRendererOptions
 from all2md.renderers._split_utils import (
@@ -101,6 +103,24 @@ class EpubRenderer(BaseRenderer):
 
         # Set metadata
         self._set_metadata(book, doc)
+
+        # Collect all images from the document
+        all_images = self._collect_images(doc)
+
+        # Create URL mapping for image rewriting
+        url_mapping = {}
+        for idx, img_node in enumerate(all_images, start=1):
+            internal_path = self._add_image_to_epub(book, img_node, idx)
+            if internal_path:
+                url_mapping[img_node.url] = internal_path
+
+        # Rewrite image URLs in the document
+        if url_mapping:
+            self._rewrite_image_urls(doc, url_mapping)
+
+        # Add cover image if requested
+        if self.options.include_cover and self.options.cover_image_path:
+            self._add_cover_image(book)
 
         # Split document into chapters
         chapters_data = self._split_into_chapters(doc)
@@ -267,3 +287,190 @@ class EpubRenderer(BaseRenderer):
 
         # Fall back to template
         return self.options.chapter_title_template.format(num=chapter_num)
+
+    def _collect_images(self, node: Node, images: list[Image] | None = None) -> list[Image]:
+        """Recursively collect all Image nodes from the AST.
+
+        Parameters
+        ----------
+        node : Node
+            Node to search for images
+        images : list of Image or None, default = None
+            Accumulator for found images
+
+        Returns
+        -------
+        list of Image
+            All Image nodes found in the tree
+
+        """
+        if images is None:
+            images = []
+
+        if isinstance(node, Image):
+            images.append(node)
+
+        # Recursively search children
+        from all2md.ast.nodes import get_node_children
+        for child in get_node_children(node):
+            self._collect_images(child, images)
+
+        return images
+
+    def _decode_data_uri(self, data_uri: str) -> tuple[bytes, str] | None:
+        """Decode base64 data URI to image bytes and format.
+
+        Parameters
+        ----------
+        data_uri : str
+            Data URI with base64 encoded image
+
+        Returns
+        -------
+        tuple of (bytes, str) or None
+            (image_data, format) or None if decoding failed
+
+        """
+        try:
+            # Match data URI pattern: data:image/FORMAT;base64,DATA
+            match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
+            if not match:
+                return None
+
+            image_format = match.group(1).lower()
+            base64_data = match.group(2)
+
+            # Decode base64
+            image_data = base64.b64decode(base64_data)
+
+            return (image_data, image_format)
+        except Exception:
+            return None
+
+    def _add_image_to_epub(
+        self,
+        book: Any,
+        image_node: Image,
+        index: int
+    ) -> str | None:
+        """Add an image to the EPUB and return the internal path.
+
+        Parameters
+        ----------
+        book : ebooklib.epub.EpubBook
+            EPUB book object
+        image_node : Image
+            Image node to add
+        index : int
+            Image index for naming
+
+        Returns
+        -------
+        str or None
+            Internal EPUB path (e.g., "images/img_001.png") or None if failed
+
+        """
+        from ebooklib import epub
+
+        try:
+            image_url = image_node.url
+            if not image_url:
+                return None
+
+            # Handle data URIs
+            if image_url.startswith('data:'):
+                decoded = self._decode_data_uri(image_url)
+                if not decoded:
+                    return None
+
+                image_data, image_format = decoded
+                internal_path = f"images/img_{index:03d}.{image_format}"
+
+                # Create EPUB image item
+                epub_image = epub.EpubImage()
+                epub_image.file_name = internal_path
+                epub_image.content = image_data
+
+                # Add to book
+                book.add_item(epub_image)
+
+                return internal_path
+
+            # Handle local file paths
+            elif not image_url.startswith(('http://', 'https://')):
+                # Try to read local file
+                image_path = Path(image_url)
+                if image_path.exists() and image_path.is_file():
+                    image_data = image_path.read_bytes()
+                    image_format = image_path.suffix.lstrip('.')
+
+                    internal_path = f"images/img_{index:03d}.{image_format}"
+
+                    # Create EPUB image item
+                    epub_image = epub.EpubImage()
+                    epub_image.file_name = internal_path
+                    epub_image.content = image_data
+
+                    # Add to book
+                    book.add_item(epub_image)
+
+                    return internal_path
+
+            # For HTTP/HTTPS URLs, we skip them as they're external
+            # EPUB readers should handle external images
+            return None
+
+        except Exception:
+            # If anything fails, skip this image
+            return None
+
+    def _rewrite_image_urls(self, node: Node, url_mapping: dict[str, str]) -> None:
+        """Recursively rewrite image URLs in the AST.
+
+        Parameters
+        ----------
+        node : Node
+            Node to search and update
+        url_mapping : dict of str to str
+            Mapping from original URLs to internal EPUB paths
+
+        """
+        if isinstance(node, Image):
+            if node.url in url_mapping:
+                # Update the URL in place
+                node.url = url_mapping[node.url]
+
+        # Recursively update children
+        from all2md.ast.nodes import get_node_children
+        for child in get_node_children(node):
+            self._rewrite_image_urls(child, url_mapping)
+
+    def _add_cover_image(self, book: Any) -> None:
+        """Add cover image to the EPUB.
+
+        Parameters
+        ----------
+        book : ebooklib.epub.EpubBook
+            EPUB book object
+
+        """
+        from ebooklib import epub
+
+        try:
+            if not self.options.cover_image_path:
+                return
+
+            cover_path = Path(self.options.cover_image_path)
+            if not cover_path.exists() or not cover_path.is_file():
+                return
+
+            # Read cover image
+            cover_data = cover_path.read_bytes()
+            cover_format = cover_path.suffix.lstrip('.')
+
+            # Set cover image
+            book.set_cover(f"cover.{cover_format}", cover_data)
+
+        except Exception:
+            # If cover image fails, just skip it
+            pass

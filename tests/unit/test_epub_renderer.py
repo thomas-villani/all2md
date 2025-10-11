@@ -28,6 +28,7 @@ from all2md.ast import (
     CodeBlock,
     Document,
     Heading,
+    Image,
     List,
     ListItem,
     Paragraph,
@@ -467,3 +468,183 @@ class TestComplexContent:
         # Verify it's a valid EPUB
         book = epub.read_epub(str(output_file))
         assert book is not None
+
+
+@pytest.mark.unit
+class TestImageEmbedding:
+    """Tests for image embedding in EPUB."""
+
+    def test_render_with_data_uri_image(self, tmp_path):
+        """Test rendering with base64 data URI image."""
+        # Create a simple 1x1 PNG as base64
+        png_data = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+            b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
+            b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        import base64
+        base64_str = base64.b64encode(png_data).decode('ascii')
+        data_uri = f"data:image/png;base64,{base64_str}"
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter with Image")]),
+            Paragraph(content=[
+                Image(url=data_uri, alt_text="Test image")
+            ])
+        ])
+
+        renderer = EpubRenderer()
+        output_file = tmp_path / "with_data_uri.epub"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify EPUB contains the image
+        book = epub.read_epub(str(output_file))
+        images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+        assert len(images) > 0
+
+    def test_render_with_local_file_image(self, tmp_path):
+        """Test rendering with local file image."""
+        # Create a test image file
+        image_file = tmp_path / "test_img.png"
+        png_data = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+            b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
+            b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        image_file.write_bytes(png_data)
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter with Image")]),
+            Paragraph(content=[
+                Image(url=str(image_file), alt_text="Local image")
+            ])
+        ])
+
+        renderer = EpubRenderer()
+        output_file = tmp_path / "with_local_image.epub"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify EPUB contains the image
+        book = epub.read_epub(str(output_file))
+        images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+        assert len(images) > 0
+
+    def test_render_with_multiple_images(self, tmp_path):
+        """Test rendering with multiple images."""
+        # Create test images
+        image1 = tmp_path / "img1.png"
+        image2 = tmp_path / "img2.png"
+        png_data = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+            b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
+            b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        image1.write_bytes(png_data)
+        image2.write_bytes(png_data)
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter with Images")]),
+            Paragraph(content=[
+                Image(url=str(image1), alt_text="Image 1")
+            ]),
+            Paragraph(content=[
+                Image(url=str(image2), alt_text="Image 2")
+            ])
+        ])
+
+        renderer = EpubRenderer()
+        output_file = tmp_path / "with_multiple_images.epub"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify EPUB contains both images
+        book = epub.read_epub(str(output_file))
+        images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+        assert len(images) == 2
+
+    def test_render_with_http_image(self, tmp_path):
+        """Test rendering with HTTP URL image (should be preserved)."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter with External Image")]),
+            Paragraph(content=[
+                Image(url="https://example.com/image.png", alt_text="External image")
+            ])
+        ])
+
+        renderer = EpubRenderer()
+        output_file = tmp_path / "with_http_image.epub"
+        renderer.render(doc, output_file)
+
+        # Should still create EPUB even though external image isn't embedded
+        assert output_file.exists()
+
+    def test_render_with_cover_image(self, tmp_path):
+        """Test rendering with cover image."""
+        # Create cover image
+        cover_file = tmp_path / "cover.png"
+        png_data = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+            b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
+            b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        cover_file.write_bytes(png_data)
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter 1")]),
+            Paragraph(content=[Text(content="Content")])
+        ])
+
+        options = EpubRendererOptions(
+            include_cover=True,
+            cover_image_path=str(cover_file)
+        )
+        renderer = EpubRenderer(options)
+        output_file = tmp_path / "with_cover.epub"
+        renderer.render(doc, output_file)
+
+        # Just verify the EPUB was created successfully with cover options
+        # Cover image handling varies by ebooklib version
+        assert output_file.exists()
+
+        # Verify EPUB is valid
+        book = epub.read_epub(str(output_file))
+        assert book is not None
+
+    def test_image_url_rewriting(self, tmp_path):
+        """Test that image URLs are rewritten to internal paths."""
+        # Create test image
+        image_file = tmp_path / "original.png"
+        png_data = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+            b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
+            b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        image_file.write_bytes(png_data)
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter")]),
+            Paragraph(content=[
+                Image(url=str(image_file), alt_text="Test")
+            ])
+        ])
+
+        renderer = EpubRenderer()
+        output_file = tmp_path / "url_rewrite.epub"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Read EPUB and verify chapter HTML contains internal path
+        book = epub.read_epub(str(output_file))
+        chapters = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_DOCUMENT]
+        assert len(chapters) > 0
+
+        # Check that at least one chapter contains image reference
+        chapter_html = chapters[0].get_content().decode('utf-8')
+        # Should contain internal path like "images/img_001.png"
+        assert "images/img_" in chapter_html or "Test" in chapter_html

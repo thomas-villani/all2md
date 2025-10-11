@@ -633,6 +633,82 @@ class TestFootnotes:
             assert "second reference" in text
             assert "Shared footnote" in text
 
+    def test_footnote_with_paragraph(self, tmp_path):
+        """Test footnote with proper Paragraph content."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Main text"),
+                FootnoteReference(identifier="1")
+            ]),
+            FootnoteDefinition(
+                identifier="1",
+                content=[Paragraph(content=[Text(content="Footnote paragraph")])]
+            )
+        ])
+        renderer = PdfRenderer()
+        output_file = tmp_path / "footnote_paragraph.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Main text" in text
+            assert "Footnote paragraph" in text
+
+    def test_footnote_with_multiple_paragraphs(self, tmp_path):
+        """Test footnote with multiple paragraphs."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Reference"),
+                FootnoteReference(identifier="note")
+            ]),
+            FootnoteDefinition(
+                identifier="note",
+                content=[
+                    Paragraph(content=[Text(content="First paragraph.")]),
+                    Paragraph(content=[Text(content="Second paragraph.")])
+                ]
+            )
+        ])
+        renderer = PdfRenderer()
+        output_file = tmp_path / "footnote_multi_para.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Reference" in text
+            assert "First paragraph" in text
+            assert "Second paragraph" in text
+
+    def test_footnote_with_list(self, tmp_path):
+        """Test footnote containing a list."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="See note"),
+                FootnoteReference(identifier="list")
+            ]),
+            FootnoteDefinition(
+                identifier="list",
+                content=[
+                    List(ordered=False, items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
+                    ])
+                ]
+            )
+        ])
+        renderer = PdfRenderer()
+        output_file = tmp_path / "footnote_list.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "See note" in text
+            assert "Item 1" in text
+            assert "Item 2" in text
+
 
 @pytest.mark.unit
 @pytest.mark.pdf

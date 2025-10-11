@@ -928,8 +928,33 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             Footnote definition to render
 
         """
-        # Collect footnote text by identifier
-        text = self._process_inline_content(node.content if hasattr(node, 'content') else [])
+        # FootnoteDefinition.content is a list of block-level nodes
+        # We need to extract text from them for the footnote section
+        text_parts = []
+
+        for child in node.content:
+            if isinstance(child, ASTParagraph):
+                # Extract inline content from paragraph
+                text_parts.append(self._process_inline_content(child.content))
+            elif isinstance(child, List):
+                # For lists, extract text from items (simplified)
+                list_text = []
+                for item in child.items:
+                    for item_child in item.children:
+                        if isinstance(item_child, ASTParagraph):
+                            list_text.append(self._process_inline_content(item_child.content))
+                if list_text:
+                    text_parts.append(' '.join(list_text))
+            elif isinstance(child, Text):
+                # Handle bare Text nodes (for backward compatibility with tests)
+                text_parts.append(child.content)
+            elif isinstance(child, CodeBlock):
+                # Include code block content
+                text_parts.append(child.content)
+            # Add more block types as needed
+
+        # Join all parts with spaces
+        text = ' '.join(text_parts)
         self._footnote_definitions[node.identifier] = text
 
     def visit_definition_list(self, node: DefinitionList) -> None:
