@@ -19,7 +19,12 @@ from typing import Any, List, Optional
 
 from all2md import convert, registry
 from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception
-from all2md.cli.processors import process_detect_only, process_dry_run
+from all2md.cli.processors import (
+    _get_rich_markdown_kwargs,
+    _should_use_rich_output,
+    process_detect_only,
+    process_dry_run,
+)
 from all2md.converter_metadata import ConverterMetadata
 from all2md.dependencies import check_version_requirement, get_package_version
 
@@ -1005,13 +1010,15 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
                 if parsed_args.pager:
                     try:
-                        if parsed_args.rich:
+                        if _should_use_rich_output(parsed_args):
                             from rich.console import Console
                             from rich.markdown import Markdown
                             console = Console()
+                            # Get Rich markdown kwargs from CLI args
+                            rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
                             # Capture Rich output with ANSI codes
                             with console.capture() as capture:
-                                console.print(Markdown(rendered_text))
+                                console.print(Markdown(rendered_text, **rich_kwargs))
                             content_to_page = capture.get()
                             is_rich = True
                         else:

@@ -26,6 +26,103 @@ from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
 
 
+def _check_rich_available() -> bool:
+    """Check if Rich library is available.
+
+    Returns
+    -------
+    bool
+        True if Rich is available, False otherwise
+
+    """
+    try:
+        import rich  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def _should_use_rich_output(args: argparse.Namespace) -> bool:
+    """Determine if Rich output should be used based on TTY and args.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command line arguments
+
+    Returns
+    -------
+    bool
+        True if Rich output should be used
+
+    Notes
+    -----
+    Rich output is used when:
+    - The --rich flag is set
+    - AND either --force-rich is set OR stdout is a TTY
+    - AND Rich library is available
+
+    """
+    if not args.rich:
+        return False
+
+    # Check if Rich is available
+    if not _check_rich_available():
+        # Print helpful error message
+        print("Error: Rich library not installed but --rich flag was used.", file=sys.stderr)
+        print("Install with: pip install all2md[rich]", file=sys.stderr)
+        sys.exit(EXIT_DEPENDENCY_ERROR)
+
+    # Force rich output regardless of TTY if explicitly requested
+    if hasattr(args, 'force_rich') and args.force_rich:
+        return True
+
+    # Only use rich output if stdout is a TTY (not piped/redirected)
+    return sys.stdout.isatty()
+
+
+def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
+    """Build kwargs for Rich Markdown from CLI args.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command line arguments
+
+    Returns
+    -------
+    dict
+        Kwargs dictionary for Rich Markdown constructor
+
+    Notes
+    -----
+    Supported Rich Markdown options:
+    - code_theme: Pygments theme for code blocks
+    - inline_code_theme: Pygments theme for inline code
+    - hyperlinks: Enable/disable hyperlinks
+    - justify: Text justification (left, center, right, full)
+
+    Note: line_numbers and indent_guides are not directly supported by
+    Rich's Markdown class. These would require custom rendering.
+
+    """
+    kwargs = {}
+
+    if hasattr(args, 'rich_code_theme') and args.rich_code_theme:
+        kwargs['code_theme'] = args.rich_code_theme
+
+    if hasattr(args, 'rich_inline_code_theme') and args.rich_inline_code_theme:
+        kwargs['inline_code_theme'] = args.rich_inline_code_theme
+
+    if hasattr(args, 'rich_hyperlinks'):
+        kwargs['hyperlinks'] = args.rich_hyperlinks
+
+    if hasattr(args, 'rich_justify') and args.rich_justify:
+        kwargs['justify'] = args.rich_justify
+
+    return kwargs
+
+
 def _page_content(content: str, is_rich: bool = False) -> bool:
     """Page content using pydoc.pager.
 
@@ -378,17 +475,19 @@ def process_stdin(
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(markdown_content, encoding="utf-8")
-            print(f"Converted stdin -> {output_path}")
+            print(f"Converted stdin -> {output_path}", file=sys.stderr)
         else:
             if parsed_args.pager:
                 try:
-                    if parsed_args.rich:
+                    if _should_use_rich_output(parsed_args):
                         from rich.console import Console
                         from rich.markdown import Markdown
                         console = Console()
+                        # Get Rich markdown kwargs from CLI args
+                        rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
                         # Capture Rich output with ANSI codes
                         with console.capture() as capture:
-                            console.print(Markdown(markdown_content))
+                            console.print(Markdown(markdown_content, **rich_kwargs))
                         content_to_page = capture.get()
                         is_rich = True
                     else:
@@ -463,7 +562,8 @@ def process_multi_file(
         return process_dry_run(files, parsed_args, format_arg)
 
     # Process single file (without rich/progress)
-    if len(files) == 1 and not parsed_args.rich and not parsed_args.progress:
+    # This includes cases where --rich is set but TTY check fails (piped output)
+    if len(files) == 1 and not _should_use_rich_output(parsed_args) and not parsed_args.progress:
         file = files[0]
 
         # Determine output path and target format
@@ -502,13 +602,15 @@ def process_multi_file(
                 )
 
                 # Display with pager
-                if parsed_args.rich:
+                if _should_use_rich_output(parsed_args):
                     from rich.console import Console
                     from rich.markdown import Markdown
                     console = Console()
+                    # Get Rich markdown kwargs from CLI args
+                    rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
                     # Capture Rich output with ANSI codes
                     with console.capture() as capture:
-                        console.print(Markdown(markdown_content))
+                        console.print(Markdown(markdown_content, **rich_kwargs))
                     content_to_page = capture.get()
                     is_rich = True
                 else:
@@ -539,7 +641,7 @@ def process_multi_file(
 
         if exit_code == 0:
             if output_path:
-                print(f"Converted {file} -> {output_path}")
+                print(f"Converted {file} -> {output_path}", file=sys.stderr)
             return 0
         else:
             print(f"Error: {error}", file=sys.stderr)
@@ -552,7 +654,7 @@ def process_multi_file(
     # Otherwise, process files normally to disk
     if parsed_args.collate:
         exit_code = process_files_collated(files, parsed_args, options, format_arg, transforms)
-    elif parsed_args.rich:
+    elif _should_use_rich_output(parsed_args):
         exit_code = process_with_rich_output(files, parsed_args, options, format_arg, transforms)
     elif parsed_args.progress or len(files) > 1:
         exit_code = process_with_progress_bar(files, parsed_args, options, format_arg, transforms)
@@ -618,7 +720,7 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
             source_format=source_format
         )
 
-        print(f"Created package: {created_zip}")
+        print(f"Created package: {created_zip}", file=sys.stderr)
         return 0
 
     except Exception as e:
@@ -1281,7 +1383,7 @@ def process_files_collated(
 
         if output_path:
             output_path.write_text(final_content, encoding="utf-8")
-            print(f"Collated {len(collated_content)} files -> {output_path}")
+            print(f"Collated {len(collated_content)} files -> {output_path}", file=sys.stderr)
         else:
             print(final_content)
 
@@ -1304,7 +1406,8 @@ def process_files_collated(
             except ImportError:
                 pass
         else:
-            print(f"\nCollation complete: {len(collated_content)}/{len(files)} files processed successfully")
+            msg = f"\nCollation complete: {len(collated_content)}/{len(files)} files processed successfully"
+            print(msg, file=sys.stderr)
 
     return max_exit_code
 
@@ -1545,7 +1648,8 @@ def process_with_rich_output(
 
         if markdown_content:
             from rich.markdown import Markdown
-            console.print(Markdown(markdown_content))
+            rich_kwargs = _get_rich_markdown_kwargs(args)
+            console.print(Markdown(markdown_content, **rich_kwargs))
             return EXIT_SUCCESS
 
     # Show header for multi-file processing
@@ -1747,7 +1851,7 @@ def process_with_progress_bar(
             )
 
             if exit_code == EXIT_SUCCESS:
-                print(f"Converted {file} -> {output_path}")
+                print(f"Converted {file} -> {output_path}", file=sys.stderr)
             else:
                 print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
                 failed.append((file, error))
@@ -1757,7 +1861,7 @@ def process_with_progress_bar(
 
     # Summary
     if not args.no_summary:
-        print(f"\nConversion complete: {len(files) - len(failed)}/{len(files)} files successful")
+        print(f"\nConversion complete: {len(files) - len(failed)}/{len(files)} files successful", file=sys.stderr)
 
     return max_exit_code
 
@@ -1819,7 +1923,7 @@ def process_files_simple(
         )
 
         if exit_code == EXIT_SUCCESS:
-            print(f"Converted {file} -> {output_path}")
+            print(f"Converted {file} -> {output_path}", file=sys.stderr)
         else:
             print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
             failed.append((file, error))

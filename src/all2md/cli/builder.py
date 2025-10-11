@@ -940,6 +940,9 @@ Examples:
             'parallel', 'skip_errors', 'preserve_structure', 'zip',
             'assets_layout', 'watch', 'watch_debounce', 'collate',
             'no_summary', 'save_config', 'dry_run', 'detect_only', 'exclude',
+            # Rich output customization arguments
+            'rich_code_theme', 'rich_inline_code_theme', 'rich_word_wrap',
+            'rich_hyperlinks', 'rich_justify', 'force_rich',
             # Security presets from cli.create_parser
             'strict_html_sanitize', 'safe_mode', 'paranoid_mode',
             # Transform arguments
@@ -1109,6 +1112,44 @@ Examples:
         return arg_value
 
 
+def validate_pygments_theme(theme_name: str) -> str:
+    """Validate that a Pygments theme name is valid.
+
+    Parameters
+    ----------
+    theme_name : str
+        Theme name to validate
+
+    Returns
+    -------
+    str
+        The validated theme name
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If theme name is not valid
+
+    """
+    try:
+        from pygments.styles import get_all_styles
+        available_themes = list(get_all_styles())
+
+        if theme_name not in available_themes:
+            # Show top 10 suggestions
+            suggestions = sorted(available_themes)[:10]
+            raise argparse.ArgumentTypeError(
+                f"Invalid Pygments theme '{theme_name}'. "
+                f"Popular themes: {', '.join(suggestions)}... "
+                f"See https://pygments.org/styles/ for full list."
+            )
+        return theme_name
+    except ImportError:
+        # Pygments not available, skip validation
+        # (Will fail later if Rich is actually used)
+        return theme_name
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
     builder = DynamicCLIBuilder()
@@ -1118,7 +1159,58 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--rich',
         action=TrackingStoreTrueAction,
-        help='Enable rich terminal output with formatting'
+        help='Enable rich terminal output with formatting (automatically disabled when output is piped)'
+    )
+
+    # Create Rich output options group
+    rich_group = parser.add_argument_group(
+        'Rich output customization',
+        'Customize rich terminal output with syntax highlighting and formatting. '
+        'Requires: pip install all2md[rich]'
+    )
+    rich_group.add_argument(
+        '--rich-code-theme',
+        action=TrackingStoreAction,
+        type=validate_pygments_theme,
+        metavar='THEME',
+        default='monokai',
+        help='Pygments theme for code blocks. Popular themes: monokai (default), dracula, '
+             'github-dark, vim, material, one-dark, nord, solarized-dark, solarized-light. '
+             'Full list: https://pygments.org/styles/'
+    )
+    rich_group.add_argument(
+        '--rich-inline-code-theme',
+        action=TrackingStoreAction,
+        type=validate_pygments_theme,
+        metavar='THEME',
+        help='Pygments theme for inline code. If not specified, uses same theme as code blocks. '
+             'See --rich-code-theme for available themes.'
+    )
+    rich_group.add_argument(
+        '--rich-word-wrap',
+        action=TrackingStoreTrueAction,
+        help='Enable word wrapping for long lines in rendered output'
+    )
+    rich_group.add_argument(
+        '--no-rich-hyperlinks',
+        action=TrackingStoreFalseAction,
+        dest='rich_hyperlinks',
+        default=True,
+        help='Disable clickable hyperlink rendering in terminal output'
+    )
+    rich_group.add_argument(
+        '--rich-justify',
+        action=TrackingStoreAction,
+        type=str,
+        choices=['left', 'center', 'right', 'full'],
+        default='left',
+        help='Text justification for markdown rendering. Options: left (default), center, right, full'
+    )
+    rich_group.add_argument(
+        '--force-rich',
+        action=TrackingStoreTrueAction,
+        help='Force rich output even when stdout is piped or redirected. By default, rich formatting '
+             'is automatically disabled when output is piped to preserve clean parseable content.'
     )
 
     parser.add_argument(
