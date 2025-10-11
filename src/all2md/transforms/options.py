@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
+
 
 @dataclass
 class RemoveNodesOptions:
@@ -140,12 +142,7 @@ class RemoveBoilerplateOptions:
 
     """
 
-    patterns: list[str] = field(default_factory=lambda: [
-        r"^CONFIDENTIAL$",
-        r"^Page \d+ of \d+$",
-        r"^Internal Use Only$",
-        r"^\[DRAFT\]$"
-    ])
+    patterns: list[str] = field(default_factory=lambda: DEFAULT_BOILERPLATE_PATTERNS.copy())
 
 
 @dataclass
@@ -196,6 +193,33 @@ class WordCountOptions:
     char_field: str = "char_count"
 
 
+@dataclass
+class AddAttachmentFootnotesOptions:
+    """Options for AddAttachmentFootnotesTransform.
+
+    Parameters
+    ----------
+    section_title : str or None, default = "Attachments"
+        Title for the footnote section heading (None to skip heading)
+    add_definitions_for_images : bool, default = True
+        Add definitions for image footnote references
+    add_definitions_for_links : bool, default = True
+        Add definitions for link footnote references
+
+    Examples
+    --------
+    >>> options = AddAttachmentFootnotesOptions(
+    ...     section_title="Image Sources",
+    ...     add_definitions_for_images=True
+    ... )
+
+    """
+
+    section_title: str | None = "Attachments"
+    add_definitions_for_images: bool = True
+    add_definitions_for_links: bool = True
+
+
 __all__ = [
     "RemoveNodesOptions",
     "HeadingOffsetOptions",
@@ -205,4 +229,5 @@ __all__ = [
     "RemoveBoilerplateOptions",
     "AddTimestampOptions",
     "WordCountOptions",
+    "AddAttachmentFootnotesOptions",
 ]

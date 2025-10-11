@@ -7,7 +7,8 @@ supporting both AST parsing and rendering operations.
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_COMMENT_MODE, CommentMode
+from all2md.constants import DEFAULT_COMMENT_MODE, CommentMode, DEFAULT_DOCX_FONT, DEFAULT_DOCX_FONT_SIZE, \
+    DEFAULT_DOCX_CODE_FONT, DEFAULT_DOCX_CODE_FONT_SIZE, DEFAULT_DOCX_TABLE_STYLE
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -41,11 +42,11 @@ class DocxRendererOptions(BaseRendererOptions):
     """
 
     default_font: str = field(
-        default="Calibri",
+        default=DEFAULT_DOCX_FONT,
         metadata={"help": "Default font for body text"}
     )
     default_font_size: int = field(
-        default=11,
+        default=DEFAULT_DOCX_FONT_SIZE,
         metadata={"help": "Default font size in points", "type": int}
     )
     heading_font_sizes: dict[int, int] | None = field(
@@ -63,15 +64,15 @@ class DocxRendererOptions(BaseRendererOptions):
         }
     )
     table_style: str | None = field(
-        default="Light Grid Accent 1",
+        default=DEFAULT_DOCX_TABLE_STYLE,
         metadata={"help": "Built-in table style name (None = plain formatting)"}
     )
     code_font: str = field(
-        default="Courier New",
+        default=DEFAULT_DOCX_CODE_FONT,
         metadata={"help": "Font for code blocks and inline code"}
     )
     code_font_size: int = field(
-        default=10,
+        default=DEFAULT_DOCX_CODE_FONT_SIZE,
         metadata={"help": "Font size for code", "type": int}
     )
     preserve_formatting: bool = field(

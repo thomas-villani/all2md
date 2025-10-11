@@ -11,7 +11,8 @@ from typing import Any, Dict, List, Optional, Set
 
 from all2md import to_markdown
 from all2md.cli import generate_output_path
-from all2md.constants import DOCUMENT_EXTENSIONS, EXIT_DEPENDENCY_ERROR, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 from all2md.exceptions import All2MdError
 
 try:

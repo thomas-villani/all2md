@@ -14,17 +14,6 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from all2md.exceptions import (
-    DependencyError,
-    FileError,
-    FormatError,
-    ParsingError,
-    PasswordProtectedError,
-    RenderingError,
-    SecurityError,
-    ValidationError,
-)
-
 # =============================================================================
 # Markdown Formatting Constants
 # =============================================================================
@@ -67,6 +56,16 @@ DEFAULT_EXTRACT_TITLE = False
 DEFAULT_SLIDE_NUMBERS = False
 DEFAULT_EXTRACT_METADATA = False
 DEFAULT_INCLUDE_METADATA_FRONTMATTER = False
+
+# Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
+DEFAULT_BOILERPLATE_PATTERNS = [
+    r"^CONFIDENTIAL$",
+    r"^Page \d+ of \d+$",
+    r"^Internal Use Only$",
+    r"^\[DRAFT\]$",
+    r"^Copyright \d{4}",
+    r"^Printed on \d{4}-\d{2}-\d{2}$"
+]
 
 # =============================================================================
 # Supported Format Types
@@ -297,6 +296,17 @@ IPYNB_SUPPORTED_IMAGE_MIMETYPES = [
 ]
 
 # =============================================================================
+# .docx Constants
+# =============================================================================
+
+DEFAULT_DOCX_FONT = "Calibri"
+DEFAULT_DOCX_FONT_SIZE = 11
+DEFAULT_DOCX_CODE_FONT = "Courier New"
+DEFAULT_DOCX_CODE_FONT_SIZE = 10
+DEFAULT_DOCX_TABLE_STYLE = "Light Grid Accent 1"
+
+
+# =============================================================================
 # reStructuredText (RST) Constants
 # =============================================================================
 
@@ -405,70 +415,4 @@ DocumentFormat = Literal[
     "odf",  # OpenDocument Format
     "epub",  # EPUB e-books
 ]
-
-# =============================================================================
-# CLI Exit Codes
-# =============================================================================
-
-EXIT_SUCCESS = 0
-EXIT_ERROR = 1
-EXIT_DEPENDENCY_ERROR = 2
-EXIT_VALIDATION_ERROR = 3
-EXIT_FILE_ERROR = 4
-EXIT_FORMAT_ERROR = 5
-EXIT_PARSING_ERROR = 6
-EXIT_RENDERING_ERROR = 7
-EXIT_SECURITY_ERROR = 8
-EXIT_PASSWORD_ERROR = 9
-
-
-def get_exit_code_for_exception(exception: Exception) -> int:
-    """Map an exception to an appropriate CLI exit code.
-
-    Parameters
-    ----------
-    exception : Exception
-        The exception to map to an exit code
-
-    Returns
-    -------
-    int
-        The appropriate exit code for the exception type
-
-    """
-    # Check for password-protected files (most specific)
-    if isinstance(exception, PasswordProtectedError):
-        return EXIT_PASSWORD_ERROR
-
-    # Check for security violations
-    if isinstance(exception, SecurityError):
-        return EXIT_SECURITY_ERROR
-
-    # Check for dependency-related errors
-    if isinstance(exception, (DependencyError, ImportError)):
-        return EXIT_DEPENDENCY_ERROR
-
-    # Check for validation errors
-    if isinstance(exception, ValidationError):
-        return EXIT_VALIDATION_ERROR
-
-    # Check for file I/O errors
-    if isinstance(exception, FileError):
-        return EXIT_FILE_ERROR
-
-    # Check for format errors
-    if isinstance(exception, FormatError):
-        return EXIT_FORMAT_ERROR
-
-    # Check for parsing errors
-    if isinstance(exception, ParsingError):
-        return EXIT_PARSING_ERROR
-
-    # Check for rendering errors
-    if isinstance(exception, RenderingError):
-        return EXIT_RENDERING_ERROR
-
-    # All other errors (unexpected errors)
-    return EXIT_ERROR
-
 

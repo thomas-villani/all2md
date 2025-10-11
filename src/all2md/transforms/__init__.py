@@ -63,6 +63,7 @@ from __future__ import annotations
 
 # Built-in transform metadata (for advanced users)
 from ._builtin_metadata import (
+    ADD_ATTACHMENT_FOOTNOTES_METADATA,
     ADD_HEADING_IDS_METADATA,
     ADD_TIMESTAMP_METADATA,
     HEADING_OFFSET_METADATA,
@@ -76,6 +77,7 @@ from ._builtin_metadata import (
 
 # Built-in transforms
 from .builtin import (
+    AddAttachmentFootnotesTransform,
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
     CalculateWordCountTransform,
@@ -129,6 +131,7 @@ __all__ = [
     "RemoveBoilerplateTextTransform",
     "AddConversionTimestampTransform",
     "CalculateWordCountTransform",
+    "AddAttachmentFootnotesTransform",
     # Built-in Metadata
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",
@@ -139,4 +142,5 @@ __all__ = [
     "REMOVE_BOILERPLATE_METADATA",
     "ADD_TIMESTAMP_METADATA",
     "WORD_COUNT_METADATA",
+    "ADD_ATTACHMENT_FOOTNOTES_METADATA",
 ]

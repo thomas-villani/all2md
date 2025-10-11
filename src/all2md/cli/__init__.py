@@ -51,7 +51,7 @@ import os
 import sys
 from pathlib import Path
 
-from all2md.cli.builder import DynamicCLIBuilder, create_parser
+from all2md.cli.builder import DynamicCLIBuilder, create_parser, EXIT_VALIDATION_ERROR, EXIT_FILE_ERROR
 from all2md.cli.commands import (
     _configure_logging,
     _get_about_info,
@@ -122,7 +122,6 @@ def main(args: list[str] | None = None) -> int:
 
     # Ensure input is provided when not using special flags
     if not parsed_args.input:
-        from all2md.constants import EXIT_VALIDATION_ERROR
         print("Error: Input file is required", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
@@ -146,7 +145,7 @@ def main(args: list[str] | None = None) -> int:
 
     # Handle stdin input
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
-        from all2md.constants import EXIT_VALIDATION_ERROR
+        from all2md.cli import EXIT_VALIDATION_ERROR
         # Set up options and validate
         try:
             options, format_arg, transforms = setup_and_validate_options(parsed_args)
@@ -168,7 +167,6 @@ def main(args: list[str] | None = None) -> int:
     )
 
     if not files:
-        from all2md.constants import EXIT_FILE_ERROR
         if parsed_args.exclude:
             print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
         else:
@@ -191,33 +189,33 @@ def main(args: list[str] | None = None) -> int:
                 )
 
                 if not files:
-                    from all2md.constants import EXIT_FILE_ERROR
+                    from all2md.cli import EXIT_FILE_ERROR
                     if parsed_args.exclude:
                         print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
                     else:
                         print("Error: No valid input files found", file=sys.stderr)
                     return EXIT_FILE_ERROR
         except argparse.ArgumentTypeError as e:
-            from all2md.constants import EXIT_VALIDATION_ERROR
+            from all2md.cli import EXIT_VALIDATION_ERROR
             print(f"Error: {e}", file=sys.stderr)
             return EXIT_VALIDATION_ERROR
 
     # Validate arguments
     if not validate_arguments(parsed_args, files):
-        from all2md.constants import EXIT_VALIDATION_ERROR
+        from all2md.cli import EXIT_VALIDATION_ERROR
         return EXIT_VALIDATION_ERROR
 
     # Set up options
     try:
         options, format_arg, transforms = setup_and_validate_options(parsed_args)
     except argparse.ArgumentTypeError as e:
-        from all2md.constants import EXIT_VALIDATION_ERROR
+        from all2md.cli import EXIT_VALIDATION_ERROR
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
     # Handle watch mode if requested
     if parsed_args.watch:
-        from all2md.constants import EXIT_VALIDATION_ERROR
+        from all2md.cli import EXIT_VALIDATION_ERROR
 
         # Watch mode requires --output-dir
         if not parsed_args.output_dir:

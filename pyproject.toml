@@ -128,6 +128,7 @@ add-heading-ids = "all2md.transforms._builtin_metadata:ADD_HEADING_IDS_METADATA"
 remove-boilerplate = "all2md.transforms._builtin_metadata:REMOVE_BOILERPLATE_METADATA"
 add-timestamp = "all2md.transforms._builtin_metadata:ADD_TIMESTAMP_METADATA"
 word-count = "all2md.transforms._builtin_metadata:WORD_COUNT_METADATA"
+add-attachment-footnotes = "all2md.transforms._builtin_metadata:ADD_ATTACHMENT_FOOTNOTES_METADATA"
 
 [build-system]
 requires = ["hatchling"]

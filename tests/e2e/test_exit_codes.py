@@ -227,18 +227,16 @@ class TestExitCodeConstants:
 
     def test_constants_defined(self):
         """Test that exit code constants are defined in constants.py."""
-        from all2md.constants import (
-            EXIT_DEPENDENCY_ERROR,
-            EXIT_ERROR,
-            EXIT_FILE_ERROR,
-            EXIT_FORMAT_ERROR,
-            EXIT_PARSING_ERROR,
-            EXIT_PASSWORD_ERROR,
-            EXIT_RENDERING_ERROR,
-            EXIT_SECURITY_ERROR,
-            EXIT_SUCCESS,
-            EXIT_VALIDATION_ERROR,
-        )
+        from all2md.cli.builder import EXIT_PASSWORD_ERROR
+        from all2md.cli.builder import EXIT_SECURITY_ERROR
+        from all2md.cli.builder import EXIT_RENDERING_ERROR
+        from all2md.cli.builder import EXIT_PARSING_ERROR
+        from all2md.cli.builder import EXIT_FORMAT_ERROR
+        from all2md.cli import EXIT_FILE_ERROR
+        from all2md.cli import EXIT_VALIDATION_ERROR
+        from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
+        from all2md.cli.builder import EXIT_ERROR
+        from all2md.cli.builder import EXIT_SUCCESS
 
         assert EXIT_SUCCESS == 0
         assert EXIT_ERROR == 1
@@ -253,7 +251,8 @@ class TestExitCodeConstants:
 
     def test_get_exit_code_for_exception_malformed_error(self):
         """Test mapping MalformedFileError to exit code 4."""
-        from all2md.constants import EXIT_FILE_ERROR, get_exit_code_for_exception
+        from all2md.cli.builder import get_exit_code_for_exception
+        from all2md.cli import EXIT_FILE_ERROR
         from all2md.exceptions import MalformedFileError
 
         exc = MalformedFileError("Test malformed file error")
@@ -261,7 +260,8 @@ class TestExitCodeConstants:
 
     def test_get_exit_code_for_exception_dependency_error(self):
         """Test mapping DependencyError to exit code 2."""
-        from all2md.constants import EXIT_DEPENDENCY_ERROR, get_exit_code_for_exception
+        from all2md.cli.builder import get_exit_code_for_exception
+        from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
         from all2md.exceptions import DependencyError
 
         exc = DependencyError("test", [("pkg", ">=1.0")])
@@ -269,14 +269,16 @@ class TestExitCodeConstants:
 
     def test_get_exit_code_for_exception_import_error(self):
         """Test mapping ImportError to exit code 2."""
-        from all2md.constants import EXIT_DEPENDENCY_ERROR, get_exit_code_for_exception
+        from all2md.cli.builder import get_exit_code_for_exception
+        from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 
         exc = ImportError("Test import error")
         assert get_exit_code_for_exception(exc) == EXIT_DEPENDENCY_ERROR
 
     def test_get_exit_code_for_exception_parsing_error(self):
         """Test mapping ParsingError to exit code 6."""
-        from all2md.constants import EXIT_PARSING_ERROR, get_exit_code_for_exception
+        from all2md.cli.builder import get_exit_code_for_exception
+        from all2md.cli.builder import EXIT_PARSING_ERROR
         from all2md.exceptions import ParsingError
 
         exc = ParsingError("Test parsing error")
@@ -284,7 +286,8 @@ class TestExitCodeConstants:
 
     def test_get_exit_code_for_exception_generic(self):
         """Test mapping generic exceptions to exit code 1."""
-        from all2md.constants import EXIT_ERROR, get_exit_code_for_exception
+        from all2md.cli.builder import get_exit_code_for_exception
+        from all2md.cli.builder import EXIT_ERROR
 
         exc = ValueError("Test generic error")
         assert get_exit_code_for_exception(exc) == EXIT_ERROR

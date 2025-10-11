@@ -12,7 +12,10 @@ These metadata objects are exported via entry points in pyproject.toml.
 
 from __future__ import annotations
 
+from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
+
 from .builtin import (
+    AddAttachmentFootnotesTransform,
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
     CalculateWordCountTransform,
@@ -162,12 +165,7 @@ REMOVE_BOILERPLATE_METADATA = TransformMetadata(
     parameters={
         'patterns': ParameterSpec(
             type=list,
-            default=[
-                r"^CONFIDENTIAL$",
-                r"^Page \d+ of \d+$",
-                r"^Internal Use Only$",
-                r"^\[DRAFT\]$"
-            ],
+            default=DEFAULT_BOILERPLATE_PATTERNS,
             help="List of regex patterns to match for removal",
             cli_flag='--boilerplate-patterns'
         )
@@ -193,8 +191,7 @@ ADD_TIMESTAMP_METADATA = TransformMetadata(
         'format': ParameterSpec(
             type=str,
             default="iso",
-            choices=["iso", "unix"],
-            help="Timestamp format: 'iso', 'unix', or strftime format string",
+            help="Timestamp format: 'iso' for ISO 8601, 'unix' for Unix timestamp, or any strftime format string",
             cli_flag='--timestamp-format'
         )
     },
@@ -229,6 +226,37 @@ WORD_COUNT_METADATA = TransformMetadata(
     author="all2md"
 )
 
+# AddAttachmentFootnotesTransform metadata
+ADD_ATTACHMENT_FOOTNOTES_METADATA = TransformMetadata(
+    name="add-attachment-footnotes",
+    description="Add footnote definitions for attachment references",
+    transformer_class=AddAttachmentFootnotesTransform,
+    parameters={
+        'section_title': ParameterSpec(
+            type=str,
+            default="Attachments",
+            help="Title for the footnote section heading (use empty string to skip heading)",
+            cli_flag='--attachment-section-title'
+        ),
+        'add_definitions_for_images': ParameterSpec(
+            type=bool,
+            default=True,
+            help="Add definitions for image footnote references",
+            cli_flag='--add-image-footnotes'
+        ),
+        'add_definitions_for_links': ParameterSpec(
+            type=bool,
+            default=True,
+            help="Add definitions for link footnote references",
+            cli_flag='--add-link-footnotes'
+        )
+    },
+    priority=400,
+    tags=["attachments", "footnotes", "cleanup"],
+    version="1.0.0",
+    author="all2md"
+)
+
 __all__ = [
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",
@@ -239,4 +267,5 @@ __all__ = [
     "REMOVE_BOILERPLATE_METADATA",
     "ADD_TIMESTAMP_METADATA",
     "WORD_COUNT_METADATA",
+    "ADD_ATTACHMENT_FOOTNOTES_METADATA",
 ]

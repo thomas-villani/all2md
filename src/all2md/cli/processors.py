@@ -15,8 +15,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from all2md import to_markdown
-from all2md.cli.builder import DynamicCLIBuilder
-from all2md.constants import DocumentFormat, get_exit_code_for_exception
+from all2md.cli.builder import DynamicCLIBuilder, EXIT_SUCCESS, EXIT_ERROR, EXIT_DEPENDENCY_ERROR, \
+    get_exit_code_for_exception
+from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
 
 
@@ -485,7 +486,6 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
     from pathlib import Path
 
     from all2md.cli.packaging import create_package_from_conversions
-    from all2md.constants import EXIT_ERROR
 
     logger = logging.getLogger(__name__)
 
@@ -773,7 +773,6 @@ def process_detect_only(
 
     print(f"\nTotal files analyzed: {len(detection_results)}")
     if any_issues:
-        from all2md.constants import EXIT_DEPENDENCY_ERROR
         unavailable_count = sum(1 for r in detection_results if not r['available'])
         print(f"Files with unavailable parsers: {unavailable_count}")
         return EXIT_DEPENDENCY_ERROR
@@ -1032,7 +1031,7 @@ def convert_single_file_for_collation(
         Exit code (0 for success), markdown content, and error message if failed
 
     """
-    from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
+    from all2md.constants import get_exit_code_for_exception
 
     try:
         # Convert the document

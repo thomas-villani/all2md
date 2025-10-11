@@ -37,12 +37,17 @@ Add unique IDs to headings:
     >>> transform = AddHeadingIdsTransform(id_prefix="doc-")
     >>> new_doc = transform.transform(doc)
 
+Add footnote definitions for attachment references:
+
+    >>> transform = AddAttachmentFootnotesTransform(section_title="Image Sources")
+    >>> new_doc = transform.transform(doc)
+
 """
 
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from all2md.ast.nodes import (
     Document,
@@ -55,6 +60,7 @@ from all2md.ast.nodes import (
     Text,
 )
 from all2md.ast.transforms import NodeTransformer
+from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
 
 
 class RemoveImagesTransform(NodeTransformer):
@@ -546,15 +552,6 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
 
     """
 
-    DEFAULT_PATTERNS = [
-        r"^CONFIDENTIAL$",
-        r"^Page \d+ of \d+$",
-        r"^Internal Use Only$",
-        r"^\[DRAFT\]$",
-        r"^Copyright \d{4}",
-        r"^Printed on \d{4}-\d{2}-\d{2}$"
-    ]
-
     def __init__(self, patterns: list[str] | None = None):
         """Initialize with patterns.
 
@@ -564,7 +561,7 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
             Regex patterns to match (None uses defaults)
 
         """
-        self.patterns = patterns if patterns is not None else self.DEFAULT_PATTERNS
+        self.patterns = patterns if patterns is not None else DEFAULT_BOILERPLATE_PATTERNS
         self._compiled = [re.compile(p, re.IGNORECASE) for p in self.patterns]
 
     def visit_paragraph(self, node: Paragraph) -> Paragraph | None:  # type: ignore[override]
@@ -619,32 +616,47 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
 class AddConversionTimestampTransform(NodeTransformer):
     """Add conversion timestamp to document metadata.
 
-    This transform adds a timestamp to the document metadata indicating
-    when the conversion occurred. Useful for tracking document versions
-    and conversion history.
+    This transform adds a timezone-aware UTC timestamp to the document metadata
+    indicating when the conversion occurred. Useful for tracking document versions
+    and conversion history. All timestamps are generated in UTC to ensure consistency
+    across different time zones.
 
     Parameters
     ----------
     field_name : str, default = "conversion_timestamp"
         Metadata field name for the timestamp
     format : str, default = "iso"
-        Timestamp format: "iso", "unix", or strftime format string
+        Timestamp format: "iso" for ISO 8601 with timezone, "unix" for Unix timestamp,
+        or any strftime format string
 
     Examples
     --------
-    Add ISO timestamp:
+    Add ISO 8601 timestamp (default, includes UTC timezone):
 
         >>> transform = AddConversionTimestampTransform()
         >>> new_doc = transform.transform(document)
-        >>> # metadata['conversion_timestamp'] = "2025-01-01T12:00:00.123456"
+        >>> # metadata['conversion_timestamp'] = "2025-01-01T12:00:00.123456+00:00"
 
-    Custom format:
+    Add Unix timestamp:
+
+        >>> transform = AddConversionTimestampTransform(format="unix")
+        >>> new_doc = transform.transform(document)
+        >>> # metadata['conversion_timestamp'] = "1735732800"
+
+    Custom strftime format:
 
         >>> transform = AddConversionTimestampTransform(
         ...     field_name="converted_at",
-        ...     format="%Y-%m-%d %H:%M:%S"
+        ...     format="%Y-%m-%d %H:%M:%S UTC"
         ... )
         >>> new_doc = transform.transform(document)
+        >>> # metadata['converted_at'] = "2025-01-01 12:00:00 UTC"
+
+    Notes
+    -----
+    All timestamps are generated in UTC (Coordinated Universal Time) using
+    `datetime.now(timezone.utc)`. This ensures consistent timestamps regardless
+    of the server's local timezone.
 
     """
 
@@ -676,8 +688,8 @@ class AddConversionTimestampTransform(NodeTransformer):
             Document with timestamp in metadata
 
         """
-        # Generate timestamp
-        now = datetime.now()
+        # Generate timestamp (timezone-aware UTC)
+        now = datetime.now(timezone.utc)
 
         if self.format == "iso":
             timestamp = now.isoformat()

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from all2md import convert, registry
-from all2md.cli.builder import create_parser
+from all2md.cli.builder import create_parser, EXIT_SUCCESS, get_exit_code_for_exception
 from all2md.cli.processors import process_detect_only, process_dry_run
 from all2md.converter_metadata import ConverterMetadata
 from all2md.dependencies import check_version_requirement, get_package_version
@@ -423,7 +423,7 @@ Examples:
     formats = registry.list_formats()
     if specific_format:
         if specific_format not in formats:
-            from all2md.constants import EXIT_VALIDATION_ERROR
+            from all2md.cli import EXIT_VALIDATION_ERROR
             print(f"Error: Format '{specific_format}' not found", file=sys.stderr)
             print(f"Available formats: {', '.join(formats)}", file=sys.stderr)
             return EXIT_VALIDATION_ERROR
@@ -880,7 +880,8 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
         setup_and_validate_options,
         validate_arguments,
     )
-    from all2md.constants import EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR, get_exit_code_for_exception
+    from all2md.cli import EXIT_FILE_ERROR
+    from all2md.cli import EXIT_VALIDATION_ERROR
 
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 

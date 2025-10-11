@@ -4,6 +4,7 @@
 This module provides a system for automatically generating CLI arguments
 from dataclass options using field metadata.
 """
+from __future__ import annotations
 
 import argparse
 import difflib
@@ -12,6 +13,7 @@ import types
 from dataclasses import MISSING, fields, is_dataclass
 from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_origin, get_type_hints
 
+from all2md import DependencyError, FormatError, ParsingError
 from all2md.cli.custom_actions import (
     TrackingAppendAction,
     TrackingPositiveIntAction,
@@ -21,6 +23,7 @@ from all2md.cli.custom_actions import (
 )
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
+from all2md.exceptions import PasswordProtectedError, SecurityError, ValidationError, FileError, RenderingError
 from all2md.options.markdown import MarkdownOptions
 
 # Module logger for consistent warning/error reporting
@@ -1251,3 +1254,65 @@ def create_parser() -> argparse.ArgumentParser:
 
 
     return parser
+
+
+EXIT_SUCCESS = 0
+EXIT_ERROR = 1
+EXIT_DEPENDENCY_ERROR = 2
+EXIT_VALIDATION_ERROR = 3
+EXIT_FILE_ERROR = 4
+EXIT_FORMAT_ERROR = 5
+EXIT_PARSING_ERROR = 6
+EXIT_RENDERING_ERROR = 7
+EXIT_SECURITY_ERROR = 8
+EXIT_PASSWORD_ERROR = 9
+
+
+def get_exit_code_for_exception(exception: Exception) -> int:
+    """Map an exception to an appropriate CLI exit code.
+
+    Parameters
+    ----------
+    exception : Exception
+        The exception to map to an exit code
+
+    Returns
+    -------
+    int
+        The appropriate exit code for the exception type
+
+    """
+    # Check for password-protected files (most specific)
+    if isinstance(exception, PasswordProtectedError):
+        return EXIT_PASSWORD_ERROR
+
+    # Check for security violations
+    if isinstance(exception, SecurityError):
+        return EXIT_SECURITY_ERROR
+
+    # Check for dependency-related errors
+    if isinstance(exception, (DependencyError, ImportError)):
+        return EXIT_DEPENDENCY_ERROR
+
+    # Check for validation errors
+    if isinstance(exception, ValidationError):
+        return EXIT_VALIDATION_ERROR
+
+    # Check for file I/O errors
+    if isinstance(exception, FileError):
+        return EXIT_FILE_ERROR
+
+    # Check for format errors
+    if isinstance(exception, FormatError):
+        return EXIT_FORMAT_ERROR
+
+    # Check for parsing errors
+    if isinstance(exception, ParsingError):
+        return EXIT_PARSING_ERROR
+
+    # Check for rendering errors
+    if isinstance(exception, RenderingError):
+        return EXIT_RENDERING_ERROR
+
+    # All other errors (unexpected errors)
+    return EXIT_ERROR
