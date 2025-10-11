@@ -141,7 +141,7 @@ def check_all_dependencies() -> Dict[str, Dict[str, bool]]:
                 meets, _ = check_version_requirement(package_name, version_spec)
                 format_status[package_name] = meets
             else:
-                format_status[package_name] = check_package_installed(package_name)
+                format_status[package_name] = check_package_installed(_import_name)
         status[format_name] = format_status
 
     return status
@@ -177,7 +177,7 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
             meets, _ = check_version_requirement(package_name, version_spec)
             if not meets:
                 missing.append((package_name, version_spec))
-        elif not check_package_installed(package_name):
+        elif not check_package_installed(_import_name):
             missing.append((package_name, version_spec))
 
     return missing
@@ -233,7 +233,7 @@ def get_missing_dependencies_for_file(
             meets, _ = check_version_requirement(package_name, version_spec)
             if not meets:
                 missing.append((package_name, version_spec))
-        elif not check_package_installed(package_name):
+        elif not check_package_installed(_import_name):
             missing.append((package_name, version_spec))
 
     return missing

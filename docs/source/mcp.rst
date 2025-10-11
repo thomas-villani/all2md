@@ -396,6 +396,8 @@ Best Practices
 Integration Examples
 --------------------
 
+.. TODO: add examples using uv to launch in isolated environment
+
 Claude Desktop
 ~~~~~~~~~~~~~~
 

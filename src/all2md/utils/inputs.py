@@ -450,18 +450,22 @@ def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
     - "5" → [4]
     - "10-" → [9, 10, ..., total_pages-1]
     - "1-3,5,10-" → combined ranges
+    - "5-3" → [2, 3, 4] (automatically swaps to "3-5")
+
+    Reversed ranges (where start > end) are automatically corrected by swapping
+    the values. For example, "10-5" is treated as "5-10".
 
     Parameters
     ----------
     page_spec : str
-        Page range specification
+        Page range specification (1-based page numbers)
     total_pages : int
         Total number of pages in document
 
     Returns
     -------
     list of int
-        0-based page indices
+        Sorted list of 0-based page indices
 
     Examples
     --------
@@ -469,6 +473,8 @@ def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
     [0, 1, 2, 4]
     >>> parse_page_ranges("8-", 10)
     [7, 8, 9]
+    >>> parse_page_ranges("10-5", 10)
+    [4, 5, 6, 7, 8, 9]
 
     """
     pages = set()
@@ -498,6 +504,10 @@ def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
                 end = int(end_str) - 1
             else:
                 end = total_pages - 1
+
+            # Swap if reversed range (e.g., "10-5" becomes "5-10")
+            if start > end:
+                start, end = end, start
 
             # Add all pages in range
             for p in range(start, end + 1):

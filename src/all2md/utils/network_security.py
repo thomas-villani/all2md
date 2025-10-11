@@ -316,7 +316,7 @@ def validate_url_security(
     allowed_hosts : list[str] | None, default None
         List of allowed hostnames or CIDR blocks. If None, all hosts allowed
         (subject to IP restrictions)
-    require_https : bool, default False
+    require_https : bool, default True
         If True, only HTTPS URLs are allowed
 
     Raises
@@ -375,7 +375,7 @@ def create_secure_http_client(
         timeout: float = 10.0,
         max_redirects: int = 5,
         allowed_hosts: list[str] | None = None,
-        require_https: bool = False
+        require_https: bool = True
 ) -> Any:
     """Create httpx client with security constraints.
 
@@ -383,9 +383,8 @@ def create_secure_http_client(
     instead of fragile transport subclassing. Validates all requests including
     redirects using stable httpx APIs.
 
-    The redirect limit is enforced using two complementary mechanisms:
-    1. Primary check: Validates response.history length (standard httpx API)
-    2. Secondary check: Tracks hop count explicitly via request.extensions for defense-in-depth
+    The redirect limit is enforced by validating response.history length,
+    which accurately tracks the complete redirect chain.
 
     Parameters
     ----------
@@ -395,7 +394,7 @@ def create_secure_http_client(
         Maximum number of redirects to follow
     allowed_hosts : list[str] | None, default None
         List of allowed hostnames or CIDR blocks
-    require_https : bool, default False
+    require_https : bool, default True
         If True, only HTTPS URLs are allowed
 
     Returns
@@ -407,11 +406,7 @@ def create_secure_http_client(
     import httpx
 
     def validate_request_url(request: Any) -> None:
-        """Event hook to validate URLs before each request.
-
-        Also tracks redirect hop count in request.extensions for
-        additional enforcement beyond response.history validation.
-        """
+        """Event hook to validate URLs before each request."""
         # Validate URL security
         try:
             validate_url_security(
@@ -423,39 +418,17 @@ def create_secure_http_client(
             # Re-raise to abort the request
             raise
 
-        # Track redirect count in extensions for defense-in-depth
-        # Initialize or increment hop counter
-        if 'redirect_count' not in request.extensions:
-            request.extensions['redirect_count'] = 0
-        else:
-            request.extensions['redirect_count'] += 1
-
-        # Secondary enforcement: Check hop counter
-        redirect_count = request.extensions['redirect_count']
-        if redirect_count > max_redirects:
-            raise NetworkSecurityError(
-                f"Too many redirects (hop count): {redirect_count} > {max_redirects}"
-            )
-
     def validate_response_redirects(response: Any) -> None:
         """Event hook to validate redirect chains.
 
-        Uses dual validation: both response.history (primary) and
-        request.extensions hop count (secondary defense-in-depth).
+        Validates that the redirect chain length does not exceed max_redirects
+        and that all URLs in the chain pass security validation.
         """
-        # Primary check: Validate response history length
+        # Validate response history length
         if len(response.history) > max_redirects:
             raise NetworkSecurityError(
-                f"Too many redirects (history): {len(response.history)} > {max_redirects}"
+                f"Too many redirects: {len(response.history)} > {max_redirects}"
             )
-
-        # Secondary check: Validate hop counter from request extensions
-        if hasattr(response, 'request') and response.request:
-            redirect_count = response.request.extensions.get('redirect_count', 0)
-            if redirect_count > max_redirects:
-                raise NetworkSecurityError(
-                    f"Too many redirects (hop count): {redirect_count} > {max_redirects}"
-                )
 
         # Validate each URL in the redirect history
         for redirect_response in response.history:
@@ -488,7 +461,7 @@ def create_secure_http_client(
 def fetch_content_securely(
         url: str,
         allowed_hosts: list[str] | None = None,
-        require_https: bool = False,
+        require_https: bool = True,
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
         timeout: float = 10.0,
         expected_content_types: list[str] | None = None,
@@ -503,7 +476,7 @@ def fetch_content_securely(
         URL to fetch content from
     allowed_hosts : list[str] | None, default None
         List of allowed hostnames or CIDR blocks
-    require_https : bool, default False
+    require_https : bool, default True
         If True, only HTTPS URLs are allowed
     max_size_bytes : int, default 20MB
         Maximum allowed response size in bytes
@@ -625,7 +598,7 @@ def fetch_content_securely(
 def fetch_image_securely(
         url: str,
         allowed_hosts: list[str] | None = None,
-        require_https: bool = False,
+        require_https: bool = True,
         max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
         timeout: float = 30.0,
         require_head_success: bool = True,
@@ -641,7 +614,7 @@ def fetch_image_securely(
         URL to fetch image from
     allowed_hosts : list[str] | None, default None
         List of allowed hostnames or CIDR blocks
-    require_https : bool, default False
+    require_https : bool, default True
         If True, only HTTPS URLs are allowed
     max_size_bytes : int, default 20MB
         Maximum allowed response size in bytes

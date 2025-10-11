@@ -531,8 +531,8 @@ class TestRedirectLimitEdgeCases:
 
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-        # Create client with max_redirects=3
-        client = create_secure_http_client(max_redirects=3)
+        # Create client with max_redirects=3, allow HTTP for this test
+        client = create_secure_http_client(max_redirects=3, require_https=False)
 
         # Create mock response with exactly 3 redirects in history
         mock_response = Mock()

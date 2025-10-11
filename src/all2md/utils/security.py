@@ -39,6 +39,12 @@ def validate_local_file_access(
 ) -> bool:
     """Validate if access to a local file URL is allowed based on security settings.
 
+    Supports various file URL formats including:
+    - Unix/Linux: file:///path/to/file
+    - Windows drive letters: file:///C:/path/to/file
+    - Windows UNC paths: file://server/share/file
+    - Relative paths: file://./file or file://../file
+
     Parameters
     ----------
     file_url : str
@@ -66,25 +72,55 @@ def validate_local_file_access(
     False
     >>> validate_local_file_access("file://./image.png", allow_local_files=True, allow_cwd_files=True)
     True
+    >>> validate_local_file_access("file:///C:/Users/file.txt", allow_local_files=True)  # Windows
+    True
 
     """
     if not file_url.startswith("file://"):
         return True  # Not a local file URL, validation doesn't apply
 
     # Parse the file URL to get the path
-    # Handle the special case where urlparse normalizes relative paths
+    # Handle various file:// URL formats
+
+    # Check for relative paths first
     if file_url.startswith("file://./") or file_url.startswith("file://../"):
         # Extract the path directly from the URL to preserve relative context
         path = file_url[7:]  # Remove "file://" prefix
         file_path = Path.cwd() / path
+    # Check for Windows UNC paths: file://server/share/path
     elif file_url.startswith("file://") and not file_url.startswith("file:///"):
-        # file://filename (without leading slash) - treat as relative to CWD
-        path = file_url[7:]  # Remove "file://" prefix
-        file_path = Path.cwd() / path
+        # This could be either:
+        # 1. file://server/share (UNC path on Windows)
+        # 2. file://filename (relative path)
+        # 3. file://C:\... (Windows absolute path with backslashes - malformed but handle it)
+        path_part = file_url[7:]  # Remove "file://" prefix
+
+        # Check if it's a Windows absolute path (starts with drive letter)
+        # Pattern: C:\ or C:/ or just C:
+        if len(path_part) >= 2 and path_part[1] == ':':
+            # Windows absolute path: file://C:\path or file://C:/path
+            # Normalize backslashes to forward slashes for Path
+            normalized_path = path_part.replace('\\', '/')
+            file_path = Path(normalized_path)
+        # Check if it looks like a UNC path (has at least one slash/backslash after server name)
+        elif '/' in path_part or '\\' in path_part:
+            # Likely UNC path: file://server/share/file -> \\server\share\file
+            file_path = Path(f"\\\\{path_part.replace('/', chr(92))}")
+        else:
+            # Likely relative path: file://filename
+            file_path = Path.cwd() / path_part
     else:
         # Standard absolute file:///path handling
         parsed = urlparse(file_url)
-        file_path = Path(parsed.path)
+        path_str = parsed.path
+
+        # Handle Windows drive letters: file:///C:/path
+        # urlparse may give us "/C:/path", we need "C:/path"
+        if len(path_str) >= 3 and path_str[0] == '/' and path_str[2] == ':':
+            # Remove leading slash for Windows drive letter
+            path_str = path_str[1:]
+
+        file_path = Path(path_str)
 
     file_path = file_path.resolve()
     cwd = Path.cwd().resolve()

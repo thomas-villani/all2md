@@ -78,11 +78,21 @@ def _sanitize_footnote_label(attachment_name: str) -> str:
     return label
 
 
-def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
+def sanitize_attachment_filename(
+    filename: str,
+    max_length: int = 255,
+    preserve_case: bool = False,
+    allow_unicode: bool = False
+) -> str:
     """Sanitize an attachment filename for secure file system storage.
 
     This function normalizes Unicode characters, removes dangerous patterns,
     and ensures cross-platform compatibility while preventing security issues.
+
+    By default, this function is conservative and may be lossy:
+    - Converts to lowercase (unless preserve_case=True)
+    - Removes non-ASCII characters (unless allow_unicode=True)
+    - Removes special characters except [a-zA-Z0-9_.-]
 
     Parameters
     ----------
@@ -90,6 +100,13 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
         Original filename to sanitize
     max_length : int, default 255
         Maximum length for the sanitized filename
+    preserve_case : bool, default False
+        If True, preserve original case. If False, convert to lowercase for
+        cross-platform compatibility (case-insensitive filesystems).
+    allow_unicode : bool, default False
+        If True, allow Unicode letters and numbers (e.g., Chinese, Arabic).
+        If False, only allow ASCII alphanumeric characters.
+        Note: Unicode filenames may cause issues on some systems.
 
     Returns
     -------
@@ -109,6 +126,10 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
     'passwd'
     >>> sanitize_attachment_filename("file<>|name?.txt")
     'filename.txt'
+    >>> sanitize_attachment_filename("Test.PNG", preserve_case=True)
+    'Test.PNG'
+    >>> sanitize_attachment_filename("文件.txt", allow_unicode=True)
+    '文件.txt'
 
     """
     if not filename or not filename.strip():
@@ -137,8 +158,9 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
     # NFKC removes compatibility characters and combines decomposed characters
     normalized = unicodedata.normalize('NFKC', filename)
 
-    # Convert to lowercase for case normalization
-    normalized = normalized.lower()
+    # Convert to lowercase for case normalization (unless preserve_case is True)
+    if not preserve_case:
+        normalized = normalized.lower()
 
     # Handle directory traversal attempts and path separators FIRST
     # Split by path separators and take only the last part (filename)
@@ -147,19 +169,38 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
 
     # Remove or replace dangerous characters
     # Keep only alphanumeric, dots, hyphens, underscores, and spaces
-    safe_chars = re.sub(r'[^\w.\-\s]', '', safe_chars)
+    if allow_unicode:
+        # \w includes Unicode word characters (letters, digits, underscore)
+        # This allows Chinese, Arabic, Cyrillic, etc.
+        safe_chars = re.sub(r'[^\w.\-\s]', '', safe_chars, flags=re.UNICODE)
+    else:
+        # Only allow ASCII alphanumeric characters for maximum compatibility
+        safe_chars = re.sub(r'[^a-zA-Z0-9_.\-\s]', '', safe_chars)
 
     # Replace multiple spaces/dots with single versions
     safe_chars = re.sub(r'\s+', '_', safe_chars)
     safe_chars = re.sub(r'\.+', '.', safe_chars)
 
+    # Before stripping, detect if we only have a leading dot followed by alphanumeric
+    # This helps detect cases like "文件.txt" -> ".txt" -> "txt" (just extension)
+    # Pattern: starts with dot, followed by 2-5 alphanumeric chars (typical extension)
+    is_likely_extension_only = bool(re.match(r'^\.[a-zA-Z0-9]{2,5}$', safe_chars))
+
     # Remove leading/trailing dots and spaces (Windows restrictions)
     safe_chars = safe_chars.strip('. ')
+
+    # Check if we're left with only an extension (no base name)
+    # This can happen when Unicode-only filenames have their Unicode chars removed
+    if is_likely_extension_only:
+        # We had only ".ext" pattern before stripping
+        # safe_chars is now the extension without the dot (e.g., "txt")
+        # Preserve the extension by using "attachment" as the base
+        safe_chars = f"attachment.{safe_chars}"
 
     # Additional security: remove any remaining path-like constructs
     safe_chars = re.sub(r'\.\.+', '.', safe_chars)
 
-    # Remove Windows reserved names
+    # Remove Windows reserved names (case-insensitive check)
     windows_reserved = {
         'con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5',
         'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4',
@@ -167,7 +208,9 @@ def sanitize_attachment_filename(filename: str, max_length: int = 255) -> str:
     }
 
     name_parts = safe_chars.split('.')
-    if name_parts[0].lower() in windows_reserved:
+    base_name_lower = name_parts[0].lower()
+    if base_name_lower in windows_reserved:
+        # Preserve case of the original if preserve_case=True
         name_parts[0] = f"file_{name_parts[0]}"
         safe_chars = '.'.join(name_parts)
 
@@ -397,6 +440,12 @@ def process_attachment(
             # Fall back to alt-text mode if directory creation fails
             return _make_fallback_result()
 
+        # Check if attachment data is available - cannot create download link without data
+        if not attachment_data:
+            logger.warning(f"No attachment data available for download mode: {attachment_name}. "
+                         f"Falling back to alt_text mode.")
+            return _make_fallback_result()
+
         # Sanitize the filename for security
         safe_name = sanitize_attachment_filename(attachment_name)
 
@@ -406,16 +455,15 @@ def process_attachment(
         # Ensure the path is unique to prevent collisions
         unique_path = ensure_unique_attachment_path(base_path)
 
-        # Write attachment data if available
-        if attachment_data:
-            try:
-                with open(unique_path, "wb") as f:
-                    f.write(attachment_data)
-                logger.debug(f"Wrote attachment to: {unique_path}")
-            except OSError as e:
-                logger.error(f"Failed to write attachment {unique_path}: {e}")
-                # Fall back to alt-text mode if writing fails
-                return _make_fallback_result()
+        # Write attachment data to file
+        try:
+            with open(unique_path, "wb") as f:
+                f.write(attachment_data)
+            logger.debug(f"Wrote attachment to: {unique_path}")
+        except OSError as e:
+            logger.error(f"Failed to write attachment {unique_path}: {e}")
+            # Fall back to alt-text mode if writing fails
+            return _make_fallback_result()
 
         # Build URL using the final filename
         final_filename = unique_path.name
@@ -458,7 +506,15 @@ def extract_pptx_image_data(shape: Any) -> bytes | None:
         image = shape.image
         image_bytes = image.blob
         return image_bytes
-    except Exception:
+    except AttributeError as e:
+        # Shape might not have image property or image might not have blob
+        shape_id = getattr(shape, 'shape_id', 'unknown')
+        logger.debug(f"Failed to extract image from PPTX shape {shape_id}: {e}")
+        return None
+    except Exception as e:
+        # Catch other unexpected errors
+        shape_id = getattr(shape, 'shape_id', 'unknown')
+        logger.warning(f"Unexpected error extracting image from PPTX shape {shape_id}: {type(e).__name__}: {e}")
         return None
 
 
@@ -517,7 +573,17 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, s
                 extension = "tiff"
 
         return image_bytes, extension
-    except Exception:
+    except KeyError as e:
+        # Relationship ID not found in related_parts
+        logger.debug(f"Failed to extract image from DOCX: relationship ID '{blip_rId}' not found: {e}")
+        return None, None
+    except AttributeError as e:
+        # Missing expected attributes (parent.part, related_parts, blob, etc.)
+        logger.debug(f"Failed to extract image from DOCX with rId '{blip_rId}': missing attribute: {e}")
+        return None, None
+    except Exception as e:
+        # Catch other unexpected errors
+        logger.warning(f"Unexpected error extracting image from DOCX with rId '{blip_rId}': {type(e).__name__}: {e}")
         return None, None
 
 

@@ -261,6 +261,64 @@ class TestValidateLocalFileAccess:
             allow_local_files=True
         ) is True
 
+    def test_windows_drive_letter_urls(self):
+        """Test Windows drive letter file URLs like file:///C:/path."""
+        # Test with master switch disabled
+        assert validate_local_file_access(
+            "file:///C:/Users/test/file.txt",
+            allow_local_files=False
+        ) is False
+
+        # Test with master switch enabled
+        assert validate_local_file_access(
+            "file:///C:/Users/test/file.txt",
+            allow_local_files=True
+        ) is True
+
+        # Test with allowlist
+        assert validate_local_file_access(
+            "file:///C:/Users/test/file.txt",
+            allow_local_files=True,
+            local_file_allowlist=["C:/Users/test"],
+            allow_cwd_files=False
+        ) is True
+
+        # Test with denylist
+        assert validate_local_file_access(
+            "file:///C:/Users/test/file.txt",
+            allow_local_files=True,
+            local_file_denylist=["C:/Users/test"],
+            allow_cwd_files=False
+        ) is False
+
+    def test_windows_unc_path_urls(self):
+        """Test Windows UNC path URLs like file://server/share."""
+        # Test basic UNC path
+        assert validate_local_file_access(
+            "file://server/share/file.txt",
+            allow_local_files=False
+        ) is False
+
+        # Test with master switch enabled
+        assert validate_local_file_access(
+            "file://server/share/file.txt",
+            allow_local_files=True
+        ) is True
+
+    def test_mixed_windows_and_unix_paths(self):
+        """Test that both Windows and Unix-style paths work correctly."""
+        # Unix-style path should work
+        assert validate_local_file_access(
+            "file:///home/user/file.txt",
+            allow_local_files=True
+        ) is True
+
+        # Windows-style path should work
+        assert validate_local_file_access(
+            "file:///C:/Users/file.txt",
+            allow_local_files=True
+        ) is True
+
 
 class TestFilenameSanitization:
     """Test filename sanitization security features."""
@@ -489,14 +547,15 @@ class TestAttachmentProcessingSecurity:
             is_image=True
         )
 
-        # Should normalize the Unicode and convert to lowercase
-        # e + combining accent becomes é
-        assert "tést.png" in result["markdown"]
+        # Default behavior: removes non-ASCII Unicode characters
+        # e + combining accent becomes é, then é is removed -> "tst.png"
+        # (To preserve Unicode, use sanitize_attachment_filename with allow_unicode=True)
+        assert "tst.png" in result["markdown"]
 
         # Check the actual file created
         created_files = list(self.temp_dir.glob("*"))
         assert len(created_files) == 1
-        assert created_files[0].name == "tést.png"
+        assert created_files[0].name == "tst.png"
 
     def test_download_mode_error_fallback(self):
         """Test fallback behavior when file writing fails."""
@@ -560,3 +619,60 @@ class TestAttachmentProcessingSecurity:
         # Both should normalize to lowercase, so second should get suffix
         assert "test.txt" in result1["markdown"]
         assert "test-1.txt" in result2["markdown"]
+
+
+class TestFilenameSanitizationEnhancements:
+    """Test enhanced filename sanitization options."""
+
+    def test_preserve_case_option(self):
+        """Test preserve_case parameter preserves original case."""
+        # Default behavior: lowercase
+        assert sanitize_attachment_filename("Test.PNG") == "test.png"
+
+        # With preserve_case=True: maintain case
+        assert sanitize_attachment_filename("Test.PNG", preserve_case=True) == "Test.PNG"
+        assert sanitize_attachment_filename("MyFile.TXT", preserve_case=True) == "MyFile.TXT"
+
+    def test_allow_unicode_option(self):
+        """Test allow_unicode parameter preserves Unicode characters."""
+        # Default behavior: removes Unicode, preserves extension with "attachment" base
+        assert sanitize_attachment_filename("文件.txt") == "attachment.txt"
+        assert sanitize_attachment_filename("файл.pdf") == "attachment.pdf"
+
+        # With allow_unicode=True: preserve Unicode
+        assert sanitize_attachment_filename("文件.txt", allow_unicode=True) == "文件.txt"
+        assert sanitize_attachment_filename("файл.pdf", allow_unicode=True) == "файл.pdf"
+        assert sanitize_attachment_filename("مستند.docx", allow_unicode=True) == "مستند.docx"
+
+    def test_preserve_case_with_unicode(self):
+        """Test combining preserve_case and allow_unicode."""
+        result = sanitize_attachment_filename(
+            "文件Test.TXT",
+            preserve_case=True,
+            allow_unicode=True
+        )
+        assert result == "文件Test.TXT"
+
+    def test_windows_reserved_with_preserve_case(self):
+        """Test Windows reserved names with case preservation."""
+        # Should prefix but preserve case
+        result = sanitize_attachment_filename("CON.txt", preserve_case=True)
+        assert result == "file_CON.txt"
+
+        result = sanitize_attachment_filename("Prn.log", preserve_case=True)
+        assert result == "file_Prn.log"
+
+    def test_unicode_with_special_characters(self):
+        """Test Unicode filenames with special characters removed."""
+        # Unicode allowed, but special chars still removed
+        result = sanitize_attachment_filename("文件<test>.txt", allow_unicode=True)
+        assert result == "文件test.txt"
+
+    def test_backward_compatibility(self):
+        """Test that default behavior is unchanged for backward compatibility."""
+        # All these should work as before
+        assert sanitize_attachment_filename("test.png") == "test.png"
+        assert sanitize_attachment_filename("Test.PNG") == "test.png"
+        # Unicode-only filenames now use "attachment" base with preserved extension
+        assert sanitize_attachment_filename("文件.txt") == "attachment.txt"
+        assert sanitize_attachment_filename("../../../etc/passwd") == "passwd"
