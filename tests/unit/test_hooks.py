@@ -293,6 +293,53 @@ class TestHookManager:
         assert not manager.has_hooks('image')
         assert not manager.has_hooks('link')
 
+    def test_strict_mode_disabled_by_default(self):
+        """Test strict mode is disabled by default."""
+        manager = HookManager()
+        assert manager.strict is False
+
+    def test_strict_mode_can_be_enabled(self):
+        """Test strict mode can be enabled."""
+        manager = HookManager(strict=True)
+        assert manager.strict is True
+
+    def test_strict_mode_reraises_exceptions(self, context):
+        """Test strict mode re-raises exceptions from hooks."""
+        manager = HookManager(strict=True)
+
+        def failing_hook(node, context):
+            raise RuntimeError("Hook failed in strict mode!")
+
+        manager.register_hook('image', failing_hook)
+
+        image = Image(url="test.png")
+
+        # In strict mode, exception should be re-raised
+        with pytest.raises(RuntimeError, match="Hook failed in strict mode!"):
+            manager.execute_hooks('image', image, context)
+
+    def test_non_strict_mode_continues_on_error(self, context, caplog):
+        """Test non-strict mode logs errors and continues."""
+        manager = HookManager(strict=False)
+
+        def failing_hook(node, context):
+            raise RuntimeError("Hook failed!")
+
+        def safe_hook(node, context):
+            node.url = "modified.png"
+            return node
+
+        manager.register_hook('image', failing_hook, priority=100)
+        manager.register_hook('image', safe_hook, priority=200)
+
+        image = Image(url="test.png")
+        result = manager.execute_hooks('image', image, context)
+
+        # In non-strict mode, error is logged but execution continues
+        assert "Hook failed" in caplog.text
+        # Safe hook should still execute
+        assert result.url == "modified.png"
+
     def test_pipeline_hooks(self, manager, context):
         """Test pipeline stage hooks."""
         results = []

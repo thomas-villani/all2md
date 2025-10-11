@@ -706,3 +706,213 @@ class TestApplyFunction:
 
         with pytest.raises(ValueError, match="removed document"):
             apply(sample_document, hooks={'pre_render': [bad_hook]})
+
+
+# Progress callback tests
+
+class TestProgressCallback:
+    """Tests for progress callback functionality."""
+
+    def test_progress_callback_receives_events(self, sample_document):
+        """Test progress callback receives events during pipeline execution."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        markdown = render(sample_document, progress_callback=progress_handler)
+
+        # Should have received events
+        assert len(events) > 0
+        # Should have started and finished events
+        event_types = [e.event_type for e in events]
+        assert "started" in event_types
+        assert "finished" in event_types
+
+    def test_progress_callback_started_event(self, sample_document):
+        """Test started event is emitted first."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        render(sample_document, progress_callback=progress_handler)
+
+        # First event should be started
+        assert events[0].event_type == "started"
+        assert events[0].current == 0
+        assert events[0].total > 0
+
+    def test_progress_callback_finished_event(self, sample_document):
+        """Test finished event is emitted last."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        render(sample_document, progress_callback=progress_handler)
+
+        # Last event should be finished
+        assert events[-1].event_type == "finished"
+        assert events[-1].current == events[-1].total
+
+    def test_progress_callback_with_transforms(self, sample_document):
+        """Test progress events are emitted for each transform."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        render(
+            sample_document,
+            transforms=[RemoveImagesTransform(), UppercaseTextTransform()],
+            progress_callback=progress_handler
+        )
+
+        # Should have events for each transform
+        page_done_events = [e for e in events if e.event_type == "page_done"]
+        assert len(page_done_events) >= 2  # At least 2 transforms
+
+        # Check that transform names are in metadata
+        transform_events = [e for e in page_done_events if "transform" in e.metadata]
+        assert len(transform_events) == 2
+
+    def test_progress_callback_error_event_on_failure(self, sample_document):
+        """Test error event is emitted when pipeline fails."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        class FailingTransform(NodeTransformer):
+            def visit_heading(self, node):
+                raise RuntimeError("Transform failed!")
+
+        # Pipeline should fail and emit error event
+        with pytest.raises(RuntimeError):
+            render(
+                sample_document,
+                transforms=[FailingTransform()],
+                progress_callback=progress_handler
+            )
+
+        # Should have received error event
+        event_types = [e.event_type for e in events]
+        assert "error" in event_types
+
+        # Error event should have error metadata
+        error_events = [e for e in events if e.event_type == "error"]
+        assert len(error_events) > 0
+        assert "error" in error_events[0].metadata
+
+    def test_progress_callback_exception_does_not_break_pipeline(self, sample_document):
+        """Test that exceptions in progress callback don't break pipeline."""
+        def failing_callback(event):
+            raise RuntimeError("Callback failed!")
+
+        # Should not raise, callback errors are logged
+        markdown = render(sample_document, progress_callback=failing_callback)
+
+        # Pipeline should complete successfully
+        assert "# Title" in markdown
+
+    def test_progress_callback_none_does_not_crash(self, sample_document):
+        """Test that None progress_callback works correctly."""
+        # Should not crash with None callback
+        markdown = render(sample_document, progress_callback=None)
+        assert "# Title" in markdown
+
+    def test_progress_callback_messages_are_descriptive(self, sample_document):
+        """Test progress event messages are descriptive."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        render(
+            sample_document,
+            transforms=[RemoveImagesTransform()],
+            progress_callback=progress_handler
+        )
+
+        # Check that messages are non-empty and descriptive
+        for event in events:
+            assert len(event.message) > 0
+            assert isinstance(event.message, str)
+
+    def test_progress_callback_current_increases(self, sample_document):
+        """Test that current value increases through pipeline."""
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        render(
+            sample_document,
+            transforms=[RemoveImagesTransform()],
+            progress_callback=progress_handler
+        )
+
+        # Filter to page_done and finished events
+        progress_events = [e for e in events if e.event_type in ("page_done", "finished")]
+
+        # Current should increase or stay same (never decrease)
+        for i in range(1, len(progress_events)):
+            assert progress_events[i].current >= progress_events[i - 1].current
+
+
+# Strict hooks mode tests
+
+class TestStrictHooksMode:
+    """Tests for strict_hooks parameter in pipeline."""
+
+    def test_strict_hooks_mode_disabled_by_default(self, sample_document):
+        """Test strict_hooks is disabled by default."""
+        def failing_hook(node, context):
+            raise RuntimeError("Hook failed!")
+
+        # Should not raise, just log error
+        markdown = render(
+            sample_document,
+            hooks={'image': [failing_hook]}
+        )
+
+        assert "# Title" in markdown
+
+    def test_strict_hooks_mode_reraises_exceptions(self, sample_document):
+        """Test strict_hooks=True re-raises hook exceptions."""
+        def failing_hook(node, context):
+            raise RuntimeError("Hook failed in strict mode!")
+
+        # Should raise because strict_hooks=True
+        with pytest.raises(RuntimeError, match="Hook failed in strict mode!"):
+            render(
+                sample_document,
+                hooks={'image': [failing_hook]},
+                strict_hooks=True
+            )
+
+    def test_strict_hooks_via_pipeline_class(self, sample_document):
+        """Test strict_hooks parameter works via Pipeline class."""
+        def failing_hook(node, context):
+            raise RuntimeError("Hook failed!")
+
+        pipeline = Pipeline(
+            hooks={'image': [failing_hook]},
+            strict_hooks=True
+        )
+
+        with pytest.raises(RuntimeError, match="Hook failed!"):
+            pipeline.execute(sample_document)
+
+    def test_strict_hooks_with_apply_function(self, sample_document):
+        """Test strict_hooks works with apply() function."""
+        def failing_hook(node, context):
+            raise RuntimeError("Hook failed in apply!")
+
+        with pytest.raises(RuntimeError, match="Hook failed in apply!"):
+            apply(
+                sample_document,
+                hooks={'image': [failing_hook]},
+                strict_hooks=True
+            )

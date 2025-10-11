@@ -685,7 +685,7 @@ def json_to_ast(json_str: str) -> Node:
     if schema_version is None:
         # Backward compatibility: if no version specified, assume version 1
         schema_version = 1
-    elif not isinstance(schema_version, int):
+    if not isinstance(schema_version, int):
         raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
     elif schema_version != 1:
         raise ValueError(

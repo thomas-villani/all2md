@@ -206,10 +206,19 @@ class HookManager:
     This class provides a central registry for hooks at various pipeline
     stages and for specific node types.
 
+    Parameters
+    ----------
+    strict : bool, default = False
+        If True, hook exceptions are re-raised and abort the pipeline.
+        If False (default), exceptions are logged and execution continues.
+
     Examples
     --------
     Create a hook manager:
         >>> manager = HookManager()
+
+    Create a strict hook manager:
+        >>> manager = HookManager(strict=True)
 
     Register a pipeline hook:
         >>> def pre_render_hook(doc, context):
@@ -227,11 +236,30 @@ class HookManager:
         >>> context = HookContext(document=my_doc)
         >>> result = manager.execute_hooks('pre_render', my_doc, context)
 
+    Notes
+    -----
+    In strict mode (strict=True), any exception raised by a hook will be
+    re-raised and abort the pipeline. This is useful for debugging or when
+    hook failures should be treated as critical errors.
+
+    In non-strict mode (strict=False, the default), exceptions are logged
+    with full traceback but execution continues with subsequent hooks. This
+    provides a fail-safe default that prevents a single problematic hook
+    from breaking the entire pipeline.
+
     """
 
-    def __init__(self) -> None:
-        """Initialize the hook manager."""
+    def __init__(self, strict: bool = False) -> None:
+        """Initialize the hook manager.
+
+        Parameters
+        ----------
+        strict : bool, default = False
+            Enable strict mode for hook exception handling
+
+        """
         self._hooks: dict[HookTarget, list[tuple[int, HookCallable]]] = {}
+        self.strict = strict
 
     def register_hook(
         self,
@@ -326,10 +354,20 @@ class HookManager:
         Any
             Processed object (or None if removed by a hook)
 
+        Raises
+        ------
+        Exception
+            Any exception from hooks if strict mode is enabled
+
         Examples
         --------
         >>> context = HookContext(document=doc)
         >>> result = manager.execute_hooks('image', image_node, context)
+
+        Notes
+        -----
+        In strict mode, exceptions from hooks are re-raised and abort execution.
+        In non-strict mode (default), exceptions are logged and execution continues.
 
         """
         if target not in self._hooks:
@@ -351,7 +389,12 @@ class HookManager:
                     f"Hook failed at '{target}' with priority {priority}: {e}",
                     exc_info=True
                 )
-                # Continue execution - don't let one hook break the pipeline
+
+                # In strict mode, re-raise the exception to abort the pipeline
+                if self.strict:
+                    raise
+
+                # In non-strict mode, continue execution - don't let one hook break the pipeline
                 # Return current result unchanged
                 continue
 

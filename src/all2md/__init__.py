@@ -620,7 +620,8 @@ def to_markdown(
             transforms=transforms or [],
             hooks=hooks or {},
             renderer="markdown",
-            options=final_renderer_options
+            options=final_renderer_options,
+            progress_callback=progress_callback
         )
         render_time = time.perf_counter() - start_time
         logger.debug(f"Rendering (markdown) completed in {render_time:.2f}s")
@@ -633,7 +634,8 @@ def to_markdown(
             transforms=transforms or [],
             hooks=hooks or {},
             renderer="markdown",
-            options=final_renderer_options
+            options=final_renderer_options,
+            progress_callback=progress_callback
         )
         # Markdown renderer always returns str
         assert isinstance(render_result, str), "Markdown renderer should return str"

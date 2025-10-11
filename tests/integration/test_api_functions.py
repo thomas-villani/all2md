@@ -759,3 +759,127 @@ class TestAPIConsistency:
 
         # Should be identical
         assert result1 == result2
+
+
+@pytest.mark.integration
+class TestProgressCallbackIntegration:
+    """Test progress callback integration through all API functions."""
+
+    def test_to_markdown_with_progress_callback(self, tmp_path):
+        """Test that to_markdown forwards progress_callback through the pipeline."""
+        from all2md import to_markdown
+
+        html_file = tmp_path / "test.html"
+        html_file.write_text("<html><body><h1>Title</h1><p>Content</p></body></html>")
+
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        # Convert with progress callback
+        markdown = to_markdown(str(html_file), progress_callback=progress_handler)
+
+        # Should produce markdown
+        assert isinstance(markdown, str)
+        assert "Title" in markdown
+
+        # Should have received progress events
+        assert len(events) > 0
+
+        # Should have started and finished events
+        event_types = [e.event_type for e in events]
+        assert "started" in event_types
+        assert "finished" in event_types
+
+    def test_to_markdown_with_progress_and_transforms(self, tmp_path):
+        """Test progress callback receives transform events in to_markdown."""
+        from all2md import to_markdown
+
+        html_file = tmp_path / "test.html"
+        html_file.write_text("<html><body><h1>Title</h1><p>Content</p></body></html>")
+
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        # Convert with transforms and progress callback
+        markdown = to_markdown(
+            str(html_file),
+            transforms=["remove-images"],
+            progress_callback=progress_handler
+        )
+
+        assert "Title" in markdown
+
+        # Should have received progress events including transform events
+        page_done_events = [e for e in events if e.event_type == "page_done"]
+        assert len(page_done_events) > 0
+
+    def test_from_ast_with_progress_callback(self):
+        """Test that from_ast forwards progress_callback."""
+        doc = create_sample_ast_document()
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        result = from_ast(
+            doc,
+            "markdown",
+            progress_callback=progress_handler
+        )
+
+        assert isinstance(result, str)
+        assert "Main Title" in result
+
+        # Should have received progress events
+        assert len(events) > 0
+        event_types = [e.event_type for e in events]
+        assert "started" in event_types
+        assert "finished" in event_types
+
+    def test_convert_with_progress_callback(self, tmp_path):
+        """Test that convert forwards progress_callback."""
+        md_file = tmp_path / "test.md"
+        md_file.write_text("# Title\n\nContent")
+
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        result = convert(
+            str(md_file),
+            source_format="markdown",
+            target_format="html",
+            progress_callback=progress_handler
+        )
+
+        assert "Title" in result
+
+        # Should have received progress events
+        assert len(events) > 0
+        event_types = [e.event_type for e in events]
+        assert "started" in event_types
+        assert "finished" in event_types
+
+    def test_progress_callback_error_handling(self, tmp_path):
+        """Test that progress callback errors don't break conversion."""
+        from all2md import to_markdown
+
+        html_file = tmp_path / "test.html"
+        html_file.write_text("<h1>Title</h1>")
+
+        def failing_callback(event):
+            raise RuntimeError("Callback failed!")
+
+        # Should not raise - callback errors are logged
+        markdown = to_markdown(
+            str(html_file),
+            progress_callback=failing_callback
+        )
+
+        # Conversion should complete successfully
+        assert "Title" in markdown
