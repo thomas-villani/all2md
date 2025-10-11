@@ -309,3 +309,83 @@ def sanitize_language_identifier(language: str) -> str:
         return ""
 
     return language
+
+
+def validate_user_regex_pattern(pattern: str) -> None:
+    """Validate user-supplied regex pattern to prevent ReDoS attacks.
+
+    This function checks user-supplied regex patterns for dangerous constructs
+    that could lead to catastrophic backtracking (Regular Expression Denial of
+    Service - ReDoS attacks). Patterns with nested quantifiers or other
+    backtracking-prone structures are rejected.
+
+    Parameters
+    ----------
+    pattern : str
+        The regex pattern to validate
+
+    Raises
+    ------
+    SecurityError
+        If the pattern is too long or contains dangerous constructs
+
+    Examples
+    --------
+    >>> validate_user_regex_pattern(r"^/docs/")
+    # Returns None (safe pattern)
+
+    >>> validate_user_regex_pattern(r"(a+)+")  # doctest: +SKIP
+    SecurityError: Regex pattern contains dangerous nested quantifiers
+
+    >>> validate_user_regex_pattern("x" * 1000)  # doctest: +SKIP
+    SecurityError: Regex pattern exceeds maximum length
+
+    Notes
+    -----
+    This function is conservative and may reject some complex but safe patterns.
+    This is intentional to ensure security. Common safe patterns include:
+    - Simple anchors: ^, $
+    - Character classes: [a-z], [0-9]
+    - Single-level quantifiers: a+, b*, c{2,5}
+    - Alternations without quantifiers: (cat|dog)
+    - Simple groups: (abc)+
+
+    Dangerous patterns that are rejected include:
+    - Nested quantifiers: (a+)+, (b*)*
+    - Quantified groups with inner quantifiers: (a+){2,}
+    - Lookaheads/lookbehinds with quantifiers: (?=.*)+, (?!test)*
+    - Lookaheads/lookbehinds containing quantifiers: (?=.*a)
+    - Overlapping alternations: (a|ab)*, (foo|foobar)+
+    - Multiple nested groups: ((a+)
+    - Greedy wildcards with quantifiers: .*+, .+*
+
+    For more information on ReDoS attacks, see:
+    https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS
+
+    """
+    from all2md.constants import DANGEROUS_REGEX_PATTERNS, MAX_REGEX_PATTERN_LENGTH
+    from all2md.exceptions import SecurityError
+
+    # Check pattern length
+    if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+        raise SecurityError(
+            f"Regex pattern exceeds maximum length of {MAX_REGEX_PATTERN_LENGTH} characters. "
+            f"This limit prevents potential ReDoS (Regular Expression Denial of Service) attacks."
+        )
+
+    # Check for dangerous patterns that can cause catastrophic backtracking
+    for dangerous_pattern in DANGEROUS_REGEX_PATTERNS:
+        if re.search(dangerous_pattern, pattern):
+            raise SecurityError(
+                f"Regex pattern contains dangerous nested quantifiers or similar constructs "
+                f"that could lead to catastrophic backtracking (ReDoS). "
+                f"Pattern: {pattern[:100]}{'...' if len(pattern) > 100 else ''}\n"
+                f"Detected dangerous construct matching: {dangerous_pattern}\n"
+                f"Avoid patterns like: (a+)+, (b*)*, (c+){{2,}}, etc."
+            )
+
+    # Try to compile the pattern to check if it's valid regex
+    try:
+        re.compile(pattern)
+    except re.error as e:
+        raise SecurityError(f"Invalid regex pattern: {e}") from e

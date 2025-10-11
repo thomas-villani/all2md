@@ -241,6 +241,12 @@ class LinkRewriterTransform(NodeTransformer):
     replacement : str
         Replacement string (can include regex groups like \\1, \\2)
 
+    Raises
+    ------
+    SecurityError
+        If the pattern contains dangerous constructs that could lead to
+        ReDoS (Regular Expression Denial of Service) attacks
+
     Examples
     --------
     Convert relative links to absolute:
@@ -250,6 +256,13 @@ class LinkRewriterTransform(NodeTransformer):
         ...     replacement='https://example.com/docs/'
         ... )
         >>> new_doc = transform.transform(document)
+
+    Notes
+    -----
+    For security reasons, this transform validates user-supplied regex patterns
+    to prevent ReDoS attacks. Patterns with nested quantifiers or excessive
+    backtracking potential are rejected. See `validate_user_regex_pattern()`
+    for details on what patterns are considered safe.
 
     """
 
@@ -263,7 +276,17 @@ class LinkRewriterTransform(NodeTransformer):
         replacement : str
             Replacement string
 
+        Raises
+        ------
+        SecurityError
+            If pattern contains dangerous constructs
+
         """
+        from all2md.utils.security import validate_user_regex_pattern
+
+        # Validate pattern for ReDoS protection
+        validate_user_regex_pattern(pattern)
+
         self.pattern = re.compile(pattern)
         self.replacement = replacement
 
@@ -281,8 +304,13 @@ class LinkRewriterTransform(NodeTransformer):
             Link with potentially rewritten URL
 
         """
+        from all2md.constants import MAX_URL_LENGTH
+
+        # Limit URL length to prevent excessive processing
+        url_to_process = node.url[:MAX_URL_LENGTH] if len(node.url) > MAX_URL_LENGTH else node.url
+
         # Apply regex substitution
-        new_url = self.pattern.sub(self.replacement, node.url)
+        new_url = self.pattern.sub(self.replacement, url_to_process)
 
         return Link(
             url=new_url,
@@ -477,6 +505,12 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
     patterns : list[str], optional
         List of regex patterns to match (default: common boilerplate)
 
+    Raises
+    ------
+    SecurityError
+        If any user-supplied pattern contains dangerous constructs that
+        could lead to ReDoS (Regular Expression Denial of Service) attacks
+
     Examples
     --------
     Use default patterns:
@@ -491,6 +525,13 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
         ... )
         >>> cleaned_doc = transform.transform(document)
 
+    Notes
+    -----
+    For security reasons, this transform validates user-supplied regex patterns
+    to prevent ReDoS attacks. Default patterns are pre-validated and trusted.
+    Patterns with nested quantifiers or excessive backtracking potential are
+    rejected. See `validate_user_regex_pattern()` for details.
+
     """
 
     def __init__(self, patterns: list[str] | None = None):
@@ -501,8 +542,21 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
         patterns : list[str] or None
             Regex patterns to match (None uses defaults)
 
+        Raises
+        ------
+        SecurityError
+            If any user-supplied pattern contains dangerous constructs
+
         """
+        from all2md.utils.security import validate_user_regex_pattern
+
         self.patterns = patterns if patterns is not None else DEFAULT_BOILERPLATE_PATTERNS
+
+        # Only validate user-supplied patterns (not defaults, which we trust)
+        if patterns is not None:
+            for pattern in patterns:
+                validate_user_regex_pattern(pattern)
+
         self._compiled = [re.compile(p, re.IGNORECASE) for p in self.patterns]
 
     def visit_paragraph(self, node: Paragraph) -> Paragraph | None:  # type: ignore[override]
@@ -519,13 +573,21 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
             None if matches boilerplate, otherwise paragraph
 
         """
+        from all2md.constants import MAX_TEXT_LENGTH_FOR_REGEX
+
         # Extract text from paragraph (no joiner to match exact text)
         text = extract_text(node.content, joiner="")
 
-        # Check against patterns
+        # Limit text length to prevent excessive regex processing
         text_stripped = text.strip()
+        if len(text_stripped) > MAX_TEXT_LENGTH_FOR_REGEX:
+            text_to_check = text_stripped[:MAX_TEXT_LENGTH_FOR_REGEX]
+        else:
+            text_to_check = text_stripped
+
+        # Check against patterns
         for pattern in self._compiled:
-            if pattern.match(text_stripped):
+            if pattern.match(text_to_check):
                 return None  # Remove
 
         # Keep paragraph

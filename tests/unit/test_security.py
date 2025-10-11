@@ -676,3 +676,237 @@ class TestFilenameSanitizationEnhancements:
         # Unicode-only filenames now use "attachment" base with preserved extension
         assert sanitize_attachment_filename("文件.txt") == "attachment.txt"
         assert sanitize_attachment_filename("../../../etc/passwd") == "passwd"
+
+
+class TestRegexValidation:
+    """Test regex pattern validation to prevent ReDoS attacks."""
+
+    def test_safe_simple_patterns(self):
+        """Test that safe, simple patterns are accepted."""
+        from all2md.utils.security import validate_user_regex_pattern
+
+        # These should all pass without exception
+        safe_patterns = [
+            r"^/docs/",
+            r"https?://example\.com",
+            r"[a-zA-Z0-9]+",
+            r"^test$",
+            r"foo|bar",
+            r"(abc)+",
+            r"test{2,5}",
+            r"^\d{3}-\d{3}-\d{4}$",
+        ]
+
+        for pattern in safe_patterns:
+            validate_user_regex_pattern(pattern)  # Should not raise
+
+    def test_dangerous_nested_quantifiers(self):
+        """Test that patterns with nested quantifiers are rejected."""
+        from all2md.exceptions import SecurityError
+        from all2md.utils.security import validate_user_regex_pattern
+
+        dangerous_patterns = [
+            r"(a+)+",  # Classic nested quantifier
+            r"(b*)*",  # Nested star
+            r"(c+)*",  # Mixed nested quantifiers
+            r"(?:d+)+",  # Non-capturing group with nested quantifiers
+            r"(e*){2,}",  # Quantified group with inner quantifier
+            r"(?=.*)+",  # Lookahead with quantifier
+            r"(?!test)*",  # Negative lookahead with quantifier
+            r"(?=.*a)",  # Lookahead containing quantifier
+            r"(a|ab)*",  # Overlapping alternation with quantifier
+            r"(foo|foobar)+",  # Overlapping alternation
+            r"((a+)",  # Multiple nested groups with quantifier
+            r".*+",  # Greedy wildcard with possessive quantifier
+            r".+*",  # .+ followed by star
+        ]
+
+        for pattern in dangerous_patterns:
+            with pytest.raises(SecurityError, match="dangerous nested quantifiers"):
+                validate_user_regex_pattern(pattern)
+
+    def test_pattern_length_limit(self):
+        """Test that excessively long patterns are rejected."""
+        from all2md.constants import MAX_REGEX_PATTERN_LENGTH
+        from all2md.exceptions import SecurityError
+        from all2md.utils.security import validate_user_regex_pattern
+
+        # Pattern just under limit should pass
+        safe_pattern = "a" * (MAX_REGEX_PATTERN_LENGTH - 1)
+        validate_user_regex_pattern(safe_pattern)  # Should not raise
+
+        # Pattern over limit should fail
+        long_pattern = "a" * (MAX_REGEX_PATTERN_LENGTH + 1)
+        with pytest.raises(SecurityError, match="exceeds maximum length"):
+            validate_user_regex_pattern(long_pattern)
+
+    def test_invalid_regex_syntax(self):
+        """Test that invalid regex patterns are rejected."""
+        from all2md.exceptions import SecurityError
+        from all2md.utils.security import validate_user_regex_pattern
+
+        invalid_patterns = [
+            r"[",  # Unclosed bracket
+            r"(?P<",  # Incomplete named group
+            r"(?P<name",  # Incomplete named group
+            r"(?<",  # Invalid lookbehind
+            r"*",  # Nothing to repeat
+        ]
+
+        for pattern in invalid_patterns:
+            with pytest.raises(SecurityError, match="Invalid regex pattern"):
+                validate_user_regex_pattern(pattern)
+
+    def test_complex_safe_patterns(self):
+        """Test complex but safe patterns."""
+        from all2md.utils.security import validate_user_regex_pattern
+
+        safe_complex_patterns = [
+            r"^(?:https?://)?(?:www\.)?example\.com/.*$",
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$",
+            r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+            r"(?i)^test",
+            r"^/api/v[0-9]+/.*$",
+        ]
+
+        for pattern in safe_complex_patterns:
+            validate_user_regex_pattern(pattern)  # Should not raise
+
+
+class TestLinkRewriterTransformSecurity:
+    """Test security features of LinkRewriterTransform."""
+
+    def test_rejects_dangerous_patterns(self):
+        """Test that LinkRewriterTransform rejects dangerous patterns."""
+        from all2md.exceptions import SecurityError
+        from all2md.transforms.builtin import LinkRewriterTransform
+
+        with pytest.raises(SecurityError, match="dangerous nested quantifiers"):
+            LinkRewriterTransform(pattern=r"(a+)+", replacement="test")
+
+    def test_accepts_safe_patterns(self):
+        """Test that LinkRewriterTransform accepts safe patterns."""
+        from all2md.ast.nodes import Document, Link, Paragraph, Text
+        from all2md.transforms.builtin import LinkRewriterTransform
+
+        # Should not raise
+        transform = LinkRewriterTransform(
+            pattern=r"^/docs/",
+            replacement="https://example.com/docs/"
+        )
+
+        # Verify it works correctly
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="/docs/guide", content=[Text(content="Guide")])
+            ])
+        ])
+
+        result = transform.transform(doc)
+        link = result.children[0].content[0]
+        assert link.url == "https://example.com/docs/guide"
+
+    def test_limits_url_length(self):
+        """Test that LinkRewriterTransform limits URL length."""
+        from all2md.ast.nodes import Document, Link, Paragraph, Text
+        from all2md.constants import MAX_URL_LENGTH
+        from all2md.transforms.builtin import LinkRewriterTransform
+
+        transform = LinkRewriterTransform(pattern=r"^/docs/", replacement="/documentation/")
+
+        # Create a document with an excessively long URL
+        long_url = "/docs/" + "a" * (MAX_URL_LENGTH + 100)
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url=long_url, content=[Text(content="Link")])
+            ])
+        ])
+
+        result = transform.transform(doc)
+        link = result.children[0].content[0]
+
+        # URL should be truncated and processed
+        assert len(link.url) <= MAX_URL_LENGTH + 20  # Allow for replacement text
+
+
+class TestRemoveBoilerplateTransformSecurity:
+    """Test security features of RemoveBoilerplateTextTransform."""
+
+    def test_rejects_dangerous_patterns(self):
+        """Test that RemoveBoilerplateTextTransform rejects dangerous user patterns."""
+        from all2md.exceptions import SecurityError
+        from all2md.transforms.builtin import RemoveBoilerplateTextTransform
+
+        with pytest.raises(SecurityError, match="dangerous nested quantifiers"):
+            RemoveBoilerplateTextTransform(patterns=[r"(a+)+"])
+
+    def test_accepts_safe_user_patterns(self):
+        """Test that RemoveBoilerplateTextTransform accepts safe user patterns."""
+        from all2md.ast.nodes import Document, Paragraph, Text
+        from all2md.transforms.builtin import RemoveBoilerplateTextTransform
+
+        # Should not raise
+        transform = RemoveBoilerplateTextTransform(patterns=[r"^DRAFT$", r"^INTERNAL$"])
+
+        # Verify it works correctly
+        doc = Document(children=[
+            Paragraph(content=[Text(content="DRAFT")]),
+            Paragraph(content=[Text(content="Normal text")]),
+        ])
+
+        result = transform.transform(doc)
+        assert len(result.children) == 1
+        assert result.children[0].content[0].content == "Normal text"
+
+    def test_default_patterns_not_validated(self):
+        """Test that default patterns are not subject to validation."""
+        from all2md.transforms.builtin import RemoveBoilerplateTextTransform
+
+        # Should not raise even if defaults were to contain complex patterns
+        transform = RemoveBoilerplateTextTransform()
+        assert transform.patterns is not None
+        assert len(transform.patterns) > 0
+
+    def test_limits_text_length(self):
+        """Test that RemoveBoilerplateTextTransform limits text length for matching."""
+        from all2md.ast.nodes import Document, Paragraph, Text
+        from all2md.constants import MAX_TEXT_LENGTH_FOR_REGEX
+        from all2md.transforms.builtin import RemoveBoilerplateTextTransform
+
+        transform = RemoveBoilerplateTextTransform(patterns=[r"^LONG"])
+
+        # Create a paragraph with extremely long text
+        long_text = "LONG" + "x" * (MAX_TEXT_LENGTH_FOR_REGEX + 100)
+        doc = Document(children=[
+            Paragraph(content=[Text(content=long_text)])
+        ])
+
+        result = transform.transform(doc)
+
+        # Should still process (pattern matches prefix)
+        # The paragraph should be removed because it starts with "LONG"
+        assert len(result.children) == 0
+
+    def test_multiple_safe_patterns(self):
+        """Test multiple safe user patterns."""
+        from all2md.ast.nodes import Document, Paragraph, Text
+        from all2md.transforms.builtin import RemoveBoilerplateTextTransform
+
+        transform = RemoveBoilerplateTextTransform(
+            patterns=[
+                r"^CONFIDENTIAL$",
+                r"^Page \d+ of \d+$",
+                r"^DRAFT$",
+            ]
+        )
+
+        doc = Document(children=[
+            Paragraph(content=[Text(content="CONFIDENTIAL")]),
+            Paragraph(content=[Text(content="Page 1 of 5")]),
+            Paragraph(content=[Text(content="DRAFT")]),
+            Paragraph(content=[Text(content="Keep this")]),
+        ])
+
+        result = transform.transform(doc)
+        assert len(result.children) == 1
+        assert result.children[0].content[0].content == "Keep this"

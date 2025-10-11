@@ -236,6 +236,25 @@ DEFAULT_MAX_COMPRESSION_RATIO = 100.0  # Maximum compression ratio (uncompressed
 DEFAULT_MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024  # 1GB maximum uncompressed size
 DEFAULT_MAX_ZIP_ENTRIES = 10000  # Maximum number of entries in a ZIP archive
 
+# Regex security (ReDoS protection)
+MAX_REGEX_PATTERN_LENGTH = 500  # Maximum length for user-supplied regex patterns
+MAX_URL_LENGTH = 2048  # Maximum URL length for regex matching
+MAX_TEXT_LENGTH_FOR_REGEX = 10000  # Maximum text length for regex matching
+
+# Dangerous regex patterns that can cause catastrophic backtracking (ReDoS)
+# These patterns are checked against user-supplied regex patterns
+DANGEROUS_REGEX_PATTERNS = [
+    r'\([^)]*[*+][^)]*\)[*+]',  # Nested quantifiers like (a+)+ or (a*)*
+    r'\([^)]*[*+][^)]*\)\{[0-9,]+\}',  # Quantified groups with inner quantifiers like (a+){2,}
+    r'\(\?[^)]*[*+][^)]*\)[*+]',  # Non-capturing groups with nested quantifiers like (?:a+)+
+    r'\(\?[=!][^)]*\)[*+]',  # Lookahead/lookbehind with quantifiers like (?=.*)+
+    r'\(\?[=!][^)]*[*+][^)]*\)',  # Lookahead/lookbehind containing quantifiers like (?=.*a)
+    r'\([^)]*\|[^)]*\)[*+]{1,2}',  # Alternations in quantified groups like (a|ab)*
+    r'\(\([^)]*[*+]',  # Multiple nested groups with quantifiers like ((a+)
+    r'\.\*[*+]',  # Greedy wildcard with quantifier like .*+
+    r'\.\+\*',  # .+* pattern (greedy followed by star)
+]
+
 # =============================================================================
 # Email Processing Constants
 # =============================================================================
