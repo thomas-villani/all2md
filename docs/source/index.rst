@@ -117,7 +117,11 @@ User Guide
    security
    threat_model
    cli
+   environment_variables
+   mcp
    recipes
+   integrations
+   performance
    plugins
    troubleshooting
 
