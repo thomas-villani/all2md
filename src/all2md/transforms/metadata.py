@@ -65,6 +65,8 @@ class ParameterSpec:
         List of valid choices for this parameter
     validator : callable, optional
         Custom validation function: takes value, returns bool or raises ValueError
+    element_type : type, optional
+        For list parameters, the expected type of list elements (e.g., str, int)
 
     Examples
     --------
@@ -91,6 +93,14 @@ class ParameterSpec:
         ...     help="Positive integer"
         ... )
 
+    List parameter with element type validation:
+        >>> param = ParameterSpec(
+        ...     type=list,
+        ...     element_type=str,
+        ...     default=["image", "table"],
+        ...     help="Node types to remove"
+        ... )
+
     """
 
     type: Type
@@ -100,6 +110,7 @@ class ParameterSpec:
     required: bool = False
     choices: Optional[list[Any]] = None
     validator: Optional[Callable[[Any], bool]] = None
+    element_type: Optional[Type] = None
 
     def validate(self, value: Any) -> bool:
         """Validate a parameter value.
@@ -123,6 +134,17 @@ class ParameterSpec:
         # Check type
         if not isinstance(value, self.type):
             raise ValueError(f"Expected type {self.type.__name__}, got {type(value).__name__}")
+
+        # Check list element types
+        if self.type is list and self.element_type is not None:
+            if not isinstance(value, list):
+                raise ValueError(f"Expected list, got {type(value).__name__}")
+            for i, element in enumerate(value):
+                if not isinstance(element, self.element_type):
+                    raise ValueError(
+                        f"List element at index {i} has wrong type: "
+                        f"expected {self.element_type.__name__}, got {type(element).__name__}"
+                    )
 
         # Check choices
         if self.choices is not None and value not in self.choices:

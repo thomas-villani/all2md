@@ -59,7 +59,7 @@ from all2md.progress import ProgressCallback, ProgressEvent
 
 from .. import BaseRendererOptions
 from .hooks import HookCallable, HookContext, HookManager, HookTarget
-from .registry import TransformRegistry
+from .registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ class Pipeline:
         """Initialize pipeline with transforms, hooks, renderer, and options."""
         self.transforms = transforms or []
         self.hook_manager = HookManager(strict=strict_hooks)
-        self.registry = TransformRegistry()
+        self.registry = registry  # Use global registry instance
         self.progress_callback = progress_callback
 
         # Set up renderer

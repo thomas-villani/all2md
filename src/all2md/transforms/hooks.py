@@ -419,6 +419,10 @@ class HookManager:
     def get_node_type(self, node: Node) -> Optional[NodeType]:
         """Get the node type string for a node instance.
 
+        This method supports subclasses by using isinstance checks rather than
+        exact type matching. If a node is a subclass of a known type, it will
+        be identified by its parent type.
+
         Parameters
         ----------
         node : Node
@@ -427,10 +431,18 @@ class HookManager:
         Returns
         -------
         NodeType or None
-            Node type string (e.g., 'heading', 'image')
+            Node type string (e.g., 'heading', 'image'), or None if unknown
+
+        Notes
+        -----
+        The method iterates through known node types and returns the first match
+        using isinstance checks. This allows custom subclasses to be recognized
+        by their base type. For example, a custom MyImage(Image) subclass will
+        be identified as type 'image'.
 
         """
         # Map node classes to type strings
+        # Order matters: more specific types should be checked before more general ones
         type_map = {
             Document: 'document',
             Heading: 'heading',
@@ -465,7 +477,12 @@ class HookManager:
             DefinitionDescription: 'definition_description',
         }
 
-        return cast(Optional[NodeType], type_map.get(type(node)))
+        # Use isinstance to support subclasses
+        for node_class, node_type in type_map.items():
+            if isinstance(node, node_class):
+                return cast(NodeType, node_type)
+
+        return None
 
     def clear(self) -> None:
         """Clear all registered hooks.

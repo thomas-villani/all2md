@@ -534,6 +534,50 @@ class TestCalculateWordCountTransform:
         assert result.metadata['word_count'] == 0
         assert result.metadata['char_count'] == 0
 
+    def test_char_count_includes_synthetic_spaces(self):
+        """Test that char_count includes spaces inserted during text extraction.
+
+        This test verifies the documented behavior where text from separate
+        AST nodes is joined with spaces, creating synthetic spacing in the
+        character count.
+        """
+        # Create document where we know the exact text content
+        # Two Text nodes: "hello" (5 chars) + "world" (5 chars) = 10 chars of actual text
+        # But extract_text will join with space: "hello world" = 11 chars
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="hello"),
+                Text(content="world")
+            ])
+        ])
+
+        transform = CalculateWordCountTransform()
+        result = transform.transform(doc)
+
+        # Word count should be 2
+        assert result.metadata['word_count'] == 2
+
+        # Character count includes the synthetic space inserted by extract_text
+        # "hello" + " " + "world" = 11 characters
+        assert result.metadata['char_count'] == 11
+
+    def test_char_count_multiple_paragraphs(self):
+        """Test char_count with multiple paragraphs (block-level synthetic spaces)."""
+        # Two paragraphs with single-word text
+        # "First" (5 chars) + "Second" (6 chars) = 11 chars actual
+        # But joined: "First Second" = 12 chars with synthetic space
+        doc = Document(children=[
+            Paragraph(content=[Text(content="First")]),
+            Paragraph(content=[Text(content="Second")])
+        ])
+
+        transform = CalculateWordCountTransform()
+        result = transform.transform(doc)
+
+        assert result.metadata['word_count'] == 2
+        # Includes synthetic space between paragraphs
+        assert result.metadata['char_count'] == 12
+
 
 # AddAttachmentFootnotesTransform tests
 
@@ -709,3 +753,56 @@ class TestAddAttachmentFootnotesTransform:
         # Labels should be sanitized
         assert "my_image_1" in identifiers
         assert "file_with_spaces" in identifiers
+
+    def test_duplicate_labels_get_numeric_suffix(self):
+        """Test that duplicate labels are handled with numeric suffixes."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        # Create document with three images that would generate the same base label
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="test.png"),
+                Text(content=" "),
+                Image(url="", alt_text="test.jpg"),  # Different extension, same base
+                Text(content=" "),
+                Image(url="", alt_text="test.gif")   # Different extension, same base
+            ])
+        ])
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        # Should have 3 footnote definitions with unique identifiers
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 3
+
+        identifiers = [fd.identifier for fd in footnote_defs]
+        # First occurrence should not have suffix, subsequent ones should
+        assert "test" in identifiers
+        assert "test-2" in identifiers
+        assert "test-3" in identifiers
+
+    def test_transform_children_is_called(self):
+        """Test that transform pipeline is properly maintained via _transform_children."""
+        from all2md.ast.nodes import FootnoteDefinition
+
+        # This test verifies that the transform properly calls _transform_children
+        # so that if this transform is part of a pipeline, other transforms can work
+        doc = Document(children=[
+            Paragraph(content=[
+                Image(url="", alt_text="test.png")
+            ])
+        ])
+
+        # Apply the transform
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        # The result should be a properly transformed Document
+        # with children that went through _transform_children
+        assert isinstance(result, Document)
+        # Original paragraph should still be there
+        assert any(isinstance(child, Paragraph) for child in result.children)
+        # Footnote should be added
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1

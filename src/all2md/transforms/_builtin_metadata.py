@@ -48,6 +48,7 @@ REMOVE_NODES_METADATA = TransformMetadata(
     parameters={
         'node_types': ParameterSpec(
             type=list,
+            element_type=str,
             default=['image'],
             help="List of node types to remove (e.g., 'image', 'table', 'code_block')",
             cli_flag='--node-types'
@@ -165,6 +166,7 @@ REMOVE_BOILERPLATE_METADATA = TransformMetadata(
     parameters={
         'patterns': ParameterSpec(
             type=list,
+            element_type=str,
             default=DEFAULT_BOILERPLATE_PATTERNS,
             help="List of regex patterns to match for removal",
             cli_flag='--boilerplate-patterns'

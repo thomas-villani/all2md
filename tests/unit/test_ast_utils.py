@@ -3,7 +3,6 @@
 # tests/unit/test_ast_utils.py
 """Tests for AST utility functions."""
 
-import pytest
 
 from all2md.ast import (
     Document,

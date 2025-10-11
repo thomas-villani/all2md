@@ -104,6 +104,37 @@ class TestParameterSpec:
         param = ParameterSpec(type=int, cli_flag="--custom")
         assert param.get_cli_flag("threshold") == "--custom"
 
+    def test_list_element_type_validation_success(self):
+        """Test list element type validation - success case."""
+        param = ParameterSpec(type=list, element_type=str, default=['a', 'b'])
+        assert param.validate(['x', 'y', 'z']) is True
+
+    def test_list_element_type_validation_failure(self):
+        """Test list element type validation - failure case."""
+        param = ParameterSpec(type=list, element_type=str, default=['a', 'b'])
+
+        with pytest.raises(ValueError, match="List element at index 1 has wrong type"):
+            param.validate(['valid', 123, 'also_valid'])
+
+    def test_list_element_type_mixed_types(self):
+        """Test list element type validation with mixed types."""
+        param = ParameterSpec(type=list, element_type=int)
+
+        with pytest.raises(ValueError, match="expected int, got str"):
+            param.validate([1, 2, 'three', 4])
+
+    def test_list_without_element_type(self):
+        """Test list validation without element type constraint."""
+        param = ParameterSpec(type=list, default=[])
+        # Should accept any list elements without element_type specified
+        assert param.validate([1, 'two', 3.0, None]) is True
+
+    def test_list_element_type_empty_list(self):
+        """Test list element type validation with empty list."""
+        param = ParameterSpec(type=list, element_type=str)
+        # Empty list should pass validation
+        assert param.validate([]) is True
+
 
 class TestTransformMetadata:
     """Tests for TransformMetadata class."""

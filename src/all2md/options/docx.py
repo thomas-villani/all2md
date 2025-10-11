@@ -7,8 +7,15 @@ supporting both AST parsing and rendering operations.
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_COMMENT_MODE, CommentMode, DEFAULT_DOCX_FONT, DEFAULT_DOCX_FONT_SIZE, \
-    DEFAULT_DOCX_CODE_FONT, DEFAULT_DOCX_CODE_FONT_SIZE, DEFAULT_DOCX_TABLE_STYLE
+from all2md.constants import (
+    DEFAULT_COMMENT_MODE,
+    DEFAULT_DOCX_CODE_FONT,
+    DEFAULT_DOCX_CODE_FONT_SIZE,
+    DEFAULT_DOCX_FONT,
+    DEFAULT_DOCX_FONT_SIZE,
+    DEFAULT_DOCX_TABLE_STYLE,
+    CommentMode,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 

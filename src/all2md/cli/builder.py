@@ -23,7 +23,7 @@ from all2md.cli.custom_actions import (
 )
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
-from all2md.exceptions import PasswordProtectedError, SecurityError, ValidationError, FileError, RenderingError
+from all2md.exceptions import FileError, PasswordProtectedError, RenderingError, SecurityError, ValidationError
 from all2md.options.markdown import MarkdownOptions
 
 # Module logger for consistent warning/error reporting

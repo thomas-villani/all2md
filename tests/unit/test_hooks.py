@@ -277,6 +277,32 @@ class TestHookManager:
         link = Link(url="https://example.com", content=[])
         assert manager.get_node_type(link) == 'link'
 
+    def test_get_node_type_supports_subclasses(self, manager):
+        """Test that get_node_type works with subclasses using isinstance checks."""
+        # Create a custom Image subclass
+        class CustomImage(Image):
+            """Custom Image subclass for testing."""
+
+            pass
+
+        # Create instance of subclass
+        custom_img = CustomImage(url="custom.png", alt_text="custom")
+
+        # Should be identified as 'image' via isinstance check
+        assert manager.get_node_type(custom_img) == 'image'
+
+    def test_get_node_type_unknown_node_returns_none(self, manager):
+        """Test that unknown node types return None."""
+        # Create a mock object that's not a known node type
+        class UnknownNode:
+            pass
+
+        unknown = UnknownNode()
+        # Should return None for unknown types
+        # Note: This will fail isinstance checks against Node, but we're testing the behavior
+        result = manager.get_node_type(unknown)  # type: ignore
+        assert result is None
+
     def test_clear_hooks(self, manager):
         """Test clearing all hooks."""
         def my_hook(node, context):

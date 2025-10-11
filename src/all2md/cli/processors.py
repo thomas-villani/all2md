@@ -15,8 +15,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from all2md import to_markdown
-from all2md.cli.builder import DynamicCLIBuilder, EXIT_SUCCESS, EXIT_ERROR, EXIT_DEPENDENCY_ERROR, \
-    get_exit_code_for_exception
+from all2md.cli.builder import (
+    EXIT_DEPENDENCY_ERROR,
+    EXIT_ERROR,
+    EXIT_SUCCESS,
+    DynamicCLIBuilder,
+    get_exit_code_for_exception,
+)
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
 

@@ -51,7 +51,7 @@ import os
 import sys
 from pathlib import Path
 
-from all2md.cli.builder import DynamicCLIBuilder, create_parser, EXIT_VALIDATION_ERROR, EXIT_FILE_ERROR
+from all2md.cli.builder import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR, DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
     _configure_logging,
     _get_about_info,

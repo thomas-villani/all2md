@@ -223,10 +223,11 @@ class TestRedirectValidationEdgeCases:
 
     def test_http_to_https_to_http_redirect_chain(self):
         """Test that HTTP->HTTPS->HTTP redirect chains are validated."""
-        from unittest.mock import Mock, patch
         import ipaddress
-        from all2md.utils.network_security import create_secure_http_client
+        from unittest.mock import Mock, patch
+
         from all2md.exceptions import NetworkSecurityError
+        from all2md.utils.network_security import create_secure_http_client
 
         with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
@@ -254,10 +255,11 @@ class TestRedirectValidationEdgeCases:
 
     def test_cross_host_redirect_chain(self):
         """Test that cross-host redirects are all validated."""
-        from unittest.mock import Mock, patch
         import ipaddress
-        from all2md.utils.network_security import create_secure_http_client
+        from unittest.mock import Mock, patch
+
         from all2md.exceptions import NetworkSecurityError
+        from all2md.utils.network_security import create_secure_http_client
 
         with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
             # Different hosts resolve to different IPs
@@ -293,8 +295,9 @@ class TestRedirectValidationEdgeCases:
 
     def test_idn_internationalized_domain_redirects(self):
         """Test that IDN (Internationalized Domain Names) are properly validated."""
-        from unittest.mock import Mock, patch
         import ipaddress
+        from unittest.mock import Mock, patch
+
         from all2md.utils.network_security import create_secure_http_client
 
         with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
@@ -321,8 +324,9 @@ class TestRedirectValidationEdgeCases:
 
     def test_empty_redirect_history_validates_initial_request(self):
         """Test that requests with no redirects still validate the initial URL."""
-        from unittest.mock import Mock, patch
         import ipaddress
+        from unittest.mock import Mock, patch
+
         from all2md.utils.network_security import create_secure_http_client
 
         with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
@@ -344,10 +348,11 @@ class TestRedirectValidationEdgeCases:
 
     def test_redirect_with_url_encoded_private_ip(self):
         """Test that URL-encoded private IPs in redirects are caught."""
-        from unittest.mock import Mock, patch
         import ipaddress
-        from all2md.utils.network_security import create_secure_http_client
+        from unittest.mock import Mock, patch
+
         from all2md.exceptions import NetworkSecurityError
+        from all2md.utils.network_security import create_secure_http_client
 
         with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
             def resolver(hostname):

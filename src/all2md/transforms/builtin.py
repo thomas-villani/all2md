@@ -722,6 +722,22 @@ class CalculateWordCountTransform(NodeTransformer):
         ... )
         >>> new_doc = transform.transform(document)
 
+    Notes
+    -----
+    **Character Count Behavior**: The `char_count` metric represents the length
+    of normalized text extracted from the AST, not the original document's
+    character count. During text extraction, text fragments from separate AST
+    nodes are joined with spaces, which may introduce synthetic spacing not
+    present in the original document. For example, if the AST contains two
+    adjacent Text nodes ``Text("hello")`` and ``Text("world")``, the extracted
+    text will be ``"hello world"`` (11 characters including the inserted space),
+    even though the original text nodes only contain 10 characters total.
+
+    This normalized approach provides consistent metrics across different AST
+    structures, though it may not exactly match the original document's byte
+    count. Word count is calculated by splitting the normalized text on
+    whitespace, which is generally more robust to these variations.
+
     """
 
     def __init__(self, word_field: str = "word_count", char_field: str = "char_count"):
@@ -776,8 +792,8 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
 
     When attachments are processed with alt_text_mode="footnote", they generate
     footnote-style references like ![image][^label] but no corresponding definitions.
-    This transform scans the rendered markdown for such references and adds
-    FootnoteDefinition nodes with source information.
+    This transform scans the AST for such references and adds FootnoteDefinition
+    nodes with source information.
 
     Parameters
     ----------
@@ -805,8 +821,13 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
     This transform works by:
     1. Collecting all Image and Link nodes with empty URLs (indicates footnote mode)
     2. Extracting footnote labels from alt text or title
-    3. Creating FootnoteDefinition nodes with source information
-    4. Appending definitions to the end of the document
+    3. Handling duplicate labels by appending numeric suffixes (-2, -3, etc.)
+    4. Creating FootnoteDefinition nodes with source information
+    5. Appending definitions to the end of the document
+
+    Duplicate labels are resolved using a counter mechanism similar to heading ID
+    generation. When a label appears multiple times, subsequent occurrences get
+    a numeric suffix to ensure unique footnote identifiers
 
     """
 
@@ -832,6 +853,7 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         self.add_definitions_for_images = add_definitions_for_images
         self.add_definitions_for_links = add_definitions_for_links
         self._footnote_refs: dict[str, str] = {}  # label -> source info
+        self._label_counts: dict[str, int] = {}  # base label -> occurrence count
 
     def visit_document(self, node: Document) -> Document:
         """Process document and add footnote definitions.
@@ -849,6 +871,7 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         """
         # Reset footnote collection
         self._footnote_refs = {}
+        self._label_counts = {}
 
         # Traverse document to collect footnote references
         self._collect_footnote_refs(node)
@@ -876,7 +899,7 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
             new_children.append(definition)
 
         return Document(
-            children=new_children,
+            children=self._transform_children(new_children),
             metadata=node.metadata,
             source_location=node.source_location
         )
@@ -892,17 +915,37 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         """
         # Check if this is an Image or Link with empty URL (footnote mode)
         if self.add_definitions_for_images and isinstance(node, Image) and not node.url:
-            # Extract footnote label from rendered markdown
-            # The label is derived from alt_text or filename
-            label = self._extract_label(node.alt_text or "attachment")
-            if label:
-                self._footnote_refs[label] = node.alt_text or "Unknown source"
+            # Extract footnote label from alt_text, metadata, or fallback
+            source_text = node.alt_text or node.metadata.get('original_filename') or "attachment"
+            base_label = self._extract_label(source_text)
+
+            if base_label:
+                # Handle duplicate labels with numeric suffix
+                if base_label in self._label_counts:
+                    self._label_counts[base_label] += 1
+                    label = f"{base_label}-{self._label_counts[base_label]}"
+                else:
+                    self._label_counts[base_label] = 1
+                    label = base_label
+
+                self._footnote_refs[label] = source_text
 
         if self.add_definitions_for_links and isinstance(node, Link) and not node.url:
-            # Extract label from link content
-            label = self._extract_label(self._get_link_text(node))
-            if label:
-                self._footnote_refs[label] = self._get_link_text(node) or "Unknown source"
+            # Extract label from link content or metadata
+            link_text = self._get_link_text(node)
+            source_text = link_text or node.metadata.get('original_filename') or "attachment"
+            base_label = self._extract_label(source_text)
+
+            if base_label:
+                # Handle duplicate labels with numeric suffix
+                if base_label in self._label_counts:
+                    self._label_counts[base_label] += 1
+                    label = f"{base_label}-{self._label_counts[base_label]}"
+                else:
+                    self._label_counts[base_label] = 1
+                    label = base_label
+
+                self._footnote_refs[label] = source_text
 
         # Recurse into children
         if hasattr(node, 'children') and isinstance(node.children, list):

@@ -13,22 +13,30 @@ The registry follows the same pattern as `ConverterRegistry` for consistency.
 
 Examples
 --------
-Register a transform:
+Register a transform using the global registry instance (preferred):
 
-    >>> from all2md.transforms import TransformRegistry, TransformMetadata
-    >>> registry = TransformRegistry()
+    >>> from all2md.transforms import registry, TransformMetadata
     >>> registry.register(my_transform_metadata)
 
 Get a transform:
 
+    >>> from all2md.transforms import registry
     >>> transformer = registry.get_transform("remove-images")
 
 List all transforms:
 
+    >>> from all2md.transforms import registry
     >>> names = registry.list_transforms()
     >>> for name in names:
     ...     metadata = registry.get_metadata(name)
     ...     print(f"{name}: {metadata.description}")
+
+Notes
+-----
+The preferred access pattern is to import the global `registry` instance directly
+rather than instantiating TransformRegistry. While both patterns work due to the
+singleton implementation, using the global instance is more explicit and consistent
+with the library's design.
 
 """
 
@@ -59,18 +67,24 @@ class TransformRegistry:
     The registry automatically discovers transforms via the `all2md.transforms`
     entry point group on first access.
 
+    Notes
+    -----
+    The preferred way to access the registry is by importing the global `registry`
+    instance rather than instantiating this class directly. While instantiation
+    works due to the singleton pattern, importing `registry` is more explicit.
+
     Examples
     --------
-    Get the registry instance:
-        >>> registry = TransformRegistry()
-
-    Register a transform:
+    Use the global registry instance (preferred):
+        >>> from all2md.transforms import registry
         >>> registry.register(metadata)
 
     Get a transform instance:
+        >>> from all2md.transforms import registry
         >>> transformer = registry.get_transform("remove-images")
 
     List all available transforms:
+        >>> from all2md.transforms import registry
         >>> transforms = registry.list_transforms()
 
     """
@@ -428,7 +442,8 @@ class TransformRegistry:
         logger.debug("Cleared transform registry")
 
 
-# Global registry instance
+# Global registry instance (preferred access pattern)
+# Use this instance rather than instantiating TransformRegistry directly
 registry = TransformRegistry()
 
 

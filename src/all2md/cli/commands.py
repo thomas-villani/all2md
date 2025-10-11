@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from all2md import convert, registry
-from all2md.cli.builder import create_parser, EXIT_SUCCESS, get_exit_code_for_exception
+from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception
 from all2md.cli.processors import process_detect_only, process_dry_run
 from all2md.converter_metadata import ConverterMetadata
 from all2md.dependencies import check_version_requirement, get_package_version
@@ -875,13 +875,12 @@ def _default_extension_for_format(target_format: str) -> str:
 
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
+    from all2md.cli import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR
     from all2md.cli.processors import (
         process_stdin,
         setup_and_validate_options,
         validate_arguments,
     )
-    from all2md.cli import EXIT_FILE_ERROR
-    from all2md.cli import EXIT_VALIDATION_ERROR
 
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 
