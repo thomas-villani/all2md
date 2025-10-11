@@ -76,7 +76,6 @@ logger = logging.getLogger(__name__)
 
 # Type aliases
 HookPoint = Literal[
-    'pre_ast',
     'post_ast',
     'pre_transform',
     'post_transform',

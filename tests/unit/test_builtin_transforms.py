@@ -125,6 +125,30 @@ class TestRemoveNodesTransform:
         # Should still have headings
         assert any(isinstance(child, Heading) for child in result.children)
 
+    def test_raises_error_for_document_type(self):
+        """Test that attempting to remove 'document' raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            RemoveNodesTransform(node_types=['document'])
+
+        assert "Cannot remove 'document' node type" in str(exc_info.value)
+        assert "break the pipeline" in str(exc_info.value)
+
+    def test_allows_other_types_with_document_excluded(self):
+        """Test that other types work normally when document is not included."""
+        # This should work fine
+        transform = RemoveNodesTransform(node_types=['image', 'heading'])
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Title")]),
+            Paragraph(content=[Text(content="Text")]),
+        ])
+
+        result = transform.transform(doc)
+
+        # Document should still exist, heading removed
+        assert isinstance(result, Document)
+        assert len(result.children) == 1
+        assert isinstance(result.children[0], Paragraph)
+
 
 # HeadingOffsetTransform tests
 

@@ -60,7 +60,9 @@ from all2md.ast.nodes import (
     Text,
 )
 from all2md.ast.transforms import NodeTransformer
+from all2md.ast.utils import extract_text
 from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
+from all2md.transforms.hooks import HookManager
 
 
 class RemoveImagesTransform(NodeTransformer):
@@ -114,17 +116,6 @@ class RemoveNodesTransform(NodeTransformer):
 
     """
 
-    # Mapping of node type strings to node classes
-    NODE_TYPE_MAP = {
-        'document': Document,
-        'heading': Heading,
-        'paragraph': Paragraph,
-        'image': Image,
-        'link': Link,
-        'text': Text,
-        # Add more as needed
-    }
-
     def __init__(self, node_types: list[str]):
         """Initialize with list of node types to remove.
 
@@ -133,8 +124,22 @@ class RemoveNodesTransform(NodeTransformer):
         node_types : list[str]
             Node type names to remove
 
+        Raises
+        ------
+        ValueError
+            If 'document' is in node_types (cannot remove root node)
+
         """
+        # Validate that 'document' is not in node_types
+        if 'document' in node_types:
+            raise ValueError(
+                "Cannot remove 'document' node type - this would break the pipeline. "
+                "Consider using specific child node types instead (e.g., 'heading', 'paragraph')."
+            )
+
         self.node_types = set(node_types)
+        # Use centralized node type mapping from HookManager
+        self._hook_manager = HookManager()
 
     def transform(self, node: Node) -> Node | None:
         """Transform node, removing it if it matches specified types.
@@ -150,56 +155,15 @@ class RemoveNodesTransform(NodeTransformer):
             None if node should be removed, otherwise transformed node
 
         """
-        # Get node type string
-        node_type = self._get_node_type_string(node)
+        # Get node type string using centralized mapping
+        node_type = self._hook_manager.get_node_type(node)
 
-        # Remove if it matches
-        if node_type in self.node_types:
+        # Remove if it matches (node_type can be None for unknown types)
+        if node_type and node_type in self.node_types:
             return None
 
         # Otherwise continue normal traversal
         return super().transform(node)
-
-    def _get_node_type_string(self, node: Node) -> str:
-        """Get the type string for a node.
-
-        Parameters
-        ----------
-        node : Node
-            Node to get type for
-
-        Returns
-        -------
-        str
-            Node type string (e.g., 'image', 'heading')
-
-        """
-        # Reverse lookup in NODE_TYPE_MAP
-        for type_str, node_class in self.NODE_TYPE_MAP.items():
-            if isinstance(node, node_class):
-                return type_str
-
-        # Fallback: use class name in snake_case
-        class_name = type(node).__name__
-        return self._camel_to_snake(class_name)
-
-    @staticmethod
-    def _camel_to_snake(name: str) -> str:
-        """Convert CamelCase to snake_case.
-
-        Parameters
-        ----------
-        name : str
-            CamelCase string
-
-        Returns
-        -------
-        str
-            snake_case string
-
-        """
-        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
 class HeadingOffsetTransform(NodeTransformer):
@@ -447,8 +411,8 @@ class AddHeadingIdsTransform(NodeTransformer):
             Heading with ID in metadata
 
         """
-        # Extract text from heading content
-        text = self._extract_text_from_nodes(node.content)
+        # Extract text from heading content (no joiner for slugification)
+        text = extract_text(node.content, joiner="")
 
         # Generate slug
         slug = self._slugify(text)
@@ -473,29 +437,6 @@ class AddHeadingIdsTransform(NodeTransformer):
             metadata=new_metadata,
             source_location=node.source_location
         )
-
-    def _extract_text_from_nodes(self, nodes: list[Node]) -> str:
-        """Extract plain text from a list of nodes.
-
-        Parameters
-        ----------
-        nodes : list[Node]
-            Nodes to extract text from
-
-        Returns
-        -------
-        str
-            Concatenated text
-
-        """
-        text_parts = []
-        for node in nodes:
-            if isinstance(node, Text):
-                text_parts.append(node.content)
-            elif hasattr(node, 'content') and isinstance(node.content, list):
-                # Recursive for nested content (e.g., emphasis in heading)
-                text_parts.append(self._extract_text_from_nodes(node.content))
-        return ''.join(text_parts)
 
     def _slugify(self, text: str) -> str:
         """Convert text to URL-safe slug.
@@ -578,8 +519,8 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
             None if matches boilerplate, otherwise paragraph
 
         """
-        # Extract text from paragraph
-        text = self._extract_text_from_nodes(node.content)
+        # Extract text from paragraph (no joiner to match exact text)
+        text = extract_text(node.content, joiner="")
 
         # Check against patterns
         text_stripped = text.strip()
@@ -589,28 +530,6 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
 
         # Keep paragraph
         return super().visit_paragraph(node)
-
-    def _extract_text_from_nodes(self, nodes: list[Node]) -> str:
-        """Extract plain text from nodes.
-
-        Parameters
-        ----------
-        nodes : list[Node]
-            Nodes to extract from
-
-        Returns
-        -------
-        str
-            Concatenated text
-
-        """
-        text_parts = []
-        for node in nodes:
-            if isinstance(node, Text):
-                text_parts.append(node.content)
-            elif hasattr(node, 'content') and isinstance(node.content, list):
-                text_parts.append(self._extract_text_from_nodes(node.content))
-        return ''.join(text_parts)
 
 
 class AddConversionTimestampTransform(NodeTransformer):
@@ -771,8 +690,8 @@ class CalculateWordCountTransform(NodeTransformer):
             Document with counts in metadata
 
         """
-        # Extract all text
-        all_text = self._extract_all_text(node)
+        # Extract all text (with space joiner for word counting)
+        all_text = extract_text(node, joiner=" ")
 
         # Calculate counts
         word_count = len(all_text.split())
@@ -788,38 +707,6 @@ class CalculateWordCountTransform(NodeTransformer):
             metadata=new_metadata,
             source_location=node.source_location
         )
-
-    def _extract_all_text(self, node: Node) -> str:
-        """Recursively extract all text from a node.
-
-        Parameters
-        ----------
-        node : Node
-            Node to extract from
-
-        Returns
-        -------
-        str
-            All text concatenated
-
-        """
-        text_parts = []
-
-        # If node is Text, get its content
-        if isinstance(node, Text):
-            text_parts.append(node.content)
-
-        # If node has children list, recurse
-        if hasattr(node, 'children') and isinstance(node.children, list):
-            for child in node.children:
-                text_parts.append(self._extract_all_text(child))
-
-        # If node has content list (inline nodes), recurse
-        if hasattr(node, 'content') and isinstance(node.content, list):
-            for child in node.content:
-                text_parts.append(self._extract_all_text(child))
-
-        return ' '.join(text_parts)
 
 
 class AddAttachmentFootnotesTransform(NodeTransformer):

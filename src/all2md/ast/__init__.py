@@ -101,6 +101,9 @@ from all2md.ast.transforms import (
     transform_nodes,
 )
 
+# Utilities
+from all2md.ast.utils import extract_text
+
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor
 
@@ -166,4 +169,6 @@ __all__ = [
     "HeadingLevelTransformer",
     "LinkRewriter",
     "TextReplacer",
+    # Utilities
+    "extract_text",
 ]
