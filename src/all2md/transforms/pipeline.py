@@ -98,6 +98,8 @@ class HookAwareVisitor(NodeTransformer):
 
         The node is pushed onto node_path before processing and remains there
         during child traversal, ensuring descendants can see full ancestry.
+        If a hook replaces the node, the path is updated so descendants see
+        the new node in their ancestry.
 
         Parameters
         ----------
@@ -114,8 +116,7 @@ class HookAwareVisitor(NodeTransformer):
         # This happens for ALL nodes, not just those with hooks, so that
         # descendant hooks can see their full ancestry even if some ancestors
         # don't have hooks registered
-        pushed_node = node
-        self.context.node_path.append(pushed_node)
+        self.context.node_path.append(node)
 
         try:
             # Get node type for hook lookup
@@ -124,21 +125,23 @@ class HookAwareVisitor(NodeTransformer):
             # Execute element hook if registered
             if node_type and self.hook_manager.has_hooks(node_type):
                 # Execute hooks for this node type (may replace node variable)
-                # We keep the original pushed_node on the path even if hooks
-                # return a different node object
                 node = self.hook_manager.execute_hooks(node_type, node, self.context)
 
                 # Hook removed node
                 if node is None:
                     return None  # type: ignore[unreachable]
 
+                # If hook replaced the node with a different object, update the path
+                # so descendants see the new node in their ancestry
+                if node is not self.context.node_path[-1]:
+                    self.context.node_path[-1] = node
+
             # Continue normal traversal with node still on path
             # This ensures children see this node in their ancestry
             return super().transform(node)
         finally:
-            # Always pop the originally pushed node after child traversal completes
-            # Check that we actually have something to pop (defensive programming)
-            if self.context.node_path and self.context.node_path[-1] is pushed_node:
+            # Always pop the top of the path after child traversal completes
+            if self.context.node_path:
                 self.context.node_path.pop()
 
 
@@ -264,8 +267,8 @@ class Pipeline:
         """Resolve transform names/instances to ordered list of instances.
 
         This method converts string transform names to instances via the
-        registry, resolves dependencies, and combines them with provided
-        instances in the correct execution order.
+        registry, resolves dependencies, and maintains the user-provided
+        order by expanding named transforms in place with their dependencies.
 
         Returns
         -------
@@ -280,31 +283,32 @@ class Pipeline:
             If transform name is not found in registry
 
         """
-        instances: list[NodeTransformer] = []
-        names_to_resolve: list[str] = []
+        result: list[NodeTransformer] = []
+        seen_names: set[str] = set()
 
-        # Separate string names from instances
+        # Process transforms in the order provided by user
         for t in self.transforms:
-            if isinstance(t, str):
-                names_to_resolve.append(t)
-            elif isinstance(t, NodeTransformer):
-                instances.append(t)
+            if isinstance(t, NodeTransformer):
+                # Direct instance - add as-is to maintain position
+                result.append(t)
+            elif isinstance(t, str):
+                # Named transform - resolve with dependencies if not already seen
+                if t not in seen_names:
+                    # Get all dependencies in order (includes t itself)
+                    ordered_deps = self.registry.resolve_dependencies([t])
+
+                    # Add each dependency if not already seen
+                    for name in ordered_deps:
+                        if name not in seen_names:
+                            result.append(self.registry.get_transform(name))
+                            seen_names.add(name)
             else:
                 raise TypeError(
                     f"Transform must be str or NodeTransformer, got {type(t).__name__}"
                 )
 
-        # Resolve dependencies and get instances for named transforms
-        if names_to_resolve:
-            # Resolve dependencies (topological sort)
-            ordered = self.registry.resolve_dependencies(names_to_resolve)
-
-            # Get instances in dependency order
-            for name in ordered:
-                instances.append(self.registry.get_transform(name))
-
-        logger.debug(f"Resolved {len(instances)} transform(s) for execution")
-        return instances
+        logger.debug(f"Resolved {len(result)} transform(s) for execution")
+        return result
 
     def _apply_transforms(self, document: Document, context: HookContext) -> Document:
         """Apply all transforms in order.
@@ -341,6 +345,9 @@ class Pipeline:
                 if result is None:
                     raise ValueError("pre_transform hook removed document")
 
+                # Update context.document to reflect any modifications
+                context.document = result
+
             # Apply transform
             logger.debug(f"Applying transform: {transformer.__class__.__name__}")
             context.transform_name = transformer.__class__.__name__
@@ -362,6 +369,9 @@ class Pipeline:
                     )
                 result = transformed_result
 
+                # Update context.document to reflect transform modifications
+                context.document = result
+
             except Exception as e:
                 logger.error(
                     f"Transform {transformer.__class__.__name__} failed: {e}",
@@ -376,6 +386,9 @@ class Pipeline:
 
                 if result is None:
                     raise ValueError("post_transform hook removed document")
+
+                # Update context.document to reflect any modifications
+                context.document = result
 
         context.transform_name = None
         return result
@@ -507,10 +520,14 @@ class Pipeline:
                 raise ValueError("post_ast hook removed document")
 
             document = result
+            # Update context.document to reflect any modifications
+            context.document = document
 
         # Apply transforms
         if self.transforms:
             document = self._apply_transforms(document, context)
+            # Update context.document to reflect transform modifications
+            context.document = document
 
         # Pre-render hook (before element hooks, for document-level validation)
         if self.hook_manager.has_hooks('pre_render'):
@@ -521,9 +538,13 @@ class Pipeline:
                 raise ValueError("pre_render hook removed document")
 
             document = result
+            # Update context.document to reflect any modifications
+            context.document = document
 
         # Apply element hooks (after pre_render, before rendering)
         document = self._apply_element_hooks(document, context)
+        # Update context.document to reflect any modifications from element hooks
+        context.document = document
 
         # Render
         output = self._render(document)
@@ -649,10 +670,14 @@ def apply(
             raise ValueError("post_ast hook removed document")
 
         document = result
+        # Update context.document to reflect any modifications
+        context.document = document
 
     # Apply transforms
     if pipeline.transforms:
         document = pipeline._apply_transforms(document, context)
+        # Update context.document to reflect transform modifications
+        context.document = document
 
     # Pre-render hook (before element hooks, for document-level validation)
     if pipeline.hook_manager.has_hooks('pre_render'):
@@ -663,9 +688,13 @@ def apply(
             raise ValueError("pre_render hook removed document")
 
         document = result
+        # Update context.document to reflect any modifications
+        context.document = document
 
     # Apply element hooks (after pre_render, would normally be before rendering)
     document = pipeline._apply_element_hooks(document, context)
+    # Update context.document to reflect any modifications from element hooks
+    context.document = document
 
     logger.info("Apply execution complete")
     return document

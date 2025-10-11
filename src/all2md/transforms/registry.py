@@ -317,8 +317,9 @@ class TransformRegistry:
     def resolve_dependencies(self, transform_names: list[str]) -> list[str]:
         """Resolve transform dependencies and return execution order.
 
-        This method performs topological sorting to determine the correct
-        execution order based on dependencies and priorities.
+        This method performs topological sorting using Kahn's algorithm to
+        determine the correct execution order based on dependencies and priorities.
+        Priority is used as a tiebreaker among transforms with no pending dependencies.
 
         Parameters
         ----------
@@ -372,31 +373,47 @@ class TransformRegistry:
         for name in transform_names:
             add_to_graph(name)
 
-        # Topological sort with cycle detection
-        sorted_names: list[str] = []
-        visiting: set[str] = set()
-        visited: set[str] = set()
+        # Kahn's algorithm with priority-based tiebreaking
+        # This preserves topological order while honoring priority among independent nodes
 
-        def visit(name: str) -> None:
-            if name in visited:
-                return
-            if name in visiting:
-                raise ValueError(f"Circular dependency detected involving '{name}'")
-
-            visiting.add(name)
+        # Build reverse graph: reverse_graph[A] = list of transforms that depend on A
+        reverse_graph: dict[str, list[str]] = {name: [] for name in graph}
+        for name in graph:
             for dep in graph[name]:
-                visit(dep)
-            visiting.remove(name)
-            visited.add(name)
+                if dep not in reverse_graph:
+                    reverse_graph[dep] = []
+                reverse_graph[dep].append(name)
+
+        # Compute indegrees (number of dependencies each transform has)
+        indegree: dict[str, int] = {name: len(graph[name]) for name in graph}
+
+        # Initialize min-heap with zero-indegree nodes (sorted by priority)
+        import heapq
+        heap: list[tuple[int, str]] = [
+            (priorities.get(name, 100), name)
+            for name, deg in indegree.items()
+            if deg == 0
+        ]
+        heapq.heapify(heap)
+
+        sorted_names: list[str] = []
+        while heap:
+            _, name = heapq.heappop(heap)
             sorted_names.append(name)
 
-        for name in graph:
-            visit(name)
+            # Decrease indegree for dependents (those that depend on name)
+            for dependent in reverse_graph[name]:
+                indegree[dependent] -= 1
+                if indegree[dependent] == 0:
+                    heapq.heappush(heap, (priorities.get(dependent, 100), dependent))
 
-        # Within same dependency level, sort by priority (lower first)
-        # This is a simplified approach - for more complex scenarios,
-        # we could group by dependency depth and sort each group by priority
-        sorted_names.sort(key=lambda n: priorities.get(n, 100))
+        # Check for circular dependencies
+        if len(sorted_names) != len(graph):
+            # Find a node that's still in the graph (part of a cycle)
+            remaining = set(graph.keys()) - set(sorted_names)
+            raise ValueError(
+                f"Circular dependency detected involving: {', '.join(sorted(remaining))}"
+            )
 
         return sorted_names
 
