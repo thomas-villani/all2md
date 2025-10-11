@@ -1005,14 +1005,25 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
                 if parsed_args.pager:
                     try:
-                        from rich.console import Console
-                        console = Console()
-                        with console.pager(styles=True):
-                            if parsed_args.rich:
-                                from rich.markdown import Markdown
+                        if parsed_args.rich:
+                            from rich.console import Console
+                            from rich.markdown import Markdown
+                            console = Console()
+                            # Capture Rich output with ANSI codes
+                            with console.capture() as capture:
                                 console.print(Markdown(rendered_text))
-                            else:
-                                console.print(rendered_text)
+                            content_to_page = capture.get()
+                            is_rich = True
+                        else:
+                            content_to_page = rendered_text
+                            is_rich = False
+
+                        # Import the helper function
+                        from all2md.cli.processors import _page_content
+                        # Try to page the content using available pager
+                        if not _page_content(content_to_page, is_rich=is_rich):
+                            # If paging fails, just print the content
+                            print(content_to_page)
                     except ImportError:
                         print(rendered_text)
                 else:

@@ -14,7 +14,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from all2md import to_markdown
+from all2md import convert, to_markdown
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
@@ -24,6 +24,58 @@ from all2md.cli.builder import (
 )
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
+
+
+def _page_content(content: str, is_rich: bool = False) -> bool:
+    """Page content using pydoc.pager.
+
+    Parameters
+    ----------
+    content : str
+        Content to page
+    is_rich : bool
+        Whether the content contains Rich formatting (ANSI codes)
+
+    Returns
+    -------
+    bool
+        True if paging succeeded, False if should fall back to printing
+
+    """
+    import platform
+    import pydoc
+
+    # Check if using Rich formatting on Windows/WSL
+    # Plain text paging works fine on Windows, but Rich ANSI codes don't display well
+    if is_rich:
+        system = platform.system()
+        is_windows_or_wsl = False
+
+        if system == 'Windows':
+            is_windows_or_wsl = True
+        elif system == 'Linux':
+            # Check if running under WSL
+            try:
+                with open('/proc/version', 'r') as f:
+                    if 'microsoft' in f.read().lower():
+                        is_windows_or_wsl = True
+            except Exception:
+                pass
+
+        if is_windows_or_wsl:
+            print(
+                "Warning: --pager with --rich is not well supported on Windows/WSL.",
+                file=sys.stderr
+            )
+            print("The content will be displayed without paging.", file=sys.stderr)
+            return False
+
+    # Use pydoc.pager (works fine for plain text on all platforms)
+    try:
+        pydoc.pager(content)
+        return True
+    except Exception:
+        return False
 
 
 def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
@@ -330,14 +382,23 @@ def process_stdin(
         else:
             if parsed_args.pager:
                 try:
-                    from rich.console import Console
-                    console = Console()
-                    with console.pager(styles=True):
-                        if parsed_args.rich:
-                            from rich.markdown import Markdown
+                    if parsed_args.rich:
+                        from rich.console import Console
+                        from rich.markdown import Markdown
+                        console = Console()
+                        # Capture Rich output with ANSI codes
+                        with console.capture() as capture:
                             console.print(Markdown(markdown_content))
-                        else:
-                            console.print(markdown_content)
+                        content_to_page = capture.get()
+                        is_rich = True
+                    else:
+                        content_to_page = markdown_content
+                        is_rich = False
+
+                    # Try to page the content using available pager
+                    if not _page_content(content_to_page, is_rich=is_rich):
+                        # If paging fails, just print the content
+                        print(content_to_page)
                 except ImportError:
                     msg = "Warning: Rich library not installed. Install with: pip install all2md[rich]"
                     print(msg, file=sys.stderr)
@@ -432,7 +493,6 @@ def process_multi_file(
         # Handle pager for stdout output
         if output_path is None and parsed_args.pager:
             try:
-                from rich.console import Console
                 # Convert the document
                 markdown_content = to_markdown(
                     file,
@@ -442,13 +502,23 @@ def process_multi_file(
                 )
 
                 # Display with pager
-                console = Console()
-                with console.pager(styles=True):
-                    if parsed_args.rich:
-                        from rich.markdown import Markdown
+                if parsed_args.rich:
+                    from rich.console import Console
+                    from rich.markdown import Markdown
+                    console = Console()
+                    # Capture Rich output with ANSI codes
+                    with console.capture() as capture:
                         console.print(Markdown(markdown_content))
-                    else:
-                        console.print(markdown_content)
+                    content_to_page = capture.get()
+                    is_rich = True
+                else:
+                    content_to_page = markdown_content
+                    is_rich = False
+
+                # Try to page the content using available pager
+                if not _page_content(content_to_page, is_rich=is_rich):
+                    # If paging fails, just print the content
+                    print(content_to_page)
 
                 return 0
             except ImportError:
@@ -463,7 +533,9 @@ def process_multi_file(
                     print(f"Error: {e}", file=sys.stderr)
                 return exit_code
 
-        exit_code, file_str, error = convert_single_file(file, output_path, options, format_arg, transforms, False, target_format)
+        exit_code, file_str, error = convert_single_file(
+            file, output_path, options, format_arg, transforms, False, target_format
+        )
 
         if exit_code == 0:
             if output_path:
@@ -1058,8 +1130,6 @@ def convert_single_file_for_collation(
         Exit code (0 for success), markdown content, and error message if failed
 
     """
-    from all2md.constants import get_exit_code_for_exception
-
     try:
         # Convert the document
         markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)  # type: ignore[arg-type]
@@ -1108,8 +1178,6 @@ def process_files_collated(
         Exit code (0 for success, highest error code otherwise)
 
     """
-    from all2md.constants import EXIT_SUCCESS
-
     collated_content = []
     failed = []
     file_separator = "\n\n---\n\n"
@@ -1347,9 +1415,6 @@ def convert_single_file(
         (exit_code, file_path_str, error_message)
 
     """
-    from all2md import convert
-    from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
-
     try:
         # Convert the document using the convert() API for bidirectional conversion
         if output_path:
@@ -1419,8 +1484,6 @@ def process_with_rich_output(
         Exit code (0 for success, highest error code otherwise)
 
     """
-    from all2md.constants import EXIT_SUCCESS, get_exit_code_for_exception
-
     try:
         from rich.console import Console
         from rich.panel import Panel
@@ -1440,7 +1503,52 @@ def process_with_rich_output(
         # Find common parent directory
         base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
 
-    # Show header
+    # Special case: single file to stdout with rich formatting
+    # Show progress bar during conversion, then print content after
+    if len(files) == 1 and not args.out and not args.output_dir:
+        file = files[0]
+
+        # Store the converted content
+        markdown_content = None
+        conversion_error = None
+
+        # Show progress bar during conversion
+        with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console
+        ) as progress:
+            task_id = progress.add_task(f"[cyan]Converting {file.name}...", total=1)
+
+            try:
+                # Convert the document
+                markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **options)
+                progress.update(task_id, advance=1)
+            except Exception as e:
+                exit_code = get_exit_code_for_exception(e)
+                error = str(e)
+                if isinstance(e, ImportError):
+                    error = f"Missing dependency: {e}"
+                elif not isinstance(e, All2MdError):
+                    error = f"Unexpected error: {e}"
+                conversion_error = (exit_code, error)
+                progress.update(task_id, advance=1)
+
+        # After Progress context exits, the progress bar is finalized at the top
+        # Now print the content below
+        if conversion_error:
+            exit_code, error = conversion_error
+            console.print(f"[red]ERROR[/red] {file}: {error}")
+            return exit_code
+
+        if markdown_content:
+            from rich.markdown import Markdown
+            console.print(Markdown(markdown_content))
+            return EXIT_SUCCESS
+
+    # Show header for multi-file processing
     console.print(Panel.fit(
         Text("all2md Document Converter", style="bold cyan"),
         subtitle=f"Processing {len(files)} file(s)"
@@ -1476,87 +1584,8 @@ def process_with_rich_output(
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
 
-                # Special case: single file to stdout with rich formatting
-                # Process directly on main thread to avoid wasteful worker spawn
-                if len(files) == 1 and not args.out and not args.output_dir:
-                    file = files[0]
-                    try:
-                        # Convert the document
-                        markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **options)
-
-                        # Render with Rich Markdown
-                        from rich.markdown import Markdown
-                        console.print(Markdown(markdown_content))
-
-                        exit_code = EXIT_SUCCESS
-                        error = None
-                    except Exception as e:
-                        exit_code = get_exit_code_for_exception(e)
-                        error = str(e)
-                        if isinstance(e, ImportError):
-                            error = f"Missing dependency: {e}"
-                        elif not isinstance(e, All2MdError):
-                            error = f"Unexpected error: {e}"
-
-                    if exit_code == EXIT_SUCCESS:
-                        results.append((file, None))
-                        console.print(f"[green]OK[/green] Converted {file}")
-                    else:
-                        failed.append((file, error))
-                        console.print(f"[red]ERROR[/red] {file}: {error}")
-                        max_exit_code = max(max_exit_code, exit_code)
-
-                    progress.update(task_id, advance=1)
-                else:
-                    # Submit files to executor for parallel processing
-                    for file in files:
-                        target_format = getattr(args, 'output_type', 'markdown')
-                        output_path = generate_output_path(
-                            file,
-                            Path(args.output_dir) if args.output_dir else None,
-                            args.preserve_structure,
-                            base_input_dir,
-                            target_format=target_format
-                        )
-                        future = executor.submit(
-                            convert_single_file,
-                            file,
-                            output_path,
-                            options,
-                            format_arg,
-                            transforms,
-                            False,
-                            target_format
-                        )
-                        futures[future] = (file, output_path)
-
-                    for future in as_completed(futures):
-                        file, output_path = futures[future]
-                        exit_code, file_str, error = future.result()
-
-                        if exit_code == EXIT_SUCCESS:
-                            results.append((file, output_path))
-                            if output_path:
-                                console.print(f"[green]OK[/green] {file} -> {output_path}")
-                            else:
-                                console.print(f"[green]OK[/green] Converted {file}")
-                        else:
-                            failed.append((file, error))
-                            console.print(f"[red]ERROR[/red] {file}: {error}")
-                            max_exit_code = max(max_exit_code, exit_code)
-                            if not args.skip_errors:
-                                break
-
-                        progress.update(task_id, advance=1)
-        else:
-            # Sequential processing
-            task_id = progress.add_task("[cyan]Converting files...", total=len(files))
-
-            for file in files:
-                # For single files without explicit output, use stdout with rich formatting
-                if len(files) == 1 and not args.out and not args.output_dir:
-                    output_path = None
-                else:
+                # Submit files to executor for parallel processing
+                for file in files:
                     target_format = getattr(args, 'output_type', 'markdown')
                     output_path = generate_output_path(
                         file,
@@ -1565,28 +1594,8 @@ def process_with_rich_output(
                         base_input_dir,
                         target_format=target_format
                     )
-
-                # Special handling for single file rich output to stdout
-                if len(files) == 1 and not args.out and not args.output_dir:
-                    try:
-                        # Convert the document
-                        markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **options)
-
-                        # Render with Rich Markdown
-                        from rich.markdown import Markdown
-                        console.print(Markdown(markdown_content))
-
-                        exit_code = EXIT_SUCCESS
-                        error = None
-                    except Exception as e:
-                        exit_code = get_exit_code_for_exception(e)
-                        error = str(e)
-                        if isinstance(e, ImportError):
-                            error = f"Missing dependency: {e}"
-                        elif not isinstance(e, All2MdError):
-                            error = f"Unexpected error: {e}"
-                else:
-                    exit_code, file_str, error = convert_single_file(
+                    future = executor.submit(
+                        convert_single_file,
                         file,
                         output_path,
                         options,
@@ -1595,6 +1604,49 @@ def process_with_rich_output(
                         False,
                         target_format
                     )
+                    futures[future] = (file, output_path)
+
+                for future in as_completed(futures):
+                    file, output_path = futures[future]
+                    exit_code, file_str, error = future.result()
+
+                    if exit_code == EXIT_SUCCESS:
+                        results.append((file, output_path))
+                        if output_path:
+                            console.print(f"[green]OK[/green] {file} -> {output_path}")
+                        else:
+                            console.print(f"[green]OK[/green] Converted {file}")
+                    else:
+                        failed.append((file, error))
+                        console.print(f"[red]ERROR[/red] {file}: {error}")
+                        max_exit_code = max(max_exit_code, exit_code)
+                        if not args.skip_errors:
+                            break
+
+                    progress.update(task_id, advance=1)
+        else:
+            # Sequential processing
+            task_id = progress.add_task("[cyan]Converting files...", total=len(files))
+
+            for file in files:
+                target_format = getattr(args, 'output_type', 'markdown')
+                output_path = generate_output_path(
+                    file,
+                    Path(args.output_dir) if args.output_dir else None,
+                    args.preserve_structure,
+                    base_input_dir,
+                    target_format=target_format
+                )
+
+                exit_code, file_str, error = convert_single_file(
+                    file,
+                    output_path,
+                    options,
+                    format_arg,
+                    transforms,
+                    False,
+                    target_format
+                )
 
                 if exit_code == EXIT_SUCCESS:
                     results.append((file, output_path))
@@ -1655,8 +1707,6 @@ def process_with_progress_bar(
         Exit code (0 for success, highest error code otherwise)
 
     """
-    from all2md.constants import EXIT_SUCCESS
-
     try:
         from tqdm import tqdm
     except ImportError:
@@ -1740,8 +1790,6 @@ def process_files_simple(
         Exit code (0 for success, highest error code otherwise)
 
     """
-    from all2md.constants import EXIT_SUCCESS
-
     # Determine base input directory for structure preservation
     base_input_dir = None
     if args.preserve_structure and len(files) > 0:
