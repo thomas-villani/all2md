@@ -14,8 +14,6 @@ generate DOCX content with appropriate styles and formatting.
 
 from __future__ import annotations
 
-import base64
-import re
 import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
@@ -67,6 +65,7 @@ from all2md.ast.visitors import NodeVisitor
 from all2md.options import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.images import decode_base64_image_to_file
 
 
 # TODO: add a new option that allows the user to specify a "template" source docx file to use (allows styles)
@@ -858,27 +857,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Path to temporary file, or None if decoding failed
 
         """
-        try:
-            # Extract base64 data
-            match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
-            if not match:
-                return None
-
-            image_format = match.group(1)
-            base64_data = match.group(2)
-
-            # Decode base64
-            image_data = base64.b64decode(base64_data)
-
-            # Write to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{image_format}') as f:
-                f.write(image_data)
-                temp_path = f.name
-
+        # Use centralized image utility
+        temp_path = decode_base64_image_to_file(data_uri, delete_on_exit=False)
+        if temp_path:
             self._temp_files.append(temp_path)
-            return temp_path
-        except Exception:
-            return None
+        return temp_path
 
     def visit_line_break(self, node: LineBreak) -> None:
         """Render a LineBreak node.

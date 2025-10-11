@@ -54,12 +54,12 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import HtmlRendererOptions
-from all2md.renderers.base import BaseRenderer
+from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.html_sanitizer import sanitize_html_content, strip_html_tags
 from all2md.utils.html_utils import escape_html, render_math_html
 
 
-class HtmlRenderer(NodeVisitor, BaseRenderer):
+class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     """Render AST nodes to HTML format.
 
     This class implements the visitor pattern to traverse an AST and
@@ -139,12 +139,7 @@ class HtmlRenderer(NodeVisitor, BaseRenderer):
 
         """
         html_text = self.render_to_string(doc)
-
-        if isinstance(output, (str, Path)):
-            Path(output).write_text(html_text, encoding="utf-8")
-        else:
-            # Write to file-like object (binary mode)
-            output.write(html_text.encode('utf-8'))
+        self.write_text_output(html_text, output)
 
     def _wrap_in_document(self, doc: Document, content: str) -> str:
         """Wrap content in a complete HTML document.
@@ -372,30 +367,6 @@ hr {
         parts.append('</ul>')
 
         return '\n'.join(parts)
-
-    def _render_inline_content(self, content: list[Node]) -> str:
-        """Render a list of inline nodes to HTML.
-
-        Parameters
-        ----------
-        content : list of Node
-            Inline nodes to render
-
-        Returns
-        -------
-        str
-            Rendered HTML
-
-        """
-        saved_output = self._output
-        self._output = []
-
-        for node in content:
-            node.accept(self)
-
-        result = ''.join(self._output)
-        self._output = saved_output
-        return result
 
     def visit_document(self, node: Document) -> None:
         """Render a Document node.

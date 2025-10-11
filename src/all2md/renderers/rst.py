@@ -55,11 +55,11 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options.rst import RstRendererOptions
-from all2md.renderers.base import BaseRenderer
+from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.escape import escape_rst
 
 
-class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
+class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     """Render AST nodes to reStructuredText.
 
     This class implements the visitor pattern to traverse an AST and
@@ -136,30 +136,6 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
         text = re.sub(r'\n{4,}', '\n\n\n', text)
         text = text.rstrip()
         return text
-
-    def _render_inline_content(self, content: list[Node]) -> str:
-        """Render a list of inline nodes to text.
-
-        Parameters
-        ----------
-        content : list of Node
-            Inline nodes to render
-
-        Returns
-        -------
-        str
-            Rendered inline text
-
-        """
-        saved_output = self._output
-        self._output = []
-
-        for node in content:
-            node.accept(self)
-
-        result = ''.join(self._output)
-        self._output = saved_output
-        return result
 
     def _get_heading_underline(self, level: int, text: str) -> str:
         """Get the underline character and string for a heading.
@@ -840,10 +816,4 @@ class RestructuredTextRenderer(NodeVisitor, BaseRenderer):
 
         """
         rst_text = self.render_to_string(doc)
-
-        if isinstance(output, (str, Path)):
-            # Write to file
-            Path(output).write_text(rst_text, encoding="utf-8")
-        else:
-            # Write to file-like object (binary mode)
-            output.write(rst_text.encode('utf-8'))
+        self.write_text_output(rst_text, output)

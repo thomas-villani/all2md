@@ -14,8 +14,6 @@ to XHTML, and assembles a complete EPUB package.
 
 from __future__ import annotations
 
-import base64
-import re
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -33,6 +31,7 @@ from all2md.renderers._split_utils import (
 from all2md.renderers.base import BaseRenderer
 from all2md.renderers.html import HtmlRenderer
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.images import decode_base64_image
 
 
 class EpubRenderer(BaseRenderer):
@@ -331,21 +330,11 @@ class EpubRenderer(BaseRenderer):
             (image_data, format) or None if decoding failed
 
         """
-        try:
-            # Match data URI pattern: data:image/FORMAT;base64,DATA
-            match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
-            if not match:
-                return None
-
-            image_format = match.group(1).lower()
-            base64_data = match.group(2)
-
-            # Decode base64
-            image_data = base64.b64decode(base64_data)
-
+        # Use centralized image utility
+        image_data, image_format = decode_base64_image(data_uri)
+        if image_data and image_format:
             return (image_data, image_format)
-        except Exception:
-            return None
+        return None
 
     def _add_image_to_epub(
         self,

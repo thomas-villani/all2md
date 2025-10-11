@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast import Document
+from all2md.ast.nodes import Node
 from all2md.options.base import BaseRendererOptions
 
 
@@ -168,3 +169,110 @@ class BaseRenderer(ABC):
             raise NotImplementedError(
                 f"{self.__class__.__name__} does not support rendering to bytes."
             ) from None
+
+    @staticmethod
+    def write_text_output(text: str, output: Union[str, Path, IO[bytes]]) -> None:
+        """Write text output to file or IO stream.
+
+        Helper method to handle text output writing for text-based renderers.
+        Centralizes the logic for writing to different output destinations.
+
+        Parameters
+        ----------
+        text : str
+            Rendered text to write
+        output : str, Path, or IO[bytes]
+            Output destination. Can be:
+            - File path (str or Path)
+            - File-like object in binary mode
+
+        Raises
+        ------
+        IOError
+            If output cannot be written
+
+        Examples
+        --------
+        Write to file:
+            >>> from all2md.renderers.base import BaseRenderer
+            >>> BaseRenderer.write_text_output("# Hello", "output.md")
+
+        Write to BytesIO:
+            >>> from io import BytesIO
+            >>> buffer = BytesIO()
+            >>> BaseRenderer.write_text_output("# Hello", buffer)
+            >>> print(buffer.getvalue())
+            b'# Hello'
+
+        """
+        if isinstance(output, (str, Path)):
+            # Write to file
+            Path(output).write_text(text, encoding="utf-8")
+        else:
+            # Write to file-like object (binary mode)
+            output.write(text.encode('utf-8'))
+
+
+class InlineContentMixin:
+    """Mixin providing inline content rendering pattern for text-based renderers.
+
+    This mixin provides the `_render_inline_content()` method, which is a
+    common pattern used by text-based renderers to render inline nodes
+    (like emphasis, strong, links) to a string by temporarily capturing
+    their output.
+
+    The implementing class must have:
+    - A `_output` attribute (list[str]) for accumulating output
+    - Visitor methods that append to `_output`
+
+    Examples
+    --------
+    Using the mixin in a renderer:
+
+        >>> from all2md.renderers.base import BaseRenderer, InlineContentMixin
+        >>> from all2md.ast.visitors import NodeVisitor
+        >>> from all2md.options.base import BaseRendererOptions
+        >>>
+        >>> class MyRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
+        ...     def __init__(self, options=None):
+        ...         BaseRenderer.__init__(self, options or BaseRendererOptions())
+        ...         self._output = []
+        ...
+        ...     def visit_emphasis(self, node):
+        ...         content = self._render_inline_content(node.content)
+        ...         self._output.append(f"*{content}*")
+
+    """
+
+    _output: list[str]  # Type hint for the required attribute
+
+    def _render_inline_content(self, content: list[Node]) -> str:
+        """Render a list of inline nodes to text.
+
+        This method temporarily captures the output from rendering inline
+        nodes and returns it as a string. This is useful for rendering
+        nested inline elements (like emphasis within a link).
+
+        Parameters
+        ----------
+        content : list of Node
+            Inline nodes to render
+
+        Returns
+        -------
+        str
+            Rendered inline content as a string
+
+        """
+        # Save current output state
+        saved_output = self._output
+        self._output = []
+
+        # Render inline nodes
+        for node in content:
+            node.accept(self)  # type: ignore[attr-defined]
+
+        # Capture result and restore output state
+        result = ''.join(self._output)
+        self._output = saved_output
+        return result

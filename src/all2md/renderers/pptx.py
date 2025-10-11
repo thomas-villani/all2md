@@ -14,9 +14,7 @@ content to PowerPoint shapes, and assembles a complete presentation.
 
 from __future__ import annotations
 
-import base64
 import logging
-import re
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -73,6 +71,7 @@ from all2md.renderers._split_utils import (
 )
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.images import decode_base64_image_to_file
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 
 logger = logging.getLogger(__name__)
@@ -468,28 +467,13 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             Path to temporary file, or None if decoding failed
 
         """
-        try:
-            # Extract base64 data
-            match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
-            if not match:
-                return None
-
-            image_format = match.group(1)
-            base64_data = match.group(2)
-
-            # Decode base64
-            image_data = base64.b64decode(base64_data)
-
-            # Write to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{image_format}') as f:
-                f.write(image_data)
-                temp_path = f.name
-
+        # Use centralized image utility
+        temp_path = decode_base64_image_to_file(data_uri, delete_on_exit=False)
+        if temp_path:
             self._temp_files.append(temp_path)
-            return temp_path
-        except Exception as e:
-            logger.warning(f"Failed to decode base64 image: {e}")
-            return None
+        else:
+            logger.warning(f"Failed to decode base64 image: {data_uri[:50]}...")
+        return temp_path
 
     def _fetch_remote_image(self, url: str) -> str | None:
         """Fetch remote image securely.

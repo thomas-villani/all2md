@@ -58,10 +58,10 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options import PlainTextOptions
-from all2md.renderers.base import BaseRenderer
+from all2md.renderers.base import BaseRenderer, InlineContentMixin
 
 
-class PlainTextRenderer(NodeVisitor, BaseRenderer):
+class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     """Render AST nodes to plain, unformatted text.
 
     This class implements the visitor pattern to traverse an AST and
@@ -183,30 +183,6 @@ class PlainTextRenderer(NodeVisitor, BaseRenderer):
         # Restore tab characters
         result = result.replace(TAB_PLACEHOLDER, '\t')
 
-        return result
-
-    def _render_inline_content(self, content: list[Node]) -> str:
-        """Render a list of inline nodes to text.
-
-        Parameters
-        ----------
-        content : list of Node
-            Inline nodes to render
-
-        Returns
-        -------
-        str
-            Rendered inline text
-
-        """
-        saved_output = self._output
-        self._output = []
-
-        for node in content:
-            node.accept(self)
-
-        result = ''.join(self._output)
-        self._output = saved_output
         return result
 
     def visit_document(self, node: Document) -> None:
@@ -667,10 +643,4 @@ class PlainTextRenderer(NodeVisitor, BaseRenderer):
 
         """
         text = self.render_to_string(doc)
-
-        if isinstance(output, (str, Path)):
-            # Write to file
-            Path(output).write_text(text, encoding="utf-8")
-        else:
-            # Write to file-like object (binary mode)
-            output.write(text.encode('utf-8'))
+        self.write_text_output(text, output)
