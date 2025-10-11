@@ -40,7 +40,6 @@ from all2md.ast.nodes import (
     ListItem,
     MathBlock,
     MathInline,
-    Node,
     Paragraph,
     Strikethrough,
     Strong,

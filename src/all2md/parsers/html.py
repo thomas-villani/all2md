@@ -43,9 +43,7 @@ from all2md.ast import (
     Underline,
 )
 from all2md.constants import (
-    DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
-    DANGEROUS_SCHEMES,
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import (
@@ -60,7 +58,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.html_sanitizer import is_element_safe, sanitize_url
+from all2md.utils.html_sanitizer import is_element_safe
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled

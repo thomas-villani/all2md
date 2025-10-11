@@ -454,8 +454,6 @@ class EpubRenderer(BaseRenderer):
             EPUB book object
 
         """
-        from ebooklib import epub
-
         try:
             if not self.options.cover_image_path:
                 return

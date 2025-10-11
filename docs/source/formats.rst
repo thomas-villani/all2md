@@ -60,7 +60,7 @@ PDF processing includes sophisticated table detection, multi-column layout handl
    all2md document.pdf
 
    # With specific pages and image download
-   all2md document.pdf --pdf-pages "0,1,2" --attachment-mode download --markdown-emphasis-symbol "*"
+   all2md document.pdf --pdf-pages "1,2,3" --attachment-mode download --markdown-emphasis-symbol "*"
 
 **PDF-Specific Features:**
 

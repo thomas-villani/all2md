@@ -17,15 +17,16 @@ The module supports multiple sanitization strategies:
 from __future__ import annotations
 
 import html
+import logging
 import re
 from typing import Any
 from urllib.parse import urlparse
-import logging
 
 from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
-    DANGEROUS_SCHEMES, HtmlPassthroughMode,
+    DANGEROUS_SCHEMES,
+    HtmlPassthroughMode,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ def sanitize_html_content(
 
     >>> sanitize_html_content("<script>alert('xss')</script>", mode="sanitize")
     ''
+
     """
     if mode == "pass-through":
         return content
@@ -100,6 +102,7 @@ def _sanitize_html_string(content: str) -> str:
     -------
     str
         Sanitized HTML with dangerous elements/attributes removed
+
     """
     # Try to use bleach if available for better sanitization
     try:
@@ -154,6 +157,7 @@ def _basic_sanitize_html_string(content: str) -> str:
     -------
     str
         Sanitized HTML
+
     """
     try:
         from bs4 import BeautifulSoup
@@ -223,6 +227,7 @@ def strip_html_tags(content: str) -> str:
 
     >>> strip_html_tags("Plain text")
     'Plain text'
+
     """
     # Remove all HTML tags
     text = re.sub(r'<[^>]+>', '', content)
@@ -257,6 +262,7 @@ def is_element_safe(element: Any) -> bool:
     >>> soup = BeautifulSoup("<script>alert('xss')</script>", "html.parser")
     >>> is_element_safe(soup.script)
     False
+
     """
     if not hasattr(element, "name"):
         return True
@@ -311,6 +317,7 @@ def is_url_safe(url: str) -> bool:
 
     >>> is_url_safe("data:text/html,<script>alert('xss')</script>")
     False
+
     """
     if not url or not url.strip():
         return True
@@ -362,6 +369,7 @@ def sanitize_url(url: str) -> str:
 
     >>> sanitize_url("/relative/path")
     '/relative/path'
+
     """
     if not is_url_safe(url):
         return ""

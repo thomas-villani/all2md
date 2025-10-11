@@ -35,19 +35,19 @@ Use the ``from_markdown()`` or ``from_ast()`` functions:
    from all2md import from_markdown
 
    # Convert Markdown to DOCX
-   from_markdown('document.md', output_format='docx', output_path='document.docx')
+   from_markdown('document.md', target_format='docx', output='document.docx')
 
    # Convert Markdown to HTML
-   from_markdown('document.md', output_format='html', output_path='document.html')
+   from_markdown('document.md', target_format='html', output='document.html')
 
    # Convert Markdown to PDF
-   from_markdown('document.md', output_format='pdf', output_path='document.pdf')
+   from_markdown('document.md', target_format='pdf', output='document.pdf')
 
    # Convert Markdown to EPUB
-   from_markdown('book.md', output_format='epub', output_path='book.epub')
+   from_markdown('book.md', target_format='epub', output='book.epub')
 
    # Convert Markdown to PowerPoint
-   from_markdown('slides.md', output_format='pptx', output_path='presentation.pptx')
+   from_markdown('slides.md', target_format='pptx', output='presentation.pptx')
 
 Using the AST Directly
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,8 +64,8 @@ For more control, work with the AST:
    doc_ast = to_ast('document.md')
 
    # Render to different formats
-   docx_bytes = from_ast(doc_ast, output_format='docx')
-   html_string = from_ast(doc_ast, output_format='html')
+   docx_bytes = from_ast(doc_ast, target_format='docx')
+   html_string = from_ast(doc_ast, target_format='html')
 
    # Or use renderers directly
    docx_renderer = DocxRenderer()
@@ -83,7 +83,7 @@ Basic Conversion
    from all2md.renderers.docx import DocxRendererOptions
 
    # Simple conversion
-   from_markdown('report.md', output_format='docx', output_path='report.docx')
+   from_markdown('report.md', target_format='docx', output='report.docx')
 
    # With options
    options = DocxRendererOptions(
@@ -91,7 +91,7 @@ Basic Conversion
        default_font='Arial',
        default_font_size=12
    )
-   from_markdown('report.md', output_format='docx', output_path='report.docx', renderer_options=options)
+   from_markdown('report.md', target_format='docx', output='report.docx', renderer_options=options)
 
 Preserving Markdown Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,8 +134,8 @@ The DOCX renderer supports:
 
    from_markdown(
        markdown_content,
-       output_format='docx',
-       output_path='annual_report.docx'
+       target_format='docx',
+       output='annual_report.docx'
    )
 
 Advanced DOCX Customization
@@ -161,7 +161,7 @@ Advanced DOCX Customization
    )
 
    # Render to DOCX
-   docx_bytes = from_ast(doc_ast, output_format='docx', renderer_options=options)
+   docx_bytes = from_ast(doc_ast, target_format='docx', renderer_options=options)
 
    # Write to file
    with open('output.docx', 'wb') as f:
@@ -179,7 +179,7 @@ Basic Conversion
    from all2md.renderers.html import HtmlRendererOptions
 
    # Simple conversion
-   html = from_markdown('document.md', output_format='html')
+   html = from_markdown('document.md', target_format='html')
 
    # With options
    options = HtmlRendererOptions(
@@ -188,7 +188,7 @@ Basic Conversion
        syntax_highlighting=True,
        include_toc=False
    )
-   html = from_markdown('document.md', output_format='html', renderer_options=options)
+   html = from_markdown('document.md', target_format='html', renderer_options=options)
 
    # Write to file
    with open('document.html', 'w', encoding='utf-8') as f:
@@ -217,7 +217,7 @@ HTML Templates and Styling
        escape_html=True
    )
 
-   html = from_markdown('document.md', output_format='html', renderer_options=options)
+   html = from_markdown('document.md', target_format='html', renderer_options=options)
 
 Standalone HTML Documents
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -235,7 +235,7 @@ Standalone HTML Documents
        math_renderer='mathjax'
    )
 
-   html = from_markdown('article.md', output_format='html', renderer_options=options)
+   html = from_markdown('article.md', target_format='html', renderer_options=options)
 
    # Result is a complete HTML document
    with open('article.html', 'w', encoding='utf-8') as f:
@@ -253,7 +253,7 @@ Basic Conversion
    from all2md.renderers.pdf import PdfRendererOptions
 
    # Simple conversion
-   from_markdown('document.md', output_format='pdf', output_path='document.pdf')
+   from_markdown('document.md', target_format='pdf', output='document.pdf')
 
    # With options
    options = PdfRendererOptions(
@@ -264,7 +264,7 @@ Basic Conversion
        font_size=11,
        include_page_numbers=True
    )
-   from_markdown('document.md', output_format='pdf', output_path='document.pdf', renderer_options=options)
+   from_markdown('document.md', target_format='pdf', output='document.pdf', renderer_options=options)
 
 PDF Styling and Layout
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -292,7 +292,7 @@ PDF Styling and Layout
    )
 
    # Render to PDF
-   pdf_bytes = from_ast(doc_ast, output_format='pdf', renderer_options=options)
+   pdf_bytes = from_ast(doc_ast, target_format='pdf', renderer_options=options)
 
    # Save
    with open('formatted_report.pdf', 'wb') as f:
@@ -314,7 +314,7 @@ Convert a document through multiple formats while preserving content:
    original_ast = to_ast('original.pdf')
 
    # Convert to Markdown for editing
-   markdown = from_ast(original_ast, output_format='markdown')
+   markdown = from_ast(original_ast, target_format='markdown')
    with open('editable.md', 'w', encoding='utf-8') as f:
        f.write(markdown)
 
@@ -322,7 +322,7 @@ Convert a document through multiple formats while preserving content:
 
    # Convert back to DOCX
    edited_ast = to_ast('editable.md')
-   docx_bytes = from_ast(edited_ast, output_format='docx')
+   docx_bytes = from_ast(edited_ast, target_format='docx')
    with open('final.docx', 'wb') as f:
        f.write(docx_bytes)
 
@@ -347,24 +347,24 @@ Generate multiple output formats from a single Markdown source:
        stem = Path(markdown_path).stem
 
        # Generate DOCX
-       docx_bytes = from_ast(doc_ast, output_format='docx')
+       docx_bytes = from_ast(doc_ast, target_format='docx')
        (output_path / f'{stem}.docx').write_bytes(docx_bytes)
 
        # Generate HTML
-       html_content = from_ast(doc_ast, output_format='html')
+       html_content = from_ast(doc_ast, target_format='html')
        (output_path / f'{stem}.html').write_text(html_content, encoding='utf-8')
 
        # Generate PDF
-       pdf_bytes = from_ast(doc_ast, output_format='pdf')
+       pdf_bytes = from_ast(doc_ast, target_format='pdf')
        (output_path / f'{stem}.pdf').write_bytes(pdf_bytes)
 
        # Generate EPUB
        from all2md.renderers.epub import EpubRendererOptions
        epub_options = EpubRendererOptions(title=stem, generate_toc=True)
-       from_ast(doc_ast, output_format='epub', output_path=output_path / f'{stem}.epub', renderer_options=epub_options)
+       from_ast(doc_ast, target_format='epub', output=output_path / f'{stem}.epub', renderer_options=epub_options)
 
        # Generate PPTX
-       from_ast(doc_ast, output_format='pptx', output_path=output_path / f'{stem}.pptx')
+       from_ast(doc_ast, target_format='pptx', output=output_path / f'{stem}.pptx')
 
        print(f"Published {stem} to DOCX, HTML, PDF, EPUB, and PPTX")
 
@@ -399,8 +399,8 @@ Apply AST transforms before rendering to any format:
        doc_ast = transform.transform(doc_ast)
 
    # Render to any format with transforms applied
-   docx_bytes = from_ast(doc_ast, output_format='docx')
-   html = from_ast(doc_ast, output_format='html')
+   docx_bytes = from_ast(doc_ast, target_format='docx')
+   html = from_ast(doc_ast, target_format='html')
 
 Content Aggregation
 ~~~~~~~~~~~~~~~~~~~
@@ -433,7 +433,7 @@ Combine multiple Markdown files into a single output document:
        combined_doc = Document(children=combined_children)
 
        # Render to desired format
-       return from_ast(combined_doc, output_format=output_format)
+       return from_ast(combined_doc, target_format=output_format)
 
    # Usage
    chapters = ['chapter1.md', 'chapter2.md', 'chapter3.md']
@@ -617,7 +617,7 @@ Best Practices
       from all2md.exceptions import RenderingError
 
       try:
-          from_markdown('document.md', output_format='pdf', output_path='output.pdf')
+          from_markdown('document.md', target_format='pdf', output='output.pdf')
       except RenderingError as e:
           print(f"Rendering failed: {e}")
           print(f"Stage: {e.conversion_stage}")
@@ -635,9 +635,9 @@ Best Practices
 
       # Round-trip
       ast1 = to_ast('document.md')
-      docx_bytes = from_ast(ast1, output_format='docx')
+      docx_bytes = from_ast(ast1, target_format='docx')
       ast2 = to_ast(docx_bytes, format='docx')
-      roundtrip_md = from_ast(ast2, output_format='markdown')
+      roundtrip_md = from_ast(ast2, target_format='markdown')
 
       # Compare (note: formatting may differ)
       assert len(original_md) > 0
@@ -655,7 +655,7 @@ Basic Conversion
    from all2md.renderers.epub import EpubRendererOptions
 
    # Simple conversion
-   from_markdown('book.md', output_format='epub', output_path='book.epub')
+   from_markdown('book.md', target_format='epub', output='book.epub')
 
    # With metadata
    options = EpubRendererOptions(
@@ -664,7 +664,7 @@ Basic Conversion
        language="en",
        generate_toc=True
    )
-   from_markdown('book.md', output_format='epub', output_path='book.epub', renderer_options=options)
+   from_markdown('book.md', target_format='epub', output='book.epub', renderer_options=options)
 
 Chapter Splitting Strategies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -682,7 +682,7 @@ EPUB documents are organized into chapters. all2md supports three strategies for
        chapter_split_mode="separator",
        title="My Novel"
    )
-   from_markdown('novel.md', output_format='epub', output_path='novel.epub', renderer_options=options)
+   from_markdown('novel.md', target_format='epub', output='novel.epub', renderer_options=options)
 
    # Strategy 2: Split by heading level
    # Best for: Structured documents with H1 or H2 chapter markers
@@ -691,12 +691,12 @@ EPUB documents are organized into chapters. all2md supports three strategies for
        chapter_split_heading_level=1,  # Split on H1 headings
        use_heading_as_chapter_title=True
    )
-   from_markdown('book.md', output_format='epub', output_path='book.epub', renderer_options=options)
+   from_markdown('book.md', target_format='epub', output='book.epub', renderer_options=options)
 
    # Strategy 3: Auto-detect (default)
    # Prefers separators if present, falls back to headings
    options = EpubRendererOptions(chapter_split_mode="auto")
-   from_markdown('content.md', output_format='epub', output_path='content.epub', renderer_options=options)
+   from_markdown('content.md', target_format='epub', output='content.epub', renderer_options=options)
 
 Example with Multiple Chapters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -732,7 +732,7 @@ Example with Multiple Chapters
        generate_toc=True
    )
 
-   from_markdown(markdown_content, output_format='epub', output_path='story.epub', renderer_options=options)
+   from_markdown(markdown_content, target_format='epub', output='story.epub', renderer_options=options)
 
 Advanced EPUB Options
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -759,7 +759,7 @@ Advanced EPUB Options
    )
 
    # Render to EPUB
-   from_ast(doc_ast, output_format='epub', output_path='manual.epub', renderer_options=options)
+   from_ast(doc_ast, target_format='epub', output='manual.epub', renderer_options=options)
 
 EPUB Features
 ~~~~~~~~~~~~~
@@ -784,7 +784,7 @@ Basic Conversion
    from all2md.renderers.pptx import PptxRendererOptions
 
    # Simple conversion
-   from_markdown('presentation.md', output_format='pptx', output_path='presentation.pptx')
+   from_markdown('presentation.md', target_format='pptx', output='presentation.pptx')
 
    # With custom fonts
    options = PptxRendererOptions(
@@ -792,7 +792,7 @@ Basic Conversion
        default_font_size=20,
        title_font_size=36
    )
-   from_markdown('slides.md', output_format='pptx', output_path='slides.pptx', renderer_options=options)
+   from_markdown('slides.md', target_format='pptx', output='slides.pptx', renderer_options=options)
 
 Slide Splitting Strategies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -807,7 +807,7 @@ PowerPoint presentations are organized into slides. all2md supports three strate
    # Strategy 1: Split by thematic breaks (---)
    # Best for: Markdown with explicit separators between slides
    options = PptxRendererOptions(slide_split_mode="separator")
-   from_markdown('deck.md', output_format='pptx', output_path='deck.pptx', renderer_options=options)
+   from_markdown('deck.md', target_format='pptx', output='deck.pptx', renderer_options=options)
 
    # Strategy 2: Split by heading level
    # Best for: Structured presentations with H2 slide markers
@@ -816,12 +816,12 @@ PowerPoint presentations are organized into slides. all2md supports three strate
        slide_split_heading_level=2,  # Split on H2 headings (common pattern)
        use_heading_as_slide_title=True
    )
-   from_markdown('presentation.md', output_format='pptx', output_path='presentation.pptx', renderer_options=options)
+   from_markdown('presentation.md', target_format='pptx', output='presentation.pptx', renderer_options=options)
 
    # Strategy 3: Auto-detect (default)
    # Prefers separators if present, falls back to headings
    options = PptxRendererOptions(slide_split_mode="auto")
-   from_markdown('slides.md', output_format='pptx', output_path='slides.pptx', renderer_options=options)
+   from_markdown('slides.md', target_format='pptx', output='slides.pptx', renderer_options=options)
 
 Example Presentation
 ~~~~~~~~~~~~~~~~~~~~
@@ -868,7 +868,7 @@ Example Presentation
        title_font_size=44
    )
 
-   from_markdown(markdown_content, output_format='pptx', output_path='product.pptx', renderer_options=options)
+   from_markdown(markdown_content, target_format='pptx', output='product.pptx', renderer_options=options)
 
 Advanced PPTX Options
 ~~~~~~~~~~~~~~~~~~~~~
@@ -895,7 +895,7 @@ Advanced PPTX Options
    )
 
    # Render to PPTX
-   from_ast(doc_ast, output_format='pptx', output_path='review.pptx', renderer_options=options)
+   from_ast(doc_ast, target_format='pptx', output='review.pptx', renderer_options=options)
 
 PPTX Features
 ~~~~~~~~~~~~~
@@ -922,7 +922,7 @@ Basic Conversion
    from all2md.renderers.rst import RestructuredTextRenderer, RstRendererOptions
 
    # Simple conversion
-   from_markdown('document.md', output_format='rst', output_path='document.rst')
+   from_markdown('document.md', target_format='rst', output='document.rst')
 
    # With options
    options = RstRendererOptions(
@@ -930,7 +930,7 @@ Basic Conversion
        table_style="grid",              # Use grid tables
        code_directive_style="directive" # Use .. code-block:: directives
    )
-   from_markdown('document.md', output_format='rst', output_path='document.rst', renderer_options=options)
+   from_markdown('document.md', target_format='rst', output='document.rst', renderer_options=options)
 
 Bidirectional RST Support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

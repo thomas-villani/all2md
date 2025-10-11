@@ -362,24 +362,36 @@ Extract or remove specific node types:
 Collecting Nodes
 ~~~~~~~~~~~~~~~~
 
-Use ``NodeCollector`` to gather specific nodes:
+Use ``extract_nodes()`` to gather specific node types:
 
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import NodeCollector, Heading, Table
+   from all2md.ast import extract_nodes, Heading, Table
 
    doc = to_ast("report.pdf")
 
-   # Collect all headings
-   heading_collector = NodeCollector(Heading)
-   doc.accept(heading_collector)
-   print(f"Found {len(heading_collector.nodes)} headings")
+   # Extract all headings
+   headings = extract_nodes(doc, Heading)
+   print(f"Found {len(headings)} headings")
 
-   # Collect all tables
-   table_collector = NodeCollector(Table)
-   doc.accept(table_collector)
-   print(f"Found {len(table_collector.nodes)} tables")
+   # Extract all tables
+   tables = extract_nodes(doc, Table)
+   print(f"Found {len(tables)} tables")
+
+For advanced filtering, use ``NodeCollector`` with a custom predicate:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import NodeCollector, Heading
+
+   doc = to_ast("report.pdf")
+
+   # Collect headings with custom predicate
+   collector = NodeCollector(predicate=lambda n: isinstance(n, Heading) and n.level <= 2)
+   doc.accept(collector)
+   print(f"Found {len(collector.collected)} top-level headings")
 
 Building AST Programmatically
 ------------------------------
@@ -444,29 +456,26 @@ all2md provides builders for complex structures:
    builder = TableBuilder()
 
    # Add header row
-   builder.add_header_row([
-       [Text(content="Name")],
-       [Text(content="Age")],
-       [Text(content="City")]
-   ])
+   builder.add_row(
+       [Text(content="Name"), Text(content="Age"), Text(content="City")],
+       is_header=True,
+       alignments=[None, 'right', 'left']
+   )
 
    # Add data rows
    builder.add_row([
-       [Text(content="Alice")],
-       [Text(content="30")],
-       [Text(content="New York")]
+       Text(content="Alice"),
+       Text(content="30"),
+       Text(content="New York")
    ])
    builder.add_row([
-       [Text(content="Bob")],
-       [Text(content="25")],
-       [Text(content="San Francisco")]
+       Text(content="Bob"),
+       Text(content="25"),
+       Text(content="San Francisco")
    ])
 
-   # Set alignments (optional)
-   builder.set_alignment([None, 'right', 'left'])
-
-   # Build table
-   table = builder.build()
+   # Get table
+   table = builder.get_table()
 
    # Render
    renderer = MarkdownRenderer()

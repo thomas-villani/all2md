@@ -1046,7 +1046,7 @@ class TestAsciiDocTableAlignments:
 
     def test_table_with_left_alignment(self) -> None:
         """Test table with left-aligned columns."""
-        from all2md.ast import TableRow, TableCell
+        from all2md.ast import TableCell, TableRow
         doc = Document(children=[
             Table(
                 header=TableRow(cells=[
@@ -1070,7 +1070,7 @@ class TestAsciiDocTableAlignments:
 
     def test_table_with_center_alignment(self) -> None:
         """Test table with center-aligned columns."""
-        from all2md.ast import TableRow, TableCell
+        from all2md.ast import TableCell, TableRow
         doc = Document(children=[
             Table(
                 header=TableRow(cells=[
@@ -1088,7 +1088,7 @@ class TestAsciiDocTableAlignments:
 
     def test_table_with_right_alignment(self) -> None:
         """Test table with right-aligned columns."""
-        from all2md.ast import TableRow, TableCell
+        from all2md.ast import TableCell, TableRow
         doc = Document(children=[
             Table(
                 header=TableRow(cells=[
@@ -1106,7 +1106,7 @@ class TestAsciiDocTableAlignments:
 
     def test_table_with_mixed_alignments(self) -> None:
         """Test table with mixed column alignments."""
-        from all2md.ast import TableRow, TableCell
+        from all2md.ast import TableCell, TableRow
         doc = Document(children=[
             Table(
                 header=TableRow(cells=[
@@ -1125,7 +1125,7 @@ class TestAsciiDocTableAlignments:
 
     def test_table_with_none_alignment(self) -> None:
         """Test table with None alignments (defaults)."""
-        from all2md.ast import TableRow, TableCell
+        from all2md.ast import TableCell, TableRow
         doc = Document(children=[
             Table(
                 header=TableRow(cells=[
@@ -1144,7 +1144,7 @@ class TestAsciiDocTableAlignments:
 
     def test_table_without_alignments(self) -> None:
         """Test table without alignment specification."""
-        from all2md.ast import TableRow, TableCell
+        from all2md.ast import TableCell, TableRow
         doc = Document(children=[
             Table(
                 header=TableRow(cells=[

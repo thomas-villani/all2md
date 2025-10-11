@@ -177,12 +177,12 @@ Core Components
 
 **Entry Point Example:**
 
-.. code-block:: python
+.. code-block:: toml
 
    # pyproject.toml
-   [project.entry-points."all2md.parsers"]
-   pdf = "all2md.parsers.pdf:PdfToAstConverter"
-   html = "all2md.parsers.html:HtmlToAstConverter"
+   [project.entry-points."all2md.converters"]
+   pdf = "all2md.parsers.pdf:CONVERTER_METADATA"
+   html = "all2md.parsers.html:CONVERTER_METADATA"
 
 ---
 
@@ -558,8 +558,8 @@ Create a custom parser for a new format:
            ])
 
    # Register via entry point in pyproject.toml
-   [project.entry-points."all2md.parsers"]
-   custom = "my_package.parsers.custom:CustomParser"
+   [project.entry-points."all2md.converters"]
+   custom = "my_package.parsers.custom:CONVERTER_METADATA"
 
 2. Custom Renderers
 ~~~~~~~~~~~~~~~~~~~

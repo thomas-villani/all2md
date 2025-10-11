@@ -75,6 +75,16 @@ all2md.ast : AST node definitions and utilities
 
 """
 #  Copyright (c) 2025 Tom Villani, Ph.D.
+
+# Check Python version before any imports
+import sys
+
+if sys.version_info < (3, 12):
+    raise ImportError(
+        "all2md requires Python 3.12 or later. "
+        f"You are using Python {sys.version_info.major}.{sys.version_info.minor}."
+    )
+
 import logging
 import time
 from dataclasses import fields, is_dataclass

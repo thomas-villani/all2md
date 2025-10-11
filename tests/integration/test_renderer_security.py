@@ -6,7 +6,6 @@ including pass-through mode control, TOC text extraction, and language
 attribute handling.
 """
 
-import pytest
 
 from all2md.ast import (
     Document,

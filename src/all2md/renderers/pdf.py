@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import io
 import logging
-import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse

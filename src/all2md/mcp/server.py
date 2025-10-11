@@ -211,7 +211,7 @@ def configure_logging(level: str) -> None:
     )
 
 
-def main() -> None:
+def main() -> int:
     """Run all2md-mcp server."""
     try:
         # Configure logging with default level first (will be reconfigured if needed)
@@ -265,10 +265,12 @@ def main() -> None:
 
     except KeyboardInterrupt:
         logger.info("Server interrupted by user")
-        sys.exit(0)
+        return 0
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
-        sys.exit(1)
+        logger.error(f"Fatal error: {e!r}", exc_info=True)
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":

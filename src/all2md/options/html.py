@@ -14,7 +14,8 @@ from all2md.constants import (
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
-    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT, HtmlPassthroughMode,
+    DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
+    HtmlPassthroughMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions

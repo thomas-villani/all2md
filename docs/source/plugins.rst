@@ -135,7 +135,7 @@ Configure your ``pyproject.toml`` to register the plugin:
         "myformat-parser>=1.0.0",
     ]
 
-    [project.entry-points."all2md.parsers"]
+    [project.entry-points."all2md.converters"]
     myformat = "all2md_myformat.converter:CONVERTER_METADATA"
 
     [project.urls]

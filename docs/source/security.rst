@@ -170,16 +170,16 @@ Quick reference for ``HtmlOptions.network.*`` settings:
      - Default
      - Description
    * - ``allow_remote_fetch``
-     - ``True``
-     - Master switch for remote fetching
+     - ``False``
+     - Master switch for remote fetching (disabled by default for security)
    * - ``allowed_hosts``
      - ``None``
      - Host allowlist (``None`` = all, ``[]`` = none, list = specific)
    * - ``require_https``
-     - ``False``
-     - Require HTTPS for all remote requests
+     - ``True``
+     - Require HTTPS for all remote requests (enabled by default)
    * - ``network_timeout``
-     - ``30.0``
+     - ``10.0``
      - Timeout in seconds for network requests
    * - ``max_remote_asset_bytes``
      - ``20971520``

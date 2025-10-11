@@ -295,8 +295,9 @@ class TestPdfLayoutAdvanced:
 
     def test_complex_pdf_with_spanning_header(self, tmp_path):
         """Test column detection on complex.pdf with spanning header."""
-        import fitz
         from pathlib import Path
+
+        import fitz
 
         # Use the actual complex.pdf fixture
         pdf_path = Path("tests/fixtures/documents/complex.pdf")

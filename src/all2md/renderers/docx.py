@@ -15,7 +15,6 @@ generate DOCX content with appropriate styles and formatting.
 from __future__ import annotations
 
 import logging
-import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse

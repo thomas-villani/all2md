@@ -458,7 +458,7 @@ Slow Processing
 .. code-block:: bash
 
    # CLI equivalents
-   all2md document.pdf --pdf-pages "0,1,2"
+   all2md document.pdf --pdf-pages "1,2,3"
    all2md document.pdf --attachment-mode skip
    all2md document.pdf --pdf-no-detect-columns --pdf-no-enable-table-fallback-detection
 
@@ -487,8 +487,8 @@ Memory Issues
 .. code-block:: bash
 
    # CLI: Process specific page ranges
-   all2md large.pdf --pdf-pages "0,1,2,3,4,5,6,7,8,9" --out chunk1.md
-   all2md large.pdf --pdf-pages "10,11,12,13,14,15,16,17,18,19" --out chunk2.md
+   all2md large.pdf --pdf-pages "1,2,3,4,5,6,7,8,9,10" --out chunk1.md
+   all2md large.pdf --pdf-pages "11,12,13,14,15,16,17,18,19,20" --out chunk2.md
 
 Command Line Issues
 -------------------

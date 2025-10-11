@@ -39,7 +39,6 @@ from all2md.ast.nodes import (
     MathBlock,
     MathInline,
     MathNotation,
-    Node,
     Paragraph,
     Strikethrough,
     Strong,

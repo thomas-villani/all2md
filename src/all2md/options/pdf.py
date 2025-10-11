@@ -29,13 +29,19 @@ from all2md.constants import (
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_PAGE_SEPARATOR,
+    DEFAULT_PDF_CODE_FONT,
+    DEFAULT_PDF_FONT_FAMILY,
+    DEFAULT_PDF_FONT_SIZE,
+    DEFAULT_PDF_LINE_SPACING,
+    DEFAULT_PDF_MARGIN,
+    DEFAULT_PDF_PAGE_SIZE,
     DEFAULT_TABLE_DETECTION_MODE,
     DEFAULT_TABLE_FALLBACK_DETECTION,
     DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE,
     DEFAULT_TABLE_RULING_LINE_THRESHOLD,
     DEFAULT_TRIM_HEADERS_FOOTERS,
-    DEFAULT_USE_COLUMN_CLUSTERING, PageSize, DEFAULT_PDF_PAGE_SIZE, DEFAULT_PDF_MARGIN, DEFAULT_PDF_FONT_FAMILY,
-    DEFAULT_PDF_FONT_SIZE, DEFAULT_PDF_CODE_FONT, DEFAULT_PDF_LINE_SPACING,
+    DEFAULT_USE_COLUMN_CLUSTERING,
+    PageSize,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
@@ -163,7 +169,7 @@ class PdfOptions(BaseParserOptions):
 
     Configure header detection with debug output:
         >>> options = PdfOptions(
-        ...     header_sample_pages=[0, 1, 2],
+        ...     header_sample_pages=[1, 2, 3],
         ...     header_percentile_threshold=80,
         ...     header_use_all_caps=True,
         ...     header_debug_output=True  # Enable debug analysis
@@ -479,7 +485,6 @@ class PdfRendererOptions(BaseRendererOptions):
         Generate table of contents from headings.
 
     """
-
 
     page_size: PageSize = field(
         default=DEFAULT_PDF_PAGE_SIZE,

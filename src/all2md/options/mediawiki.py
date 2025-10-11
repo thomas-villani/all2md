@@ -7,10 +7,12 @@ This module defines options for rendering AST to MediaWiki format.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
-from all2md.constants import DEFAULT_MEDIAWIKI_IMAGE_THUMB, DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED, \
-    HtmlPassthroughMode
+from all2md.constants import (
+    DEFAULT_MEDIAWIKI_IMAGE_THUMB,
+    DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
+    HtmlPassthroughMode,
+)
 from all2md.options.base import BaseRendererOptions
 
 
