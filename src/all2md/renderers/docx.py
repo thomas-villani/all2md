@@ -14,6 +14,7 @@ generate DOCX content with appropriate styles and formatting.
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
@@ -62,10 +63,13 @@ from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.exceptions import RenderingError
 from all2md.options import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: add a new option that allows the user to specify a "template" source docx file to use (allows styles)
@@ -121,6 +125,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         output : str, Path, or IO[bytes]
             Output destination (file path or file-like object)
 
+        Raises
+        ------
+        RenderingError
+            If DOCX generation fails
+
         """
         from docx import Document
         from docx.enum.style import WD_STYLE_TYPE
@@ -139,23 +148,30 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._Pt = Pt
         self._RGBColor = RGBColor
 
-        # Create new Word document
-        self.document = self._Document()
+        try:
+            # Create new Word document
+            self.document = self._Document()
 
-        # Set default font
-        self._set_document_defaults()
+            # Set default font
+            self._set_document_defaults()
 
-        # Render document
-        doc.accept(self)
+            # Render document
+            doc.accept(self)
 
-        # Save document
-        if isinstance(output, (str, Path)):
-            self.document.save(str(output))
-        else:
-            self.document.save(output)
-
-        # Clean up temp files
-        self._cleanup_temp_files()
+            # Save document
+            if isinstance(output, (str, Path)):
+                self.document.save(str(output))
+            else:
+                self.document.save(output)
+        except Exception as e:
+            raise RenderingError(
+                f"Failed to render DOCX: {e!r}",
+                rendering_stage="rendering",
+                original_error=e
+            ) from e
+        finally:
+            # Clean up temp files
+            self._cleanup_temp_files()
 
     # render_to_bytes() is inherited from BaseRenderer
 
@@ -175,8 +191,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         for temp_file in self._temp_files:
             try:
                 Path(temp_file).unlink(missing_ok=True)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to cleanup temp file {temp_file}: {e}")
         self._temp_files.clear()
 
     def visit_document(self, node: ASTDocument) -> None:
@@ -839,9 +855,15 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     caption_para = self.document.add_paragraph(node.alt_text)
                     caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
                     caption_para.runs[0].italic = True
-        except Exception:
-            # If image loading fails, just skip it
-            pass
+        except Exception as e:
+            # If image loading fails, log and optionally raise
+            logger.warning(f"Failed to add image to DOCX: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to add image to DOCX: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e
+                ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
         """Decode base64 image to temporary file.

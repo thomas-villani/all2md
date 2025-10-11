@@ -53,13 +53,25 @@ class BaseRendererOptions(CloneFrozenMixin):
     This class serves as the foundation for format-specific renderer options.
     Renderers convert AST documents into various output formats (Markdown, DOCX, PDF, etc.).
 
+    Parameters
+    ----------
+    fail_on_resource_errors : bool, default=False
+        Whether to raise RenderingError when resource loading fails (e.g., images).
+        If False (default), warnings are logged but rendering continues.
+        If True, rendering stops immediately on resource errors.
+
     Notes
     -----
     Subclasses should define format-specific rendering options as frozen dataclass fields.
 
     """
 
-    pass
+    fail_on_resource_errors: bool = field(
+        default=False,
+        metadata={
+            "help": "Raise RenderingError on resource failures (images, etc.) instead of logging warnings"
+        }
+    )
 
 
 @dataclass(frozen=True)

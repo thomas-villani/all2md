@@ -14,6 +14,7 @@ to XHTML, and assembles a complete EPUB package.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -32,6 +33,8 @@ from all2md.renderers.base import BaseRenderer
 from all2md.renderers.html import HtmlRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image
+
+logger = logging.getLogger(__name__)
 
 
 class EpubRenderer(BaseRenderer):
@@ -407,10 +410,18 @@ class EpubRenderer(BaseRenderer):
 
             # For HTTP/HTTPS URLs, we skip them as they're external
             # EPUB readers should handle external images
+            logger.debug(f"Skipping external image URL: {image_url}")
             return None
 
-        except Exception:
-            # If anything fails, skip this image
+        except Exception as e:
+            # If anything fails, log and optionally raise
+            logger.warning(f"Failed to add image to EPUB: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to add image to EPUB: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e
+                ) from e
             return None
 
     def _rewrite_image_urls(self, node: Node, url_mapping: dict[str, str]) -> None:
@@ -460,6 +471,12 @@ class EpubRenderer(BaseRenderer):
             # Set cover image
             book.set_cover(f"cover.{cover_format}", cover_data)
 
-        except Exception:
-            # If cover image fails, just skip it
-            pass
+        except Exception as e:
+            # If cover image fails, log and optionally raise
+            logger.warning(f"Failed to add cover image: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to add cover image: {e!r}",
+                    rendering_stage="cover_image",
+                    original_error=e
+                ) from e

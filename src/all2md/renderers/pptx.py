@@ -448,10 +448,22 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                     slide.shapes.add_picture(image_file, left, top, width=Inches(4.0))
                 except Exception as e:
                     logger.warning(f"Failed to add image to slide: {e}")
+                    if self.options.fail_on_resource_errors:
+                        raise RenderingError(
+                            f"Failed to add image to slide: {e!r}",
+                            rendering_stage="image_processing",
+                            original_error=e
+                        ) from e
 
         except Exception as e:
             # Log warning but don't fail rendering
             logger.warning(f"Failed to render image {image.url}: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to render image {image.url}: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e
+                ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
         """Decode base64 image to temporary file.
@@ -473,6 +485,12 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             self._temp_files.append(temp_path)
         else:
             logger.warning(f"Failed to decode base64 image: {data_uri[:50]}...")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    "Failed to decode base64 image",
+                    rendering_stage="image_processing",
+                    original_error=None
+                )
         return temp_path
 
     def _fetch_remote_image(self, url: str) -> str | None:
@@ -531,6 +549,12 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         except Exception as e:
             logger.warning(f"Failed to fetch remote image {url}: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to fetch remote image {url}: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e
+                ) from e
             return None
 
     def _extract_text_from_nodes(self, nodes: list[Node]) -> str:

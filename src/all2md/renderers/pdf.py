@@ -16,6 +16,7 @@ assembled into a complete PDF document.
 from __future__ import annotations
 
 import io
+import logging
 import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
@@ -66,10 +67,13 @@ from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.exceptions import RenderingError
 from all2md.options.pdf import PdfRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file
+
+logger = logging.getLogger(__name__)
 
 
 class PdfRenderer(NodeVisitor, BaseRenderer):
@@ -123,6 +127,11 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         output : str, Path, or IO[bytes]
             Output destination (file path or file-like object)
 
+        Raises
+        ------
+        RenderingError
+            If PDF generation fails
+
         """
         from reportlab.lib import colors
         from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
@@ -169,73 +178,80 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._ReportLabTable = ReportLabTable
         self._TableStyle = TableStyle
 
-        # Reset state
-        self._flowables = []
-        self._footnote_counter = 0
-        self._footnote_id_to_number = {}
-        self._footnote_definitions = {}
+        try:
+            # Reset state
+            self._flowables = []
+            self._footnote_counter = 0
+            self._footnote_id_to_number = {}
+            self._footnote_definitions = {}
 
-        # Create styles
-        self._styles = self._create_styles()
+            # Create styles
+            self._styles = self._create_styles()
 
-        # Render document
-        doc.accept(self)
+            # Render document
+            doc.accept(self)
 
-        # Add footnotes if any
-        if self._footnote_definitions:
-            self._flowables.append(self._Spacer(1, 0.3*self._inch))
-            self._flowables.append(self._HRFlowable(width="80%", color=self._colors.grey))
-            self._flowables.append(self._Spacer(1, 0.2*self._inch))
+            # Add footnotes if any
+            if self._footnote_definitions:
+                self._flowables.append(self._Spacer(1, 0.3*self._inch))
+                self._flowables.append(self._HRFlowable(width="80%", color=self._colors.grey))
+                self._flowables.append(self._Spacer(1, 0.2*self._inch))
 
-            # Sort footnotes by their assigned numbers
-            sorted_footnotes = sorted(
-                self._footnote_id_to_number.items(),
-                key=lambda x: x[1]
-            )
-            for identifier, num in sorted_footnotes:
-                text = self._footnote_definitions.get(identifier, "")
-                if text:
-                    footnote_para = self._Paragraph(
-                        f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
-                    )
-                    self._flowables.append(footnote_para)
-                    self._flowables.append(self._Spacer(1, 0.1*self._inch))
+                # Sort footnotes by their assigned numbers
+                sorted_footnotes = sorted(
+                    self._footnote_id_to_number.items(),
+                    key=lambda x: x[1]
+                )
+                for identifier, num in sorted_footnotes:
+                    text = self._footnote_definitions.get(identifier, "")
+                    if text:
+                        footnote_para = self._Paragraph(
+                            f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
+                        )
+                        self._flowables.append(footnote_para)
+                        self._flowables.append(self._Spacer(1, 0.1*self._inch))
 
-        # Get page size
-        page_size = self._get_page_size()
+            # Get page size
+            page_size = self._get_page_size()
 
-        # Create PDF document
-        if isinstance(output, (str, Path)):
-            pdf_doc = self._SimpleDocTemplate(
-                str(output),
-                pagesize=page_size,
-                rightMargin=self.options.margin_right,
-                leftMargin=self.options.margin_left,
-                topMargin=self.options.margin_top,
-                bottomMargin=self.options.margin_bottom,
-            )
-        else:
-            # For file-like objects, use BytesIO buffer
-            buffer = io.BytesIO()
-            pdf_doc = self._SimpleDocTemplate(
-                buffer,
-                pagesize=page_size,
-                rightMargin=self.options.margin_right,
-                leftMargin=self.options.margin_left,
-                topMargin=self.options.margin_top,
-                bottomMargin=self.options.margin_bottom,
-            )
+            # Create PDF document
+            if isinstance(output, (str, Path)):
+                pdf_doc = self._SimpleDocTemplate(
+                    str(output),
+                    pagesize=page_size,
+                    rightMargin=self.options.margin_right,
+                    leftMargin=self.options.margin_left,
+                    topMargin=self.options.margin_top,
+                    bottomMargin=self.options.margin_bottom,
+                )
+            else:
+                # For file-like objects, use BytesIO buffer
+                buffer = io.BytesIO()
+                pdf_doc = self._SimpleDocTemplate(
+                    buffer,
+                    pagesize=page_size,
+                    rightMargin=self.options.margin_right,
+                    leftMargin=self.options.margin_left,
+                    topMargin=self.options.margin_top,
+                    bottomMargin=self.options.margin_bottom,
+                )
 
-        # Build PDF
-        pdf_doc.build(self._flowables)
+            # Build PDF
+            pdf_doc.build(self._flowables)
 
-        # Write to file-like object if needed
-        if not isinstance(output, (str, Path)):
-            buffer.seek(0)
-            output.write(buffer.read())
-
-        # Clean up temp files
-        self._cleanup_temp_files()
+            # Write to file-like object if needed
+            if not isinstance(output, (str, Path)):
+                buffer.seek(0)
+                output.write(buffer.read())
+        except Exception as e:
+            raise RenderingError(
+                f"Failed to render PDF: {e!r}",
+                rendering_stage="rendering",
+                original_error=e
+            ) from e
+        finally:
+            # Clean up temp files
+            self._cleanup_temp_files()
 
     # render_to_bytes() is inherited from BaseRenderer
 
@@ -244,8 +260,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         for temp_file in self._temp_files:
             try:
                 Path(temp_file).unlink(missing_ok=True)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to cleanup temp file {temp_file}: {e}")
         self._temp_files.clear()
 
     def _get_page_size(self) -> tuple[float, float]:
@@ -782,9 +798,15 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                     self._flowables.append(caption)
 
                 self._flowables.append(self._Spacer(1, 0.2*self._inch))
-        except Exception:
-            # If image loading fails, just skip it
-            pass
+        except Exception as e:
+            # If image loading fails, log and optionally raise
+            logger.warning(f"Failed to add image to PDF: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to add image to PDF: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e
+                ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
         """Decode base64 image to temporary file.
