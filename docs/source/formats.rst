@@ -977,6 +977,214 @@ Full bidirectional support for reStructuredText, the documentation format used b
 * Math expressions (inline and block)
 * Footnotes and citations
 
+Org-Mode Documents
+~~~~~~~~~~~~~~~~~~
+
+**File Extensions:** ``.org``
+
+**Dependencies:** ``pip install all2md[org]``
+
+**Technology:** orgparse for Org-Mode parsing, custom renderer for output
+
+Full bidirectional support for Org-Mode, the powerful plain-text markup and organization system used by Emacs. Org-Mode is particularly popular in the Emacs community for note-taking, task management, literate programming, and documentation.
+
+**Basic Usage:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   # Parse Org-Mode to Markdown
+   markdown = to_markdown('notes.org')
+
+   # Convert back to Org-Mode from AST
+   from all2md.parsers.org import OrgParser
+   from all2md.renderers.org import OrgRenderer
+
+   parser = OrgParser()
+   doc = parser.parse('input.org')
+
+   renderer = OrgRenderer()
+   org_output = renderer.render_to_string(doc)
+
+**Advanced Options:**
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options import OrgParserOptions, OrgRendererOptions
+
+   # Parser options
+   parser_options = OrgParserOptions(
+       parse_drawers=True,             # Parse drawer blocks (default)
+       parse_properties=True,          # Parse property blocks (default)
+       parse_tags=True,                # Parse heading tags (default)
+       todo_keywords=['TODO', 'IN-PROGRESS', 'DONE']  # Custom TODO keywords
+   )
+
+   # Renderer options
+   renderer_options = OrgRendererOptions(
+       heading_style='stars',          # Heading style (only 'stars' supported)
+       preserve_drawers=False,         # Preserve drawer blocks
+       preserve_properties=True,       # Preserve property blocks (default)
+       preserve_tags=True,             # Preserve heading tags (default)
+       todo_keywords=['TODO', 'IN-PROGRESS', 'DONE']  # Custom TODO keywords
+   )
+
+   # Parse with options
+   from all2md.parsers.org import OrgParser
+   parser = OrgParser(parser_options)
+   doc = parser.parse('tasks.org')
+
+**Command Line:**
+
+.. code-block:: bash
+
+   # Convert Org-Mode to Markdown
+   all2md notes.org --out output.md
+
+   # Force Org-Mode format
+   all2md document.txt --format org
+
+**Org-Mode-Specific Features:**
+
+* **Bidirectional Conversion:** Full support for Org → AST → Org round-trips
+* **TODO States:** Parse and preserve TODO, DONE, and custom TODO keywords
+* **Priorities:** Support for priority markers ([#A], [#B], [#C])
+* **Tags:** Full support for heading tags (:work:urgent:)
+* **Properties:** Parse and preserve property drawers
+* **Inline Formatting:** Bold (``*bold*``), italic (``/italic/``), code (``=code=``), underline (``_underline_``), strikethrough (``+strike+``)
+* **Lists:** Bullet and ordered lists with nesting
+* **Tables:** Org-style table parsing and rendering
+* **Code Blocks:** Support for #+BEGIN_SRC/#+END_SRC blocks with language detection
+* **Links:** Parse and render Org-style links (``[[url][description]]``)
+* **Images:** Image links (``[[file:image.png]]``)
+* **Block Quotes:** Colon-prefixed quote blocks
+* **Metadata Extraction:** File-level properties (#+TITLE, #+AUTHOR, etc.)
+
+**Supported Org Elements:**
+
+* Headings with TODO states, priorities, and tags
+* Paragraphs and inline formatting (bold, italic, code, underline, strikethrough)
+* Lists (bullet, numbered, nested)
+* Tables (Org-style pipe tables)
+* Code blocks (#+BEGIN_SRC/#+END_SRC)
+* Block quotes (colon-prefixed lines)
+* Links (``[[url]]`` and ``[[url][description]]``)
+* Images (``[[file:path]]``)
+* Thematic breaks (-----)
+* File-level metadata (#+TITLE, #+AUTHOR, #+DATE)
+* Property drawers (:PROPERTIES: ... :END:)
+
+**Org-Mode TODO Example:**
+
+.. code-block:: org
+
+   #+TITLE: My Project Tasks
+   #+AUTHOR: John Doe
+
+   * TODO [#A] Implement feature :work:urgent:
+   :PROPERTIES:
+   :CUSTOM_ID: task-1
+   :CATEGORY: Development
+   :END:
+
+   This task needs to be completed *urgently*.
+
+   - Subtask 1
+   - Subtask 2
+
+   * DONE Write documentation :work:
+
+   Documentation is /complete/.
+
+**Org-Mode Inline Formatting:**
+
+Org-Mode uses unique markup for inline formatting:
+
+* Bold: ``*bold*``
+* Italic: ``/italic/``
+* Code: ``=code=`` or ``~verbatim~``
+* Underline: ``_underline_``
+* Strikethrough: ``+strikethrough+``
+
+**Org-Mode Links:**
+
+.. code-block:: org
+
+   # Simple link
+   [[https://example.com]]
+
+   # Link with description
+   [[https://example.com][Example Site]]
+
+   # File link (images)
+   [[file:diagram.png]]
+   [[file:diagram.png][Diagram]]
+
+**Org-Mode Tables:**
+
+.. code-block:: org
+
+   | Name  | Age | City     |
+   |-------+-----+----------|
+   | Alice | 30  | New York |
+   | Bob   | 25  | London   |
+   | Carol | 35  | Tokyo    |
+
+**Org-Mode Code Blocks:**
+
+.. code-block:: org
+
+   #+BEGIN_SRC python
+   def hello():
+       print("Hello, World!")
+   #+END_SRC
+
+   #+BEGIN_SRC javascript
+   console.log("Hello from JavaScript!");
+   #+END_SRC
+
+**Round-Trip Conversion Example:**
+
+.. code-block:: python
+
+   from all2md.parsers.org import OrgParser
+   from all2md.renderers.org import OrgRenderer
+
+   # Original Org-Mode content
+   org_content = """* TODO Write documentation
+   This is a task with *bold* and /italic/ text.
+
+   - Item 1
+   - Item 2
+   """
+
+   # Parse to AST
+   parser = OrgParser()
+   doc = parser.parse(org_content)
+
+   # TODO states and tags are stored in heading metadata
+   heading = doc.children[0]
+   print(heading.metadata.get('org_todo_state'))  # 'TODO'
+
+   # Render back to Org-Mode
+   renderer = OrgRenderer()
+   org_output = renderer.render_to_string(doc)
+
+   # org_output preserves the original structure
+
+**Metadata Storage:**
+
+Org-Mode-specific features are stored in AST node metadata:
+
+* ``org_todo_state``: TODO/DONE state
+* ``org_priority``: Priority level (A, B, C)
+* ``org_tags``: List of tags
+* ``org_properties``: Property drawer contents
+
+This allows round-trip conversion without data loss.
+
 Plain Text and Code Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1228,6 +1436,7 @@ Valid format strings for the ``format`` parameter:
 * ``'epub'`` - EPUB e-books
 * ``'rtf'`` - Rich Text Format
 * ``'rst'`` - reStructuredText documents
+* ``'org'`` - Org-Mode documents
 * ``'ipynb'`` - Jupyter notebooks
 * ``'odt'`` - OpenDocument Text (.odt)
 * ``'odp'`` - OpenDocument Presentation (.odp)

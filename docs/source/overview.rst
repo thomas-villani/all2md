@@ -84,6 +84,7 @@ Core Components
    │   ├── mhtml.py         # MHTML → AST
    │   ├── rtf.py           # RTF → AST
    │   ├── rst.py           # reStructuredText → AST
+   │   ├── org.py           # Org-Mode → AST
    │   ├── markdown.py      # Markdown → AST
    │   ├── sourcecode.py    # Source code → AST
    │   ├── xlsx.py          # Excel → AST

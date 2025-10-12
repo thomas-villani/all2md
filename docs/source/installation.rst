@@ -307,6 +307,17 @@ reStructuredText
 
 **Formats:** reStructuredText (.rst, .rest) files with full bidirectional support for Sphinx documentation
 
+Org-Mode
+~~~~~~~~
+
+.. code-block:: bash
+
+   pip install all2md[org]
+
+**Dependencies:** orgparse
+
+**Formats:** Org-Mode (.org) files with full bidirectional support for Emacs Org-Mode documents including TODO states, priorities, and tags
+
 OpenDocument Formats
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -370,7 +381,7 @@ This is equivalent to:
 
 .. code-block:: bash
 
-   pip install all2md[pdf,docx,pptx,html,epub,rtf,rst,odf,spreadsheet]
+   pip install all2md[pdf,docx,pptx,html,epub,rtf,rst,org,odf,spreadsheet]
 
 **Note:** The ``eml`` and ``ipynb`` extras are not needed as these formats use built-in Python libraries.
 

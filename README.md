@@ -26,7 +26,7 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 
 ## Key Features
 
--   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, ZIP archives, and over 200 source code languages.
+-   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages.
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
 -   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, and robust text extraction powered by PyMuPDF.
@@ -56,6 +56,7 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 | **CSV / TSV**                 | `.csv`, `.tsv`                                |       ✅       |       (N/A)    | (built-in)         |
 | **Rich Text Format**          | `.rtf`                                        |       ✅       |       (N/A)    | `rtf`              |
 | **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `markdown`         |
+| **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
 | **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 
