@@ -389,7 +389,7 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
             config_from_file = apply_preset(parsed_args.preset, config_from_file)
         except ValueError as e:
             print(f"Error applying preset: {e}", file=sys.stderr)
-            raise argparse.ArgumentTypeError(str(e))
+            raise argparse.ArgumentTypeError(str(e)) from e
 
     # Map CLI arguments to options (CLI args take highest priority)
     builder = DynamicCLIBuilder()
@@ -819,7 +819,7 @@ def merge_exclusion_patterns_from_json(
 
 
 def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple[Path, Optional[str]]]:
-    """Parse merge list file and return file paths with optional section titles.
+    r"""Parse merge list file and return file paths with optional section titles.
 
     Parameters
     ----------

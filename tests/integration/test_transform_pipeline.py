@@ -720,7 +720,7 @@ class TestProgressCallback:
         def progress_handler(event):
             events.append(event)
 
-        markdown = render(sample_document, progress_callback=progress_handler)
+        _markdown = render(sample_document, progress_callback=progress_handler)
 
         # Should have received events
         assert len(events) > 0

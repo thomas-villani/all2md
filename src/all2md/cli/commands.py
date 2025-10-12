@@ -15,7 +15,7 @@ import platform
 import sys
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from all2md import convert, registry
 from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception
@@ -1213,7 +1213,8 @@ Examples:
             '# Skip extracting images from PDFs',
             f'skip_image_extraction = {str(default_config["pdf"]["skip_image_extraction"]).lower()}',
             '# Enable fallback table detection',
-            f'enable_table_fallback_detection = {str(default_config["pdf"]["enable_table_fallback_detection"]).lower()}',
+            (f'enable_table_fallback_detection = '
+             f'{str(default_config["pdf"]["enable_table_fallback_detection"]).lower()}'),
             '# Merge hyphenated words at line breaks',
             f'merge_hyphenated_words = {str(default_config["pdf"]["merge_hyphenated_words"]).lower()}',
             '',

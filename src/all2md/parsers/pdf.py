@@ -1822,7 +1822,7 @@ class PdfToAstConverter(BaseParser):
             items.sort(key=lambda x: x[1])
 
             # Process items in order
-            for item_type, y, item_data in items:
+            for item_type, _y, item_data in items:
                 if item_type == "block":
                     # Process text block - get links from page
                     try:

@@ -230,7 +230,6 @@ Test paragraph."""
         )
 
         # Check metadata is preserved
-        data = json.loads(ast_json)
         # Metadata might be in document metadata or in a separate node
         # depending on how markdown parser handles frontmatter
         assert "Test Document" in ast_json or "Test Author" in ast_json

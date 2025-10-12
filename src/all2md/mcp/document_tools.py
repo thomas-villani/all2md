@@ -42,7 +42,7 @@ from all2md.mcp.schemas import (
     EditDocumentOutput,
     SectionInfo,
 )
-from all2md.mcp.security import validate_read_path, validate_write_path
+from all2md.mcp.security import MCPSecurityError, validate_read_path, validate_write_path
 
 logger = logging.getLogger(__name__)
 

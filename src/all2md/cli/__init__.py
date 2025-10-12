@@ -63,7 +63,6 @@ from all2md.cli.commands import (
 from all2md.cli.processors import (
     convert_single_file,
     generate_output_path,
-    load_options_from_json,
     merge_exclusion_patterns_from_json,
     process_detect_only,
     process_dry_run,
@@ -145,7 +144,6 @@ def main(args: list[str] | None = None) -> int:
 
     # Handle stdin input
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
-        from all2md.cli import EXIT_VALIDATION_ERROR
         # Set up options and validate
         try:
             options, format_arg, transforms = setup_and_validate_options(parsed_args)
@@ -190,34 +188,28 @@ def main(args: list[str] | None = None) -> int:
                 )
 
                 if not files:
-                    from all2md.cli import EXIT_FILE_ERROR
                     if parsed_args.exclude:
                         print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
                     else:
                         print("Error: No valid input files found", file=sys.stderr)
                     return EXIT_FILE_ERROR
         except argparse.ArgumentTypeError as e:
-            from all2md.cli import EXIT_VALIDATION_ERROR
             print(f"Error: {e}", file=sys.stderr)
             return EXIT_VALIDATION_ERROR
 
     # Validate arguments
     if not validate_arguments(parsed_args, files):
-        from all2md.cli import EXIT_VALIDATION_ERROR
         return EXIT_VALIDATION_ERROR
 
     # Set up options
     try:
         options, format_arg, transforms = setup_and_validate_options(parsed_args)
     except argparse.ArgumentTypeError as e:
-        from all2md.cli import EXIT_VALIDATION_ERROR
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
     # Handle watch mode if requested
     if parsed_args.watch:
-        from all2md.cli import EXIT_VALIDATION_ERROR
-
         # Watch mode requires --output-dir
         if not parsed_args.output_dir:
             print("Error: --watch requires --output-dir to be specified", file=sys.stderr)

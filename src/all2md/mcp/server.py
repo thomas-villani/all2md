@@ -236,7 +236,8 @@ def create_server(
                 ] = None,
                 content: Annotated[
                     str | None,
-                    "Content to add/insert (markdown format). Required for add_section, replace_section, insert_content."
+                    ("Content to add/insert (markdown format). "
+                     "Required for add_section, replace_section, insert_content.")
                 ] = None,
                 position: Annotated[
                     str | None,
@@ -365,7 +366,9 @@ def main() -> int:
 
         logger.info("Starting all2md MCP server")
         logger.info(
-            f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}")
+            f"Configuration: enable_to_md={config.enable_to_md}, "
+            f"enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}"
+        )
         logger.info(f"Attachment mode: {config.attachment_mode}")
 
         # Validate and prepare allowlists

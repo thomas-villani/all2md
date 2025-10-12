@@ -25,11 +25,10 @@ import base64
 import logging
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urljoin
-
-import unicodedata
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 

@@ -21,6 +21,7 @@ from all2md.cli.custom_actions import (
     TrackingStoreFalseAction,
     TrackingStoreTrueAction,
 )
+from all2md.cli.presets import get_preset_names
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import FileError, PasswordProtectedError, RenderingError, SecurityError, ValidationError
@@ -720,7 +721,6 @@ Examples:
         )
 
         # Preset configurations
-        from all2md.cli.presets import get_preset_names
         parser.add_argument(
             "--preset",
             choices=get_preset_names(),
