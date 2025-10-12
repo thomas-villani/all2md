@@ -132,6 +132,8 @@ Configuration Management
 
 The ``all2md config`` command provides tools for managing configuration files.
 
+.. _config-generate:
+
 **Generate Default Configuration**
 
 Create a configuration file with all available options:
@@ -153,6 +155,62 @@ The generated configuration includes:
 * All available options with their default values
 * Format-specific settings organized by section
 
+**Example Generated Configuration (TOML):**
+
+.. code-block:: toml
+
+   # all2md configuration file
+   # Automatically generated default configuration
+
+   # Attachment handling mode: "skip", "download", or "base64"
+   attachment_mode = "skip"
+
+   # PDF conversion options
+   [pdf]
+   # Detect multi-column layouts
+   detect_columns = false
+   # Skip extracting images from PDFs
+   skip_image_extraction = false
+   # Enable fallback table detection
+   enable_table_fallback_detection = true
+   # Merge hyphenated words at line breaks
+   merge_hyphenated_words = false
+
+   # HTML conversion options
+   [html]
+   # Strip potentially dangerous HTML elements
+   strip_dangerous_elements = true
+   # Extract title from HTML
+   extract_title = false
+
+   # Markdown output options
+   [markdown]
+   # Symbol to use for emphasis: "*" or "_"
+   emphasis_symbol = "*"
+
+   # ... (additional format sections)
+
+**Example Generated Configuration (JSON):**
+
+.. code-block:: json
+
+   {
+     "attachment_mode": "skip",
+     "pdf": {
+       "detect_columns": false,
+       "skip_image_extraction": false,
+       "enable_table_fallback_detection": true,
+       "merge_hyphenated_words": false
+     },
+     "html": {
+       "strip_dangerous_elements": true,
+       "extract_title": false
+     },
+     "markdown": {
+       "emphasis_symbol": "*"
+     }
+   }
+
 **Show Effective Configuration**
 
 Display the merged configuration from all sources:
@@ -173,6 +231,27 @@ This command shows configuration merged from:
 2. ``.all2md.toml`` or ``.all2md.json`` in current directory
 3. ``.all2md.toml`` or ``.all2md.json`` in home directory
 
+**Example Output:**
+
+.. code-block:: text
+
+   Configuration Sources (in priority order):
+   ------------------------------------------------------------
+   1. ALL2MD_CONFIG env var: (not set)
+   2. /home/user/project/.all2md.toml [FOUND]
+   3. /home/user/.all2md.toml [-]
+
+   Effective Configuration:
+   ============================================================
+   attachment_mode = "download"
+   attachment_output_dir = "./images"
+
+   [pdf]
+   detect_columns = true
+
+   [markdown]
+   emphasis_symbol = "_"
+
 **Validate Configuration File**
 
 Check configuration file syntax:
@@ -191,6 +270,21 @@ This verifies:
 * JSON/TOML syntax is valid
 * Configuration structure is correct
 
+**Example Output (Valid Config):**
+
+.. code-block:: text
+
+   Configuration file is valid: .all2md.toml
+   Format: .toml
+   Keys found: attachment_mode, pdf, html, markdown
+
+**Example Output (Invalid Config):**
+
+.. code-block:: text
+
+   Invalid configuration file: Invalid TOML syntax at line 5: Expected '=' after key
+   Error validating configuration: .all2md.toml
+
 **Configuration Priority**
 
 Configuration sources are applied in this order (later sources override earlier):
@@ -198,8 +292,13 @@ Configuration sources are applied in this order (later sources override earlier)
 1. Auto-discovered config files (``.all2md.toml`` or ``.all2md.json``)
 2. Environment variable config (``ALL2MD_CONFIG``)
 3. Explicit ``--config`` flag
-4. ``--preset`` flag
+4. ``--preset`` flag (see :ref:`presets` for available presets)
 5. CLI arguments (highest priority)
+
+.. seealso::
+
+   :ref:`presets`
+      For information about preset configurations and how to use them
 
 **Example Workflow:**
 
@@ -336,6 +435,16 @@ Markdown Formatting
 Configuration and Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. _presets:
+
+``--preset``
+   Apply a preset configuration for common use cases. Presets provide pre-configured settings that can be overridden by CLI arguments.
+
+   .. seealso::
+
+      :ref:`config-generate`
+         To create a customizable configuration file based on a preset
+
 ``--config``
    Path to configuration file (JSON or TOML format). Command line options override config file settings.
 
@@ -436,6 +545,111 @@ Configuration and Debugging
    * ``archival`` - Self-contained documents with embedded resources (base64)
    * ``documentation`` - Optimized for technical documentation
 
+   **Preset Comparison:**
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 20 13 13 13 13 13 15
+
+      * - Setting
+        - fast
+        - quality
+        - minimal
+        - complete
+        - archival
+        - documentation
+      * - Attachment Mode
+        - skip
+        - download
+        - skip
+        - download
+        - base64
+        - download
+      * - PDF Column Detection
+        - Disabled
+        - Enabled
+        - Default
+        - Enabled
+        - Enabled
+        - Enabled
+      * - PDF Image Extraction
+        - Skipped
+        - Default
+        - Skipped
+        - Default
+        - Default
+        - Default
+      * - PDF Table Fallback
+        - Disabled
+        - Enabled
+        - Default
+        - Enabled
+        - Default
+        - Default
+      * - PDF Hyphen Merging
+        - Disabled
+        - Enabled
+        - Default
+        - Default
+        - Enabled
+        - Default
+      * - HTML Strip Dangerous
+        - Enabled
+        - Disabled
+        - Enabled
+        - Default
+        - Default
+        - Enabled
+      * - HTML Extract Title
+        - Default
+        - Enabled
+        - Default
+        - Enabled
+        - Enabled
+        - Enabled
+      * - HTML Remote Fetch
+        - Default
+        - Default
+        - Default
+        - Enabled
+        - Default
+        - Default
+      * - PPTX Include Notes
+        - Disabled
+        - Enabled
+        - Default
+        - Enabled
+        - Default
+        - Default
+      * - PPTX Slide Numbers
+        - Default
+        - Enabled
+        - Default
+        - Enabled
+        - Default
+        - Default
+      * - EPUB Merge Chapters
+        - Default
+        - Enabled
+        - Default
+        - Enabled
+        - Enabled
+        - Default
+      * - EPUB Include TOC
+        - Default
+        - Enabled
+        - Default
+        - Enabled
+        - Enabled
+        - Default
+      * - Jupyter Truncate
+        - Default
+        - Default
+        - Default
+        - Default
+        - Default
+        - 50 lines
+
    .. code-block:: bash
 
       # Use fast preset for quick processing
@@ -447,41 +661,158 @@ Configuration and Debugging
       # Combine preset with config file
       all2md document.pdf --preset quality --config custom.toml
 
-   **Preset Details:**
+   **Detailed Preset Descriptions:**
 
-   **fast** - Speed-optimized processing:
-      * Skips attachments
-      * Disables column detection
-      * Disables table fallback detection
-      * Skips image extraction
+   **fast** - Speed-optimized processing
 
-   **quality** - Maximum fidelity:
-      * Downloads attachments
-      * Enables column detection
-      * Enables table fallback detection
-      * Merges hyphenated words
-      * Includes notes and metadata
+      Optimized for maximum conversion speed by skipping expensive operations:
 
-   **minimal** - Text-only:
-      * Skips all attachments and images
-      * Simple text extraction only
+      * ``attachment_mode: skip`` - No attachment processing
+      * ``pdf.skip_image_extraction: true`` - Skip PDF image extraction
+      * ``pdf.detect_columns: false`` - Disable column layout detection
+      * ``pdf.enable_table_fallback_detection: false`` - Disable fallback table detection
+      * ``html.strip_dangerous_elements: true`` - Basic security
+      * ``pptx.include_notes: false`` - Skip speaker notes
 
-   **complete** - Full preservation:
-      * Downloads all attachments
-      * Extracts all content and metadata
-      * Preserves structure
+      **Use when:** You need quick text extraction from many documents and don't need images or complex layout preservation.
 
-   **archival** - Self-contained:
-      * Embeds attachments as base64
-      * Preserves all content inline
-      * No external dependencies
+   **quality** - Maximum fidelity
 
-   **documentation** - Technical docs:
-      * Downloads attachments
-      * Optimized markdown formatting
-      * Truncates long notebook outputs
+      Optimized for highest quality output with comprehensive content preservation:
 
-   See ``all2md config generate --help`` for full details on each preset.
+      * ``attachment_mode: download`` - Save all attachments locally
+      * ``pdf.detect_columns: true`` - Detect multi-column layouts
+      * ``pdf.enable_table_fallback_detection: true`` - Advanced table detection
+      * ``pdf.merge_hyphenated_words: true`` - Fix line-break hyphenation
+      * ``html.extract_title: true`` - Extract document titles
+      * ``pptx.include_notes: true`` - Include speaker notes
+      * ``pptx.slide_numbers: true`` - Add slide numbers
+      * ``epub.merge_chapters: true`` - Create continuous document
+      * ``epub.include_toc: true`` - Include table of contents
+
+      **Use when:** You need the highest quality output and have time for thorough processing.
+
+   **minimal** - Text-only extraction
+
+      Minimal processing focused on text content only:
+
+      * ``attachment_mode: skip`` - No attachments
+      * ``pdf.skip_image_extraction: true`` - Skip images
+      * ``html.strip_dangerous_elements: true`` - Basic security
+      * ``markdown.emphasis_symbol: *`` - Simple markdown
+
+      **Use when:** You only need plain text content without images, tables, or formatting.
+
+   **complete** - Full preservation
+
+      Complete content and metadata extraction:
+
+      * ``attachment_mode: download`` - Download all attachments
+      * ``pdf.detect_columns: true`` - Advanced layout detection
+      * ``pdf.enable_table_fallback_detection: true`` - Comprehensive table detection
+      * ``html.extract_title: true`` - Extract metadata
+      * ``html.network.allow_remote_fetch: true`` - Fetch remote resources
+      * ``html.network.require_https: true`` - Secure fetching only
+      * ``pptx.include_notes: true`` - Include all notes
+      * ``pptx.slide_numbers: true`` - Number slides
+      * ``epub.merge_chapters: true`` - Continuous document
+      * ``epub.include_toc: true`` - Table of contents
+      * ``eml.include_headers: true`` - Email headers
+      * ``eml.preserve_thread_structure: true`` - Email threading
+
+      **Use when:** Creating an archive or need every piece of content and metadata preserved.
+
+   **archival** - Self-contained documents
+
+      Creates completely self-contained documents with no external dependencies:
+
+      * ``attachment_mode: base64`` - Embed all resources inline
+      * ``pdf.detect_columns: true`` - Preserve layout
+      * ``pdf.merge_hyphenated_words: true`` - Clean text
+      * ``html.extract_title: true`` - Include metadata
+      * ``epub.merge_chapters: true`` - Single document
+      * ``epub.include_toc: true`` - Navigation structure
+
+      **Use when:** Creating portable documents that must work without external files or network access.
+
+   **documentation** - Technical documentation
+
+      Optimized for technical documentation with readable code and clean formatting:
+
+      * ``attachment_mode: download`` - External image files
+      * ``markdown.emphasis_symbol: _`` - Underscore emphasis (common in tech docs)
+      * ``html.extract_title: true`` - Document structure
+      * ``html.strip_dangerous_elements: true`` - Clean HTML
+      * ``ipynb.truncate_long_outputs: 50`` - Limit output verbosity
+      * ``pdf.detect_columns: true`` - Handle multi-column layouts
+
+      **Use when:** Converting technical documentation, API docs, or Jupyter notebooks for publication.
+
+   **Working with Presets:**
+
+   Presets can be combined with CLI arguments and configuration files. The priority order is:
+
+   1. CLI arguments (highest priority)
+   2. ``--preset`` flag
+   3. ``--config`` file
+   4. Auto-discovered config files
+   5. Default values (lowest priority)
+
+   .. code-block:: bash
+
+      # Use quality preset with custom output directory
+      all2md document.pdf --preset quality --attachment-output-dir ./my-images
+
+      # Override preset's attachment mode
+      all2md document.pdf --preset archival --attachment-mode download
+
+      # Combine preset with config file
+      all2md document.pdf --preset quality --config custom.toml
+
+      # Fast preset for batch processing
+      all2md *.pdf --preset fast --output-dir ./converted --parallel 8
+
+   **Creating Custom Configurations Based on Presets:**
+
+   You can create a configuration file inspired by a preset and customize it:
+
+   .. code-block:: bash
+
+      # Generate base config
+      all2md config generate --out .all2md.toml
+
+      # Edit to match a preset's settings and add customizations
+      vim .all2md.toml
+
+      # Use your custom config
+      all2md document.pdf --config .all2md.toml
+
+   Example of customizing the ``quality`` preset:
+
+   .. code-block:: toml
+
+      # Based on 'quality' preset with customizations
+      attachment_mode = "download"
+      attachment_output_dir = "./document-assets"
+
+      [pdf]
+      detect_columns = true
+      enable_table_fallback_detection = true
+      merge_hyphenated_words = true
+      pages = [1, 2, 3, 5]  # Custom: only specific pages
+
+      [html]
+      extract_title = true
+
+      [markdown]
+      emphasis_symbol = "_"  # Custom: prefer underscore
+      flavor = "gfm"  # Custom: GitHub-flavored markdown
+
+   .. note::
+
+      Use ``all2md --help`` to see preset descriptions in the command-line help.
+      To create a configuration file with customizable settings, use ``all2md config generate``
+      (see :ref:`config-generate` below).
 
 ``--log-level``
    Set logging level for debugging and detailed output.
@@ -1930,6 +2261,57 @@ Advanced Multi-File Processing
 
    # Quiet batch processing with error handling
    all2md *.docx --parallel --skip-errors --no-summary --output-dir ./converted
+
+Using Presets Effectively
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Scenario 1: Fast batch conversion of many PDFs
+   # Use the 'fast' preset to skip expensive operations
+   all2md *.pdf --preset fast --output-dir ./converted --parallel 8
+
+   # Scenario 2: Archival of important documents
+   # Use 'archival' preset for self-contained files with base64 images
+   all2md important_*.pdf --preset archival --out ./archive/
+
+   # Scenario 3: Creating technical documentation
+   # Use 'documentation' preset with custom notebook truncation
+   all2md *.ipynb --preset documentation --ipynb-truncate-long-outputs 30
+
+   # Scenario 4: Quality conversion with preset overrides
+   # Start with quality, but skip attachments for this specific use case
+   all2md research.pdf --preset quality --attachment-mode skip
+
+   # Scenario 5: Combining preset with config file
+   # Use preset as base, config file for project settings, CLI for one-off changes
+   all2md report.pdf --preset quality --config .all2md.toml --pdf-pages "1-5"
+
+**When to Use Each Preset:**
+
+For **fast batch processing** of many documents where you only need text:
+
+.. code-block:: bash
+
+   all2md documents/*.pdf --preset fast --output-dir ./text-only --parallel
+
+For **high-quality conversions** where accuracy matters most:
+
+.. code-block:: bash
+
+   all2md important.pdf --preset quality --out important.md
+
+For **archival purposes** where files must be completely self-contained:
+
+.. code-block:: bash
+
+   all2md archive/*.* --preset archival --output-dir ./archive
+
+For **documentation projects** with notebooks and technical content:
+
+.. code-block:: bash
+
+   all2md docs/*.ipynb --preset documentation --output-dir ./docs
 
 Configuration File Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
