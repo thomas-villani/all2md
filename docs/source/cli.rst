@@ -248,16 +248,26 @@ Configuration and Debugging
 
    .. note::
 
-      **Passing List Values:** The current CLI implementation does not parse comma-separated strings into lists for ``list[str]`` fields. For options that accept multiple values (lists), you must use JSON configuration:
+      **Passing List Values:** For options that accept a list of values (e.g., ``--pdf-pages``, ``--html-network-allowed-hosts``), you can provide a comma-separated string. For more complex lists or to avoid shell escaping issues, using a JSON configuration file is recommended.
 
-      **List-type options requiring JSON:**
+      **List-type options supporting comma-separated values:**
 
-      * ``html.network.allowed_hosts`` - Whitelist of allowed hostnames
-      * ``eml.url_wrappers`` - Custom URL wrapper patterns to clean
-      * ``spreadsheet.sheets`` - Specific sheets to process (or use regex pattern as single string)
-      * ``pdf.pages`` - Can use comma-separated string: ``"0,1,2"`` (parsed as integers)
+      * ``html.network.allowed_hosts``
+      * ``eml.url_wrappers``
+      * ``spreadsheet.sheets``
+      * ``pdf.pages``
 
-      **Example JSON configuration:**
+      **Example:**
+
+      .. code-block:: bash
+
+         # Pass a list of hosts via the CLI
+         all2md webpage.html --html-network-allowed-hosts "cdn.example.com,images.example.org"
+
+         # Pass multiple pages
+         all2md document.pdf --pdf-pages "1,2,3,5"
+
+      **Using JSON configuration for complex lists:**
 
       .. code-block:: json
 
@@ -276,18 +286,6 @@ Configuration and Debugging
 
          # CLI flags can still override non-list settings
          all2md webpage.html --options-json config.json --attachment-mode download
-
-      **Single-value workaround:**
-
-      For single values, you can pass them directly:
-
-      .. code-block:: bash
-
-         # Single host (works without JSON)
-         all2md webpage.html --html-network-allowed-hosts "cdn.example.com"
-
-         # Single sheet as regex pattern
-         all2md workbook.xlsx --spreadsheet-sheets "^Sheet1$"
 
    .. code-block:: bash
 

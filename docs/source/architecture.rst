@@ -199,7 +199,7 @@ Core Components
 * ``html.py`` - HTML via BeautifulSoup
 * ``docx.py`` - Word via python-docx
 * ``pptx.py`` - PowerPoint via python-pptx
-* ``xlsx.py`` (spreadsheet.py) - Excel via openpyxl
+* ``xlsx.py``, ``ods_spreadsheet.py``, ``csv.py`` - Spreadsheet formats (XLSX, ODS, CSV/TSV)
 * ``odf.py`` - OpenDocument via odfpy
 * ``epub.py`` - EPUB via ebooklib
 * ``ipynb.py`` - Jupyter via nbformat
@@ -420,9 +420,18 @@ All nodes inherit from ``Node`` base class:
 **Available Renderers:**
 
 * ``markdown.py`` - Markdown (CommonMark, GFM, custom flavors)
-* ``docx.py`` - Word documents
+* ``docx.py`` - Word documents (requires python-docx)
 * ``html.py`` - HTML
-* ``pdf.py`` - PDF
+* ``pdf.py`` - PDF (requires reportlab)
+* ``pptx.py`` - PowerPoint (requires python-pptx)
+* ``epub.py`` - EPUB e-books (requires ebooklib)
+* ``rst.py`` - reStructuredText
+* ``asciidoc.py`` - AsciiDoc
+* ``latex.py`` - LaTeX
+* ``mediawiki.py`` - MediaWiki
+* ``org.py`` - Org-Mode
+* ``plaintext.py`` - Plain text
+* ``ast_json.py`` - JSON AST format
 
 **Renderer Interface:**
 

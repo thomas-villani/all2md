@@ -207,6 +207,83 @@ A dictionary with:
      "output_path": "/workspace/output.docx"
    }
 
+edit_document_ast
+~~~~~~~~~~~~~~~~~
+
+Manipulate document structure at the AST level. **Requires** ``--enable-doc-edit`` flag (disabled by default for security).
+
+**Parameters:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``operation``
+     - string
+     - **REQUIRED.** Operation to perform: ``list_sections``, ``get_section``, ``add_section``, ``remove_section``, ``replace_section``, ``insert_content``, ``generate_toc``, ``split_document``.
+   * - ``source_path``
+     - string
+     - File path to document (markdown or AST JSON). Mutually exclusive with ``source_content``.
+   * - ``source_content``
+     - string
+     - Document content as string. Mutually exclusive with ``source_path``.
+   * - ``source_format``
+     - string
+     - Format of source: ``markdown`` (default) or ``ast_json``.
+   * - ``target_heading``
+     - string
+     - Heading text to target for section operations.
+   * - ``target_index``
+     - int
+     - Section index to target.
+   * - ``content``
+     - string
+     - Markdown content to add/insert for ``add_section``, ``replace_section``, ``insert_content``.
+   * - ``position``
+     - string
+     - Position for add/insert operations: ``before``, ``after``, ``start``, ``end``.
+   * - ``output_path``
+     - string
+     - Output file path. If not provided, content is returned in the response.
+   * - ``output_format``
+     - string
+     - Format for output content: ``markdown`` (default) or ``ast_json``.
+
+**Returns:**
+
+A dictionary with detailed results of the operation, including modified content, section information, or output path.
+
+**Examples:**
+
+.. code-block:: json
+
+   {
+     "operation": "list_sections",
+     "source_path": "/workspace/document.md"
+   }
+
+.. code-block:: json
+
+   {
+     "operation": "get_section",
+     "source_path": "/workspace/document.md",
+     "target_heading": "Introduction"
+   }
+
+.. code-block:: json
+
+   {
+     "operation": "add_section",
+     "source_path": "/workspace/document.md",
+     "target_heading": "Chapter 1",
+     "position": "after",
+     "content": "# New Section\n\nContent here.",
+     "output_path": "/workspace/updated.md"
+   }
+
 Configuration
 -------------
 

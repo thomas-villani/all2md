@@ -455,7 +455,7 @@ Feature Comparison
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 12 12 12 12 12 15
+   :widths: 20 9 9 9 9 9 9 9 9 9 9
 
    * - Feature
      - DOCX
@@ -464,7 +464,15 @@ Feature Comparison
      - EPUB
      - PPTX
      - RST
+     - AsciiDoc
+     - LaTeX
+     - MediaWiki
+     - Org-Mode
    * - Headings (H1-H6)
+     - ✓
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -478,7 +486,15 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Lists (ordered/unordered)
+     - ✓
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -492,6 +508,10 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Code blocks
      - ✓
      - ✓ (highlighting)
@@ -499,7 +519,15 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Inline code
+     - ✓
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -513,6 +541,10 @@ Feature Comparison
      - ✓
      - Partial
      - ✓
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Images
      - ✓
      - ✓
@@ -520,7 +552,15 @@ Feature Comparison
      - ✓
      - Partial
      - ✓
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Block quotes
+     - ✓
+     - ✓
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -534,12 +574,20 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - Footnotes
      - ✓
      - ✓
      - ✓
      - ✓
      - ✗
+     - ✓
+     - ✓
+     - ✓
+     - Partial
      - ✓
    * - Task lists
      - ✓
@@ -548,6 +596,10 @@ Feature Comparison
      - ✓
      - ✗
      - Partial
+     - Partial
+     - Partial
+     - Partial
+     - ✓
 
 Limitations
 ~~~~~~~~~~~

@@ -309,6 +309,49 @@ CLI usage:
 
    all2md document.pdf --transform word-count
 
+generate-toc
+~~~~~~~~~~~~
+
+Generate a table of contents from document headings.
+
+.. code-block:: python
+
+   from all2md.transforms import GenerateTocTransform
+
+   # Basic usage - adds TOC at top of document
+   transform = GenerateTocTransform()
+
+   # Custom configuration
+   transform = GenerateTocTransform(
+       title="Table of Contents",
+       max_depth=3,
+       position="top",
+       add_links=True,
+       separator="-"
+   )
+
+**Parameters:**
+
+* ``title`` (str, default="Table of Contents") - Title for the TOC section
+* ``max_depth`` (int, default=3) - Maximum heading level to include (1-6)
+* ``position`` ("top" or "bottom", default="top") - Position to insert the TOC
+* ``add_links`` (bool, default=True) - Whether to create links to headings (requires heading IDs)
+* ``separator`` (str, default="-") - Separator for generating heading IDs when not present
+
+CLI usage:
+
+.. code-block:: bash
+
+   # Generate TOC at top of document
+   all2md document.pdf --transform generate-toc
+
+   # Custom TOC configuration
+   all2md document.pdf \
+       --transform generate-toc \
+       --toc-title "Contents" \
+       --toc-max-depth 2 \
+       --toc-position bottom
+
 Creating Custom Transforms
 ---------------------------
 

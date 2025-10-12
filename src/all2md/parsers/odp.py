@@ -314,7 +314,7 @@ class OdpToAstConverter(BaseParser):
         notes: list[Node] = []
 
         # Look for notes elements
-        # Note: This is a placeholder - actual notes extraction may require
+        # FIXME: This is a placeholder - actual notes extraction may require
         # more complex logic depending on ODP structure
 
         return notes

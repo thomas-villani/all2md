@@ -83,14 +83,15 @@ Use ``MarkdownRenderer`` to convert AST back to Markdown:
 
    # Render to Markdown
    renderer = MarkdownRenderer()
-   markdown = renderer.render(doc)
+   markdown = renderer.render_to_string(doc)
    print(markdown)
 
    # Render with specific flavor
-   from all2md.utils.flavors import GFMFlavor
+   from all2md.options import MarkdownOptions
 
-   renderer = MarkdownRenderer(flavor=GFMFlavor())
-   gfm_markdown = renderer.render(doc)
+   options = MarkdownOptions(flavor="gfm")
+   renderer = MarkdownRenderer(options=options)
+   gfm_markdown = renderer.render_to_string(doc)
 
 AST Node Types
 --------------
@@ -519,7 +520,7 @@ all2md provides builders for complex structures:
        .add_paragraph([Text(content="Content here.")])
    )
 
-   doc = builder.build()
+   doc = builder.get_document()
 
 Merging Documents
 ~~~~~~~~~~~~~~~~~
@@ -662,14 +663,15 @@ Extract headings and build TOC:
 
    from all2md import to_ast
    from all2md.ast import NodeVisitor, Heading
+   from all2md.ast.utils import extract_text
 
    class TOCGenerator(NodeVisitor):
        def __init__(self):
            self.toc = []
 
        def visit_heading(self, node: Heading):
-           # Extract text from heading
-           text = self._extract_text(node.content)
+           # Extract text from heading using official utility
+           text = extract_text(node.content)
 
            # Create anchor from text
            anchor = text.lower().replace(' ', '-')
@@ -679,15 +681,6 @@ Extract headings and build TOC:
            self.toc.append(f"{indent}- [{text}](#{anchor})")
 
            self.generic_visit(node)
-
-       def _extract_text(self, nodes):
-           text = []
-           for node in nodes:
-               if hasattr(node, 'content') and isinstance(node.content, str):
-                   text.append(node.content)
-               elif hasattr(node, 'content') and isinstance(node.content, list):
-                   text.append(self._extract_text(node.content))
-           return ''.join(text)
 
    # Generate TOC
    doc = to_ast("document.pdf")
@@ -706,6 +699,7 @@ Analyze document content:
 
    from all2md import to_ast
    from all2md.ast import NodeVisitor, Heading, Paragraph, Table, Image, Link
+   from all2md.ast.utils import extract_text
 
    class DocumentStats(NodeVisitor):
        def __init__(self):
@@ -719,7 +713,7 @@ Analyze document content:
            }
 
        def visit_heading(self, node: Heading):
-           text = self._extract_text(node.content)
+           text = extract_text(node.content)
            self.stats['headings'].append({
                'level': node.level,
                'text': text
@@ -729,7 +723,7 @@ Analyze document content:
        def visit_paragraph(self, node: Paragraph):
            self.stats['paragraphs'] += 1
            # Count words
-           text = self._extract_text(node.content)
+           text = extract_text(node.content)
            self.stats['words'] += len(text.split())
            self.generic_visit(node)
 
@@ -744,16 +738,6 @@ Analyze document content:
        def visit_link(self, node: Link):
            self.stats['links'] += 1
            self.generic_visit(node)
-
-       def _extract_text(self, nodes):
-           from all2md.ast import Text
-           text = []
-           for node in nodes:
-               if isinstance(node, Text):
-                   text.append(node.content)
-               elif hasattr(node, 'content') and isinstance(node.content, list):
-                   text.append(self._extract_text(node.content))
-           return ''.join(text)
 
    # Analyze document
    doc = to_ast("report.pdf")
