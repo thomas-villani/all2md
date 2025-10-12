@@ -11,7 +11,7 @@ import pytest
 
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
 from all2md.cli.commands import collect_input_files, handle_dependency_commands, save_config_to_file
-from all2md.cli.processors import generate_output_path, process_dry_run
+from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
 
 
 @pytest.mark.unit
@@ -1124,3 +1124,243 @@ class TestNewEnhancedCLIFeatures:
             # Check expected values
             for attr, expected_value in expected_attrs.items():
                 assert getattr(args, attr) == expected_value
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestMergeFromListFeature:
+    """Test merge-from-list CLI feature."""
+
+    def test_merge_from_list_flag_parsing(self):
+        """Test --merge-from-list argument parsing."""
+        parser = create_parser()
+
+        # Test default (None)
+        args = parser.parse_args(["test.pdf"])
+        assert args.merge_from_list is None
+
+        # Test with list file path
+        args = parser.parse_args(["--merge-from-list", "docs.txt"])
+        assert args.merge_from_list == "docs.txt"
+
+    def test_generate_toc_flag_parsing(self):
+        """Test --generate-toc flag parsing."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["--merge-from-list", "docs.txt"])
+        assert args.generate_toc is False
+
+        # Test with --generate-toc
+        args = parser.parse_args(["--merge-from-list", "docs.txt", "--generate-toc"])
+        assert args.generate_toc is True
+
+    def test_toc_options_parsing(self):
+        """Test TOC-related options parsing."""
+        parser = create_parser()
+
+        # Test defaults
+        args = parser.parse_args(["--merge-from-list", "docs.txt", "--generate-toc"])
+        assert args.toc_title == "Table of Contents"
+        assert args.toc_depth == 3
+        assert args.toc_position == "top"
+
+        # Test custom values
+        args = parser.parse_args([
+            "--merge-from-list", "docs.txt",
+            "--generate-toc",
+            "--toc-title", "Contents",
+            "--toc-depth", "2",
+            "--toc-position", "bottom"
+        ])
+        assert args.toc_title == "Contents"
+        assert args.toc_depth == 2
+        assert args.toc_position == "bottom"
+
+    def test_list_separator_option(self):
+        """Test --list-separator option."""
+        parser = create_parser()
+
+        # Test default (tab)
+        args = parser.parse_args(["--merge-from-list", "docs.txt"])
+        assert args.list_separator == "\t"
+
+        # Test custom separator
+        args = parser.parse_args(["--merge-from-list", "docs.txt", "--list-separator", ","])
+        assert args.list_separator == ","
+
+    def test_no_section_titles_flag(self):
+        """Test --no-section-titles flag."""
+        parser = create_parser()
+
+        # Test default (False)
+        args = parser.parse_args(["--merge-from-list", "docs.txt"])
+        assert args.no_section_titles is False
+
+        # Test with flag
+        args = parser.parse_args(["--merge-from-list", "docs.txt", "--no-section-titles"])
+        assert args.no_section_titles is True
+
+    def test_parse_merge_list_basic(self):
+        """Test basic parse_merge_list functionality."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test files
+            (temp_path / "doc1.md").write_text("# Doc 1")
+            (temp_path / "doc2.md").write_text("# Doc 2")
+
+            # Create list file
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("doc1.md\ndoc2.md\n")
+
+            # Parse list
+            entries = parse_merge_list(list_file)
+
+            assert len(entries) == 2
+            assert entries[0][0].name == "doc1.md"
+            assert entries[0][1] is None  # No section title
+            assert entries[1][0].name == "doc2.md"
+            assert entries[1][1] is None
+
+    def test_parse_merge_list_with_titles(self):
+        """Test parse_merge_list with section titles."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test files
+            (temp_path / "intro.md").write_text("# Intro")
+            (temp_path / "body.md").write_text("# Body")
+
+            # Create list file with titles
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("intro.md\tIntroduction\nbody.md\tMain Content\n")
+
+            # Parse list
+            entries = parse_merge_list(list_file)
+
+            assert len(entries) == 2
+            assert entries[0][1] == "Introduction"
+            assert entries[1][1] == "Main Content"
+
+    def test_parse_merge_list_with_comments(self):
+        """Test parse_merge_list skips comments and blank lines."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            (temp_path / "doc.md").write_text("# Doc")
+
+            # Create list file with comments
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("# This is a comment\n\ndoc.md\n\n# Another comment\n")
+
+            # Parse list
+            entries = parse_merge_list(list_file)
+
+            assert len(entries) == 1
+            assert entries[0][0].name == "doc.md"
+
+    def test_parse_merge_list_resolves_relative_paths(self):
+        """Test parse_merge_list resolves paths relative to list file."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create subdirectory with files
+            sub_dir = temp_path / "sub"
+            sub_dir.mkdir()
+            (sub_dir / "doc.md").write_text("# Doc")
+
+            # Create list file in parent directory
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("sub/doc.md\n")
+
+            # Parse list
+            entries = parse_merge_list(list_file)
+
+            assert len(entries) == 1
+            assert entries[0][0].exists()
+            assert "sub" in str(entries[0][0])
+
+    def test_parse_merge_list_missing_file_error(self):
+        """Test parse_merge_list raises error for missing files."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create list file referencing non-existent file
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("nonexistent.md\n")
+
+            # Should raise error
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                parse_merge_list(list_file)
+
+            assert "File not found" in str(exc_info.value)
+            assert "nonexistent.md" in str(exc_info.value)
+
+    def test_parse_merge_list_empty_file_error(self):
+        """Test parse_merge_list raises error for empty list file."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create empty list file
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("# Only comments\n\n")
+
+            # Should raise error
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                parse_merge_list(list_file)
+
+            assert "empty" in str(exc_info.value).lower()
+
+    def test_parse_merge_list_custom_separator(self):
+        """Test parse_merge_list with custom separator."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            (temp_path / "doc.md").write_text("# Doc")
+
+            # Create list file with comma separator
+            list_file = temp_path / "docs.txt"
+            list_file.write_text("doc.md,My Document\n")
+
+            # Parse with comma separator
+            entries = parse_merge_list(list_file, separator=",")
+
+            assert len(entries) == 1
+            assert entries[0][1] == "My Document"
+
+    def test_merge_from_list_help_text(self):
+        """Test that merge-from-list options appear in help."""
+        parser = create_parser()
+        help_text = parser.format_help()
+
+        assert "--merge-from-list" in help_text
+        assert "--generate-toc" in help_text
+        assert "--toc-title" in help_text
+        assert "--toc-depth" in help_text
+        assert "--toc-position" in help_text
+        assert "--list-separator" in help_text
+        assert "--no-section-titles" in help_text

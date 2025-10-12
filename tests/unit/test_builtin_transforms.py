@@ -9,6 +9,7 @@ from all2md.transforms.builtin import (
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
     CalculateWordCountTransform,
+    GenerateTocTransform,
     HeadingOffsetTransform,
     LinkRewriterTransform,
     RemoveBoilerplateTextTransform,
@@ -806,3 +807,358 @@ class TestAddAttachmentFootnotesTransform:
         # Footnote should be added
         footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
         assert len(footnote_defs) == 1
+
+
+# GenerateTocTransform tests
+
+class TestGenerateTocTransform:
+    """Tests for GenerateTocTransform."""
+
+    def test_generates_basic_toc(self):
+        """Test basic TOC generation with simple headings."""
+        from all2md.ast.nodes import List as ListNode
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Introduction")]),
+            Paragraph(content=[Text(content="Some text")]),
+            Heading(level=1, content=[Text(content="Conclusion")]),
+        ])
+
+        transform = GenerateTocTransform()
+        result = transform.transform(doc)
+
+        # Should have TOC heading + TOC list + original content
+        assert len(result.children) == 5
+
+        # First should be TOC heading
+        assert isinstance(result.children[0], Heading)
+        assert result.children[0].content[0].content == "Table of Contents"
+
+        # Second should be TOC list
+        assert isinstance(result.children[1], ListNode)
+        assert len(result.children[1].items) == 2
+
+    def test_toc_with_nested_headings(self):
+        """Test TOC with nested headings at different levels."""
+        from all2md.ast.nodes import List as ListNode
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter 1")]),
+            Heading(level=2, content=[Text(content="Section 1.1")]),
+            Heading(level=2, content=[Text(content="Section 1.2")]),
+            Heading(level=1, content=[Text(content="Chapter 2")]),
+        ])
+
+        transform = GenerateTocTransform()
+        result = transform.transform(doc)
+
+        # Check TOC list exists
+        toc_list = result.children[1]
+        assert isinstance(toc_list, ListNode)
+
+        # Should have 2 top-level items (Chapter 1, Chapter 2)
+        assert len(toc_list.items) == 2
+
+        # First item should have nested list with 2 sub-items
+        first_item = toc_list.items[0]
+        # Look for nested list in children
+        nested_lists = [child for child in first_item.children if isinstance(child, ListNode)]
+        assert len(nested_lists) == 1
+        assert len(nested_lists[0].items) == 2
+
+    def test_toc_depth_limiting(self):
+        """Test that max_depth limits TOC depth."""
+        from all2md.ast.nodes import List as ListNode
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="H1")]),
+            Heading(level=2, content=[Text(content="H2")]),
+            Heading(level=3, content=[Text(content="H3")]),
+            Heading(level=4, content=[Text(content="H4")]),
+        ])
+
+        # Only include levels 1-2
+        transform = GenerateTocTransform(max_depth=2)
+        result = transform.transform(doc)
+
+        # Get TOC list
+        toc_list = result.children[1]
+        assert isinstance(toc_list, ListNode)
+
+        # Should only have H1
+        assert len(toc_list.items) == 1
+
+        # H1 should have nested H2
+        nested_lists = [child for child in toc_list.items[0].children if isinstance(child, ListNode)]
+        assert len(nested_lists) == 1
+        assert len(nested_lists[0].items) == 1
+
+    def test_toc_position_top(self):
+        """Test TOC at top of document."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Title")]),
+            Paragraph(content=[Text(content="Content")]),
+        ])
+
+        transform = GenerateTocTransform(position="top")
+        result = transform.transform(doc)
+
+        # TOC heading should be first
+        assert isinstance(result.children[0], Heading)
+        assert result.children[0].content[0].content == "Table of Contents"
+
+        # Original heading should come after TOC
+        assert result.children[2].content[0].content == "Title"
+
+    def test_toc_position_bottom(self):
+        """Test TOC at bottom of document."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Title")]),
+            Paragraph(content=[Text(content="Content")]),
+        ])
+
+        transform = GenerateTocTransform(position="bottom")
+        result = transform.transform(doc)
+
+        # Original content should come first
+        assert isinstance(result.children[0], Heading)
+        assert result.children[0].content[0].content == "Title"
+
+        # TOC heading should be at end
+        assert isinstance(result.children[-2], Heading)
+        assert result.children[-2].content[0].content == "Table of Contents"
+
+    def test_empty_document_no_toc(self):
+        """Test that empty document is unchanged."""
+        doc = Document(children=[])
+
+        transform = GenerateTocTransform()
+        result = transform.transform(doc)
+
+        assert len(result.children) == 0
+
+    def test_document_without_headings_no_toc(self):
+        """Test that document without headings gets no TOC."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Just text")]),
+            Paragraph(content=[Text(content="More text")]),
+        ])
+
+        transform = GenerateTocTransform()
+        result = transform.transform(doc)
+
+        # Should be unchanged (no TOC added)
+        assert len(result.children) == 2
+        assert all(isinstance(child, Paragraph) for child in result.children)
+
+    def test_custom_toc_title(self):
+        """Test custom TOC title."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Section")]),
+        ])
+
+        transform = GenerateTocTransform(title="Contents")
+        result = transform.transform(doc)
+
+        # Check custom title
+        assert result.children[0].content[0].content == "Contents"
+
+    def test_toc_with_links(self):
+        """Test TOC includes links to headings with IDs."""
+        doc = Document(children=[
+            Heading(
+                level=1,
+                content=[Text(content="Introduction")],
+                metadata={"id": "intro"}
+            ),
+        ])
+
+        transform = GenerateTocTransform(add_links=True)
+        result = transform.transform(doc)
+
+        # Get TOC list item
+        toc_list = result.children[1]
+        first_item = toc_list.items[0]
+
+        # Should have a paragraph with a link
+        para = first_item.children[0]
+        assert isinstance(para, Paragraph)
+        link = para.content[0]
+        assert isinstance(link, Link)
+        assert link.url == "#intro"
+        assert link.content[0].content == "Introduction"
+
+    def test_toc_without_links(self):
+        """Test TOC without links when add_links=False."""
+        doc = Document(children=[
+            Heading(
+                level=1,
+                content=[Text(content="Introduction")],
+                metadata={"id": "intro"}
+            ),
+        ])
+
+        transform = GenerateTocTransform(add_links=False)
+        result = transform.transform(doc)
+
+        # Get TOC list item
+        toc_list = result.children[1]
+        first_item = toc_list.items[0]
+
+        # Should have a paragraph with plain text (no link)
+        para = first_item.children[0]
+        assert isinstance(para, Paragraph)
+        text = para.content[0]
+        assert isinstance(text, Text)
+        assert text.content == "Introduction"
+
+    def test_toc_generates_ids_when_missing(self):
+        """Test that TOC generates IDs for headings that don't have them."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="My Title")]),
+        ])
+
+        transform = GenerateTocTransform(add_links=True)
+        result = transform.transform(doc)
+
+        # Get TOC list item
+        toc_list = result.children[1]
+        first_item = toc_list.items[0]
+
+        # Should have generated an ID (with dash separator for multi-word)
+        para = first_item.children[0]
+        link = para.content[0]
+        assert isinstance(link, Link)
+        assert link.url == "#my-title"
+
+    def test_toc_handles_duplicate_heading_text(self):
+        """Test that duplicate heading text gets unique IDs."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Section")]),
+            Heading(level=1, content=[Text(content="Section")]),
+            Heading(level=1, content=[Text(content="Section")]),
+        ])
+
+        transform = GenerateTocTransform(add_links=True)
+        result = transform.transform(doc)
+
+        # Get TOC list items
+        toc_list = result.children[1]
+
+        # Check all three items have different link URLs
+        urls = []
+        for item in toc_list.items:
+            para = item.children[0]
+            link = para.content[0]
+            urls.append(link.url)
+
+        assert urls[0] == "#section"
+        assert urls[1] == "#section-2"
+        assert urls[2] == "#section-3"
+
+    def test_custom_separator(self):
+        """Test custom separator for ID generation."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="My Title")]),
+        ])
+
+        transform = GenerateTocTransform(add_links=True, separator="_")
+        result = transform.transform(doc)
+
+        # Get TOC link
+        toc_list = result.children[1]
+        first_item = toc_list.items[0]
+        para = first_item.children[0]
+        link = para.content[0]
+
+        # Should use underscore separator
+        assert link.url == "#my_title"
+
+    def test_invalid_max_depth_raises_error(self):
+        """Test that invalid max_depth raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            GenerateTocTransform(max_depth=0)
+        assert "max_depth must be 1-6" in str(exc_info.value)
+
+        with pytest.raises(ValueError) as exc_info:
+            GenerateTocTransform(max_depth=7)
+        assert "max_depth must be 1-6" in str(exc_info.value)
+
+    def test_invalid_position_raises_error(self):
+        """Test that invalid position raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            GenerateTocTransform(position="middle")
+        assert "position must be 'top' or 'bottom'" in str(exc_info.value)
+
+    def test_toc_with_complex_nested_structure(self):
+        """Test TOC with complex multi-level nesting."""
+        from all2md.ast.nodes import List as ListNode
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Chapter 1")]),
+            Heading(level=2, content=[Text(content="Section 1.1")]),
+            Heading(level=3, content=[Text(content="Subsection 1.1.1")]),
+            Heading(level=3, content=[Text(content="Subsection 1.1.2")]),
+            Heading(level=2, content=[Text(content="Section 1.2")]),
+            Heading(level=1, content=[Text(content="Chapter 2")]),
+        ])
+
+        transform = GenerateTocTransform(max_depth=3)
+        result = transform.transform(doc)
+
+        # Get TOC list
+        toc_list = result.children[1]
+
+        # Should have 2 top-level items
+        assert len(toc_list.items) == 2
+
+        # First chapter should have nested structure
+        chapter1_item = toc_list.items[0]
+        chapter1_nested = [child for child in chapter1_item.children if isinstance(child, ListNode)]
+        assert len(chapter1_nested) == 1
+
+        # Should have 2 sections
+        assert len(chapter1_nested[0].items) == 2
+
+        # First section should have 2 subsections
+        section1_item = chapter1_nested[0].items[0]
+        section1_nested = [child for child in section1_item.children if isinstance(child, ListNode)]
+        assert len(section1_nested) == 1
+        assert len(section1_nested[0].items) == 2
+
+    def test_headings_with_special_characters(self):
+        """Test TOC with headings containing special characters."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Title! With @#$ Special")]),
+        ])
+
+        transform = GenerateTocTransform(add_links=True)
+        result = transform.transform(doc)
+
+        # Get TOC link
+        toc_list = result.children[1]
+        first_item = toc_list.items[0]
+        para = first_item.children[0]
+        link = para.content[0]
+
+        # Special characters should be removed from ID, words separated by dashes
+        assert link.url == "#title-with-special"
+        # But link text should be unchanged
+        assert link.content[0].content == "Title! With @#$ Special"
+
+    def test_empty_toc_title(self):
+        """Test TOC with empty title (no title heading)."""
+        from all2md.ast.nodes import List as ListNode
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Section")]),
+        ])
+
+        transform = GenerateTocTransform(title="")
+        result = transform.transform(doc)
+
+        # First element should be the TOC list (no heading)
+        assert isinstance(result.children[0], ListNode)
+
+        # Original heading should come after TOC
+        assert result.children[1].content[0].content == "Section"

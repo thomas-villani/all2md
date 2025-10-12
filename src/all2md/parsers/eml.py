@@ -231,7 +231,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
 
         if isinstance(payload, bytes):
             # Check for extremely large text payloads (protection against memory exhaustion)
-            if len(payload) > options.max_email_attachment_bytes:
+            if len(payload) > options.max_asset_size_bytes:
                 return f"[Content too large ({len(payload)} bytes) - truncated for security]"
             return payload.decode(charset, errors="replace")
         elif isinstance(payload, str):
@@ -637,7 +637,7 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> tuple[str, d
 
             # Check attachment size limits for security
             if attachment_data and isinstance(attachment_data, bytes):
-                if len(attachment_data) > options.max_email_attachment_bytes:
+                if len(attachment_data) > options.max_asset_size_bytes:
                     # Skip attachment that exceeds size limit
                     continue
 

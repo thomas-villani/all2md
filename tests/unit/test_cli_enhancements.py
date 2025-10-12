@@ -214,10 +214,11 @@ class TestSecurityPresets:
         options = {}
         result = apply_security_preset(args, options)
 
-        assert result['strip_dangerous_elements'] is True
-        assert result['allow_remote_fetch'] is False
-        assert result['allow_local_files'] is False
-        assert result['allow_cwd_files'] is False
+        # Check format-qualified keys (new format)
+        assert result['html.strip_dangerous_elements'] is True
+        assert result['html.network.allow_remote_fetch'] is False
+        assert result['html.local_files.allow_local_files'] is False
+        assert result['html.local_files.allow_cwd_files'] is False
 
     def test_safe_mode_preset(self):
         """Test --safe-mode preset applies correct options."""
@@ -229,11 +230,12 @@ class TestSecurityPresets:
         options = {}
         result = apply_security_preset(args, options)
 
-        assert result['strip_dangerous_elements'] is True
-        assert result['allow_remote_fetch'] is True
-        assert result['require_https'] is True
-        assert result['allow_local_files'] is False
-        assert result['allow_cwd_files'] is False
+        # Check format-qualified keys (new format)
+        assert result['html.strip_dangerous_elements'] is True
+        assert result['html.network.allow_remote_fetch'] is True
+        assert result['html.network.require_https'] is True
+        assert result['html.local_files.allow_local_files'] is False
+        assert result['html.local_files.allow_cwd_files'] is False
 
     def test_paranoid_mode_preset(self):
         """Test --paranoid-mode preset applies correct options."""
@@ -245,14 +247,15 @@ class TestSecurityPresets:
         options = {}
         result = apply_security_preset(args, options)
 
-        assert result['strip_dangerous_elements'] is True
-        assert result['allow_remote_fetch'] is True
-        assert result['require_https'] is True
-        assert result['allowed_hosts'] == []
-        assert result['allow_local_files'] is False
-        assert result['allow_cwd_files'] is False
-        assert result['max_attachment_size_bytes'] == 5 * 1024 * 1024
-        assert result['max_remote_asset_bytes'] == 5 * 1024 * 1024
+        # Check format-qualified keys (new format)
+        assert result['html.strip_dangerous_elements'] is True
+        assert result['html.network.allow_remote_fetch'] is True
+        assert result['html.network.require_https'] is True
+        assert result['html.network.allowed_hosts'] == []
+        assert result['html.local_files.allow_local_files'] is False
+        assert result['html.local_files.allow_cwd_files'] is False
+        assert result['html.max_asset_size_bytes'] == 5 * 1024 * 1024
+        assert result['max_asset_size_bytes'] == 5 * 1024 * 1024
 
     def test_no_preset_applied(self):
         """Test that no preset leaves options unchanged."""
@@ -265,7 +268,9 @@ class TestSecurityPresets:
         result = apply_security_preset(args, options)
 
         assert result == {'existing_option': 'value'}
-        assert 'strip_dangerous_elements' not in result
+        # Verify no security preset keys were added (format-qualified keys)
+        assert 'html.strip_dangerous_elements' not in result
+        assert 'html.network.allow_remote_fetch' not in result
 
     def test_preset_flags_in_parser(self):
         """Test that security preset flags are available in parser."""
@@ -421,7 +426,7 @@ class TestSecurityPresetOptionsMapping:
             'allowed_hosts': [],
             'allow_local_files': False,
             'allow_cwd_files': False,
-            'max_remote_asset_bytes': 5 * 1024 * 1024,
+            'max_asset_size_bytes': 5 * 1024 * 1024,
         }
 
         options = _create_parser_options_from_kwargs('html', **kwargs)
@@ -432,7 +437,7 @@ class TestSecurityPresetOptionsMapping:
         assert options.network.allow_remote_fetch is True
         assert options.network.require_https is True
         assert options.network.allowed_hosts == []
-        assert options.network.max_remote_asset_bytes == 5 * 1024 * 1024
+        assert options.max_asset_size_bytes == 5 * 1024 * 1024
         assert options.local_files.allow_local_files is False
         assert options.local_files.allow_cwd_files is False
 

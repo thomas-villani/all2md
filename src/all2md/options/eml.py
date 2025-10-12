@@ -8,6 +8,7 @@ This module defines options for parsing email files and message chains.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from all2md.constants import (
     DEFAULT_CLEAN_QUOTES,
@@ -16,7 +17,6 @@ from all2md.constants import (
     DEFAULT_DATE_FORMAT_MODE,
     DEFAULT_DATE_STRFTIME_PATTERN,
     DEFAULT_DETECT_REPLY_SEPARATORS,
-    DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
     DEFAULT_NORMALIZE_HEADERS,
     DEFAULT_PRESERVE_RAW_HEADERS,
     DEFAULT_URL_WRAPPERS,
@@ -132,18 +132,13 @@ class EmlOptions(BaseParserOptions):
         }
     )
 
-    max_email_attachment_bytes: int = field(
-        default=DEFAULT_MAX_ATTACHMENT_SIZE_BYTES,
-        metadata={
-            "help": "Maximum allowed size in bytes for email attachments",
-            "type": int
-        }
-    )
-
     # Advanced EML options
-    sort_order: str = field(
+    sort_order: Literal["asc", "desc"] = field(
         default="asc",
-        metadata={"help": "Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)"}
+        metadata={
+            "help": "Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)",
+            "choices": ["asc", "desc"]
+        }
     )
     subject_as_h1: bool = field(
         default=True,

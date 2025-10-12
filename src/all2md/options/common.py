@@ -9,6 +9,7 @@ cross-cutting concerns used throughout the conversion pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal, Optional, Union
 
 from all2md.constants import (
     DEFAULT_ALLOW_CWD_FILES,
@@ -16,13 +17,14 @@ from all2md.constants import (
     DEFAULT_ALLOW_REMOTE_FETCH,
     DEFAULT_ALLOWED_HOSTS,
     DEFAULT_MAX_CONCURRENT_REQUESTS,
-    DEFAULT_MAX_IMAGE_SIZE_BYTES,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_NETWORK_TIMEOUT,
+    DEFAULT_PAGE_SEPARATOR,
     DEFAULT_REQUIRE_HEAD_SUCCESS,
     DEFAULT_REQUIRE_HTTPS,
 )
 from all2md.options import CloneFrozenMixin
+from all2md.options.base import BaseParserOptions
 
 
 @dataclass(frozen=True)
@@ -45,12 +47,14 @@ class NetworkFetchOptions(CloneFrozenMixin):
         Whether to require HTTPS for all remote URL fetching.
     network_timeout : float, default 10.0
         Timeout in seconds for remote URL fetching.
-    max_remote_asset_bytes : int, default 20MB
-        Maximum allowed size in bytes for downloaded remote assets.
     max_requests_per_second : float, default 10.0
         Maximum number of network requests per second (rate limiting).
     max_concurrent_requests : int, default 5
         Maximum number of concurrent network requests.
+
+    Notes
+    -----
+    Asset size limits are inherited from BaseParserOptions.max_asset_size_bytes.
 
     """
 
@@ -81,13 +85,6 @@ class NetworkFetchOptions(CloneFrozenMixin):
         metadata={
             "help": "Timeout in seconds for remote URL fetching",
             "type": float
-        }
-    )
-    max_remote_asset_bytes: int = field(
-        default=DEFAULT_MAX_IMAGE_SIZE_BYTES,  # Reuse existing default
-        metadata={
-            "help": "Maximum allowed size in bytes for downloaded remote assets",
-            "type": int
         }
     )
     max_redirects: int = field(
@@ -164,5 +161,132 @@ class LocalFileAccessOptions(CloneFrozenMixin):
         metadata={
             "help": "Allow local files from current working directory and subdirectories",
             "cli_name": "allow-cwd-files"  # default=False, use store_true
+        }
+    )
+
+
+@dataclass(frozen=True)
+class PaginatedParserOptions(BaseParserOptions):
+    """Base class for parsers that handle paginated documents (PDF, PPTX, ODP).
+
+    This base class provides common options for documents with pages/slides,
+    including page separator templates.
+
+    Parameters
+    ----------
+    page_separator_template : str, default "-----"
+        Template for page/slide separators between pages.
+        Supports placeholders: {page_num}, {total_pages}.
+
+    """
+
+    page_separator_template: str = field(
+        default=DEFAULT_PAGE_SEPARATOR,
+        metadata={
+            "help": "Template for page/slide separators. Supports placeholders: {page_num}, {total_pages}."
+        }
+    )
+
+
+@dataclass(frozen=True)
+class SpreadsheetParserOptions(BaseParserOptions):
+    """Base class for spreadsheet parsers (XLSX, ODS).
+
+    This base class provides common options for spreadsheet documents,
+    including sheet selection, data limits, and cell formatting.
+
+    Parameters
+    ----------
+    sheets : list[str] | str | None, default None
+        List of exact sheet names to include or a regex pattern.
+        If None, includes all sheets.
+    include_sheet_titles : bool, default True
+        Prepend each sheet with a '## {sheet_name}' heading.
+    render_formulas : bool, default True
+        When True, uses stored cell values. When False, shows formulas.
+    max_rows : int | None, default None
+        Maximum number of data rows per table (excluding header). None = unlimited.
+    max_cols : int | None, default None
+        Maximum number of columns per table. None = unlimited.
+    truncation_indicator : str, default "..."
+        Appended note when rows/columns are truncated.
+    preserve_newlines_in_cells : bool, default False
+        Preserve line breaks within cells as <br> tags.
+    trim_empty : {"none", "leading", "trailing", "both"}, default "trailing"
+        Trim empty rows/columns: none, leading, trailing, or both.
+    header_case : {"preserve", "title", "upper", "lower"}, default "preserve"
+        Transform header case: preserve, title, upper, or lower.
+    chart_mode : {"data", "skip"}, default "skip"
+        How to handle embedded charts:
+        - "data": Extract chart data as markdown tables
+        - "skip": Ignore charts entirely
+    merged_cell_mode : {"spans", "flatten", "skip"}, default "flatten"
+        How to handle merged cells:
+        - "spans": Use colspan/rowspan in AST (future enhancement, currently behaves like "flatten")
+        - "flatten": Replace merged followers with empty strings (current behavior)
+        - "skip": Skip merged cell detection entirely
+
+    """
+
+    sheets: Union[list[str], str, None] = field(
+        default=None,
+        metadata={"help": "Sheet names to include (list or regex pattern). None = all sheets"}
+    )
+    include_sheet_titles: bool = field(
+        default=True,
+        metadata={
+            "help": "Prepend each sheet with '## {sheet_name}' heading",
+            "cli_name": "no-include-sheet-titles"
+        }
+    )
+    render_formulas: bool = field(
+        default=True,
+        metadata={
+            "help": "Use stored cell values (True) or show formulas (False)",
+            "cli_name": "no-render-formulas"
+        }
+    )
+    max_rows: Optional[int] = field(
+        default=None,
+        metadata={"help": "Maximum rows per table (None = unlimited)", "type": int}
+    )
+    max_cols: Optional[int] = field(
+        default=None,
+        metadata={"help": "Maximum columns per table (None = unlimited)", "type": int}
+    )
+    truncation_indicator: str = field(
+        default="...",
+        metadata={"help": "Note appended when rows/columns are truncated"}
+    )
+    preserve_newlines_in_cells: bool = field(
+        default=False,
+        metadata={"help": "Preserve line breaks within cells as <br> tags"}
+    )
+    trim_empty: Literal["none", "leading", "trailing", "both"] = field(
+        default="trailing",
+        metadata={
+            "help": "Trim empty rows/columns: none, leading, trailing, or both",
+            "choices": ["none", "leading", "trailing", "both"]
+        }
+    )
+    header_case: Literal["preserve", "title", "upper", "lower"] = field(
+        default="preserve",
+        metadata={
+            "help": "Transform header case: preserve, title, upper, or lower",
+            "choices": ["preserve", "title", "upper", "lower"]
+        }
+    )
+    chart_mode: Literal["data", "skip"] = field(
+        default="skip",
+        metadata={
+            "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts)",
+            "choices": ["data", "skip"]
+        }
+    )
+    merged_cell_mode: Literal["spans", "flatten", "skip"] = field(
+        default="flatten",
+        metadata={
+            "help": "Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'",
+            "choices": ["spans", "flatten", "skip"]
         }
     )

@@ -229,9 +229,12 @@ class HtmlOptions(BaseParserOptions):
             "cli_name": "no-collapse-whitespace"
         }
     )
-    br_handling: str = field(
+    br_handling: Literal["newline", "space"] = field(
         default="newline",
-        metadata={"help": "How to handle <br> tags: 'newline' or 'space'"}
+        metadata={
+            "help": "How to handle <br> tags: 'newline' or 'space'",
+            "choices": ["newline", "space"]
+        }
     )
     allowed_elements: tuple[str, ...] | None = field(
         default=None,
@@ -250,14 +253,14 @@ class HtmlOptions(BaseParserOptions):
             "action": "append"
         }
     )
-    figure_rendering: str = field(
+    figure_rendering: Literal["blockquote", "image_with_caption", "html"] = field(
         default="blockquote",
         metadata={
             "help": "How to render <figure> elements: blockquote, image_with_caption, html",
             "choices": ["blockquote", "image_with_caption", "html"]
         }
     )
-    details_rendering: str = field(
+    details_rendering: Literal["blockquote", "html", "ignore"] = field(
         default="blockquote",
         metadata={
             "help": "How to render <details>/<summary> elements: blockquote, html, ignore",

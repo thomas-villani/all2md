@@ -6,7 +6,7 @@ used throughout the all2md conversion pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from all2md.constants import (
     DEFAULT_ALT_TEXT_MODE,
@@ -14,7 +14,7 @@ from all2md.constants import (
     DEFAULT_ATTACHMENT_MODE,
     DEFAULT_ATTACHMENT_OUTPUT_DIR,
     DEFAULT_EXTRACT_METADATA,
-    DEFAULT_MAX_DOWNLOAD_BYTES,
+    DEFAULT_MAX_ASSET_SIZE_BYTES,
     AltTextMode,
     AttachmentMode,
 )
@@ -59,6 +59,8 @@ class BaseRendererOptions(CloneFrozenMixin):
         Whether to raise RenderingError when resource loading fails (e.g., images).
         If False (default), warnings are logged but rendering continues.
         If True, rendering stops immediately on resource errors.
+    max_asset_size_bytes : int
+        Maximum allowed size in bytes for any single asset (images, downloads, etc.)
 
     Notes
     -----
@@ -70,6 +72,13 @@ class BaseRendererOptions(CloneFrozenMixin):
         default=False,
         metadata={
             "help": "Raise RenderingError on resource failures (images, etc.) instead of logging warnings"
+        }
+    )
+    max_asset_size_bytes: int = field(
+        default=DEFAULT_MAX_ASSET_SIZE_BYTES,
+        metadata={
+            "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
+            "type": int
         }
     )
 
@@ -122,10 +131,10 @@ class BaseParserOptions(CloneFrozenMixin):
         default=DEFAULT_EXTRACT_METADATA,
         metadata={"help": "Extract document metadata as YAML front matter"}
     )
-    max_asset_bytes: int = field(
-        default=DEFAULT_MAX_DOWNLOAD_BYTES,
+    max_asset_size_bytes: int = field(
+        default=DEFAULT_MAX_ASSET_SIZE_BYTES,
         metadata={
-            "help": "Maximum allowed size in bytes for any single asset/download (global limit)",
+            "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
             "type": int
         }
     )
@@ -135,7 +144,7 @@ class BaseParserOptions(CloneFrozenMixin):
         default="{stem}_{type}{seq}.{ext}",
         metadata={"help": "Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}"}
     )
-    attachment_overwrite: str = field(
+    attachment_overwrite: Literal["unique", "overwrite", "skip"] = field(
         default="unique",
         metadata={
             "help": "File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'",

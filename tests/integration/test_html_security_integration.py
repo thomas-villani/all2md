@@ -147,9 +147,9 @@ AAABJ RU5ErkJggg==" alt="inline">
 
         options = HtmlOptions(
             network=NetworkFetchOptions(
-                allow_remote_fetch=True,
-                max_remote_asset_bytes=1024  # 1KB limit
+                allow_remote_fetch=True
             ),
+            max_asset_size_bytes=1024,  # 1KB limit
             attachment_mode="base64"
         )
 
@@ -177,9 +177,9 @@ class TestEmlConverterSecurityInheritance:
             html_network=NetworkFetchOptions(
                 allow_remote_fetch=True,
                 allowed_hosts=["example.com"],
-                require_https=True,
-                max_remote_asset_bytes=1024 * 1024  # 1MB
-            )
+                require_https=True
+            ),
+            max_asset_size_bytes=1024 * 1024  # 1MB
         )
 
         # The function now uses to_markdown which calls the parser internally
@@ -283,9 +283,9 @@ class TestSecurityDocumentationExamples:
                 allow_remote_fetch=True,
                 allowed_hosts=["cdn.example.com", "images.example.org"],
                 require_https=True,
-                max_remote_asset_bytes=5 * 1024 * 1024,  # 5MB limit
                 network_timeout=5.0  # Quick timeout
             ),
+            max_asset_size_bytes=5 * 1024 * 1024,  # 5MB limit
             attachment_mode="download",
             attachment_output_dir="./safe_images/"
         )

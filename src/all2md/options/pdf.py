@@ -6,6 +6,8 @@ table detection and layout analysis.
 """
 from dataclasses import dataclass, field
 
+from typing import Literal
+
 from all2md.constants import (
     DEFAULT_COLUMN_DETECTION_MODE,
     DEFAULT_COLUMN_GAP_THRESHOLD,
@@ -28,7 +30,6 @@ from all2md.constants import (
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
-    DEFAULT_PAGE_SEPARATOR,
     DEFAULT_PDF_CODE_FONT,
     DEFAULT_PDF_FONT_FAMILY,
     DEFAULT_PDF_FONT_SIZE,
@@ -43,12 +44,13 @@ from all2md.constants import (
     DEFAULT_USE_COLUMN_CLUSTERING,
     PageSize,
 )
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import BaseRendererOptions
+from all2md.options.common import PaginatedParserOptions
 
 
 # src/all2md/options/pdf.py
 @dataclass(frozen=True)
-class PdfOptions(BaseParserOptions):
+class PdfOptions(PaginatedParserOptions):
     """Configuration options for PDF-to-Markdown conversion.
 
     This dataclass contains settings specific to PDF document processing,
@@ -300,7 +302,7 @@ class PdfOptions(BaseParserOptions):
             "type": float
         }
     )
-    column_detection_mode: str = field(
+    column_detection_mode: Literal["auto", "force_single", "force_multi", "disabled"] = field(
         default=DEFAULT_COLUMN_DETECTION_MODE,
         metadata={
             "help": "Column detection strategy: 'auto', 'force_single', 'force_multi', 'disabled'",
@@ -336,7 +338,7 @@ class PdfOptions(BaseParserOptions):
             "type": float
         }
     )
-    table_fallback_extraction_mode: str = field(
+    table_fallback_extraction_mode: Literal["none", "grid", "text_clustering"] = field(
         default=DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE,
         metadata={
             "help": "Table extraction mode for ruling line fallback: 'none', 'grid', 'text_clustering'",
@@ -359,23 +361,16 @@ class PdfOptions(BaseParserOptions):
         }
     )
 
-    # Page number display and separators
+    # Page number display
     include_page_numbers: bool = field(
         default=DEFAULT_INCLUDE_PAGE_NUMBERS,
         metadata={
             "help": "Include page numbers in output (e.g., 'Page 1/10')"
         }
     )
-    page_separator_template: str = field(
-        default=DEFAULT_PAGE_SEPARATOR,
-        metadata={
-            "help": "Template for page separators. Supports placeholders: {page_num}, {total_pages}. "
-                    "Use plain text without placeholders for simple separators."
-        }
-    )
 
     # Table detection mode
-    table_detection_mode: str = field(
+    table_detection_mode: Literal["pymupdf", "ruling", "both", "none"] = field(
         default=DEFAULT_TABLE_DETECTION_MODE,
         metadata={
             "help": "Table detection strategy: 'pymupdf', 'ruling', 'both', or 'none'",
@@ -384,7 +379,7 @@ class PdfOptions(BaseParserOptions):
     )
 
     # Image format options
-    image_format: str = field(
+    image_format: Literal["png", "jpeg"] = field(
         default=DEFAULT_IMAGE_FORMAT,
         metadata={
             "help": "Output format for extracted images: 'png' or 'jpeg'",

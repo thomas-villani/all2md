@@ -946,7 +946,10 @@ Examples:
             # Security presets from cli.create_parser
             'strict_html_sanitize', 'safe_mode', 'paranoid_mode',
             # Transform arguments
-            'transforms'
+            'transforms',
+            # Merge-from-list arguments
+            'merge_from_list', 'generate_toc', 'toc_title', 'toc_depth',
+            'toc_position', 'list_separator', 'no_section_titles'
         }
 
         # Process each argument
@@ -1295,6 +1298,62 @@ def create_parser() -> argparse.ArgumentParser:
         '--collate',
         action=TrackingStoreTrueAction,
         help='Combine multiple files into a single output (stdout or file)'
+    )
+
+    parser.add_argument(
+        '--merge-from-list',
+        action=TrackingStoreAction,
+        type=str,
+        metavar='PATH',
+        help='Merge files from a list file (TSV format: path[<tab>section_title])'
+    )
+
+    parser.add_argument(
+        '--generate-toc',
+        action=TrackingStoreTrueAction,
+        help='Generate table of contents when using --merge-from-list'
+    )
+
+    parser.add_argument(
+        '--toc-title',
+        action=TrackingStoreAction,
+        type=str,
+        default='Table of Contents',
+        metavar='TITLE',
+        help='Title for the table of contents (default: "Table of Contents")'
+    )
+
+    parser.add_argument(
+        '--toc-depth',
+        action=TrackingStoreAction,
+        type=int,
+        default=3,
+        metavar='DEPTH',
+        help='Maximum heading level to include in TOC (1-6, default: 3)'
+    )
+
+    parser.add_argument(
+        '--toc-position',
+        action=TrackingStoreAction,
+        type=str,
+        choices=['top', 'bottom'],
+        default='top',
+        help='Position of the table of contents (default: top)'
+    )
+
+    parser.add_argument(
+        '--list-separator',
+        action=TrackingStoreAction,
+        type=str,
+        default='\t',
+        metavar='SEP',
+        help='Separator character for list file (default: tab)'
+    )
+
+    parser.add_argument(
+        '--no-section-titles',
+        action=TrackingStoreTrueAction,
+        help='Disable section title headers when merging from list'
     )
 
     parser.add_argument(

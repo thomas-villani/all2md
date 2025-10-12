@@ -19,6 +19,7 @@ Available Transforms
 - AddConversionTimestampTransform: Add timestamp to metadata
 - CalculateWordCountTransform: Calculate word and character counts
 - AddAttachmentFootnotesTransform: Add footnote definitions for attachment references
+- GenerateTocTransform: Generate table of contents from document headings
 
 Examples
 --------
@@ -40,6 +41,11 @@ Add unique IDs to headings:
 Add footnote definitions for attachment references:
 
     >>> transform = AddAttachmentFootnotesTransform(section_title="Image Sources")
+    >>> new_doc = transform.transform(doc)
+
+Generate table of contents:
+
+    >>> transform = GenerateTocTransform(max_depth=3, position="top")
     >>> new_doc = transform.transform(doc)
 
 """
@@ -1007,6 +1013,295 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         return ' '.join(text_parts)
 
 
+class GenerateTocTransform(NodeTransformer):
+    """Generate a table of contents from document headings.
+
+    This transform extracts headings from the document and generates a
+    nested list representing the table of contents. The TOC can be placed
+    at the top or bottom of the document.
+
+    Parameters
+    ----------
+    title : str, default = "Table of Contents"
+        Title for the TOC section
+    max_depth : int, default = 3
+        Maximum heading level to include (1-6)
+    position : {"top", "bottom"}, default = "top"
+        Position to insert the TOC
+    add_links : bool, default = True
+        Whether to create links to headings (requires heading IDs)
+    separator : str, default = "-"
+        Separator for generating heading IDs when not present
+
+    Examples
+    --------
+    Basic usage:
+
+        >>> transform = GenerateTocTransform()
+        >>> doc_with_toc = transform.transform(document)
+
+    Custom depth and position:
+
+        >>> transform = GenerateTocTransform(
+        ...     title="Contents",
+        ...     max_depth=2,
+        ...     position="bottom"
+        ... )
+        >>> doc_with_toc = transform.transform(document)
+
+    Notes
+    -----
+    This transform works best when combined with AddHeadingIdsTransform,
+    which generates unique IDs for headings that can be used for navigation.
+    If headings don't have IDs, the transform will generate slugified IDs
+    on-the-fly for link targets.
+
+    """
+
+    def __init__(
+        self,
+        title: str = "Table of Contents",
+        max_depth: int = 3,
+        position: str = "top",
+        add_links: bool = True,
+        separator: str = "-"
+    ):
+        """Initialize with TOC generation options.
+
+        Parameters
+        ----------
+        title : str
+            TOC section title
+        max_depth : int
+            Maximum heading level (1-6)
+        position : str
+            Position for TOC ("top" or "bottom")
+        add_links : bool
+            Whether to generate links
+        separator : str
+            Separator for ID generation
+
+        Raises
+        ------
+        ValueError
+            If max_depth is not between 1 and 6, or position is invalid
+
+        """
+        if not 1 <= max_depth <= 6:
+            raise ValueError(f"max_depth must be 1-6, got {max_depth}")
+        if position not in ("top", "bottom"):
+            raise ValueError(f"position must be 'top' or 'bottom', got {position!r}")
+
+        self.title = title
+        self.max_depth = max_depth
+        self.position = position
+        self.add_links = add_links
+        self.separator = separator
+        self._headings: list[tuple[int, str, str | None]] = []  # (level, text, id)
+        self._id_counts: dict[str, int] = {}
+
+    def visit_document(self, node: Document) -> Document:
+        """Generate TOC and add to document.
+
+        Parameters
+        ----------
+        node : Document
+            Document to process
+
+        Returns
+        -------
+        Document
+            Document with TOC added
+
+        """
+        # Reset heading collection
+        self._headings = []
+        self._id_counts = {}
+
+        # Collect headings from document
+        self._collect_headings(node)
+
+        # If no headings found, return unchanged
+        if not self._headings:
+            return node
+
+        # Generate TOC structure
+        toc_nodes = self._generate_toc()
+
+        # Build new document with TOC inserted
+        new_children = list(node.children)
+        if self.position == "top":
+            new_children = toc_nodes + new_children
+        else:  # bottom
+            new_children = new_children + toc_nodes
+
+        return Document(
+            children=self._transform_children(new_children),
+            metadata=node.metadata,
+            source_location=node.source_location
+        )
+
+    def _collect_headings(self, node: Node) -> None:
+        """Recursively collect headings from AST.
+
+        Parameters
+        ----------
+        node : Node
+            Node to scan
+
+        """
+        # Check if this is a heading within our depth range
+        if isinstance(node, Heading) and node.level <= self.max_depth:
+            # Extract text from heading
+            text = extract_text(node.content, joiner="")
+
+            # Get or generate heading ID
+            heading_id = node.metadata.get('id')
+            if not heading_id and self.add_links:
+                heading_id = self._generate_id(text)
+
+            self._headings.append((node.level, text, heading_id))
+
+        # Recurse into children
+        if hasattr(node, 'children') and isinstance(node.children, list):
+            for child in node.children:
+                self._collect_headings(child)
+
+        # Recurse into content
+        if hasattr(node, 'content') and isinstance(node.content, list):
+            for child in node.content:
+                self._collect_headings(child)
+
+    def _generate_id(self, text: str) -> str:
+        """Generate a slugified ID from heading text.
+
+        Parameters
+        ----------
+        text : str
+            Heading text
+
+        Returns
+        -------
+        str
+            Slugified ID
+
+        """
+        # Lowercase
+        slug = text.lower()
+
+        # Replace spaces and special chars with separator
+        slug = re.sub(r'[^\w\s-]', '', slug)
+        slug = re.sub(r'[\s_]+', self.separator, slug)
+
+        # Remove leading/trailing separators
+        slug = slug.strip(self.separator)
+
+        # Handle empty slugs
+        if not slug:
+            slug = 'heading'
+
+        # Handle duplicates
+        if slug in self._id_counts:
+            self._id_counts[slug] += 1
+            slug = f"{slug}{self.separator}{self._id_counts[slug]}"
+        else:
+            self._id_counts[slug] = 1
+
+        return slug
+
+    def _generate_toc(self) -> list[Node]:
+        """Generate TOC nodes from collected headings.
+
+        Returns
+        -------
+        list of Node
+            List of nodes representing the TOC
+
+        """
+        toc_nodes: list[Node] = []
+
+        # Add title heading
+        if self.title:
+            toc_nodes.append(Heading(
+                level=2,
+                content=[Text(content=self.title)]
+            ))
+
+        # Build nested list structure
+        if self._headings:
+            toc_list, _ = self._build_toc_list(0, 0)
+            if toc_list:
+                toc_nodes.append(toc_list)
+
+        return toc_nodes
+
+    def _build_toc_list(self, start_idx: int, parent_level: int) -> tuple[Node | None, int]:
+        """Build a nested list for the TOC recursively.
+
+        Parameters
+        ----------
+        start_idx : int
+            Starting index in headings list
+        parent_level : int
+            Parent heading level
+
+        Returns
+        -------
+        tuple of (Node or None, int)
+            (List node or None if no items, next index to process)
+
+        """
+        from all2md.ast.nodes import List as ListNode, ListItem as ListItemNode
+
+        items: list[ListItemNode] = []
+        idx = start_idx
+
+        while idx < len(self._headings):
+            level, text, heading_id = self._headings[idx]
+
+            # If we encounter a heading at or below parent level, stop
+            if level <= parent_level:
+                break
+
+            # If this is a direct child of parent
+            if level == parent_level + 1:
+                # Create list item with link
+                item_content: list[Node] = []
+
+                # Create paragraph with link or plain text
+                para_content: list[Node] = []
+                if self.add_links and heading_id:
+                    # Create link to heading
+                    para_content.append(Link(
+                        url=f"#{heading_id}",
+                        content=[Text(content=text)]
+                    ))
+                else:
+                    para_content.append(Text(content=text))
+
+                item_content.append(Paragraph(content=para_content))
+
+                # Check for nested items
+                nested_list, next_idx = self._build_toc_list(idx + 1, level)
+                if nested_list:
+                    item_content.append(nested_list)
+                    idx = next_idx
+                else:
+                    idx += 1
+
+                items.append(ListItemNode(children=item_content))
+            else:
+                # Skip deeper nested items (they'll be handled recursively)
+                idx += 1
+
+        result_list = None if not items else ListNode(
+            ordered=False,
+            items=items,
+            tight=False
+        )
+        return (result_list, idx)
+
+
 __all__ = [
     "RemoveImagesTransform",
     "RemoveNodesTransform",
@@ -1018,4 +1313,5 @@ __all__ = [
     "AddConversionTimestampTransform",
     "CalculateWordCountTransform",
     "AddAttachmentFootnotesTransform",
+    "GenerateTocTransform",
 ]

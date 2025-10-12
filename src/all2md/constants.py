@@ -136,7 +136,7 @@ DEFAULT_DETECT_COLUMNS = True
 DEFAULT_MERGE_HYPHENATED_WORDS = True
 DEFAULT_HANDLE_ROTATED_TEXT = True
 DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
-DEFAULT_COLUMN_DETECTION_MODE = "auto"  # Options: "auto", "force_single", "force_multi", "disabled"
+DEFAULT_COLUMN_DETECTION_MODE: Literal["auto", "force_single", "force_multi", "disabled"] = "auto"
 DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
 DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting blocks that span columns
 
@@ -144,7 +144,7 @@ DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting 
 DEFAULT_TABLE_FALLBACK_DETECTION = True
 DEFAULT_DETECT_MERGED_CELLS = True
 DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
-DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE = "grid"  # Options: "none", "grid", "text_clustering"
+DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE: Literal["none", "grid", "text_clustering"] = "grid"
 
 DEFAULT_IMAGE_PLACEMENT_MARKERS = True
 DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
@@ -153,10 +153,10 @@ DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
 DEFAULT_INCLUDE_PAGE_NUMBERS = False
 
 # Table detection mode constants
-DEFAULT_TABLE_DETECTION_MODE = "both"  # Options: "pymupdf", "ruling", "both", "none"
+DEFAULT_TABLE_DETECTION_MODE: Literal["pymupdf", "ruling", "both", "none"] = "both"
 
 # Image format constants
-DEFAULT_IMAGE_FORMAT = "png"  # Options: "png", "jpeg"
+DEFAULT_IMAGE_FORMAT: Literal["png", "jpeg"] = "png"
 DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
 
 # Header/footer trimming constants
@@ -164,7 +164,7 @@ DEFAULT_TRIM_HEADERS_FOOTERS = False
 DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
 DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
 
-DEFAULT_PDF_PAGE_SIZE = "letter"
+DEFAULT_PDF_PAGE_SIZE: Literal["letter", "a4", "legal"] = "letter"
 DEFAULT_PDF_MARGIN = 72.0
 DEFAULT_PDF_FONT_FAMILY = "Helvetica"
 DEFAULT_PDF_FONT_SIZE = 12
@@ -222,14 +222,12 @@ DEFAULT_ALLOWED_HOSTS = None
 DEFAULT_REQUIRE_HTTPS = True
 DEFAULT_REQUIRE_HEAD_SUCCESS = True
 DEFAULT_NETWORK_TIMEOUT = 10.0
-DEFAULT_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024  # 20MB
 DEFAULT_MAX_REDIRECTS = 5
 DEFAULT_MAX_REQUESTS_PER_SECOND = 10.0  # Rate limit for network requests
 DEFAULT_MAX_CONCURRENT_REQUESTS = 5  # Maximum concurrent network requests
 
-# Download size limits for security
-DEFAULT_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100MB maximum per download
-DEFAULT_MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024  # 50MB maximum per attachment
+# Asset size limit for security (applies to downloads, attachments, images, etc.)
+DEFAULT_MAX_ASSET_SIZE_BYTES = 50 * 1024 * 1024  # 50MB maximum per asset
 
 # ZIP archive security
 DEFAULT_MAX_COMPRESSION_RATIO = 100.0  # Maximum compression ratio (uncompressed/compressed)

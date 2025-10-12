@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_PAGE_SEPARATOR, DEFAULT_SLIDE_NUMBERS
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import NetworkFetchOptions
+from all2md.constants import DEFAULT_SLIDE_NUMBERS
+from all2md.options.base import BaseRendererOptions
+from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
 
 @dataclass(frozen=True)
@@ -100,7 +100,7 @@ class PptxRendererOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
-class PptxOptions(BaseParserOptions):
+class PptxOptions(PaginatedParserOptions):
     """Configuration options for PPTX-to-Markdown conversion.
 
     This dataclass contains settings specific to PowerPoint presentation
@@ -134,23 +134,18 @@ class PptxOptions(BaseParserOptions):
             "cli_name": "no-include-notes"
         }
     )
-    page_separator_template: str = field(
-        default=DEFAULT_PAGE_SEPARATOR,
-        metadata={
-            "help": "Template for slide separators. Supports placeholders: {page_num}, {total_pages}."
-        }
-    )
 
     # Advanced PPTX options
     slides: str | None = field(
         default=None,
         metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)"}
     )
-    charts_mode: str = field(
+    charts_mode: Literal["data", "mermaid", "both"] = field(
         default="data",
         metadata={
             "help": "Chart conversion mode: 'data' (default, tables only), "
-                   "'mermaid' (diagrams only), or 'both' (tables + diagrams)"
+                   "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
+            "choices": ["data", "mermaid", "both"]
         }
     )
     include_titles_as_h2: bool = field(

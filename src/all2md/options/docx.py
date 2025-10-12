@@ -158,9 +158,10 @@ class DocxOptions(BaseParserOptions):
             "cli_name": "no-include-image-captions"
         }
     )
-    list_numbering_style: str = field(
+    list_numbering_style: Literal["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"] = field(
         default="detect",
         metadata={
-            "help": "List numbering style: detect, decimal, lowerroman, upperroman, loweralpha, upperalpha"
+            "help": "List numbering style: detect, decimal, lowerroman, upperroman, loweralpha, upperalpha",
+            "choices": ["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"]
         }
     )

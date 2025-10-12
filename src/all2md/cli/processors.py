@@ -320,7 +320,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
         options['html.network.allow_remote_fetch'] = True
         options['html.network.require_https'] = True
         options['html.network.allowed_hosts'] = []  # Validate but allow all HTTPS hosts
-        options['html.network.max_remote_asset_bytes'] = 5 * 1024 * 1024  # 5MB
+        options['html.max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB
         options['html.local_files.allow_local_files'] = False
         options['html.local_files.allow_cwd_files'] = False
         # MHTML options
@@ -330,9 +330,9 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
         options['eml.html_network.allow_remote_fetch'] = True
         options['eml.html_network.require_https'] = True
         options['eml.html_network.allowed_hosts'] = []
-        options['eml.html_network.max_remote_asset_bytes'] = 5 * 1024 * 1024  # 5MB
+        options['eml.max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB
         # Base options (no format prefix - applies to all formats)
-        options['max_attachment_size_bytes'] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
+        options['max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
 
     # Show warning if preset is used
     if preset_used:
@@ -651,6 +651,10 @@ def process_multi_file(
     if parsed_args.zip:
         return _create_output_package(parsed_args, files)
 
+    # Check for merge-from-list mode (takes precedence over collate)
+    if hasattr(parsed_args, 'merge_from_list') and parsed_args.merge_from_list:
+        return process_merge_from_list(parsed_args, options, format_arg, transforms)
+
     # Otherwise, process files normally to disk
     if parsed_args.collate:
         exit_code = process_files_collated(files, parsed_args, options, format_arg, transforms)
@@ -789,6 +793,336 @@ def merge_exclusion_patterns_from_json(
     if 'exclude' in json_options and parsed_args.exclude is None:
         return json_options['exclude']
     return None
+
+
+def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple[Path, Optional[str]]]:
+    """Parse merge list file and return file paths with optional section titles.
+
+    Parameters
+    ----------
+    list_path : Path or str
+        Path to the list file containing documents to merge, or '-' to read from stdin
+    separator : str, default '\t'
+        Separator character for the list file (default: tab for TSV)
+
+    Returns
+    -------
+    List[Tuple[Path, Optional[str]]]
+        List of (file_path, section_title) tuples where section_title is None
+        if not specified in the list file
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If the list file cannot be read or contains invalid entries
+
+    Notes
+    -----
+    List file format:
+    - TSV format: path[<separator>section_title]
+    - Lines starting with # are comments
+    - Blank lines are ignored
+    - File paths are resolved relative to the list file directory (or cwd if stdin)
+    - If no section title is provided, None is used
+    - Use '-' as the path to read the list from stdin
+
+    Examples
+    --------
+    List file content:
+
+        # This is a comment
+        chapter1.pdf	Introduction
+        chapter2.pdf	Background
+        chapter3.pdf
+
+    Results in:
+        [
+            (Path('chapter1.pdf'), 'Introduction'),
+            (Path('chapter2.pdf'), 'Background'),
+            (Path('chapter3.pdf'), None)
+        ]
+
+    Reading from stdin:
+
+        >>> echo "chapter1.pdf\\tIntro" | all2md --merge-from-list - --out book.md
+
+    """
+    try:
+        # Check if reading from stdin
+        if list_path == '-' or str(list_path) == '-':
+            # Read from stdin
+            lines = sys.stdin.readlines()
+            # Resolve paths relative to current working directory
+            list_dir = Path.cwd()
+        else:
+            # Read from file
+            list_path = Path(list_path)
+            if not list_path.exists():
+                raise argparse.ArgumentTypeError(f"Merge list file does not exist: {list_path}")
+
+            with open(list_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            # Resolve paths relative to list file directory
+            list_dir = list_path.parent
+
+        # Parse entries
+        entries: List[Tuple[Path, Optional[str]]] = []
+
+        for line_num, line in enumerate(lines, 1):
+            # Strip whitespace
+            line = line.strip()
+
+            # Skip comments and blank lines
+            if not line or line.startswith('#'):
+                continue
+
+            # Split by separator
+            parts = line.split(separator, 1)
+            file_path_str = parts[0].strip()
+
+            # Get section title if provided
+            section_title = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+
+            # Skip if second part is a comment
+            if section_title and section_title.startswith('#'):
+                section_title = None
+
+            # Resolve file path (relative to list file directory)
+            if not file_path_str:
+                continue
+
+            file_path = Path(file_path_str)
+            if not file_path.is_absolute():
+                file_path = list_dir / file_path
+
+            # Validate file exists
+            if not file_path.exists():
+                raise argparse.ArgumentTypeError(
+                    f"File not found in merge list (line {line_num}): {file_path_str}\n"
+                    f"Resolved path: {file_path}"
+                )
+
+            entries.append((file_path, section_title))
+
+        if not entries:
+            source_desc = "stdin" if (list_path == '-' or str(list_path) == '-') else str(list_path)
+            raise argparse.ArgumentTypeError(f"Merge list is empty or contains no valid entries: {source_desc}")
+
+        return entries
+
+    except argparse.ArgumentTypeError:
+        raise
+    except Exception as e:
+        source_desc = "stdin" if (list_path == '-' or str(list_path) == '-') else str(list_path)
+        raise argparse.ArgumentTypeError(f"Error reading merge list from {source_desc}: {e}") from e
+
+
+def process_merge_from_list(
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None
+) -> int:
+    """Process files from a list file and merge them into a single document.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments containing merge-from-list settings
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Format specification
+    transforms : list, optional
+        List of transform instances to apply
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, highest error code otherwise)
+
+    """
+    from all2md import to_ast
+    from all2md.ast.nodes import Document, Heading, Text
+    from all2md.renderers.markdown import MarkdownRenderer
+    from all2md.options import MarkdownOptions
+    from all2md.transforms.builtin import AddHeadingIdsTransform, GenerateTocTransform
+    from all2md.constants import EXIT_INPUT_ERROR
+
+    # Parse the list file (or stdin if '-')
+    try:
+        list_path_arg = args.merge_from_list
+        separator = args.list_separator if hasattr(args, 'list_separator') else '\t'
+
+        # Pass as string to preserve '-' for stdin detection
+        entries = parse_merge_list(list_path_arg, separator=separator)
+    except Exception as e:
+        print(f"Error parsing merge list: {e}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    # Prepare for merging
+    merged_children: list = []
+    failed: list = []
+    max_exit_code = EXIT_SUCCESS
+
+    # Determine if we should show progress
+    show_progress = args.progress or args.rich or len(entries) > 1
+
+    # Helper function to process a single file
+    def process_entry(file_path: Path, section_title: Optional[str]) -> int:
+        """Process a single file for merging.
+
+        Returns
+        -------
+        int
+            Exit code (0 for success)
+
+        """
+        nonlocal max_exit_code
+
+        try:
+            # Convert file to AST
+            doc = to_ast(file_path, source_format=format_arg, **options)
+
+            # Add section title if provided and not disabled
+            if section_title and not args.no_section_titles:
+                # Insert section heading at the beginning
+                section_heading = Heading(
+                    level=1,
+                    content=[Text(content=section_title)]
+                )
+                merged_children.append(section_heading)
+
+            # Add all children from this document
+            merged_children.extend(doc.children)
+
+            return EXIT_SUCCESS
+
+        except Exception as e:
+            exit_code = get_exit_code_for_exception(e)
+            error_msg = str(e)
+            if isinstance(e, ImportError):
+                error_msg = f"Missing dependency: {e}"
+            elif not isinstance(e, All2MdError):
+                error_msg = f"Unexpected error: {e}"
+
+            failed.append((file_path, error_msg))
+            max_exit_code = max(max_exit_code, exit_code)
+            return exit_code
+
+    # Process with rich output if requested
+    if show_progress and args.rich:
+        try:
+            from rich.console import Console
+            from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+
+            console = Console()
+            with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    console=console
+            ) as progress:
+                task_id = progress.add_task("[cyan]Merging files from list...", total=len(entries))
+
+                for file_path, section_title in entries:
+                    exit_code = process_entry(file_path, section_title)
+                    if exit_code == EXIT_SUCCESS:
+                        console.print(f"[green]OK[/green] Processed {file_path}")
+                    else:
+                        console.print(f"[red]ERROR[/red] {file_path}: {failed[-1][1]}")
+                        if not args.skip_errors:
+                            break
+                    progress.update(task_id, advance=1)
+
+        except ImportError:
+            from all2md.constants import EXIT_DEPENDENCY_ERROR
+            print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+            return EXIT_DEPENDENCY_ERROR
+
+    # Process with tqdm progress bar if requested
+    elif show_progress:
+        try:
+            from tqdm import tqdm
+            with tqdm(entries, desc="Merging files from list", unit="file") as pbar:
+                for file_path, section_title in pbar:
+                    pbar.set_postfix_str(f"Processing {file_path.name}")
+                    exit_code = process_entry(file_path, section_title)
+                    if exit_code != EXIT_SUCCESS and not args.skip_errors:
+                        break
+        except ImportError:
+            from all2md.constants import EXIT_DEPENDENCY_ERROR
+            print("Error: tqdm library not installed. Install with: pip install all2md[progress]", file=sys.stderr)
+            return EXIT_DEPENDENCY_ERROR
+
+    # Process without progress indicators
+    else:
+        for file_path, section_title in entries:
+            exit_code = process_entry(file_path, section_title)
+            if exit_code != EXIT_SUCCESS and not args.skip_errors:
+                break
+
+    # If all files failed, return error
+    if not merged_children:
+        print("Error: No files were successfully processed", file=sys.stderr)
+        return max_exit_code or EXIT_INPUT_ERROR
+
+    # Create merged document
+    merged_doc = Document(children=merged_children)
+
+    # Apply TOC generation if requested
+    if args.generate_toc:
+        # First, add heading IDs if they don't exist
+        id_transform = AddHeadingIdsTransform()
+        merged_doc = id_transform.transform(merged_doc)
+
+        # Then generate TOC
+        toc_transform = GenerateTocTransform(
+            title=args.toc_title if hasattr(args, 'toc_title') else "Table of Contents",
+            max_depth=args.toc_depth if hasattr(args, 'toc_depth') else 3,
+            position=args.toc_position if hasattr(args, 'toc_position') else "top"
+        )
+        merged_doc = toc_transform.transform(merged_doc)
+
+    # Apply any additional transforms
+    if transforms:
+        for transform in transforms:
+            merged_doc = transform.transform(merged_doc)
+
+    # Render the merged document to markdown
+    try:
+        renderer = MarkdownRenderer()
+        markdown_content = renderer.render_to_string(merged_doc)
+
+        # Determine output path
+        output_path = None
+        if args.out:
+            output_path = Path(args.out)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write output
+        if output_path:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            if not args.quiet:
+                print(f"Successfully merged {len(entries)} files to {output_path}")
+        else:
+            # Print to stdout
+            print(markdown_content)
+
+        # Print warnings for failed files if any
+        if failed and not args.quiet:
+            print(f"\nWarning: {len(failed)} file(s) failed to process:", file=sys.stderr)
+            for file_path, error in failed:
+                print(f"  {file_path}: {error}", file=sys.stderr)
+
+        return max_exit_code
+
+    except Exception as e:
+        print(f"Error rendering merged document: {e}", file=sys.stderr)
+        return get_exit_code_for_exception(e)
 
 
 def process_detect_only(

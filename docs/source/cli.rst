@@ -1077,6 +1077,141 @@ all2md supports processing multiple files with parallel execution and rich outpu
       # Combine to stdout
       all2md *.pdf --collate > all_documents.md
 
+Merge from List
+~~~~~~~~~~~~~~~
+
+Create structured multi-document outputs by merging files listed in a TSV file. This feature is ideal for building complex documents like books, manuals, or reports from individual section files.
+
+``--merge-from-list``
+   Merge files from a TSV list file with optional section titles.
+
+   **List File Format:**
+
+   The list file uses a simple tab-separated format:
+
+   .. code-block:: text
+
+      # Comments start with #
+      path/to/file1.md
+      path/to/file2.pdf<TAB>Section Title
+      path/to/file3.docx<TAB>Another Section
+
+   * Lines starting with ``#`` are comments and ignored
+   * Blank lines are ignored
+   * File paths are resolved relative to the list file directory
+   * Optional section titles follow a tab character
+   * Files can be any supported format (PDF, DOCX, Markdown, etc.)
+
+   .. code-block:: bash
+
+      # Basic merge from list
+      all2md --merge-from-list chapters.txt --out book.md
+
+      # Merge to stdout
+      all2md --merge-from-list sections.txt
+
+``--generate-toc``
+   Generate a table of contents when using ``--merge-from-list``.
+
+   .. code-block:: bash
+
+      # Add table of contents to merged document
+      all2md --merge-from-list chapters.txt --generate-toc --out book.md
+
+``--toc-title``
+   Set the title for the generated table of contents.
+
+   **Default:** ``Table of Contents``
+
+   .. code-block:: bash
+
+      # Custom TOC title
+      all2md --merge-from-list chapters.txt --generate-toc --toc-title "Contents" --out book.md
+
+``--toc-depth``
+   Maximum heading level to include in the table of contents (1-6).
+
+   **Default:** 3
+
+   .. code-block:: bash
+
+      # Include only level 1 and 2 headings in TOC
+      all2md --merge-from-list chapters.txt --generate-toc --toc-depth 2 --out book.md
+
+``--toc-position``
+   Position of the table of contents in the output.
+
+   **Choices:** ``top`` (default), ``bottom``
+
+   .. code-block:: bash
+
+      # Place TOC at the end of document
+      all2md --merge-from-list chapters.txt --generate-toc --toc-position bottom --out book.md
+
+``--list-separator``
+   Separator character for the list file.
+
+   **Default:** Tab character (``\t``)
+
+   .. code-block:: bash
+
+      # Use pipe separator instead of tab
+      all2md --merge-from-list chapters.txt --list-separator "|" --out book.md
+
+``--no-section-titles``
+   Disable automatic section title headers when merging.
+
+   .. code-block:: bash
+
+      # Merge without adding section headers
+      all2md --merge-from-list chapters.txt --no-section-titles --out book.md
+
+**Complete Example:**
+
+Create a list file ``book_chapters.txt``:
+
+.. code-block:: text
+
+   # Book Structure
+   frontmatter/preface.md	Preface
+   chapters/introduction.pdf	Chapter 1: Introduction
+   chapters/methodology.docx	Chapter 2: Methodology
+   chapters/results.pdf	Chapter 3: Results
+   chapters/conclusion.md	Chapter 4: Conclusion
+   # Appendices
+   appendix/references.md	References
+
+Merge with table of contents:
+
+.. code-block:: bash
+
+   # Create complete book with TOC
+   all2md --merge-from-list book_chapters.txt \
+       --generate-toc \
+       --toc-title "Book Contents" \
+       --toc-depth 2 \
+       --out complete_book.md
+
+**Use Cases:**
+
+* **Multi-chapter books:** Combine individual chapter files with automatic TOC generation
+* **Technical documentation:** Merge API docs, guides, and tutorials into a single document
+* **Reports:** Assemble executive summaries, analyses, and appendices
+* **Project documentation:** Combine README, architecture, and design docs
+* **Course materials:** Merge lecture notes, assignments, and resources
+
+**Integration with Transforms:**
+
+The merge-from-list feature works seamlessly with the transform system. Use ``--transform`` to apply custom AST transformations to the merged document:
+
+.. code-block:: bash
+
+   # Merge and apply custom transforms
+   all2md --merge-from-list chapters.txt \
+       --generate-toc \
+       --transform "HeadingOffsetTransform offset=1" \
+       --out book.md
+
 ``--exclude``
    Exclude files matching glob pattern (can be used multiple times).
 

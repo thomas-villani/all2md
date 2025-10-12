@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions
+from all2md.options.common import PaginatedParserOptions
 
 
 @dataclass(frozen=True)
-class OdpOptions(BaseParserOptions):
+class OdpOptions(PaginatedParserOptions):
     """Configuration options for ODP-to-Markdown conversion.
 
     This dataclass contains settings specific to OpenDocument Presentation (ODP)
@@ -50,12 +50,6 @@ class OdpOptions(BaseParserOptions):
         metadata={
             "help": "Include speaker notes from slides",
             "cli_name": "no-include-notes"
-        }
-    )
-    page_separator_template: str = field(
-        default="---",
-        metadata={
-            "help": "Template for slide separators. Supports placeholders: {page_num}, {total_pages}."
         }
     )
     slides: str | None = field(

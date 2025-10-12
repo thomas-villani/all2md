@@ -1323,10 +1323,10 @@ class HtmlToAstConverter(BaseParser):
                 data = f.read()
 
             # Check against max asset size
-            if len(data) > self.options.max_asset_bytes:
+            if len(data) > self.options.max_asset_size_bytes:
                 raise Exception(
                     f"Local file exceeds maximum allowed size: "
-                    f"{len(data)} bytes > {self.options.max_asset_bytes} bytes"
+                    f"{len(data)} bytes > {self.options.max_asset_size_bytes} bytes"
                 )
 
             return data
@@ -1373,7 +1373,7 @@ class HtmlToAstConverter(BaseParser):
                 url=url,
                 allowed_hosts=self.options.network.allowed_hosts,
                 require_https=self.options.network.require_https,
-                max_size_bytes=self.options.network.max_remote_asset_bytes,
+                max_size_bytes=self.options.max_asset_size_bytes,
                 timeout=self.options.network.network_timeout,
                 require_head_success=self.options.network.require_head_success
             )
