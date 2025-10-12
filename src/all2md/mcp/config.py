@@ -41,6 +41,8 @@ class MCPConfig(CloneFrozenMixin):
         Whether to enable convert_to_markdown tool (default: True)
     enable_from_md : bool
         Whether to enable render_from_markdown tool (default: False for security)
+    enable_doc_edit : bool
+        Whether to enable edit_document_ast tool (default: False for security)
     read_allowlist : list[str | Path] | None
         List of allowed read directory paths. Initially strings from env/CLI,
         then converted to resolved Path objects by prepare_allowlist_dirs.
@@ -64,6 +66,7 @@ class MCPConfig(CloneFrozenMixin):
 
     enable_to_md: bool = True
     enable_from_md: bool = False  # Disabled by default for security (writing)
+    enable_doc_edit: bool = False  # Disabled by default for security (document manipulation)
     read_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     write_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     attachment_mode: AttachmentMode = "base64"  # Default to base64 for vLLM visibility
@@ -88,8 +91,8 @@ class MCPConfig(CloneFrozenMixin):
             )
 
         # At least one tool must be enabled
-        if not self.enable_to_md and not self.enable_from_md:
-            raise ValueError("At least one tool must be enabled (to_md or from_md)")
+        if not self.enable_to_md and not self.enable_from_md and not self.enable_doc_edit:
+            raise ValueError("At least one tool must be enabled (to_md, from_md, or doc_edit)")
 
 
 def _parse_semicolon_list(value: str | None) -> list[str] | None:
@@ -235,6 +238,7 @@ def load_config_from_env() -> MCPConfig:
     return MCPConfig(
         enable_to_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_TO_MD'), default=True),
         enable_from_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_FROM_MD'), default=False),  # Disabled by default
+        enable_doc_edit=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_DOC_EDIT'), default=False),  # Disabled by default
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         read_allowlist=cast(list[str | Path], read_allowlist_strs),
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
@@ -262,6 +266,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 Environment Variables:
   ALL2MD_MCP_ENABLE_TO_MD          Enable convert_to_markdown tool (default: true)
   ALL2MD_MCP_ENABLE_FROM_MD        Enable render_from_markdown tool (default: false)
+  ALL2MD_MCP_ENABLE_DOC_EDIT       Enable edit_document_ast tool (default: false)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
   ALL2MD_MCP_ATTACHMENT_MODE       Attachment handling mode: skip, alt_text, base64 (default: base64)
@@ -335,6 +340,21 @@ Examples:
         help='Disable render_from_markdown tool'
     )
     parser.set_defaults(enable_from_md=None)  # None = use env default
+
+    doc_edit_group = parser.add_mutually_exclusive_group()
+    doc_edit_group.add_argument(
+        '--enable-doc-edit',
+        action='store_true',
+        dest='enable_doc_edit',
+        help='Enable edit_document_ast tool for document manipulation (default: false for security)'
+    )
+    doc_edit_group.add_argument(
+        '--no-doc-edit',
+        action='store_false',
+        dest='enable_doc_edit',
+        help='Disable edit_document_ast tool'
+    )
+    parser.set_defaults(enable_doc_edit=None)  # None = use env default
 
     # Path allowlists
     parser.add_argument(
@@ -419,6 +439,9 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
 
     if args.enable_from_md is not None:
         updated_kwargs.update(enable_from_md=args.enable_from_md)
+
+    if args.enable_doc_edit is not None:
+        updated_kwargs.update(enable_doc_edit=args.enable_doc_edit)
 
     if args.read_dirs is not None:
         updated_kwargs.update(read_allowlist=_parse_semicolon_list(args.read_dirs))

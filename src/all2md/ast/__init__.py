@@ -104,6 +104,27 @@ from all2md.ast.transforms import (
 # Utilities
 from all2md.ast.utils import extract_text
 
+# Document manipulation utilities
+from all2md.ast.document_utils import (
+    Section,
+    add_section_after,
+    add_section_before,
+    count_sections,
+    extract_section,
+    find_heading,
+    find_section_by_heading,
+    find_sections,
+    generate_toc,
+    get_all_sections,
+    get_preamble,
+    get_section_by_index,
+    insert_into_section,
+    insert_toc,
+    remove_section,
+    replace_section,
+    split_by_sections,
+)
+
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor
 
@@ -171,4 +192,22 @@ __all__ = [
     "TextReplacer",
     # Utilities
     "extract_text",
+    # Document manipulation
+    "Section",
+    "get_all_sections",
+    "find_section_by_heading",
+    "find_sections",
+    "get_section_by_index",
+    "add_section_after",
+    "add_section_before",
+    "remove_section",
+    "replace_section",
+    "insert_into_section",
+    "split_by_sections",
+    "extract_section",
+    "generate_toc",
+    "insert_toc",
+    "get_preamble",
+    "count_sections",
+    "find_heading",
 ]

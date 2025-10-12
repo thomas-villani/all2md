@@ -24,11 +24,17 @@ if TYPE_CHECKING:
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
+    EditDocumentInput,
+    EditDocumentOutput,
+    EditOperation,
+    InsertPosition,
     MarkdownFlavor,
+    OutputFormat,
     RenderFromMarkdownInput,
     RenderFromMarkdownOutput,
     SourceFormat,
     TargetFormat,
+    TOCStyle,
 )
 from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
 
@@ -41,7 +47,8 @@ ContentEncoding = Literal["plain", "base64"]
 def create_server(
     config: MCPConfig,
     convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], list[Any]],
-    render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput]
+    render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput],
+    edit_doc_impl: Callable[[EditDocumentInput, MCPConfig], EditDocumentOutput]
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
@@ -53,6 +60,8 @@ def create_server(
         Implementation function for convert_to_markdown tool
     render_impl : callable
         Implementation function for render_from_markdown tool
+    edit_doc_impl : callable
+        Implementation function for edit_document_ast tool
 
     Returns
     -------
@@ -192,6 +201,136 @@ def create_server(
 
         logger.info("Registered tool: render_from_markdown")
 
+    # Conditionally register edit_document_ast tool
+    if config.enable_doc_edit:
+        @mcp.tool(name="edit_document_ast")
+        def edit_document_ast(
+            operation: Annotated[
+                str,
+                "Operation to perform: list_sections, get_section, add_section, remove_section, "
+                "replace_section, insert_content, generate_toc, split_document. REQUIRED."
+            ],
+            source_path: Annotated[
+                str | None,
+                "File path to document (must be within read allowlist). Mutually exclusive with source_content."
+            ] = None,
+            source_content: Annotated[
+                str | None,
+                "Document content as string (markdown or AST JSON). Mutually exclusive with source_path."
+            ] = None,
+            content_encoding: Annotated[
+                str | None,
+                "Encoding of source_content: 'plain' (default) or 'base64'."
+            ] = None,
+            source_format: Annotated[
+                str,
+                "Format of source content: 'markdown' (default) or 'ast_json'."
+            ] = "markdown",
+            target_heading: Annotated[
+                str | None,
+                "Heading text to target for section operations. Mutually exclusive with target_index."
+            ] = None,
+            target_index: Annotated[
+                int | None,
+                "Zero-based section index to target. Mutually exclusive with target_heading."
+            ] = None,
+            content: Annotated[
+                str | None,
+                "Content to add/insert (markdown format). Required for add_section, replace_section, insert_content."
+            ] = None,
+            position: Annotated[
+                str | None,
+                "Position for add/insert operations: 'before', 'after', 'start', 'end', 'after_heading'."
+            ] = None,
+            case_sensitive: Annotated[
+                bool,
+                "Whether heading text matching is case-sensitive (default: false)."
+            ] = False,
+            max_toc_level: Annotated[
+                int,
+                "Maximum heading level for TOC generation (default: 3)."
+            ] = 3,
+            toc_style: Annotated[
+                str,
+                "Style for TOC generation: 'markdown', 'list', 'nested' (default: 'markdown')."
+            ] = "markdown",
+            flavor: Annotated[
+                str | None,
+                "Markdown flavor for parsing/rendering: gfm (default), commonmark, multimarkdown, etc."
+            ] = None,
+            output_path: Annotated[
+                str | None,
+                "Output file path (must be within write allowlist). If not provided, content is returned."
+            ] = None,
+            output_format: Annotated[
+                str,
+                "Format for output content: 'markdown' (default) or 'ast_json'."
+            ] = "markdown"
+        ) -> dict:
+            """Manipulate document structure at the AST level.
+
+            This tool allows structural document manipulation including:
+            - list_sections: Get metadata about all sections in the document
+            - get_section: Extract a specific section by heading text or index
+            - add_section: Add new section before or after a target section
+            - remove_section: Delete a section from the document
+            - replace_section: Replace section content with new content
+            - insert_content: Insert content into an existing section
+            - generate_toc: Generate table of contents from headings
+            - split_document: Split document into separate documents by sections
+
+            Requires --enable-doc-edit flag (disabled by default for security).
+
+            Returns a dictionary with:
+            - content: Modified document (if output_path not specified)
+            - sections: Section metadata (for list_sections operation)
+            - section_count: Number of sections (for list_sections)
+            - sections_modified: Number of sections affected by operation
+            - output_path: File path where content was written (if output_path specified)
+            - warnings: List of warning messages
+            """
+            # Cast to proper Literal types (FastMCP validates these at the boundary)
+            input_obj = EditDocumentInput(
+                operation=cast(EditOperation, operation),
+                source_path=source_path,
+                source_content=source_content,
+                content_encoding=cast(ContentEncoding | None, content_encoding),
+                source_format=cast(Any, source_format),
+                target_heading=target_heading,
+                target_index=target_index,
+                content=content,
+                position=cast(InsertPosition | None, position),
+                case_sensitive=case_sensitive,
+                max_toc_level=max_toc_level,
+                toc_style=cast(TOCStyle, toc_style),
+                flavor=cast(MarkdownFlavor | None, flavor),
+                output_path=output_path,
+                output_format=cast(OutputFormat, output_format)
+            )
+
+            result = edit_doc_impl(input_obj, config)
+
+            return {
+                "content": result.content,
+                "sections": [
+                    {
+                        "index": s.index,
+                        "heading_text": s.heading_text,
+                        "level": s.level,
+                        "content_nodes": s.content_nodes,
+                        "start_index": s.start_index,
+                        "end_index": s.end_index
+                    }
+                    for s in (result.sections or [])
+                ],
+                "section_count": result.section_count,
+                "sections_modified": result.sections_modified,
+                "output_path": result.output_path,
+                "warnings": result.warnings
+            }
+
+        logger.info("Registered tool: edit_document_ast")
+
     return mcp
 
 
@@ -225,7 +364,7 @@ def main() -> int:
             configure_logging(config.log_level)
 
         logger.info("Starting all2md MCP server")
-        logger.info(f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}")
+        logger.info(f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}")
         logger.info(f"Attachment mode: {config.attachment_mode}")
 
         # Validate and prepare allowlists
@@ -256,9 +395,10 @@ def main() -> int:
 
         # Import tool implementations after setting env vars
         from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
+        from all2md.mcp.document_tools import edit_document_ast_impl
 
         # Create and run server
-        mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl)
+        mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl, edit_document_ast_impl)
 
         logger.info("Server ready, listening on stdio")
         mcp.run()  # Run with default stdio transport
