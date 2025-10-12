@@ -24,7 +24,6 @@ from all2md.ast import (
     Emphasis,
     Heading,
     Image,
-    LineBreak,
     Link,
     List,
     ListItem,
@@ -80,9 +79,9 @@ class OrgParser(BaseParser):
     """
 
     def __init__(
-        self,
-        options: OrgParserOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None
+            self,
+            options: OrgParserOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the Org parser with options and progress callback."""
         options = options or OrgParserOptions()
@@ -408,7 +407,8 @@ class OrgParser(BaseParser):
                 description = match.group(8) if match.group(8) else url
 
                 # Check if it's an image link
-                if url.startswith('file:') or any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
+                if url.startswith('file:') or any(
+                        url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
                     # Remove 'file:' prefix if present
                     image_url = url[5:] if url.startswith('file:') else url
                     result.append(Image(url=image_url, alt_text=description))

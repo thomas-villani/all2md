@@ -14,18 +14,12 @@ Tests cover:
 import pytest
 
 from all2md.ast import (
-    CodeBlock,
     Document,
-    Emphasis,
     Heading,
-    Link,
     List,
     ListItem,
     Paragraph,
     Strong,
-    Table,
-    TableCell,
-    TableRow,
     Text,
 )
 from all2md.parsers.org import OrgParser

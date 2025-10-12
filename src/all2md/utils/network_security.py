@@ -553,7 +553,6 @@ def fetch_content_securely(
                                                original_error=head_error) from head_error
                 logger.debug(f"HEAD request failed for {url}: {head_error}")
 
-
             # Stream the actual content with size validation
             with client.stream('GET', url) as response:
                 response.raise_for_status()

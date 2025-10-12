@@ -324,10 +324,10 @@ class MarkdownOptions(BaseRendererOptions):
         # Apply flavor defaults for any fields that are still unset
         if self.unsupported_table_mode is _UNSET:
             object.__setattr__(self, 'unsupported_table_mode',
-                             flavor_defaults['unsupported_table_mode'])
+                               flavor_defaults['unsupported_table_mode'])
         if self.unsupported_inline_mode is _UNSET:
             object.__setattr__(self, 'unsupported_inline_mode',
-                             flavor_defaults['unsupported_inline_mode'])
+                               flavor_defaults['unsupported_inline_mode'])
 
 
 @dataclass(frozen=True)
@@ -521,8 +521,8 @@ def get_flavor_defaults(flavor: FlavorType) -> dict[str, Any]:
 
 
 def validate_flavor_compatibility(
-    flavor: FlavorType,
-    options: MarkdownOptions,
+        flavor: FlavorType,
+        options: MarkdownOptions,
 ) -> list[str]:
     """Validate option compatibility with markdown flavor and return warnings.
 

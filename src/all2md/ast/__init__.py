@@ -43,7 +43,26 @@ from __future__ import annotations
 
 # Builder helpers
 from all2md.ast.builder import DocumentBuilder, ListBuilder, TableBuilder
-
+# Document manipulation utilities
+from all2md.ast.document_utils import (
+    Section,
+    add_section_after,
+    add_section_before,
+    count_sections,
+    extract_section,
+    find_heading,
+    find_section_by_heading,
+    find_sections,
+    generate_toc,
+    get_all_sections,
+    get_preamble,
+    get_section_by_index,
+    insert_into_section,
+    insert_toc,
+    remove_section,
+    replace_section,
+    split_by_sections,
+)
 # Core node types
 from all2md.ast.nodes import (
     Alignment,
@@ -83,10 +102,8 @@ from all2md.ast.nodes import (
     get_node_children,
     replace_node_children,
 )
-
 # Serialization
 from all2md.ast.serialization import ast_to_dict, ast_to_json, dict_to_ast, json_to_ast
-
 # Transforms
 from all2md.ast.transforms import (
     HeadingLevelTransformer,
@@ -100,31 +117,8 @@ from all2md.ast.transforms import (
     merge_documents,
     transform_nodes,
 )
-
 # Utilities
 from all2md.ast.utils import extract_text
-
-# Document manipulation utilities
-from all2md.ast.document_utils import (
-    Section,
-    add_section_after,
-    add_section_before,
-    count_sections,
-    extract_section,
-    find_heading,
-    find_section_by_heading,
-    find_sections,
-    generate_toc,
-    get_all_sections,
-    get_preamble,
-    get_section_by_index,
-    insert_into_section,
-    insert_toc,
-    remove_section,
-    replace_section,
-    split_by_sections,
-)
-
 # Visitor pattern base
 from all2md.ast.visitors import NodeVisitor, ValidationVisitor
 

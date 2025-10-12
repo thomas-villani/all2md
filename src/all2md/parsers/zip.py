@@ -255,8 +255,8 @@ class ZipToAstConverter(BaseParser):
 
         # Add resource manifest if requested and resources were extracted
         if (self.options.include_resource_manifest and
-            self.options.extract_resource_files and
-            self._extracted_resources):
+                self.options.extract_resource_files and
+                self._extracted_resources):
             self._add_resource_manifest(children)
 
         return Document(children=children)

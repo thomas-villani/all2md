@@ -48,7 +48,6 @@ import logging
 from typing import Any, Optional
 
 from all2md.ast.transforms import NodeTransformer
-
 from .metadata import TransformMetadata
 
 logger = logging.getLogger(__name__)
@@ -445,7 +444,6 @@ class TransformRegistry:
 # Global registry instance (preferred access pattern)
 # Use this instance rather than instantiating TransformRegistry directly
 registry = TransformRegistry()
-
 
 __all__ = [
     "TransformRegistry",

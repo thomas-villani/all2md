@@ -56,10 +56,9 @@ from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
 from all2md.options import MarkdownOptions
 from all2md.progress import ProgressCallback, ProgressEvent
-
-from .. import BaseRendererOptions
 from .hooks import HookCallable, HookContext, HookManager, HookTarget
 from .registry import registry
+from .. import BaseRendererOptions
 
 logger = logging.getLogger(__name__)
 
@@ -204,13 +203,13 @@ class Pipeline:
     """
 
     def __init__(
-        self,
-        transforms: Optional[list[Union[str, NodeTransformer]]] = None,
-        hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-        renderer: Optional[Union[str, type, Any]] = None,
-        options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-        strict_hooks: bool = False
+            self,
+            transforms: Optional[list[Union[str, NodeTransformer]]] = None,
+            hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
+            renderer: Optional[Union[str, type, Any]] = None,
+            options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
+            progress_callback: Optional[ProgressCallback] = None,
+            strict_hooks: bool = False
     ):
         """Initialize pipeline with transforms, hooks, renderer, and options."""
         self.transforms = transforms or []
@@ -232,9 +231,9 @@ class Pipeline:
                     self.hook_manager.register_hook(target, hook, priority=priority)
 
     def _setup_renderer(
-        self,
-        renderer: Optional[Union[str, type, Any]],
-        options: Optional[Union[BaseRendererOptions, MarkdownOptions]]
+            self,
+            renderer: Optional[Union[str, type, Any]],
+            options: Optional[Union[BaseRendererOptions, MarkdownOptions]]
     ) -> Any:
         """Set up the renderer instance.
 
@@ -456,12 +455,12 @@ class Pipeline:
         return result  # type: ignore
 
     def _emit_progress(
-        self,
-        event_type: str,
-        message: str,
-        current: int = 0,
-        total: int = 0,
-        metadata: Optional[dict[str, Any]] = None
+            self,
+            event_type: str,
+            message: str,
+            current: int = 0,
+            total: int = 0,
+            metadata: Optional[dict[str, Any]] = None
     ) -> None:
         """Emit a progress event if callback is configured.
 
@@ -844,11 +843,11 @@ class Pipeline:
 
 
 def apply(
-    document: Document,
-    transforms: Optional[list[Union[str, NodeTransformer]]] = None,
-    hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    strict_hooks: bool = False
+        document: Document,
+        transforms: Optional[list[Union[str, NodeTransformer]]] = None,
+        hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        strict_hooks: bool = False
 ) -> Document:
     """Apply transforms and hooks to document without rendering.
 
@@ -956,11 +955,11 @@ def apply(
 
     # Helper function to emit progress events
     def emit_progress(
-        event_type: str,
-        message: str,
-        current: int = 0,
-        total: int = 0,
-        metadata: Optional[dict[str, Any]] = None
+            event_type: str,
+            message: str,
+            current: int = 0,
+            total: int = 0,
+            metadata: Optional[dict[str, Any]] = None
     ) -> None:
         """Emit a progress event if callback is configured."""
         if progress_callback is None:
@@ -1157,14 +1156,14 @@ def apply(
 
 
 def render(
-    document: Document,
-    transforms: Optional[list[Union[str, NodeTransformer]]] = None,
-    hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-    renderer: Optional[Union[str, type, Any]] = None,
-    options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    strict_hooks: bool = False,
-    **kwargs: Any
+        document: Document,
+        transforms: Optional[list[Union[str, NodeTransformer]]] = None,
+        hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
+        renderer: Optional[Union[str, type, Any]] = None,
+        options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        strict_hooks: bool = False,
+        **kwargs: Any
 ) -> Union[str, bytes]:
     """Render document with transforms and hooks using specified renderer.
 

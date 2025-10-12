@@ -24,6 +24,7 @@ from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
+
 # Language mapping for file extensions to GitHub-style language identifiers
 # Imported from sourcecode2markdown for consistency
 

@@ -91,8 +91,8 @@ def _extract_images_from_ast(doc: Any) -> list[Any]:
 
 
 def convert_to_markdown_impl(
-    input_data: ConvertToMarkdownInput,
-    config: MCPConfig
+        input_data: ConvertToMarkdownInput,
+        config: MCPConfig
 ) -> list[Any]:
     """Implement convert_to_markdown tool.
 
@@ -224,8 +224,8 @@ def convert_to_markdown_impl(
 
 
 def render_from_markdown_impl(
-    input_data: RenderFromMarkdownInput,
-    config: MCPConfig
+        input_data: RenderFromMarkdownInput,
+        config: MCPConfig
 ) -> RenderFromMarkdownOutput:
     """Implement render_from_markdown tool.
 

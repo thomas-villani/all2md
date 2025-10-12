@@ -688,6 +688,7 @@ def process_multi_file(
 
     return exit_code
 
+
 def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Path]) -> int:
     """Create output package (zip) after successful conversion.
 
@@ -791,11 +792,12 @@ def load_options_from_json(json_file_path: str) -> dict:
     except Exception as e:
         raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
 
+
 # TODO: what is this for? Is it needed?
 def merge_exclusion_patterns_from_json(
         parsed_args: argparse.Namespace,
         json_options: dict
-        ) -> Optional[List[str]]:
+) -> Optional[List[str]]:
     """Merge exclusion patterns from JSON options if not specified via CLI.
 
     Parameters
@@ -966,10 +968,9 @@ def process_merge_from_list(
     """
     from all2md import to_ast
     from all2md.ast.nodes import Document, Heading, Text
-    from all2md.renderers.markdown import MarkdownRenderer
-    from all2md.options import MarkdownOptions
-    from all2md.transforms.builtin import AddHeadingIdsTransform, GenerateTocTransform
     from all2md.constants import EXIT_INPUT_ERROR
+    from all2md.renderers.markdown import MarkdownRenderer
+    from all2md.transforms.builtin import AddHeadingIdsTransform, GenerateTocTransform
 
     # Parse the list file (or stdin if '-')
     try:
@@ -1589,7 +1590,8 @@ def convert_single_file_for_collation(
     """
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms, **options)  # type: ignore[arg-type]
+        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms,
+                                       **options)  # type: ignore[arg-type]
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"
@@ -2029,8 +2031,8 @@ def process_with_rich_output(
         # parallel can be: 1 (default, sequential), None (--parallel without value,
         # auto CPU count), or N (explicit worker count)
         use_parallel = (
-            (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
-            (isinstance(args.parallel, int) and args.parallel != 1)
+                (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
+                (isinstance(args.parallel, int) and args.parallel != 1)
         )
 
         if use_parallel:

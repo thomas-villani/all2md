@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 
 def validate_zip_input(
-    input_data: Union[str, Path, IO[bytes], bytes],
-    suffix: str = '.zip'
+        input_data: Union[str, Path, IO[bytes], bytes],
+        suffix: str = '.zip'
 ) -> None:
     """Validate a zip archive across different input types.
 
@@ -106,8 +106,8 @@ def validate_zip_input(
 
 @contextmanager
 def validated_zip_input(
-    input_data: Union[str, Path, IO[bytes], bytes],
-    suffix: str = '.zip'
+        input_data: Union[str, Path, IO[bytes], bytes],
+        suffix: str = '.zip'
 ) -> Generator[Union[str, Path, IO[bytes], bytes], None, None]:
     """Context manager for validated zip input with automatic cleanup.
 
@@ -198,9 +198,9 @@ def validated_zip_input(
 
 
 def append_attachment_footnotes(
-    children: list[Node],
-    attachment_footnotes: dict[str, str],
-    section_title: str = "Attachments"
+        children: list[Node],
+        attachment_footnotes: dict[str, str],
+        section_title: str = "Attachments"
 ) -> None:
     """Append attachment footnote definitions to document children.
 

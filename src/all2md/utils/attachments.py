@@ -25,10 +25,11 @@ import base64
 import logging
 import os
 import re
-import unicodedata
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urljoin
+
+import unicodedata
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 
@@ -79,10 +80,10 @@ def sanitize_footnote_label(attachment_name: str) -> str:
 
 
 def sanitize_attachment_filename(
-    filename: str,
-    max_length: int = 255,
-    preserve_case: bool = False,
-    allow_unicode: bool = False
+        filename: str,
+        max_length: int = 255,
+        preserve_case: bool = False,
+        allow_unicode: bool = False
 ) -> str:
     """Sanitize an attachment filename for secure file system storage.
 
@@ -140,9 +141,9 @@ def sanitize_attachment_filename(
     # Security check: detect potentially malicious patterns
     malicious_patterns = [
         r'\.\.[\\/]',  # Directory traversal
-        r'^[\\/]',     # Absolute paths
+        r'^[\\/]',  # Absolute paths
         r'[\x00-\x1f\x7f]',  # Control characters
-        r'^\s*$',      # Only whitespace
+        r'^\s*$',  # Only whitespace
     ]
 
     for pattern in malicious_patterns:
@@ -343,9 +344,12 @@ def process_attachment(
         - "url": str - URL/path for the attachment (empty for alt_text mode)
 
     """
+
     # Helper function to create result dict
-    def _make_result(markdown: str, url: str = "", footnote_label: str | None = None,
-                     footnote_content: str | None = None) -> dict[str, Any]:
+    def _make_result(
+            markdown: str, url: str = "", footnote_label: str | None = None,
+            footnote_content: str | None = None
+            ) -> dict[str, Any]:
         return {
             "markdown": markdown,
             "url": url,
@@ -363,7 +367,7 @@ def process_attachment(
                 markdown = f"![{alt_text or attachment_name}][^{footnote_label}]"
                 footnote_content = alt_text or attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
-                                  footnote_content=footnote_content)
+                                    footnote_content=footnote_content)
             else:
                 return _make_result(f"![{alt_text or attachment_name}]")
         else:
@@ -376,7 +380,7 @@ def process_attachment(
                 markdown = f"[{attachment_name}][^{footnote_label}]"
                 footnote_content = attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
-                                  footnote_content=footnote_content)
+                                    footnote_content=footnote_content)
             else:
                 return _make_result(f"[{attachment_name}]")
 
@@ -666,10 +670,10 @@ class AttachmentSequencer(Protocol):
     """
 
     def __call__(
-        self,
-        base_stem: str,
-        format_type: str = "general",
-        **kwargs: Any,
+            self,
+            base_stem: str,
+            format_type: str = "general",
+            **kwargs: Any,
     ) -> tuple[str, int]:
         """Generate unique sequential filename for attachment."""
         ...

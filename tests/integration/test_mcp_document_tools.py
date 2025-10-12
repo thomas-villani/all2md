@@ -15,8 +15,6 @@ Tests cover all 8 operations:
 
 """
 
-import tempfile
-from pathlib import Path
 
 import pytest
 

@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_ods_images(
-    doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
+        doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
 ) -> tuple[list[Image], dict[str, str]]:
     """Extract images from an ODS table and convert to Image AST nodes.
 
@@ -237,7 +237,9 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(
+            self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
+            ):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
 
@@ -336,7 +338,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             return Document(children=[], metadata=metadata.to_dict())
 
         # Filter sheets based on options
-        sheet_names = [table.getAttribute("name") or f"Sheet{i+1}" for i, table in enumerate(tables)]
+        sheet_names = [table.getAttribute("name") or f"Sheet{i + 1}" for i, table in enumerate(tables)]
         selected_tables = []
         selected_names = []
 
@@ -418,7 +420,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                     max_cols = max(len(row) for row in raw_rows)
                     if self.options.max_cols is not None:
                         max_cols = min(max_cols, self.options.max_cols)
-                    header = [f"Column {i+1}" for i in range(max_cols)]
+                    header = [f"Column {i + 1}" for i in range(max_cols)]
                     data_rows = raw_rows
                 else:
                     header = []
@@ -441,7 +443,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             header = [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
             data_rows = [
                 [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
-                 for row in all_rows[1:]
+                for row in all_rows[1:]
             ]
 
             # Apply header case transformation
@@ -460,7 +462,8 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
             # Add truncation indicator if needed
             truncated = (self.options.max_rows is not None and len(rows_elem) - 1 > self.options.max_rows) or \
-                       (self.options.max_cols is not None and any(len(row) > self.options.max_cols for row in raw_rows))
+                        (self.options.max_cols is not None and any(
+                            len(row) > self.options.max_cols for row in raw_rows))
             if truncated:
                 children.append(
                     Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])

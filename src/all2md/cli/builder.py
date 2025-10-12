@@ -162,7 +162,7 @@ class DynamicCLIBuilder:
             self, field: Any, resolved_type: Type,
             is_optional: bool, metadata: Dict[str, Any],
             cli_name: str
-            ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Infer argparse type and action from resolved field type.
 
         Parameters
@@ -223,18 +223,21 @@ class DynamicCLIBuilder:
                             raise argparse.ArgumentTypeError(
                                 f"Expected comma-separated integers, got: {value}"
                             ) from e
+
                     kwargs['type'] = parse_int_list
                     kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
                 else:
                     # Add type function to parse comma-separated strings
                     def parse_str_list(value: str) -> list[str]:
                         return [x.strip() for x in value.split(',') if x.strip()]
+
                     kwargs['type'] = parse_str_list
                     kwargs['help'] = kwargs.get('help', '') + ' (comma-separated values)'
             else:
                 # Fallback for untyped lists
                 def parse_str_list_fallback(value: str) -> list[str]:
                     return [x.strip() for x in value.split(',') if x.strip()]
+
                 kwargs['type'] = parse_str_list_fallback
                 kwargs['help'] = kwargs.get('help', '') + ' (comma-separated values)'
 
@@ -248,6 +251,7 @@ class DynamicCLIBuilder:
                     raise argparse.ArgumentTypeError(
                         f"Expected comma-separated integers, got: {value}"
                     ) from e
+
             kwargs['type'] = parse_legacy_int_list
             kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
 
@@ -279,7 +283,7 @@ class DynamicCLIBuilder:
     def infer_cli_name(
             self, field_name: str, format_prefix: Optional[str] = None,
             is_boolean_with_true_default: bool = False
-            ) -> str:
+    ) -> str:
         """Infer CLI argument name from field name.
 
         Parameters
@@ -321,7 +325,7 @@ class DynamicCLIBuilder:
     def get_argument_kwargs(
             self, field: Any, metadata: Dict[str, Any], cli_name: str,
             options_class: Type
-            ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Build argparse kwargs from field metadata using robust type resolution.
 
         This method replaces brittle string matching with proper type introspection
@@ -382,7 +386,7 @@ class DynamicCLIBuilder:
             options_class: Type, format_prefix: Optional[str] = None,
             group_name: Optional[str] = None,
             exclude_base_fields: bool = False
-            ) -> None:
+    ) -> None:
         """Add arguments for an options dataclass.
 
         This unified implementation is used by both add_options_class_arguments
@@ -454,9 +458,9 @@ class DynamicCLIBuilder:
             underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
             # Check for MISSING before accessing field.default
             is_bool_true_default = (
-                underlying_field_type is bool and
-                self._has_default(field) and
-                self._get_default(field) is True
+                    underlying_field_type is bool and
+                    self._has_default(field) and
+                    self._get_default(field) is True
             )
 
             # Get CLI name (explicit or inferred)
@@ -511,7 +515,7 @@ class DynamicCLIBuilder:
             self, parser: argparse.ArgumentParser,
             options_class: Type, format_prefix: Optional[str] = None,
             group_name: Optional[str] = None
-            ) -> None:
+    ) -> None:
         """Add arguments for an options dataclass.
 
         Parameters
@@ -534,7 +538,7 @@ class DynamicCLIBuilder:
             self, parser: argparse.ArgumentParser,
             options_class: Type, format_prefix: Optional[str] = None,
             group_name: Optional[str] = None
-            ) -> None:
+    ) -> None:
         """Add arguments for format-specific options, excluding BaseOptions fields.
 
         Parameters
@@ -1421,7 +1425,6 @@ def create_parser() -> argparse.ArgumentParser:
         action=TrackingStoreTrueAction,
         help='Maximum security settings (strict restrictions, reduced size limits)'
     )
-
 
     return parser
 

@@ -175,7 +175,6 @@ DEFAULT_PDF_FONT_SIZE = 12
 DEFAULT_PDF_CODE_FONT = "Courier"
 DEFAULT_PDF_LINE_SPACING = 1.2
 
-
 # =============================================================================
 # HTML to Markdown Constants
 # =============================================================================
@@ -326,7 +325,6 @@ DEFAULT_DOCX_CODE_FONT = "Courier New"
 DEFAULT_DOCX_CODE_FONT_SIZE = 10
 DEFAULT_DOCX_TABLE_STYLE = "Light Grid Accent 1"
 
-
 # =============================================================================
 # reStructuredText (RST) Constants
 # =============================================================================
@@ -452,4 +450,3 @@ DocumentFormat = Literal[
     "odf",  # OpenDocument Format
     "epub",  # EPUB e-books
 ]
-

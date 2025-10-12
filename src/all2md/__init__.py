@@ -182,7 +182,7 @@ def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseR
 
 
 def _collect_nested_dataclass_kwargs(
-    options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
+        options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
 ) -> dict:
     """Collect kwargs that belong to nested dataclass fields.
 
@@ -355,9 +355,9 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) 
 
 
 def _split_kwargs_for_parser_and_renderer(
-    parser_format: DocumentFormat,
-    renderer_format: DocumentFormat,
-    kwargs: dict
+        parser_format: DocumentFormat,
+        renderer_format: DocumentFormat,
+        kwargs: dict
 ) -> tuple[dict, dict]:
     """Split kwargs between parser and renderer based on their field names.
 
@@ -750,6 +750,7 @@ def to_ast(
     except Exception as e:
         raise ParsingError(f"AST conversion failed: {e!r}", parsing_stage="ast_conversion", original_error=e) from e
 
+
 def from_ast(
         ast_doc: ast.Document,
         target_format: DocumentFormat,
@@ -926,6 +927,7 @@ def from_markdown(
         **kwargs,
     )
 
+
 def convert(
         source: Union[str, Path, IO[bytes], IO[str], bytes],
         output: Union[str, Path, IO[bytes], IO[str], None] = None,
@@ -1022,7 +1024,8 @@ def convert(
     if parser_kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**parser_kwargs)
     elif parser_kwargs:
-        final_parser_options = _create_parser_options_from_kwargs(actual_source_format, **parser_kwargs)  # type: ignore[arg-type]
+        final_parser_options = _create_parser_options_from_kwargs(actual_source_format,
+                                                                  **parser_kwargs)  # type: ignore[arg-type]
     else:
         final_parser_options = parser_options
 
@@ -1041,7 +1044,8 @@ def convert(
     if renderer_kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
-        final_renderer_options = _create_renderer_options_from_kwargs(actual_target_format, **renderer_kwargs)  # type: ignore[arg-type]
+        final_renderer_options = _create_renderer_options_from_kwargs(actual_target_format,
+                                                                      **renderer_kwargs)  # type: ignore[arg-type]
     else:
         final_renderer_options = renderer_options
 

@@ -21,7 +21,7 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 
-from all2md import from_ast, from_markdown, to_ast
+from all2md import from_ast, to_ast
 from all2md.ast.document_utils import (
     add_section_after,
     add_section_before,
@@ -48,8 +48,8 @@ logger = logging.getLogger(__name__)
 
 
 def _load_source_document(
-    input_data: EditDocumentInput,
-    config: MCPConfig
+        input_data: EditDocumentInput,
+        config: MCPConfig
 ) -> Document:
     """Load source document from path or content.
 
@@ -152,9 +152,9 @@ def _load_source_document(
 
 
 def _serialize_document(
-    doc: Document,
-    output_format: str,
-    flavor: str | None
+        doc: Document,
+        output_format: str,
+        flavor: str | None
 ) -> str:
     """Serialize document to string format.
 
@@ -189,9 +189,9 @@ def _serialize_document(
 
 
 def _write_output(
-    content: str,
-    output_path: str,
-    config: MCPConfig
+        content: str,
+        output_path: str,
+        config: MCPConfig
 ) -> Path:
     """Write output content to file.
 
@@ -222,8 +222,8 @@ def _write_output(
 
 
 def edit_document_ast_impl(
-    input_data: EditDocumentInput,
-    config: MCPConfig
+        input_data: EditDocumentInput,
+        config: MCPConfig
 ) -> EditDocumentOutput:
     """Implement edit_document_ast tool.
 

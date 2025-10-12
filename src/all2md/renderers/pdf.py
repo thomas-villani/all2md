@@ -192,9 +192,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
             # Add footnotes if any
             if self._footnote_definitions:
-                self._flowables.append(self._Spacer(1, 0.3*self._inch))
+                self._flowables.append(self._Spacer(1, 0.3 * self._inch))
                 self._flowables.append(self._HRFlowable(width="80%", color=self._colors.grey))
-                self._flowables.append(self._Spacer(1, 0.2*self._inch))
+                self._flowables.append(self._Spacer(1, 0.2 * self._inch))
 
                 # Sort footnotes by their assigned numbers
                 sorted_footnotes = sorted(
@@ -208,7 +208,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                             f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
                         )
                         self._flowables.append(footnote_para)
-                        self._flowables.append(self._Spacer(1, 0.1*self._inch))
+                        self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
             # Get page size
             page_size = self._get_page_size()
@@ -458,7 +458,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             title_text = str(node.metadata['title'])
             title_para = self._Paragraph(title_text, self._styles['Heading1'])
             self._flowables.append(title_para)
-            self._flowables.append(self._Spacer(1, 0.3*self._inch))
+            self._flowables.append(self._Spacer(1, 0.3 * self._inch))
 
         # Render children
         for child in node.children:
@@ -492,7 +492,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         text = self._process_inline_content(node.content)
         para = self._Paragraph(text, self._styles['Normal'])
         self._flowables.append(para)
-        self._flowables.append(self._Spacer(1, 0.1*self._inch))
+        self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Render a CodeBlock node.
@@ -510,7 +510,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             maxLineLength=80,
         )
         self._flowables.append(pre)
-        self._flowables.append(self._Spacer(1, 0.1*self._inch))
+        self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
@@ -575,7 +575,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 start=node.start if node.ordered else None,
             )
             self._flowables.append(list_flowable)
-            self._flowables.append(self._Spacer(1, 0.1*self._inch))
+            self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
     def visit_list_item(self, node: ASTListItem) -> None:
         """Render a ListItem node.
@@ -642,7 +642,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         table.setStyle(self._TableStyle(style_commands))  # type: ignore[arg-type]
 
         self._flowables.append(table)
-        self._flowables.append(self._Spacer(1, 0.2*self._inch))
+        self._flowables.append(self._Spacer(1, 0.2 * self._inch))
 
     def visit_table_row(self, node: TableRow) -> None:
         """Render a TableRow node.
@@ -679,7 +679,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         """
         hr = self._HRFlowable(
             width="100%", thickness=1, color=self._colors.grey,
-            spaceAfter=0.2*self._inch, spaceBefore=0.2*self._inch
+            spaceAfter=0.2 * self._inch, spaceBefore=0.2 * self._inch
         )
         self._flowables.append(hr)
 
@@ -781,7 +781,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
             if image_file:
                 # Add image
-                img = self._Image(image_file, width=4*self._inch, height=None, kind='proportional')
+                img = self._Image(image_file, width=4 * self._inch, height=None, kind='proportional')
                 self._flowables.append(img)
 
                 # Add caption if alt text exists
@@ -796,7 +796,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                     caption = self._Paragraph(f'<i>{node.alt_text}</i>', caption_style)
                     self._flowables.append(caption)
 
-                self._flowables.append(self._Spacer(1, 0.2*self._inch))
+                self._flowables.append(self._Spacer(1, 0.2 * self._inch))
         except Exception as e:
             # If image loading fails, log and optionally raise
             logger.warning(f"Failed to add image to PDF: {e}")
@@ -1001,7 +1001,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
                 self._flowables = saved_flowables
 
-            self._flowables.append(self._Spacer(1, 0.1*self._inch))
+            self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node.
@@ -1048,4 +1048,4 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             maxLineLength=80,
         )
         self._flowables.append(pre)
-        self._flowables.append(self._Spacer(1, 0.1*self._inch))
+        self._flowables.append(self._Spacer(1, 0.1 * self._inch))

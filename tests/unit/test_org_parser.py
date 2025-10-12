@@ -21,7 +21,6 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
-    Document,
     Emphasis,
     Heading,
     Image,
@@ -32,7 +31,6 @@ from all2md.ast import (
     Strong,
     Table,
     Text,
-    ThematicBreak,
     Underline,
 )
 from all2md.options.org import OrgParserOptions

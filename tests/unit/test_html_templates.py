@@ -10,7 +10,6 @@ Tests cover:
 
 """
 
-from pathlib import Path
 
 import pytest
 
@@ -372,7 +371,7 @@ class TestCssClassMapping:
 
     def test_table_custom_class(self):
         """Test custom CSS class on table."""
-        from all2md.ast import Table, TableRow, TableCell
+        from all2md.ast import Table, TableCell, TableRow
 
         doc = Document(children=[
             Table(

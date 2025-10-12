@@ -61,7 +61,6 @@ from all2md.utils.metadata import OFFICE_FIELD_MAPPING, DocumentMetadata, map_pr
 logger = logging.getLogger(__name__)
 
 
-
 class PptxToAstConverter(BaseParser):
     """Convert PPTX to AST representation.
 
@@ -76,9 +75,9 @@ class PptxToAstConverter(BaseParser):
     """
 
     def __init__(
-        self,
-        options: PptxOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None
+            self,
+            options: PptxOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the PPTX parser with options and progress callback."""
         options = options or PptxOptions()
@@ -89,7 +88,6 @@ class PptxToAstConverter(BaseParser):
         self._base_filename = "presentation"
         self._attachment_sequencer = create_attachment_sequencer()
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
-
 
     @requires_dependencies("pptx", [("python-pptx", "pptx", ">=1.0.2")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -457,8 +455,8 @@ class PptxToAstConverter(BaseParser):
         return self._standard_data_to_table(categories, series_rows)
 
     def _scatter_data_to_table(
-        self,
-        series_data: list[tuple[str, list[float], list[float]]],
+            self,
+            series_data: list[tuple[str, list[float], list[float]]],
     ) -> AstTable | None:
         if not series_data:
             return None
@@ -469,7 +467,7 @@ class PptxToAstConverter(BaseParser):
 
         header_cells = [TableCell(content=[Text(content="Series")])]
         for i in range(max_points):
-            header_cells.append(TableCell(content=[Text(content=f"Point {i+1}")]))
+            header_cells.append(TableCell(content=[Text(content=f"Point {i + 1}")]))
         header_row = TableRow(cells=header_cells, is_header=True)
 
         all_rows: list[TableRow] = []
@@ -487,9 +485,9 @@ class PptxToAstConverter(BaseParser):
         return AstTable(header=header_row, rows=all_rows)
 
     def _standard_data_to_table(
-        self,
-        categories: list[str],
-        series_rows: list[tuple[str, list[Any]]],
+            self,
+            categories: list[str],
+            series_rows: list[tuple[str, list[Any]]],
     ) -> AstTable | None:
         if not series_rows:
             return None
@@ -504,7 +502,7 @@ class PptxToAstConverter(BaseParser):
                 header_cells.append(TableCell(content=[Text(content=str(cat))]))
         else:
             for i in range(num_cols):
-                header_cells.append(TableCell(content=[Text(content=f"Col {i+1}")]))
+                header_cells.append(TableCell(content=[Text(content=f"Col {i + 1}")]))
 
         header_row = TableRow(cells=header_cells, is_header=True)
 
@@ -519,9 +517,9 @@ class PptxToAstConverter(BaseParser):
         return AstTable(header=header_row, rows=data_rows)
 
     def _scatter_chart_to_mermaid(
-        self,
-        chart: Any,
-        series_data: list[tuple[str, list[float], list[float]]],
+            self,
+            chart: Any,
+            series_data: list[tuple[str, list[float], list[float]]],
     ) -> str | None:
         if not series_data:
             return None
@@ -578,11 +576,11 @@ class PptxToAstConverter(BaseParser):
         return "\n".join(lines)
 
     def _standard_chart_to_mermaid(
-        self,
-        chart: Any,
-        chart_type: Any,
-        categories: list[str],
-        series_rows: list[tuple[str, list[Any]]],
+            self,
+            chart: Any,
+            chart_type: Any,
+            categories: list[str],
+            series_rows: list[tuple[str, list[Any]]],
     ) -> str | None:
         if not series_rows:
             return None
@@ -598,7 +596,7 @@ class PptxToAstConverter(BaseParser):
         if categories and len(categories) == max_cols:
             x_labels = [self._escape_mermaid_text(str(label)) for label in categories]
         else:
-            x_labels = [f"Col {i+1}" for i in range(max_cols)]
+            x_labels = [f"Col {i + 1}" for i in range(max_cols)]
 
         numeric_values: list[float] = []
         for _, values in series_rows:
@@ -1107,9 +1105,9 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
 
 
 def _detect_list_item(
-    paragraph: Any,
-    slide_context: dict | None = None,
-    strict_mode: bool = False
+        paragraph: Any,
+        slide_context: dict | None = None,
+        strict_mode: bool = False
 ) -> tuple[bool, str]:
     """Detect if a paragraph is a list item and determine the list type.
 
@@ -1162,8 +1160,8 @@ def _detect_list_item(
 
     # Check if this looks like a numbered list item based on context
     if (slide_context and slide_context.get('has_numbered_list', False) and
-        ('item' in text.lower() or 'first' in text.lower() or
-         'second' in text.lower() or 'third' in text.lower())):
+            ('item' in text.lower() or 'first' in text.lower() or
+             'second' in text.lower() or 'third' in text.lower())):
         return True, "number"
 
     # Use heuristics for bullet lists - shorter text that doesn't look like a title/header
@@ -1210,12 +1208,10 @@ def _analyze_slide_context(frame: Any) -> dict:
         # Check if any paragraph looks like a numbered list
         text = paragraph.text.strip()
         if (re.match(r'^\d+[\.\)]\s', text) or
-            'numbered' in text.lower() or
-            'first item' in text.lower() or
-            'second item' in text.lower() or
-            'third item' in text.lower()):
+                'numbered' in text.lower() or
+                'first item' in text.lower() or
+                'second item' in text.lower() or
+                'third item' in text.lower()):
             context['has_numbered_list'] = True
 
     return context
-
-

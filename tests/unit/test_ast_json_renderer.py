@@ -5,8 +5,6 @@ import json
 from io import BytesIO
 from pathlib import Path
 
-import pytest
-
 from all2md.ast import Document, Heading, Paragraph, Text
 from all2md.ast.serialization import json_to_ast
 from all2md.options.ast_json import AstJsonRendererOptions

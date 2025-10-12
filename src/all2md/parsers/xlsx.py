@@ -199,7 +199,7 @@ def _get_merged_cell_spans(sheet: Any) -> dict[str, tuple[int, int]]:
 
 
 def _extract_sheet_images(
-    sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any
+        sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any
 ) -> tuple[list[Image], dict[str, str]]:
     """Extract images from an XLSX sheet and convert to Image AST nodes.
 
@@ -573,7 +573,7 @@ class XlsxToAstConverter(BaseParser):
                     coord = getattr(cell, "coordinate", None)
                     # Only apply merged cell logic if mode is "flatten"
                     if (self.options.merged_cell_mode == "flatten" and
-                        coord and coord in merged_map and merged_map[coord] != coord):
+                            coord and coord in merged_map and merged_map[coord] != coord):
                         out.append("")
                     else:
                         out.append(_format_link_or_text(cell, cell.value, self.options.preserve_newlines_in_cells))

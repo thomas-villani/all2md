@@ -6,7 +6,6 @@ from documents using templates.
 
 """
 
-from pathlib import Path
 
 import pytest
 

@@ -40,8 +40,8 @@ class MCPSecurityError(All2MdError):
 
 
 def validate_read_path(
-    path: str | Path,
-    read_allowlist_dirs: list[str | Path] | None
+        path: str | Path,
+        read_allowlist_dirs: list[str | Path] | None
 ) -> Path:
     """Validate a path is allowed for reading.
 
@@ -118,8 +118,8 @@ def validate_read_path(
 
 
 def validate_write_path(
-    path: str | Path,
-    write_allowlist_dirs: list[str | Path] | None
+        path: str | Path,
+        write_allowlist_dirs: list[str | Path] | None
 ) -> Path:
     """Validate a path is allowed for writing.
 
@@ -230,7 +230,7 @@ def validate_write_path(
 
 
 def prepare_allowlist_dirs(
-    paths: list[str | Path] | None
+        paths: list[str | Path] | None
 ) -> list[Path] | None:
     """Validate allowlist directory paths.
 

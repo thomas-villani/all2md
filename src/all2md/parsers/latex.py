@@ -120,9 +120,9 @@ class LatexParser(BaseParser):
     """
 
     def __init__(
-        self,
-        options: LatexOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None
+            self,
+            options: LatexOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the LaTeX parser."""
         options = options or LatexOptions()

@@ -74,9 +74,9 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
 
 
 def decode_base64_image_to_file(
-    data_uri: str,
-    output_dir: str | Path | None = None,
-    delete_on_exit: bool = True
+        data_uri: str,
+        output_dir: str | Path | None = None,
+        delete_on_exit: bool = True
 ) -> str | None:
     """Decode a base64 data URI and write to a temporary file.
 
@@ -125,9 +125,9 @@ def decode_base64_image_to_file(
 
         # Create temp file
         with tempfile.NamedTemporaryFile(
-            delete=delete_on_exit,
-            suffix=suffix,
-            dir=dir_path
+                delete=delete_on_exit,
+                suffix=suffix,
+                dir=dir_path
         ) as f:
             f.write(image_data)
             temp_path = f.name

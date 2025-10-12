@@ -273,10 +273,10 @@ class HookManager:
         self.strict = strict
 
     def register_hook(
-        self,
-        target: HookTarget,
-        hook: HookCallable,
-        priority: int = 100
+            self,
+            target: HookTarget,
+            hook: HookCallable,
+            priority: int = 100
     ) -> None:
         """Register a hook for a target.
 
@@ -340,10 +340,10 @@ class HookManager:
         return removed
 
     def execute_hooks(
-        self,
-        target: HookTarget,
-        obj: Any,
-        context: HookContext
+            self,
+            target: HookTarget,
+            obj: Any,
+            context: HookContext
     ) -> Any:
         """Execute all hooks for a target.
 

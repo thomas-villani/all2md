@@ -1526,11 +1526,11 @@ class HtmlToAstConverter(BaseParser):
                     return sanitize_language_identifier(aliases.get(lang, lang))
                 # Use the class as-is if it's a simple language name (only if we haven't found one yet)
                 elif (
-                    not language
-                    and cls
-                    and not cls.startswith("hljs")
-                    and not cls.startswith("highlight")
-                    and cls != "brush:"
+                        not language
+                        and cls
+                        and not cls.startswith("hljs")
+                        and not cls.startswith("highlight")
+                        and cls != "brush:"
                 ):
                     language = aliases.get(cls, cls)
 
@@ -1704,4 +1704,3 @@ CONVERTER_METADATA = ConverterMetadata(
     description="Convert HTML documents to/from AST",
     priority=5,
 )
-

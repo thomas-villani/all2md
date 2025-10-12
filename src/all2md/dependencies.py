@@ -184,8 +184,8 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
 
 
 def get_missing_dependencies_for_file(
-    format_name: str,
-    input_file: Optional[str] = None
+        format_name: str,
+        input_file: Optional[str] = None
 ) -> List[Tuple[str, str]]:
     """Get list of missing dependencies for a specific format and file.
 

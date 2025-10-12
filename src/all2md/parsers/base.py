@@ -19,15 +19,8 @@ from all2md.ast import Document, Node
 from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.parser_helpers import (
-    append_attachment_footnotes as _append_attachment_footnotes_helper,
-)
-from all2md.utils.parser_helpers import (
-    validate_zip_input as _validate_zip_input_helper,
-)
-from all2md.utils.parser_helpers import (
-    validated_zip_input as _validated_zip_input_helper,
-)
+from all2md.utils.parser_helpers import append_attachment_footnotes as _append_attachment_footnotes_helper, \
+    validate_zip_input as _validate_zip_input_helper, validated_zip_input as _validated_zip_input_helper
 
 
 class BaseParser(ABC):
@@ -66,9 +59,9 @@ class BaseParser(ABC):
     """
 
     def __init__(
-        self,
-        options: BaseParserOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None
+            self,
+            options: BaseParserOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the parser with optional configuration.
 
@@ -151,12 +144,12 @@ class BaseParser(ABC):
         raise NotImplementedError
 
     def _emit_progress(
-        self,
-        event_type: str,
-        message: str,
-        current: int = 0,
-        total: int = 0,
-        **metadata: Any
+            self,
+            event_type: str,
+            message: str,
+            current: int = 0,
+            total: int = 0,
+            **metadata: Any
     ) -> None:
         """Emit a progress event to the callback if registered.
 
@@ -219,8 +212,8 @@ class BaseParser(ABC):
 
     @staticmethod
     def _validate_zip_input(
-        input_data: Union[str, Path, IO[bytes], bytes],
-        suffix: str = '.zip'
+            input_data: Union[str, Path, IO[bytes], bytes],
+            suffix: str = '.zip'
     ) -> None:
         """Validate a zip archive across different input types.
 
@@ -251,8 +244,8 @@ class BaseParser(ABC):
 
     @staticmethod
     def _validated_zip_input(
-        input_data: Union[str, Path, IO[bytes], bytes],
-        suffix: str = '.zip'
+            input_data: Union[str, Path, IO[bytes], bytes],
+            suffix: str = '.zip'
     ) -> Any:
         """Context manager for validated zip input with automatic cleanup.
 
@@ -288,9 +281,9 @@ class BaseParser(ABC):
 
     @staticmethod
     def _append_attachment_footnotes(
-        children: list[Node],
-        attachment_footnotes: dict[str, str],
-        section_title: str = "Attachments"
+            children: list[Node],
+            attachment_footnotes: dict[str, str],
+            section_title: str = "Attachments"
     ) -> None:
         """Append attachment footnote definitions to document children.
 

@@ -668,10 +668,10 @@ class AddConversionTimestampTransform(NodeTransformer):
     """
 
     def __init__(
-        self,
-        field_name: str = "conversion_timestamp",
-        format: str = "iso",
-        timespec: str = "seconds"
+            self,
+            field_name: str = "conversion_timestamp",
+            format: str = "iso",
+            timespec: str = "seconds"
     ):
         """Initialize with field name, format, and time precision.
 
@@ -866,10 +866,10 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
     """
 
     def __init__(
-        self,
-        section_title: str | None = "Attachments",
-        add_definitions_for_images: bool = True,
-        add_definitions_for_links: bool = True
+            self,
+            section_title: str | None = "Attachments",
+            add_definitions_for_images: bool = True,
+            add_definitions_for_links: bool = True
     ):
         """Initialize transform with options.
 
@@ -1059,12 +1059,12 @@ class GenerateTocTransform(NodeTransformer):
     """
 
     def __init__(
-        self,
-        title: str = "Table of Contents",
-        max_depth: int = 3,
-        position: str = "top",
-        add_links: bool = True,
-        separator: str = "-"
+            self,
+            title: str = "Table of Contents",
+            max_depth: int = 3,
+            position: str = "top",
+            add_links: bool = True,
+            separator: str = "-"
     ):
         """Initialize with TOC generation options.
 
@@ -1251,7 +1251,8 @@ class GenerateTocTransform(NodeTransformer):
             (List node or None if no items, next index to process)
 
         """
-        from all2md.ast.nodes import List as ListNode, ListItem as ListItemNode
+        from all2md.ast.nodes import List as ListNode
+        from all2md.ast.nodes import ListItem as ListItemNode
 
         items: list[ListItemNode] = []
         idx = start_idx

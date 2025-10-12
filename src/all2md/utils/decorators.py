@@ -19,8 +19,8 @@ from all2md.exceptions import DependencyError
 
 
 def requires_dependencies(
-    converter_name: str,
-    packages: List[Tuple[str, str, str]]
+        converter_name: str,
+        packages: List[Tuple[str, str, str]]
 ) -> Callable:
     """Check required dependencies and versions before method execution.
 
@@ -93,6 +93,7 @@ def requires_dependencies(
     - Compatible with type hints and IDE autocomplete
 
     """
+
     def decorator(method: Callable) -> Callable:
         @wraps(method)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -135,4 +136,5 @@ def requires_dependencies(
             return method(*args, **kwargs)
 
         return wrapper
+
     return decorator

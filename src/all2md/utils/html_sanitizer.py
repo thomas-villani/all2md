@@ -31,9 +31,10 @@ from all2md.constants import (
 
 logger = logging.getLogger(__name__)
 
+
 def sanitize_html_content(
-    content: str,
-    mode: HtmlPassthroughMode = "pass-through"
+        content: str,
+        mode: HtmlPassthroughMode = "pass-through"
 ) -> str:
     """Sanitize HTML content string according to the specified mode.
 

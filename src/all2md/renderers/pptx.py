@@ -187,8 +187,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     # render_to_bytes() is inherited from BaseRenderer
 
     def _split_into_slides(
-        self,
-        doc: Document
+            self,
+            doc: Document
     ) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into slides based on configured strategy.
 
@@ -225,11 +225,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             )
 
     def _create_slide(
-        self,
-        prs: "Presentation",
-        heading: Heading | None,
-        content_nodes: list[Node],
-        is_first: bool = False
+            self,
+            prs: "Presentation",
+            heading: Heading | None,
+            content_nodes: list[Node],
+            is_first: bool = False
     ) -> "Slide":
         """Create a slide with content.
 

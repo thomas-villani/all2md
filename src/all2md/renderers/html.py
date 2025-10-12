@@ -167,7 +167,8 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         language = doc.metadata.get('language', self.options.language) if doc.metadata else self.options.language
 
         # Build HTML document
-        parts = ['<!DOCTYPE html>', f'<html lang="{escape_html(language, enabled=self.options.escape_html)}">', '<head>']
+        parts = ['<!DOCTYPE html>', f'<html lang="{escape_html(language, enabled=self.options.escape_html)}">',
+                 '<head>']
         parts.append('<meta charset="UTF-8">')
         parts.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
         parts.append(f'<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>')
@@ -186,7 +187,8 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         elif self.options.math_renderer == 'katex':
             parts.append('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">')
             parts.append('<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>')
-            parts.append('<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>')
+            parts.append(
+                '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>')
 
         parts.append('</head>')
         parts.append('<body>')
@@ -441,7 +443,8 @@ hr {
             '{TITLE}': escape_html(str(document.metadata.get('title', 'Document')), enabled=self.options.escape_html),
             '{AUTHOR}': escape_html(str(document.metadata.get('author', '')), enabled=self.options.escape_html),
             '{DATE}': escape_html(str(document.metadata.get('date', '')), enabled=self.options.escape_html),
-            '{DESCRIPTION}': escape_html(str(document.metadata.get('description', '')), enabled=self.options.escape_html),
+            '{DESCRIPTION}': escape_html(str(document.metadata.get('description', '')),
+                                         enabled=self.options.escape_html),
             '{TOC}': self._generate_toc() if self.options.include_toc else '',
         }
 
@@ -547,6 +550,7 @@ hr {
             ) from e
 
         from pathlib import Path
+
         from all2md.ast.serialization import ast_to_json
 
         # Set up Jinja environment (already validated in _apply_template)

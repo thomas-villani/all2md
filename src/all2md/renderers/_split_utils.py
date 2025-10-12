@@ -73,8 +73,8 @@ def split_ast_by_separator(doc: Document) -> list[list[Node]]:
 
 
 def split_ast_by_heading(
-    doc: Document,
-    heading_level: int = 1
+        doc: Document,
+        heading_level: int = 1
 ) -> list[tuple[Heading | None, list[Node]]]:
     """Split AST document into chunks based on heading level.
 
@@ -143,8 +143,8 @@ def split_ast_by_heading(
 
 
 def auto_split_ast(
-    doc: Document,
-    heading_level: int = 1
+        doc: Document,
+        heading_level: int = 1
 ) -> list[tuple[Heading | None, list[Node]]]:
     """Automatically determine best splitting strategy for AST.
 

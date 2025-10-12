@@ -68,6 +68,7 @@ logger = logging.getLogger(__name__)
 # Used to check relevance of text pieces
 SPACES = set(string.whitespace)
 
+
 def _check_pymupdf_version() -> None:
     """Check that PyMuPDF version meets minimum requirements.
 
@@ -90,7 +91,6 @@ def _check_pymupdf_version() -> None:
             missing_packages=[],
             version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
         )
-
 
 
 def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> list[int]:
@@ -471,8 +471,8 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
 
 
 def resolve_links(
-    links: list, span: dict, md_options: MarkdownOptions | None = None,
-    overlap_threshold: float | None = None
+        links: list, span: dict, md_options: MarkdownOptions | None = None,
+        overlap_threshold: float | None = None
 ) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
@@ -777,7 +777,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
 
 
 def detect_tables_by_ruling_lines(
-    page: "fitz.Page", threshold: float = 0.5
+        page: "fitz.Page", threshold: float = 0.5
 ) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
@@ -871,9 +871,9 @@ def detect_tables_by_ruling_lines(
     for table_rect in table_rects:
         # Find h_lines and v_lines that are part of this table
         table_h_lines = [line for line in h_lines
-                        if line[1] >= table_rect.y0 and line[1] <= table_rect.y1]
+                         if line[1] >= table_rect.y0 and line[1] <= table_rect.y1]
         table_v_lines = [line for line in v_lines
-                        if line[0] >= table_rect.x0 and line[0] <= table_rect.x1]
+                         if line[0] >= table_rect.x0 and line[0] <= table_rect.x1]
         table_lines.append((table_h_lines, table_v_lines))
 
     return table_rects, table_lines
@@ -1158,7 +1158,6 @@ class IdentifyHeaders:
         return self.debug_info
 
 
-
 class PdfToAstConverter(BaseParser):
     """Convert PDF to AST representation.
 
@@ -1173,9 +1172,9 @@ class PdfToAstConverter(BaseParser):
     """
 
     def __init__(
-        self,
-        options: PdfOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None
+            self,
+            options: PdfOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the PDF parser with options and progress callback."""
         options = options or PdfOptions()
@@ -1292,7 +1291,7 @@ class PdfToAstConverter(BaseParser):
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
     def _auto_detect_header_footer_zones(
-        self, doc: "fitz.Document", pages_to_use: range | list[int]
+            self, doc: "fitz.Document", pages_to_use: range | list[int]
     ) -> None:
         """Automatically detect and set header/footer zones by analyzing repeating text patterns.
 
@@ -1644,12 +1643,14 @@ class PdfToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _process_page_to_ast(self,
-                             page: "fitz.Page",
-                             page_num: int,
-                             base_filename: str,
-                             attachment_sequencer: Callable[[str, str], tuple[str, int]],
-                             total_pages: int = 0) -> list[Node]:
+    def _process_page_to_ast(
+            self,
+            page: "fitz.Page",
+            page_num: int,
+            base_filename: str,
+            attachment_sequencer: Callable[[str, str], tuple[str, int]],
+            total_pages: int = 0
+            ) -> list[Node]:
         """Process a PDF page to AST nodes.
 
         Parameters
@@ -1857,7 +1858,7 @@ class PdfToAstConverter(BaseParser):
         return nodes
 
     def _process_text_region_to_ast(
-        self, page: "fitz.Page", clip: "fitz.Rect", page_num: int
+            self, page: "fitz.Page", clip: "fitz.Rect", page_num: int
     ) -> list[Node]:
         """Process a text region to AST nodes.
 
@@ -2036,7 +2037,7 @@ class PdfToAstConverter(BaseParser):
         return nodes
 
     def _process_text_spans_to_inline(
-        self, spans: list[dict], links: list[dict], page_num: int
+            self, spans: list[dict], links: list[dict], page_num: int
     ) -> list[Node]:
         """Process text spans to inline AST nodes.
 
@@ -2107,7 +2108,7 @@ class PdfToAstConverter(BaseParser):
         return result
 
     def _process_single_block_to_ast(
-        self, block: dict, links: list[dict], page_num: int
+            self, block: dict, links: list[dict], page_num: int
     ) -> list[Node]:
         """Process a single text block to AST nodes.
 
@@ -2268,7 +2269,7 @@ class PdfToAstConverter(BaseParser):
                             min(paragraph_bbox[0], line_bbox[0]),  # x0
                             min(paragraph_bbox[1], line_bbox[1]),  # y0
                             max(paragraph_bbox[2], line_bbox[2]),  # x1
-                            max(paragraph_bbox[3], line_bbox[3])   # y1
+                            max(paragraph_bbox[3], line_bbox[3])  # y1
                         )
 
         # Flush any remaining paragraph content
@@ -2455,7 +2456,7 @@ class PdfToAstConverter(BaseParser):
             return None
 
     def _extract_table_from_ruling_rect(
-        self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
+            self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
     ) -> AstTable | None:
         """Extract table content from a bounding box using ruling lines.
 
@@ -2502,11 +2503,11 @@ class PdfToAstConverter(BaseParser):
 
         # Extract y-coordinates for rows (between consecutive h_lines)
         row_y_coords = [(h_lines_sorted[i][1], h_lines_sorted[i + 1][1])
-                       for i in range(len(h_lines_sorted) - 1)]
+                        for i in range(len(h_lines_sorted) - 1)]
 
         # Extract x-coordinates for columns (between consecutive v_lines)
         col_x_coords = [(v_lines_sorted[i][0], v_lines_sorted[i + 1][0])
-                       for i in range(len(v_lines_sorted) - 1)]
+                        for i in range(len(v_lines_sorted) - 1)]
 
         import fitz
 
@@ -2897,4 +2898,3 @@ CONVERTER_METADATA = ConverterMetadata(
     description="Convert PDF documents to/from AST with table detection",
     priority=10
 )
-

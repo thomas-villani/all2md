@@ -45,10 +45,10 @@ ContentEncoding = Literal["plain", "base64"]
 
 
 def create_server(
-    config: MCPConfig,
-    convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], list[Any]],
-    render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput],
-    edit_doc_impl: Callable[[EditDocumentInput, MCPConfig], EditDocumentOutput]
+        config: MCPConfig,
+        convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], list[Any]],
+        render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput],
+        edit_doc_impl: Callable[[EditDocumentInput, MCPConfig], EditDocumentOutput]
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
@@ -82,36 +82,36 @@ def create_server(
     if config.enable_to_md:
         @mcp.tool(name="convert_to_markdown")
         def convert_to_markdown(
-            source_path: Annotated[
-                str | None,
-                "File path to convert. Must be within read allowlist. Mutually exclusive with source_content."
-            ] = None,
-            source_content: Annotated[
-                str | None,
-                "Inline content to convert (plain text or base64-encoded). For text formats (HTML, "
-                "Markdown): pass plain text. For binary formats (PDF, DOCX): pass base64-encoded and "
-                "set content_encoding='base64'. Mutually exclusive with source_path."
-            ] = None,
-            content_encoding: Annotated[
-                str | None,
-                "Encoding of source_content: 'plain' (default) or 'base64'. Only relevant when "
-                "source_content is provided."
-            ] = None,
-            source_format: Annotated[
-                str,
-                "Source format for auto-detection or explicit specification. Options: auto (default), "
-                "pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, xlsx, csv, rst, markdown, txt."
-            ] = "auto",
-            flavor: Annotated[
-                str | None,
-                "Markdown flavor/dialect for output. Options: gfm (default), commonmark, "
-                "multimarkdown, pandoc, kramdown, markdown_plus."
-            ] = None,
-            pdf_pages: Annotated[
-                str | None,
-                "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' "
-                "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
-            ] = None
+                source_path: Annotated[
+                    str | None,
+                    "File path to convert. Must be within read allowlist. Mutually exclusive with source_content."
+                ] = None,
+                source_content: Annotated[
+                    str | None,
+                    "Inline content to convert (plain text or base64-encoded). For text formats (HTML, "
+                    "Markdown): pass plain text. For binary formats (PDF, DOCX): pass base64-encoded and "
+                    "set content_encoding='base64'. Mutually exclusive with source_path."
+                ] = None,
+                content_encoding: Annotated[
+                    str | None,
+                    "Encoding of source_content: 'plain' (default) or 'base64'. Only relevant when "
+                    "source_content is provided."
+                ] = None,
+                source_format: Annotated[
+                    str,
+                    "Source format for auto-detection or explicit specification. Options: auto (default), "
+                    "pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, xlsx, csv, rst, markdown, txt."
+                ] = "auto",
+                flavor: Annotated[
+                    str | None,
+                    "Markdown flavor/dialect for output. Options: gfm (default), commonmark, "
+                    "multimarkdown, pandoc, kramdown, markdown_plus."
+                ] = None,
+                pdf_pages: Annotated[
+                    str | None,
+                    "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' "
+                    "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
+                ] = None
         ) -> list:
             """Convert a document to Markdown format.
 
@@ -147,28 +147,28 @@ def create_server(
     if config.enable_from_md:
         @mcp.tool(name="render_from_markdown")
         def render_from_markdown(
-            target_format: Annotated[
-                str,
-                "Target output format. Options: html, pdf, docx, pptx, rst, epub, markdown. REQUIRED."
-            ],
-            markdown: Annotated[
-                str | None,
-                "Markdown content as a string to convert. Mutually exclusive with markdown_path."
-            ] = None,
-            markdown_path: Annotated[
-                str | None,
-                "Path to markdown file to convert. Must be within read allowlist. Mutually exclusive with markdown."
-            ] = None,
-            output_path: Annotated[
-                str | None,
-                "Output file path. Must be within write allowlist. If not provided, content is "
-                "returned (base64-encoded for binary formats like PDF/DOCX)."
-            ] = None,
-            flavor: Annotated[
-                str | None,
-                "Markdown flavor for parsing input. Options: gfm (default), commonmark, "
-                "multimarkdown, pandoc, kramdown, markdown_plus."
-            ] = None
+                target_format: Annotated[
+                    str,
+                    "Target output format. Options: html, pdf, docx, pptx, rst, epub, markdown. REQUIRED."
+                ],
+                markdown: Annotated[
+                    str | None,
+                    "Markdown content as a string to convert. Mutually exclusive with markdown_path."
+                ] = None,
+                markdown_path: Annotated[
+                    str | None,
+                    "Path to markdown file to convert. Must be within read allowlist. Mutually exclusive with markdown."
+                ] = None,
+                output_path: Annotated[
+                    str | None,
+                    "Output file path. Must be within write allowlist. If not provided, content is "
+                    "returned (base64-encoded for binary formats like PDF/DOCX)."
+                ] = None,
+                flavor: Annotated[
+                    str | None,
+                    "Markdown flavor for parsing input. Options: gfm (default), commonmark, "
+                    "multimarkdown, pandoc, kramdown, markdown_plus."
+                ] = None
         ) -> dict:
             """Convert Markdown content to another format.
 
@@ -205,67 +205,67 @@ def create_server(
     if config.enable_doc_edit:
         @mcp.tool(name="edit_document_ast")
         def edit_document_ast(
-            operation: Annotated[
-                str,
-                "Operation to perform: list_sections, get_section, add_section, remove_section, "
-                "replace_section, insert_content, generate_toc, split_document. REQUIRED."
-            ],
-            source_path: Annotated[
-                str | None,
-                "File path to document (must be within read allowlist). Mutually exclusive with source_content."
-            ] = None,
-            source_content: Annotated[
-                str | None,
-                "Document content as string (markdown or AST JSON). Mutually exclusive with source_path."
-            ] = None,
-            content_encoding: Annotated[
-                str | None,
-                "Encoding of source_content: 'plain' (default) or 'base64'."
-            ] = None,
-            source_format: Annotated[
-                str,
-                "Format of source content: 'markdown' (default) or 'ast_json'."
-            ] = "markdown",
-            target_heading: Annotated[
-                str | None,
-                "Heading text to target for section operations. Mutually exclusive with target_index."
-            ] = None,
-            target_index: Annotated[
-                int | None,
-                "Zero-based section index to target. Mutually exclusive with target_heading."
-            ] = None,
-            content: Annotated[
-                str | None,
-                "Content to add/insert (markdown format). Required for add_section, replace_section, insert_content."
-            ] = None,
-            position: Annotated[
-                str | None,
-                "Position for add/insert operations: 'before', 'after', 'start', 'end', 'after_heading'."
-            ] = None,
-            case_sensitive: Annotated[
-                bool,
-                "Whether heading text matching is case-sensitive (default: false)."
-            ] = False,
-            max_toc_level: Annotated[
-                int,
-                "Maximum heading level for TOC generation (default: 3)."
-            ] = 3,
-            toc_style: Annotated[
-                str,
-                "Style for TOC generation: 'markdown', 'list', 'nested' (default: 'markdown')."
-            ] = "markdown",
-            flavor: Annotated[
-                str | None,
-                "Markdown flavor for parsing/rendering: gfm (default), commonmark, multimarkdown, etc."
-            ] = None,
-            output_path: Annotated[
-                str | None,
-                "Output file path (must be within write allowlist). If not provided, content is returned."
-            ] = None,
-            output_format: Annotated[
-                str,
-                "Format for output content: 'markdown' (default) or 'ast_json'."
-            ] = "markdown"
+                operation: Annotated[
+                    str,
+                    "Operation to perform: list_sections, get_section, add_section, remove_section, "
+                    "replace_section, insert_content, generate_toc, split_document. REQUIRED."
+                ],
+                source_path: Annotated[
+                    str | None,
+                    "File path to document (must be within read allowlist). Mutually exclusive with source_content."
+                ] = None,
+                source_content: Annotated[
+                    str | None,
+                    "Document content as string (markdown or AST JSON). Mutually exclusive with source_path."
+                ] = None,
+                content_encoding: Annotated[
+                    str | None,
+                    "Encoding of source_content: 'plain' (default) or 'base64'."
+                ] = None,
+                source_format: Annotated[
+                    str,
+                    "Format of source content: 'markdown' (default) or 'ast_json'."
+                ] = "markdown",
+                target_heading: Annotated[
+                    str | None,
+                    "Heading text to target for section operations. Mutually exclusive with target_index."
+                ] = None,
+                target_index: Annotated[
+                    int | None,
+                    "Zero-based section index to target. Mutually exclusive with target_heading."
+                ] = None,
+                content: Annotated[
+                    str | None,
+                    "Content to add/insert (markdown format). Required for add_section, replace_section, insert_content."
+                ] = None,
+                position: Annotated[
+                    str | None,
+                    "Position for add/insert operations: 'before', 'after', 'start', 'end', 'after_heading'."
+                ] = None,
+                case_sensitive: Annotated[
+                    bool,
+                    "Whether heading text matching is case-sensitive (default: false)."
+                ] = False,
+                max_toc_level: Annotated[
+                    int,
+                    "Maximum heading level for TOC generation (default: 3)."
+                ] = 3,
+                toc_style: Annotated[
+                    str,
+                    "Style for TOC generation: 'markdown', 'list', 'nested' (default: 'markdown')."
+                ] = "markdown",
+                flavor: Annotated[
+                    str | None,
+                    "Markdown flavor for parsing/rendering: gfm (default), commonmark, multimarkdown, etc."
+                ] = None,
+                output_path: Annotated[
+                    str | None,
+                    "Output file path (must be within write allowlist). If not provided, content is returned."
+                ] = None,
+                output_format: Annotated[
+                    str,
+                    "Format for output content: 'markdown' (default) or 'ast_json'."
+                ] = "markdown"
         ) -> dict:
             """Manipulate document structure at the AST level.
 
@@ -364,7 +364,8 @@ def main() -> int:
             configure_logging(config.log_level)
 
         logger.info("Starting all2md MCP server")
-        logger.info(f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}")
+        logger.info(
+            f"Configuration: enable_to_md={config.enable_to_md}, enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}")
         logger.info(f"Attachment mode: {config.attachment_mode}")
 
         # Validate and prepare allowlists
@@ -394,8 +395,8 @@ def main() -> int:
             logger.warning("Network access enabled - ensure this is intentional!")
 
         # Import tool implementations after setting env vars
-        from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
         from all2md.mcp.document_tools import edit_document_ast_impl
+        from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
 
         # Create and run server
         mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl, edit_document_ast_impl)

@@ -399,9 +399,9 @@ class AsciiDocParser(BaseParser):
     """
 
     def __init__(
-        self,
-        options: AsciiDocOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None
+            self,
+            options: AsciiDocOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the AsciiDoc parser."""
         options = options or AsciiDocOptions()
@@ -487,7 +487,7 @@ class AsciiDocParser(BaseParser):
             r'(https?://[^\s\[\]]+)',  # Auto-link
             r'image::([^\[]+)\[([^\]]*)\]',  # Block image
             r'image:([^\[]+)\[([^\]]*)\]',  # Inline image
-            r'<<([^,\>]+)(?:,([^\>]+))?>>', # Cross-reference
+            r'<<([^,\>]+)(?:,([^\>]+))?>>',  # Cross-reference
             r'\{([^\}]+)\}',  # Attribute reference
             r'(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])',  # Passthrough
         ])

@@ -838,7 +838,6 @@ class EmlToAstConverter(BaseParser):
         self.options: EmlOptions = options
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse EML file into an AST Document.
 
@@ -1153,4 +1152,3 @@ CONVERTER_METADATA = ConverterMetadata(
     description="Convert email messages to Markdown",
     priority=6
 )
-

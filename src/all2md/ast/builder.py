@@ -53,11 +53,11 @@ class ListBuilder:
         self._list_stack: list[tuple[List, int]] = []
 
     def add_item(
-        self,
-        level: int,
-        ordered: bool,
-        content: list[Node],
-        task_status: Literal['checked', 'unchecked'] | None = None
+            self,
+            level: int,
+            ordered: bool,
+            content: list[Node],
+            task_status: Literal['checked', 'unchecked'] | None = None
     ) -> None:
         """Add a list item at the specified nesting level.
 
@@ -182,10 +182,10 @@ class TableBuilder:
         self.caption: str | None = None
 
     def add_row(
-        self,
-        cells: Sequence[str | Sequence[Node]],
-        is_header: bool = False,
-        alignments: list[Alignment | None] | None = None
+            self,
+            cells: Sequence[str | Sequence[Node]],
+            is_header: bool = False,
+            alignments: list[Alignment | None] | None = None
     ) -> None:
         """Add a row to the table.
 
@@ -262,9 +262,9 @@ class TableBuilder:
         self.caption = caption
 
     def set_column_alignment(
-        self,
-        column_index: int,
-        alignment: Alignment | None
+            self,
+            column_index: int,
+            alignment: Alignment | None
     ) -> None:
         """Set alignment for a specific column.
 
@@ -372,9 +372,9 @@ class DocumentBuilder:
         return self
 
     def add_code_block(
-        self,
-        content: str,
-        language: str | None = None
+            self,
+            content: str,
+            language: str | None = None
     ) -> DocumentBuilder:
         """Add a code block to the document.
 

@@ -37,10 +37,10 @@ class TimingContext:
     """
 
     def __init__(
-        self,
-        operation_name: str,
-        logger_instance: Optional[logging.Logger] = None,
-        log_level: int = logging.DEBUG
+            self,
+            operation_name: str,
+            logger_instance: Optional[logging.Logger] = None,
+            log_level: int = logging.DEBUG
     ) -> None:
         """Initialize the timing context for an operation."""
         self.operation_name = operation_name
@@ -88,9 +88,9 @@ class TimingContext:
 
 
 def instrument_timing(
-    operation_name: Optional[str] = None,
-    logger_instance: Optional[logging.Logger] = None,
-    log_level: int = logging.DEBUG
+        operation_name: Optional[str] = None,
+        logger_instance: Optional[logging.Logger] = None,
+        log_level: int = logging.DEBUG
 ) -> Callable[[F], F]:
     """Automatically time and log function execution.
 
@@ -115,6 +115,7 @@ def instrument_timing(
     ...     return process(path)
 
     """
+
     def decorator(func: F) -> F:
         op_name = operation_name or func.__name__
 
@@ -130,7 +131,7 @@ def instrument_timing(
 
 @contextmanager
 def timing(
-    operation_name: str, logger_instance: Optional[logging.Logger] = None
+        operation_name: str, logger_instance: Optional[logging.Logger] = None
 ) -> Generator[TimingContext, None, None]:
     """Context manager for timing operations.
 

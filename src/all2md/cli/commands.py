@@ -168,9 +168,9 @@ Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 
 def _configure_logging(
-    log_level: int,
-    log_file: Optional[str] = None,
-    trace_mode: bool = False
+        log_level: int,
+        log_file: Optional[str] = None,
+        trace_mode: bool = False
 ) -> None:
     """Configure logging with console and optional file output.
 
@@ -980,7 +980,6 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
             return target_dir / f"{stem}{ext}"
         return None
 
-
     iterator = progress_iterator if use_progress else files
 
     for file in iterator:
@@ -1109,8 +1108,6 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
-    import tomli_w
-
     # Parse arguments
     output_format = 'toml'
     output_path = None
@@ -1296,7 +1293,7 @@ def handle_config_show_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
-    from all2md.cli.config import load_config_with_priority, get_config_search_paths
+    from all2md.cli.config import get_config_search_paths, load_config_with_priority
 
     # Parse arguments
     output_format = 'toml'

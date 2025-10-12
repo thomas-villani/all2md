@@ -456,6 +456,7 @@ def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[s
         Non-empty string value, or None if not found or empty
 
     """
+
     def get_non_empty_value(attr_name: str) -> Optional[str]:
         if hasattr(obj, attr_name):
             value = getattr(obj, attr_name)
@@ -498,9 +499,9 @@ def extract_keywords_from_string(keywords_str: str) -> List[str]:
 
 
 def map_properties_to_metadata(
-    props_obj: Any,
-    field_mapping: Mapping[str, Union[str, List[str]]],
-    custom_handlers: Optional[Dict[str, Any]] = None
+        props_obj: Any,
+        field_mapping: Mapping[str, Union[str, List[str]]],
+        custom_handlers: Optional[Dict[str, Any]] = None
 ) -> DocumentMetadata:
     """Map properties from a document object to DocumentMetadata using field mappings.
 
@@ -578,7 +579,7 @@ def map_properties_to_metadata(
 
 
 def extract_dict_metadata(
-    metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
+        metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
 ) -> DocumentMetadata:
     """Extract metadata from a dictionary (useful for PDF and similar formats).
 
@@ -595,6 +596,7 @@ def extract_dict_metadata(
         Populated metadata object
 
     """
+
     # Create a simple object wrapper for the dictionary to work with existing functions
     class DictWrapper:
         def __init__(self, data: Dict[str, Any]):
@@ -633,10 +635,10 @@ def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadat
 
 
 def enrich_metadata_with_conversion_info(
-    metadata: DocumentMetadata,
-    input_data: Any,
-    content: str = "",
-    page_count: Optional[int] = None
+        metadata: DocumentMetadata,
+        input_data: Any,
+        content: str = "",
+        page_count: Optional[int] = None
 ) -> DocumentMetadata:
     """Enrich metadata with conversion-specific information.
 

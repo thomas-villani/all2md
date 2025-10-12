@@ -50,7 +50,7 @@ def sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
 
 
 def build_table_ast(
-    header: list[str], rows: list[list[str]], alignments: list[Alignment]
+        header: list[str], rows: list[list[str]], alignments: list[Alignment]
 ) -> Table:
     """Build an AST Table from header, rows, and alignments.
 
@@ -92,10 +92,10 @@ def build_table_ast(
 
 
 def create_table_cell(
-    text: str,
-    alignment: Alignment | None = None,
-    colspan: int = 1,
-    rowspan: int = 1
+        text: str,
+        alignment: Alignment | None = None,
+        colspan: int = 1,
+        rowspan: int = 1
 ) -> TableCell:
     """Create a table cell with optional spans and alignment.
 
@@ -152,8 +152,8 @@ def transform_header_case(header: list[str], case_mode: str) -> list[str]:
 
 
 def trim_rows(
-    rows: list[list[str]],
-    trim_mode: Literal["none", "leading", "trailing", "both"]
+        rows: list[list[str]],
+        trim_mode: Literal["none", "leading", "trailing", "both"]
 ) -> list[list[str]]:
     """Trim empty rows based on trim mode.
 
@@ -187,8 +187,8 @@ def trim_rows(
 
 
 def trim_columns(
-    rows: list[list[str]],
-    trim_mode: Literal["none", "leading", "trailing", "both"]
+        rows: list[list[str]],
+        trim_mode: Literal["none", "leading", "trailing", "both"]
 ) -> list[list[str]]:
     """Trim empty columns based on trim mode.
 

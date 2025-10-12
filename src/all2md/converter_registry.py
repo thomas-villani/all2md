@@ -45,9 +45,9 @@ def _check_package_installed(import_name: str) -> bool:
 
 
 def _load_class(
-    class_spec: Union[str, type, None],
-    default_module_path: str,
-    class_type_name: str
+        class_spec: Union[str, type, None],
+        default_module_path: str,
+        class_type_name: str
 ) -> Optional[type]:
     """Load parsers, renderers, and options classes from various specifications.
 
@@ -641,10 +641,10 @@ class ConverterRegistry:
         return self._converters.get(format_name)
 
     def check_dependencies(
-        self,
-        format_name: Optional[str] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
-        operation: str = "both"
+            self,
+            format_name: Optional[str] = None,
+            input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+            operation: str = "both"
     ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 

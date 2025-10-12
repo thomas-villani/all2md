@@ -100,7 +100,6 @@ class EpubToAstConverter(BaseParser):
             # Fallback - should not reach here with proper type hints
             epub_path = str(input_data)
 
-
         try:
 
             book = epub.read_epub(epub_path)

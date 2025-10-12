@@ -16,12 +16,10 @@ import pytest
 
 from all2md.ast import (
     BlockQuote,
-    Code,
     CodeBlock,
     Document,
     Heading,
     List,
-    ListItem,
     Paragraph,
     Text,
 )

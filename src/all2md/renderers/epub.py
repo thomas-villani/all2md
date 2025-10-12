@@ -229,8 +229,8 @@ class EpubRenderer(BaseRenderer):
                 book.add_metadata('DC', 'description', str(doc.metadata['description']))
 
     def _split_into_chapters(
-        self,
-        doc: Document
+            self,
+            doc: Document
     ) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into chapters based on configured strategy.
 
@@ -340,10 +340,10 @@ class EpubRenderer(BaseRenderer):
         return None
 
     def _add_image_to_epub(
-        self,
-        book: Any,
-        image_node: Image,
-        index: int
+            self,
+            book: Any,
+            image_node: Image,
+            index: int
     ) -> str | None:
         """Add an image to the EPUB and return the internal path.
 

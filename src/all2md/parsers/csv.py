@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 def _make_csv_dialect(
-    delimiter: str | None = None,
-    quotechar: str | None = None,
-    escapechar: str | None = None,
-    doublequote: bool | None = None
+        delimiter: str | None = None,
+        quotechar: str | None = None,
+        escapechar: str | None = None,
+        doublequote: bool | None = None
 ) -> type[csv.Dialect]:
     r"""Create a CSV dialect class with custom parameters.
 
@@ -146,9 +146,9 @@ class CsvToAstConverter(BaseParser):
         return ','
 
     def csv_to_ast(
-        self,
-        input_data: Union[str, Path, IO[bytes], IO[str], bytes],
-        delimiter: str | None = None,
+            self,
+            input_data: Union[str, Path, IO[bytes], IO[str], bytes],
+            delimiter: str | None = None,
     ) -> Document:
         r"""Convert CSV/TSV to AST Document.
 
@@ -187,7 +187,7 @@ class CsvToAstConverter(BaseParser):
 
         # If any custom dialect options are set, create custom dialect
         if (self.options.csv_delimiter or self.options.csv_quotechar or
-            self.options.csv_escapechar or self.options.csv_doublequote is not None):
+                self.options.csv_escapechar or self.options.csv_doublequote is not None):
             dialect_obj = _make_csv_dialect(
                 delimiter=self.options.csv_delimiter or delimiter,
                 quotechar=self.options.csv_quotechar,
@@ -244,7 +244,7 @@ class CsvToAstConverter(BaseParser):
         else:
             if rows:
                 num_cols = len(rows[0]) if rows else 0
-                header = [f"Column {i+1}" for i in range(num_cols)]
+                header = [f"Column {i + 1}" for i in range(num_cols)]
                 data_rows = rows
             else:
                 return Document(children=[], metadata=metadata.to_dict())
