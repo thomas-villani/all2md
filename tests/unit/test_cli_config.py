@@ -1,0 +1,615 @@
+"""Unit tests for all2md CLI configuration management.
+
+This module tests the configuration system including file discovery, loading,
+presets, and priority handling.
+"""
+
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
+import tomli_w
+
+from all2md.cli.config import (
+    discover_config_file,
+    get_config_search_paths,
+    load_config_file,
+    load_config_with_priority,
+    merge_configs,
+)
+from all2md.cli.presets import (
+    apply_preset,
+    get_preset_config,
+    get_preset_description,
+    get_preset_names,
+    list_presets,
+)
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigDiscovery:
+    """Test configuration file discovery functionality."""
+
+    def test_discover_config_in_cwd(self):
+        """Test discovering config file in current working directory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create config file in temp directory
+            config_file = temp_path / ".all2md.toml"
+            config_file.write_text("[pdf]\ndetect_columns = true")
+
+            # Mock cwd to return temp directory
+            with patch('pathlib.Path.cwd', return_value=temp_path):
+                discovered = discover_config_file()
+
+                assert discovered is not None
+                assert discovered == config_file
+                assert discovered.exists()
+
+    def test_discover_config_in_home(self):
+        """Test discovering config file in home directory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create config file in temp directory (simulating home)
+            config_file = temp_path / ".all2md.json"
+            config_file.write_text('{"pdf": {"detect_columns": true}}')
+
+            # Mock both cwd (empty) and home (has config)
+            with patch('pathlib.Path.cwd', return_value=Path(tempfile.mkdtemp())):
+                with patch('pathlib.Path.home', return_value=temp_path):
+                    discovered = discover_config_file()
+
+                    assert discovered is not None
+                    assert discovered == config_file
+
+    def test_discover_config_prefers_toml_over_json(self):
+        """Test that TOML files are preferred over JSON when both exist."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create both config files
+            toml_file = temp_path / ".all2md.toml"
+            json_file = temp_path / ".all2md.json"
+            toml_file.write_text("[pdf]\ndetect_columns = true")
+            json_file.write_text('{"pdf": {"detect_columns": false}}')
+
+            with patch('pathlib.Path.cwd', return_value=temp_path):
+                discovered = discover_config_file()
+
+                # Should prefer TOML
+                assert discovered == toml_file
+
+    def test_discover_config_prefers_cwd_over_home(self):
+        """Test that current directory config takes precedence over home."""
+        with tempfile.TemporaryDirectory() as cwd_dir:
+            with tempfile.TemporaryDirectory() as home_dir:
+                cwd_path = Path(cwd_dir)
+                home_path = Path(home_dir)
+
+                # Create config in both locations
+                cwd_config = cwd_path / ".all2md.toml"
+                home_config = home_path / ".all2md.toml"
+                cwd_config.write_text("[pdf]\ndetect_columns = true")
+                home_config.write_text("[pdf]\ndetect_columns = false")
+
+                with patch('pathlib.Path.cwd', return_value=cwd_path):
+                    with patch('pathlib.Path.home', return_value=home_path):
+                        discovered = discover_config_file()
+
+                        # Should use cwd config
+                        assert discovered == cwd_config
+
+    def test_discover_config_returns_none_when_not_found(self):
+        """Test that None is returned when no config file exists."""
+        with tempfile.TemporaryDirectory() as cwd_dir:
+            with tempfile.TemporaryDirectory() as home_dir:
+                cwd_path = Path(cwd_dir)
+                home_path = Path(home_dir)
+
+                with patch('pathlib.Path.cwd', return_value=cwd_path):
+                    with patch('pathlib.Path.home', return_value=home_path):
+                        discovered = discover_config_file()
+
+                        assert discovered is None
+
+    def test_get_config_search_paths(self):
+        """Test getting list of config search paths."""
+        paths = get_config_search_paths()
+
+        assert len(paths) == 4  # 2 in cwd + 2 in home
+
+        # Should contain both TOML and JSON variants
+        path_names = [p.name for p in paths]
+        assert ".all2md.toml" in path_names
+        assert ".all2md.json" in path_names
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigLoading:
+    """Test configuration file loading functionality."""
+
+    def test_load_toml_config(self):
+        """Test loading configuration from TOML file."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "config.toml"
+            config_data = {
+                "attachment_mode": "download",
+                "pdf": {"detect_columns": True, "pages": [1, 2, 3]},
+            }
+
+            with open(config_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            loaded = load_config_file(config_file)
+
+            assert loaded["attachment_mode"] == "download"
+            assert loaded["pdf"]["detect_columns"] is True
+            assert loaded["pdf"]["pages"] == [1, 2, 3]
+
+    def test_load_json_config(self):
+        """Test loading configuration from JSON file."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "config.json"
+            config_data = {
+                "attachment_mode": "skip",
+                "pdf": {"detect_columns": False},
+            }
+
+            with open(config_file, "w") as f:
+                json.dump(config_data, f)
+
+            loaded = load_config_file(config_file)
+
+            assert loaded["attachment_mode"] == "skip"
+            assert loaded["pdf"]["detect_columns"] is False
+
+    def test_load_config_auto_detects_format(self):
+        """Test that config loader auto-detects file format."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Test TOML detection
+            toml_file = temp_path / "test.toml"
+            with open(toml_file, "wb") as f:
+                tomli_w.dump({"test": "value"}, f)
+
+            loaded = load_config_file(toml_file)
+            assert loaded["test"] == "value"
+
+            # Test JSON detection
+            json_file = temp_path / "test.json"
+            with open(json_file, "w") as f:
+                json.dump({"test": "other"}, f)
+
+            loaded = load_config_file(json_file)
+            assert loaded["test"] == "other"
+
+    def test_load_config_invalid_file_raises_error(self):
+        """Test that loading non-existent file raises error."""
+        import argparse
+
+        with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+            load_config_file("/nonexistent/config.toml")
+
+        assert "does not exist" in str(exc_info.value)
+
+    def test_load_config_unsupported_format_raises_error(self):
+        """Test that unsupported file format raises error."""
+        import argparse
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "config.yaml"
+            config_file.write_text("test: value")
+
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                load_config_file(config_file)
+
+            assert "Unsupported config file format" in str(exc_info.value)
+
+    def test_load_config_invalid_toml_raises_error(self):
+        """Test that invalid TOML syntax raises error."""
+        import argparse
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "config.toml"
+            config_file.write_text("invalid toml [[[")
+
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                load_config_file(config_file)
+
+            assert "Invalid TOML" in str(exc_info.value)
+
+    def test_load_config_invalid_json_raises_error(self):
+        """Test that invalid JSON syntax raises error."""
+        import argparse
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "config.json"
+            config_file.write_text('{"invalid": json}')
+
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                load_config_file(config_file)
+
+            assert "Invalid JSON" in str(exc_info.value)
+
+    def test_load_config_non_dict_raises_error(self):
+        """Test that non-dict config raises error."""
+        import argparse
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # JSON array at root
+            config_file = temp_path / "config.json"
+            config_file.write_text('[1, 2, 3]')
+
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                load_config_file(config_file)
+
+            assert "must contain an object" in str(exc_info.value)
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigMerging:
+    """Test configuration merging functionality."""
+
+    def test_merge_configs_simple(self):
+        """Test simple config merging."""
+        base = {"attachment_mode": "skip", "rich": False}
+        override = {"rich": True}
+
+        merged = merge_configs(base, override)
+
+        assert merged["attachment_mode"] == "skip"
+        assert merged["rich"] is True
+
+    def test_merge_configs_nested(self):
+        """Test merging nested dictionaries."""
+        base = {
+            "pdf": {"detect_columns": True, "pages": [1, 2]},
+            "html": {"extract_title": False},
+        }
+        override = {
+            "pdf": {"pages": [3, 4, 5]},
+            "markdown": {"emphasis_symbol": "_"},
+        }
+
+        merged = merge_configs(base, override)
+
+        # PDF settings should be merged
+        assert merged["pdf"]["detect_columns"] is True  # From base
+        assert merged["pdf"]["pages"] == [3, 4, 5]  # Overridden
+
+        # HTML settings preserved
+        assert merged["html"]["extract_title"] is False
+
+        # New markdown settings added
+        assert merged["markdown"]["emphasis_symbol"] == "_"
+
+    def test_merge_configs_deep_nesting(self):
+        """Test merging with deep nesting."""
+        base = {
+            "html": {
+                "network": {
+                    "allow_remote_fetch": False,
+                    "timeout": 10,
+                }
+            }
+        }
+        override = {
+            "html": {
+                "network": {
+                    "allow_remote_fetch": True,
+                }
+            }
+        }
+
+        merged = merge_configs(base, override)
+
+        assert merged["html"]["network"]["allow_remote_fetch"] is True
+        assert merged["html"]["network"]["timeout"] == 10  # Preserved
+
+    def test_merge_configs_override_replaces_non_dicts(self):
+        """Test that non-dict values are replaced entirely."""
+        base = {"pages": [1, 2, 3]}
+        override = {"pages": [4, 5]}
+
+        merged = merge_configs(base, override)
+
+        # List should be replaced, not merged
+        assert merged["pages"] == [4, 5]
+
+    def test_merge_configs_empty_base(self):
+        """Test merging with empty base."""
+        base = {}
+        override = {"test": "value"}
+
+        merged = merge_configs(base, override)
+
+        assert merged["test"] == "value"
+
+    def test_merge_configs_empty_override(self):
+        """Test merging with empty override."""
+        base = {"test": "value"}
+        override = {}
+
+        merged = merge_configs(base, override)
+
+        assert merged["test"] == "value"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigPriority:
+    """Test configuration priority and loading logic."""
+
+    def test_load_config_with_priority_explicit_path(self):
+        """Test that explicit path has highest priority."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "explicit.toml"
+            with open(config_file, "wb") as f:
+                tomli_w.dump({"test": "explicit"}, f)
+
+            loaded = load_config_with_priority(explicit_path=str(config_file))
+
+            assert loaded["test"] == "explicit"
+
+    def test_load_config_with_priority_env_var_path(self):
+        """Test that env var path is used when explicit path not provided."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "env.toml"
+            with open(config_file, "wb") as f:
+                tomli_w.dump({"test": "env"}, f)
+
+            loaded = load_config_with_priority(env_var_path=str(config_file))
+
+            assert loaded["test"] == "env"
+
+    def test_load_config_with_priority_auto_discovery(self):
+        """Test that auto-discovery is used when no explicit path."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / ".all2md.toml"
+            with open(config_file, "wb") as f:
+                tomli_w.dump({"test": "auto"}, f)
+
+            with patch('pathlib.Path.cwd', return_value=temp_path):
+                loaded = load_config_with_priority()
+
+                assert loaded["test"] == "auto"
+
+    def test_load_config_with_priority_returns_empty_when_not_found(self):
+        """Test that empty dict is returned when no config found."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            with patch('pathlib.Path.cwd', return_value=temp_path):
+                with patch('pathlib.Path.home', return_value=temp_path):
+                    loaded = load_config_with_priority()
+
+                    assert loaded == {}
+
+    def test_load_config_with_priority_explicit_overrides_env(self):
+        """Test that explicit path overrides env var path."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            explicit_file = temp_path / "explicit.toml"
+            env_file = temp_path / "env.toml"
+
+            with open(explicit_file, "wb") as f:
+                tomli_w.dump({"test": "explicit"}, f)
+            with open(env_file, "wb") as f:
+                tomli_w.dump({"test": "env"}, f)
+
+            loaded = load_config_with_priority(
+                explicit_path=str(explicit_file),
+                env_var_path=str(env_file)
+            )
+
+            assert loaded["test"] == "explicit"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestPresets:
+    """Test preset configuration functionality."""
+
+    def test_get_preset_names(self):
+        """Test getting list of preset names."""
+        names = get_preset_names()
+
+        assert isinstance(names, list)
+        assert len(names) > 0
+        assert "fast" in names
+        assert "quality" in names
+        assert "minimal" in names
+
+    def test_get_preset_config(self):
+        """Test getting preset configuration."""
+        config = get_preset_config("fast")
+
+        assert isinstance(config, dict)
+        assert "attachment_mode" in config
+        assert config["attachment_mode"] == "skip"
+
+    def test_get_preset_config_invalid_name_raises_error(self):
+        """Test that invalid preset name raises error."""
+        with pytest.raises(ValueError) as exc_info:
+            get_preset_config("nonexistent")
+
+        assert "Unknown preset" in str(exc_info.value)
+        assert "nonexistent" in str(exc_info.value)
+
+    def test_get_preset_description(self):
+        """Test getting preset description."""
+        desc = get_preset_description("fast")
+
+        assert isinstance(desc, str)
+        assert len(desc) > 0
+        assert "fast" in desc.lower() or "speed" in desc.lower()
+
+    def test_get_preset_description_invalid_name_raises_error(self):
+        """Test that invalid preset name raises error."""
+        with pytest.raises(ValueError) as exc_info:
+            get_preset_description("nonexistent")
+
+        assert "Unknown preset" in str(exc_info.value)
+
+    def test_list_presets(self):
+        """Test listing all presets with descriptions."""
+        presets = list_presets()
+
+        assert isinstance(presets, list)
+        assert len(presets) > 0
+
+        # Each entry should be (name, description) tuple
+        for name, desc in presets:
+            assert isinstance(name, str)
+            assert isinstance(desc, str)
+            assert len(name) > 0
+            assert len(desc) > 0
+
+    def test_apply_preset_basic(self):
+        """Test applying preset to base config."""
+        base = {}
+        result = apply_preset("fast", base)
+
+        assert "attachment_mode" in result
+        assert result["attachment_mode"] == "skip"
+
+    def test_apply_preset_base_overrides_preset(self):
+        """Test that base config overrides preset values."""
+        base = {"attachment_mode": "download"}
+        result = apply_preset("fast", base)
+
+        # Base value should override preset
+        assert result["attachment_mode"] == "download"
+
+    def test_apply_preset_nested_override(self):
+        """Test nested config overrides with presets."""
+        base = {"pdf": {"pages": [1, 2]}}
+        result = apply_preset("quality", base)
+
+        # Should have both preset PDF settings and base override
+        assert "pdf" in result
+        assert result["pdf"]["pages"] == [1, 2]  # From base
+        # Should also have preset PDF settings
+        if "detect_columns" in result["pdf"]:
+            assert isinstance(result["pdf"]["detect_columns"], bool)
+
+    def test_preset_fast_skips_images(self):
+        """Test that fast preset disables image extraction."""
+        config = get_preset_config("fast")
+
+        assert config["attachment_mode"] == "skip"
+        if "pdf" in config:
+            # Fast preset should optimize for speed
+            assert config["pdf"].get("skip_image_extraction", False) is True
+
+    def test_preset_quality_maximizes_fidelity(self):
+        """Test that quality preset enables all features."""
+        config = get_preset_config("quality")
+
+        assert config["attachment_mode"] == "download"
+        if "pdf" in config:
+            # Quality preset should enable advanced features
+            assert config["pdf"].get("detect_columns", False) is True
+
+    def test_preset_minimal_text_only(self):
+        """Test that minimal preset produces text-only output."""
+        config = get_preset_config("minimal")
+
+        assert config["attachment_mode"] == "skip"
+
+    def test_preset_archival_embeds_resources(self):
+        """Test that archival preset uses base64 embedding."""
+        config = get_preset_config("archival")
+
+        assert config["attachment_mode"] == "base64"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigIntegration:
+    """Test integration of config system with CLI."""
+
+    def test_config_flag_parsing(self):
+        """Test --config flag parsing."""
+        from all2md.cli.builder import create_parser
+
+        parser = create_parser()
+
+        # Test default (None)
+        args = parser.parse_args(["test.pdf"])
+        assert args.config is None
+
+        # Test with config path
+        args = parser.parse_args(["test.pdf", "--config", "my-config.toml"])
+        assert args.config == "my-config.toml"
+
+    def test_preset_flag_parsing(self):
+        """Test --preset flag parsing."""
+        from all2md.cli.builder import create_parser
+
+        parser = create_parser()
+
+        # Test default (None)
+        args = parser.parse_args(["test.pdf"])
+        assert args.preset is None
+
+        # Test with preset name
+        args = parser.parse_args(["test.pdf", "--preset", "fast"])
+        assert args.preset == "fast"
+
+    def test_preset_choices_validation(self):
+        """Test that preset flag validates choices."""
+        from all2md.cli.builder import create_parser
+
+        parser = create_parser()
+
+        # Valid presets should work
+        for preset in get_preset_names():
+            args = parser.parse_args(["test.pdf", "--preset", preset])
+            assert args.preset == preset
+
+        # Invalid preset should fail
+        with pytest.raises(SystemExit):
+            parser.parse_args(["test.pdf", "--preset", "invalid"])
+
+    def test_config_and_preset_can_be_combined(self):
+        """Test that --config and --preset can be used together."""
+        from all2md.cli.builder import create_parser
+
+        parser = create_parser()
+
+        args = parser.parse_args([
+            "test.pdf",
+            "--config", "custom.toml",
+            "--preset", "quality"
+        ])
+
+        assert args.config == "custom.toml"
+        assert args.preset == "quality"

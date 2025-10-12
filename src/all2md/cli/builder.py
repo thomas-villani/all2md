@@ -677,9 +677,9 @@ Examples:
   all2md document.html --attachment-mode download --attachment-output-dir ./images
   all2md book.epub --attachment-mode base64
 
-  # Using options from JSON file
-  all2md document.pdf --options-json config.json
-  all2md document.docx --options-json config.json --out custom.md
+  # Using options from config file
+  all2md document.pdf --config config.toml
+  all2md document.docx --config config.json --out custom.md
         """,
         )
 
@@ -707,8 +707,25 @@ Examples:
             help="Target format for conversion (default: markdown)"
         )
 
-        # Options JSON file
-        parser.add_argument("--options-json", help="Path to JSON file containing conversion options")
+        # Configuration file
+        parser.add_argument(
+            "--config",
+            help="Path to configuration file (JSON or TOML format). "
+                 "If not specified, searches for .all2md.toml or .all2md.json in current directory, "
+                 "then in home directory."
+        )
+
+        # Preset configurations
+        from all2md.cli.presets import get_preset_names
+        parser.add_argument(
+            "--preset",
+            choices=get_preset_names(),
+            help="Apply a preset configuration. Presets provide pre-configured settings for common use cases. "
+                 "CLI arguments override preset values. "
+                 "Available: fast (speed-optimized), quality (maximum fidelity), minimal (text-only), "
+                 "complete (full preservation), archival (self-contained with base64), "
+                 "documentation (optimized for technical docs)."
+        )
 
         # Logging and verbosity options
         parser.add_argument(
@@ -931,7 +948,7 @@ Examples:
         # These are arguments handled directly by the CLI layer
         cli_only_args = {
             # Core arguments from builder.build_parser
-            'input', 'out', 'format', 'output_type', 'options_json',
+            'input', 'out', 'format', 'output_type', 'config', 'preset',
             'verbose', 'log_level', 'log_file', 'trace',
             'strict_args', 'about', '_provided_args',
             # Note: 'version' uses argparse.SUPPRESS and doesn't appear in namespace

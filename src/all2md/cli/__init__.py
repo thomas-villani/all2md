@@ -100,11 +100,11 @@ def main(args: list[str] | None = None) -> int:
     parser = create_parser()
     parsed_args = parser.parse_args(args)
 
-    # Check for ALL2MD_CONFIG_JSON environment variable if --options-json not provided
-    if not parsed_args.options_json:
-        env_config = os.environ.get('ALL2MD_CONFIG_JSON')
+    # Check for ALL2MD_CONFIG environment variable if --config not provided
+    if not parsed_args.config:
+        env_config = os.environ.get('ALL2MD_CONFIG')
         if env_config:
-            parsed_args.options_json = env_config
+            parsed_args.config = env_config
 
     # Handle --about flag
     if parsed_args.about:
@@ -173,11 +173,12 @@ def main(args: list[str] | None = None) -> int:
             print("Error: No valid input files found", file=sys.stderr)
         return EXIT_FILE_ERROR
 
-    # Handle exclusion patterns from JSON
-    if parsed_args.options_json:
+    # Handle exclusion patterns from config file
+    if parsed_args.config:
         try:
-            json_options = load_options_from_json(parsed_args.options_json)
-            updated_patterns = merge_exclusion_patterns_from_json(parsed_args, json_options)
+            from all2md.cli.config import load_config_file
+            config_options = load_config_file(parsed_args.config)
+            updated_patterns = merge_exclusion_patterns_from_json(parsed_args, config_options)
 
             if updated_patterns:
                 parsed_args.exclude = updated_patterns

@@ -56,7 +56,7 @@ class TestDynamicCLIBuilder:
         parsed_args.log_level = "WARNING"
         parsed_args.about = False
         parsed_args.version = False
-        parsed_args.options_json = None
+        parsed_args.config = None
 
         # Set explicitly provided arguments (simulating the tracking actions)
         parsed_args._provided_args = {'pdf.pages', 'pdf.password', 'pdf.detect_columns', 'markdown.emphasis_symbol'}
@@ -69,7 +69,7 @@ class TestDynamicCLIBuilder:
             'log_level': 'WARNING',
             'about': False,
             'version': False,
-            'options_json': None,
+            'config': None,
             '_provided_args': parsed_args._provided_args,
             'pdf.pages': '1,2,3',
             'pdf.password': 'secret',

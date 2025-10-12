@@ -14,7 +14,7 @@ Environment variables in all2md follow these patterns:
 
 1. **Global Security Controls**: ``ALL2MD_DISABLE_NETWORK``
 2. **MCP Server Configuration**: ``ALL2MD_MCP_*``
-3. **JSON Configuration**: ``ALL2MD_CONFIG_JSON``
+3. **Configuration File**: ``ALL2MD_CONFIG``
 4. **CLI Option Defaults**: ``ALL2MD_<OPTION_NAME>`` (any CLI flag)
 
 Environment variables are particularly useful for:
@@ -196,51 +196,53 @@ ALL2MD_MCP_LOG_LEVEL
    export ALL2MD_MCP_LOG_LEVEL=DEBUG
    all2md-mcp
 
-JSON Configuration
+Configuration File
 ------------------
 
-ALL2MD_CONFIG_JSON
-~~~~~~~~~~~~~~~~~~
+ALL2MD_CONFIG
+~~~~~~~~~~~~~
 
-**Purpose:** Provide complete configuration as JSON string or file path.
+**Purpose:** Specify path to configuration file (JSON or TOML format).
 
-**Type:** String (JSON or file path)
+**Type:** String (file path)
 
-**Default:** None
+**Default:** None (auto-discovery is used if not set)
 
 **Description:**
 
-Allows complex configuration via JSON, useful for:
+Points to a configuration file containing conversion options. Useful for:
 
 * Docker/Kubernetes ConfigMaps
 * CI/CD pipelines
 * Avoiding long command lines
+* Sharing configurations across projects
 
-The JSON can contain any valid option names with nested structures.
+Supports both JSON and TOML formats. TOML is preferred for human editing as it supports comments.
 
 **Examples:**
 
-**Inline JSON:**
+**TOML Configuration:**
 
 .. code-block:: bash
 
-   export ALL2MD_CONFIG_JSON='{
-     "attachment_mode": "skip",
-     "pdf": {
-       "pages": [1, 2, 3],
-       "detect_columns": false
-     },
-     "html": {
-       "strip_dangerous_elements": true,
-       "network": {
-         "allow_remote_fetch": false
-       }
-     }
-   }'
+   # .all2md.toml
+   attachment_mode = "skip"
 
+   [pdf]
+   pages = [1, 2, 3]
+   detect_columns = false
+
+   [html]
+   strip_dangerous_elements = true
+
+   [html.network]
+   allow_remote_fetch = false
+
+   # Use file path
+   export ALL2MD_CONFIG=/etc/all2md/config.toml
    all2md document.pdf
 
-**File Path:**
+**JSON Configuration:**
 
 .. code-block:: bash
 
@@ -254,7 +256,7 @@ The JSON can contain any valid option names with nested structures.
    }
 
    # Use file path
-   export ALL2MD_CONFIG_JSON=/etc/all2md/config.json
+   export ALL2MD_CONFIG=/etc/all2md/config.json
    all2md document.pdf
 
 **Docker Usage:**
@@ -265,14 +267,10 @@ The JSON can contain any valid option names with nested structures.
    services:
      converter:
        image: all2md:latest
+       volumes:
+         - ./config.toml:/etc/all2md/config.toml
        environment:
-         ALL2MD_CONFIG_JSON: |
-           {
-             "attachment_mode": "skip",
-             "pdf": {
-               "pages": [1, 2, 3, 4, 5]
-             }
-           }
+         ALL2MD_CONFIG: /etc/all2md/config.toml
 
 CLI Option Environment Variables
 ---------------------------------
@@ -385,7 +383,7 @@ Production Web Server
    # .env file
    ALL2MD_DISABLE_NETWORK=true
    ALL2MD_ATTACHMENT_MODE=skip
-   ALL2MD_CONFIG_JSON='{"pdf": {"pages": [1,2,3,4,5]}, "html": {"strip_dangerous_elements": true}}'
+   ALL2MD_CONFIG=/etc/all2md/production.toml
 
    # Start server
    uvicorn app:main --env-file .env
@@ -518,7 +516,7 @@ Development vs Production
    # Production: Secure settings
    ALL2MD_DISABLE_NETWORK=true
    ALL2MD_ATTACHMENT_MODE=skip
-   ALL2MD_CONFIG_JSON=/etc/all2md/production-config.json
+   ALL2MD_CONFIG=/etc/all2md/production-config.toml
    ALL2MD_MCP_LOG_LEVEL=WARNING
 
 **Load Appropriately:**
@@ -542,24 +540,29 @@ Environment Variable Precedence
 When multiple configuration sources are present, they are applied in this order (later sources override earlier):
 
 1. **Default values** (defined in code)
-2. **Environment variables** (``ALL2MD_*``)
-3. **JSON configuration** (``ALL2MD_CONFIG_JSON``)
-4. **CLI arguments** (highest precedence)
+2. **Auto-discovered config files** (``.all2md.toml`` or ``.all2md.json``)
+3. **Environment variables** (``ALL2MD_*``)
+4. **Configuration file** (``ALL2MD_CONFIG``)
+5. **Preset** (``--preset``)
+6. **CLI arguments** (highest precedence)
 
 **Example:**
 
 .. code-block:: bash
 
-   # Environment variable
-   export ALL2MD_ATTACHMENT_MODE=skip
+   # Auto-discovered config
+   # .all2md.toml contains: attachment_mode = "skip"
 
-   # JSON config
-   export ALL2MD_CONFIG_JSON='{"attachment_mode": "base64"}'
+   # Environment variable
+   export ALL2MD_ATTACHMENT_MODE=base64
+
+   # Explicit config file
+   export ALL2MD_CONFIG=custom.toml  # contains: attachment_mode = "download"
 
    # CLI flag
-   all2md document.pdf --attachment-mode download
+   all2md document.pdf --attachment-mode inline
 
-   # Final value: "download" (CLI wins)
+   # Final value: "inline" (CLI wins over all)
 
 Validation and Error Handling
 ------------------------------
@@ -628,8 +631,8 @@ Quick Reference
    # HTML security
    export ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS=true
 
-   # JSON configuration
-   export ALL2MD_CONFIG_JSON=/path/to/config.json
+   # Configuration file
+   export ALL2MD_CONFIG=/path/to/config.toml
 
 **MCP Server:**
 

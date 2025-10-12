@@ -358,21 +358,42 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     Raises
     ------
     argparse.ArgumentTypeError
-        If options JSON file cannot be loaded or transform building fails
+        If config file cannot be loaded or transform building fails
 
     """
-    # Load options from JSON file if specified
-    json_options = None
-    if parsed_args.options_json:
-        try:
-            json_options = load_options_from_json(parsed_args.options_json)
-        except argparse.ArgumentTypeError as e:
-            print(f"Error loading options JSON: {e}", file=sys.stderr)
-            raise
+    from all2md.cli.config import load_config_with_priority
+    from all2md.cli.presets import apply_preset
 
-    # Map CLI arguments to options
+    # Load configuration from file (with auto-discovery if not explicitly specified)
+    config_from_file = {}
+    env_config_path = os.environ.get('ALL2MD_CONFIG')
+
+    # Priority order:
+    # 1. Explicit --config flag
+    # 2. ALL2MD_CONFIG environment variable
+    # 3. Auto-discovered config (.all2md.toml or .all2md.json in cwd or home)
+    explicit_config_path = getattr(parsed_args, 'config', None)
+
+    try:
+        config_from_file = load_config_with_priority(
+            explicit_path=explicit_config_path,
+            env_var_path=env_config_path
+        )
+    except argparse.ArgumentTypeError as e:
+        print(f"Error loading configuration file: {e}", file=sys.stderr)
+        raise
+
+    # Apply preset if specified (preset is applied to config, then CLI args override)
+    if hasattr(parsed_args, 'preset') and parsed_args.preset:
+        try:
+            config_from_file = apply_preset(parsed_args.preset, config_from_file)
+        except ValueError as e:
+            print(f"Error applying preset: {e}", file=sys.stderr)
+            raise argparse.ArgumentTypeError(str(e))
+
+    # Map CLI arguments to options (CLI args take highest priority)
     builder = DynamicCLIBuilder()
-    options = builder.map_args_to_options(parsed_args, json_options)
+    options = builder.map_args_to_options(parsed_args, config_from_file)
     format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
 
     # Apply security presets if specified

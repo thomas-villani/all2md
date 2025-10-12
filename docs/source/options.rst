@@ -310,7 +310,7 @@ Network security configuration for controlling remote resource fetching.
 
    .. code-block:: bash
 
-      all2md webpage.html --options-json config.json
+      all2md webpage.html --config config.json
 
 LocalFileAccessOptions
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -884,8 +884,8 @@ Options can be loaded from JSON files for reusable configurations:
 
 .. code-block:: bash
 
-   # Use JSON configuration
-   all2md document.pdf --options-json config.json
+   # Use configuration file (JSON or TOML)
+   all2md document.pdf --config config.json
 
 Immutable Options
 ~~~~~~~~~~~~~~~~~
@@ -931,7 +931,7 @@ JSON configuration files provide a reusable way to specify complex options:
 
 .. code-block:: bash
 
-   all2md document.pdf --options-json config.json
+   all2md document.pdf --config config.json
 
 **Format-Specific Configuration:**
 
@@ -947,7 +947,7 @@ JSON configuration files provide a reusable way to specify complex options:
 
 .. code-block:: bash
 
-   all2md report.pdf --options-json pdf-config.json
+   all2md report.pdf --config pdf-config.json
 
 Nested Options in JSON
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -1058,9 +1058,9 @@ Save this as ``comprehensive-config.json`` and use:
 
 .. code-block:: bash
 
-   all2md document.pdf --options-json comprehensive-config.json
-   all2md webpage.html --options-json comprehensive-config.json
-   all2md spreadsheet.xlsx --options-json comprehensive-config.json
+   all2md document.pdf --config comprehensive-config.json
+   all2md webpage.html --config comprehensive-config.json
+   all2md spreadsheet.xlsx --config comprehensive-config.json
 
 Environment Variables Guide
 ----------------------------
@@ -1086,7 +1086,7 @@ Precedence Order
 Configuration values are resolved in this order (later overrides earlier):
 
 1. **Environment variables** (lowest priority)
-2. **JSON configuration files** (``--options-json``)
+2. **Configuration files** (``--config``) - supports JSON and TOML
 3. **Command-line arguments** (highest priority)
 
 .. code-block:: bash
@@ -1094,11 +1094,11 @@ Configuration values are resolved in this order (later overrides earlier):
    # Environment variable sets default
    export ALL2MD_ATTACHMENT_MODE="base64"
 
-   # JSON config overrides environment
+   # Config file overrides environment
    echo '{"attachment_mode": "download"}' > config.json
 
    # CLI argument overrides everything
-   all2md doc.pdf --options-json config.json --attachment-mode skip
+   all2md doc.pdf --config config.json --attachment-mode skip
    # Result: attachment_mode = "skip"
 
 Universal Options

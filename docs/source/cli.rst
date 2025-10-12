@@ -127,6 +127,99 @@ Example output:
      Status: Available
      Options: offset (int)
 
+Configuration Management
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``all2md config`` command provides tools for managing configuration files.
+
+**Generate Default Configuration**
+
+Create a configuration file with all available options:
+
+.. code-block:: bash
+
+   # Generate TOML configuration (recommended)
+   all2md config generate --out .all2md.toml
+
+   # Generate JSON configuration
+   all2md config generate --format json --out config.json
+
+   # Print to stdout
+   all2md config generate
+   all2md config generate --format json
+
+The generated configuration includes:
+* Helpful comments explaining each option (TOML only)
+* All available options with their default values
+* Format-specific settings organized by section
+
+**Show Effective Configuration**
+
+Display the merged configuration from all sources:
+
+.. code-block:: bash
+
+   # Show current configuration
+   all2md config show
+
+   # Show as JSON
+   all2md config show --format json
+
+   # Hide source information
+   all2md config show --no-source
+
+This command shows configuration merged from:
+1. ``ALL2MD_CONFIG`` environment variable
+2. ``.all2md.toml`` or ``.all2md.json`` in current directory
+3. ``.all2md.toml`` or ``.all2md.json`` in home directory
+
+**Validate Configuration File**
+
+Check configuration file syntax:
+
+.. code-block:: bash
+
+   # Validate a configuration file
+   all2md config validate .all2md.toml
+   all2md config validate ~/.all2md.json
+
+   # Get detailed validation errors
+   all2md config validate my-config.toml
+
+This verifies:
+* File can be read and parsed
+* JSON/TOML syntax is valid
+* Configuration structure is correct
+
+**Configuration Priority**
+
+Configuration sources are applied in this order (later sources override earlier):
+
+1. Auto-discovered config files (``.all2md.toml`` or ``.all2md.json``)
+2. Environment variable config (``ALL2MD_CONFIG``)
+3. Explicit ``--config`` flag
+4. ``--preset`` flag
+5. CLI arguments (highest priority)
+
+**Example Workflow:**
+
+.. code-block:: bash
+
+   # 1. Generate a template
+   all2md config generate --out .all2md.toml
+
+   # 2. Edit the file with your preferences
+   vim .all2md.toml
+
+   # 3. Validate your changes
+   all2md config validate .all2md.toml
+
+   # 4. Check effective configuration
+   all2md config show
+
+   # 5. Use it (auto-discovered)
+   all2md document.pdf
+
 Global Options
 --------------
 
@@ -243,12 +336,18 @@ Markdown Formatting
 Configuration and Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``--options-json``
-   Path to JSON file containing conversion options. Command line options override JSON settings.
+``--config``
+   Path to configuration file (JSON or TOML format). Command line options override config file settings.
+
+   Configuration files are automatically discovered in this order:
+   1. Explicit ``--config`` flag
+   2. ``ALL2MD_CONFIG`` environment variable
+   3. ``.all2md.toml`` or ``.all2md.json`` in current directory
+   4. ``.all2md.toml`` or ``.all2md.json`` in home directory
 
    .. note::
 
-      **Passing List Values:** For options that accept a list of values (e.g., ``--pdf-pages``, ``--html-network-allowed-hosts``), you can provide a comma-separated string. For more complex lists or to avoid shell escaping issues, using a JSON configuration file is recommended.
+      **Passing List Values:** For options that accept a list of values (e.g., ``--pdf-pages``, ``--html-network-allowed-hosts``), you can provide a comma-separated string. For more complex lists or to avoid shell escaping issues, using a configuration file is recommended.
 
       **List-type options supporting comma-separated values:**
 
@@ -267,7 +366,7 @@ Configuration and Debugging
          # Pass multiple pages
          all2md document.pdf --pdf-pages "1,2,3,5"
 
-      **Using JSON configuration for complex lists:**
+      **Using configuration files for complex lists:**
 
       .. code-block:: json
 
@@ -281,19 +380,37 @@ Configuration and Debugging
 
       .. code-block:: bash
 
-         # Use JSON for list values
-         all2md webpage.html --options-json config.json --html-network-allow-remote-fetch
+         # Use config file for list values
+         all2md webpage.html --config config.json --html-network-allow-remote-fetch
 
-         # CLI flags can still override non-list settings
-         all2md webpage.html --options-json config.json --attachment-mode download
+         # CLI flags can still override config settings
+         all2md webpage.html --config config.toml --attachment-mode download
 
    .. code-block:: bash
 
-      # Use options from JSON file
-      all2md document.pdf --options-json config.json
+      # Use options from config file
+      all2md document.pdf --config config.toml
 
-      # JSON file overrides with CLI options
-      all2md document.pdf --options-json config.json --attachment-mode download
+      # Config file settings with CLI overrides
+      all2md document.pdf --config config.json --attachment-mode download
+
+      # Auto-discovery (checks cwd, then home directory)
+      all2md document.pdf  # Uses .all2md.toml if present
+
+   Example TOML configuration (recommended):
+
+   .. code-block:: toml
+
+      # all2md configuration file
+      attachment_mode = "download"
+      attachment_output_dir = "./images"
+
+      [pdf]
+      detect_columns = true
+      pages = [1, 2, 3]
+
+      [markdown]
+      emphasis_symbol = "_"
 
    Example JSON configuration:
 
@@ -306,6 +423,65 @@ Configuration and Debugging
         "pdf.pages": [1, 2, 3],
         "markdown.emphasis_symbol": "_"
       }
+
+``--preset``
+   Apply a preset configuration for common use cases. Presets provide pre-configured settings that can be overridden by CLI arguments.
+
+   **Available Presets:**
+
+   * ``fast`` - Fast processing optimized for speed over quality
+   * ``quality`` - High quality processing with maximum fidelity
+   * ``minimal`` - Text-only output with no attachments or images
+   * ``complete`` - Complete preservation with all content and metadata
+   * ``archival`` - Self-contained documents with embedded resources (base64)
+   * ``documentation`` - Optimized for technical documentation
+
+   .. code-block:: bash
+
+      # Use fast preset for quick processing
+      all2md document.pdf --preset fast
+
+      # Use quality preset with overrides
+      all2md document.pdf --preset quality --attachment-mode skip
+
+      # Combine preset with config file
+      all2md document.pdf --preset quality --config custom.toml
+
+   **Preset Details:**
+
+   **fast** - Speed-optimized processing:
+      * Skips attachments
+      * Disables column detection
+      * Disables table fallback detection
+      * Skips image extraction
+
+   **quality** - Maximum fidelity:
+      * Downloads attachments
+      * Enables column detection
+      * Enables table fallback detection
+      * Merges hyphenated words
+      * Includes notes and metadata
+
+   **minimal** - Text-only:
+      * Skips all attachments and images
+      * Simple text extraction only
+
+   **complete** - Full preservation:
+      * Downloads all attachments
+      * Extracts all content and metadata
+      * Preserves structure
+
+   **archival** - Self-contained:
+      * Embeds attachments as base64
+      * Preserves all content inline
+      * No external dependencies
+
+   **documentation** - Technical docs:
+      * Downloads attachments
+      * Optimized markdown formatting
+      * Truncates long notebook outputs
+
+   See ``all2md config generate --help`` for full details on each preset.
 
 ``--log-level``
    Set logging level for debugging and detailed output.
@@ -531,12 +707,16 @@ Processing and Output Control
       all2md *.pdf --output-dir ./converted --no-summary
 
 ``--save-config``
-   Save current CLI arguments to a JSON configuration file.
+   Save current CLI arguments to a configuration file.
 
    .. code-block:: bash
 
-      # Save current settings
+      # Save current settings to JSON
       all2md document.pdf --attachment-mode download --save-config my-config.json
+
+      # Save and reuse
+      all2md document.pdf --preset quality --save-config quality-config.json
+      all2md other-doc.pdf --config quality-config.json
 
 ``--dry-run``
    Show what would be converted without actually processing files.
@@ -665,16 +845,16 @@ Network Security Options
 
    .. note::
 
-      For specifying multiple hosts in a list, you can use a comma-separated value as shown below for a single invocation. For more complex list specifications, use a JSON configuration file with the ``--options-json`` flag.
+      For specifying multiple hosts in a list, you can use a comma-separated value as shown below for a single invocation. For more complex list specifications, use a configuration file with the ``--config`` flag.
 
    .. code-block:: bash
 
       # Only allow specific hosts (single host)
       all2md webpage.html --html-network-allow-remote-fetch --html-network-allowed-hosts "example.com"
 
-      # Multiple hosts via JSON config (recommended for multiple values)
+      # Multiple hosts via config file (recommended for multiple values)
       # In config.json: {"html.network.allowed_hosts": ["example.com", "cdn.example.com"]}
-      all2md webpage.html --html-network-allow-remote-fetch --options-json config.json
+      all2md webpage.html --html-network-allow-remote-fetch --config config.json
 
 ``--html-network-require-https``
    Require HTTPS for all remote URL fetching.
@@ -1263,7 +1443,7 @@ Advanced Features
       all2md document.pdf --attachment-mode base64 --save-config my_settings.json
 
       # Use saved settings
-      all2md other_document.pdf --options-json my_settings.json
+      all2md other_document.pdf --config my_settings.json
 
 ``--dry-run``
    Preview what would be converted without actually processing files.
@@ -1754,7 +1934,26 @@ Advanced Multi-File Processing
 Configuration File Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Create a configuration file ``config.json``:
+Create a configuration file ``.all2md.toml`` (preferred):
+
+.. code-block:: toml
+
+   # all2md configuration
+   attachment_mode = "download"
+   attachment_output_dir = "./attachments"
+   log_level = "INFO"
+
+   [markdown]
+   emphasis_symbol = "_"
+   bullet_symbols = "•◦▪"
+
+   [pdf]
+   detect_columns = true
+
+   [html]
+   strip_dangerous_elements = true
+
+Or use JSON format:
 
 .. code-block:: json
 
@@ -1772,11 +1971,17 @@ Use the configuration:
 
 .. code-block:: bash
 
-   # Use config file
-   all2md document.pdf --options-json config.json
+   # Auto-discovery (place .all2md.toml in current directory)
+   all2md document.pdf
+
+   # Explicit config file
+   all2md document.pdf --config custom-config.toml
 
    # Override specific options
-   all2md document.pdf --options-json config.json --attachment-mode base64
+   all2md document.pdf --config config.json --attachment-mode base64
+
+   # Combine with presets
+   all2md document.pdf --preset fast --config overrides.toml
 
 Debugging and Troubleshooting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1870,19 +2075,19 @@ all2md supports setting default values for **all CLI options** using environment
 
 **Configuration File via Environment Variable:**
 
-``ALL2MD_CONFIG_JSON``
-   Path to a JSON configuration file containing conversion options. This is equivalent to using ``--options-json`` on the command line. The CLI argument ``--options-json`` takes precedence over this environment variable if both are specified.
+``ALL2MD_CONFIG``
+   Path to a configuration file (JSON or TOML) containing conversion options. This is equivalent to using ``--config`` on the command line. The CLI argument ``--config`` takes precedence over this environment variable if both are specified.
 
    .. code-block:: bash
 
       # Set default config file location
-      export ALL2MD_CONFIG_JSON="$HOME/.config/all2md/default.json"
+      export ALL2MD_CONFIG="$HOME/.config/all2md/default.toml"
 
       # Now all commands use this config by default
       all2md document.pdf
 
       # Override with explicit flag
-      all2md document.pdf --options-json ./project-config.json
+      all2md document.pdf --config ./project-config.json
 
 **Naming Convention:**
 

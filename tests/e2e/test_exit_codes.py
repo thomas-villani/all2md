@@ -64,8 +64,8 @@ class TestExitCodes:
         assert result.returncode == 3
         assert "Input file is required" in result.stderr
 
-    def test_exit_code_input_error_invalid_json_options(self, tmp_path):
-        """Test exit code 3 (VALIDATION_ERROR) for invalid options JSON."""
+    def test_exit_code_input_error_invalid_config(self, tmp_path):
+        """Test exit code 3 (VALIDATION_ERROR) for invalid config file."""
         html_file = tmp_path / "test.html"
         html_file.write_text("<h1>Test</h1>")
 
@@ -74,7 +74,7 @@ class TestExitCodes:
 
         result = self._run_cli([
             str(html_file),
-            "--options-json", str(invalid_json)
+            "--config", str(invalid_json)
         ])
 
         assert result.returncode == 3

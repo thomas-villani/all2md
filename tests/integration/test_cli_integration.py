@@ -1426,7 +1426,7 @@ class TestEnhancedCLIIntegration:
         with patch("all2md.convert") as mock_convert:
             mock_convert.side_effect = mock_convert_with_file_write("# Test\n\n_Italic_")
 
-            result = main([str(test_file), "--options-json", str(config_file)])
+            result = main([str(test_file), "--config", str(config_file)])
 
             assert result == 0
             call_args = mock_convert.call_args
@@ -1479,7 +1479,7 @@ class TestEnhancedCLIIntegration:
         with patch("all2md.convert") as mock_convert:
             mock_convert.side_effect = mock_convert_with_file_write("# Document\n\nContent")
 
-            result = main([str(self.temp_dir), "--options-json", str(config_file), "--no-summary"])
+            result = main([str(self.temp_dir), "--config", str(config_file), "--no-summary"])
 
             assert result == 0
 

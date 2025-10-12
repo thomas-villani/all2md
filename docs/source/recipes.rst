@@ -42,7 +42,7 @@ Converting Directory of Mixed Documents
        --parallel 4 \
        --output-dir ./markdown_output \
        --preserve-structure \
-       --options-json conversion_config.json \
+       --config conversion_config.json \
        --exclude "*.tmp" \
        --exclude "*.draft.*" \
        --skip-errors \
@@ -144,7 +144,7 @@ Creating Text-Only Archive from Website
 
    # Process HTML files and combine into archive
    all2md ./website_files/*.html \
-       --options-json web_archive_config.json \
+       --config web_archive_config.json \
        --collate \
        --out website_archive.md
 

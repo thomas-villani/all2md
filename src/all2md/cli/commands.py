@@ -842,10 +842,10 @@ def handle_convert_command(args: list[str] | None = None) -> int | None:
         parsed_args.out = parsed_args.input[-1]
         parsed_args.input = parsed_args.input[:1]
 
-    if not parsed_args.options_json:
-        env_config = os.environ.get('ALL2MD_CONFIG_JSON')
+    if not parsed_args.config:
+        env_config = os.environ.get('ALL2MD_CONFIG')
         if env_config:
-            parsed_args.options_json = env_config
+            parsed_args.config = env_config
 
     if parsed_args.about:
         print(_get_about_info())
@@ -1095,6 +1095,414 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def handle_config_generate_command(args: list[str] | None = None) -> int:
+    """Handle config generate command to create default configuration files.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'config generate')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    import tomli_w
+
+    # Parse arguments
+    output_format = 'toml'
+    output_path = None
+
+    if args:
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            if arg in ('--help', '-h'):
+                print("""Usage: all2md config generate [OPTIONS]
+
+Generate a default configuration file with all available options.
+
+Options:
+  --format FORMAT    Output format: 'toml' (default) or 'json'
+  --out PATH         Output file path (default: prints to stdout)
+  -h, --help        Show this help message
+
+Examples:
+  all2md config generate                           # Print TOML to stdout
+  all2md config generate --format json             # Print JSON to stdout
+  all2md config generate --out .all2md.toml        # Save TOML to file
+  all2md config generate --format json --out config.json
+""")
+                return 0
+            elif arg == '--format':
+                if i + 1 < len(args):
+                    output_format = args[i + 1]
+                    i += 2
+                else:
+                    print("Error: --format requires an argument", file=sys.stderr)
+                    return 1
+            elif arg == '--out':
+                if i + 1 < len(args):
+                    output_path = args[i + 1]
+                    i += 2
+                else:
+                    print("Error: --out requires an argument", file=sys.stderr)
+                    return 1
+            else:
+                print(f"Error: Unknown argument '{arg}'", file=sys.stderr)
+                return 1
+
+    # Validate format
+    if output_format not in ('toml', 'json'):
+        print(f"Error: Invalid format '{output_format}'. Use 'toml' or 'json'", file=sys.stderr)
+        return 1
+
+    # Generate default configuration with comments
+    default_config: Dict[str, Any] = {
+        'attachment_mode': 'skip',
+        'pdf': {
+            'detect_columns': False,
+            'skip_image_extraction': False,
+            'enable_table_fallback_detection': True,
+            'merge_hyphenated_words': False,
+        },
+        'html': {
+            'strip_dangerous_elements': True,
+            'extract_title': False,
+        },
+        'markdown': {
+            'emphasis_symbol': '*',
+        },
+        'pptx': {
+            'include_notes': False,
+            'slide_numbers': False,
+        },
+        'epub': {
+            'merge_chapters': False,
+            'include_toc': False,
+        },
+        'ipynb': {
+            'truncate_long_outputs': None,
+        },
+        'eml': {
+            'include_headers': False,
+            'preserve_thread_structure': False,
+        },
+    }
+
+    # Generate output
+    if output_format == 'toml':
+        # Generate TOML with helpful comments
+        output_lines = [
+            '# all2md configuration file',
+            '# Automatically generated default configuration',
+            '#',
+            '# Priority order for configuration:',
+            '# 1. CLI arguments (highest priority)',
+            '# 2. --config file specified on command line',
+            '# 3. ALL2MD_CONFIG environment variable',
+            '# 4. .all2md.toml or .all2md.json in current directory',
+            '# 5. .all2md.toml or .all2md.json in home directory',
+            '',
+            '# Attachment handling mode: "skip", "download", or "base64"',
+            f'attachment_mode = "{default_config["attachment_mode"]}"',
+            '',
+            '# PDF conversion options',
+            '[pdf]',
+            '# Detect multi-column layouts',
+            f'detect_columns = {str(default_config["pdf"]["detect_columns"]).lower()}',
+            '# Skip extracting images from PDFs',
+            f'skip_image_extraction = {str(default_config["pdf"]["skip_image_extraction"]).lower()}',
+            '# Enable fallback table detection',
+            f'enable_table_fallback_detection = {str(default_config["pdf"]["enable_table_fallback_detection"]).lower()}',
+            '# Merge hyphenated words at line breaks',
+            f'merge_hyphenated_words = {str(default_config["pdf"]["merge_hyphenated_words"]).lower()}',
+            '',
+            '# HTML conversion options',
+            '[html]',
+            '# Strip potentially dangerous HTML elements',
+            f'strip_dangerous_elements = {str(default_config["html"]["strip_dangerous_elements"]).lower()}',
+            '# Extract title from HTML',
+            f'extract_title = {str(default_config["html"]["extract_title"]).lower()}',
+            '',
+            '# Markdown output options',
+            '[markdown]',
+            '# Symbol to use for emphasis: "*" or "_"',
+            f'emphasis_symbol = "{default_config["markdown"]["emphasis_symbol"]}"',
+            '',
+            '# PowerPoint conversion options',
+            '[pptx]',
+            '# Include speaker notes',
+            f'include_notes = {str(default_config["pptx"]["include_notes"]).lower()}',
+            '# Include slide numbers in output',
+            f'slide_numbers = {str(default_config["pptx"]["slide_numbers"]).lower()}',
+            '',
+            '# EPUB conversion options',
+            '[epub]',
+            '# Merge all chapters into single output',
+            f'merge_chapters = {str(default_config["epub"]["merge_chapters"]).lower()}',
+            '# Include table of contents',
+            f'include_toc = {str(default_config["epub"]["include_toc"]).lower()}',
+            '',
+            '# Jupyter Notebook conversion options',
+            '[ipynb]',
+            '# Truncate long outputs (null for no truncation, or line count)',
+            'truncate_long_outputs = null',
+            '',
+            '# Email conversion options',
+            '[eml]',
+            '# Include email headers',
+            f'include_headers = {str(default_config["eml"]["include_headers"]).lower()}',
+            '# Preserve email thread structure',
+            f'preserve_thread_structure = {str(default_config["eml"]["preserve_thread_structure"]).lower()}',
+        ]
+        output_text = '\n'.join(output_lines)
+    else:
+        # JSON output
+        output_text = json.dumps(default_config, indent=2, ensure_ascii=False)
+
+    # Write output
+    if output_path:
+        try:
+            output_path_obj = Path(output_path)
+            output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_path_obj, 'w', encoding='utf-8') as f:
+                f.write(output_text)
+
+            print(f"Configuration written to {output_path}")
+            return 0
+        except Exception as e:
+            print(f"Error writing configuration file: {e}", file=sys.stderr)
+            return 1
+    else:
+        print(output_text)
+        return 0
+
+
+def handle_config_show_command(args: list[str] | None = None) -> int:
+    """Handle config show command to display effective configuration.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'config show')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    from all2md.cli.config import load_config_with_priority, get_config_search_paths
+
+    # Parse arguments
+    output_format = 'toml'
+    show_source = True
+
+    if args:
+        for arg in args:
+            if arg in ('--help', '-h'):
+                print("""Usage: all2md config show [OPTIONS]
+
+Display the effective configuration that would be used by all2md.
+
+This shows the merged configuration from all sources in priority order:
+1. ALL2MD_CONFIG environment variable
+2. .all2md.toml or .all2md.json in current directory
+3. .all2md.toml or .all2md.json in home directory
+
+Options:
+  --format FORMAT    Output format: 'toml' (default) or 'json'
+  --no-source       Don't show configuration source information
+  -h, --help        Show this help message
+
+Examples:
+  all2md config show                    # Show effective config
+  all2md config show --format json      # Show as JSON
+  all2md config show --no-source        # Hide source info
+""")
+                return 0
+            elif arg == '--format':
+                # Get next arg
+                idx = args.index(arg)
+                if idx + 1 < len(args):
+                    output_format = args[idx + 1]
+            elif arg == '--no-source':
+                show_source = False
+            elif not arg.startswith('-') and args[args.index(arg) - 1] != '--format':
+                print(f"Error: Unknown argument '{arg}'", file=sys.stderr)
+                return 1
+
+    # Validate format
+    if output_format not in ('toml', 'json'):
+        print(f"Error: Invalid format '{output_format}'. Use 'toml' or 'json'", file=sys.stderr)
+        return 1
+
+    # Load configuration with priority
+    env_config_path = os.environ.get('ALL2MD_CONFIG')
+    config = load_config_with_priority(
+        explicit_path=None,
+        env_var_path=env_config_path
+    )
+
+    # Show source information
+    if show_source:
+        print("Configuration Sources (in priority order):")
+        print("-" * 60)
+
+        if env_config_path:
+            exists = Path(env_config_path).exists()
+            status = "FOUND" if exists else "NOT FOUND"
+            print(f"1. ALL2MD_CONFIG env var: {env_config_path} [{status}]")
+        else:
+            print("1. ALL2MD_CONFIG env var: (not set)")
+
+        search_paths = get_config_search_paths()
+        for i, path in enumerate(search_paths, start=2):
+            exists = path.exists()
+            status = "FOUND" if exists else "-"
+            print(f"{i}. {path} [{status}]")
+
+        print()
+
+    # Display configuration
+    if not config:
+        print("No configuration found. Using defaults.")
+        print("\nTo create a config file, run: all2md config generate --out .all2md.toml")
+        return 0
+
+    print("Effective Configuration:")
+    print("=" * 60)
+
+    if output_format == 'toml':
+        import tomli_w
+        output_text = tomli_w.dumps(config)
+    else:
+        output_text = json.dumps(config, indent=2, ensure_ascii=False)
+
+    print(output_text)
+    return 0
+
+
+def handle_config_validate_command(args: list[str] | None = None) -> int:
+    """Handle config validate command to check configuration file syntax.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'config validate')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for invalid config)
+
+    """
+    from all2md.cli.config import load_config_file
+
+    # Parse arguments
+    config_file = None
+
+    if args:
+        for arg in args:
+            if arg in ('--help', '-h'):
+                print("""Usage: all2md config validate <config-file>
+
+Validate a configuration file for syntax errors.
+
+Arguments:
+  config-file        Path to configuration file (.toml or .json)
+
+Options:
+  -h, --help        Show this help message
+
+Examples:
+  all2md config validate .all2md.toml
+  all2md config validate ~/.all2md.json
+""")
+                return 0
+            elif not arg.startswith('-'):
+                config_file = arg
+                break
+
+    if not config_file:
+        print("Error: Config file path required", file=sys.stderr)
+        print("Usage: all2md config validate <config-file>", file=sys.stderr)
+        return 1
+
+    # Attempt to load and validate
+    try:
+        config = load_config_file(config_file)
+        print(f"Configuration file is valid: {config_file}")
+        print(f"Format: {Path(config_file).suffix}")
+        print(f"Keys found: {', '.join(config.keys()) if config else '(empty)'}")
+        return 0
+    except argparse.ArgumentTypeError as e:
+        print(f"Invalid configuration file: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Error validating configuration: {e}", file=sys.stderr)
+        return 1
+
+
+def handle_config_command(args: list[str] | None = None) -> int | None:
+    """Handle config subcommands.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments
+
+    Returns
+    -------
+    int or None
+        Exit code if config command was handled, None otherwise
+
+    """
+    if not args:
+        args = sys.argv[1:]
+
+    if not args or args[0] != 'config':
+        return None
+
+    # Get subcommand
+    if len(args) < 2:
+        print("""Usage: all2md config <subcommand> [OPTIONS]
+
+Configuration management commands.
+
+Subcommands:
+  generate           Generate a default configuration file
+  show              Display effective configuration from all sources
+  validate          Validate a configuration file
+
+Use 'all2md config <subcommand> --help' for more information.
+
+Examples:
+  all2md config generate --out .all2md.toml
+  all2md config show
+  all2md config validate .all2md.toml
+""", file=sys.stderr)
+        return 1
+
+    subcommand = args[1]
+    subcommand_args = args[2:]
+
+    if subcommand == 'generate':
+        return handle_config_generate_command(subcommand_args)
+    elif subcommand == 'show':
+        return handle_config_show_command(subcommand_args)
+    elif subcommand == 'validate':
+        return handle_config_validate_command(subcommand_args)
+    else:
+        print(f"Error: Unknown config subcommand '{subcommand}'", file=sys.stderr)
+        print("Valid subcommands: generate, show, validate", file=sys.stderr)
+        return 1
+
+
 def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
@@ -1114,6 +1522,10 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
 
     if not args:
         return None
+
+    # Check for config command
+    if args[0] == 'config':
+        return handle_config_command(args)
 
     # Check for list-formats command
     if args[0] in ('list-formats', 'formats'):

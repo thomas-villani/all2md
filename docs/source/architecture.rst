@@ -529,8 +529,8 @@ Some options are themselves dataclasses:
 **Options Cascade:**
 
 1. **Defaults:** Defined in dataclass field defaults
-2. **JSON Config:** Loaded from ``--options-json`` file
-3. **CLI Arguments:** Highest priority, override JSON/defaults
+2. **Config File:** Loaded from ``--config`` file (JSON or TOML)
+3. **CLI Arguments:** Highest priority, override config/defaults
 
 **CLI Mapping:**
 
