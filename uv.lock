@@ -22,13 +22,18 @@ dependencies = [
 all = [
     { name = "beautifulsoup4" },
     { name = "chardet" },
+    { name = "fastmcp" },
     { name = "httpx" },
+    { name = "jinja2" },
+    { name = "mistune" },
     { name = "odfpy" },
+    { name = "openpyxl" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "reportlab" },
     { name = "rich" },
     { name = "tqdm" },
     { name = "watchdog" },
@@ -41,10 +46,14 @@ cli-extras = [
 dev = [
     { name = "beautifulsoup4" },
     { name = "chardet" },
+    { name = "fastmcp" },
     { name = "httpx" },
     { name = "hypothesis" },
+    { name = "jinja2" },
+    { name = "mistune" },
     { name = "mypy" },
     { name = "odfpy" },
+    { name = "openpyxl" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pytest" },
@@ -52,6 +61,7 @@ dev = [
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "reportlab" },
     { name = "rich" },
     { name = "ruff" },
     { name = "sphinx" },
@@ -92,6 +102,9 @@ mcp = [
 odf = [
     { name = "odfpy" },
 ]
+org = [
+    { name = "orgparse" },
+]
 pdf = [
     { name = "pymupdf" },
 ]
@@ -110,6 +123,9 @@ sanitizer = [
 spreadsheet = [
     { name = "openpyxl" },
 ]
+templates = [
+    { name = "jinja2" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -120,15 +136,21 @@ requires-dist = [
     { name = "chardet", marker = "extra == 'all'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'html'", specifier = ">=5.2.0" },
     { name = "ebooklib", marker = "extra == 'epub'", specifier = ">=0.19" },
+    { name = "fastmcp", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'html'", specifier = ">=0.28.1" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100.0" },
+    { name = "jinja2", marker = "extra == 'all'", specifier = ">=3.1.0" },
+    { name = "jinja2", marker = "extra == 'templates'", specifier = ">=3.1.0" },
+    { name = "mistune", marker = "extra == 'all'", specifier = ">=3.0.0" },
     { name = "mistune", marker = "extra == 'markdown'", specifier = ">=3.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.2" },
     { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
+    { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.1.5" },
     { name = "openpyxl", marker = "extra == 'spreadsheet'", specifier = ">=3.1.5" },
+    { name = "orgparse", marker = "extra == 'org'", specifier = ">=0.4.20250520" },
     { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
     { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.4" },
@@ -142,6 +164,7 @@ requires-dist = [
     { name = "python-docx", marker = "extra == 'docx-render'", specifier = ">=1.2.0" },
     { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
+    { name = "reportlab", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "reportlab", marker = "extra == 'pdf-render'", specifier = ">=4.0.0" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "rich", marker = "extra == 'all'", specifier = ">=14.2.0" },
@@ -1119,6 +1142,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910 },
+]
+
+[[package]]
+name = "orgparse"
+version = "0.4.20250520"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/6f/9d214f26239ab85df73e3086adf110d6d5b764253412ab29621ee5a945c9/orgparse-0.4.20250520.tar.gz", hash = "sha256:6472fd16ddcabb523918505c865263abfa05ac80b593e668a089cda291b1a2de", size = 40606 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fa/7d/d376cd33b5e85a84997e16d0ddfeba72df6330557d8b97a5dce1a84284c1/orgparse-0.4.20250520-py3-none-any.whl", hash = "sha256:24d454432385016ae91c3518c8357a3a31fdd4cebfbb0c5926cf31247bf4c7e3", size = 34774 },
 ]
 
 [[package]]

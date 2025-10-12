@@ -350,6 +350,22 @@ DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED = True
 DEFAULT_MEDIAWIKI_IMAGE_THUMB = True
 
 # =============================================================================
+# Org-Mode Constants
+# =============================================================================
+
+OrgHeadingStyle = Literal["stars"]
+OrgTodoKeywordSet = Literal["default", "custom"]
+
+DEFAULT_ORG_HEADING_STYLE: OrgHeadingStyle = "stars"
+DEFAULT_ORG_TODO_KEYWORDS = ["TODO", "DONE"]
+DEFAULT_ORG_PARSE_DRAWERS = True
+DEFAULT_ORG_PARSE_PROPERTIES = True
+DEFAULT_ORG_PARSE_TAGS = True
+DEFAULT_ORG_PRESERVE_DRAWERS = False
+DEFAULT_ORG_PRESERVE_PROPERTIES = True
+DEFAULT_ORG_PRESERVE_TAGS = True
+
+# =============================================================================
 # File Extension Lists
 # =============================================================================
 _PLAINTEXT_EXTENSIONS_JSON_FILE = Path(__file__).parent / "_plaintext-exts.json"

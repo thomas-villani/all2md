@@ -115,6 +115,9 @@ all = [
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
 ]
+org = [
+    "orgparse>=0.4.20250520",
+]
 
 [project.scripts]
 all2md = "all2md.cli:main"

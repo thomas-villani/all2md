@@ -12,3 +12,5 @@ wslvenv
 
 # Supplementary local files
 review/
+
+.hypothesis
