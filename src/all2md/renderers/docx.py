@@ -71,7 +71,6 @@ from all2md.utils.images import decode_base64_image_to_file
 logger = logging.getLogger(__name__)
 
 
-# TODO: add a new option that allows the user to specify a "template" source docx file to use (allows styles)
 class DocxRenderer(NodeVisitor, BaseRenderer):
     """Render AST nodes to DOCX format.
 
@@ -148,8 +147,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._RGBColor = RGBColor
 
         try:
-            # Create new Word document
-            self.document = self._Document()
+            # Create new Word document (with template if specified)
+            if self.options.template_path:
+                self.document = self._Document(self.options.template_path)
+            else:
+                self.document = self._Document()
 
             # Set default font
             self._set_document_defaults()

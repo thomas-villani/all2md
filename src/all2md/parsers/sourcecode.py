@@ -295,9 +295,8 @@ EXTENSION_TO_LANGUAGE: Dict[str, str] = {
     ".f95": "fortran",
     ".for": "fortran",
     # Data/Config formats
-    ".json": "json",
+    # Note: .json removed - use .ast.json for AST files, regular .json files are data not documents
     ".json5": "json5",
-    ".jsonld": "json",
     ".yaml": "yaml",
     ".yml": "yaml",
     ".toml": "toml",

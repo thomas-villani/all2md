@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from all2md.constants import (
+    DEFAULT_AUTOLINK_BARE_URLS,
     DEFAULT_BULLET_SYMBOLS,
     DEFAULT_CODE_FENCE_CHAR,
     DEFAULT_CODE_FENCE_MIN,
@@ -22,6 +23,7 @@ from all2md.constants import (
     DEFAULT_LIST_INDENT_WIDTH,
     DEFAULT_MATH_MODE,
     DEFAULT_METADATA_FORMAT,
+    DEFAULT_REFERENCE_LINK_PLACEMENT,
     DEFAULT_TABLE_PIPE_ESCAPE,
     DEFAULT_USE_HASH_HEADINGS,
     CodeFenceChar,
@@ -30,6 +32,7 @@ from all2md.constants import (
     LinkStyleType,
     MathMode,
     MetadataFormatType,
+    ReferenceLinkPlacement,
     SubscriptMode,
     SuperscriptMode,
     UnderlineMode,
@@ -113,6 +116,13 @@ class MarkdownOptions(BaseRendererOptions):
         Link style to use:
         - "inline": [text](url) style links
         - "reference": [text][ref] style with reference definitions at end
+    reference_link_placement : {"end_of_document", "after_block"}, default "end_of_document"
+        Where to place reference link definitions when using reference-style links:
+        - "end_of_document": All reference definitions at document end (current behavior)
+        - "after_block": Reference definitions placed after each block-level element
+    autolink_bare_urls : bool, default False
+        Automatically convert bare URLs (e.g., http://example.com) found in Text nodes
+        into Markdown autolinks (<http://example.com>). Ensures all URLs are clickable.
     table_pipe_escape : bool, default True
         Whether to escape pipe characters (|) in table cell content.
     math_mode : {"latex", "mathml", "html"}, default "latex"
@@ -260,6 +270,19 @@ class MarkdownOptions(BaseRendererOptions):
         metadata={
             "help": "Link style: inline [text](url) or reference [text][ref]",
             "choices": ["inline", "reference"]
+        }
+    )
+    reference_link_placement: ReferenceLinkPlacement = field(
+        default=DEFAULT_REFERENCE_LINK_PLACEMENT,
+        metadata={
+            "help": "Where to place reference link definitions: end_of_document or after_block",
+            "choices": ["end_of_document", "after_block"]
+        }
+    )
+    autolink_bare_urls: bool = field(
+        default=DEFAULT_AUTOLINK_BARE_URLS,
+        metadata={
+            "help": "Convert bare URLs in text to Markdown autolinks (<http://...>)"
         }
     )
     table_pipe_escape: bool = field(

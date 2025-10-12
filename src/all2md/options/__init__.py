@@ -26,6 +26,7 @@ from dataclasses import replace
 from typing import Any
 
 from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
+from all2md.options.ast_json import AstJsonParserOptions, AstJsonRendererOptions
 from all2md.options.base import _UNSET, BaseParserOptions, BaseRendererOptions, CloneFrozenMixin
 from all2md.options.chm import ChmOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
@@ -89,6 +90,8 @@ __all__ = [
     "LocalFileAccessOptions",
     "AsciiDocRendererOptions",
     "AsciiDocOptions",
+    "AstJsonParserOptions",
+    "AstJsonRendererOptions",
     "ChmOptions",
     "CsvOptions",
     "DocxOptions",

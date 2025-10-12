@@ -45,6 +45,11 @@ class DocxRendererOptions(BaseRendererOptions):
         Font size for code blocks and inline code.
     preserve_formatting : bool, default True
         Whether to preserve text formatting (bold, italic, etc.).
+    template_path : str or None, default None
+        Path to .docx template file. When specified, the renderer uses the template's
+        styles (headings, body text, etc.) instead of creating a blank document. This
+        is powerful for corporate environments where documents must adopt specific style
+        guidelines defined in a template.
 
     """
 
@@ -87,6 +92,12 @@ class DocxRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Preserve text formatting (bold, italic, etc.)",
             "cli_name": "no-preserve-formatting"
+        }
+    )
+    template_path: str | None = field(
+        default=None,
+        metadata={
+            "help": "Path to .docx template file for styles (None = default blank document)"
         }
     )
 

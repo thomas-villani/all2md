@@ -5,10 +5,10 @@ This module defines options for parsing PDF documents with advanced
 table detection and layout analysis.
 """
 from dataclasses import dataclass, field
-
 from typing import Literal
 
 from all2md.constants import (
+    DEFAULT_AUTO_TRIM_HEADERS_FOOTERS,
     DEFAULT_COLUMN_DETECTION_MODE,
     DEFAULT_COLUMN_GAP_THRESHOLD,
     DEFAULT_DETECT_COLUMNS,
@@ -140,6 +140,11 @@ class PdfOptions(PaginatedParserOptions):
 
     trim_headers_footers : bool, default False
         Remove repeated headers and footers from pages.
+    auto_trim_headers_footers : bool, default False
+        Automatically detect and remove repeating headers/footers. When enabled,
+        analyzes content across pages to identify repeating header/footer patterns
+        and automatically sets header_height/footer_height values. Takes precedence
+        over manually specified header_height/footer_height.
     header_height : int, default 0
         Height in points to trim from top of page (requires trim_headers_footers).
     footer_height : int, default 0
@@ -399,6 +404,15 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_TRIM_HEADERS_FOOTERS,
         metadata={
             "help": "Remove repeated headers and footers from pages"
+        }
+    )
+    auto_trim_headers_footers: bool = field(
+        default=DEFAULT_AUTO_TRIM_HEADERS_FOOTERS,
+        metadata={
+            "help": (
+                "Automatically detect and remove repeating headers/footers "
+                "(overrides manual header_height/footer_height)"
+            )
         }
     )
     header_height: int = field(

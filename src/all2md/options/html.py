@@ -147,6 +147,10 @@ class HtmlOptions(BaseParserOptions):
         Whitelist of allowed HTML attributes. Supports two modes:
         - Global allowlist: tuple of attribute names applied to all elements
         - Per-element allowlist: dict mapping element names to tuples of allowed attributes
+    base_url : str or None, default None
+        Base URL for resolving relative hrefs in <a> tags. This is separate from
+        attachment_base_url (used for images/assets). Allows precise control over
+        navigational link URLs vs. resource URLs.
 
     Examples
     --------
@@ -272,5 +276,11 @@ class HtmlOptions(BaseParserOptions):
         metadata={
             "help": "Extract microdata and structured data to metadata",
             "cli_name": "no-extract-microdata"
+        }
+    )
+    base_url: str | None = field(
+        default=None,
+        metadata={
+            "help": "Base URL for resolving relative hrefs in <a> tags (separate from attachment_base_url for images)"
         }
     )

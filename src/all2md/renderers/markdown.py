@@ -111,6 +111,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._marker_width_stack: list[int] = []
         self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
         self._next_ref_id: int = 1
+        self._block_link_references: dict[str, int] = {}  # url -> ref_id for current block
 
     @staticmethod
     def _get_flavor(flavor_name: str) -> MarkdownFlavor:
@@ -158,11 +159,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._marker_width_stack = []
         self._link_references = {}
         self._next_ref_id = 1
+        self._block_link_references = {}
 
         document.accept(self)
 
-        # Append link references if using reference style
-        if self.options.link_style == "reference" and self._link_references:
+        # Append link references if using reference style with end_of_document placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "end_of_document"
+            and self._link_references):
             self._output.append('\n\n')
             for url, ref_id in sorted(self._link_references.items(), key=lambda x: x[1]):
                 self._output.append(f'[{ref_id}]: {url}\n')
@@ -218,6 +222,51 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             else:
                 escaped += char
         return escaped
+
+    def _autolink_bare_urls(self, text: str) -> str:
+        """Convert bare URLs to Markdown autolinks.
+
+        Parameters
+        ----------
+        text : str
+            Text that may contain bare URLs
+
+        Returns
+        -------
+        str
+            Text with bare URLs converted to autolinks
+
+        """
+        # URL regex pattern that matches common URL schemes
+        # Matches: http://, https://, ftp://, ftps://
+        url_pattern = r'(https?://[^\s<>]+|ftps?://[^\s<>]+)'
+
+        def replace_url(match: re.Match[str]) -> str:
+            url = match.group(1)
+            # Remove trailing punctuation that's likely not part of the URL
+            while url and url[-1] in '.,;:!?)':
+                url = url[:-1]
+            return f'<{url}>'
+
+        return re.sub(url_pattern, replace_url, text)
+
+    def _emit_block_references(self) -> None:
+        """Emit accumulated link references after a block.
+
+        This method outputs reference-style link definitions that were collected
+        during rendering of the current block, when reference_link_placement is
+        set to "after_block".
+
+        """
+        if not self._block_link_references:
+            return
+
+        self._output.append('\n\n')
+        for url, ref_id in sorted(self._block_link_references.items(), key=lambda x: x[1]):
+            self._output.append(f'[{ref_id}]: {url}\n')
+
+        # Clear block references after emitting
+        self._block_link_references.clear()
 
     def _current_indent(self) -> str:
         """Get the current indentation string.
@@ -354,6 +403,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             prefix = '#' * adjusted_level
             self._output.append(f"{prefix} {content}")
 
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
+
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.
 
@@ -366,6 +420,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content = self._render_inline_content(node.content)
         indent = self._current_indent()
         self._output.append(f"{indent}{content}")
+
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Render a CodeBlock node.
@@ -404,6 +463,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append('\n')
         self._output.append(fence)
 
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
+
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
 
@@ -425,6 +489,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output = saved_output
         self._output.append('\n'.join(quoted_lines))
+
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -640,6 +709,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     # Alignment row without spaces (for backward compatibility)
                     self._output.append('|' + '|'.join(alignments) + '|')
 
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
+
     def _render_table_as_html(self, node: Table) -> None:
         """Render a table as HTML when markdown tables are not supported.
 
@@ -761,6 +835,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output.append('---')
 
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
+
     def visit_html_block(self, node: HTMLBlock) -> None:
         """Render an HTMLBlock node.
 
@@ -772,6 +851,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output.append(node.content)
 
+        # Emit block references if using after_block placement
+        if (self.options.link_style == "reference"
+            and self.options.reference_link_placement == "after_block"):
+            self._emit_block_references()
+
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
 
@@ -782,6 +866,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         text = self._escape_markdown(node.content)
+
+        # Convert bare URLs to autolinks if enabled
+        if self.options.autolink_bare_urls:
+            text = self._autolink_bare_urls(text)
+
         self._output.append(text)
 
     def visit_emphasis(self, node: Emphasis) -> None:
@@ -841,6 +930,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._link_references[node.url] = self._next_ref_id
                 self._next_ref_id += 1
             ref_id = self._link_references[node.url]
+
+            # Track in block references if using after_block placement
+            if self.options.reference_link_placement == "after_block":
+                self._block_link_references[node.url] = ref_id
+
             self._output.append(f'[{content}][{ref_id}]')
         else:
             # Inline-style links: [text](url)

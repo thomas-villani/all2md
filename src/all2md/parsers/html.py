@@ -1152,9 +1152,9 @@ class HtmlToAstConverter(BaseParser):
         title = node.get("title")
         content = self._process_children_to_inline(node)
 
-        # Resolve relative URLs
+        # Resolve relative URLs using base_url for links (separate from attachment_base_url)
         if url:
-            url = self._resolve_url(url)
+            url = self._resolve_url(url, base_url=self.options.base_url)
 
         # Sanitize URL
         url = self._sanitize_link_url(url)
@@ -1260,13 +1260,16 @@ class HtmlToAstConverter(BaseParser):
 
         return Image(url=final_url, alt_text=alt_text, title=title)
 
-    def _resolve_url(self, url: str) -> str:
+    def _resolve_url(self, url: str, base_url: str | None = None) -> str:
         """Resolve relative URL to absolute URL if base URL is provided.
 
         Parameters
         ----------
         url : str
             URL to resolve
+        base_url : str or None, default None
+            Base URL to use for resolution. If None, uses attachment_base_url
+            from options (for backward compatibility with images/assets).
 
         Returns
         -------
@@ -1274,9 +1277,12 @@ class HtmlToAstConverter(BaseParser):
             Resolved absolute URL or original URL
 
         """
-        if not self.options.attachment_base_url or urlparse(url).scheme:
+        # Use provided base_url or fall back to attachment_base_url
+        effective_base = base_url if base_url is not None else self.options.attachment_base_url
+
+        if not effective_base or urlparse(url).scheme:
             return url
-        return urljoin(self.options.attachment_base_url, url)
+        return urljoin(effective_base, url)
 
     def _read_local_file(self, file_url: str) -> bytes:
         """Read image data from local file:// URL.

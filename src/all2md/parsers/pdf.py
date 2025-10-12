@@ -1285,7 +1285,147 @@ class PdfToAstConverter(BaseParser):
                                                pages=pages_to_use if isinstance(pages_to_use, list) else None,
                                                options=self.options)
 
+        # Auto-detect header/footer zones if requested
+        if self.options.auto_trim_headers_footers:
+            self._auto_detect_header_footer_zones(doc, pages_to_use)
+
         return self.convert_to_ast(doc, pages_to_use, base_filename)
+
+    def _auto_detect_header_footer_zones(
+        self, doc: "fitz.Document", pages_to_use: range | list[int]
+    ) -> None:
+        """Automatically detect and set header/footer zones by analyzing repeating text patterns.
+
+        This method analyzes text blocks across multiple pages to identify repeating
+        headers and footers. It looks for text that appears in similar vertical positions
+        across multiple pages and calculates appropriate header_height and footer_height
+        values to exclude them from conversion.
+
+        Parameters
+        ----------
+        doc : fitz.Document
+            PDF document to analyze
+        pages_to_use : range or list[int]
+            Pages to process (used to determine sample range)
+
+        """
+        import fitz
+
+        # Sample pages for analysis (min 3, max 10, or all if fewer pages)
+        total_pages = len(list(pages_to_use))
+        if total_pages < 3:
+            # Need at least 3 pages to detect patterns
+            return
+
+        # Sample evenly distributed pages
+        sample_size = min(10, total_pages)
+        if isinstance(pages_to_use, range):
+            step = max(1, total_pages // sample_size)
+            sample_pages = [pages_to_use.start + i * step for i in range(sample_size)]
+        else:
+            step = max(1, len(pages_to_use) // sample_size)
+            sample_pages = [pages_to_use[i * step] for i in range(sample_size)]
+
+        # Collect text blocks from each sampled page
+        # Structure: {page_num: [(text, y_top, y_bottom), ...]}
+        page_blocks: dict[int, list[tuple[str, float, float]]] = {}
+
+        for page_num in sample_pages:
+            page = doc[page_num]
+            page_height = page.rect.height
+            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+
+            page_blocks[page_num] = []
+            for block in blocks:
+                if block.get("type") != 0:  # Only process text blocks
+                    continue
+
+                bbox = block.get("bbox")
+                if not bbox:
+                    continue
+
+                # Extract text from block
+                text_lines = []
+                for line in block.get("lines", []):
+                    line_text = " ".join(span["text"] for span in line.get("spans", []))
+                    text_lines.append(line_text.strip())
+
+                block_text = " ".join(text_lines).strip()
+                if not block_text:
+                    continue
+
+                # Store text with vertical position
+                y_top = bbox[1]
+                y_bottom = bbox[3]
+                page_blocks[page_num].append((block_text, y_top, y_bottom))
+
+        # Find repeating patterns in header zone (top 20% of page)
+        # and footer zone (bottom 20% of page)
+        if not page_blocks:
+            return
+
+        # Get representative page height from first sampled page
+        first_page = doc[sample_pages[0]]
+        page_height = first_page.rect.height
+
+        # Track potential headers (text appearing in top portion of multiple pages)
+        # Structure: {text: [y_bottom_values]}
+        header_candidates: dict[str, list[float]] = {}
+        footer_candidates: dict[str, list[float]] = {}
+
+        header_zone_threshold = page_height * 0.2  # Top 20%
+        footer_zone_threshold = page_height * 0.8  # Bottom 20%
+
+        for blocks in page_blocks.values():
+            for text, y_top, y_bottom in blocks:
+                # Check if in potential header zone
+                if y_bottom < header_zone_threshold:
+                    if text not in header_candidates:
+                        header_candidates[text] = []
+                    header_candidates[text].append(y_bottom)
+
+                # Check if in potential footer zone
+                if y_top > footer_zone_threshold:
+                    if text not in footer_candidates:
+                        footer_candidates[text] = []
+                    footer_candidates[text].append(y_top)
+
+        # Find repeating headers (text appearing on at least 50% of sampled pages)
+        min_occurrences = max(2, sample_size // 2)
+        max_header_y = 0.0
+        max_footer_y = page_height
+
+        for _text, y_values in header_candidates.items():
+            if len(y_values) >= min_occurrences:
+                # This text appears frequently in header zone
+                max_y = max(y_values)
+                max_header_y = max(max_header_y, max_y)
+
+        for _text, y_values in footer_candidates.items():
+            if len(y_values) >= min_occurrences:
+                # This text appears frequently in footer zone
+                min_y = min(y_values)
+                max_footer_y = min(max_footer_y, min_y)
+
+        # Set header_height and footer_height if we found repeating patterns
+        # Add small margin (5 points) to ensure we capture the full header/footer
+        if max_header_y > 0:
+            # Update the options object (create new frozen instance)
+            from dataclasses import replace
+            self.options = replace(
+                self.options,
+                header_height=int(max_header_y + 5),
+                trim_headers_footers=True
+            )
+
+        if max_footer_y < page_height:
+            footer_height_value = int(page_height - max_footer_y + 5)
+            from dataclasses import replace
+            self.options = replace(
+                self.options,
+                footer_height=footer_height_value,
+                trim_headers_footers=True
+            )
 
     def extract_metadata(self, document: "fitz.Document") -> DocumentMetadata:
         """Extract metadata from PDF document.

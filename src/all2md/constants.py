@@ -85,6 +85,7 @@ FlavorType = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown",
 UnsupportedTableMode = Literal["drop", "ascii", "force", "html"]
 UnsupportedInlineMode = Literal["plain", "force", "html"]
 LinkStyleType = Literal["inline", "reference"]
+ReferenceLinkPlacement = Literal["end_of_document", "after_block"]
 CodeFenceChar = Literal["`", "~"]
 MetadataFormatType = Literal["yaml", "toml", "json"]
 
@@ -114,6 +115,8 @@ DEFAULT_CODE_FENCE_CHAR: CodeFenceChar = "`"
 DEFAULT_CODE_FENCE_MIN = 3
 DEFAULT_COLLAPSE_BLANK_LINES = True
 DEFAULT_LINK_STYLE: LinkStyleType = "inline"
+DEFAULT_REFERENCE_LINK_PLACEMENT: ReferenceLinkPlacement = "end_of_document"
+DEFAULT_AUTOLINK_BARE_URLS = False
 DEFAULT_TABLE_PIPE_ESCAPE = True
 
 # =============================================================================
@@ -161,6 +164,7 @@ DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
 
 # Header/footer trimming constants
 DEFAULT_TRIM_HEADERS_FOOTERS = False
+DEFAULT_AUTO_TRIM_HEADERS_FOOTERS = False
 DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
 DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
 
@@ -355,7 +359,6 @@ else:
     # Fallback to most common
     PLAINTEXT_EXTENSIONS = [
         ".js",
-        ".json",
         ".html",
         ".css",
         ".py",
@@ -416,6 +419,7 @@ DOCUMENT_EXTENSIONS = [
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
 DocumentFormat = Literal[
     "auto",  # Auto-detect from filename/content
+    "ast",  # JSON-serialized AST format
     "pdf",  # PDF documents
     "docx",  # Word documents
     "pptx",  # PowerPoint presentations
