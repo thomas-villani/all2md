@@ -120,6 +120,10 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         content = ''.join(self._output)
 
+        # Apply template if template_mode is set
+        if self.options.template_mode is not None:
+            return self._apply_template(document, content)
+
         # Wrap in HTML document if standalone
         if self.options.standalone:
             return self._wrap_in_document(document, content)
@@ -367,6 +371,252 @@ hr {
 
         return '\n'.join(parts)
 
+    def _apply_template(self, document: Document, content: str) -> str:
+        """Apply template based on template_mode.
+
+        Parameters
+        ----------
+        document : Document
+            Document with metadata
+        content : str
+            Rendered HTML content
+
+        Returns
+        -------
+        str
+            Final HTML with template applied
+
+        Raises
+        ------
+        ValueError
+            If template_file is not specified or template_mode is invalid
+        FileNotFoundError
+            If template_file does not exist
+
+        """
+        if not self.options.template_file:
+            raise ValueError("template_file must be specified when template_mode is set")
+
+        # Validate template file exists
+        from pathlib import Path
+        template_path = Path(self.options.template_file)
+        if not template_path.exists():
+            raise FileNotFoundError(f"Template file not found: {self.options.template_file}")
+
+        if self.options.template_mode == 'replace':
+            return self._apply_replace_template(document, content)
+        elif self.options.template_mode == 'inject':
+            return self._apply_inject_template(document, content)
+        elif self.options.template_mode == 'jinja':
+            return self._apply_jinja_template(document, content)
+        else:
+            raise ValueError(f"Invalid template_mode: {self.options.template_mode}")
+
+    def _apply_replace_template(self, document: Document, content: str) -> str:
+        """Apply replace template mode - replace placeholders in template.
+
+        Parameters
+        ----------
+        document : Document
+            Document with metadata
+        content : str
+            Rendered HTML content
+
+        Returns
+        -------
+        str
+            HTML with placeholders replaced
+
+        """
+        from pathlib import Path
+
+        # Read template file (already validated in _apply_template)
+        assert self.options.template_file is not None  # for type checker
+        template_path = Path(self.options.template_file)
+        template = template_path.read_text(encoding='utf-8')
+
+        # Build replacement map
+        replacements = {
+            self.options.content_placeholder: content,
+            '{TITLE}': escape_html(str(document.metadata.get('title', 'Document')), enabled=self.options.escape_html),
+            '{AUTHOR}': escape_html(str(document.metadata.get('author', '')), enabled=self.options.escape_html),
+            '{DATE}': escape_html(str(document.metadata.get('date', '')), enabled=self.options.escape_html),
+            '{DESCRIPTION}': escape_html(str(document.metadata.get('description', '')), enabled=self.options.escape_html),
+            '{TOC}': self._generate_toc() if self.options.include_toc else '',
+        }
+
+        # Replace all placeholders
+        result = template
+        for placeholder, value in replacements.items():
+            result = result.replace(placeholder, value)
+
+        return result
+
+    def _apply_inject_template(self, document: Document, content: str) -> str:
+        """Apply inject template mode - inject content into HTML at selector.
+
+        Parameters
+        ----------
+        document : Document
+            Document with metadata
+        content : str
+            Rendered HTML content
+
+        Returns
+        -------
+        str
+            HTML with content injected
+
+        Raises
+        ------
+        ImportError
+            If BeautifulSoup is not available
+        ValueError
+            If selector not found in template
+
+        """
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError as e:
+            raise ImportError(
+                "BeautifulSoup4 is required for inject template mode. "
+                "Install with: pip install beautifulsoup4"
+            ) from e
+
+        from pathlib import Path
+
+        # Read template file (already validated in _apply_template)
+        assert self.options.template_file is not None  # for type checker
+        template_path = Path(self.options.template_file)
+        template_html = template_path.read_text(encoding='utf-8')
+
+        # Parse with BeautifulSoup
+        soup = BeautifulSoup(template_html, 'html.parser')
+
+        # Find target element
+        target = soup.select_one(self.options.template_selector)
+        if not target:
+            raise ValueError(
+                f"Selector '{self.options.template_selector}' not found in template {self.options.template_file}"
+            )
+
+        # Create content soup
+        content_soup = BeautifulSoup(content, 'html.parser')
+
+        # Inject content based on injection_mode
+        if self.options.injection_mode == 'replace':
+            target.clear()
+            for child in content_soup.children:
+                target.append(child)
+        elif self.options.injection_mode == 'append':
+            for child in content_soup.children:
+                target.append(child)
+        elif self.options.injection_mode == 'prepend':
+            for child in reversed(list(content_soup.children)):
+                target.insert(0, child)
+
+        return str(soup)
+
+    def _apply_jinja_template(self, document: Document, content: str) -> str:
+        """Apply jinja template mode - render with Jinja2 template engine.
+
+        Parameters
+        ----------
+        document : Document
+            Document with metadata
+        content : str
+            Rendered HTML content
+
+        Returns
+        -------
+        str
+            HTML rendered through Jinja2 template
+
+        Raises
+        ------
+        ImportError
+            If Jinja2 is not available
+
+        """
+        try:
+            from jinja2 import Environment, FileSystemLoader, select_autoescape
+        except ImportError as e:
+            raise ImportError(
+                "Jinja2 is required for jinja template mode. "
+                "Install with: pip install jinja2"
+            ) from e
+
+        from pathlib import Path
+        from all2md.ast.serialization import ast_to_json
+
+        # Set up Jinja environment (already validated in _apply_template)
+        assert self.options.template_file is not None  # for type checker
+        template_path = Path(self.options.template_file)
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+        # Enable autoescape for security
+        env = Environment(
+            loader=FileSystemLoader(str(template_dir)),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+        template = env.get_template(template_name)
+
+        # Build context
+        # Mark HTML content as safe (already rendered by us)
+        try:
+            from markupsafe import Markup  # Jinja2 3.x
+        except ImportError:
+            from jinja2 import Markup  # type: ignore[attr-defined,no-redef]  # Jinja2 2.x fallback
+
+        context = {
+            'content': Markup(content),  # Already rendered HTML from our renderer
+            'title': document.metadata.get('title', 'Document'),
+            'metadata': document.metadata,
+            'headings': [
+                {'level': level, 'id': hid, 'text': text}
+                for level, hid, text in self._headings
+            ],
+            'toc_html': Markup(self._generate_toc()) if self._headings else '',  # Also safe HTML
+            'footnotes': [
+                {'identifier': fn.identifier}
+                for fn in self._footnote_definitions
+            ],
+            'ast_json': ast_to_json(document),
+        }
+
+        # Render template
+        return template.render(**context)
+
+    def _get_custom_css_class(self, node_type: str) -> str:
+        """Get custom CSS class(es) for a node type from css_class_map.
+
+        Parameters
+        ----------
+        node_type : str
+            Name of the node type (e.g., 'Heading', 'CodeBlock')
+
+        Returns
+        -------
+        str
+            Class attribute string (e.g., ' class="custom-class"') or empty string
+
+        """
+        if not self.options.css_class_map:
+            return ''
+
+        classes = self.options.css_class_map.get(node_type)
+        if not classes:
+            return ''
+
+        # Handle both string and list of strings
+        if isinstance(classes, str):
+            class_str = classes
+        else:
+            class_str = ' '.join(classes)
+
+        return f' class="{class_str}"' if class_str else ''
+
     def visit_document(self, node: Document) -> None:
         """Render a Document node.
 
@@ -399,7 +649,9 @@ hr {
         plain_text_content = strip_html_tags(content)
         self._headings.append((level, heading_id, plain_text_content))
 
-        self._output.append(f'<h{level} id="{heading_id}">{content}</h{level}>\n')
+        # Add custom CSS class if configured
+        css_class = self._get_custom_css_class('Heading')
+        self._output.append(f'<h{level} id="{heading_id}"{css_class}>{content}</h{level}>\n')
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.
@@ -411,7 +663,8 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<p>{content}</p>\n')
+        css_class = self._get_custom_css_class('Paragraph')
+        self._output.append(f'<p{css_class}>{content}</p>\n')
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Render a CodeBlock node.
@@ -422,12 +675,24 @@ hr {
             Code block to render
 
         """
-        lang_class = ''
+        # Build class attribute
+        classes = []
         if self.options.syntax_highlighting and node.language:
-            lang_class = f' class="language-{node.language}"'
+            classes.append(f'language-{node.language}')
+
+        # Add custom CSS class if configured
+        custom_class = self.options.css_class_map.get('CodeBlock') if self.options.css_class_map else None
+        if custom_class:
+            if isinstance(custom_class, str):
+                classes.append(custom_class)
+            else:
+                classes.extend(custom_class)
+
+        class_attr = f' class="{" ".join(classes)}"' if classes else ''
 
         escaped_content = escape_html(node.content, enabled=self.options.escape_html)
-        self._output.append(f'<pre><code{lang_class}>{escaped_content}</code></pre>\n')
+        pre_class = self._get_custom_css_class('CodeBlock_pre')
+        self._output.append(f'<pre{pre_class}><code{class_attr}>{escaped_content}</code></pre>\n')
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
@@ -438,7 +703,8 @@ hr {
             Block quote to render
 
         """
-        self._output.append('<blockquote>\n')
+        css_class = self._get_custom_css_class('BlockQuote')
+        self._output.append(f'<blockquote{css_class}>\n')
 
         for child in node.children:
             child.accept(self)
@@ -456,8 +722,9 @@ hr {
         """
         tag = 'ol' if node.ordered else 'ul'
         start_attr = f' start="{node.start}"' if node.ordered and node.start != 1 else ''
+        css_class = self._get_custom_css_class('List')
 
-        self._output.append(f'<{tag}{start_attr}>\n')
+        self._output.append(f'<{tag}{start_attr}{css_class}>\n')
 
         for item in node.items:
             item.accept(self)
@@ -473,7 +740,8 @@ hr {
             List item to render
 
         """
-        self._output.append('<li>')
+        css_class = self._get_custom_css_class('ListItem')
+        self._output.append(f'<li{css_class}>')
 
         # Handle task lists
         if node.task_status:
@@ -494,7 +762,8 @@ hr {
             Table to render
 
         """
-        self._output.append('<table>\n')
+        css_class = self._get_custom_css_class('Table')
+        self._output.append(f'<table{css_class}>\n')
 
         # Render caption if present
         if node.caption:
@@ -559,7 +828,8 @@ hr {
             Thematic break to render
 
         """
-        self._output.append('<hr>\n')
+        css_class = self._get_custom_css_class('ThematicBreak')
+        self._output.append(f'<hr{css_class}>\n')
 
     def visit_html_block(self, node: HTMLBlock) -> None:
         """Render an HTMLBlock node.
@@ -637,8 +907,9 @@ hr {
             f' title="{escape_html(node.title, enabled=self.options.escape_html)}"'
             if node.title else ''
         )
+        css_class = self._get_custom_css_class('Link')
         href = escape_html(node.url, enabled=self.options.escape_html)
-        self._output.append(f'<a href="{href}"{title_attr}>{content}</a>')
+        self._output.append(f'<a href="{href}"{title_attr}{css_class}>{content}</a>')
 
     def visit_image(self, node: Image) -> None:
         """Render an Image node.
@@ -656,8 +927,9 @@ hr {
         )
         width_attr = f' width="{node.width}"' if node.width else ''
         height_attr = f' height="{node.height}"' if node.height else ''
+        css_class = self._get_custom_css_class('Image')
         src = escape_html(node.url, enabled=self.options.escape_html)
-        self._output.append(f'<img src="{src}" alt="{alt}"{title_attr}{width_attr}{height_attr}>')
+        self._output.append(f'<img src="{src}" alt="{alt}"{title_attr}{width_attr}{height_attr}{css_class}>')
 
     def visit_line_break(self, node: LineBreak) -> None:
         """Render a LineBreak node.
@@ -788,14 +1060,17 @@ hr {
             Definition list to render
 
         """
-        self._output.append('<dl>\n')
+        css_class = self._get_custom_css_class('DefinitionList')
+        self._output.append(f'<dl{css_class}>\n')
 
         for term, descriptions in node.items:
             term_content = self._render_inline_content(term.content)
-            self._output.append(f'<dt>{term_content}</dt>\n')
+            dt_class = self._get_custom_css_class('DefinitionTerm')
+            self._output.append(f'<dt{dt_class}>{term_content}</dt>\n')
 
             for desc in descriptions:
-                self._output.append('<dd>')
+                dd_class = self._get_custom_css_class('DefinitionDescription')
+                self._output.append(f'<dd{dd_class}>')
                 for child in desc.content:
                     child.accept(self)
                 self._output.append('</dd>\n')

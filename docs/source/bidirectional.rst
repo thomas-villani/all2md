@@ -241,6 +241,11 @@ Standalone HTML Documents
    with open('article.html', 'w', encoding='utf-8') as f:
        f.write(html)
 
+.. note::
+   For comprehensive coverage of HTML templating for static site generation,
+   including Jinja2 templates, CSS class mapping, and advanced workflows, see
+   :doc:`static_sites`.
+
 Markdown to PDF
 ---------------
 

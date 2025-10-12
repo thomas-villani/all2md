@@ -110,6 +110,7 @@ User Guide
    architecture
    ast_guide
    bidirectional
+   static_sites
    transforms
    formats
    attachments

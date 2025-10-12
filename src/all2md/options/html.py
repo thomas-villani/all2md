@@ -27,13 +27,14 @@ class HtmlRendererOptions(BaseRendererOptions):
     """Configuration options for rendering AST to HTML format.
 
     This dataclass contains settings specific to HTML generation,
-    including document structure, styling, and feature toggles.
+    including document structure, styling, templating, and feature toggles.
 
     Parameters
     ----------
     standalone : bool, default True
         Generate complete HTML document with <html>, <head>, <body> tags.
         If False, generates only the content fragment.
+        Ignored when template_mode is not None.
     css_style : {"inline", "embedded", "external", "none"}, default "embedded"
         How to include CSS styles:
         - "inline": Add style attributes to elements
@@ -62,6 +63,54 @@ class HtmlRendererOptions(BaseRendererOptions):
     language : str, default "en"
         Document language code (ISO 639-1) for the <html lang="..."> attribute.
         Can be overridden by document metadata.
+    template_mode : {"inject", "replace", "jinja"} or None, default None
+        Template mode for rendering HTML:
+        - None: Use standalone mode (default behavior)
+        - "inject": Inject content into existing HTML file at selector
+        - "replace": Replace placeholders in template file
+        - "jinja": Use Jinja2 template engine with full context
+        When set, standalone is ignored.
+    template_file : str or None, default None
+        Path to template file (required when template_mode is not None).
+    template_selector : str, default "#content"
+        CSS selector for injection target (used with template_mode="inject").
+    injection_mode : {"append", "prepend", "replace"}, default "replace"
+        How to inject content at selector (used with template_mode="inject"):
+        - "append": Add content after existing content
+        - "prepend": Add content before existing content
+        - "replace": Replace existing content
+    content_placeholder : str, default "{CONTENT}"
+        Placeholder string to replace with content (used with template_mode="replace").
+    css_class_map : dict[str, str | list[str]] or None, default None
+        Map AST node type names to custom CSS classes.
+        Example: {"Heading": "article-heading", "CodeBlock": ["code", "highlight"]}
+
+    Examples
+    --------
+    Inject into existing HTML:
+        >>> options = HtmlRendererOptions(
+        ...     template_mode="inject",
+        ...     template_file="layout.html",
+        ...     template_selector="#main-content"
+        ... )
+
+    Replace placeholders:
+        >>> options = HtmlRendererOptions(
+        ...     template_mode="replace",
+        ...     template_file="template.html",
+        ...     content_placeholder="{CONTENT}"
+        ... )
+
+    Use Jinja2 template:
+        >>> options = HtmlRendererOptions(
+        ...     template_mode="jinja",
+        ...     template_file="article.html"
+        ... )
+
+    Custom CSS classes:
+        >>> options = HtmlRendererOptions(
+        ...     css_class_map={"Heading": "prose-heading", "CodeBlock": "code-block"}
+        ... )
 
     """
 
@@ -119,6 +168,39 @@ class HtmlRendererOptions(BaseRendererOptions):
         default="en",
         metadata={
             "help": "Document language code (ISO 639-1) for HTML lang attribute"
+        }
+    )
+    template_mode: Literal["inject", "replace", "jinja"] | None = field(
+        default=None,
+        metadata={
+            "help": "Template mode: inject, replace, jinja, or none",
+            "choices": ["inject", "replace", "jinja"]
+        }
+    )
+    template_file: str | None = field(
+        default=None,
+        metadata={"help": "Path to template file (required when template_mode is set)"}
+    )
+    template_selector: str = field(
+        default="#content",
+        metadata={"help": "CSS selector for injection target (template_mode='inject')"}
+    )
+    injection_mode: Literal["append", "prepend", "replace"] = field(
+        default="replace",
+        metadata={
+            "help": "How to inject content: append, prepend, or replace",
+            "choices": ["append", "prepend", "replace"]
+        }
+    )
+    content_placeholder: str = field(
+        default="{CONTENT}",
+        metadata={"help": "Placeholder to replace with content (template_mode='replace')"}
+    )
+    css_class_map: dict[str, str | list[str]] | None = field(
+        default=None,
+        metadata={
+            "help": "Map AST node types to custom CSS classes",
+            "exclude_from_cli": True
         }
     )
 
