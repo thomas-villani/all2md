@@ -1155,23 +1155,30 @@ def validate_pygments_theme(theme_name: str) -> str:
         If theme name is not valid
 
     """
+
     try:
         from pygments.styles import get_all_styles
-        available_themes = list(get_all_styles())
-
-        if theme_name not in available_themes:
-            # Show top 10 suggestions
-            suggestions = sorted(available_themes)[:10]
-            raise argparse.ArgumentTypeError(
-                f"Invalid Pygments theme '{theme_name}'. "
-                f"Popular themes: {', '.join(suggestions)}... "
-                f"See https://pygments.org/styles/ for full list."
-            )
-        return theme_name
     except ImportError:
-        # Pygments not available, skip validation
-        # (Will fail later if Rich is actually used)
-        return theme_name
+        # Hardcoded for fallback
+        get_all_styles = lambda: [
+            'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'bw', 'borland', 'coffee', 'colorful', 'default',
+            'dracula', 'emacs', 'friendly_grayscale', 'friendly', 'fruity', 'github-dark', 'gruvbox-dark',
+            'gruvbox-light', 'igor', 'inkpot', 'lightbulb', 'lilypond', 'lovelace', 'manni', 'material',
+            'monokai', 'murphy', 'native', 'nord-darker', 'nord', 'one-dark', 'paraiso-dark', 'paraiso-light',
+            'pastie', 'perldoc', 'rainbow_dash', 'rrt', 'sas', 'solarized-dark', 'solarized-light',
+            'staroffice', 'stata-dark', 'stata-light', 'tango', 'trac', 'vim', 'vs', 'xcode', 'zenburn'
+        ]
+
+    available_themes = list(get_all_styles())
+    if theme_name not in available_themes:
+        # Show top 10 suggestions
+        suggestions = sorted(available_themes)[:10]
+        raise argparse.ArgumentTypeError(
+            f"Invalid Pygments theme '{theme_name}'. "
+            f"Popular themes: {', '.join(suggestions)}... "
+            f"See https://pygments.org/styles/ for full list."
+        )
+    return theme_name
 
 
 def create_parser() -> argparse.ArgumentParser:

@@ -23,8 +23,7 @@ from all2md.constants import (
     DEFAULT_REQUIRE_HEAD_SUCCESS,
     DEFAULT_REQUIRE_HTTPS,
 )
-from all2md.options import CloneFrozenMixin
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import BaseParserOptions, CloneFrozenMixin
 
 
 @dataclass(frozen=True)

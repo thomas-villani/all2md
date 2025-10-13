@@ -63,21 +63,21 @@ class OrgParserOptions(BaseParserOptions):
         default=DEFAULT_ORG_PARSE_DRAWERS,
         metadata={
             "help": "Parse Org drawers (e.g., :PROPERTIES:, :LOGBOOK:)",
-            "cli_name": "parse-drawers"
+            "cli_name": "no-parse-drawers"
         }
     )
     parse_properties: bool = field(
         default=DEFAULT_ORG_PARSE_PROPERTIES,
         metadata={
             "help": "Parse Org properties within drawers",
-            "cli_name": "parse-properties"
+            "cli_name": "no-parse-properties"
         }
     )
     parse_tags: bool = field(
         default=DEFAULT_ORG_PARSE_TAGS,
         metadata={
             "help": "Parse heading tags (e.g., :work:urgent:)",
-            "cli_name": "parse-tags"
+            "cli_name": "no-parse-tags"
         }
     )
     todo_keywords: list[str] = field(
@@ -145,21 +145,21 @@ class OrgRendererOptions(BaseRendererOptions):
         default=DEFAULT_ORG_PRESERVE_DRAWERS,
         metadata={
             "help": "Preserve drawer content in rendered output",
-            "cli_name": "preserve-drawers"
+            "cli_name": "no-preserve-drawers"
         }
     )
     preserve_properties: bool = field(
         default=DEFAULT_ORG_PRESERVE_PROPERTIES,
         metadata={
             "help": "Preserve properties in rendered output",
-            "cli_name": "preserve-properties"
+            "cli_name": "no-preserve-properties"
         }
     )
     preserve_tags: bool = field(
         default=DEFAULT_ORG_PRESERVE_TAGS,
         metadata={
             "help": "Preserve heading tags in rendered output",
-            "cli_name": "preserve-tags"
+            "cli_name": "no-preserve-tags"
         }
     )
     todo_keywords: list[str] = field(

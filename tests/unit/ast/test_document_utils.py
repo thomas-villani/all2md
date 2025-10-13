@@ -810,6 +810,45 @@ class TestInsertTOC:
         # TOC should be inserted after first heading
         assert len(modified.children) > 3
 
+    def test_insert_toc_builds_ast_directly(self):
+        """Test that insert_toc builds AST directly without markdown parsing."""
+        from all2md.ast import Link, ListItem
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text("Chapter 1")]),
+            Paragraph(content=[Text("Content")]),
+            Heading(level=2, content=[Text("Section 1.1")]),
+            Paragraph(content=[Text("Content")])
+        ])
+
+        modified = insert_toc(doc, position="start", max_level=3, style="markdown")
+
+        # Verify TOC was inserted
+        assert len(modified.children) > 4
+
+        # First child should be TOC heading
+        assert isinstance(modified.children[0], Heading)
+        assert modified.children[0].level == 1
+        toc_heading_text = modified.children[0].content[0].content
+        assert toc_heading_text == "Table of Contents"
+
+        # Second child should be the TOC list
+        assert isinstance(modified.children[1], List)
+        toc_list = modified.children[1]
+
+        # List should have items with links
+        assert len(toc_list.items) == 2  # Chapter 1 and Section 1.1
+
+        # First item should contain a link to Chapter 1
+        first_item = toc_list.items[0]
+        assert isinstance(first_item, ListItem)
+        first_para = first_item.children[0]
+        assert isinstance(first_para, Paragraph)
+        first_link = first_para.content[0]
+        assert isinstance(first_link, Link)
+        assert first_link.url == "#chapter-1"
+        assert first_link.content[0].content == "Chapter 1"
+
 
 @pytest.mark.unit
 class TestGetPreamble:

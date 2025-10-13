@@ -145,6 +145,24 @@ class TestFilterNodes:
         images = [n for n in all_nodes if isinstance(n, Image)]
         assert len(images) == 0
 
+    def test_filter_preserves_document_even_when_excluded_by_predicate(self) -> None:
+        """Test that Document is always preserved even if predicate excludes it."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Content")]),
+            ]
+        )
+
+        # Predicate that only keeps Paragraph nodes (excludes Document)
+        filtered = filter_nodes(doc, lambda n: isinstance(n, Paragraph))
+
+        # Should still return a Document, not None
+        assert isinstance(filtered, Document)
+        # But children should be filtered
+        assert len(filtered.children) == 1
+        assert isinstance(filtered.children[0], Paragraph)
+
 
 @pytest.mark.unit
 class TestTransformNodes:

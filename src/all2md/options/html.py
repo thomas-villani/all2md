@@ -113,6 +113,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         ... )
 
     """
+    # TODO: move magic numbers/strings to constants.py
 
     standalone: bool = field(
         default=True,
@@ -158,7 +159,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         }
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
-        default="pass-through",
+        default="escape",
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": ["pass-through", "escape", "drop", "sanitize"]

@@ -690,6 +690,11 @@ def filter_nodes(doc: Document, predicate: Callable[[Node], bool]) -> Document:
     Document
         New document with filtered nodes
 
+    Notes
+    -----
+    The root Document node is always preserved, regardless of the predicate.
+    Only the children of the Document are filtered according to the predicate.
+
     Examples
     --------
     Remove all images:
@@ -701,13 +706,28 @@ def filter_nodes(doc: Document, predicate: Callable[[Node], bool]) -> Document:
     """
 
     class FilterTransformer(NodeTransformer):
+        def visit_document(self, node: Document) -> Document:
+            # Always preserve the Document root, only filter children
+            return Document(
+                children=self._transform_children(node.children),
+                metadata=node.metadata.copy(),
+                source_location=node.source_location,
+            )
+
         def transform(self, node: Node) -> Node | None:
+            # Document is always preserved (handled by visit_document)
+            if isinstance(node, Document):
+                return super().transform(node)
+            # Apply predicate to all other nodes
             if not predicate(node):
                 return None
             return super().transform(node)
 
     transformer = FilterTransformer()
-    return transformer.transform(doc)  # type: ignore
+    result = transformer.transform(doc)
+    # The FilterTransformer always preserves the Document root, so this is safe
+    assert isinstance(result, Document), "FilterTransformer must always return a Document"
+    return result
 
 
 def transform_nodes(doc: Document, transformer: NodeTransformer) -> Document:

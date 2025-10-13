@@ -896,6 +896,65 @@ def _generate_toc_list(sections: list[Section], flat: bool) -> List:
         return _generate_toc_list(sections, flat=True)
 
 
+def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:
+    """Build table of contents as AST nodes directly without markdown round-trip.
+
+    This function generates the same structure as the markdown-style TOC but builds
+    the AST nodes directly instead of generating markdown and parsing it back.
+
+    Parameters
+    ----------
+    sections : list of Section
+        Sections to include in TOC
+    max_level : int
+        Maximum heading level to include
+
+    Returns
+    -------
+    list of Node
+        List containing Heading and List nodes for the TOC
+
+    Notes
+    -----
+    This function avoids the coupling issue of generating markdown text and then
+    parsing it back to AST, which creates a circular dependency on the markdown parser.
+
+    """
+    from all2md.ast.nodes import Link
+
+    if not sections:
+        return []
+
+    # Create TOC heading
+    toc_heading = Heading(level=1, content=[Text(content="Table of Contents")])
+
+    # Build list items with links
+    items = []
+    for section in sections:
+        if section.level > max_level:
+            continue
+
+        # Extract heading text and create slug
+        heading_text = section.get_heading_text()
+        slug = heading_text.lower().replace(" ", "-").replace(".", "")
+
+        # Create link node
+        link = Link(
+            url=f"#{slug}",
+            content=[Text(content=heading_text)],
+            title=None
+        )
+
+        # Create list item
+        list_item = ListItem(children=[Paragraph(content=[link])])
+        items.append(list_item)
+
+    # Create list
+    toc_list = List(ordered=False, items=items, tight=True)
+
+    return [toc_heading, toc_list]
+
+
 def insert_toc(
         doc: Document,
         position: Literal["start", "after_first_heading"] = "start",
@@ -925,15 +984,15 @@ def insert_toc(
     >>> doc_with_toc = insert_toc(doc, position="start", max_level=3)
 
     """
-    toc_content = generate_toc(doc, max_level=max_level, style=style)
-
-    # Convert TOC to nodes
-    if isinstance(toc_content, str):
-        # Parse markdown TOC back to nodes
-        from all2md import to_ast
-        toc_doc = to_ast(toc_content, source_format="markdown")
-        toc_nodes = toc_doc.children
-    else:  # List node
+    # Build TOC as AST nodes directly to avoid markdown parsing round-trip
+    if style == "markdown":
+        sections = get_all_sections(doc, min_level=1, max_level=max_level)
+        toc_nodes = _build_toc_ast(sections, max_level)
+    else:
+        # For "list" and "nested" styles, use generate_toc which already returns AST
+        toc_content = generate_toc(doc, max_level=max_level, style=style)
+        # When style is not "markdown", generate_toc returns a List node
+        assert isinstance(toc_content, List), "generate_toc must return List for non-markdown styles"
         toc_nodes = [toc_content]
 
     # Determine insert position
