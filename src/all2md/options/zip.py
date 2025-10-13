@@ -15,7 +15,7 @@ from all2md.options.base import BaseParserOptions
 
 @dataclass(frozen=True)
 class ZipOptions(BaseParserOptions):
-    """Configuration options for ZIP archive to Markdown conversion.
+    r"""Configuration options for ZIP archive to Markdown conversion.
 
     This dataclass contains settings specific to ZIP/archive processing,
     including file filtering, directory structure handling, and attachment extraction.

@@ -399,12 +399,9 @@ Apply AST transforms before rendering to any format:
    for transform in transforms:
        doc_ast = transform.transform(doc_ast)
 
-   # Render to any format with transforms applied (returns file-like objects)
-   docx_buffer = from_ast(doc_ast, target_format='docx')
-   docx_bytes = docx_buffer.getvalue()
-
-   html_buffer = from_ast(doc_ast, target_format='html')
-   html = html_buffer.getvalue()
+   # Render to any format with transforms applied (returns bytes/str directly)
+   docx_bytes = from_ast(doc_ast, target_format='docx')
+   html = from_ast(doc_ast, target_format='html')
 
 Content Aggregation
 ~~~~~~~~~~~~~~~~~~~
@@ -692,12 +689,10 @@ Best Practices
 
       # Round-trip
       ast1 = to_ast('document.md')
-      docx_buffer = from_ast(ast1, target_format='docx')
-      docx_bytes = docx_buffer.getvalue()  # Extract bytes
+      docx_bytes = from_ast(ast1, target_format='docx')
 
       ast2 = to_ast(docx_bytes, format='docx')
-      roundtrip_buffer = from_ast(ast2, target_format='markdown')
-      roundtrip_md = roundtrip_buffer.getvalue()  # Extract string
+      roundtrip_md = from_ast(ast2, target_format='markdown')
 
       # Compare (note: formatting may differ)
       assert len(original_md) > 0

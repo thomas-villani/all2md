@@ -655,9 +655,9 @@ def from_ast(
     target_format : DocumentFormat
         Target format name (e.g., "markdown", "docx", "pdf")
     output : str, Path, IO[bytes], IO[str], or None, optional
-        Output destination. If None, returns rendered content as file-like object.
+        Output destination. If None, returns rendered content directly.
         Can be:
-        - None: Returns StringIO (for text formats) or BytesIO (for binary formats)
+        - None: Returns str (for text formats) or bytes (for binary formats)
         - str or Path: Writes content to file at that path
         - IO[bytes]: Writes content to binary file-like object
         - IO[str]: Writes content to text file-like object
