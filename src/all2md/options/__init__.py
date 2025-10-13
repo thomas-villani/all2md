@@ -6,19 +6,7 @@ modules in the all2md library. Using dataclasses provides type safety,
 default values, and a clean API for configuring conversion behavior.
 
 Each converter module has its own Options dataclass with module-specific
-parameters, plus a shared MarkdownOptions class for common Markdown formatting
-settings that apply across multiple parsers.
-
-Options Classes
----------------
-- MarkdownOptions: Common Markdown formatting settings
-- PdfOptions: PDF-specific conversion settings
-- DocxOptions: Word document conversion settings
-- HtmlOptions: HTML conversion settings
-- PptxOptions: PowerPoint conversion settings
-- EmlOptions: Email conversion settings
-- Markdown2PdfOptions: Markdown-to-PDF conversion settings
-- Markdown2DocxOptions: Markdown-to-Word conversion settings
+parameters.
 """
 from __future__ import annotations
 
@@ -43,6 +31,7 @@ from all2md.options.mhtml import MhtmlOptions
 from all2md.options.odp import OdpOptions
 from all2md.options.ods import OdsSpreadsheetOptions
 from all2md.options.odt import OdtOptions
+from all2md.options.org import OrgParserOptions, OrgRendererOptions
 from all2md.options.pdf import PdfOptions, PdfRendererOptions
 from all2md.options.pptx import PptxOptions, PptxRendererOptions
 from all2md.options.rst import RstParserOptions, RstRendererOptions
@@ -112,6 +101,8 @@ __all__ = [
     "OdpOptions",
     "OdsSpreadsheetOptions",
     "OdtOptions",
+    "OrgParserOptions",
+    "OrgRendererOptions",
     "PdfOptions",
     "PdfRendererOptions",
     "PptxOptions",

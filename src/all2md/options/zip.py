@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
-# ${DIR_PATH}/${FILE_NAME}
+# src/all2md/options/zip.py
 """Configuration options for ZIP archive parsing.
 
 This module defines options for parsing ZIP files with resource extraction.

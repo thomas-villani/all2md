@@ -781,6 +781,149 @@ class TestGenerateTOC:
         assert "H3" not in toc
         assert "H4" not in toc
 
+    def test_generate_nested_toc_two_levels(self):
+        """Test generating nested TOC with two levels (H1 > H2)."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text("Chapter 1")]),
+            Paragraph(content=[Text("Content")]),
+            Heading(level=2, content=[Text("Section 1.1")]),
+            Paragraph(content=[Text("Content")]),
+            Heading(level=2, content=[Text("Section 1.2")]),
+            Paragraph(content=[Text("Content")]),
+            Heading(level=1, content=[Text("Chapter 2")]),
+            Paragraph(content=[Text("Content")]),
+        ])
+
+        toc = generate_toc(doc, max_level=3, style="nested")
+
+        assert isinstance(toc, List)
+        # Should have 2 top-level items (Chapter 1 and Chapter 2)
+        assert len(toc.items) == 2
+
+        # First item should be Chapter 1
+        first_item = toc.items[0]
+        assert len(first_item.children) == 2  # Paragraph + nested List
+        assert isinstance(first_item.children[0], Paragraph)
+
+        # Check nested list exists under Chapter 1
+        nested_list = first_item.children[1]
+        assert isinstance(nested_list, List)
+        # Should have 2 nested items (Section 1.1 and 1.2)
+        assert len(nested_list.items) == 2
+
+    def test_generate_nested_toc_three_levels(self):
+        """Test generating nested TOC with three levels (H1 > H2 > H3)."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text("Chapter 1")]),
+            Heading(level=2, content=[Text("Section 1.1")]),
+            Heading(level=3, content=[Text("Subsection 1.1.1")]),
+            Heading(level=3, content=[Text("Subsection 1.1.2")]),
+            Heading(level=2, content=[Text("Section 1.2")]),
+        ])
+
+        toc = generate_toc(doc, max_level=3, style="nested")
+
+        assert isinstance(toc, List)
+        # Top level: Chapter 1
+        assert len(toc.items) == 1
+
+        # Chapter 1 should have nested list
+        chapter1_item = toc.items[0]
+        chapter1_nested = chapter1_item.children[1]
+        assert isinstance(chapter1_nested, List)
+        # Two sections under Chapter 1
+        assert len(chapter1_nested.items) == 2
+
+        # Section 1.1 should have nested list with 2 subsections
+        section11_item = chapter1_nested.items[0]
+        section11_nested = section11_item.children[1]
+        assert isinstance(section11_nested, List)
+        assert len(section11_nested.items) == 2
+
+    def test_generate_nested_toc_level_jumps(self):
+        """Test generating nested TOC with level jumps (H1 > H3)."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text("Chapter 1")]),
+            Heading(level=3, content=[Text("Subsection 1.0.1")]),  # Skip H2
+            Heading(level=1, content=[Text("Chapter 2")]),
+        ])
+
+        toc = generate_toc(doc, max_level=3, style="nested")
+
+        assert isinstance(toc, List)
+        # Two top-level items
+        assert len(toc.items) == 2
+
+        # Chapter 1 should have nested structure even with level jump
+        chapter1_item = toc.items[0]
+        assert len(chapter1_item.children) == 2  # Paragraph + nested List
+
+        # There should be an intermediate level created
+        intermediate_list = chapter1_item.children[1]
+        assert isinstance(intermediate_list, List)
+
+    def test_generate_nested_toc_empty_document(self):
+        """Test generating nested TOC from empty document."""
+        doc = Document(children=[])
+
+        toc = generate_toc(doc, style="nested")
+
+        assert isinstance(toc, List)
+        assert len(toc.items) == 0
+
+    def test_generate_nested_toc_back_to_higher_level(self):
+        """Test nested TOC correctly handles returning to higher levels."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text("Chapter 1")]),
+            Heading(level=2, content=[Text("Section 1.1")]),
+            Heading(level=3, content=[Text("Subsection 1.1.1")]),
+            Heading(level=1, content=[Text("Chapter 2")]),  # Back to H1
+            Heading(level=2, content=[Text("Section 2.1")]),
+        ])
+
+        toc = generate_toc(doc, max_level=3, style="nested")
+
+        assert isinstance(toc, List)
+        # Two top-level chapters
+        assert len(toc.items) == 2
+
+        # Verify Chapter 2 has its own nested structure
+        chapter2_item = toc.items[1]
+        assert len(chapter2_item.children) == 2
+        chapter2_nested = chapter2_item.children[1]
+        assert isinstance(chapter2_nested, List)
+        assert len(chapter2_nested.items) == 1  # Section 2.1
+
+    def test_generate_nested_vs_flat_toc(self):
+        """Test that nested and flat TOC have same number of total items."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text("Chapter 1")]),
+            Heading(level=2, content=[Text("Section 1.1")]),
+            Heading(level=2, content=[Text("Section 1.2")]),
+            Heading(level=1, content=[Text("Chapter 2")]),
+        ])
+
+        flat_toc = generate_toc(doc, style="list")
+        nested_toc = generate_toc(doc, style="nested")
+
+        # Count items in flat TOC
+        flat_count = len(flat_toc.items)
+
+        # Count items in nested TOC (recursively)
+        def count_nested_items(lst):
+            count = 0
+            for item in lst.items:
+                count += 1
+                for child in item.children:
+                    if isinstance(child, List):
+                        count += count_nested_items(child)
+            return count
+
+        nested_count = count_nested_items(nested_toc)
+
+        # Both should have same total number of items
+        assert flat_count == nested_count == 4
+
 
 @pytest.mark.unit
 class TestInsertTOC:

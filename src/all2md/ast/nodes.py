@@ -1579,15 +1579,35 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
     Raises
     ------
     ValueError
-        If the node type doesn't support children or if the number of
-        children doesn't match expectations
+        If the node type doesn't support children, if children are of the
+        wrong type, or if the structure is invalid
+
+    Notes
+    -----
+    Special handling for Table nodes:
+        The function inspects new_children to determine header vs body rows.
+        The first TableRow with is_header=True becomes the table header.
+        All other rows become body rows. This allows:
+        - Adding a header: Include a TableRow with is_header=True
+        - Removing a header: Omit rows with is_header=True
+        - Preserving structure: Set is_header appropriately on rows
+
+        All new_children must be TableRow instances, or ValueError is raised.
 
     Examples
     --------
-    >>> heading = Heading(level=1, content=[Text("Hello")])
-    >>> new_heading = replace_node_children(heading, [Text("Goodbye")])
-    >>> new_heading.content[0].content
-    'Goodbye'
+    Replace heading content:
+        >>> heading = Heading(level=1, content=[Text("Hello")])
+        >>> new_heading = replace_node_children(heading, [Text("Goodbye")])
+        >>> new_heading.content[0].content
+        'Goodbye'
+
+    Add header to table:
+        >>> table = Table(rows=[TableRow(cells=[...], is_header=False)])
+        >>> header = TableRow(cells=[...], is_header=True)
+        >>> new_table = replace_node_children(table, [header] + table.rows)
+        >>> new_table.header is not None
+        True
 
     """
     from dataclasses import replace
@@ -1608,11 +1628,25 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
 
     # Table needs special handling
     if isinstance(node, Table):
-        # First child is header (optional), rest are rows
-        if node.header and new_children:
-            return replace(node, header=new_children[0], rows=new_children[1:])  # type: ignore[arg-type]
-        else:
-            return replace(node, header=None, rows=new_children)  # type: ignore[arg-type]
+        # Determine header and rows based on new_children state (not old state)
+        # Find first TableRow with is_header=True, if any
+        header_row: TableRow | None = None
+        body_rows: list[TableRow] = []
+
+        for child in new_children:
+            if not isinstance(child, TableRow):
+                raise ValueError(
+                    f"Table children must be TableRow instances, got {type(child).__name__}. "
+                    f"Use get_node_children() to understand the expected structure."
+                )
+            if child.is_header and header_row is None:
+                # First row marked as header becomes the header
+                header_row = child
+            else:
+                # All other rows (including additional rows marked is_header) go to body
+                body_rows.append(child)
+
+        return replace(node, header=header_row, rows=body_rows)  # type: ignore[arg-type]
 
     # TableRow has cells
     if isinstance(node, TableRow):

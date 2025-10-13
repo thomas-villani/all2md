@@ -875,6 +875,13 @@ def _generate_toc_list(sections: list[Section], flat: bool) -> List:
     List
         List node containing TOC
 
+    Notes
+    -----
+    When flat=False, the function builds a nested list structure that respects
+    the heading hierarchy. Headings at level N are nested under the most recent
+    heading at level N-1. If there are level jumps (e.g., H1 directly to H3),
+    intermediate lists are created as needed.
+
     """
     if flat:
         # Flat list with all headings
@@ -890,10 +897,91 @@ def _generate_toc_list(sections: list[Section], flat: bool) -> List:
 
         return List(ordered=False, items=items)
     else:
-        # Nested list respecting hierarchy
-        # This is more complex - for now, return flat list
-        # TODO: Implement proper nesting
-        return _generate_toc_list(sections, flat=True)
+        # Nested list respecting hierarchy using stack-based algorithm
+        if not sections:
+            return List(ordered=False, items=[])
+
+        # Find the minimum level to use as the base
+        min_level = min((s.level for s in sections), default=1)
+
+        # Root list for top-level items
+        root_list = List(ordered=False, items=[])
+
+        # Stack tracks (list_node, level) tuples
+        # The level in the stack represents which heading level items in that list represent
+        stack: list[tuple[List, int]] = [(root_list, min_level)]
+
+        for section in sections:
+            level = section.level
+            heading_text = section.get_heading_text()
+
+            # Pop stack while current stack level > section level
+            # This handles moving back up the hierarchy
+            while len(stack) > 1 and stack[-1][1] > level:
+                stack.pop()
+
+            # Get current list and level
+            current_list, current_level = stack[-1]
+
+            # Create intermediate levels if needed (level jumps like H1 -> H3)
+            while current_level < level - 1:
+                # Create an intermediate list and item
+                if not current_list.items:
+                    # Need a parent item to nest under, create empty one
+                    empty_item = ListItem(children=[])
+                    current_list.items.append(empty_item)
+
+                # Get the last item to nest under
+                last_item = current_list.items[-1]
+
+                # Create nested list for intermediate level
+                intermediate_list = List(ordered=False, items=[])
+                last_item.children.append(intermediate_list)
+
+                # Move to intermediate level
+                current_level += 1
+                stack.append((intermediate_list, current_level))
+                current_list = intermediate_list
+
+            # Create the list item for this section
+            item = ListItem(children=[
+                Paragraph(content=[Text(content=heading_text)])
+            ])
+
+            if level == current_level:
+                # Same level: add as sibling to current list
+                current_list.items.append(item)
+            elif level == current_level + 1:
+                # One level deeper: nest under last item in current list
+                if not current_list.items:
+                    # No items yet, add to current level instead
+                    current_list.items.append(item)
+                else:
+                    # Get the last item to nest under
+                    last_item = current_list.items[-1]
+
+                    # Create nested list if it doesn't exist
+                    nested_list = None
+                    for child in last_item.children:
+                        if isinstance(child, List):
+                            nested_list = child
+                            break
+
+                    if nested_list is None:
+                        nested_list = List(ordered=False, items=[])
+                        last_item.children.append(nested_list)
+
+                    # Add item to nested list
+                    nested_list.items.append(item)
+
+                    # Push nested list onto stack for future deeper items
+                    stack.append((nested_list, level))
+            else:
+                # Level > current_level + 1: should have been handled by intermediate levels
+                # Add to current list as fallback
+                current_list.items.append(item)
+
+        return root_list
 
 
 def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:

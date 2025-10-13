@@ -830,3 +830,234 @@ class TestHTMLValidation:
         visitor2 = ValidationVisitor(strict=False, allow_raw_html=False)
         visitor2.visit_paragraph(para)
         assert len(visitor2.errors) == 1
+
+
+@pytest.mark.unit
+class TestReplaceNodeChildren:
+    """Tests for replace_node_children helper function."""
+
+    def test_replace_node_children_import(self):
+        """Test that replace_node_children can be imported."""
+        from all2md.ast.nodes import replace_node_children
+        assert callable(replace_node_children)
+
+    def test_replace_heading_content(self):
+        """Test replacing heading content."""
+        from all2md.ast.nodes import replace_node_children
+
+        heading = Heading(level=1, content=[Text(content="Old")])
+        new_heading = replace_node_children(heading, [Text(content="New")])
+
+        assert isinstance(new_heading, Heading)
+        assert new_heading.level == 1
+        assert len(new_heading.content) == 1
+        assert new_heading.content[0].content == "New"
+        # Original unchanged
+        assert heading.content[0].content == "Old"
+
+    def test_replace_paragraph_content(self):
+        """Test replacing paragraph content."""
+        from all2md.ast.nodes import replace_node_children
+
+        para = Paragraph(content=[Text(content="Old")])
+        new_para = replace_node_children(para, [Text(content="New")])
+
+        assert isinstance(new_para, Paragraph)
+        assert len(new_para.content) == 1
+        assert new_para.content[0].content == "New"
+
+    def test_replace_document_children(self):
+        """Test replacing document children."""
+        from all2md.ast.nodes import replace_node_children
+
+        doc = Document(children=[Paragraph(content=[Text(content="Old")])])
+        new_children = [Heading(level=1, content=[Text(content="New")])]
+        new_doc = replace_node_children(doc, new_children)
+
+        assert isinstance(new_doc, Document)
+        assert len(new_doc.children) == 1
+        assert isinstance(new_doc.children[0], Heading)
+
+    def test_replace_list_items(self):
+        """Test replacing list items."""
+        from all2md.ast.nodes import replace_node_children
+
+        lst = List(ordered=False, items=[
+            ListItem(children=[Paragraph(content=[Text(content="Old")])])
+        ])
+        new_items = [
+            ListItem(children=[Paragraph(content=[Text(content="New 1")])]),
+            ListItem(children=[Paragraph(content=[Text(content="New 2")])])
+        ]
+        new_list = replace_node_children(lst, new_items)
+
+        assert isinstance(new_list, List)
+        assert len(new_list.items) == 2
+
+    def test_replace_table_children_add_header(self):
+        """Test adding header to headerless table."""
+        from all2md.ast.nodes import replace_node_children
+
+        # Original table without header
+        table = Table(rows=[
+            TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False),
+            TableRow(cells=[TableCell(content=[Text(content="Row 2")])], is_header=False)
+        ])
+
+        # New children with header
+        new_header = TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True)
+        new_children = [new_header] + table.rows
+
+        new_table = replace_node_children(table, new_children)
+
+        assert isinstance(new_table, Table)
+        assert new_table.header is not None
+        assert new_table.header.is_header is True
+        assert new_table.header.cells[0].content[0].content == "Header"
+        assert len(new_table.rows) == 2
+
+    def test_replace_table_children_remove_header(self):
+        """Test removing header from table."""
+        from all2md.ast.nodes import replace_node_children
+
+        # Original table with header
+        header = TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True)
+        table = Table(
+            header=header,
+            rows=[
+                TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False)
+            ]
+        )
+
+        # New children without header (all rows have is_header=False)
+        new_children = [
+            TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False),
+            TableRow(cells=[TableCell(content=[Text(content="Row 2")])], is_header=False)
+        ]
+
+        new_table = replace_node_children(table, new_children)
+
+        assert isinstance(new_table, Table)
+        assert new_table.header is None
+        assert len(new_table.rows) == 2
+
+    def test_replace_table_children_change_header(self):
+        """Test changing header of table."""
+        from all2md.ast.nodes import replace_node_children
+
+        # Original table with header
+        old_header = TableRow(cells=[TableCell(content=[Text(content="Old Header")])], is_header=True)
+        table = Table(
+            header=old_header,
+            rows=[
+                TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False)
+            ]
+        )
+
+        # New children with different header
+        new_header = TableRow(cells=[TableCell(content=[Text(content="New Header")])], is_header=True)
+        new_children = [new_header, table.rows[0]]
+
+        new_table = replace_node_children(table, new_children)
+
+        assert isinstance(new_table, Table)
+        assert new_table.header is not None
+        assert new_table.header.cells[0].content[0].content == "New Header"
+        assert len(new_table.rows) == 1
+
+    def test_replace_table_children_preserve_header(self):
+        """Test preserving header while changing rows."""
+        from all2md.ast.nodes import replace_node_children
+
+        # Original table with header
+        header = TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True)
+        table = Table(
+            header=header,
+            rows=[
+                TableRow(cells=[TableCell(content=[Text(content="Old Row")])], is_header=False)
+            ]
+        )
+
+        # Keep header, change rows
+        new_children = [
+            header,
+            TableRow(cells=[TableCell(content=[Text(content="New Row 1")])], is_header=False),
+            TableRow(cells=[TableCell(content=[Text(content="New Row 2")])], is_header=False)
+        ]
+
+        new_table = replace_node_children(table, new_children)
+
+        assert isinstance(new_table, Table)
+        assert new_table.header is not None
+        assert new_table.header is header
+        assert len(new_table.rows) == 2
+        assert new_table.rows[0].cells[0].content[0].content == "New Row 1"
+
+    def test_replace_table_children_multiple_headers_only_first_used(self):
+        """Test that only first row with is_header=True becomes header."""
+        from all2md.ast.nodes import replace_node_children
+
+        table = Table(rows=[])
+
+        # Multiple rows marked as header
+        new_children = [
+            TableRow(cells=[TableCell(content=[Text(content="Header 1")])], is_header=True),
+            TableRow(cells=[TableCell(content=[Text(content="Header 2")])], is_header=True),
+            TableRow(cells=[TableCell(content=[Text(content="Row")])], is_header=False)
+        ]
+
+        new_table = replace_node_children(table, new_children)
+
+        assert isinstance(new_table, Table)
+        assert new_table.header is not None
+        assert new_table.header.cells[0].content[0].content == "Header 1"
+        # Second "header" and regular row become body rows
+        assert len(new_table.rows) == 2
+
+    def test_replace_table_children_empty_list(self):
+        """Test replacing table children with empty list."""
+        from all2md.ast.nodes import replace_node_children
+
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True),
+            rows=[TableRow(cells=[TableCell(content=[Text(content="Row")])], is_header=False)]
+        )
+
+        new_table = replace_node_children(table, [])
+
+        assert isinstance(new_table, Table)
+        assert new_table.header is None
+        assert new_table.rows == []
+
+    def test_replace_table_children_wrong_type_raises_error(self):
+        """Test that non-TableRow children raise ValueError."""
+        from all2md.ast.nodes import replace_node_children
+
+        table = Table(rows=[])
+
+        # Try to add a Paragraph as child (invalid)
+        new_children = [Paragraph(content=[Text(content="Invalid")])]
+
+        with pytest.raises(ValueError, match="Table children must be TableRow instances"):
+            replace_node_children(table, new_children)
+
+    def test_replace_table_row_cells(self):
+        """Test replacing table row cells."""
+        from all2md.ast.nodes import replace_node_children
+
+        row = TableRow(cells=[
+            TableCell(content=[Text(content="Old 1")]),
+            TableCell(content=[Text(content="Old 2")])
+        ])
+
+        new_cells = [
+            TableCell(content=[Text(content="New 1")]),
+            TableCell(content=[Text(content="New 2")]),
+            TableCell(content=[Text(content="New 3")])
+        ]
+
+        new_row = replace_node_children(row, new_cells)
+
+        assert isinstance(new_row, TableRow)
+        assert len(new_row.cells) == 3
+        assert new_row.cells[0].content[0].content == "New 1"

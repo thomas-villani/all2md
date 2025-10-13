@@ -21,7 +21,7 @@ from all2md.constants import (
     DEFAULT_NETWORK_TIMEOUT,
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_REQUIRE_HEAD_SUCCESS,
-    DEFAULT_REQUIRE_HTTPS,
+    DEFAULT_REQUIRE_HTTPS, HeaderCaseOption,
 )
 from all2md.options.base import BaseParserOptions, CloneFrozenMixin
 
@@ -268,7 +268,7 @@ class SpreadsheetParserOptions(BaseParserOptions):
             "choices": ["none", "leading", "trailing", "both"]
         }
     )
-    header_case: Literal["preserve", "title", "upper", "lower"] = field(
+    header_case: HeaderCaseOption = field(
         default="preserve",
         metadata={
             "help": "Transform header case: preserve, title, upper, or lower",

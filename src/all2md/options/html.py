@@ -201,7 +201,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         default=None,
         metadata={
             "help": "Map AST node types to custom CSS classes",
-            "exclude_from_cli": True
+            "exclude_from_cli": True  # TODO: Why exclude from CLI? Should parse json.
         }
     )
 

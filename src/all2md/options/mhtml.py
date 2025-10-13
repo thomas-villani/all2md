@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
-# ${DIR_PATH}/${FILE_NAME}
+# src/all2md/options/mhtml.py
 """Configuration options for MHTML parsing.
 
 This module defines options for parsing MHTML (MIME HTML) web archives.

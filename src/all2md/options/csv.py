@@ -8,8 +8,9 @@ This module defines options for parsing CSV files with customizable dialects.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Literal
 
+from all2md.constants import HeaderCaseOption
 from all2md.options.base import BaseParserOptions
 
 
@@ -64,7 +65,7 @@ class CsvOptions(BaseParserOptions):
     max_cols: Optional[int] = None
     truncation_indicator: str = "..."
 
-    header_case: str = field(
+    header_case: HeaderCaseOption = field(
         default="preserve",
         metadata={"help": "Transform header case: preserve, title, upper, or lower"}
     )
