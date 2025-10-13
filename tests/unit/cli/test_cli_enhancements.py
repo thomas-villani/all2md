@@ -114,6 +114,10 @@ class TestListFormatsCommand:
 
         mock_registry.get_format_info = Mock(return_value=[mock_metadata])
 
+        # Mock version functions to return proper strings instead of MagicMocks
+        mock_get_version.return_value = "1.24.0"
+        mock_check_version.return_value = (True, "1.24.0")
+
         # Test execution (plain text mode)
         result = handle_list_formats_command([])
         assert result == 0
@@ -138,6 +142,9 @@ class TestListFormatsCommand:
         mock_metadata.required_packages = [("pymupdf", "fitz", ">=1.24.0")]
 
         mock_registry.get_format_info = Mock(return_value=[mock_metadata])
+
+        # Mock version functions to return proper strings instead of MagicMocks
+        mock_get_version.return_value = "1.24.0"
         mock_check_version.return_value = (True, "1.24.0")
 
         result = handle_list_formats_command(['pdf'])

@@ -1542,7 +1542,7 @@ class TestEnhancedCLIIntegration:
             assert result in [0, 1]  # May succeed or fail depending on mocking
 
     def test_config_with_environment_variables(self):
-        """Test configuration saving and loading with environment variables."""
+        """Test that only explicit CLI arguments are saved, not environment variables."""
         import os
 
         config_file = self.temp_dir / "env_config.json"
@@ -1553,6 +1553,7 @@ class TestEnhancedCLIIntegration:
 
         try:
             # Save config with environment variables active
+            # Only the explicitly provided --markdown-emphasis-symbol should be saved
             result = main(["test.pdf", "--markdown-emphasis-symbol", "_", "--save-config", str(config_file)])
 
             assert result == 0
@@ -1564,11 +1565,12 @@ class TestEnhancedCLIIntegration:
             with open(config_file) as f:
                 config = json.load(f)
 
-            # Environment variables should be reflected in saved config
-            assert "rich" in config
-            assert config["rich"] is True
-            assert "no_summary" in config
-            assert config["no_summary"] is True
+            # Environment variables should NOT be saved to config
+            # (they are ephemeral overrides, not persistent configuration)
+            assert "rich" not in config  # Env var should not be saved
+            assert "no_summary" not in config  # Env var should not be saved
+
+            # Only explicitly provided CLI argument should be saved
             assert "markdown.emphasis_symbol" in config
             assert config["markdown.emphasis_symbol"] == "_"
 

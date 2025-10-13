@@ -935,6 +935,8 @@ class TestNewEnhancedCLIFeatures:
             args.markdown_emphasis_symbol = "_"
             args.rich = True
             args.exclude = ["*.tmp", "backup_*"]
+            # Set _provided_args to track explicitly provided arguments
+            args._provided_args = {'pdf_pages', 'markdown_emphasis_symbol', 'rich', 'exclude'}
 
             # Mock vars() to return args dict
             with patch('builtins.vars', return_value={
@@ -947,7 +949,8 @@ class TestNewEnhancedCLIFeatures:
                 'pdf_pages': '1,2,3',
                 'markdown_emphasis_symbol': '_',
                 'rich': True,
-                'exclude': ['*.tmp', 'backup_*']
+                'exclude': ['*.tmp', 'backup_*'],
+                '_provided_args': {'pdf_pages', 'markdown_emphasis_symbol', 'rich', 'exclude'}
             }):
                 save_config_to_file(args, str(config_path))
 
