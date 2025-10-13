@@ -19,7 +19,7 @@ from all2md.constants import (
     AttachmentMode,
 )
 
-_UNSET = object()
+UNSET = object()
 
 
 class CloneFrozenMixin:

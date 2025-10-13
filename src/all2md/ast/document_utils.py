@@ -44,6 +44,8 @@ Generate a table of contents:
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Callable, Literal
 
@@ -440,7 +442,11 @@ def add_section_after(
             doc.children[insert_pos:]
     )
 
-    return Document(children=new_children, metadata=doc.metadata.copy())
+    return Document(
+        children=new_children,
+        metadata=doc.metadata.copy(),
+        source_location=doc.source_location
+    )
 
 
 def add_section_before(
@@ -500,7 +506,11 @@ def add_section_before(
             doc.children[insert_pos:]
     )
 
-    return Document(children=new_children, metadata=doc.metadata.copy())
+    return Document(
+        children=new_children,
+        metadata=doc.metadata.copy(),
+        source_location=doc.source_location
+    )
 
 
 def remove_section(
@@ -545,7 +555,11 @@ def remove_section(
             doc.children[target_section.end_index:]
     )
 
-    return Document(children=new_children, metadata=doc.metadata.copy())
+    return Document(
+        children=new_children,
+        metadata=doc.metadata.copy(),
+        source_location=doc.source_location
+    )
 
 
 def replace_section(
@@ -614,7 +628,11 @@ def replace_section(
             doc.children[target_section.end_index:]
     )
 
-    return Document(children=new_children, metadata=doc.metadata.copy())
+    return Document(
+        children=new_children,
+        metadata=doc.metadata.copy(),
+        source_location=doc.source_location
+    )
 
 
 def insert_into_section(
@@ -685,7 +703,11 @@ def insert_into_section(
             doc.children[insert_pos:]
     )
 
-    return Document(children=new_children, metadata=doc.metadata.copy())
+    return Document(
+        children=new_children,
+        metadata=doc.metadata.copy(),
+        source_location=doc.source_location
+    )
 
 
 def split_by_sections(
@@ -721,7 +743,11 @@ def split_by_sections(
     if include_preamble:
         preamble = get_preamble(doc)
         if preamble:
-            documents.append(Document(children=preamble))
+            documents.append(Document(
+                children=preamble,
+                metadata=doc.metadata.copy(),
+                source_location=doc.source_location
+            ))
 
     # Convert each section to a document
     for section in sections:
@@ -824,6 +850,92 @@ def generate_toc(
         raise ValueError(f"Invalid style: {style}")
 
 
+def _slugify(text: str, seen_slugs: set[str] | None = None) -> str:
+    """Create a URL-safe slug from heading text with collision avoidance.
+
+    This function generates GitHub-flavored Markdown compatible slugs by:
+    - Normalizing Unicode characters (NFD decomposition)
+    - Converting to lowercase
+    - Replacing spaces and underscores with hyphens
+    - Removing non-alphanumeric characters (except hyphens)
+    - Collapsing multiple consecutive hyphens
+    - Stripping leading/trailing hyphens
+    - Handling collisions by appending -2, -3, etc.
+
+    Parameters
+    ----------
+    text : str
+        Heading text to slugify
+    seen_slugs : set of str or None, default = None
+        Set of previously generated slugs for collision detection.
+        If provided and the generated slug already exists, a numeric
+        suffix will be appended (-2, -3, etc.)
+
+    Returns
+    -------
+    str
+        URL-safe slug, unique if seen_slugs is provided
+
+    Examples
+    --------
+    >>> _slugify("Hello World!")
+    'hello-world'
+    >>> _slugify("API Reference (v2.0)")
+    'api-reference-v20'
+    >>> seen = set()
+    >>> slug1 = _slugify("Introduction", seen)
+    >>> seen.add(slug1)
+    >>> slug2 = _slugify("Introduction", seen)
+    >>> slug2
+    'introduction-2'
+
+    """
+    # Normalize Unicode: decompose accented characters
+    normalized = unicodedata.normalize('NFD', text)
+
+    # Remove combining characters (accents)
+    normalized = ''.join(
+        char for char in normalized
+        if unicodedata.category(char) != 'Mn'
+    )
+
+    # Convert to lowercase
+    slug = normalized.lower()
+
+    # Replace spaces and underscores with hyphens
+    slug = re.sub(r'[\s_]+', '-', slug)
+
+    # Remove all non-alphanumeric characters except hyphens
+    slug = re.sub(r'[^a-z0-9\-]', '', slug)
+
+    # Collapse multiple consecutive hyphens
+    slug = re.sub(r'-+', '-', slug)
+
+    # Strip leading and trailing hyphens
+    slug = slug.strip('-')
+
+    # If empty after processing, use a default
+    if not slug:
+        slug = 'section'
+
+    # Handle collisions if seen_slugs is provided
+    if seen_slugs is not None:
+        if slug not in seen_slugs:
+            seen_slugs.add(slug)
+            return slug
+
+        # Slug exists, find next available suffix
+        counter = 2
+        while f"{slug}-{counter}" in seen_slugs:
+            counter += 1
+
+        unique_slug = f"{slug}-{counter}"
+        seen_slugs.add(unique_slug)
+        return unique_slug
+
+    return slug
+
+
 def _generate_toc_markdown(sections: list[Section], max_level: int) -> str:
     """Generate markdown-formatted table of contents.
 
@@ -844,14 +956,15 @@ def _generate_toc_markdown(sections: list[Section], max_level: int) -> str:
         return ""
 
     lines = ["# Table of Contents", ""]
+    seen_slugs: set[str] = set()
 
     for section in sections:
         if section.level > max_level:
             continue
 
-        # Extract heading text and create slug
+        # Extract heading text and create robust slug with collision handling
         heading_text = section.get_heading_text()
-        slug = heading_text.lower().replace(" ", "-").replace(".", "")
+        slug = _slugify(heading_text, seen_slugs)
 
         # Add indentation based on level
         indent = "  " * (section.level - 1)
@@ -1018,13 +1131,15 @@ def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:
 
     # Build list items with links
     items = []
+    seen_slugs: set[str] = set()
+
     for section in sections:
         if section.level > max_level:
             continue
 
-        # Extract heading text and create slug
+        # Extract heading text and create robust slug with collision handling
         heading_text = section.get_heading_text()
-        slug = heading_text.lower().replace(" ", "-").replace(".", "")
+        slug = _slugify(heading_text, seen_slugs)
 
         # Create link node
         link = Link(
@@ -1105,7 +1220,11 @@ def insert_toc(
             doc.children[insert_pos:]
     )
 
-    return Document(children=new_children, metadata=doc.metadata.copy())
+    return Document(
+        children=new_children,
+        metadata=doc.metadata.copy(),
+        source_location=doc.source_location
+    )
 
 
 def get_preamble(doc: Document) -> list[Node]:

@@ -15,7 +15,7 @@ from typing import Any
 
 from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
 from all2md.options.ast_json import AstJsonParserOptions, AstJsonRendererOptions
-from all2md.options.base import _UNSET, BaseParserOptions, BaseRendererOptions, CloneFrozenMixin
+from all2md.options.base import UNSET, BaseParserOptions, BaseRendererOptions, CloneFrozenMixin
 from all2md.options.chm import ChmOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
 from all2md.options.csv import CsvOptions
@@ -72,7 +72,6 @@ def create_updated_options(options: Any, **kwargs: Any) -> Any:
 
 
 __all__ = [
-    "_UNSET",
     "CloneFrozenMixin",
     "BaseRendererOptions",
     "BaseParserOptions",
@@ -112,6 +111,7 @@ __all__ = [
     "RtfOptions",
     "SourceCodeOptions",
     "PlainTextOptions",
+    "UNSET",
     "XlsxOptions",
     "ZipOptions",
     "create_updated_options"

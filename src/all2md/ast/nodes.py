@@ -1646,7 +1646,7 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
                 # All other rows (including additional rows marked is_header) go to body
                 body_rows.append(child)
 
-        return replace(node, header=header_row, rows=body_rows)  # type: ignore[arg-type]
+        return replace(node, header=header_row, rows=body_rows)
 
     # TableRow has cells
     if isinstance(node, TableRow):
@@ -1658,10 +1658,13 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
 
     # DefinitionList needs special handling
     if isinstance(node, DefinitionList):
-        # Rebuild items from flat list of children
-        # This is complex, so we'll just copy the existing items
-        # (transformers should handle this case specifically)
-        return node
+        raise NotImplementedError(
+            "replace_node_children does not support DefinitionList. "
+            "DefinitionList has a complex structure with (term, descriptions) tuples "
+            "that cannot be directly replaced from a flat children list. "
+            "To modify a DefinitionList, reconstruct the items list manually "
+            "or use a specialized transformer that understands the structure."
+        )
 
     # Leaf nodes - return as-is
     return node

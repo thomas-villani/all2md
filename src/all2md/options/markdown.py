@@ -39,7 +39,7 @@ from all2md.constants import (
     UnsupportedInlineMode,
     UnsupportedTableMode,
 )
-from all2md.options.base import _UNSET, BaseParserOptions, BaseRendererOptions
+from all2md.options.base import UNSET, BaseParserOptions, BaseRendererOptions
 
 
 # src/all2md/options/markdown.py
@@ -194,7 +194,7 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     unsupported_table_mode: UnsupportedTableMode | object = field(
-        default=_UNSET,
+        default=UNSET,
         metadata={
             "help": "How to handle tables when flavor doesn't support them: "
                     "drop (skip entirely), ascii (render as ASCII art), "
@@ -203,7 +203,7 @@ class MarkdownOptions(BaseRendererOptions):
         }
     )
     unsupported_inline_mode: UnsupportedInlineMode | object = field(
-        default=_UNSET,
+        default=UNSET,
         metadata={
             "help": "How to handle inline elements unsupported by flavor: "
                     "plain (render content without formatting), "
@@ -322,10 +322,10 @@ class MarkdownOptions(BaseRendererOptions):
         flavor_defaults = get_flavor_defaults(self.flavor)
 
         # Apply flavor defaults for any fields that are still unset
-        if self.unsupported_table_mode is _UNSET:
+        if self.unsupported_table_mode is UNSET:
             object.__setattr__(self, 'unsupported_table_mode',
                                flavor_defaults['unsupported_table_mode'])
-        if self.unsupported_inline_mode is _UNSET:
+        if self.unsupported_inline_mode is UNSET:
             object.__setattr__(self, 'unsupported_inline_mode',
                                flavor_defaults['unsupported_inline_mode'])
 

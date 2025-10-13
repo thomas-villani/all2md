@@ -654,11 +654,32 @@ class ValidationVisitor(NodeVisitor):
     ----------
     strict : bool, default = True
         Whether to raise errors on validation failures
-    allow_raw_html : bool, default = True
-        Whether to allow HTMLBlock and HTMLInline nodes. When False,
-        any raw HTML content will trigger a validation error. This is
-        useful for strict security contexts where user-provided HTML
-        should be rejected.
+    allow_raw_html : bool, default = False
+        Whether to allow HTMLBlock and HTMLInline nodes. By default (False),
+        any raw HTML content will trigger a validation error for security.
+        Set to True only when you trust the HTML source and need to preserve
+        raw HTML content. This follows security best practices of default-deny
+        for potentially unsafe content.
+
+    Notes
+    -----
+    Security Considerations:
+        Raw HTML in documents can pose security risks (XSS attacks, code injection).
+        This validator defaults to rejecting HTML to enforce security best practices.
+        Only set allow_raw_html=True when:
+        - You trust the document source
+        - HTML will be sanitized before rendering
+        - You're working in a trusted/non-web context
+
+    Examples
+    --------
+    Strict validation (rejects HTML by default):
+        >>> validator = ValidationVisitor(strict=True)
+        >>> doc.accept(validator)  # Raises ValueError if HTML present
+
+    Allow HTML from trusted sources:
+        >>> validator = ValidationVisitor(strict=True, allow_raw_html=True)
+        >>> doc.accept(validator)  # Permits HTMLBlock/HTMLInline nodes
 
     """
 
@@ -676,8 +697,17 @@ class ValidationVisitor(NodeVisitor):
         DefinitionTerm, DefinitionDescription, MathBlock
     })
 
-    def __init__(self, strict: bool = True, allow_raw_html: bool = True):
-        """Initialize the validator with strictness and HTML policy."""
+    def __init__(self, strict: bool = True, allow_raw_html: bool = False):
+        """Initialize the validator with strictness and HTML policy.
+
+        Parameters
+        ----------
+        strict : bool, default = True
+            Whether to raise errors immediately on validation failures
+        allow_raw_html : bool, default = False
+            Whether to allow raw HTML nodes (security: default deny)
+
+        """
         self.strict = strict
         self.allow_raw_html = allow_raw_html
         self.errors: list[str] = []

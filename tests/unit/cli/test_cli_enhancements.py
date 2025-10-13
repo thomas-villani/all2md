@@ -556,10 +556,3 @@ class TestSecurityPresetOptionsMapping:
             assert 'alert' not in markdown
         finally:
             temp_file.unlink()
-
-    @pytest.mark.skip(reason="_merge_options was removed in options refactoring - use clone() method instead")
-    def test_merge_options_with_flat_nested_kwargs(self):
-        """Test that _merge_options correctly handles flat nested kwargs."""
-        # This test is obsolete - _merge_options was removed
-        # Options are now immutable dataclasses that use clone() method
-        pass
