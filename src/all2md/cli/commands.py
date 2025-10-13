@@ -376,6 +376,65 @@ def collect_input_files(
     return files
 
 
+def _create_list_formats_parser() -> argparse.ArgumentParser:
+    """Create argparse parser for list-formats command.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured parser for list-formats command
+
+    """
+    parser = argparse.ArgumentParser(
+        prog='all2md list-formats',
+        description='Show information about available document parsers.',
+        add_help=True
+    )
+    parser.add_argument(
+        'format',
+        nargs='?',
+        help='Show details for specific format only'
+    )
+    parser.add_argument(
+        '--available-only',
+        action='store_true',
+        help='Show only formats with satisfied dependencies'
+    )
+    parser.add_argument(
+        '--rich',
+        action='store_true',
+        help='Use rich terminal output with formatting'
+    )
+    return parser
+
+
+def _create_list_transforms_parser() -> argparse.ArgumentParser:
+    """Create argparse parser for list-transforms command.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured parser for list-transforms command
+
+    """
+    parser = argparse.ArgumentParser(
+        prog='all2md list-transforms',
+        description='Show available AST transforms.',
+        add_help=True
+    )
+    parser.add_argument(
+        'transform',
+        nargs='?',
+        help='Show details for specific transform'
+    )
+    parser.add_argument(
+        '--rich',
+        action='store_true',
+        help='Use rich terminal output'
+    )
+    return parser
+
+
 def handle_list_formats_command(args: list[str] | None = None) -> int:
     """Handle list-formats command to show available parsers.
 
@@ -390,39 +449,19 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
+    # Parse command line arguments using dedicated parser
+    parser = _create_list_formats_parser()
+    try:
+        parsed = parser.parse_args(args or [])
+    except SystemExit as e:
+        # argparse calls sys.exit() on --help or error
+        # Return the exit code
+        return e.code if isinstance(e.code, int) else 0
 
-    # Parse command line arguments for list-formats
-    specific_format = None
-    available_only = False
-    use_rich = False
-
-    if args:
-        for arg in args:
-            if arg in ('--help', '-h'):
-                print("""Usage: all2md list-formats [OPTIONS] [FORMAT]
-
-Show information about available document parsers.
-
-Arguments:
-  FORMAT              Show details for specific format only
-
-Options:
-  --available-only    Show only formats with satisfied dependencies
-  --rich              Use rich terminal output with formatting
-  -h, --help         Show this help message
-
-Examples:
-  all2md list-formats                    # List all formats
-  all2md list-formats pdf                # Show details for PDF
-  all2md list-formats --available-only   # Only show usable formats
-""")
-                return 0
-            elif arg == '--available-only':
-                available_only = True
-            elif arg == '--rich':
-                use_rich = True
-            elif not arg.startswith('-'):
-                specific_format = arg
+    # Extract parsed arguments
+    specific_format = parsed.format
+    available_only = parsed.available_only
+    use_rich = parsed.rich
 
     # Auto-discover parsers
     registry.auto_discover()
@@ -678,35 +717,18 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
+    # Parse command line arguments using dedicated parser
+    parser = _create_list_transforms_parser()
+    try:
+        parsed = parser.parse_args(args or [])
+    except SystemExit as e:
+        # argparse calls sys.exit() on --help or error
+        # Return the exit code
+        return e.code if isinstance(e.code, int) else 0
 
-    # Parse options
-    specific_transform = None
-    use_rich = False
-
-    if args:
-        for arg in args:
-            if arg in ('--help', '-h'):
-                print("""Usage: all2md list-transforms [OPTIONS] [TRANSFORM]
-
-Show available AST transforms.
-
-Arguments:
-  TRANSFORM          Show details for specific transform
-
-Options:
-  --rich            Use rich terminal output
-  -h, --help        Show this help message
-
-Examples:
-  all2md list-transforms                    # List all transforms
-  all2md list-transforms heading-offset     # Show details for specific transform
-  all2md list-transforms --rich             # Use rich output
-""")
-                return 0
-            elif arg == '--rich':
-                use_rich = True
-            elif not arg.startswith('-'):
-                specific_transform = arg
+    # Extract parsed arguments
+    specific_transform = parsed.transform
+    use_rich = parsed.rich
 
     # List transforms (auto-discovers on first access)
     transforms = transform_registry.list_transforms()

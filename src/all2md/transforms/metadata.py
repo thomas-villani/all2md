@@ -178,6 +178,175 @@ class ParameterSpec:
         flag_name = param_name.replace('_', '-')
         return f'--{flag_name}'
 
+    def get_dest_name(self, param_name: str, transform_name: str) -> str:
+        """Get argparse dest name for this parameter.
+
+        This provides a consistent naming convention for transform parameters
+        in the argparse namespace, avoiding conflicts between transforms.
+
+        Parameters
+        ----------
+        param_name : str
+            Parameter name from the transform
+        transform_name : str
+            Name of the transform
+
+        Returns
+        -------
+        str
+            Destination name for argparse (e.g., 'heading_offset_transform_offset')
+
+        Notes
+        -----
+        The dest name is constructed to avoid collisions:
+        - Format: f'{transform_name}_{param_name}'
+        - Hyphens converted to underscores for valid Python identifiers
+        - Example: 'heading-offset' transform, 'offset' param -> 'heading_offset_offset'
+
+        """
+        # Normalize names: convert hyphens to underscores
+        transform_part = transform_name.replace('-', '_')
+        param_part = param_name.replace('-', '_')
+        return f'{transform_part}_{param_part}'
+
+    def get_argparse_kwargs(self, param_name: str, transform_name: str) -> dict:
+        """Generate argparse kwargs for this parameter.
+
+        This centralizes the logic for converting ParameterSpec to argparse
+        add_argument() kwargs, ensuring consistency between CLI argument
+        definition and parameter extraction.
+
+        Parameters
+        ----------
+        param_name : str
+            Parameter name from the transform
+        transform_name : str
+            Name of the transform (for help text)
+
+        Returns
+        -------
+        dict
+            Keyword arguments for argparse.ArgumentParser.add_argument()
+
+        Notes
+        -----
+        The returned dict includes:
+        - 'action': Tracking action class (TrackingStoreAction, etc.)
+        - 'type': Python type for conversion (if applicable)
+        - 'default': Default value (if applicable)
+        - 'help': Help text
+        - 'choices': Valid choices (if specified)
+        - 'nargs': Argument count (for list types)
+        - 'dest': Destination name in namespace
+
+        Examples
+        --------
+        >>> param = ParameterSpec(type=int, default=10, help="Threshold")
+        >>> kwargs = param.get_argparse_kwargs('threshold', 'my-transform')
+        >>> # Returns: {'action': TrackingStoreAction, 'type': int,
+        >>> #           'default': 10, 'help': 'Threshold', 'dest': 'my_transform_threshold'}
+
+        """
+        # Import tracking actions here to avoid circular dependency
+        from all2md.cli.custom_actions import (
+            TrackingAppendAction,
+            TrackingStoreAction,
+            TrackingStoreFalseAction,
+            TrackingStoreTrueAction,
+        )
+
+        kwargs: dict = {
+            'help': self.help or f'{param_name} parameter for {transform_name}',
+            'dest': self.get_dest_name(param_name, transform_name),
+        }
+
+        # Set type and action based on parameter type
+        if self.type is bool:
+            # Boolean parameters use store_true/store_false actions
+            if self.default is False:
+                kwargs['action'] = TrackingStoreTrueAction
+            else:
+                kwargs['action'] = TrackingStoreFalseAction
+        elif self.type is int:
+            kwargs['action'] = TrackingStoreAction
+            kwargs['type'] = int
+        elif self.type is str:
+            kwargs['action'] = TrackingStoreAction
+            kwargs['type'] = str
+        elif self.type is list:
+            kwargs['action'] = TrackingAppendAction
+            kwargs['nargs'] = '+'
+            if self.default is not None:
+                kwargs['default'] = self.default
+        else:
+            # Default to tracking store action for other types
+            kwargs['action'] = TrackingStoreAction
+
+        # Add choices if specified
+        if self.choices:
+            kwargs['choices'] = self.choices
+
+        # Add default if not a boolean action and default is set
+        is_bool_action = kwargs.get('action') in (TrackingStoreTrueAction, TrackingStoreFalseAction)
+        if not is_bool_action and self.default is not None:
+            if 'default' not in kwargs:  # Don't override if already set (e.g., list)
+                kwargs['default'] = self.default
+
+        return kwargs
+
+    def extract_value(self, namespace: Any, dest: str) -> tuple[Any, bool]:
+        """Extract parameter value from parsed argparse namespace.
+
+        This handles extracting the value and determining if it was explicitly
+        provided by the user (vs. being a default value).
+
+        Parameters
+        ----------
+        namespace : argparse.Namespace
+            Parsed command line arguments
+        dest : str
+            Destination name in the namespace (from get_dest_name())
+
+        Returns
+        -------
+        tuple[Any, bool]
+            Tuple of (value, was_provided) where:
+            - value: The parameter value (or None if not provided)
+            - was_provided: True if user explicitly provided this value
+
+        Notes
+        -----
+        This method checks the _provided_args set in the namespace to determine
+        if a value was explicitly provided by the user. Only explicitly provided
+        values should be passed to transform constructors.
+
+        Examples
+        --------
+        >>> namespace = argparse.Namespace(
+        ...     my_transform_threshold=20,
+        ...     _provided_args={'my_transform_threshold'}
+        ... )
+        >>> param = ParameterSpec(type=int, default=10)
+        >>> value, provided = param.extract_value(namespace, 'my_transform_threshold')
+        >>> # Returns: (20, True)
+
+        """
+        # Check if the dest exists in namespace
+        if not hasattr(namespace, dest):
+            return None, False
+
+        value = getattr(namespace, dest)
+
+        # Check if explicitly provided by user (via tracking actions)
+        provided_args = getattr(namespace, '_provided_args', set())
+        was_provided = dest in provided_args
+
+        # Only return non-None values that were explicitly provided or differ from default
+        if was_provided and value is not None and value != self.default:
+            return value, True
+
+        return None, False
+
 
 @dataclass
 class TransformMetadata:

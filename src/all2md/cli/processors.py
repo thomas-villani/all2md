@@ -27,6 +27,105 @@ from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
 
 
+def _process_items_with_progress(
+        items: List[Any],
+        process_fn: Any,
+        args: argparse.Namespace,
+        description: str,
+        log_success_msg: Optional[Any] = None,
+        log_error_msg: Optional[Any] = None
+) -> Tuple[int, List[Any], List[Tuple[Any, str]]]:
+    """Process items with unified progress tracking.
+
+    This helper provides a consistent pattern for processing lists of items
+    with progress tracking (rich/tqdm/plain) and error handling.
+
+    Parameters
+    ----------
+    items : List[Any]
+        List of items to process
+    process_fn : Callable[[Any], int]
+        Processing function that takes an item and returns exit code (0 = success)
+        The function is responsible for its own error handling and should not raise.
+    args : argparse.Namespace
+        Command-line arguments containing rich, progress, skip_errors flags
+    description : str
+        Description for progress bar
+    log_success_msg : Callable[[Any], str], optional
+        Function to format success messages (takes item, returns message)
+    log_error_msg : Callable[[Any, str], str], optional
+        Function to format error messages (takes item and error, returns message)
+
+    Returns
+    -------
+    Tuple[int, List[Any], List[Tuple[Any, str]]]
+        Tuple of (max_exit_code, successful_items, failed_items_with_errors)
+
+    Notes
+    -----
+    This function centralizes the pattern:
+    1. Set up progress context (rich/tqdm/plain)
+    2. Loop through items
+    3. Process each item
+    4. Update progress
+    5. Handle errors (continue if skip_errors, otherwise break)
+    6. Return results
+
+    Examples
+    --------
+    >>> def process_file(file: Path) -> int:
+    ...     # Process file, return 0 on success
+    ...     return 0
+    >>> max_code, successes, failures = _process_items_with_progress(
+    ...     files,
+    ...     process_file,
+    ...     args,
+    ...     "Converting files",
+    ...     log_success_msg=lambda f: f"Processed {f}",
+    ...     log_error_msg=lambda f, e: f"Failed {f}: {e}"
+    ... )
+
+    """
+    from all2md.cli.progress import ProgressContext
+
+    # Determine if progress should be shown
+    show_progress = getattr(args, 'progress', False) or getattr(args, 'rich', False) or len(items) > 1
+
+    successes: List[Any] = []
+    failures: List[Tuple[Any, str]] = []
+    max_exit_code = EXIT_SUCCESS
+
+    # Use unified progress context
+    use_rich = getattr(args, 'rich', False)
+    with ProgressContext(use_rich, show_progress, len(items), description) as progress:
+        for item in items:
+            # Process item (should return exit code)
+            exit_code = process_fn(item)
+
+            if exit_code == EXIT_SUCCESS:
+                successes.append(item)
+                if log_success_msg:
+                    msg = log_success_msg(item)
+                    progress.log(msg, level='success')
+            else:
+                # Item failed - error message should have been set by process_fn
+                # For now, we track it generically
+                failures.append((item, "Processing failed"))
+                max_exit_code = max(max_exit_code, exit_code)
+
+                if log_error_msg:
+                    msg = log_error_msg(item, "Processing failed")
+                    progress.log(msg, level='error')
+
+                # Check if we should continue or break
+                if not getattr(args, 'skip_errors', False):
+                    break
+
+            progress.update()
+
+    return max_exit_code, successes, failures
+
+
 def _check_rich_available() -> bool:
     """Check if Rich library is available.
 
@@ -214,18 +313,19 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
             print("Use 'all2md list-transforms' to see available transforms", file=sys.stderr)
             raise argparse.ArgumentTypeError(f"Unknown transform: {transform_name}") from e
 
-        # Extract parameters from CLI args
+        # Extract parameters from CLI args using centralized logic
         params = {}
         for param_name, param_spec in metadata.parameters.items():
             if param_spec.cli_flag:
-                # Convert CLI flag to arg name: --heading-offset → heading_offset
-                arg_name = param_spec.cli_flag.lstrip('-').replace('-', '_')
+                # Get the dest name used in argparse namespace (consistent with builder)
+                dest = param_spec.get_dest_name(param_name, transform_name)
 
-                if hasattr(parsed_args, arg_name):
-                    value = getattr(parsed_args, arg_name)
-                    # Only include non-default values
-                    if value is not None and value != param_spec.default:
-                        params[param_name] = value
+                # Extract value using centralized extraction logic
+                # This handles default filtering and _provided_args tracking
+                value, was_provided = param_spec.extract_value(parsed_args, dest)
+
+                if was_provided:
+                    params[param_name] = value
 
         # Validate required parameters
         for param_name, param_spec in metadata.parameters.items():
@@ -676,12 +776,10 @@ def process_multi_file(
     # Otherwise, process files normally to disk
     if parsed_args.collate:
         exit_code = process_files_collated(files, parsed_args, options, format_arg, transforms)
-    elif _should_use_rich_output(parsed_args):
-        exit_code = process_with_rich_output(files, parsed_args, options, format_arg, transforms)
-    elif parsed_args.progress or len(files) > 1:
-        exit_code = process_with_progress_bar(files, parsed_args, options, format_arg, transforms)
     else:
-        exit_code = process_files_simple(files, parsed_args, options, format_arg, transforms)
+        # Use unified processing function for all modes (rich/progress/simple)
+        # This consolidates process_with_rich_output, process_with_progress_bar, and process_files_simple
+        exit_code = process_files_unified(files, parsed_args, options, format_arg, transforms)
 
     return exit_code
 
@@ -1036,56 +1134,24 @@ def process_merge_from_list(
             max_exit_code = max(max_exit_code, exit_code)
             return exit_code
 
-    # Process with rich output if requested
-    if show_progress and args.rich:
-        try:
-            from rich.console import Console
-            from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+    # Use unified progress tracking with ProgressContext
+    from all2md.cli.progress import ProgressContext
 
-            console = Console()
-            with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TaskProgressColumn(),
-                    console=console
-            ) as progress:
-                task_id = progress.add_task("[cyan]Merging files from list...", total=len(entries))
-
-                for file_path, section_title in entries:
-                    exit_code = process_entry(file_path, section_title)
-                    if exit_code == EXIT_SUCCESS:
-                        console.print(f"[green]OK[/green] Processed {file_path}")
-                    else:
-                        console.print(f"[red]ERROR[/red] {file_path}: {failed[-1][1]}")
-                        if not args.skip_errors:
-                            break
-                    progress.update(task_id, advance=1)
-
-        except ImportError:
-            print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-            return EXIT_DEPENDENCY_ERROR
-
-    # Process with tqdm progress bar if requested
-    elif show_progress:
-        try:
-            from tqdm import tqdm
-            with tqdm(entries, desc="Merging files from list", unit="file") as pbar:
-                for file_path, section_title in pbar:
-                    pbar.set_postfix_str(f"Processing {file_path.name}")
-                    exit_code = process_entry(file_path, section_title)
-                    if exit_code != EXIT_SUCCESS and not args.skip_errors:
-                        break
-        except ImportError:
-            print("Error: tqdm library not installed. Install with: pip install all2md[progress]", file=sys.stderr)
-            return EXIT_DEPENDENCY_ERROR
-
-    # Process without progress indicators
-    else:
+    use_rich = args.rich
+    with ProgressContext(use_rich, show_progress, len(entries), "Merging files from list") as progress:
         for file_path, section_title in entries:
+            progress.set_postfix(f"Processing {file_path.name}")
             exit_code = process_entry(file_path, section_title)
-            if exit_code != EXIT_SUCCESS and not args.skip_errors:
-                break
+
+            if exit_code == EXIT_SUCCESS:
+                progress.log(f"[OK] Processed {file_path}", level='success')
+            else:
+                error_msg = failed[-1][1] if failed else "Unknown error"
+                progress.log(f"[ERROR] {file_path}: {error_msg}", level='error')
+                if not args.skip_errors:
+                    break
+
+            progress.update()
 
     # If all files failed, return error
     if not merged_children:
@@ -1676,69 +1742,26 @@ def process_files_collated(
             max_exit_code = max(max_exit_code, exit_code)
         return exit_code
 
-    # Determine if we should show progress
+    # Use unified progress tracking with ProgressContext
+    from all2md.cli.progress import ProgressContext
+
     show_progress = args.progress or args.rich or len(files) > 1
+    use_rich = args.rich
 
-    # Process with rich output if requested
-    if show_progress and args.rich:
-        try:
-            from rich.console import Console
-            from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
-
-            console = Console()
-            with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TaskProgressColumn(),
-                    console=console
-            ) as progress:
-                task_id = progress.add_task("[cyan]Converting and collating files...", total=len(files))
-
-                for file in files:
-                    exit_code = process_file(file)
-                    if exit_code == EXIT_SUCCESS:
-                        console.print(f"[green]OK[/green] Processed {file}")
-                    else:
-                        console.print(f"[red]ERROR[/red] {file}: {failed[-1][1]}")
-                        if not args.skip_errors:
-                            break
-                    progress.update(task_id, advance=1)
-
-        except ImportError:
-            print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-            return EXIT_DEPENDENCY_ERROR
-
-    # Process with tqdm progress bar if requested
-    elif show_progress:
-        try:
-            from tqdm import tqdm
-            with tqdm(files, desc="Converting and collating files", unit="file") as pbar:
-                for file in pbar:
-                    pbar.set_postfix_str(f"Processing {file.name}")
-                    exit_code = process_file(file)
-                    if exit_code != EXIT_SUCCESS:
-                        print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
-                        if not args.skip_errors:
-                            break
-        except ImportError:
-            # Fallback to simple processing
-            print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
-            for file in files:
-                exit_code = process_file(file)
-                if exit_code != EXIT_SUCCESS:
-                    print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
-                    if not args.skip_errors:
-                        break
-
-    # Simple processing without progress indicators
-    else:
+    with ProgressContext(use_rich, show_progress, len(files), "Converting and collating files") as progress:
         for file in files:
+            progress.set_postfix(f"Processing {file.name}")
             exit_code = process_file(file)
-            if exit_code != EXIT_SUCCESS:
-                print(f"Error: Failed to convert {file}: {failed[-1][1]}", file=sys.stderr)
+
+            if exit_code == EXIT_SUCCESS:
+                progress.log(f"[OK] Processed {file}", level='success')
+            else:
+                error_msg = failed[-1][1] if failed else "Unknown error"
+                progress.log(f"[ERROR] {file}: {error_msg}", level='error')
                 if not args.skip_errors:
                     break
+
+            progress.update()
 
     # Output the collated result
     if collated_content:
@@ -1750,27 +1773,16 @@ def process_files_collated(
         else:
             print(final_content)
 
-    # Summary
+    # Summary using unified renderer
     if not args.no_summary:
-        if args.rich:
-            try:
-                from rich.console import Console
-                from rich.table import Table
-                console = Console()
-                table = Table(title="Collation Summary")
-                table.add_column("Status", style="cyan", no_wrap=True)
-                table.add_column("Count", style="magenta")
-
-                table.add_row("+ Successfully processed", str(len(collated_content)))
-                table.add_row("- Failed", str(len(failed)))
-                table.add_row("Total", str(len(files)))
-
-                console.print(table)
-            except ImportError:
-                pass
-        else:
-            msg = f"\nCollation complete: {len(collated_content)}/{len(files)} files processed successfully"
-            print(msg, file=sys.stderr)
+        from all2md.cli.progress import SummaryRenderer
+        renderer = SummaryRenderer(use_rich=args.rich)
+        renderer.render_conversion_summary(
+            successful=len(collated_content),
+            failed=len(failed),
+            total=len(files),
+            title="Collation Summary"
+        )
 
     return max_exit_code
 
@@ -1922,6 +1934,222 @@ def convert_single_file(
         return exit_code, str(input_path), error_msg
 
 
+def process_files_unified(
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None
+) -> int:
+    """Process files with unified progress tracking (rich/tqdm/plain).
+
+    This function consolidates the functionality of process_with_rich_output,
+    process_with_progress_bar, and process_files_simple into a single
+    implementation using the unified ProgressContext and SummaryRenderer.
+
+    Parameters
+    ----------
+    files : List[Path]
+        List of files to process
+    args : argparse.Namespace
+        Command-line arguments
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Format specification
+    transforms : list, optional
+        List of transform instances to apply
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, highest error code otherwise)
+
+    """
+    from all2md.cli.progress import ProgressContext, SummaryRenderer
+
+    # Determine base input directory for structure preservation
+    base_input_dir = None
+    if args.preserve_structure and len(files) > 0:
+        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
+
+    # Special case: single file to stdout with rich formatting
+    if len(files) == 1 and not args.out and not args.output_dir:
+        file = files[0]
+
+        # Check if we should use rich output for this
+        if _should_use_rich_output(args):
+            # Import rich components
+            from rich.markdown import Markdown
+            try:
+                from rich.console import Console
+                console = Console()
+
+                # Show progress during conversion
+                use_rich = True
+                with ProgressContext(use_rich, True, 1, f"Converting {file.name}") as progress:
+                    try:
+                        # Convert the document
+                        markdown_content = to_markdown(
+                            file,
+                            source_format=cast(Any, format_arg),
+                            transforms=transforms,
+                            **options
+                        )
+                        progress.update()
+                    except Exception as e:
+                        exit_code = get_exit_code_for_exception(e)
+                        error = str(e)
+                        if isinstance(e, ImportError):
+                            error = f"Missing dependency: {e}"
+                        elif not isinstance(e, All2MdError):
+                            error = f"Unexpected error: {e}"
+                        progress.log(f"[ERROR] {file}: {error}", level='error')
+                        return exit_code
+
+                # After progress completes, print the rich-formatted output
+                rich_kwargs = _get_rich_markdown_kwargs(args)
+                console.print(Markdown(markdown_content, **rich_kwargs))
+                return EXIT_SUCCESS
+
+            except ImportError:
+                # Fall back to plain output
+                pass
+
+        # Plain output (no rich)
+        try:
+            markdown_content = to_markdown(
+                file,
+                source_format=cast(Any, format_arg),
+                transforms=transforms,
+                **options
+            )
+            print(markdown_content)
+            return EXIT_SUCCESS
+        except Exception as e:
+            exit_code = get_exit_code_for_exception(e)
+            print(f"Error: {e}", file=sys.stderr)
+            return exit_code
+
+    # Multi-file processing
+    results: list[tuple[Path, Path | None]] = []
+    failed: list[tuple[Path, str | None]] = []
+    max_exit_code = EXIT_SUCCESS
+
+    # Determine if progress should be shown
+    show_progress = args.progress or args.rich or len(files) > 1
+    use_rich = args.rich
+
+    # Check if parallel processing is enabled
+    use_parallel = (
+        (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
+        (isinstance(args.parallel, int) and args.parallel != 1)
+    )
+
+    if use_parallel:
+        # Parallel processing with progress
+        max_workers = args.parallel if args.parallel else os.cpu_count()
+
+        with ProgressContext(use_rich, show_progress, len(files), "Converting files") as progress:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                futures = {}
+
+                # Submit files to executor
+                for file in files:
+                    target_format = getattr(args, 'output_type', 'markdown')
+                    output_path = generate_output_path(
+                        file,
+                        Path(args.output_dir) if args.output_dir else None,
+                        args.preserve_structure,
+                        base_input_dir,
+                        target_format=target_format
+                    )
+                    future = executor.submit(
+                        convert_single_file,
+                        file,
+                        output_path,
+                        options,
+                        format_arg,
+                        transforms,
+                        False,
+                        target_format
+                    )
+                    futures[future] = (file, output_path)
+
+                # Process results as they complete
+                for future in as_completed(futures):
+                    file, output_path = futures[future]
+                    result_exit_code, result_file_str, result_error = future.result()
+
+                    if result_exit_code == EXIT_SUCCESS:
+                        results.append((file, output_path))
+                        if output_path:
+                            progress.log(f"[OK] {file} -> {output_path}", level='success')
+                        else:
+                            progress.log(f"[OK] Converted {file}", level='success')
+                    else:
+                        failed.append((file, result_error))
+                        progress.log(f"[ERROR] {file}: {result_error}", level='error')
+                        max_exit_code = max(max_exit_code, result_exit_code)
+                        if not args.skip_errors:
+                            break
+
+                    progress.update()
+    else:
+        # Sequential processing with progress
+        with ProgressContext(use_rich, show_progress, len(files), "Converting files") as progress:
+            for file in files:
+                progress.set_postfix(f"Processing {file.name}")
+
+                target_format = getattr(args, 'output_type', 'markdown')
+                output_path = generate_output_path(
+                    file,
+                    Path(args.output_dir) if args.output_dir else None,
+                    args.preserve_structure,
+                    base_input_dir,
+                    target_format=target_format
+                )
+
+                result_exit_code, result_file_str, result_error = convert_single_file(
+                    file,
+                    output_path,
+                    options,
+                    format_arg,
+                    transforms,
+                    False,
+                    target_format
+                )
+
+                if result_exit_code == EXIT_SUCCESS:
+                    results.append((file, output_path))
+                    if output_path:
+                        progress.log(f"[OK] {file} -> {output_path}", level='success')
+                    else:
+                        progress.log(f"[OK] Converted {file}", level='success')
+                else:
+                    failed.append((file, result_error))
+                    progress.log(f"[ERROR] {file}: {result_error}", level='error')
+                    max_exit_code = max(max_exit_code, result_exit_code)
+                    if not args.skip_errors:
+                        break
+
+                progress.update()
+
+    # Show summary for multi-file processing
+    if not args.no_summary and len(files) > 1:
+        renderer = SummaryRenderer(use_rich=use_rich)
+        renderer.render_conversion_summary(
+            successful=len(results),
+            failed=len(failed),
+            total=len(files)
+        )
+
+    return max_exit_code
+
+
+# TODO: remove - replaced by process_files_unified()
+# This function is deprecated and no longer called. It has been replaced by
+# process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_with_rich_output(
         files: List[Path],
         args: argparse.Namespace,
@@ -2145,6 +2373,9 @@ def process_with_rich_output(
     return max_exit_code
 
 
+# TODO: remove - replaced by process_files_unified()
+# This function is deprecated and no longer called. It has been replaced by
+# process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_with_progress_bar(
         files: List[Path],
         args: argparse.Namespace,
@@ -2228,6 +2459,9 @@ def process_with_progress_bar(
     return max_exit_code
 
 
+# TODO: remove - replaced by process_files_unified()
+# This function is deprecated and no longer called. It has been replaced by
+# process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_files_simple(
         files: List[Path],
         args: argparse.Namespace,

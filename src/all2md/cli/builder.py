@@ -625,48 +625,21 @@ class DynamicCLIBuilder:
                 metadata = transform_registry.get_metadata(transform_name)
 
                 for param_name, param_spec in metadata.parameters.items():
+                    # Get CLI flag - use explicit cli_flag if specified, otherwise auto-generate
+                    cli_flag = param_spec.get_cli_flag(param_name)
+
+                    # Skip parameters not exposed to CLI (no explicit cli_flag and not auto-generated)
                     if not param_spec.cli_flag:
+                        # For backwards compatibility: only add if there was an explicit cli_flag before
+                        # This maintains the original behavior where params without cli_flag were skipped
                         continue
 
-                    # Build argparse kwargs from ParameterSpec
-                    kwargs: Dict[str, Any] = {
-                        'help': param_spec.help or f'{param_name} parameter for {transform_name}',
-                    }
+                    # Get argparse kwargs from ParameterSpec (centralized logic)
+                    # This includes action, type, default, help, choices, dest, etc.
+                    kwargs = param_spec.get_argparse_kwargs(param_name, transform_name)
 
-                    # Set type and action based on parameter type (using tracking actions)
-                    if param_spec.type is bool:
-                        # Boolean parameters use tracking store_true/store_false
-                        if param_spec.default is False:
-                            kwargs['action'] = TrackingStoreTrueAction
-                        else:
-                            kwargs['action'] = TrackingStoreFalseAction
-                    elif param_spec.type is int:
-                        kwargs['action'] = TrackingStoreAction
-                        kwargs['type'] = int
-                    elif param_spec.type is str:
-                        kwargs['action'] = TrackingStoreAction
-                        kwargs['type'] = str
-                    elif param_spec.type is list:
-                        kwargs['action'] = TrackingAppendAction
-                        kwargs['nargs'] = '+'
-                        if param_spec.default is not None:
-                            kwargs['default'] = param_spec.default
-                    else:
-                        # Default to tracking store action for other types
-                        kwargs['action'] = TrackingStoreAction
-
-                    # Add choices if specified
-                    if param_spec.choices:
-                        kwargs['choices'] = param_spec.choices
-
-                    # Add default if not a boolean action and default is set
-                    is_bool_action = kwargs.get('action') in (TrackingStoreTrueAction, TrackingStoreFalseAction)
-                    if not is_bool_action and param_spec.default is not None:
-                        if 'default' not in kwargs:  # Don't override if already set
-                            kwargs['default'] = param_spec.default
-
-                    # Add the argument
-                    transform_group.add_argument(param_spec.cli_flag, **kwargs)
+                    # Add the argument to the transform options group
+                    transform_group.add_argument(cli_flag, **kwargs)
 
             except Exception as e:
                 # Skip problematic transforms
