@@ -54,6 +54,11 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
+from all2md.constants import (
+    DANGEROUS_SCHEMES,
+    DEFAULT_MAX_ASSET_SIZE_BYTES,
+    SAFE_LINK_SCHEMES,
+)
 
 
 class NodeVisitor(ABC):
@@ -642,6 +647,8 @@ class ValidationVisitor(NodeVisitor):
     - Missing required fields
     - Invalid field values
     - Presence of raw HTML content (when disallowed)
+    - Block/inline containment rules (in strict mode)
+    - URL scheme validation (in strict mode)
 
     Parameters
     ----------
@@ -654,6 +661,20 @@ class ValidationVisitor(NodeVisitor):
         should be rejected.
 
     """
+
+    # Node type classification for containment validation
+    INLINE_NODES = frozenset({
+        Text, Emphasis, Strong, Code, Link, Image, LineBreak,
+        Strikethrough, Underline, Superscript, Subscript,
+        HTMLInline, MathInline, FootnoteReference
+    })
+
+    BLOCK_NODES = frozenset({
+        Document, Heading, Paragraph, CodeBlock, BlockQuote,
+        List, ListItem, Table, TableRow, TableCell, ThematicBreak,
+        HTMLBlock, FootnoteDefinition, DefinitionList,
+        DefinitionTerm, DefinitionDescription, MathBlock
+    })
 
     def __init__(self, strict: bool = True, allow_raw_html: bool = True):
         """Initialize the validator with strictness and HTML policy."""
@@ -674,6 +695,114 @@ class ValidationVisitor(NodeVisitor):
         if self.strict:
             raise ValueError(message)
 
+    def _validate_children_are_inline(self, children: list[Node], context: str) -> None:
+        """Validate that all children are inline nodes.
+
+        Parameters
+        ----------
+        children : list of Node
+            Child nodes to validate
+        context : str
+            Context description for error messages (e.g., "Heading", "Paragraph")
+
+        """
+        if not self.strict:
+            return
+
+        for i, child in enumerate(children):
+            if type(child) not in self.INLINE_NODES:
+                self._add_error(
+                    f"{context} can only contain inline nodes, but child {i} is {type(child).__name__}"
+                )
+
+    def _validate_children_are_blocks(self, children: list[Node], context: str) -> None:
+        """Validate that all children are block nodes.
+
+        Parameters
+        ----------
+        children : list of Node
+            Child nodes to validate
+        context : str
+            Context description for error messages (e.g., "ListItem", "Document")
+
+        """
+        if not self.strict:
+            return
+
+        for i, child in enumerate(children):
+            if type(child) not in self.BLOCK_NODES:
+                self._add_error(
+                    f"{context} can only contain block nodes, but child {i} is {type(child).__name__}"
+                )
+
+    def _validate_url_scheme(self, url: str, context: str, allow_data_uri: bool = False) -> None:
+        """Validate URL scheme for security.
+
+        Parameters
+        ----------
+        url : str
+            URL to validate
+        context : str
+            Context description for error messages (e.g., "Link", "Image")
+        allow_data_uri : bool, default = False
+            Whether to allow data: URIs (with additional validation)
+
+        """
+        if not self.strict or not url:
+            return
+
+        url_lower = url.lower()
+
+        # Special handling for data: URIs when explicitly allowed (for images)
+        if allow_data_uri and url_lower.startswith("data:"):
+            if url_lower.startswith("data:image/"):
+                # Validate data URI length
+                if len(url) > DEFAULT_MAX_ASSET_SIZE_BYTES:
+                    self._add_error(
+                        f"{context} data URI exceeds maximum length "
+                        f"({len(url)} > {DEFAULT_MAX_ASSET_SIZE_BYTES} bytes)"
+                    )
+                # If length is OK, allow it
+                return
+            else:
+                # data: URI but not image/* - reject it
+                self._add_error(
+                    f"{context} data URI must have image/* MIME type, got: {url[:50]}"
+                )
+                return
+
+        # Check for dangerous schemes
+        for dangerous_scheme in DANGEROUS_SCHEMES:
+            if url_lower.startswith(dangerous_scheme.lower()):
+                self._add_error(
+                    f"{context} URL uses dangerous scheme '{dangerous_scheme}': {url[:50]}"
+                )
+                return
+
+        # Check if URL has a scheme
+        if "://" in url:
+            # Extract scheme
+            scheme = url.split("://", 1)[0].lower()
+
+            # Check if scheme is in safe list
+            if scheme not in SAFE_LINK_SCHEMES:
+                self._add_error(
+                    f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}"
+                )
+                return
+        else:
+            # Check for scheme-like patterns without ://
+            # This catches things like "javascript:alert(1)" which don't have ://
+            if ":" in url and not url.startswith(("/", "#")):
+                potential_scheme = url.split(":", 1)[0].lower()
+                # Check if this looks like a dangerous scheme
+                for dangerous_scheme in DANGEROUS_SCHEMES:
+                    if dangerous_scheme.lower().startswith(potential_scheme + ":"):
+                        self._add_error(
+                            f"{context} URL uses dangerous scheme '{potential_scheme}': {url[:50]}"
+                        )
+                        return
+
     def visit_document(self, node: Document) -> None:
         """Validate a Document node."""
         for child in node.children:
@@ -683,11 +812,15 @@ class ValidationVisitor(NodeVisitor):
         """Validate a Heading node."""
         if not 1 <= node.level <= 6:
             self._add_error(f"Invalid heading level: {node.level}")
+        # Validate that heading content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Heading")
         for child in node.content:
             child.accept(self)
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Validate a Paragraph node."""
+        # Validate that paragraph content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Paragraph")
         for child in node.content:
             child.accept(self)
 
@@ -721,6 +854,8 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_list_item(self, node: ListItem) -> None:
         """Validate a ListItem node."""
+        # Validate that list item children are block nodes
+        self._validate_children_are_blocks(node.children, "ListItem")
         for child in node.children:
             child.accept(self)
 
@@ -766,6 +901,8 @@ class ValidationVisitor(NodeVisitor):
         if node.rowspan < 1:
             self._add_error(f"TableCell rowspan must be >= 1, got {node.rowspan}")
 
+        # Validate that table cell content contains only inline nodes
+        self._validate_children_are_inline(node.content, "TableCell")
         for child in node.content:
             child.accept(self)
 
@@ -790,11 +927,15 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_emphasis(self, node: Emphasis) -> None:
         """Validate an Emphasis node."""
+        # Validate that emphasis content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Emphasis")
         for child in node.content:
             child.accept(self)
 
     def visit_strong(self, node: Strong) -> None:
         """Validate a Strong node."""
+        # Validate that strong content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Strong")
         for child in node.content:
             child.accept(self)
 
@@ -808,14 +949,11 @@ class ValidationVisitor(NodeVisitor):
         if not node.url:
             self._add_error("Link url must be non-empty")
 
-        # Optionally validate schema in strict mode
-        if self.strict and node.url:
-            # Check for common valid schemes
-            valid_schemes = ['http://', 'https://', 'mailto:', 'ftp://', 'ftps://', 'tel:', '#', '/']
-            if not any(node.url.startswith(scheme) for scheme in valid_schemes):
-                # Allow relative URLs (no scheme)
-                if '://' in node.url:
-                    self._add_error(f"Link url has unrecognized scheme: {node.url}")
+        # Validate URL scheme for security (strict mode only)
+        self._validate_url_scheme(node.url, "Link", allow_data_uri=False)
+
+        # Validate that link content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Link")
 
         for child in node.content:
             child.accept(self)
@@ -826,27 +964,39 @@ class ValidationVisitor(NodeVisitor):
         if not node.url:
             self._add_error("Image url must be non-empty")
 
+        # Validate URL scheme for security (strict mode only)
+        # Allow data:image/* URIs for images with length validation
+        self._validate_url_scheme(node.url, "Image", allow_data_uri=True)
+
     def visit_line_break(self, node: LineBreak) -> None:
         """Validate a LineBreak node."""
         pass
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Validate a Strikethrough node."""
+        # Validate that strikethrough content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Strikethrough")
         for child in node.content:
             child.accept(self)
 
     def visit_underline(self, node: Underline) -> None:
         """Validate an Underline node."""
+        # Validate that underline content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Underline")
         for child in node.content:
             child.accept(self)
 
     def visit_superscript(self, node: Superscript) -> None:
         """Validate a Superscript node."""
+        # Validate that superscript content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Superscript")
         for child in node.content:
             child.accept(self)
 
     def visit_subscript(self, node: Subscript) -> None:
         """Validate a Subscript node."""
+        # Validate that subscript content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Subscript")
         for child in node.content:
             child.accept(self)
 
@@ -893,11 +1043,15 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Validate a DefinitionTerm node."""
+        # Validate that definition term content contains only inline nodes
+        self._validate_children_are_inline(node.content, "DefinitionTerm")
         for child in node.content:
             child.accept(self)
 
     def visit_definition_description(self, node: DefinitionDescription) -> None:
         """Validate a DefinitionDescription node."""
+        # Validate that definition description content contains block nodes
+        self._validate_children_are_blocks(node.content, "DefinitionDescription")
         for child in node.content:
             child.accept(self)
 

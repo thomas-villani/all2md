@@ -42,7 +42,7 @@ from all2md.constants import (
     DEFAULT_TABLE_RULING_LINE_THRESHOLD,
     DEFAULT_TRIM_HEADERS_FOOTERS,
     DEFAULT_USE_COLUMN_CLUSTERING,
-    PageSize,
+    PageSize, ColumnDetectionMode, TableDetectionMode, ImageFormat,
 )
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import PaginatedParserOptions
@@ -307,7 +307,7 @@ class PdfOptions(PaginatedParserOptions):
             "type": float
         }
     )
-    column_detection_mode: Literal["auto", "force_single", "force_multi", "disabled"] = field(
+    column_detection_mode: ColumnDetectionMode = field(
         default=DEFAULT_COLUMN_DETECTION_MODE,
         metadata={
             "help": "Column detection strategy: 'auto', 'force_single', 'force_multi', 'disabled'",
@@ -375,7 +375,7 @@ class PdfOptions(PaginatedParserOptions):
     )
 
     # Table detection mode
-    table_detection_mode: Literal["pymupdf", "ruling", "both", "none"] = field(
+    table_detection_mode: TableDetectionMode = field(
         default=DEFAULT_TABLE_DETECTION_MODE,
         metadata={
             "help": "Table detection strategy: 'pymupdf', 'ruling', 'both', or 'none'",
@@ -384,7 +384,7 @@ class PdfOptions(PaginatedParserOptions):
     )
 
     # Image format options
-    image_format: Literal["png", "jpeg"] = field(
+    image_format: ImageFormat = field(
         default=DEFAULT_IMAGE_FORMAT,
         metadata={
             "help": "Output format for extracted images: 'png' or 'jpeg'",

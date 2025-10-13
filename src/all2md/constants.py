@@ -95,6 +95,11 @@ HtmlPassthroughMode = Literal["pass-through", "escape", "drop", "sanitize"]
 
 HeaderCaseOption = Literal["preserve", "title", "upper", "lower"]
 
+ColumnDetectionMode = Literal["auto", "force_single", "force_multi", "disabled"]
+TableExtractionMode = Literal["none", "grid", "text_clustering"]
+TableDetectionMode = Literal["pymupdf", "ruling", "both", "none"]
+ImageFormat = Literal["png", "jpeg"]
+
 # ==============================================================================
 
 
@@ -142,7 +147,7 @@ DEFAULT_DETECT_COLUMNS = True
 DEFAULT_MERGE_HYPHENATED_WORDS = True
 DEFAULT_HANDLE_ROTATED_TEXT = True
 DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
-DEFAULT_COLUMN_DETECTION_MODE: Literal["auto", "force_single", "force_multi", "disabled"] = "auto"
+DEFAULT_COLUMN_DETECTION_MODE: ColumnDetectionMode = "auto"
 DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
 DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting blocks that span columns
 
@@ -150,7 +155,7 @@ DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting 
 DEFAULT_TABLE_FALLBACK_DETECTION = True
 DEFAULT_DETECT_MERGED_CELLS = True
 DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
-DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE: Literal["none", "grid", "text_clustering"] = "grid"
+DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE: TableExtractionMode = "grid"
 
 DEFAULT_IMAGE_PLACEMENT_MARKERS = True
 DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
@@ -159,10 +164,10 @@ DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
 DEFAULT_INCLUDE_PAGE_NUMBERS = False
 
 # Table detection mode constants
-DEFAULT_TABLE_DETECTION_MODE: Literal["pymupdf", "ruling", "both", "none"] = "both"
+DEFAULT_TABLE_DETECTION_MODE: TableDetectionMode = "both"
 
 # Image format constants
-DEFAULT_IMAGE_FORMAT: Literal["png", "jpeg"] = "png"
+DEFAULT_IMAGE_FORMAT: ImageFormat = "png"
 DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
 
 # Header/footer trimming constants
@@ -171,7 +176,7 @@ DEFAULT_AUTO_TRIM_HEADERS_FOOTERS = False
 DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
 DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
 
-DEFAULT_PDF_PAGE_SIZE: Literal["letter", "a4", "legal"] = "letter"
+DEFAULT_PDF_PAGE_SIZE: PageSize = "letter"
 DEFAULT_PDF_MARGIN = 72.0
 DEFAULT_PDF_FONT_FAMILY = "Helvetica"
 DEFAULT_PDF_FONT_SIZE = 12

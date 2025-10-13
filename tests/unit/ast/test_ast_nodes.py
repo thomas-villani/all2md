@@ -833,6 +833,278 @@ class TestHTMLValidation:
 
 
 @pytest.mark.unit
+class TestValidationVisitorContainmentRules:
+    """Tests for block/inline containment rule validation."""
+
+    def test_paragraph_with_list_child_fails(self):
+        """Test that Paragraph with List child fails validation in strict mode."""
+        para = Paragraph(content=[
+            Text(content="Some text"),
+            List(ordered=False, items=[ListItem(children=[])])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="Paragraph can only contain inline nodes"):
+            visitor.visit_paragraph(para)
+
+    def test_heading_with_codeblock_child_fails(self):
+        """Test that Heading with CodeBlock child fails validation in strict mode."""
+        heading = Heading(level=1, content=[
+            Text(content="Title "),
+            CodeBlock(content="code")
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="Heading can only contain inline nodes"):
+            visitor.visit_heading(heading)
+
+    def test_emphasis_with_paragraph_child_fails(self):
+        """Test that Emphasis with Paragraph child fails validation in strict mode."""
+        emphasis = Emphasis(content=[
+            Paragraph(content=[Text(content="wrong")])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="Emphasis can only contain inline nodes"):
+            visitor.visit_emphasis(emphasis)
+
+    def test_list_item_with_inline_only_fails(self):
+        """Test that ListItem with inline-only content fails validation in strict mode."""
+        list_item = ListItem(children=[
+            Text(content="This should be in a paragraph")
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="ListItem can only contain block nodes"):
+            visitor.visit_list_item(list_item)
+
+    def test_table_cell_with_block_node_fails(self):
+        """Test that TableCell with block nodes fails validation in strict mode."""
+        cell = TableCell(content=[
+            Paragraph(content=[Text(content="Should be inline")])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="TableCell can only contain inline nodes"):
+            visitor.visit_table_cell(cell)
+
+    def test_valid_nested_structures_pass(self):
+        """Test that valid nested structures pass validation."""
+        doc = Document(children=[
+            Heading(level=1, content=[
+                Text(content="Title with "),
+                Strong(content=[Text(content="bold")]),
+                Text(content=" text")
+            ]),
+            Paragraph(content=[
+                Text(content="Paragraph with "),
+                Emphasis(content=[Text(content="emphasis")]),
+                Text(content=" and "),
+                Link(url="https://example.com", content=[Text(content="link")])
+            ]),
+            List(ordered=False, items=[
+                ListItem(children=[
+                    Paragraph(content=[Text(content="Item 1")])
+                ])
+            ])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        doc.accept(visitor)
+        assert len(visitor.errors) == 0
+
+    def test_containment_not_enforced_in_non_strict_mode(self):
+        """Test that containment rules are not enforced in non-strict mode."""
+        para = Paragraph(content=[
+            Text(content="Some text"),
+            List(ordered=False, items=[ListItem(children=[])])
+        ])
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_paragraph(para)
+        assert len(visitor.errors) == 0
+
+    def test_strong_with_block_fails(self):
+        """Test that Strong with block child fails validation in strict mode."""
+        strong = Strong(content=[
+            BlockQuote(children=[Paragraph(content=[Text(content="wrong")])])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="Strong can only contain inline nodes"):
+            visitor.visit_strong(strong)
+
+    def test_link_with_block_fails(self):
+        """Test that Link with block child fails validation in strict mode."""
+        link = Link(url="https://example.com", content=[
+            Heading(level=1, content=[Text(content="wrong")])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="Link can only contain inline nodes"):
+            visitor.visit_link(link)
+
+    def test_definition_term_with_block_fails(self):
+        """Test that DefinitionTerm with block child fails validation in strict mode."""
+        term = DefinitionTerm(content=[
+            Paragraph(content=[Text(content="wrong")])
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="DefinitionTerm can only contain inline nodes"):
+            visitor.visit_definition_term(term)
+
+    def test_definition_description_with_inline_fails(self):
+        """Test that DefinitionDescription with inline-only content fails validation in strict mode."""
+        desc = DefinitionDescription(content=[
+            Text(content="Should be in a paragraph")
+        ])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="DefinitionDescription can only contain block nodes"):
+            visitor.visit_definition_description(desc)
+
+
+@pytest.mark.unit
+class TestValidationVisitorURLSecurity:
+    """Tests for URL security validation enhancements."""
+
+    def test_link_javascript_url_rejected_strict(self):
+        """Test that javascript: URLs are rejected in strict mode."""
+        link = Link(url="javascript:alert(1)", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            visitor.visit_link(link)
+
+    def test_link_vbscript_url_rejected_strict(self):
+        """Test that vbscript: URLs are rejected in strict mode."""
+        link = Link(url="vbscript:msgbox(1)", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            visitor.visit_link(link)
+
+    def test_link_data_html_rejected_strict(self):
+        """Test that data:text/html URLs are rejected in strict mode."""
+        link = Link(url="data:text/html,<script>alert(1)</script>", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            visitor.visit_link(link)
+
+    def test_link_valid_http_https_pass(self):
+        """Test that valid HTTP/HTTPS URLs pass validation."""
+        valid_urls = [
+            "http://example.com",
+            "https://example.com",
+            "https://example.com/path?query=value",
+        ]
+
+        for url in valid_urls:
+            link = Link(url=url, content=[Text(content="link")])
+            visitor = ValidationVisitor(strict=True)
+            visitor.visit_link(link)
+            assert len(visitor.errors) == 0, f"URL {url} should be valid"
+
+    def test_link_relative_urls_pass(self):
+        """Test that relative URLs pass validation."""
+        valid_urls = [
+            "#anchor",
+            "/absolute/path",
+            "relative/path",
+            "../parent/path",
+        ]
+
+        for url in valid_urls:
+            link = Link(url=url, content=[Text(content="link")])
+            visitor = ValidationVisitor(strict=True)
+            visitor.visit_link(link)
+            assert len(visitor.errors) == 0, f"URL {url} should be valid"
+
+    def test_link_mailto_tel_ftp_pass(self):
+        """Test that mailto:, tel:, ftp: URLs pass validation."""
+        valid_urls = [
+            "mailto:test@example.com",
+            "tel:+1234567890",
+            "ftp://ftp.example.com/file.txt",
+            "ftps://ftp.example.com/file.txt",
+        ]
+
+        for url in valid_urls:
+            link = Link(url=url, content=[Text(content="link")])
+            visitor = ValidationVisitor(strict=True)
+            visitor.visit_link(link)
+            assert len(visitor.errors) == 0, f"URL {url} should be valid"
+
+    def test_image_javascript_url_rejected_strict(self):
+        """Test that javascript: URLs are rejected for images in strict mode."""
+        image = Image(url="javascript:alert(1)", alt_text="test")
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            visitor.visit_image(image)
+
+    def test_image_data_image_png_passes(self):
+        """Test that valid data:image/png URLs pass validation."""
+        image = Image(
+            url="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+            alt_text="1x1 pixel"
+        )
+
+        visitor = ValidationVisitor(strict=True)
+        visitor.visit_image(image)
+        assert len(visitor.errors) == 0
+
+    def test_image_data_non_image_rejected_strict(self):
+        """Test that data: URIs with non-image MIME types are rejected for images."""
+        image = Image(url="data:text/html,<script>alert(1)</script>", alt_text="test")
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="data URI must have image"):
+            visitor.visit_image(image)
+
+    def test_image_excessively_long_data_uri_rejected_strict(self):
+        """Test that excessively long data URIs are rejected in strict mode."""
+        # Create a data URI that exceeds DEFAULT_MAX_ASSET_SIZE_BYTES
+        long_data = "data:image/png;base64," + "A" * (50 * 1024 * 1024 + 1)
+        image = Image(url=long_data, alt_text="huge")
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="exceeds maximum length"):
+            visitor.visit_image(image)
+
+    def test_url_validation_not_enforced_in_non_strict_mode(self):
+        """Test that URL validation is not enforced in non-strict mode."""
+        link = Link(url="javascript:alert(1)", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=False)
+        visitor.visit_link(link)
+        assert len(visitor.errors) == 0
+
+    def test_image_valid_http_https_pass(self):
+        """Test that valid HTTP/HTTPS image URLs pass validation."""
+        valid_urls = [
+            "http://example.com/image.png",
+            "https://example.com/image.jpg",
+        ]
+
+        for url in valid_urls:
+            image = Image(url=url, alt_text="test")
+            visitor = ValidationVisitor(strict=True)
+            visitor.visit_image(image)
+            assert len(visitor.errors) == 0, f"URL {url} should be valid"
+
+    def test_link_unknown_scheme_rejected_strict(self):
+        """Test that unknown URL schemes are rejected in strict mode."""
+        link = Link(url="unknown://example.com", content=[Text(content="link")])
+
+        visitor = ValidationVisitor(strict=True)
+        with pytest.raises(ValueError, match="unrecognized scheme"):
+            visitor.visit_link(link)
+
+
+@pytest.mark.unit
 class TestReplaceNodeChildren:
     """Tests for replace_node_children helper function."""
 
