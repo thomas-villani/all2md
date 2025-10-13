@@ -45,10 +45,10 @@ from all2md.options import DocxOptions
 from all2md.parsers.docx import DocxToAstConverter
 
 FIXTURE_FOOTNOTES_DOC = (
-    Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "footnotes-endnotes-comments.docx"
+    Path(__file__).resolve().parent.parent.parent / "fixtures" / "documents" / "footnotes-endnotes-comments.docx"
 )
 FIXTURE_MATH_DOC = (
-    Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "math-basic.docx"
+    Path(__file__).resolve().parent.parent.parent / "fixtures" / "documents" / "math-basic.docx"
 )
 
 
