@@ -36,6 +36,14 @@ class ListBuilder:
     ----------
     root : Document or None, default = None
         Root document to append lists to. If None, creates a new Document.
+    allow_placeholders : bool, default = False
+        If True, allows creation of placeholder list items when nesting without
+        a parent item. Placeholder items will be marked with metadata
+        {"placeholder": True}. If False, raises ValueError on invalid nesting.
+    default_start : int, default = 1
+        Default starting number for ordered lists
+    default_tight : bool, default = True
+        Default tight spacing for lists (True means no blank lines between items)
 
     Examples
     --------
@@ -47,17 +55,28 @@ class ListBuilder:
 
     """
 
-    def __init__(self, root: Document | None = None):
+    def __init__(
+            self,
+            root: Document | None = None,
+            allow_placeholders: bool = False,
+            default_start: int = 1,
+            default_tight: bool = True
+    ):
         """Initialize the list builder with an optional root document."""
         self.root = root or Document()
         self._list_stack: list[tuple[List, int]] = []
+        self.allow_placeholders = allow_placeholders
+        self.default_start = default_start
+        self.default_tight = default_tight
 
     def add_item(
             self,
             level: int,
             ordered: bool,
             content: list[Node],
-            task_status: Literal['checked', 'unchecked'] | None = None
+            task_status: Literal['checked', 'unchecked'] | None = None,
+            start: int | None = None,
+            tight: bool | None = None
     ) -> None:
         """Add a list item at the specified nesting level.
 
@@ -71,11 +90,18 @@ class ListBuilder:
             Block content for the list item
         task_status : {'checked', 'unchecked'} or None, default = None
             Optional task list status
+        start : int or None, default = None
+            Starting number for ordered lists. If None, uses default_start.
+            Only applies when a new list is created.
+        tight : bool or None, default = None
+            Tight spacing for lists. If None, uses default_tight.
+            Only applies when a new list is created.
 
         Raises
         ------
         ValueError
-            If level is less than 1
+            If level is less than 1, or if allow_placeholders=False and
+            nesting is attempted without a parent item
 
         """
         if level < 1:
@@ -98,7 +124,12 @@ class ListBuilder:
                 self._list_stack.pop()
 
                 # Create new list and attach to appropriate parent
-                new_list = List(ordered=ordered, items=[])
+                new_list = List(
+                    ordered=ordered,
+                    items=[],
+                    start=start if start is not None else self.default_start,
+                    tight=tight if tight is not None else self.default_tight
+                )
                 if level == 1:
                     # Top-level: attach to root
                     self.root.children.append(new_list)
@@ -116,7 +147,12 @@ class ListBuilder:
 
         # Handle nesting down: create intermediate lists as needed
         while current_level < level:
-            new_list = List(ordered=ordered, items=[])
+            new_list = List(
+                ordered=ordered,
+                items=[],
+                start=start if start is not None else self.default_start,
+                tight=tight if tight is not None else self.default_tight
+            )
 
             if current_level == 0:
                 # First list: attach to root
@@ -125,8 +161,14 @@ class ListBuilder:
                 # Nested list: attach to last item of previous level
                 parent_list = self._list_stack[-1][0]
                 if not parent_list.items:
-                    # Parent list has no items yet, create a placeholder item
-                    placeholder_item = ListItem(children=[])
+                    # Parent list has no items yet
+                    if not self.allow_placeholders:
+                        raise ValueError(
+                            f"Cannot nest to level {level} without a parent item at level {current_level}. "
+                            f"Either add an item at level {current_level} first, or enable allow_placeholders."
+                        )
+                    # Create a placeholder item with metadata
+                    placeholder_item = ListItem(children=[], metadata={"placeholder": True})
                     parent_list.items.append(placeholder_item)
 
                 parent_item = parent_list.items[-1]

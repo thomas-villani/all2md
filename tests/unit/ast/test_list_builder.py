@@ -87,8 +87,8 @@ class TestListBuilderNesting:
         assert isinstance(second_item.children[0], Paragraph)
 
     def test_multi_level_nesting(self) -> None:
-        """Test creating multi-level nested lists (level 1 -> 3)."""
-        builder = ListBuilder()
+        """Test creating multi-level nested lists (level 1 -> 3) with placeholders enabled."""
+        builder = ListBuilder(allow_placeholders=True)
         builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1")])])
         builder.add_item(level=3, ordered=False, content=[Paragraph(content=[Text(content="L3")])])
         doc = builder.get_document()
@@ -235,8 +235,8 @@ class TestListBuilderEdgeCases:
         assert len(doc.children[0].items[0].children) == 0  # type: ignore
 
     def test_complex_nesting_scenario(self) -> None:
-        """Test complex nesting scenario: 1 -> 2 -> 1 -> 3 -> 2 -> 1."""
-        builder = ListBuilder()
+        """Test complex nesting scenario: 1 -> 2 -> 1 -> 3 -> 2 -> 1 with placeholders enabled."""
+        builder = ListBuilder(allow_placeholders=True)
         builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1-1")])])
         builder.add_item(level=2, ordered=False, content=[Paragraph(content=[Text(content="L2-1")])])
         builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1-2")])])
@@ -641,3 +641,202 @@ class TestTableBuilderMultipleHeaders:
 
         assert table.header is not None
         assert len(table.rows) == 1
+
+
+@pytest.mark.unit
+class TestListBuilderPlaceholderMode:
+    """Test ListBuilder placeholder handling (Issue 11)."""
+
+    def test_placeholder_disabled_raises_error_on_level_skip(self) -> None:
+        """Test that skipping levels raises error when placeholders disabled (default)."""
+        builder = ListBuilder()
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1")])])
+
+        # Jumping to level 3 should raise error (intermediate level 2 has no items)
+        with pytest.raises(ValueError, match="Cannot nest to level 3 without a parent item at level 2"):
+            builder.add_item(level=3, ordered=False, content=[Paragraph(content=[Text(content="L3")])])
+
+    def test_placeholder_disabled_raises_error_on_direct_nest_without_parent(self) -> None:
+        """Test that nesting without parent item raises error when placeholders disabled."""
+        builder = ListBuilder()
+
+        # Starting at level 2 should raise error (intermediate level 1 has no items)
+        with pytest.raises(ValueError, match="Cannot nest to level 2 without a parent item at level 1"):
+            builder.add_item(level=2, ordered=False, content=[Paragraph(content=[Text(content="L2")])])
+
+    def test_placeholder_enabled_creates_placeholder_with_metadata(self) -> None:
+        """Test that placeholders are created with metadata when enabled."""
+        builder = ListBuilder(allow_placeholders=True)
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1")])])
+        builder.add_item(level=3, ordered=False, content=[Paragraph(content=[Text(content="L3")])])
+        doc = builder.get_document()
+
+        # Navigate to level 2 intermediate list
+        list_l1 = doc.children[0]
+        assert isinstance(list_l1, List)
+        item_l1 = list_l1.items[0]
+        list_l2 = item_l1.children[1]  # Second child (first is Paragraph)
+        assert isinstance(list_l2, List)
+
+        # Level 2 should have a placeholder item
+        assert len(list_l2.items) == 1
+        placeholder_item = list_l2.items[0]
+        assert placeholder_item.metadata.get("placeholder") is True
+
+    def test_placeholder_enabled_allows_complex_nesting(self) -> None:
+        """Test that complex level jumps work with placeholders enabled."""
+        builder = ListBuilder(allow_placeholders=True)
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1")])])
+        builder.add_item(level=4, ordered=False, content=[Paragraph(content=[Text(content="L4")])])
+        doc = builder.get_document()
+
+        # Should create intermediate levels 2 and 3 with placeholders
+        list_l1 = doc.children[0]
+        item_l1 = list_l1.items[0]
+
+        # Check level 2 has placeholder
+        list_l2 = item_l1.children[1]
+        assert isinstance(list_l2, List)
+        assert list_l2.items[0].metadata.get("placeholder") is True
+
+        # Check level 3 has placeholder
+        list_l3 = list_l2.items[0].children[0]
+        assert isinstance(list_l3, List)
+        assert list_l3.items[0].metadata.get("placeholder") is True
+
+        # Check level 4 has real content
+        list_l4 = list_l3.items[0].children[0]
+        assert isinstance(list_l4, List)
+        assert list_l4.items[0].children[0].content[0].content == "L4"  # type: ignore
+
+    def test_placeholder_disabled_works_with_proper_nesting(self) -> None:
+        """Test that proper nesting works fine with placeholders disabled."""
+        builder = ListBuilder()  # default: allow_placeholders=False
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1")])])
+        builder.add_item(level=2, ordered=False, content=[Paragraph(content=[Text(content="L2")])])
+        builder.add_item(level=3, ordered=False, content=[Paragraph(content=[Text(content="L3")])])
+        doc = builder.get_document()
+
+        # Should work fine since we're nesting properly
+        assert len(doc.children) == 1
+        list_l1 = doc.children[0]
+        assert isinstance(list_l1, List)
+        assert len(list_l1.items) == 1
+
+
+@pytest.mark.unit
+class TestListBuilderStartAndTight:
+    """Test ListBuilder start and tight parameters (Issue 12)."""
+
+    def test_default_start_and_tight_values(self) -> None:
+        """Test that default start=1 and tight=True are used."""
+        builder = ListBuilder()
+        builder.add_item(level=1, ordered=True, content=[Paragraph(content=[Text(content="Item 1")])])
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.start == 1
+        assert list_node.tight is True
+
+    def test_custom_default_start(self) -> None:
+        """Test custom default_start parameter."""
+        builder = ListBuilder(default_start=5)
+        builder.add_item(level=1, ordered=True, content=[Paragraph(content=[Text(content="Item 1")])])
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.start == 5
+
+    def test_custom_default_tight(self) -> None:
+        """Test custom default_tight parameter."""
+        builder = ListBuilder(default_tight=False)
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="Item 1")])])
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.tight is False
+
+    def test_custom_default_start_and_tight(self) -> None:
+        """Test both custom default_start and default_tight."""
+        builder = ListBuilder(default_start=10, default_tight=False)
+        builder.add_item(level=1, ordered=True, content=[Paragraph(content=[Text(content="Item 1")])])
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.start == 10
+        assert list_node.tight is False
+
+    def test_per_item_start_override(self) -> None:
+        """Test that per-item start parameter overrides default."""
+        builder = ListBuilder(default_start=1)
+        builder.add_item(level=1, ordered=True, content=[Paragraph(content=[Text(content="Item 1")])], start=5)
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.start == 5
+
+    def test_per_item_tight_override(self) -> None:
+        """Test that per-item tight parameter overrides default."""
+        builder = ListBuilder(default_tight=True)
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="Item 1")])], tight=False)
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.tight is False
+
+    def test_multiple_lists_different_start_values(self) -> None:
+        """Test multiple lists with different start values via type change."""
+        builder = ListBuilder(default_start=1)
+        builder.add_item(level=1, ordered=True, content=[Paragraph(content=[Text(content="First")])], start=1)
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="Bullet")])])
+        builder.add_item(level=1, ordered=True, content=[Paragraph(content=[Text(content="Second")])], start=10)
+        doc = builder.get_document()
+
+        # Should have 3 lists
+        assert len(doc.children) == 3
+
+        first_list = doc.children[0]
+        assert isinstance(first_list, List)
+        assert first_list.ordered is True
+        assert first_list.start == 1
+
+        second_list = doc.children[1]
+        assert isinstance(second_list, List)
+        assert second_list.ordered is False
+
+        third_list = doc.children[2]
+        assert isinstance(third_list, List)
+        assert third_list.ordered is True
+        assert third_list.start == 10
+
+    def test_nested_list_with_custom_tight(self) -> None:
+        """Test nested list with custom tight value."""
+        builder = ListBuilder(default_tight=True)
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="L1")])])
+        builder.add_item(level=2, ordered=False, content=[Paragraph(content=[Text(content="L2")])], tight=False)
+        doc = builder.get_document()
+
+        list_l1 = doc.children[0]
+        assert isinstance(list_l1, List)
+        assert list_l1.tight is True  # Uses default
+
+        item_l1 = list_l1.items[0]
+        list_l2 = item_l1.children[1]
+        assert isinstance(list_l2, List)
+        assert list_l2.tight is False  # Uses override
+
+    def test_start_parameter_ignored_for_unordered_lists(self) -> None:
+        """Test that start parameter is set even for unordered lists (renderer decision)."""
+        builder = ListBuilder()
+        builder.add_item(level=1, ordered=False, content=[Paragraph(content=[Text(content="Item 1")])], start=5)
+        doc = builder.get_document()
+
+        list_node = doc.children[0]
+        assert isinstance(list_node, List)
+        assert list_node.start == 5  # Parameter is set even though it's unordered
