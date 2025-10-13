@@ -344,6 +344,143 @@ class TestTextReplacer:
         text = result.children[0].content[0]
         assert text.content == "baz bar baz"
 
+    def test_invalid_regex_pattern_raises_error(self) -> None:
+        """Test that invalid regex patterns raise ValueError."""
+        # Invalid regex: unmatched parenthesis
+        with pytest.raises(ValueError, match="Invalid regular expression pattern"):
+            TextReplacer(r"(invalid", "replacement", use_regex=True)
+
+        # Invalid regex: invalid escape sequence
+        with pytest.raises(ValueError, match="Invalid regular expression pattern"):
+            TextReplacer(r"\k", "replacement", use_regex=True)
+
+        # Invalid regex: nested quantifiers (catastrophic backtracking)
+        # Note: Python's re will accept this but it's still a valid regex
+        # The pattern itself compiles, so we test with an actually invalid one
+        with pytest.raises(ValueError, match="Invalid regular expression pattern"):
+            TextReplacer(r"(?P<invalid)", "replacement", use_regex=True)
+
+    def test_valid_regex_compiles_once(self) -> None:
+        """Test that valid regex is compiled once in __init__."""
+        transformer = TextReplacer(r"\d+", "NUM", use_regex=True)
+
+        # Compiled pattern should be stored
+        assert transformer._compiled_pattern is not None
+        assert transformer._compiled_pattern.pattern == r"\d+"
+
+        # Use it multiple times
+        doc1 = Document(children=[Paragraph(content=[Text(content="Test 123")])])
+        doc2 = Document(children=[Paragraph(content=[Text(content="Value 456")])])
+
+        result1 = transformer.transform(doc1)
+        result2 = transformer.transform(doc2)
+
+        assert result1.children[0].content[0].content == "Test NUM"
+        assert result2.children[0].content[0].content == "Value NUM"
+
+
+@pytest.mark.unit
+class TestLinkRewriterValidation:
+    """Test LinkRewriter URL validation."""
+
+    def test_validate_urls_rejects_javascript_scheme(self) -> None:
+        """Test that javascript: URLs are rejected by default."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
+            ]
+        )
+
+        def dangerous_mapper(url: str) -> str:
+            # Malicious mapper that creates javascript: URL
+            return "javascript:alert(1)"
+
+        transformer = LinkRewriter(dangerous_mapper, validate_urls=True)
+
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            transformer.transform(doc)
+
+    def test_validate_urls_rejects_vbscript_scheme(self) -> None:
+        """Test that vbscript: URLs are rejected by default."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
+            ]
+        )
+
+        def dangerous_mapper(url: str) -> str:
+            return "vbscript:msgbox(1)"
+
+        transformer = LinkRewriter(dangerous_mapper, validate_urls=True)
+
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            transformer.transform(doc)
+
+    def test_validate_urls_accepts_safe_schemes(self) -> None:
+        """Test that safe URL schemes are accepted."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
+            ]
+        )
+
+        def safe_mapper(url: str) -> str:
+            return "https://example.com" + url
+
+        transformer = LinkRewriter(safe_mapper, validate_urls=True)
+        result = transformer.transform(doc)
+
+        link = result.children[0].content[0]
+        assert isinstance(link, Link)
+        assert link.url == "https://example.com/test"
+
+    def test_validate_urls_can_be_disabled(self) -> None:
+        """Test that URL validation can be disabled."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
+            ]
+        )
+
+        def custom_mapper(url: str) -> str:
+            # Creates a non-standard but intentional URL
+            return "custom-scheme://test"
+
+        transformer = LinkRewriter(custom_mapper, validate_urls=False)
+        result = transformer.transform(doc)
+
+        link = result.children[0].content[0]
+        assert link.url == "custom-scheme://test"
+
+    def test_validate_urls_for_images(self) -> None:
+        """Test that image URL validation works."""
+        doc = Document(children=[Paragraph(content=[Image(url="/img.png", alt_text="Test")])])
+
+        def dangerous_mapper(url: str) -> str:
+            return "javascript:alert(1)"
+
+        transformer = LinkRewriter(dangerous_mapper, validate_urls=True)
+
+        with pytest.raises(ValueError, match="dangerous scheme"):
+            transformer.transform(doc)
+
+    def test_relative_urls_accepted(self) -> None:
+        """Test that relative URLs are accepted."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
+            ]
+        )
+
+        def identity_mapper(url: str) -> str:
+            return url
+
+        transformer = LinkRewriter(identity_mapper, validate_urls=True)
+        result = transformer.transform(doc)
+
+        link = result.children[0].content[0]
+        assert link.url == "/test"
+
 
 @pytest.mark.unit
 class TestNodeCollector:

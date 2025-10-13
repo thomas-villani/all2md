@@ -61,6 +61,34 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
     str
         Concatenated text content from all Text nodes
 
+    Notes
+    -----
+    **Spacing Behavior**:
+        The joiner is applied at each level of the AST hierarchy when combining
+        child nodes. This can result in extra spaces when Text nodes already
+        contain whitespace at their boundaries. For example:
+
+            >>> para = Paragraph(content=[
+            ...     Text(content="This is "),  # trailing space
+            ...     Strong(content=[Text(content="bold")]),
+            ...     Text(content=" text.")     # leading space
+            ... ])
+            >>> extract_text(para)
+            'This is  bold  text.'  # Note the double spaces
+
+        This occurs because:
+        1. Text content is preserved exactly (including trailing/leading spaces)
+        2. The joiner adds spacing between nodes at each nesting level
+        3. These can combine to create multiple consecutive spaces
+
+        **Workarounds**:
+        - Use `joiner=""` and rely on spaces within Text nodes: `extract_text(node, joiner="")`
+        - Post-process with regex: `re.sub(r'\\s+', ' ', extract_text(node)).strip()`
+        - Normalize Text nodes before extraction to trim whitespace
+
+        This behavior is intentional to preserve the exact text content and
+        provide consistent separation at structural boundaries.
+
     Examples
     --------
     Extract text with space joiner (default):
@@ -72,14 +100,14 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
         ...     Text(content=" text.")
         ... ])
         >>> extract_text(para)
-        'This is bold text.'
+        'This is  bold  text.'  # Note: double spaces preserved
 
-    Extract text with no joiner (for slugification):
+    Extract text with no joiner (preserves only Text content):
 
         >>> from all2md.ast import Heading, Text
         >>> heading = Heading(level=2, content=[Text(content="My Heading")])
         >>> extract_text(heading.content, joiner="")
-        'MyHeading'
+        'My Heading'
 
     Extract text from a list of nodes:
 
@@ -97,6 +125,14 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
         ... ])
         >>> extract_text(lst)
         'Item 1 Item 2'
+
+    Normalize whitespace in extracted text:
+
+        >>> import re
+        >>> result = extract_text(para)
+        >>> normalized = re.sub(r'\\s+', ' ', result).strip()
+        >>> normalized
+        'This is bold text.'
 
     """
     # Import here to avoid circular imports

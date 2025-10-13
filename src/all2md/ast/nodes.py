@@ -467,7 +467,7 @@ class Table(Node):
 
     rows: list[TableRow] = field(default_factory=list)
     header: Optional[TableRow] = None
-    alignments: list[Optional[Literal['left', 'center', 'right']]] = field(default_factory=list)
+    alignments: list[Alignment | None] = field(default_factory=list)
     caption: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
@@ -556,7 +556,7 @@ class TableCell(Node):
     content: list[Node] = field(default_factory=list)
     colspan: int = 1
     rowspan: int = 1
-    alignment: Optional[Literal['left', 'center', 'right']] = None
+    alignment: Alignment | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
 

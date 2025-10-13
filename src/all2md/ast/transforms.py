@@ -30,7 +30,8 @@ Change heading levels:
 from __future__ import annotations
 
 import copy
-from typing import Any, Callable, Type
+import re
+from typing import Any, Callable, Pattern, Type
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -67,6 +68,66 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DANGEROUS_SCHEMES, SAFE_LINK_SCHEMES
+
+
+def _validate_url_scheme(url: str, context: str = "URL") -> None:
+    """Validate URL scheme for security.
+
+    This function checks URLs for dangerous schemes (javascript:, vbscript:, etc.)
+    and validates that URLs with schemes use recognized safe schemes.
+
+    Parameters
+    ----------
+    url : str
+        URL to validate
+    context : str, default = "URL"
+        Context description for error messages (e.g., "Link", "Image")
+
+    Raises
+    ------
+    ValueError
+        If URL uses a dangerous scheme or unrecognized scheme
+
+    Examples
+    --------
+    >>> _validate_url_scheme("https://example.com")  # Safe
+    >>> _validate_url_scheme("javascript:alert(1)")  # Raises ValueError
+
+    """
+    if not url:
+        return
+
+    url_lower = url.lower()
+
+    # Check for dangerous schemes
+    for dangerous_scheme in DANGEROUS_SCHEMES:
+        if url_lower.startswith(dangerous_scheme.lower()):
+            raise ValueError(
+                f"{context} URL uses dangerous scheme '{dangerous_scheme}': {url[:50]}"
+            )
+
+    # Check if URL has a scheme
+    if "://" in url:
+        # Extract scheme
+        scheme = url.split("://", 1)[0].lower()
+
+        # Check if scheme is in safe list
+        if scheme not in SAFE_LINK_SCHEMES:
+            raise ValueError(
+                f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}"
+            )
+    else:
+        # Check for scheme-like patterns without ://
+        # This catches things like "javascript:alert(1)" which don't have ://
+        if ":" in url and not url.startswith(("/", "#")):
+            potential_scheme = url.split(":", 1)[0].lower()
+            # Check if this looks like a dangerous scheme
+            for dangerous_scheme in DANGEROUS_SCHEMES:
+                if dangerous_scheme.lower().startswith(potential_scheme + ":"):
+                    raise ValueError(
+                        f"{context} URL uses dangerous scheme '{potential_scheme}': {url[:50]}"
+                    )
 
 
 class NodeTransformer(NodeVisitor):
@@ -830,6 +891,17 @@ class LinkRewriter(NodeTransformer):
     ----------
     url_mapper : callable
         Function that takes a URL string and returns a new URL string
+    validate_urls : bool, default = True
+        Whether to validate URLs after rewriting for dangerous schemes.
+        When True, raises ValueError if the url_mapper produces a URL
+        with a dangerous scheme (javascript:, vbscript:, etc.). This
+        provides defense-in-depth against accidentally creating unsafe URLs.
+
+    Raises
+    ------
+    ValueError
+        If validate_urls=True and url_mapper produces a URL with a dangerous
+        or unrecognized scheme
 
     Examples
     --------
@@ -841,16 +913,44 @@ class LinkRewriter(NodeTransformer):
     >>> transformer = LinkRewriter(make_absolute)
     >>> new_doc = transformer.transform(doc)
 
+    >>> # Disable validation if you need to generate non-standard URLs
+    >>> transformer = LinkRewriter(my_mapper, validate_urls=False)
+
+    Notes
+    -----
+    Security Considerations:
+        By default (validate_urls=True), this transformer validates that the
+        url_mapper does not produce dangerous URLs. This prevents accidental
+        creation of XSS vectors like javascript: or data:text/html URLs.
+        Only disable validation if you have a specific need and understand
+        the security implications.
+
     """
 
-    def __init__(self, url_mapper: Callable[[str], str]):
-        """Initialize the transform with a URL mapping function."""
+    def __init__(self, url_mapper: Callable[[str], str], validate_urls: bool = True):
+        """Initialize the transform with a URL mapping function.
+
+        Parameters
+        ----------
+        url_mapper : callable
+            Function that takes a URL string and returns a new URL string
+        validate_urls : bool, default = True
+            Whether to validate URLs after rewriting for dangerous schemes
+
+        """
         self.url_mapper = url_mapper
+        self.validate_urls = validate_urls
 
     def visit_link(self, node: Link) -> Link:
         """Rewrite link URL."""
+        new_url = self.url_mapper(node.url)
+
+        # Validate URL if requested
+        if self.validate_urls:
+            _validate_url_scheme(new_url, context="Link")
+
         return Link(
-            url=self.url_mapper(node.url),
+            url=new_url,
             content=self._transform_children(node.content),
             title=node.title,
             metadata=node.metadata.copy(),
@@ -859,8 +959,14 @@ class LinkRewriter(NodeTransformer):
 
     def visit_image(self, node: Image) -> Image:
         """Rewrite image URL."""
+        new_url = self.url_mapper(node.url)
+
+        # Validate URL if requested
+        if self.validate_urls:
+            _validate_url_scheme(new_url, context="Image")
+
         return Image(
-            url=self.url_mapper(node.url),
+            url=new_url,
             alt_text=node.alt_text,
             title=node.title,
             width=node.width,
@@ -882,26 +988,61 @@ class TextReplacer(NodeTransformer):
     use_regex : bool, default = False
         Whether to use regex matching
 
+    Raises
+    ------
+    ValueError
+        If use_regex=True and pattern is not a valid regular expression
+
     Examples
     --------
     >>> # Replace all occurrences of "foo" with "bar"
     >>> transformer = TextReplacer("foo", "bar")
     >>> new_doc = transformer.transform(doc)
 
+    >>> # Use regex for pattern matching
+    >>> transformer = TextReplacer(r"\\d+", "NUMBER", use_regex=True)
+    >>> new_doc = transformer.transform(doc)
+
     """
 
     def __init__(self, pattern: str, replacement: str, use_regex: bool = False):
-        """Initialize the transform with pattern and replacement."""
+        """Initialize the transform with pattern and replacement.
+
+        Parameters
+        ----------
+        pattern : str
+            Pattern to search for (literal string or regex)
+        replacement : str
+            Replacement string
+        use_regex : bool, default = False
+            Whether to use regex matching
+
+        Raises
+        ------
+        ValueError
+            If use_regex=True and pattern is not a valid regular expression
+
+        """
         self.pattern = pattern
         self.replacement = replacement
         self.use_regex = use_regex
+        self._compiled_pattern: Pattern[str] | None = None
+
+        # Compile and validate regex pattern if using regex mode
+        if self.use_regex:
+            try:
+                self._compiled_pattern = re.compile(pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"Invalid regular expression pattern: {pattern!r}. "
+                    f"Regex compilation error: {e}"
+                ) from e
 
     def visit_text(self, node: Text) -> Text:
         """Replace text content."""
         if self.use_regex:
-            import re
-
-            new_content = re.sub(self.pattern, self.replacement, node.content)
+            assert self._compiled_pattern is not None, "Compiled pattern should exist when use_regex=True"
+            new_content = self._compiled_pattern.sub(self.replacement, node.content)
         else:
             new_content = node.content.replace(self.pattern, self.replacement)
 
