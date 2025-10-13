@@ -386,7 +386,8 @@ class DynamicCLIBuilder:
             self, parser: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
             options_class: Type, format_prefix: Optional[str] = None,
             group_name: Optional[str] = None,
-            exclude_base_fields: bool = False
+            exclude_base_fields: bool = False,
+            dest_prefix: Optional[str] = None
     ) -> None:
         """Add arguments for an options dataclass.
 
@@ -400,15 +401,25 @@ class DynamicCLIBuilder:
         options_class : Type
             Options dataclass type
         format_prefix : str, optional
-            Prefix for argument names (e.g., 'pdf')
+            Prefix for CLI argument names (e.g., 'pdf' for --pdf-pages).
+            For nested dataclasses, uses hyphenated format (e.g., 'html-network')
         group_name : str, optional
             Name for argument group
         exclude_base_fields : bool, default=False
             If True, skip fields that are defined in BaseParserOptions
+        dest_prefix : str, optional
+            Prefix for argparse dest names using dot notation (e.g., 'html.network').
+            If None, uses format_prefix. This allows CLI flags to use hyphens
+            while dests use dots for proper option mapping.
 
         """
         if not is_dataclass(options_class):
             return
+
+        # Initialize dest_prefix to format_prefix if not provided
+        # This allows top-level calls to work as before, while nested calls can specify different prefixes
+        if dest_prefix is None:
+            dest_prefix = format_prefix
 
         # Get BaseOptions fields to exclude if requested
         base_field_names = set()
@@ -438,14 +449,19 @@ class DynamicCLIBuilder:
 
                 if is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
+                    # Decouple CLI prefix (hyphenated) from dest prefix (dot-separated)
                     kebab_name = self.snake_to_kebab(field.name)
-                    nested_prefix = f"{format_prefix}-{kebab_name}" if format_prefix else kebab_name
+                    # CLI prefix uses hyphens for --html-network-* style flags
+                    nested_cli_prefix = f"{format_prefix}-{kebab_name}" if format_prefix else kebab_name
+                    # Dest prefix uses dots for html.network.* style destinations
+                    nested_dest_prefix = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
                     self._add_options_arguments_internal(
                         group,  # Use parent group instead of parser
                         field_type,
-                        format_prefix=nested_prefix,
+                        format_prefix=nested_cli_prefix,
                         group_name=None,  # Don't create separate groups for nested classes
-                        exclude_base_fields=exclude_base_fields
+                        exclude_base_fields=exclude_base_fields,
+                        dest_prefix=nested_dest_prefix
                     )
                 continue
 
@@ -475,31 +491,32 @@ class DynamicCLIBuilder:
             kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
             # Set dest using dot notation for better structure mapping
+            # Use dest_prefix (dot-separated) instead of format_prefix (may be hyphenated for nested)
             # and use tracking actions for booleans and append
             if 'action' in kwargs:
                 if kwargs['action'] == 'store_true':
                     kwargs['action'] = TrackingStoreTrueAction
-                    if format_prefix:
-                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    if dest_prefix:
+                        kwargs['dest'] = f"{dest_prefix}.{field.name}"
                     else:
                         kwargs['dest'] = field.name
                 elif kwargs['action'] == 'store_false':
                     kwargs['action'] = TrackingStoreFalseAction
-                    if format_prefix:
-                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    if dest_prefix:
+                        kwargs['dest'] = f"{dest_prefix}.{field.name}"
                     else:
                         kwargs['dest'] = field.name
                 elif kwargs['action'] == 'append':
                     kwargs['action'] = TrackingAppendAction
-                    if format_prefix:
-                        kwargs['dest'] = f"{format_prefix}.{field.name}"
+                    if dest_prefix:
+                        kwargs['dest'] = f"{dest_prefix}.{field.name}"
                     else:
                         kwargs['dest'] = field.name
             else:
                 # For non-boolean arguments, use TrackingStoreAction
                 kwargs['action'] = TrackingStoreAction
-                if format_prefix:
-                    kwargs['dest'] = f"{format_prefix}.{field.name}"
+                if dest_prefix:
+                    kwargs['dest'] = f"{dest_prefix}.{field.name}"
                 else:
                     kwargs['dest'] = field.name
 
@@ -827,6 +844,69 @@ Examples:
         self.parser = parser
         return parser
 
+    def _resolve_nested_field(
+            self, options_class: Type, field_path: list[str]
+    ) -> tuple[Any, Type] | None:
+        """Resolve a nested field path in a dataclass hierarchy.
+
+        Parameters
+        ----------
+        options_class : Type
+            Starting dataclass to search from
+        field_path : list[str]
+            List of field names to traverse (e.g., ['network', 'allowed_hosts'])
+
+        Returns
+        -------
+        tuple[Any, Type] or None
+            Tuple of (field, field_type) if found, None if path is invalid
+
+        Examples
+        --------
+        >>> # For HtmlOptions with nested NetworkFetchOptions:
+        >>> field, field_type = builder._resolve_nested_field(
+        ...     HtmlOptions, ['network', 'allowed_hosts']
+        ... )
+        >>> # Returns: (allowed_hosts_field, list[str])
+
+        """
+        if not field_path:
+            return None
+
+        current_class = options_class
+
+        # Walk the path, resolving each level
+        for i, field_name in enumerate(field_path):
+            field_found = None
+
+            # Search for field in current class
+            for field in fields(current_class):
+                if field.name == field_name:
+                    field_found = field
+                    break
+
+            if not field_found:
+                return None
+
+            # If this is the last component, return the field
+            if i == len(field_path) - 1:
+                # Resolve the final field type
+                resolved_type = self._resolve_field_type(field_found, current_class)
+                underlying_type, _ = self._handle_optional_type(resolved_type)
+                return field_found, underlying_type
+
+            # Otherwise, resolve the intermediate type and continue walking
+            field_type = self._resolve_field_type(field_found, current_class)
+            underlying_type, _ = self._handle_optional_type(field_type)
+
+            # Verify it's a dataclass before continuing
+            if not is_dataclass(underlying_type):
+                return None
+
+            current_class = underlying_type
+
+        return None
+
     def _suggest_similar_argument(self, unknown_arg: str) -> str | None:
         """Suggest similar argument name using fuzzy matching.
 
@@ -983,31 +1063,54 @@ Examples:
             if arg_name not in provided_args:
                 continue
 
-            # Handle dot notation arguments (e.g., "pdf.pages")
+            # Handle dot notation arguments (e.g., "pdf.pages" or "html.network.allowed_hosts")
             if '.' in arg_name:
                 parts = arg_name.split('.', 1)
                 format_prefix = parts[0]
-                field_name = parts[1]
+                remainder = parts[1]
 
                 # Validate field exists in the corresponding options class
                 if format_prefix in options_classes:
                     options_class = options_classes[format_prefix]
-                    field_found = False
 
-                    for field in fields(options_class):
-                        if field.name == field_name:
+                    # Check if this is multi-level nesting (e.g., "network.allowed_hosts")
+                    if '.' in remainder:
+                        # Split remainder into path components
+                        field_path = remainder.split('.')
+
+                        # Use helper to resolve nested field
+                        result = self._resolve_nested_field(options_class, field_path)
+
+                        if result:
+                            field, field_type = result
                             processed_value = self._process_argument_value(
                                 field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
                                 was_provided=True
                             )
                             if processed_value is not None:
                                 options[field.name] = processed_value
-                            field_found = True
-                            break
+                        elif arg_value is not None:
+                            # Track unknown argument
+                            unknown_args.append(arg_name)
+                    else:
+                        # Single-level nesting (e.g., "pdf.pages")
+                        field_name = remainder
+                        field_found = False
 
-                    if not field_found and arg_value is not None:
-                        # Track unknown argument
-                        unknown_args.append(arg_name)
+                        for field in fields(options_class):
+                            if field.name == field_name:
+                                processed_value = self._process_argument_value(
+                                    field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
+                                    was_provided=True
+                                )
+                                if processed_value is not None:
+                                    options[field.name] = processed_value
+                                field_found = True
+                                break
+
+                        if not field_found and arg_value is not None:
+                            # Track unknown argument
+                            unknown_args.append(arg_name)
             else:
                 # Handle non-dot notation arguments (BaseOptions fields)
                 if 'base' in options_classes:

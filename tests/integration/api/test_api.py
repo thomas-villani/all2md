@@ -128,19 +128,18 @@ class TestFromAst:
     """Integration tests for from_ast function."""
 
     def test_from_ast_to_markdown_return_string(self):
-        """Test rendering AST to Markdown StringIO."""
+        """Test rendering AST to Markdown str."""
         doc = create_sample_ast_document()
         result = from_ast(doc, "markdown")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "# Main Title" in content
-        assert "**bold**" in content
-        assert "*italic*" in content
-        assert "* First item" in content
-        assert "```python" in content
-        assert "| Name" in content
-        assert "> A quoted passage" in content
+        assert isinstance(result, str)
+        assert "# Main Title" in result
+        assert "**bold**" in result
+        assert "*italic*" in result
+        assert "* First item" in result
+        assert "```python" in result
+        assert "| Name" in result
+        assert "> A quoted passage" in result
 
     def test_from_ast_to_markdown_with_file_output(self, tmp_path):
         """Test rendering AST to Markdown file."""
@@ -164,14 +163,13 @@ class TestFromAst:
             renderer_options=HtmlRendererOptions(standalone=True)
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "<!DOCTYPE html>" in content
-        assert "<html" in content
-        assert "<h1" in content
-        assert "Main Title" in content
-        assert "<strong>bold</strong>" in content
-        assert "<em>italic</em>" in content
+        assert isinstance(result, str)
+        assert "<!DOCTYPE html>" in result
+        assert "<html" in result
+        assert "<h1" in result
+        assert "Main Title" in result
+        assert "<strong>bold</strong>" in result
+        assert "<em>italic</em>" in result
 
     def test_from_ast_to_html_fragment(self):
         """Test rendering AST to HTML fragment."""
@@ -182,11 +180,10 @@ class TestFromAst:
             renderer_options=HtmlRendererOptions(standalone=False)
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "<!DOCTYPE html>" not in content
-        assert "<h1" in content
-        assert "Main Title" in content
+        assert isinstance(result, str)
+        assert "<!DOCTYPE html>" not in result
+        assert "<h1" in result
+        assert "Main Title" in result
 
     def test_from_ast_with_renderer_options(self):
         """Test from_ast with various renderer options."""
@@ -199,8 +196,7 @@ class TestFromAst:
             renderer_options=MarkdownOptions(emphasis_symbol="_")
         )
 
-        content = result.getvalue()
-        assert "_italic_" in content
+        assert "_italic_" in result
 
     def test_from_ast_with_transforms(self):
         """Test from_ast with transform pipeline."""
@@ -213,9 +209,8 @@ class TestFromAst:
             transforms=["remove-images"]
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Main Title" in content
+        assert isinstance(result, str)
+        assert "Main Title" in result
 
     def test_from_ast_to_path_output(self, tmp_path):
         """Test from_ast with Path output."""
@@ -259,20 +254,17 @@ class TestFromAst:
 
     @pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not installed")
     def test_from_ast_to_docx_bytes(self):
-        """Test rendering AST to DOCX returns BytesIO."""
+        """Test rendering AST to DOCX returns bytes."""
         doc = create_sample_ast_document()
 
         result = from_ast(doc, "docx")
 
-        # Should return BytesIO
-        assert isinstance(result, BytesIO)
-        assert hasattr(result, 'read')
-        assert hasattr(result, 'seek')
+        # Should return bytes
+        assert isinstance(result, bytes)
 
-        # Read and verify it's a valid DOCX (ZIP signature)
-        content = result.getvalue()
-        assert len(content) > 0
-        assert content.startswith(b'PK')  # ZIP signature for DOCX files
+        # Verify it's a valid DOCX (ZIP signature)
+        assert len(result) > 0
+        assert result.startswith(b'PK')  # ZIP signature for DOCX files
 
     @pytest.mark.skipif(not REPORTLAB_AVAILABLE, reason="reportlab not installed")
     def test_from_ast_to_pdf(self, tmp_path):
@@ -298,8 +290,7 @@ class TestFromAst:
             emphasis_symbol="_"  # Override
         )
 
-        content = result.getvalue()
-        assert "_italic_" in content
+        assert "_italic_" in result
 
 
 @pytest.mark.integration
@@ -314,11 +305,10 @@ class TestFromMarkdown:
 
         result = from_markdown(str(md_file), "html")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "<h1" in content
-        assert "Hello" in content
-        assert "<strong>bold</strong>" in content
+        assert isinstance(result, str)
+        assert "<h1" in result
+        assert "Hello" in result
+        assert "<strong>bold</strong>" in result
 
     def test_from_markdown_file_to_html(self, tmp_path):
         """Test converting Markdown file to HTML."""
@@ -327,10 +317,9 @@ class TestFromMarkdown:
 
         result = from_markdown(str(md_file), "html")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "<h1" in content
-        assert "Test" in content
+        assert isinstance(result, str)
+        assert "<h1" in result
+        assert "Test" in result
 
     def test_from_markdown_to_html_with_output_file(self, tmp_path):
         """Test converting Markdown to HTML file."""
@@ -372,9 +361,8 @@ class TestFromMarkdown:
             parser_options=MarkdownParserOptions(flavor="commonmark")
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
+        assert isinstance(result, str)
+        assert "Title" in result
 
     def test_from_markdown_with_renderer_options(self, tmp_path):
         """Test from_markdown with renderer options."""
@@ -387,9 +375,8 @@ class TestFromMarkdown:
             renderer_options=HtmlRendererOptions(standalone=True)
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "<!DOCTYPE html>" in content
+        assert isinstance(result, str)
+        assert "<!DOCTYPE html>" in result
 
     def test_from_markdown_with_transforms(self, tmp_path):
         """Test from_markdown with transforms applied."""
@@ -402,10 +389,9 @@ class TestFromMarkdown:
             transforms=["remove-images"]
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
-        assert "Content" in content
+        assert isinstance(result, str)
+        assert "Title" in result
+        assert "Content" in result
 
     def test_from_markdown_bytes_input(self, tmp_path):
         """Test from_markdown with bytes input via file."""
@@ -414,9 +400,8 @@ class TestFromMarkdown:
 
         result = from_markdown(str(md_file), "html")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Test" in content
+        assert isinstance(result, str)
+        assert "Test" in result
 
     def test_from_markdown_path_input(self, tmp_path):
         """Test from_markdown with Path input."""
@@ -425,27 +410,23 @@ class TestFromMarkdown:
 
         result = from_markdown(md_file, "html")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Path Test" in content
+        assert isinstance(result, str)
+        assert "Path Test" in result
 
     @pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not installed")
     def test_from_markdown_to_docx_bytes(self, tmp_path):
-        """Test from_markdown to DOCX returns BytesIO."""
+        """Test from_markdown to DOCX returns bytes."""
         md_file = tmp_path / "test.md"
         md_file.write_text("# Title\n\nContent")
 
         result = from_markdown(str(md_file), "docx")
 
-        # Should return BytesIO
-        assert isinstance(result, BytesIO)
-        assert hasattr(result, 'read')
-        assert hasattr(result, 'seek')
+        # Should return bytes
+        assert isinstance(result, bytes)
 
-        # Read and verify it's a valid DOCX
-        content = result.getvalue()
-        assert len(content) > 0
-        assert content.startswith(b'PK')  # ZIP signature
+        # Verify it's a valid DOCX
+        assert len(result) > 0
+        assert result.startswith(b'PK')  # ZIP signature
 
 
 @pytest.mark.integration
@@ -459,10 +440,9 @@ class TestConvert:
 
         result = convert(str(html_file), target_format="markdown")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "# Title" in content or "Title" in content
-        assert "**bold**" in content
+        assert isinstance(result, str)
+        assert "# Title" in result or "Title" in result
+        assert "**bold**" in result
 
     def test_convert_markdown_to_html(self, tmp_path):
         """Test converting Markdown to HTML."""
@@ -471,10 +451,9 @@ class TestConvert:
 
         result = convert(str(md_file), target_format="html", source_format="markdown")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
-        assert "Bold" in content or "bold" in content
+        assert isinstance(result, str)
+        assert "Title" in result
+        assert "Bold" in result or "bold" in result
 
     def test_convert_with_auto_source_detection(self, tmp_path):
         """Test convert with auto source format detection."""
@@ -483,9 +462,8 @@ class TestConvert:
 
         result = convert(str(html_file), target_format="markdown")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Test" in content
+        assert isinstance(result, str)
+        assert "Test" in result
 
     def test_convert_with_auto_target_detection(self, tmp_path):
         """Test convert with auto target format detection from output."""
@@ -517,10 +495,9 @@ class TestConvert:
             renderer_options=HtmlRendererOptions(standalone=False)
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "<!DOCTYPE html>" not in content
-        assert "Title" in content
+        assert isinstance(result, str)
+        assert "<!DOCTYPE html>" not in result
+        assert "Title" in result
 
     def test_convert_with_transforms(self, tmp_path):
         """Test convert with transform pipeline."""
@@ -534,10 +511,9 @@ class TestConvert:
             transforms=["remove-images"]
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
-        assert "Content" in content
+        assert isinstance(result, str)
+        assert "Title" in result
+        assert "Content" in result
 
     def test_convert_bytes_input(self):
         """Test convert with bytes input."""
@@ -549,9 +525,8 @@ class TestConvert:
             target_format="markdown"
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
+        assert isinstance(result, str)
+        assert "Title" in result
 
     def test_convert_io_input(self):
         """Test convert with IO input."""
@@ -564,9 +539,8 @@ class TestConvert:
             target_format="markdown"
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Test" in content
+        assert isinstance(result, str)
+        assert "Test" in result
 
     def test_convert_to_file_output(self, tmp_path):
         """Test convert with file output."""
@@ -634,9 +608,8 @@ class TestConvert:
             flavor="commonmark"
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
+        assert isinstance(result, str)
+        assert "Title" in result
 
     def test_convert_with_kwargs_split(self):
         """Test convert with kwargs split between parser and renderer."""
@@ -650,9 +623,8 @@ class TestConvert:
             emphasis_symbol="_"  # MarkdownOptions (renderer)
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Test" in content
+        assert isinstance(result, str)
+        assert "Test" in result
 
     def test_convert_roundtrip_markdown_html(self, tmp_path):
         """Test roundtrip conversion Markdown -> HTML -> Markdown."""
@@ -676,10 +648,9 @@ class TestConvert:
             source_format="html",
             target_format="markdown"
         )
-        assert isinstance(recovered_markdown, StringIO)
-        content = recovered_markdown.getvalue()
-        assert "Title" in content
-        assert "**Bold**" in content or "bold" in content.lower()
+        assert isinstance(recovered_markdown, str)
+        assert "Title" in recovered_markdown
+        assert "**Bold**" in recovered_markdown or "bold" in recovered_markdown.lower()
 
     @pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not installed")
     def test_convert_docx_to_markdown(self, tmp_path):
@@ -696,10 +667,9 @@ class TestConvert:
         # Convert to Markdown
         result = convert(str(docx_file), target_format="markdown")
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Test Document" in content
-        assert "test paragraph" in content
+        assert isinstance(result, str)
+        assert "Test Document" in result
+        assert "test paragraph" in result
 
 
 @pytest.mark.integration
@@ -711,8 +681,8 @@ class TestAPIEdgeCases:
         doc = Document()
         result = from_ast(doc, "markdown")
 
-        assert isinstance(result, StringIO)
-        assert result.getvalue() == ""
+        assert isinstance(result, str)
+        assert result == ""
 
     def test_from_markdown_empty_content(self, tmp_path):
         """Test from_markdown with empty content."""
@@ -721,7 +691,7 @@ class TestAPIEdgeCases:
 
         result = from_markdown(str(md_file), "html")
 
-        assert isinstance(result, StringIO)
+        assert isinstance(result, str)
 
     def test_convert_empty_file(self, tmp_path):
         """Test convert with empty file."""
@@ -730,8 +700,8 @@ class TestAPIEdgeCases:
 
         result = convert(str(empty_file), source_format="markdown", target_format="markdown")
 
-        assert isinstance(result, StringIO)
-        assert result.getvalue() == ""
+        assert isinstance(result, str)
+        assert result == ""
 
     def test_from_ast_with_complex_transforms(self):
         """Test from_ast with multiple transforms."""
@@ -743,10 +713,9 @@ class TestAPIEdgeCases:
             transforms=["remove-images", "heading-offset"]
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
+        assert isinstance(result, str)
         # After heading offset, h1 becomes h2
-        assert "## Main Title" in content
+        assert "## Main Title" in result
 
     def test_convert_with_explicit_formats_override_detection(self, tmp_path):
         """Test that explicit formats override auto-detection."""
@@ -762,9 +731,8 @@ class TestAPIEdgeCases:
         )
 
         # Should convert HTML to markdown
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "HTML" in content
+        assert isinstance(result, str)
+        assert "HTML" in result
 
 
 @pytest.mark.integration
@@ -782,11 +750,10 @@ class TestAPIConsistency:
         result2 = convert(str(html_file), target_format="markdown")
 
         # Results should be similar (exact match may vary due to rendering details)
-        # result1 is str from to_markdown, result2 is StringIO from convert
-        assert isinstance(result2, StringIO)
-        result2_content = result2.getvalue()
-        assert "Title" in result1 and "Title" in result2_content
-        assert "Content" in result1 and "Content" in result2_content
+        # Both return str
+        assert isinstance(result2, str)
+        assert "Title" in result1 and "Title" in result2
+        assert "Content" in result1 and "Content" in result2
 
     def test_to_ast_plus_from_ast_vs_to_markdown(self, tmp_path):
         """Test that to_ast + from_ast equals to_markdown."""
@@ -802,8 +769,8 @@ class TestAPIConsistency:
         via_ast = from_ast(ast_doc, "markdown")
 
         # Should be identical
-        assert isinstance(via_ast, StringIO)
-        assert direct == via_ast.getvalue()
+        assert isinstance(via_ast, str)
+        assert direct == via_ast
 
     def test_from_markdown_vs_convert_consistency(self, tmp_path):
         """Test that from_markdown and convert produce same results."""
@@ -814,9 +781,9 @@ class TestAPIConsistency:
         result2 = convert(str(md_file), source_format="markdown", target_format="html")
 
         # Should be identical
-        assert isinstance(result1, StringIO)
-        assert isinstance(result2, StringIO)
-        assert result1.getvalue() == result2.getvalue()
+        assert isinstance(result1, str)
+        assert isinstance(result2, str)
+        assert result1 == result2
 
 
 @pytest.mark.integration
@@ -889,9 +856,8 @@ class TestProgressCallbackIntegration:
             progress_callback=progress_handler
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Main Title" in content
+        assert isinstance(result, str)
+        assert "Main Title" in result
 
         # Should have received progress events
         assert len(events) > 0
@@ -916,9 +882,8 @@ class TestProgressCallbackIntegration:
             progress_callback=progress_handler
         )
 
-        assert isinstance(result, StringIO)
-        content = result.getvalue()
-        assert "Title" in content
+        assert isinstance(result, str)
+        assert "Title" in result
 
         # Should have received progress events
         assert len(events) > 0

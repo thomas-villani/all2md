@@ -63,13 +63,9 @@ For more control, work with the AST:
    # Parse Markdown to AST
    doc_ast = to_ast('document.md')
 
-   # Render to different formats
-   docx_bytes = from_ast(doc_ast, target_format='docx')
-   html_string = from_ast(doc_ast, target_format='html')
-
-   # Or use renderers directly
-   docx_renderer = DocxRenderer()
-   docx_bytes = docx_renderer.render(doc_ast)
+   # Render to different formats (returns str/bytes directly)
+   docx_bytes = from_ast(doc_ast, target_format='docx')  # Returns bytes
+   html_string = from_ast(doc_ast, target_format='html')  # Returns str
 
 Markdown to Word (DOCX)
 ------------------------
@@ -160,7 +156,7 @@ Advanced DOCX Customization
        use_styles=True
    )
 
-   # Render to DOCX
+   # Render to DOCX (returns bytes directly)
    docx_bytes = from_ast(doc_ast, target_format='docx', renderer_options=options)
 
    # Write to file
@@ -296,7 +292,7 @@ PDF Styling and Layout
        include_toc=False
    )
 
-   # Render to PDF
+   # Render to PDF (returns bytes directly)
    pdf_bytes = from_ast(doc_ast, target_format='pdf', renderer_options=options)
 
    # Save
@@ -318,14 +314,14 @@ Convert a document through multiple formats while preserving content:
    # Start with PDF
    original_ast = to_ast('original.pdf')
 
-   # Convert to Markdown for editing
+   # Convert to Markdown for editing (returns str directly)
    markdown = from_ast(original_ast, target_format='markdown')
    with open('editable.md', 'w', encoding='utf-8') as f:
        f.write(markdown)
 
    # Edit markdown file manually...
 
-   # Convert back to DOCX
+   # Convert back to DOCX (returns bytes directly)
    edited_ast = to_ast('editable.md')
    docx_bytes = from_ast(edited_ast, target_format='docx')
    with open('final.docx', 'wb') as f:
@@ -351,15 +347,15 @@ Generate multiple output formats from a single Markdown source:
 
        stem = Path(markdown_path).stem
 
-       # Generate DOCX
+       # Generate DOCX (returns bytes directly)
        docx_bytes = from_ast(doc_ast, target_format='docx')
        (output_path / f'{stem}.docx').write_bytes(docx_bytes)
 
-       # Generate HTML
-       html_content = from_ast(doc_ast, target_format='html')
-       (output_path / f'{stem}.html').write_text(html_content, encoding='utf-8')
+       # Generate HTML (returns str directly)
+       html_text = from_ast(doc_ast, target_format='html')
+       (output_path / f'{stem}.html').write_text(html_text, encoding='utf-8')
 
-       # Generate PDF
+       # Generate PDF (returns bytes directly)
        pdf_bytes = from_ast(doc_ast, target_format='pdf')
        (output_path / f'{stem}.pdf').write_bytes(pdf_bytes)
 
@@ -403,9 +399,12 @@ Apply AST transforms before rendering to any format:
    for transform in transforms:
        doc_ast = transform.transform(doc_ast)
 
-   # Render to any format with transforms applied
-   docx_bytes = from_ast(doc_ast, target_format='docx')
-   html = from_ast(doc_ast, target_format='html')
+   # Render to any format with transforms applied (returns file-like objects)
+   docx_buffer = from_ast(doc_ast, target_format='docx')
+   docx_bytes = docx_buffer.getvalue()
+
+   html_buffer = from_ast(doc_ast, target_format='html')
+   html = html_buffer.getvalue()
 
 Content Aggregation
 ~~~~~~~~~~~~~~~~~~~
@@ -437,8 +436,9 @@ Combine multiple Markdown files into a single output document:
        # Create combined document
        combined_doc = Document(children=combined_children)
 
-       # Render to desired format
-       return from_ast(combined_doc, target_format=output_format)
+       # Render to desired format (returns bytes for binary, str for text)
+       result = from_ast(combined_doc, target_format=output_format)
+       return result
 
    # Usage
    chapters = ['chapter1.md', 'chapter2.md', 'chapter3.md']
@@ -692,9 +692,12 @@ Best Practices
 
       # Round-trip
       ast1 = to_ast('document.md')
-      docx_bytes = from_ast(ast1, target_format='docx')
+      docx_buffer = from_ast(ast1, target_format='docx')
+      docx_bytes = docx_buffer.getvalue()  # Extract bytes
+
       ast2 = to_ast(docx_bytes, format='docx')
-      roundtrip_md = from_ast(ast2, target_format='markdown')
+      roundtrip_buffer = from_ast(ast2, target_format='markdown')
+      roundtrip_md = roundtrip_buffer.getvalue()  # Extract string
 
       # Compare (note: formatting may differ)
       assert len(original_md) > 0

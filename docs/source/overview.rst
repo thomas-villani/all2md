@@ -139,7 +139,7 @@ For conversions between any supported formats (not just to Markdown), use the ``
    from all2md import convert
    from all2md.options import PdfOptions, MarkdownOptions
 
-   # Convert PDF to Markdown (returns string)
+   # Convert PDF to Markdown (returns str when no output specified)
    markdown = convert("document.pdf", target_format="markdown")
 
    # Convert PDF to DOCX (writes to file)
@@ -167,7 +167,7 @@ For conversions between any supported formats (not just to Markdown), use the ``
 * **Auto-detection**: Both source and target formats detected automatically
 * **Transform pipeline**: Apply AST transforms between parsing and rendering
 * **Flexible I/O**: Supports file paths, file objects, and bytes
-* **Return behavior**: Returns content if no output specified, else writes to file
+* **Return behavior**: Returns str/bytes if no output specified, None if output written to file
 
 See :doc:`bidirectional` for detailed examples of Markdown-to-DOCX/HTML/PDF conversions.
 

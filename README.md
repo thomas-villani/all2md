@@ -242,7 +242,7 @@ doc: Document = to_ast("document.pdf")
 new_heading = Heading(level=1, content=[Text(content="New Title")])
 doc.children.insert(0, new_heading)
 
-# 3. Render the modified AST back to a format
+# 3. Render the modified AST back to markdown
 markdown_output = from_ast(doc, target_format="markdown")
 ```
 

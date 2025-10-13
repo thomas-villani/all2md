@@ -47,7 +47,7 @@ class EmlOptions(BaseParserOptions):
     date_strftime_pattern : str, default "%m/%d/%y %H:%M"
         Custom strftime pattern when date_format_mode is "strftime".
     convert_html_to_markdown : bool, default False
-        Whether to convert HTML content to Markdown using html2markdown.
+        Whether to convert HTML content to Markdown
         When True, HTML parts are converted to Markdown; when False, HTML is preserved as-is.
     clean_quotes : bool, default True
         Whether to clean and normalize quoted content ("> " prefixes, etc.).

@@ -1,6 +1,6 @@
 """Integration tests for MHTML to Markdown conversion.
 
-This module contains integration tests for the mhtml2markdown converter,
+This module contains integration tests for the mhtml parser,
 testing full conversion pipelines with real MHTML structures and edge cases.
 """
 

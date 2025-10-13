@@ -262,6 +262,103 @@ class TestDynamicCLIBuilder:
         # The real test is that no print() was called to stderr
         # This is a lightweight test - the important thing is the code doesn't crash
 
+    def test_nested_dataclass_cli_args_parsing(self):
+        """Test that nested dataclass CLI args are parsed correctly with proper dest format."""
+        parser = create_parser()
+
+        # Parse args with nested HTML network options
+        # Note: require_https defaults to False, so we don't use --no- prefix
+        # allow_remote_fetch defaults to False, so use regular flag to set it to True
+        args = parser.parse_args([
+            "test.html",
+            "--html-network-allow-remote-fetch",
+            "--html-network-network-timeout", "30"
+        ])
+
+        # Check that args have proper dest format (dot-separated, not hyphenated)
+        assert hasattr(args, 'html.network.allow_remote_fetch')
+        assert hasattr(args, 'html.network.network_timeout')
+        assert getattr(args, 'html.network.allow_remote_fetch') is True
+        assert getattr(args, 'html.network.network_timeout') == 30.0
+
+    def test_nested_dataclass_cli_args_mapping(self):
+        """Test that nested dataclass CLI args map correctly to options (Issue: nested mapping broken)."""
+        from unittest.mock import Mock, patch
+
+        builder = DynamicCLIBuilder()
+
+        # Create mock parsed args with nested network options
+        parsed_args = Mock()
+        parsed_args.input = "test.html"
+        parsed_args.format = "auto"
+        parsed_args._provided_args = {
+            'html.network.allow_remote_fetch',
+            'html.network.require_https',
+            'html.network.allowed_hosts'
+        }
+
+        # Mock vars to simulate the argument namespace with dot notation
+        with patch('builtins.vars', return_value={
+            'input': 'test.html',
+            'format': 'auto',
+            '_provided_args': parsed_args._provided_args,
+            'html.network.allow_remote_fetch': True,
+            'html.network.require_https': True,
+            'html.network.allowed_hosts': ['example.com', 'cdn.example.com'],
+        }):
+            options = builder.map_args_to_options(parsed_args)
+
+        # Verify options are mapped correctly
+        # For nested options, the final field name should be used as the key
+        assert 'allow_remote_fetch' in options
+        assert options['allow_remote_fetch'] is True
+        assert 'require_https' in options
+        assert options['require_https'] is True
+        assert 'allowed_hosts' in options
+        assert options['allowed_hosts'] == ['example.com', 'cdn.example.com']
+
+    def test_nested_field_resolution(self):
+        """Test the _resolve_nested_field helper for multi-level nesting."""
+        from all2md.options.html import HtmlOptions
+
+        builder = DynamicCLIBuilder()
+
+        # Test resolving a two-level nested field path
+        result = builder._resolve_nested_field(HtmlOptions, ['network', 'allow_remote_fetch'])
+        assert result is not None
+        field, field_type = result
+        assert field.name == 'allow_remote_fetch'
+        assert field_type is bool
+
+        # Test resolving another nested field
+        result = builder._resolve_nested_field(HtmlOptions, ['network', 'allowed_hosts'])
+        assert result is not None
+        field, field_type = result
+        assert field.name == 'allowed_hosts'
+
+        # Test invalid path returns None
+        result = builder._resolve_nested_field(HtmlOptions, ['nonexistent', 'field'])
+        assert result is None
+
+        # Test single-level path
+        result = builder._resolve_nested_field(HtmlOptions, ['extract_title'])
+        assert result is not None
+        field, field_type = result
+        assert field.name == 'extract_title'
+
+    def test_dest_to_cli_flag_mapping_with_nested(self):
+        """Test that dest_to_cli_flag mapping works correctly for nested options."""
+        builder = DynamicCLIBuilder()
+        parser = builder.build_parser()
+
+        # After building parser, dest_to_cli_flag should have nested mappings with dot notation
+        assert 'html.network.allow_remote_fetch' in builder.dest_to_cli_flag
+        assert builder.dest_to_cli_flag['html.network.allow_remote_fetch'] == '--html-network-allow-remote-fetch'
+
+        # Test suggestion system with nested options
+        suggestion = builder._suggest_similar_argument('html.network.allow_remote')
+        assert suggestion == '--html-network-allow-remote-fetch'
+
 
 @pytest.mark.unit
 @pytest.mark.cli

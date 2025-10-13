@@ -251,7 +251,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
 
 
 def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
-    """Convert HTML content to Markdown using html2markdown.
+    """Convert HTML content to Markdown
 
     Parameters
     ----------
@@ -292,7 +292,6 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
                            renderer_options=md_options)
 
     except (ImportError, DependencyError):
-        # html2markdown not available, return HTML as-is
         return html_content
     except Exception:
         # Conversion failed, return HTML as-is

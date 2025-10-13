@@ -16,7 +16,6 @@ Functions
 import base64
 import logging
 import re
-from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -200,19 +199,17 @@ def convert_to_markdown_impl(
             if images:
                 logger.info(f"Extracted {len(images)} images for vLLM")
 
-        # Convert AST to markdown
+        # Convert AST to markdown (from_ast now returns str directly)
         flavor_kwargs: dict[str, Any] = {'flavor': input_data.flavor} if input_data.flavor else {}
-        markdown_result = from_ast(
+        markdown = from_ast(
             doc,
             target_format="markdown",
             **cast(Any, flavor_kwargs)
         )
 
-        # Extract string from StringIO (from_ast returns StringIO for text formats)
-        if isinstance(markdown_result, StringIO):
-            markdown = markdown_result.getvalue()
-        else:
-            raise TypeError(f"Expected StringIO from from_ast, got {type(markdown_result)}")
+        # Validate return type
+        if not isinstance(markdown, str):
+            raise TypeError(f"Expected str from from_ast, got {type(markdown)}")
 
         logger.info(f"Conversion successful ({len(markdown)} characters)")
 
@@ -314,16 +311,15 @@ def render_from_markdown_impl(
 
         # Otherwise, return content
         else:
-            # Handle different content types
+            # Handle different content types (from_markdown now returns str/bytes directly)
             if result is None:
                 raise ValueError("Rendering returned None unexpectedly")
-            elif isinstance(result, StringIO):
-                # Text format - extract string content
-                content = result.getvalue()
-            elif isinstance(result, BytesIO):
-                # Binary format - extract bytes and base64 encode
-                binary_content = result.getvalue()
-                content = base64.b64encode(binary_content).decode('ascii')
+            elif isinstance(result, str):
+                # Text format - use directly
+                content = result
+            elif isinstance(result, bytes):
+                # Binary format - base64 encode for transmission
+                content = base64.b64encode(result).decode('ascii')
                 warnings.append("Binary content returned as base64-encoded string")
             else:
                 raise TypeError(f"Unexpected result type: {type(result)}")

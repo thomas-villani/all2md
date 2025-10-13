@@ -342,21 +342,20 @@ class TestMultiStepWorkflowsE2E:
             ast_doc = to_ast(pdf_bytes, source_format="pdf")
 
             # Step 2: AST → Markdown
-            markdown_output = from_ast(ast_doc, "markdown")
-            assert isinstance(markdown_output, StringIO)
-            markdown_content = markdown_output.getvalue()
+            markdown_content = from_ast(ast_doc, "markdown")
+            assert isinstance(markdown_content, str)
+
             assert len(markdown_content) > 0
             assert_markdown_valid(markdown_content)
 
             # Step 3: AST → HTML (from same AST)
             html_output = from_ast(ast_doc, "html")
-            assert isinstance(html_output, StringIO)
-            html_content = html_output.getvalue()
-            assert "<" in html_content
+            assert isinstance(html_output, str)
+            assert "<" in html_output
 
             # Both outputs should contain similar content
             assert "Test Document" in markdown_content
-            assert "Test Document" in html_content
+            assert "Test Document" in html_output
 
         finally:
             doc.close()
@@ -377,9 +376,8 @@ class TestMultiStepWorkflowsE2E:
             transforms=["remove-images"]
         )
 
-        assert isinstance(markdown_without_images, StringIO)
-        markdown_without_images_content = markdown_without_images.getvalue()
-        assert_markdown_valid(markdown_without_images_content)
+        assert isinstance(markdown_without_images, str)
+        assert_markdown_valid(markdown_without_images)
 
         # Step 3: AST → Markdown with different transforms
         markdown_with_heading_offset = from_ast(
@@ -388,10 +386,9 @@ class TestMultiStepWorkflowsE2E:
             transforms=["heading-offset"]
         )
 
-        assert isinstance(markdown_with_heading_offset, StringIO)
-        markdown_with_heading_offset_content = markdown_with_heading_offset.getvalue()
+        assert isinstance(markdown_with_heading_offset, str)
         # After heading offset, structure should be different
-        assert markdown_with_heading_offset_content != markdown_without_images_content
+        assert markdown_with_heading_offset != markdown_without_images
 
     @pytest.mark.html
     def test_html_to_ast_modify_to_clean_output(self, temp_dir):
@@ -413,12 +410,11 @@ class TestMultiStepWorkflowsE2E:
         # Step 2: Render with remove-images transform
         markdown_output = from_ast(ast_doc, "markdown", transforms=["remove-images"])
 
-        assert isinstance(markdown_output, StringIO)
-        markdown_content = markdown_output.getvalue()
+        assert isinstance(markdown_output, str)
         # Should have content but no images
-        assert "Document Title" in markdown_content
-        assert "Paragraph text" in markdown_content
-        assert "![" not in markdown_content  # No image syntax
+        assert "Document Title" in markdown_output
+        assert "Paragraph text" in markdown_output
+        assert "![" not in markdown_output  # No image syntax
 
     def test_roundtrip_html_to_ast_to_html(self, temp_dir):
         """Test roundtrip: HTML → AST → HTML → verify preservation."""
@@ -441,13 +437,12 @@ class TestMultiStepWorkflowsE2E:
         # AST → HTML
         recovered_html = from_ast(ast_doc, "html")
 
-        assert isinstance(recovered_html, StringIO)
-        recovered_html_content = recovered_html.getvalue()
+        assert isinstance(recovered_html, str)
         # Should contain key content
-        assert "Test Title" in recovered_html_content
-        assert "bold" in recovered_html_content
-        assert "italic" in recovered_html_content
-        assert "Item 1" in recovered_html_content
+        assert "Test Title" in recovered_html
+        assert "bold" in recovered_html
+        assert "italic" in recovered_html
+        assert "Item 1" in recovered_html
 
     @pytest.mark.docx
     @pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not available")
@@ -479,14 +474,13 @@ class TestMultiStepWorkflowsE2E:
         original_html = "<h1>Title</h1><p><strong>Important</strong> content.</p>"
 
         # HTML → Markdown
-        markdown = convert(
+        markdown_content = convert(
             BytesIO(original_html.encode('utf-8')),
             source_format="html",
             target_format="markdown"
         )
 
-        assert isinstance(markdown, StringIO)
-        markdown_content = markdown.getvalue()
+        assert isinstance(markdown_content, str)
         assert "Title" in markdown_content
         assert "**Important**" in markdown_content
 
@@ -494,14 +488,14 @@ class TestMultiStepWorkflowsE2E:
         md_file = temp_dir / "temp.md"
         md_file.write_text(markdown_content)
 
-        final_html = convert(
+        final_html_content = convert(
             str(md_file),
             source_format="markdown",
             target_format="html"
         )
 
-        assert isinstance(final_html, StringIO)
-        final_html_content = final_html.getvalue()
+        assert isinstance(final_html_content, str)
+
         assert "Title" in final_html_content
         assert "Important" in final_html_content
 
@@ -520,15 +514,14 @@ class TestMultiStepWorkflowsE2E:
         '''
 
         # Apply multiple transforms
-        result = convert(
+        result_content = convert(
             BytesIO(html.encode('utf-8')),
             source_format="html",
             target_format="markdown",
             transforms=["remove-images", "heading-offset"]
         )
 
-        assert isinstance(result, StringIO)
-        result_content = result.getvalue()
+        assert isinstance(result_content, str)
         # Images should be removed
         assert "![" not in result_content
         # Headings should be offset
@@ -587,14 +580,13 @@ class TestRealWorldUsagePatternsE2E:
             # Workflow: PDF → AST → remove images → clean Markdown
             ast_doc = to_ast(pdf_bytes, source_format="pdf")
 
-            clean_markdown = from_ast(
+            clean_markdown_content = from_ast(
                 ast_doc,
                 "markdown",
                 transforms=["remove-images"]
             )
 
-            assert isinstance(clean_markdown, StringIO)
-            clean_markdown_content = clean_markdown.getvalue()
+            assert isinstance(clean_markdown_content, str)
             # Should have text content
             assert len(clean_markdown_content) > 0
             assert_markdown_valid(clean_markdown_content)
@@ -688,10 +680,9 @@ class TestRealWorldUsagePatternsE2E:
         ast_doc = to_ast(BytesIO(legacy_html.encode('utf-8')), source_format="html")
 
         # Output to modern Markdown
-        modern_md = from_ast(ast_doc, "markdown")
+        modern_md_content = from_ast(ast_doc, "markdown")
 
-        assert isinstance(modern_md, StringIO)
-        modern_md_content = modern_md.getvalue()
+        assert isinstance(modern_md_content, str)
         # Should have preserved content
         assert "Legacy Document" in modern_md_content
         assert "Old content" in modern_md_content
@@ -742,10 +733,9 @@ class TestRealWorldUsagePatternsE2E:
         )
 
         # Render merged document
-        merged_md = from_ast(merged_doc, "markdown")
+        merged_md_content = from_ast(merged_doc, "markdown")
 
-        assert isinstance(merged_md, StringIO)
-        merged_md_content = merged_md.getvalue()
+        assert isinstance(merged_md_content, str)
         # Should contain both parts
         assert "Part 1" in merged_md_content
         assert "Part 2" in merged_md_content
@@ -771,10 +761,9 @@ class TestRealWorldUsagePatternsE2E:
         # Filter out Strong nodes
         modified_ast = filter_nodes(ast_doc, lambda node: not isinstance(node, Strong))
 
-        markdown = from_ast(modified_ast, "markdown")
+        markdown_content = from_ast(modified_ast, "markdown")
 
-        assert isinstance(markdown, StringIO)
-        markdown_content = markdown.getvalue()
+        assert isinstance(markdown_content, str)
         # Should have text but Strong nodes removed
         assert "Document" in markdown_content
         # The text "bold" may or may not appear depending on how filter works
@@ -798,8 +787,8 @@ class TestAPIConsistencyE2E:
         via_ast = from_ast(ast_doc, "markdown")
 
         # Should be identical
-        assert isinstance(via_ast, StringIO)
-        assert direct == via_ast.getvalue()
+        assert isinstance(via_ast, str)
+        assert direct == via_ast
 
     def test_convert_vs_specialized_functions_equivalence(self, temp_dir):
         """Test convert vs specialized functions produce same results."""
@@ -813,8 +802,8 @@ class TestAPIConsistencyE2E:
         result2 = to_markdown(str(html_file))
 
         # Should be equivalent
-        assert isinstance(result1, StringIO)
-        assert result1.getvalue() == result2
+        assert isinstance(result1, str)
+        assert result1 == result2
 
     def test_options_propagation_across_functions(self, temp_dir):
         """Test that options propagate correctly across function calls."""
@@ -837,9 +826,9 @@ class TestAPIConsistencyE2E:
         )
 
         # Should produce same results
-        assert isinstance(result1, StringIO)
-        assert isinstance(result2, StringIO)
-        assert result1.getvalue() == result2.getvalue()
+        assert isinstance(result1, str)
+        assert isinstance(result2, str)
+        assert result1 == result2
 
     def test_transform_behavior_consistency(self, temp_dir):
         """Test transforms behave consistently across APIs."""
@@ -857,8 +846,8 @@ class TestAPIConsistencyE2E:
         result2 = from_ast(ast_doc, "markdown", transforms=["remove-images"])
 
         # Should be equivalent
-        assert isinstance(result2, StringIO)
-        assert result1 == result2.getvalue()
+        assert isinstance(result2, str)
+        assert result1 == result2
 
     def test_io_handling_consistency(self, temp_dir):
         """Test consistent IO handling across functions."""
@@ -872,9 +861,9 @@ class TestAPIConsistencyE2E:
         md1 = from_ast(result1, "markdown")
         md2 = from_ast(result2, "markdown")
 
-        assert isinstance(md1, StringIO)
-        assert isinstance(md2, StringIO)
-        assert md1.getvalue() == md2.getvalue()
+        assert isinstance(md1, str)
+        assert isinstance(md2, str)
+        assert md1 == md2
 
     def test_error_handling_consistency(self):
         """Test consistent error handling across functions."""
@@ -908,7 +897,8 @@ class TestAPIConsistencyE2E:
 
         # Render should preserve metadata context
         result = from_ast(ast_doc, "markdown")
-        assert isinstance(result, StringIO)
+        assert isinstance(result, str)
+
 
 
 @pytest.mark.e2e

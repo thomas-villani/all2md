@@ -645,7 +645,7 @@ def from_ast(
         hooks: Optional[dict] = None,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs: Any
-) -> Union[None, StringIO, BytesIO]:
+) -> Union[None, str, bytes]:
     """Render AST document to a target format.
 
     Parameters
@@ -676,28 +676,40 @@ def from_ast(
 
     Returns
     -------
-    None, StringIO, or BytesIO
+    None, str, or bytes
         - None if output was specified (content written to output)
-        - StringIO if output=None and format is text-based
-        - BytesIO if output=None and format is binary
+        - str if output=None and format is text-based (markdown, html, rst, etc.)
+        - bytes if output=None and format is binary (docx, pdf, epub, etc.)
+
+    Notes
+    -----
+    If you need a file-like object instead of direct content, pass a StringIO
+    or BytesIO instance to the `output` parameter:
+
+        >>> from io import StringIO, BytesIO
+        >>> buffer = StringIO()
+        >>> from_ast(doc, "markdown", output=buffer)  # Returns None, buffer populated
+        >>> markdown_text = buffer.getvalue()
 
     Examples
     --------
-    Render AST to StringIO (text formats):
+    Render AST to string (text formats):
         >>> ast_doc = to_ast("document.pdf")
-        >>> markdown_buffer = from_ast(ast_doc, "markdown")
-        >>> markdown_text = markdown_buffer.getvalue()
+        >>> markdown_text = from_ast(ast_doc, "markdown")
+        >>> isinstance(markdown_text, str)
+        True
 
-    Render AST to BytesIO (binary formats):
-        >>> pdf_buffer = from_ast(ast_doc, "pdf")
-        >>> pdf_bytes = pdf_buffer.getvalue()
+    Render AST to bytes (binary formats):
+        >>> pdf_bytes = from_ast(ast_doc, "pdf")
+        >>> isinstance(pdf_bytes, bytes)
+        True
 
     Render AST to file:
         >>> from_ast(ast_doc, "markdown", output="output.md")
 
     With renderer options:
         >>> md_opts = MarkdownOptions(flavor="commonmark")
-        >>> markdown_buffer = from_ast(ast_doc, "markdown", renderer_options=md_opts)
+        >>> markdown_text = from_ast(ast_doc, "markdown", renderer_options=md_opts)
 
     """
     # Prepare renderer options
@@ -721,7 +733,12 @@ def from_ast(
 
     # Handle output using centralized I/O utility
     from all2md.utils.io_utils import write_content
-    return write_content(content, output)
+    result = write_content(content, output)
+
+    # Auto-unwrap file-like objects for better UX
+    if result is not None:
+        return result.getvalue()  # Extract str/bytes from StringIO/BytesIO
+    return None
 
 
 def from_markdown(
@@ -735,7 +752,7 @@ def from_markdown(
         hooks: Optional[dict] = None,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs: Any
-) -> Union[None, StringIO, BytesIO]:
+) -> Union[None, str, bytes]:
     r"""Convert Markdown content to another format.
 
     Parameters
@@ -745,9 +762,9 @@ def from_markdown(
     target_format : DocumentFormat
         Target format name (e.g., "docx", "pdf", "html")
     output : str, Path, IO[bytes], IO[str], or None, optional
-        Output destination. If None, returns file-like object.
+        Output destination. If None, returns rendered content.
         Can be:
-        - None: Returns StringIO (for text formats) or BytesIO (for binary formats)
+        - None: Returns str (for text formats) or bytes (for binary formats)
         - str or Path: Writes content to file at that path
         - IO[bytes]: Writes content to binary file-like object
         - IO[str]: Writes content to text file-like object
@@ -768,22 +785,38 @@ def from_markdown(
 
     Returns
     -------
-    None, StringIO, or BytesIO
+    None, str, or bytes
         - None if output was specified (content written to output)
-        - StringIO if output=None and format is text-based
-        - BytesIO if output=None and format is binary
+        - str if output=None and format is text-based (html, rst, etc.)
+        - bytes if output=None and format is binary (docx, pdf, epub, etc.)
+
+    Notes
+    -----
+    If you need a file-like object instead of direct content, pass a StringIO
+    or BytesIO instance to the `output` parameter:
+
+        >>> from io import StringIO, BytesIO
+        >>> buffer = StringIO()
+        >>> from_markdown("# Title", "html", output=buffer)  # Returns None
+        >>> html_text = buffer.getvalue()
 
     Examples
     --------
-    Convert markdown string to HTML buffer:
-        >>> html_buffer = from_markdown("# Title\\n\\nContent", "html")
-        >>> html_text = html_buffer.getvalue()
+    Convert markdown string to HTML:
+        >>> html_text = from_markdown("# Title\\n\\nContent", "html")
+        >>> isinstance(html_text, str)
+        True
+
+    Convert markdown to binary format:
+        >>> pdf_bytes = from_markdown("# Title", "pdf")
+        >>> isinstance(pdf_bytes, bytes)
+        True
 
     Convert markdown file to DOCX file:
         >>> from_markdown("input.md", "docx", output="output.docx")
 
     With options:
-        >>> buffer = from_markdown("input.md", "html",
+        >>> html_content = from_markdown("input.md", "html",
         ...     parser_options=MarkdownParserOptions(flavor="gfm"),
         ...     renderer_options=HtmlOptions(...))
 
@@ -816,7 +849,7 @@ def convert(
         flavor: Optional[str] = None,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs: Any
-) -> Union[None, StringIO, BytesIO]:
+) -> Union[None, str, bytes]:
     """Convert between document formats.
 
     Parameters
@@ -824,9 +857,9 @@ def convert(
     source : str, Path, IO[bytes], IO[str], or bytes
         Source document (file path, file-like object, or content)
     output : str, Path, IO[bytes], IO[str], or None, optional
-        Output destination. If None, returns file-like object.
+        Output destination. If None, returns rendered content.
         Can be:
-        - None: Returns StringIO (for text formats) or BytesIO (for binary formats)
+        - None: Returns str (for text formats) or bytes (for binary formats)
         - str or Path: Writes content to file at that path
         - IO[bytes]: Writes content to binary file-like object
         - IO[str]: Writes content to text file-like object
@@ -855,20 +888,32 @@ def convert(
 
     Returns
     -------
-    None, StringIO, or BytesIO
+    None, str, or bytes
         - None if output was specified (content written to output)
-        - StringIO if output=None and format is text-based
-        - BytesIO if output=None and format is binary
+        - str if output=None and format is text-based (markdown, html, rst, etc.)
+        - bytes if output=None and format is binary (docx, pdf, epub, etc.)
+
+    Notes
+    -----
+    If you need a file-like object instead of direct content, pass a StringIO
+    or BytesIO instance to the `output` parameter:
+
+        >>> from io import StringIO, BytesIO
+        >>> buffer = StringIO()
+        >>> convert("doc.pdf", output=buffer, target_format="markdown")  # Returns None
+        >>> markdown_text = buffer.getvalue()
 
     Examples
     --------
-    Convert PDF to markdown (returns StringIO):
-        >>> markdown_buffer = convert("doc.pdf", target_format="markdown")
-        >>> markdown_text = markdown_buffer.getvalue()
+    Convert PDF to markdown:
+        >>> markdown_text = convert("doc.pdf", target_format="markdown")
+        >>> isinstance(markdown_text, str)
+        True
 
-    Convert to binary format (returns BytesIO):
-        >>> pdf_buffer = convert("input.md", target_format="pdf")
-        >>> pdf_bytes = pdf_buffer.getvalue()
+    Convert to binary format:
+        >>> pdf_bytes = convert("input.md", target_format="pdf")
+        >>> isinstance(pdf_bytes, bytes)
+        True
 
     Convert with output file:
         >>> convert("doc.pdf", "output.md",
@@ -949,4 +994,9 @@ def convert(
 
     # Handle output using centralized I/O utility
     from all2md.utils.io_utils import write_content
-    return write_content(rendered, output)
+    result = write_content(rendered, output)
+
+    # Auto-unwrap file-like objects for better UX
+    if result is not None:
+        return result.getvalue()  # Extract str/bytes from StringIO/BytesIO
+    return None
