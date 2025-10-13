@@ -8,6 +8,7 @@ document conversion library, including command handlers, version info,
 and system diagnostics.
 """
 import argparse
+import fnmatch
 import json
 import logging
 import os
@@ -18,16 +19,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from all2md.api import convert
-from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception, EXIT_VALIDATION_ERROR
+from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception, EXIT_VALIDATION_ERROR, \
+    EXIT_FILE_ERROR
 from all2md.cli.processors import (
     _get_rich_markdown_kwargs,
     _should_use_rich_output,
     process_detect_only,
-    process_dry_run,
+    process_dry_run, process_stdin, setup_and_validate_options, validate_arguments,
 )
 from all2md.converter_registry import registry
 from all2md.converter_metadata import ConverterMetadata
 from all2md.dependencies import check_version_requirement, get_package_version
+from all2md.transforms import registry as transform_registry
 from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
@@ -344,7 +347,6 @@ def collect_input_files(
 
     # Apply exclusion patterns
     if exclude_patterns:
-        import fnmatch
         filtered_files = []
         for file in files:
             exclude_file = False
@@ -673,11 +675,6 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
-    try:
-        from all2md.transforms import registry as transform_registry
-    except ImportError:
-        print("Error: Transform system not available", file=sys.stderr)
-        return 1
 
     # Parse options
     specific_transform = None
@@ -877,12 +874,7 @@ def _default_extension_for_format(target_format: str) -> str:
 
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
-    from all2md.cli import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR
-    from all2md.cli.processors import (
-        process_stdin,
-        setup_and_validate_options,
-        validate_arguments,
-    )
+
 
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 
