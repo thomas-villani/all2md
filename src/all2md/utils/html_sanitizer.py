@@ -320,31 +320,13 @@ def is_url_safe(url: str) -> bool:
     False
 
     """
+    from all2md.utils.security import is_url_scheme_dangerous
+
     if not url or not url.strip():
         return True
 
-    url_lower = url.lower().strip()
-
-    # Allow relative URLs
-    if url_lower.startswith(("#", "/", "./", "../", "?")):
-        return True
-
-    # Parse URL scheme
-    try:
-        parsed = urlparse(url_lower)
-        # Check for explicitly dangerous schemes
-        if parsed.scheme in ("javascript", "data", "vbscript", "about"):
-            return False
-
-        # Check for dangerous scheme patterns
-        if any(url_lower.startswith(scheme) for scheme in DANGEROUS_SCHEMES):
-            return False
-
-    except ValueError:
-        # If URL parsing fails, consider it unsafe
-        return False
-
-    return True
+    # Use consolidated dangerous scheme checking
+    return not is_url_scheme_dangerous(url)
 
 
 def sanitize_url(url: str) -> str:

@@ -95,24 +95,27 @@ def _validate_url_scheme(url: str, context: str = "URL") -> None:
     >>> _validate_url_scheme("javascript:alert(1)")  # Raises ValueError
 
     """
+    from all2md.utils.security import is_relative_url, is_url_scheme_dangerous
+
     if not url:
         return
 
     url_lower = url.lower()
 
-    # Check for dangerous schemes
-    for dangerous_scheme in DANGEROUS_SCHEMES:
-        if url_lower.startswith(dangerous_scheme.lower()):
-            raise ValueError(
-                f"{context} URL uses dangerous scheme '{dangerous_scheme}': {url[:50]}"
-            )
+    # Check for dangerous schemes using consolidated utility
+    if is_url_scheme_dangerous(url):
+        # Extract scheme for error message
+        scheme = url_lower.split(":", 1)[0] if ":" in url_lower else "unknown"
+        raise ValueError(
+            f"{context} URL uses dangerous scheme '{scheme}': {url[:50]}"
+        )
 
-    # Check if URL has a scheme
+    # Check if URL has a scheme with ://
     if "://" in url:
         # Extract scheme
         scheme = url.split("://", 1)[0].lower()
 
-        # Check if scheme is in safe list
+        # Check if scheme is in safe list (strict allowlist validation)
         if scheme not in SAFE_LINK_SCHEMES:
             raise ValueError(
                 f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}"
@@ -120,14 +123,14 @@ def _validate_url_scheme(url: str, context: str = "URL") -> None:
     else:
         # Check for scheme-like patterns without ://
         # This catches things like "javascript:alert(1)" which don't have ://
-        if ":" in url and not url.startswith(("/", "#")):
+        if ":" in url and not is_relative_url(url):
             potential_scheme = url.split(":", 1)[0].lower()
-            # Check if this looks like a dangerous scheme
-            for dangerous_scheme in DANGEROUS_SCHEMES:
-                if dangerous_scheme.lower().startswith(potential_scheme + ":"):
-                    raise ValueError(
-                        f"{context} URL uses dangerous scheme '{potential_scheme}': {url[:50]}"
-                    )
+            # If it looks like a scheme but isn't dangerous, check if it's recognized
+            # (already checked for dangerous schemes above)
+            if potential_scheme not in SAFE_LINK_SCHEMES:
+                raise ValueError(
+                    f"{context} URL uses unrecognized scheme '{potential_scheme}': {url[:50]}"
+                )
 
 
 class NodeTransformer(NodeVisitor):

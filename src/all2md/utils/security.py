@@ -389,3 +389,156 @@ def validate_user_regex_pattern(pattern: str) -> None:
         re.compile(pattern)
     except re.error as e:
         raise SecurityError(f"Invalid regex pattern: {e}") from e
+
+
+def is_relative_url(url: str) -> bool:
+    """Check if a URL is a relative URL.
+
+    Relative URLs do not have a scheme and typically start with #, /, ./, ../, or ?.
+
+    Parameters
+    ----------
+    url : str
+        URL to check
+
+    Returns
+    -------
+    bool
+        True if URL is relative, False otherwise
+
+    Examples
+    --------
+    >>> is_relative_url("#section")
+    True
+    >>> is_relative_url("/path/to/file")
+    True
+    >>> is_relative_url("./file.html")
+    True
+    >>> is_relative_url("../parent/file.html")
+    True
+    >>> is_relative_url("?query=param")
+    True
+    >>> is_relative_url("https://example.com")
+    False
+    >>> is_relative_url("javascript:alert(1)")
+    False
+
+    """
+    if not url or not url.strip():
+        return True  # Empty URLs are considered relative
+
+    url_stripped = url.strip()
+
+    # Check for common relative URL patterns
+    return url_stripped.startswith(("#", "/", "./", "../", "?"))
+
+
+def is_url_scheme_dangerous(url: str) -> bool:
+    """Check if a URL uses a dangerous scheme.
+
+    Dangerous schemes include javascript:, vbscript:, data:text/html, and others
+    that can be used for XSS attacks or malicious code execution.
+
+    Parameters
+    ----------
+    url : str
+        URL to check
+
+    Returns
+    -------
+    bool
+        True if URL uses a dangerous scheme, False otherwise
+
+    Examples
+    --------
+    >>> is_url_scheme_dangerous("https://example.com")
+    False
+    >>> is_url_scheme_dangerous("javascript:alert('xss')")
+    True
+    >>> is_url_scheme_dangerous("data:text/html,<script>alert('xss')</script>")
+    True
+    >>> is_url_scheme_dangerous("/relative/path")
+    False
+    >>> is_url_scheme_dangerous("vbscript:msgbox('xss')")
+    True
+
+    """
+    from all2md.constants import DANGEROUS_SCHEMES
+
+    if not url or not url.strip():
+        return False
+
+    url_lower = url.lower().strip()
+
+    # Relative URLs are not dangerous
+    if is_relative_url(url_lower):
+        return False
+
+    # Check for dangerous schemes (exact prefix match)
+    for dangerous_scheme in DANGEROUS_SCHEMES:
+        if url_lower.startswith(dangerous_scheme.lower()):
+            return True
+
+    # Try parsing to check the scheme component
+    try:
+        parsed = urlparse(url_lower)
+        # Extract base scheme name without the colon
+        scheme = parsed.scheme
+
+        # Check if scheme matches dangerous scheme patterns
+        if scheme in ("javascript", "vbscript", "about"):
+            return True
+
+        # Check for data: URLs with dangerous content types
+        if scheme == "data":
+            # data: URLs can be safe (like data:image/png) or dangerous (like data:text/html)
+            # Check if it's a dangerous data URL type
+            if any(danger in url_lower for danger in ("data:text/html", "data:text/javascript",
+                                                       "data:application/javascript",
+                                                       "data:application/x-javascript")):
+                return True
+
+    except ValueError:
+        # If URL parsing fails, consider it potentially dangerous
+        return True
+
+    return False
+
+
+def validate_url_scheme_safe(url: str, context: str = "URL") -> None:
+    """Validate that a URL does not use a dangerous scheme.
+
+    This function raises a ValueError if the URL uses a dangerous scheme,
+    making it suitable for strict validation contexts.
+
+    Parameters
+    ----------
+    url : str
+        URL to validate
+    context : str, default "URL"
+        Context description for error messages (e.g., "Link", "Image")
+
+    Raises
+    ------
+    ValueError
+        If URL uses a dangerous scheme
+
+    Examples
+    --------
+    >>> validate_url_scheme_safe("https://example.com")
+    # No exception raised
+
+    >>> validate_url_scheme_safe("javascript:alert(1)")  # doctest: +SKIP
+    ValueError: URL uses dangerous scheme
+
+    >>> validate_url_scheme_safe("/relative/path")
+    # No exception raised
+
+    """
+    if is_url_scheme_dangerous(url):
+        # Extract the scheme for error message
+        url_lower = url.lower()
+        scheme = url_lower.split(":", 1)[0] if ":" in url_lower else "unknown"
+        raise ValueError(
+            f"{context} URL uses dangerous scheme '{scheme}': {url[:50]}"
+        )

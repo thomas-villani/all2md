@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Set
 from all2md import to_markdown
 from all2md.cli import generate_output_path
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
-from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DocumentFormat
 from all2md.exceptions import All2MdError
 
 try:
@@ -58,7 +58,7 @@ class ConversionEventHandler(FileSystemEventHandler):
             paths_to_watch: List[Path],
             output_dir: Path,
             options: Dict[str, Any],
-            format_arg: str,
+            format_arg: DocumentFormat,
             transforms: Optional[list] = None,
             debounce_seconds: float = 1.0,
             preserve_structure: bool = False,
@@ -69,7 +69,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         self.paths_to_watch = paths_to_watch
         self.output_dir = output_dir
         self.options = options
-        self.format_arg = format_arg
+        self.format_arg: DocumentFormat = format_arg
         self.transforms = transforms
         self.debounce_seconds = debounce_seconds
         self.preserve_structure = preserve_structure
@@ -172,7 +172,7 @@ class ConversionEventHandler(FileSystemEventHandler):
 
             markdown_content = to_markdown(
                 path,
-                format=self.format_arg,
+                source_format=self.format_arg,
                 transforms=self.transforms,
                 **self.options
             )
