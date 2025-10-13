@@ -11,9 +11,10 @@ from all2md.ast.transforms import extract_nodes
 from all2md.options import DocxOptions, MarkdownOptions
 from all2md.parsers.docx import DocxToAstConverter
 from all2md.renderers.markdown import MarkdownRenderer
+from fixtures import FIXTURES_PATH
 
-FIXTURE_PATH = (
-    Path(__file__).resolve().parent.parent / "fixtures" / "documents" / "footnotes-endnotes-comments.docx"
+DOCX_FIXTURE_PATH = (
+    FIXTURES_PATH / "documents" / "footnotes-endnotes-comments.docx"
 )
 
 
@@ -21,7 +22,7 @@ FIXTURE_PATH = (
 def test_docx_fixture_contains_expected_notes() -> None:
     """Footnotes and endnotes in fixture should round-trip into the AST and Markdown."""
     converter = DocxToAstConverter(options=DocxOptions(include_comments=False))
-    document = converter.parse(FIXTURE_PATH)
+    document = converter.parse(DOCX_FIXTURE_PATH)
 
     footnote_refs = extract_nodes(document, FootnoteReference)
     definitions = extract_nodes(document, FootnoteDefinition)
@@ -56,7 +57,7 @@ def test_docx_inline_comments_render_inline() -> None:
         comment_mode="blockquote",
     )
     converter = DocxToAstConverter(options=options)
-    document = converter.parse(FIXTURE_PATH)
+    document = converter.parse(DOCX_FIXTURE_PATH)
 
     markdown_output = MarkdownRenderer(MarkdownOptions(flavor="pandoc")).render_to_string(document)
 

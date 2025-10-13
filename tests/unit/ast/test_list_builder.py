@@ -421,3 +421,223 @@ class TestTableBuilderMixedCellTypes:
         assert table.header is not None
         assert len(table.header.cells) == 2
         assert table.header.is_header is True
+
+
+@pytest.mark.unit
+class TestTableBuilderSingleNodeCells:
+    """Test TableBuilder with single Node cells (Issue 8)."""
+
+    def test_add_row_with_single_node_cells(self) -> None:
+        """Test adding rows with single Node instances as cells."""
+        from all2md.ast import Text
+
+        builder = TableBuilder()
+        builder.add_row([Text(content="Name"), Text(content="Age")])
+        builder.add_row([Text(content="Alice"), Text(content="30")])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 2
+        assert len(table.rows[0].cells) == 2
+        assert isinstance(table.rows[0].cells[0].content[0], Text)
+        assert table.rows[0].cells[0].content[0].content == "Name"
+
+    def test_add_row_mixed_nodes_and_sequences(self) -> None:
+        """Test adding rows with mix of single Nodes and sequences."""
+        from all2md.ast import Strong, Text
+
+        builder = TableBuilder()
+        builder.add_row([
+            Text(content="Name"),  # Single node
+            [Text(content="Age: "), Strong(content=[Text(content="30")])]  # Sequence
+        ])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 1
+        # First cell has single node
+        assert len(table.rows[0].cells[0].content) == 1
+        assert table.rows[0].cells[0].content[0].content == "Name"
+        # Second cell has sequence
+        assert len(table.rows[0].cells[1].content) == 2
+
+    def test_add_row_mixed_strings_nodes_sequences(self) -> None:
+        """Test adding rows with strings, single Nodes, and sequences."""
+        from all2md.ast import Emphasis, Strong, Text
+
+        builder = TableBuilder()
+        builder.add_row([
+            "Name",  # String
+            Text(content="Age"),  # Single node
+            [Text(content="City: "), Emphasis(content=[Text(content="NYC")])]  # Sequence
+        ])
+
+        table = builder.get_table()
+
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 3
+        # All cells should be properly converted
+        assert table.rows[0].cells[0].content[0].content == "Name"
+        assert table.rows[0].cells[1].content[0].content == "Age"
+        assert len(table.rows[0].cells[2].content) == 2
+
+    def test_header_with_single_node_cells(self) -> None:
+        """Test header row with single Node cells."""
+        from all2md.ast import Strong, Text
+
+        builder = TableBuilder(has_header=True)
+        builder.add_row([
+            Strong(content=[Text(content="Name")]),
+            Strong(content=[Text(content="Age")])
+        ])
+        builder.add_row([Text(content="Alice"), Text(content="30")])
+
+        table = builder.get_table()
+
+        assert table.header is not None
+        assert len(table.header.cells) == 2
+        # Header cells should contain Strong nodes
+        assert isinstance(table.header.cells[0].content[0], Strong)
+        assert isinstance(table.header.cells[1].content[0], Strong)
+
+
+@pytest.mark.unit
+class TestTableBuilderAlignmentValidation:
+    """Test TableBuilder alignment validation (Issue 9)."""
+
+    def test_alignment_mismatch_raises_error(self) -> None:
+        """Test that mismatched alignment length raises ValueError."""
+        builder = TableBuilder(has_header=True)
+
+        # Header with 3 cells but only 2 alignments - should raise
+        with pytest.raises(ValueError, match="Alignment count .* must match cell count"):
+            builder.add_row(["Name", "Age", "City"], alignments=["left", "right"])
+
+    def test_alignment_too_many_raises_error(self) -> None:
+        """Test that too many alignments raises ValueError."""
+        builder = TableBuilder(has_header=True)
+
+        # Header with 2 cells but 3 alignments - should raise
+        with pytest.raises(ValueError, match="Alignment count .* must match cell count"):
+            builder.add_row(["Name", "Age"], alignments=["left", "right", "center"])
+
+    def test_alignment_exact_match_works(self) -> None:
+        """Test that exact alignment match works correctly."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["Name", "Age", "City"], alignments=["left", "right", "center"])
+        builder.add_row(["Alice", "30", "NYC"])
+
+        table = builder.get_table()
+
+        assert len(table.alignments) == 3
+        assert table.alignments == ["left", "right", "center"]
+
+    def test_alignment_auto_padding_on_wider_body_row(self) -> None:
+        """Test that alignments auto-pad when body rows have more columns."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["Name", "Age"], alignments=["left", "right"])
+        # Body row with extra column should auto-pad alignments
+        builder.add_row(["Alice", "30", "NYC"])
+
+        table = builder.get_table()
+
+        # Alignments should be auto-padded with None
+        assert len(table.alignments) == 3
+        assert table.alignments == ["left", "right", None]
+
+    def test_alignment_auto_padding_multiple_rows(self) -> None:
+        """Test alignment auto-padding with multiple progressively wider rows."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["A", "B"], alignments=["left", "right"])
+        builder.add_row(["1", "2"])  # Same width
+        builder.add_row(["X", "Y", "Z"])  # Wider - should pad to 3
+        builder.add_row(["P", "Q", "R", "S"])  # Even wider - should pad to 4
+
+        table = builder.get_table()
+
+        assert len(table.alignments) == 4
+        assert table.alignments == ["left", "right", None, None]
+
+    def test_alignment_no_auto_padding_if_not_needed(self) -> None:
+        """Test that no auto-padding occurs if body rows match or are narrower."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["Name", "Age", "City"], alignments=["left", "right", "center"])
+        builder.add_row(["Alice", "30", "NYC"])
+        builder.add_row(["Bob", "25"])  # Narrower row - no padding needed
+
+        table = builder.get_table()
+
+        assert len(table.alignments) == 3
+        assert table.alignments == ["left", "right", "center"]
+
+    def test_set_column_alignment_auto_pads(self) -> None:
+        """Test that set_column_alignment auto-pads when setting new column."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["Name", "Age"])
+
+        # Set alignment for column 3 (doesn't exist yet)
+        builder.set_column_alignment(2, "center")
+
+        table = builder.get_table()
+
+        # Should have padded to index 2
+        assert len(table.alignments) == 3
+        assert table.alignments == [None, None, "center"]
+
+
+@pytest.mark.unit
+class TestTableBuilderMultipleHeaders:
+    """Test TableBuilder multiple header prevention (Issue 10)."""
+
+    def test_multiple_headers_raises_error(self) -> None:
+        """Test that adding multiple headers raises ValueError."""
+        builder = TableBuilder()
+        builder.add_row(["Name", "Age"], is_header=True)
+
+        # Attempting to add another header should raise
+        with pytest.raises(ValueError, match="Table already has a header row"):
+            builder.add_row(["Column 1", "Column 2"], is_header=True)
+
+    def test_multiple_headers_with_has_header_raises_error(self) -> None:
+        """Test that has_header=True doesn't allow multiple headers."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["Name", "Age"])  # Auto-treated as header
+
+        # Attempting to add another explicit header should raise
+        with pytest.raises(ValueError, match="Table already has a header row"):
+            builder.add_row(["Column 1", "Column 2"], is_header=True)
+
+    def test_header_then_body_rows_works(self) -> None:
+        """Test that header followed by body rows works correctly."""
+        builder = TableBuilder()
+        builder.add_row(["Name", "Age"], is_header=True)
+        builder.add_row(["Alice", "30"])
+        builder.add_row(["Bob", "25"])
+
+        table = builder.get_table()
+
+        assert table.header is not None
+        assert len(table.rows) == 2
+
+    def test_has_header_followed_by_body_rows_works(self) -> None:
+        """Test that has_header=True followed by body rows works correctly."""
+        builder = TableBuilder(has_header=True)
+        builder.add_row(["Name", "Age"])  # Auto-treated as header
+        builder.add_row(["Alice", "30"])  # Body row
+        builder.add_row(["Bob", "25"])  # Body row
+
+        table = builder.get_table()
+
+        assert table.header is not None
+        assert len(table.rows) == 2
+
+    def test_explicit_false_is_header_after_header_works(self) -> None:
+        """Test that explicitly passing is_header=False after header works."""
+        builder = TableBuilder()
+        builder.add_row(["Name", "Age"], is_header=True)
+        builder.add_row(["Alice", "30"], is_header=False)
+
+        table = builder.get_table()
+
+        assert table.header is not None
+        assert len(table.rows) == 1

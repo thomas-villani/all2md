@@ -204,3 +204,108 @@ class TestExtractText:
         result = extract_text(nodes)
         # Joiner adds space at each nesting level
         assert result == "Para 1 with  bold Para 2 with  italic"
+
+    def test_extract_from_list_node(self):
+        """Test extracting text from List nodes (Issue 7)."""
+        from all2md.ast import List, ListItem
+
+        lst = List(ordered=False, items=[
+            ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+            ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+            ListItem(children=[Paragraph(content=[Text(content="Item 3")])]),
+        ])
+        result = extract_text(lst)
+        assert result == "Item 1 Item 2 Item 3"
+
+    def test_extract_from_nested_list(self):
+        """Test extracting text from nested List nodes."""
+        from all2md.ast import List, ListItem
+
+        nested_list = List(ordered=False, items=[
+            ListItem(children=[
+                Paragraph(content=[Text(content="Sub-item 1")]),
+            ]),
+            ListItem(children=[
+                Paragraph(content=[Text(content="Sub-item 2")]),
+            ]),
+        ])
+
+        outer_list = List(ordered=False, items=[
+            ListItem(children=[
+                Paragraph(content=[Text(content="Item 1")]),
+                nested_list,
+            ]),
+            ListItem(children=[
+                Paragraph(content=[Text(content="Item 2")]),
+            ]),
+        ])
+
+        result = extract_text(outer_list)
+        assert result == "Item 1 Sub-item 1 Sub-item 2 Item 2"
+
+    def test_extract_from_table_node(self):
+        """Test extracting text from Table nodes (Issue 7)."""
+        from all2md.ast import Table, TableRow, TableCell
+
+        table = Table(
+            header=TableRow(
+                cells=[
+                    TableCell(content=[Text(content="Name")]),
+                    TableCell(content=[Text(content="Age")]),
+                ],
+                is_header=True
+            ),
+            rows=[
+                TableRow(cells=[
+                    TableCell(content=[Text(content="Alice")]),
+                    TableCell(content=[Text(content="30")]),
+                ]),
+                TableRow(cells=[
+                    TableCell(content=[Text(content="Bob")]),
+                    TableCell(content=[Text(content="25")]),
+                ]),
+            ]
+        )
+        result = extract_text(table)
+        # Should extract text from header and all rows
+        assert result == "Name Age Alice 30 Bob 25"
+
+    def test_extract_from_table_with_formatted_cells(self):
+        """Test extracting text from Table with inline formatting."""
+        from all2md.ast import Table, TableRow, TableCell
+
+        table = Table(
+            header=TableRow(
+                cells=[
+                    TableCell(content=[Text(content="Name")]),
+                    TableCell(content=[Strong(content=[Text(content="Age")])]),
+                ],
+                is_header=True
+            ),
+            rows=[
+                TableRow(cells=[
+                    TableCell(content=[
+                        Text(content="Alice "),
+                        Emphasis(content=[Text(content="Smith")])
+                    ]),
+                    TableCell(content=[Text(content="30")]),
+                ]),
+            ]
+        )
+        result = extract_text(table)
+        assert result == "Name Age Alice  Smith 30"
+
+    def test_extract_from_document_with_list(self):
+        """Test extracting text from Document containing Lists."""
+        from all2md.ast import List, ListItem
+
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Shopping List")]),
+            List(ordered=False, items=[
+                ListItem(children=[Paragraph(content=[Text(content="Apples")])]),
+                ListItem(children=[Paragraph(content=[Text(content="Oranges")])]),
+            ]),
+            Paragraph(content=[Text(content="Total: 2 items")]),
+        ])
+        result = extract_text(doc)
+        assert result == "Shopping List Apples Oranges Total: 2 items"

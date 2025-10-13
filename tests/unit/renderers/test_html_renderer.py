@@ -448,7 +448,7 @@ class TestBlockElements:
         doc = Document(children=[
             HTMLBlock(content="<div>Custom HTML</div>")
         ])
-        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, html_passthrough_mode="pass-through"))
         result = renderer.render_to_string(doc)
         assert "<div>Custom HTML</div>" in result
 

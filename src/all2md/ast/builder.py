@@ -183,21 +183,22 @@ class TableBuilder:
 
     def add_row(
             self,
-            cells: Sequence[str | Sequence[Node]],
+            cells: Sequence[str | Node | Sequence[Node]],
             is_header: bool = False,
             alignments: list[Alignment | None] | None = None
     ) -> None:
         """Add a row to the table.
 
         This method accepts a flexible cell specification allowing mixed types
-        per cell. Each cell can be either a plain string (automatically converted
-        to a Text node) or a sequence of inline Node objects.
+        per cell. Each cell can be a plain string, a single Node, or a sequence
+        of inline Node objects.
 
         Parameters
         ----------
-        cells : Sequence of str or Sequence of Node
+        cells : Sequence of str, Node, or Sequence of Node
             Cell contents where each cell can be:
             - A plain string (e.g., "Hello")
+            - A single Node (e.g., Text("Hello"))
             - A sequence of inline nodes (e.g., [Text("Hello"), Strong(content=[Text("world")])])
 
             Mixed types are supported per-cell. An empty sequence creates an empty row.
@@ -213,8 +214,10 @@ class TableBuilder:
         Examples
         --------
                 ["Name", "Age"]  # All strings
+                [Text("Name"), Text("Age")]  # All single nodes
                 [[Text("Name")], [Text("Age")]]  # All node sequences
                 ["Name", [Text("Age: "), Strong(content=[Text("30")])]]  # Mixed
+                [Text("Name"), [Text("Age: "), Strong(content=[Text("30")])]]  # Mixed
 
         Notes
         -----
@@ -233,6 +236,9 @@ class TableBuilder:
         for cell_content in cells:
             if isinstance(cell_content, str):
                 cell_nodes: list[Node] = [Text(content=cell_content)]
+            elif isinstance(cell_content, Node):
+                # Handle single Node instances (Issue 8)
+                cell_nodes = [cell_content]
             else:
                 cell_nodes = list(cell_content)
 
@@ -241,13 +247,27 @@ class TableBuilder:
         row = TableRow(cells=table_cells, is_header=is_header)
 
         if is_header:
+            # Prevent overwriting existing header (Issue 10)
+            if self.header is not None:
+                raise ValueError(
+                    "Table already has a header row. Cannot add another header. "
+                    "Use is_header=False for body rows."
+                )
             self.header = row
             if alignments:
+                # Validate alignment length matches cell count (Issue 9)
+                if len(alignments) != len(table_cells):
+                    raise ValueError(
+                        f"Alignment count ({len(alignments)}) must match cell count ({len(table_cells)})"
+                    )
                 self.alignments = alignments
             elif not self.alignments:
                 # Initialize alignments to match number of columns
                 self.alignments = [None] * len(table_cells)
         else:
+            # Auto-pad alignments if row has more columns (Issue 9)
+            if len(table_cells) > len(self.alignments):
+                self.alignments.extend([None] * (len(table_cells) - len(self.alignments)))
             self.rows.append(row)
 
     def set_caption(self, caption: str) -> None:

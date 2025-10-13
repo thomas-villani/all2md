@@ -29,13 +29,13 @@ from all2md.renderers.mediawiki import MediaWikiRenderer
 class TestHtmlRendererSecurity:
     """Test security features in HtmlRenderer."""
 
-    def test_pass_through_mode_default(self):
-        """Test that pass-through mode is the default and preserves HTML."""
+    def test_pass_through_mode_pass_through(self):
+        """Test that pass-through mode preserves HTML."""
         doc = Document(children=[
             HTMLBlock(content='<script>alert("xss")</script>')
         ])
 
-        options = HtmlRendererOptions(standalone=False)
+        options = HtmlRendererOptions(standalone=False, html_passthrough_mode="pass-through")
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
 

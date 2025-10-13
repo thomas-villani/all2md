@@ -43,7 +43,9 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
     """Extract plain text from a node or list of nodes.
 
     This function recursively traverses the AST and concatenates all Text node
-    content, joining text parts with the specified joiner string.
+    content, joining text parts with the specified joiner string. It uses
+    get_node_children() to properly handle all node types including List, Table,
+    and other complex structures.
 
     Parameters
     ----------
@@ -86,9 +88,19 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
         >>> extract_text(nodes)
         'Hello world'
 
+    Extract text from complex structures (List, Table):
+
+        >>> from all2md.ast import List, ListItem, Text, Paragraph
+        >>> lst = List(ordered=False, items=[
+        ...     ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+        ...     ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
+        ... ])
+        >>> extract_text(lst)
+        'Item 1 Item 2'
+
     """
     # Import here to avoid circular imports
-    from all2md.ast.nodes import Text
+    from all2md.ast.nodes import Text, get_node_children
 
     # Handle list of nodes
     if isinstance(node_or_nodes, list):
@@ -107,19 +119,12 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
     if isinstance(node, Text):
         return node.content
 
-    # If node has children list (block nodes), recurse
-    if hasattr(node, 'children') and isinstance(node.children, list):
-        for child in node.children:
-            extracted = extract_text(child, joiner=joiner)
-            if extracted:
-                text_parts.append(extracted)
-
-    # If node has content list (inline nodes), recurse
-    if hasattr(node, 'content') and isinstance(node.content, list):
-        for child in node.content:
-            extracted = extract_text(child, joiner=joiner)
-            if extracted:
-                text_parts.append(extracted)
+    # Recursively extract text from all child nodes using get_node_children
+    # This handles all node types (List.items, Table.rows, etc.)
+    for child in get_node_children(node):
+        extracted = extract_text(child, joiner=joiner)
+        if extracted:
+            text_parts.append(extracted)
 
     return joiner.join(text_parts)
 
