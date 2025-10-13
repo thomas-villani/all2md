@@ -118,7 +118,10 @@ from all2md.ast.transforms import (
     clone_node,
     extract_nodes,
     filter_nodes,
+    first_write_wins_merger,
+    last_write_wins_merger,
     merge_documents,
+    merge_lists_merger,
     transform_nodes,
 )
 
@@ -187,6 +190,9 @@ __all__ = [
     "filter_nodes",
     "transform_nodes",
     "merge_documents",
+    "last_write_wins_merger",
+    "first_write_wins_merger",
+    "merge_lists_merger",
     "HeadingLevelTransformer",
     "LinkRewriter",
     "TextReplacer",

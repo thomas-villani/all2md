@@ -363,14 +363,48 @@ class DocumentBuilder:
     """Helper for building complete documents.
 
     This class provides a fluent interface for constructing documents
-    with multiple block-level elements.
+    with multiple block-level elements. It supports method chaining for
+    ergonomic document construction.
 
     Examples
     --------
-    >>> builder = DocumentBuilder()
-    >>> builder.add_heading(1, [Text("Title")])
-    >>> builder.add_paragraph([Text("Content")])
-    >>> doc = builder.get_document()
+    Basic usage with headings and paragraphs:
+
+        >>> builder = DocumentBuilder()
+        >>> builder.add_heading(1, [Text("Title")])
+        >>> builder.add_paragraph([Text("Content")])
+        >>> doc = builder.get_document()
+
+    Using method chaining:
+
+        >>> doc = (DocumentBuilder()
+        ...     .add_heading(1, [Text("My Document")])
+        ...     .add_paragraph([Text("Introduction paragraph.")])
+        ...     .add_code_block("print('Hello, world!')", language="python")
+        ...     .add_thematic_break()
+        ...     .get_document())
+
+    Adding complex structures:
+
+        >>> builder = DocumentBuilder()
+        >>> builder.add_block_quote([Paragraph(content=[Text("Quote text")])])
+        >>> builder.add_list([ListItem(children=[Paragraph(content=[Text("Item 1")])])], ordered=False)
+        >>> builder.add_table(
+        ...     rows=[TableRow(cells=[TableCell(content=[Text("Cell")])])],
+        ...     header=TableRow(cells=[TableCell(content=[Text("Header")])])
+        ... )
+        >>> doc = builder.get_document()
+
+    Adding multiple nodes at once:
+
+        >>> nodes = [
+        ...     Heading(level=1, content=[Text("Title")]),
+        ...     Paragraph(content=[Text("Paragraph 1")]),
+        ...     Paragraph(content=[Text("Paragraph 2")])
+        ... ]
+        >>> builder = DocumentBuilder()
+        >>> builder.add_nodes(nodes)
+        >>> doc = builder.get_document()
 
     """
 
@@ -468,6 +502,201 @@ class DocumentBuilder:
         """
         from all2md.ast.nodes import ThematicBreak
         self.children.append(ThematicBreak())
+        return self
+
+    def add_block_quote(self, children: list[Node]) -> DocumentBuilder:
+        """Add a block quote to the document.
+
+        Parameters
+        ----------
+        children : list of Node
+            Block-level content for the quote
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import BlockQuote
+        self.children.append(BlockQuote(children=children))
+        return self
+
+    def add_list(
+            self,
+            items: list[ListItem],
+            ordered: bool = False,
+            start: int = 1,
+            tight: bool = True
+    ) -> DocumentBuilder:
+        """Add a list to the document.
+
+        Parameters
+        ----------
+        items : list of ListItem
+            List items
+        ordered : bool, default = False
+            True for ordered list, False for unordered
+        start : int, default = 1
+            Starting number for ordered lists
+        tight : bool, default = True
+            Tight spacing (no blank lines between items)
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import List
+        self.children.append(List(ordered=ordered, items=items, start=start, tight=tight))
+        return self
+
+    def add_table(
+            self,
+            rows: list[TableRow],
+            header: TableRow | None = None,
+            alignments: list[Alignment | None] | None = None,
+            caption: str | None = None
+    ) -> DocumentBuilder:
+        """Add a table to the document.
+
+        Parameters
+        ----------
+        rows : list of TableRow
+            Table body rows
+        header : TableRow or None, default = None
+            Optional header row
+        alignments : list of Alignment or None, optional
+            Column alignments
+        caption : str or None, default = None
+            Optional table caption
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import Table
+        self.children.append(Table(
+            rows=rows,
+            header=header,
+            alignments=alignments or [],
+            caption=caption
+        ))
+        return self
+
+    def add_html_block(self, content: str) -> DocumentBuilder:
+        """Add an HTML block to the document.
+
+        Parameters
+        ----------
+        content : str
+            Raw HTML content
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import HTMLBlock
+        self.children.append(HTMLBlock(content=content))
+        return self
+
+    def add_footnote_definition(
+            self,
+            identifier: str,
+            content: list[Node]
+    ) -> DocumentBuilder:
+        """Add a footnote definition to the document.
+
+        Parameters
+        ----------
+        identifier : str
+            Footnote identifier/label
+        content : list of Node
+            Block-level content for the footnote
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import FootnoteDefinition
+        self.children.append(FootnoteDefinition(identifier=identifier, content=content))
+        return self
+
+    def add_definition_list(
+            self,
+            items: list[tuple[DefinitionTerm, list[DefinitionDescription]]]
+    ) -> DocumentBuilder:
+        """Add a definition list to the document.
+
+        Parameters
+        ----------
+        items : list of tuple
+            List of (term, descriptions) tuples
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import DefinitionList
+        self.children.append(DefinitionList(items=items))
+        return self
+
+    def add_math_block(
+            self,
+            content: str,
+            notation: str = "latex"
+    ) -> DocumentBuilder:
+        """Add a math block to the document.
+
+        Parameters
+        ----------
+        content : str
+            Math expression content
+        notation : str, default = "latex"
+            Math notation system (e.g., "latex", "mathml")
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        """
+        from all2md.ast.nodes import MathBlock
+        self.children.append(MathBlock(content=content, notation=notation))
+        return self
+
+    def add_nodes(self, nodes: list[Node]) -> DocumentBuilder:
+        """Add multiple nodes to the document at once.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Block-level nodes to add
+
+        Returns
+        -------
+        DocumentBuilder
+            Self for method chaining
+
+        Examples
+        --------
+        >>> builder = DocumentBuilder()
+        >>> builder.add_nodes([
+        ...     Heading(level=1, content=[Text("Title")]),
+        ...     Paragraph(content=[Text("Content")])
+        ... ])
+
+        """
+        self.children.extend(nodes)
         return self
 
     def get_document(self) -> Document:

@@ -23,7 +23,10 @@ from all2md.ast.transforms import (
     clone_node,
     extract_nodes,
     filter_nodes,
+    first_write_wins_merger,
+    last_write_wins_merger,
     merge_documents,
+    merge_lists_merger,
     transform_nodes,
 )
 
@@ -219,6 +222,119 @@ class TestMergeDocuments:
 
         assert merged.metadata.get("author") == "Alice"
         assert merged.metadata.get("date") == "2025-01-01"
+
+    def test_merge_default_is_last_write_wins(self) -> None:
+        """Test that default merge strategy is last-write-wins."""
+        doc1 = Document(children=[], metadata={"version": "1.0", "author": "Alice"})
+        doc2 = Document(children=[], metadata={"version": "2.0", "date": "2025-01-01"})
+
+        merged = merge_documents([doc1, doc2])
+
+        # Last document wins for duplicate keys
+        assert merged.metadata["version"] == "2.0"
+        assert merged.metadata["author"] == "Alice"
+        assert merged.metadata["date"] == "2025-01-01"
+
+    def test_merge_with_first_write_wins_merger(self) -> None:
+        """Test merging with first-write-wins strategy."""
+        doc1 = Document(children=[], metadata={"version": "1.0", "author": "Alice"})
+        doc2 = Document(children=[], metadata={"version": "2.0", "date": "2025-01-01"})
+
+        merged = merge_documents([doc1, doc2], metadata_merger=first_write_wins_merger)
+
+        # First document wins for duplicate keys
+        assert merged.metadata["version"] == "1.0"
+        assert merged.metadata["author"] == "Alice"
+        assert merged.metadata["date"] == "2025-01-01"
+
+    def test_merge_with_merge_lists_merger(self) -> None:
+        """Test merging with list concatenation strategy."""
+        doc1 = Document(children=[], metadata={"tags": ["python", "ast"], "version": "1.0"})
+        doc2 = Document(children=[], metadata={"tags": ["markdown"], "version": "2.0"})
+
+        merged = merge_documents([doc1, doc2], metadata_merger=merge_lists_merger)
+
+        # Lists are concatenated
+        assert merged.metadata["tags"] == ["python", "ast", "markdown"]
+        # Non-lists use last-write-wins
+        assert merged.metadata["version"] == "2.0"
+
+    def test_merge_with_custom_merger(self) -> None:
+        """Test merging with custom merger function."""
+        def custom_merger(existing, new):
+            # Only keep 'important' keys
+            result = {}
+            for key, value in {**existing, **new}.items():
+                if "important" in key.lower():
+                    result[key] = value
+            return result
+
+        doc1 = Document(children=[], metadata={"important_data": "keep", "junk": "discard"})
+        doc2 = Document(children=[], metadata={"very_important": "also_keep", "trash": "remove"})
+
+        merged = merge_documents([doc1, doc2], metadata_merger=custom_merger)
+
+        assert "important_data" in merged.metadata
+        assert "very_important" in merged.metadata
+        assert "junk" not in merged.metadata
+        assert "trash" not in merged.metadata
+
+
+@pytest.mark.unit
+class TestMetadataMergers:
+    """Test metadata merger helper functions."""
+
+    def test_last_write_wins_merger(self) -> None:
+        """Test last-write-wins merger."""
+        existing = {"author": "Alice", "version": "1.0"}
+        new = {"version": "2.0", "date": "2025-01-01"}
+
+        result = last_write_wins_merger(existing, new)
+
+        assert result["author"] == "Alice"
+        assert result["version"] == "2.0"
+        assert result["date"] == "2025-01-01"
+
+    def test_first_write_wins_merger(self) -> None:
+        """Test first-write-wins merger."""
+        existing = {"author": "Alice", "version": "1.0"}
+        new = {"version": "2.0", "date": "2025-01-01"}
+
+        result = first_write_wins_merger(existing, new)
+
+        assert result["author"] == "Alice"
+        assert result["version"] == "1.0"  # First value preserved
+        assert result["date"] == "2025-01-01"
+
+    def test_merge_lists_merger_concatenates_lists(self) -> None:
+        """Test that merge_lists_merger concatenates list values."""
+        existing = {"tags": ["python", "ast"], "version": "1.0"}
+        new = {"tags": ["markdown"], "author": "Alice"}
+
+        result = merge_lists_merger(existing, new)
+
+        assert result["tags"] == ["python", "ast", "markdown"]
+        assert result["version"] == "1.0"
+        assert result["author"] == "Alice"
+
+    def test_merge_lists_merger_non_list_uses_last_wins(self) -> None:
+        """Test that non-list values use last-write-wins."""
+        existing = {"version": "1.0", "count": 5}
+        new = {"version": "2.0", "count": 10}
+
+        result = merge_lists_merger(existing, new)
+
+        assert result["version"] == "2.0"
+        assert result["count"] == 10
+
+    def test_merge_lists_merger_mixed_types_uses_last_wins(self) -> None:
+        """Test that mixed types (one list, one not) use last-write-wins."""
+        existing = {"data": ["old"]}
+        new = {"data": "new_string"}
+
+        result = merge_lists_merger(existing, new)
+
+        assert result["data"] == "new_string"  # Last wins when types differ
 
 
 @pytest.mark.unit

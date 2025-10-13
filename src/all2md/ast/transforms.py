@@ -233,20 +233,11 @@ class NodeTransformer(NodeVisitor):
 
     def visit_heading(self, node: Heading) -> Heading:
         """Transform a Heading node."""
-        return Heading(
-            level=node.level,
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_paragraph(self, node: Paragraph) -> Paragraph:
         """Transform a Paragraph node."""
-        return Paragraph(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_code_block(self, node: CodeBlock) -> CodeBlock:
         """Transform a CodeBlock node."""
@@ -261,11 +252,7 @@ class NodeTransformer(NodeVisitor):
 
     def visit_block_quote(self, node: BlockQuote) -> BlockQuote:
         """Transform a BlockQuote node."""
-        return BlockQuote(
-            children=self._transform_children(node.children),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_list(self, node: List) -> List:
         """Transform a List node."""
@@ -280,12 +267,7 @@ class NodeTransformer(NodeVisitor):
 
     def visit_list_item(self, node: ListItem) -> ListItem:
         """Transform a ListItem node."""
-        return ListItem(
-            children=self._transform_children(node.children),
-            task_status=node.task_status,
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_table(self, node: Table) -> Table:
         """Transform a Table node."""
@@ -309,14 +291,7 @@ class NodeTransformer(NodeVisitor):
 
     def visit_table_cell(self, node: TableCell) -> TableCell:
         """Transform a TableCell node."""
-        return TableCell(
-            content=self._transform_children(node.content),
-            colspan=node.colspan,
-            rowspan=node.rowspan,
-            alignment=node.alignment,
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_thematic_break(self, node: ThematicBreak) -> ThematicBreak:
         """Transform a ThematicBreak node."""
@@ -334,19 +309,11 @@ class NodeTransformer(NodeVisitor):
 
     def visit_emphasis(self, node: Emphasis) -> Emphasis:
         """Transform an Emphasis node."""
-        return Emphasis(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_strong(self, node: Strong) -> Strong:
         """Transform a Strong node."""
-        return Strong(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_code(self, node: Code) -> Code:
         """Transform a Code node."""
@@ -380,35 +347,19 @@ class NodeTransformer(NodeVisitor):
 
     def visit_strikethrough(self, node: Strikethrough) -> Strikethrough:
         """Transform a Strikethrough node."""
-        return Strikethrough(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_underline(self, node: Underline) -> Underline:
         """Transform an Underline node."""
-        return Underline(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_superscript(self, node: Superscript) -> Superscript:
         """Transform a Superscript node."""
-        return Superscript(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_subscript(self, node: Subscript) -> Subscript:
         """Transform a Subscript node."""
-        return Subscript(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location,
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_html_inline(self, node: HTMLInline) -> HTMLInline:
         """Transform an HTMLInline node."""
@@ -436,12 +387,7 @@ class NodeTransformer(NodeVisitor):
 
     def visit_footnote_definition(self, node: "FootnoteDefinition") -> "FootnoteDefinition":
         """Transform a FootnoteDefinition node."""
-        return FootnoteDefinition(
-            identifier=node.identifier,
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_definition_list(self, node: "DefinitionList") -> "DefinitionList":
         """Transform a DefinitionList node."""
@@ -462,19 +408,11 @@ class NodeTransformer(NodeVisitor):
 
     def visit_definition_term(self, node: "DefinitionTerm") -> "DefinitionTerm":
         """Transform a DefinitionTerm node."""
-        return DefinitionTerm(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_definition_description(self, node: "DefinitionDescription") -> "DefinitionDescription":
         """Transform a DefinitionDescription node."""
-        return DefinitionDescription(
-            content=self._transform_children(node.content),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
-        )
+        return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_math_block(self, node: "MathBlock") -> "MathBlock":
         """Transform a MathBlock node."""
@@ -818,30 +756,162 @@ def transform_nodes(doc: Document, transformer: NodeTransformer) -> Document:
     return transformer.transform(doc)  # type: ignore
 
 
-def merge_documents(docs: list[Document]) -> Document:
+def last_write_wins_merger(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """Merge metadata with last-write-wins strategy (default).
+
+    Later document's metadata values overwrite earlier ones for duplicate keys.
+
+    Parameters
+    ----------
+    existing : dict
+        Existing accumulated metadata
+    new : dict
+        New metadata to merge in
+
+    Returns
+    -------
+    dict
+        Merged metadata dictionary
+
+    Examples
+    --------
+    >>> existing = {"author": "Alice", "version": "1.0"}
+    >>> new = {"version": "2.0", "date": "2025-01-01"}
+    >>> last_write_wins_merger(existing, new)
+    {"author": "Alice", "version": "2.0", "date": "2025-01-01"}
+
+    """
+    result = existing.copy()
+    result.update(new)
+    return result
+
+
+def first_write_wins_merger(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """Merge metadata with first-write-wins strategy.
+
+    Earlier document's metadata values are preserved for duplicate keys.
+
+    Parameters
+    ----------
+    existing : dict
+        Existing accumulated metadata
+    new : dict
+        New metadata to merge in
+
+    Returns
+    -------
+    dict
+        Merged metadata dictionary
+
+    Examples
+    --------
+    >>> existing = {"author": "Alice", "version": "1.0"}
+    >>> new = {"version": "2.0", "date": "2025-01-01"}
+    >>> first_write_wins_merger(existing, new)
+    {"author": "Alice", "version": "1.0", "date": "2025-01-01"}
+
+    """
+    result = new.copy()
+    result.update(existing)
+    return result
+
+
+def merge_lists_merger(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """Merge metadata with list concatenation for list values.
+
+    When both existing and new have list values for the same key, concatenate them.
+    For non-list values, uses last-write-wins strategy.
+
+    Parameters
+    ----------
+    existing : dict
+        Existing accumulated metadata
+    new : dict
+        New metadata to merge in
+
+    Returns
+    -------
+    dict
+        Merged metadata dictionary
+
+    Examples
+    --------
+    >>> existing = {"tags": ["python", "ast"], "version": "1.0"}
+    >>> new = {"tags": ["markdown"], "version": "2.0"}
+    >>> merge_lists_merger(existing, new)
+    {"tags": ["python", "ast", "markdown"], "version": "2.0"}
+
+    """
+    result = existing.copy()
+    for key, value in new.items():
+        if key in result and isinstance(result[key], list) and isinstance(value, list):
+            result[key] = result[key] + value
+        else:
+            result[key] = value
+    return result
+
+
+def merge_documents(
+    docs: list[Document],
+    metadata_merger: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+) -> Document:
     """Merge multiple documents into a single document.
 
     Parameters
     ----------
     docs : list of Document
         Documents to merge
+    metadata_merger : callable or None, default = None
+        Optional function to customize metadata merging. Takes (existing_metadata, new_metadata)
+        and returns merged metadata dict. If None, uses last-write-wins strategy where later
+        documents overwrite earlier ones for duplicate keys.
+
+        Common strategies provided:
+        - last_write_wins_merger: Later values overwrite (default behavior)
+        - first_write_wins_merger: Earlier values are preserved
+        - merge_lists_merger: Concatenate list values, last-wins for others
 
     Returns
     -------
     Document
-        Merged document with all children
+        Merged document with all children and combined metadata
 
     Examples
     --------
-    >>> merged = merge_documents([doc1, doc2, doc3])
+    Basic merge with default last-write-wins:
+
+        >>> merged = merge_documents([doc1, doc2, doc3])
+
+    Preserve first document's metadata values:
+
+        >>> merged = merge_documents([doc1, doc2], metadata_merger=first_write_wins_merger)
+
+    Concatenate list-valued metadata:
+
+        >>> merged = merge_documents([doc1, doc2], metadata_merger=merge_lists_merger)
+
+    Custom merger:
+
+        >>> def custom_merger(existing, new):
+        ...     # Custom logic here
+        ...     return merged_dict
+        >>> merged = merge_documents([doc1, doc2], metadata_merger=custom_merger)
+
+    Notes
+    -----
+    The default behavior (when metadata_merger=None) uses last-write-wins strategy,
+    meaning later documents' metadata values overwrite earlier ones for duplicate keys.
 
     """
     all_children: list[Node] = []
     merged_metadata: dict[str, Any] = {}
 
+    # Use default merger if none provided
+    merger = metadata_merger or last_write_wins_merger
+
     for doc in docs:
         all_children.extend(doc.children)
-        merged_metadata.update(doc.metadata)
+        merged_metadata = merger(merged_metadata, doc.metadata)
 
     return Document(children=all_children, metadata=merged_metadata)
 
@@ -1062,6 +1132,9 @@ __all__ = [
     "filter_nodes",
     "transform_nodes",
     "merge_documents",
+    "last_write_wins_merger",
+    "first_write_wins_merger",
+    "merge_lists_merger",
     "HeadingLevelTransformer",
     "LinkRewriter",
     "TextReplacer",
