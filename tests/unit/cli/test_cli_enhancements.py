@@ -248,14 +248,15 @@ class TestSecurityPresets:
         result = apply_security_preset(args, options)
 
         # Check format-qualified keys (new format)
+        # Paranoid mode is most restrictive - blocks all remote fetches
         assert result['html.strip_dangerous_elements'] is True
-        assert result['html.network.allow_remote_fetch'] is True
-        assert result['html.network.require_https'] is True
-        assert result['html.network.allowed_hosts'] == []
+        assert result['html.network.allow_remote_fetch'] is False  # Maximum security blocks remote fetch
         assert result['html.local_files.allow_local_files'] is False
         assert result['html.local_files.allow_cwd_files'] is False
         assert result['html.max_asset_size_bytes'] == 5 * 1024 * 1024
         assert result['max_asset_size_bytes'] == 5 * 1024 * 1024
+        # EML should also block remote fetches
+        assert result['eml.html_network.allow_remote_fetch'] is False
 
     def test_no_preset_applied(self):
         """Test that no preset leaves options unchanged."""
@@ -421,9 +422,7 @@ class TestSecurityPresetOptionsMapping:
 
         kwargs = {
             'strip_dangerous_elements': True,
-            'allow_remote_fetch': True,
-            'require_https': True,
-            'allowed_hosts': [],
+            'allow_remote_fetch': False,  # Paranoid mode blocks all remote fetches
             'allow_local_files': False,
             'allow_cwd_files': False,
             'max_asset_size_bytes': 5 * 1024 * 1024,
@@ -434,9 +433,7 @@ class TestSecurityPresetOptionsMapping:
         assert options is not None
         assert isinstance(options, HtmlOptions)
         assert options.strip_dangerous_elements is True
-        assert options.network.allow_remote_fetch is True
-        assert options.network.require_https is True
-        assert options.network.allowed_hosts == []
+        assert options.network.allow_remote_fetch is False  # Maximum security
         assert options.max_asset_size_bytes == 5 * 1024 * 1024
         assert options.local_files.allow_local_files is False
         assert options.local_files.allow_cwd_files is False

@@ -318,9 +318,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
         # Maximum security - most restrictive settings
         # HTML options
         options['html.strip_dangerous_elements'] = True
-        options['html.network.allow_remote_fetch'] = True
-        options['html.network.require_https'] = True
-        options['html.network.allowed_hosts'] = []  # Validate but allow all HTTPS hosts
+        options['html.network.allow_remote_fetch'] = False  # Block all remote fetches
         options['html.max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB
         options['html.local_files.allow_local_files'] = False
         options['html.local_files.allow_cwd_files'] = False
@@ -328,9 +326,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
         options['mhtml.local_files.allow_local_files'] = False
         options['mhtml.local_files.allow_cwd_files'] = False
         # EML options
-        options['eml.html_network.allow_remote_fetch'] = True
-        options['eml.html_network.require_https'] = True
-        options['eml.html_network.allowed_hosts'] = []
+        options['eml.html_network.allow_remote_fetch'] = False  # Block all remote fetches
         options['eml.max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB
         # Base options (no format prefix - applies to all formats)
         options['max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
@@ -671,7 +667,7 @@ def process_multi_file(
 
     # If --zip is specified, skip disk writes and package directly to zip
     if parsed_args.zip:
-        return _create_output_package(parsed_args, files)
+        return _create_output_package(parsed_args, files, options, format_arg, transforms)
 
     # Check for merge-from-list mode (takes precedence over collate)
     if hasattr(parsed_args, 'merge_from_list') and parsed_args.merge_from_list:
@@ -690,7 +686,13 @@ def process_multi_file(
     return exit_code
 
 
-def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Path]) -> int:
+def _create_output_package(
+        parsed_args: argparse.Namespace,
+        input_files: List[Path],
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None
+) -> int:
     """Create output package (zip) after successful conversion.
 
     Converts files directly to zip archive using in-memory BytesIO buffers,
@@ -703,6 +705,12 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
         Parsed command line arguments
     input_files : List[Path]
         List of input files to convert and package
+    options : Dict[str, Any]
+        Conversion options to pass to convert()
+    format_arg : str
+        Source format specification
+    transforms : list, optional
+        List of transform instances to apply
 
     Returns
     -------
@@ -720,7 +728,6 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
     try:
         # Determine target format
         target_format = getattr(parsed_args, 'output_type', 'markdown')
-        source_format = getattr(parsed_args, 'format', 'auto')
 
         # Determine zip path
         if parsed_args.zip == 'auto':
@@ -733,18 +740,15 @@ def _create_output_package(parsed_args: argparse.Namespace, input_files: List[Pa
         else:
             zip_path = Path(parsed_args.zip)
 
-        # Collect conversion options from parsed_args
-        # This will be passed to convert() for each file
-        options: Dict[str, Any] = {}
-
         # Create the zip package directly from conversions
+        # Pass user-specified options and transforms
         created_zip = create_package_from_conversions(
             input_files=input_files,
             zip_path=zip_path,
             target_format=target_format,
             options=options,
-            transforms=None,  # Transforms would need to be built from parsed_args if needed
-            source_format=source_format
+            transforms=transforms,
+            source_format=format_arg
         )
 
         print(f"Created package: {created_zip}", file=sys.stderr)
