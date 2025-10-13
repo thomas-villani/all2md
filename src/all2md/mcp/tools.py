@@ -16,6 +16,7 @@ Functions
 import base64
 import logging
 import re
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -201,14 +202,17 @@ def convert_to_markdown_impl(
 
         # Convert AST to markdown
         flavor_kwargs: dict[str, Any] = {'flavor': input_data.flavor} if input_data.flavor else {}
-        markdown = from_ast(
+        markdown_result = from_ast(
             doc,
             target_format="markdown",
             **cast(Any, flavor_kwargs)
         )
 
-        if not isinstance(markdown, str):
-            raise TypeError(f"Expected markdown string, got {type(markdown)}")
+        # Extract string from StringIO (from_ast returns StringIO for text formats)
+        if isinstance(markdown_result, StringIO):
+            markdown = markdown_result.getvalue()
+        else:
+            raise TypeError(f"Expected StringIO from from_ast, got {type(markdown_result)}")
 
         logger.info(f"Conversion successful ({len(markdown)} characters)")
 
@@ -313,15 +317,12 @@ def render_from_markdown_impl(
             # Handle different content types
             if result is None:
                 raise ValueError("Rendering returned None unexpectedly")
-            elif isinstance(result, str):
-                content = result
-            elif isinstance(result, bytes):
-                # Base64 encode binary content
-                content = base64.b64encode(result).decode('ascii')
-                warnings.append("Binary content returned as base64-encoded string")
-            elif hasattr(result, 'read'):  # type: ignore[unreachable]
-                # Handle BytesIO and other file-like objects from binary renderers
-                binary_content = result.read()
+            elif isinstance(result, StringIO):
+                # Text format - extract string content
+                content = result.getvalue()
+            elif isinstance(result, BytesIO):
+                # Binary format - extract bytes and base64 encode
+                binary_content = result.getvalue()
                 content = base64.b64encode(binary_content).decode('ascii')
                 warnings.append("Binary content returned as base64-encoded string")
             else:

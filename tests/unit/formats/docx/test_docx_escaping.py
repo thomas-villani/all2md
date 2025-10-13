@@ -3,8 +3,7 @@
 import docx
 from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import DocxOptions
-from all2md import to_markdown as docx_to_markdown
+from all2md import DocxOptions, to_markdown as docx_to_markdown
 from all2md.options import MarkdownOptions
 
 

@@ -2,6 +2,7 @@
 """Integration tests for AST JSON format with full conversion pipeline."""
 
 import json
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -28,8 +29,12 @@ class TestAstJsonIntegration:
             target_format="ast"
         )
 
+        # Verify it's a StringIO and extract content
+        assert isinstance(ast_json, StringIO)
+        ast_json_content = ast_json.getvalue()
+
         # Verify it's valid JSON
-        data = json.loads(ast_json)
+        data = json.loads(ast_json_content)
         assert data["schema_version"] == 1
         assert data["node_type"] == "Document"
         assert len(data["children"]) >= 1
@@ -54,9 +59,13 @@ class TestAstJsonIntegration:
             target_format="markdown"
         )
 
+        # Verify it's a StringIO and extract content
+        assert isinstance(markdown, StringIO)
+        markdown_content = markdown.getvalue()
+
         # Verify markdown content
-        assert "# Test Title" in markdown
-        assert "Test paragraph." in markdown
+        assert "# Test Title" in markdown_content
+        assert "Test paragraph." in markdown_content
 
     def test_round_trip_markdown_ast_markdown(self, tmp_path: Path):
         """Test round-trip: Markdown -> AST JSON -> Markdown."""
@@ -73,15 +82,23 @@ class TestAstJsonIntegration:
             target_format="ast"
         )
 
+        # Extract StringIO content
+        assert isinstance(ast_json, StringIO)
+        ast_json_content = ast_json.getvalue()
+
         # Parse AST JSON
-        doc = json_to_ast(ast_json)
+        doc = json_to_ast(ast_json_content)
 
         # Convert back to markdown
         result_markdown = from_ast(doc, target_format="markdown")
 
+        # Extract StringIO content
+        assert isinstance(result_markdown, StringIO)
+        result_markdown_content = result_markdown.getvalue()
+
         # Verify content is preserved (structure may vary slightly)
-        assert "Hello World" in result_markdown
-        assert "test paragraph" in result_markdown
+        assert "Hello World" in result_markdown_content
+        assert "test paragraph" in result_markdown_content
 
     def test_convert_to_ast_json_with_output_file(self, tmp_path: Path):
         """Test converting to AST JSON with output file."""
@@ -140,8 +157,12 @@ class TestAstJsonIntegration:
         # Convert AST to JSON using from_ast
         json_str = from_ast(doc, target_format="ast")
 
+        # Extract StringIO content
+        assert isinstance(json_str, StringIO)
+        json_content = json_str.getvalue()
+
         # Verify it's valid JSON
-        data = json.loads(json_str)
+        data = json.loads(json_content)
         assert data["node_type"] == "Document"
 
     def test_json_string_to_ast_via_convert(self):
@@ -159,7 +180,9 @@ class TestAstJsonIntegration:
             target_format="markdown"
         )
 
-        assert "Test" in markdown
+        assert isinstance(markdown, StringIO)
+        markdown_content = markdown.getvalue()
+        assert "Test" in markdown_content
 
     def test_format_auto_detection_ast_json(self, tmp_path: Path):
         """Test automatic format detection for .ast files."""
@@ -176,7 +199,9 @@ class TestAstJsonIntegration:
             target_format="markdown"
         )
 
-        assert "Auto-detected" in markdown
+        assert isinstance(markdown, StringIO)
+        markdown_content = markdown.getvalue()
+        assert "Auto-detected" in markdown_content
 
     def test_ast_json_with_transforms(self):
         """Test applying transforms during AST JSON conversion."""
@@ -190,22 +215,30 @@ class TestAstJsonIntegration:
             target_format="ast"
         )
 
+        # Extract StringIO content
+        assert isinstance(ast_json, StringIO)
+        ast_json_content = ast_json.getvalue()
+
         # Verify image is in AST
-        data = json.loads(ast_json)
+        data = json.loads(ast_json_content)
         ast_str = json.dumps(data)
         assert "Image" in ast_str
 
         # Convert back with transform to remove images
-        doc = json_to_ast(ast_json)
+        doc = json_to_ast(ast_json_content)
         markdown_no_images = from_ast(
             doc,
             target_format="markdown",
             transforms=["remove-images"]
         )
 
+        # Extract StringIO content
+        assert isinstance(markdown_no_images, StringIO)
+        markdown_no_images_content = markdown_no_images.getvalue()
+
         # Verify image is removed
-        assert "![alt text]" not in markdown_no_images
-        assert "Paragraph." in markdown_no_images
+        assert "![alt text]" not in markdown_no_images_content
+        assert "Paragraph." in markdown_no_images_content
 
     def test_ast_json_preserves_metadata(self, tmp_path: Path):
         """Test that AST JSON preserves document metadata."""
@@ -229,10 +262,14 @@ Test paragraph."""
             target_format="ast"
         )
 
+        # Extract StringIO content
+        assert isinstance(ast_json, StringIO)
+        ast_json_content = ast_json.getvalue()
+
         # Check metadata is preserved
         # Metadata might be in document metadata or in a separate node
         # depending on how markdown parser handles frontmatter
-        assert "Test Document" in ast_json or "Test Author" in ast_json
+        assert "Test Document" in ast_json_content or "Test Author" in ast_json_content
 
     def test_to_markdown_with_ast_intermediate(self):
         """Test using to_markdown with AST as intermediate format."""
@@ -274,22 +311,30 @@ Final paragraph."""
             target_format="ast"
         )
 
+        # Extract StringIO content
+        assert isinstance(ast_json, StringIO)
+        ast_json_content = ast_json.getvalue()
+
         # Verify structure
-        data = json.loads(ast_json)
+        data = json.loads(ast_json_content)
         assert data["node_type"] == "Document"
         assert len(data["children"]) > 5  # Multiple elements
 
         # Convert back to markdown
         markdown = convert(
-            ast_json.encode('utf-8'),
+            ast_json_content.encode('utf-8'),
             source_format="ast",
             target_format="markdown"
         )
 
+        # Extract StringIO content
+        assert isinstance(markdown, StringIO)
+        markdown_content = markdown.getvalue()
+
         # Verify content is preserved
-        assert "Main Title" in markdown
-        assert "Section 1" in markdown
-        assert "Subsection" in markdown
+        assert "Main Title" in markdown_content
+        assert "Section 1" in markdown_content
+        assert "Subsection" in markdown_content
 
     def test_ast_json_compact_format(self, tmp_path: Path):
         """Test AST JSON with compact formatting."""
@@ -305,10 +350,14 @@ Final paragraph."""
             renderer_options=AstJsonRendererOptions(indent=None)
         )
 
+        # Extract StringIO content
+        assert isinstance(json_str, StringIO)
+        json_content = json_str.getvalue()
+
         # Verify it's compact (minimal whitespace)
-        lines = json_str.split('\n')
+        lines = json_content.split('\n')
         assert len([line for line in lines if line.strip()]) <= 2
 
         # Verify it's still valid and parseable
-        parsed_doc = json_to_ast(json_str)
+        parsed_doc = json_to_ast(json_content)
         assert isinstance(parsed_doc, Document)

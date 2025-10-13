@@ -14,7 +14,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from all2md import convert, to_markdown
+from all2md import convert, to_markdown, to_ast
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
@@ -967,7 +967,6 @@ def process_merge_from_list(
         Exit code (0 for success, highest error code otherwise)
 
     """
-    from all2md import to_ast
     from all2md.ast.nodes import Document, Heading, Text
     from all2md.renderers.markdown import MarkdownRenderer
     from all2md.transforms.builtin import AddHeadingIdsTransform, GenerateTocTransform

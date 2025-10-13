@@ -439,6 +439,7 @@ DOCUMENT_EXTENSIONS = [
 ]
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
+
 DocumentFormat = Literal[
     "auto",  # Auto-detect from filename/content
     "ast",  # JSON-serialized AST format

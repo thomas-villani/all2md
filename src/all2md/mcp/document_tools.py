@@ -18,6 +18,7 @@ Functions
 
 import base64
 import logging
+from io import StringIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -179,9 +180,11 @@ def _serialize_document(
             target_format="markdown",
             flavor=flavor
         )
-        if not isinstance(result, str):
-            raise TypeError(f"Expected string, got {type(result)}")
-        return result
+        # Extract string from StringIO (from_ast returns StringIO for text formats)
+        if isinstance(result, StringIO):
+            return result.getvalue()
+        else:
+            raise TypeError(f"Expected StringIO from from_ast, got {type(result)}")
     elif output_format == "ast_json":
         return ast_to_json(doc)
     else:
