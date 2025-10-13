@@ -17,17 +17,20 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from all2md import convert, registry
-from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception
+from all2md.api import convert
+from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception, EXIT_VALIDATION_ERROR
 from all2md.cli.processors import (
     _get_rich_markdown_kwargs,
     _should_use_rich_output,
     process_detect_only,
     process_dry_run,
 )
+from all2md.converter_registry import registry
 from all2md.converter_metadata import ConverterMetadata
 from all2md.dependencies import check_version_requirement, get_package_version
+from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
+ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
 def _get_version() -> str:
     """Get the version of all2md package."""
@@ -308,9 +311,6 @@ def collect_input_files(
         List of file paths to process
 
     """
-    from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
-
-    ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
     files: List[Path] = []
 
@@ -385,8 +385,6 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
-    from all2md.converter_registry import registry
-    from all2md.dependencies import check_version_requirement, get_package_version
 
     # Parse command line arguments for list-formats
     specific_format = None
@@ -428,7 +426,6 @@ Examples:
     formats = registry.list_formats()
     if specific_format:
         if specific_format not in formats:
-            from all2md.cli import EXIT_VALIDATION_ERROR
             print(f"Error: Format '{specific_format}' not found", file=sys.stderr)
             print(f"Available formats: {', '.join(formats)}", file=sys.stderr)
             return EXIT_VALIDATION_ERROR

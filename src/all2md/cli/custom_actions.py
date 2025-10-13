@@ -323,6 +323,13 @@ class TrackingAppendAction(argparse.Action):
         if env_value is not None:
             # Split on commas for append actions
             default = [item.strip() for item in env_value.split(',')]
+            # Apply type conversion if specified (matching CLI behavior)
+            if type is not None:
+                try:
+                    default = [type(item) for item in default]
+                except (ValueError, TypeError) as e:
+                    logging.warning(f"Invalid type conversion for {env_key}={env_value}: {e}")
+                    default = None  # Fall back to no default if conversion fails
 
         super().__init__(
             option_strings=option_strings,

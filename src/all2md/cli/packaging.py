@@ -100,10 +100,7 @@ def create_package_from_conversions(
                 output_name = input_file.stem + extension
 
                 # Convert to BytesIO buffer (always binary)
-                # BytesIO doesn't have a 'mode' attribute, so we need to manually
-                # set it to indicate binary mode for convert()
                 buffer = BytesIO()
-                buffer.mode = 'wb'
                 convert(
                     source=input_file,
                     output=buffer,
