@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, Union, cast
+import logging
 
 from all2md.ast import (
     BlockQuote,
@@ -49,6 +50,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
 
+logger = logging.getLogger(__name__)
 
 class TokenType(Enum):
     """Token types for AsciiDoc lexer."""
@@ -1093,8 +1095,7 @@ class AsciiDocParser(BaseParser):
                         elif self.options.attribute_missing_policy == "blank":
                             attr_value = ""
                         elif self.options.attribute_missing_policy == "warn":
-                            import warnings
-                            warnings.warn(f"Undefined attribute reference: {{{attr_name}}}", stacklevel=2)
+                            logger.warning(f"Undefined attribute reference: {{{attr_name}}}", stacklevel=2)
                             attr_value = f"{{{attr_name}}}"
                         else:  # keep
                             attr_value = f"{{{attr_name}}}"

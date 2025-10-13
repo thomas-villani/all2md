@@ -89,6 +89,15 @@ class DynamicCLIBuilder:
         This method replaces brittle string matching with proper type resolution
         that works with 'from __future__ import annotations'.
 
+        The key insight is to let get_type_hints() handle the namespace resolution
+        automatically. When we specify globalns explicitly, we must ensure ALL
+        types referenced in the class (including inherited fields) are available
+        in that namespace. Since options classes inherit from BaseParserOptions
+        which references types like AttachmentMode, those types must be available.
+
+        The solution is to let get_type_hints() use its default behavior, which
+        properly resolves types across module boundaries and inheritance hierarchies.
+
         Parameters
         ----------
         field : Field
@@ -103,15 +112,15 @@ class DynamicCLIBuilder:
 
         """
         try:
-            # Use get_type_hints to resolve string annotations
-            type_hints = get_type_hints(options_class)
+            # Use get_type_hints without explicit globalns/localns
+            # This allows proper resolution across module boundaries and inheritance
+            type_hints = get_type_hints(options_class, include_extras=True)
             if field.name in type_hints:
                 return type_hints[field.name]
-        except (NameError, AttributeError):
+        except (NameError, AttributeError, TypeError):
             # Fallback if type hints can't be resolved
             pass
 
-        # Fallback to the raw field.type
         return field.type
 
     def _handle_optional_type(self, field_type: Type) -> tuple[Type, bool]:
@@ -998,10 +1007,12 @@ Examples:
                 else:
                     # Top-level value (no nesting)
                     options[format_key] = format_opts
-        args_dict = vars(parsed_args)
 
-        # Get the set of explicitly provided arguments
+        # Get the set of explicitly provided arguments first
         provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
+
+        # Create a copy of the args dict to avoid "dictionary changed size during iteration" errors
+        args_dict = dict(vars(parsed_args))
 
         # Auto-discover parsers to get their options classes for validation
         registry.auto_discover()
@@ -1088,6 +1099,8 @@ Examples:
                                 was_provided=True
                             )
                             if processed_value is not None:
+                                # Store using just the field name for CLI arguments
+                                # e.g., "allowed_hosts" not "html.network.allowed_hosts"
                                 options[field.name] = processed_value
                         elif arg_value is not None:
                             # Track unknown argument
@@ -1104,6 +1117,8 @@ Examples:
                                     was_provided=True
                                 )
                                 if processed_value is not None:
+                                    # Store using just the field name for CLI arguments
+                                    # e.g., "pages" not "pdf.pages"
                                     options[field.name] = processed_value
                                 field_found = True
                                 break

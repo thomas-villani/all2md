@@ -291,6 +291,7 @@ class TestDynamicCLIBuilder:
         parsed_args = Mock()
         parsed_args.input = "test.html"
         parsed_args.format = "auto"
+        parsed_args.strict_args = False
         parsed_args._provided_args = {
             'html.network.allow_remote_fetch',
             'html.network.require_https',

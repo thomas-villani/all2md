@@ -251,12 +251,20 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     }
     # Note: 'exclude' is intentionally NOT excluded so it can be saved in config
 
+    # Get set of explicitly provided arguments from tracking actions
+    provided_args: set[str] = getattr(args, '_provided_args', set())
+
     # Convert namespace to dict and filter
     args_dict = vars(args)
     config = {}
 
     for key, value in args_dict.items():
         if key not in exclude_args and value is not None:
+            # Only include arguments that were explicitly provided by the user
+            # This prevents saving default values that may change in future versions
+            if key not in provided_args:
+                continue
+
             # Skip empty lists
             if isinstance(value, list) and not value:
                 continue
@@ -270,14 +278,9 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
             # Skip non-serializable types
             if isinstance(value, (set, frozenset)):
                 continue
-            # For boolean values, only include if they are explicitly False (user set a no- flag)
-            # or True and not a default True value
-            if isinstance(value, bool):
-                # We need to check if this was explicitly set vs a default
-                # For now, include False values (from --no- flags) and True values
-                config[key] = value
-            else:
-                config[key] = value
+
+            # Include the explicitly provided value
+            config[key] = value
 
     # Write to file
     config_path_obj = Path(config_path)
