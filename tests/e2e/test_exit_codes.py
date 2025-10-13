@@ -161,7 +161,8 @@ class TestExitCodes:
         # Nonexistent files are filtered with warning, but processing succeeds
         assert result.returncode == 0
         assert "WARNING: Path does not exist" in result.stderr
-        assert "valid.html" in result.stdout
+        # Conversion messages go to stderr, not stdout
+        assert "valid.html" in result.stderr or "valid.md" in result.stderr
 
     def test_exit_code_skip_errors_with_conversion_failure(self, tmp_path):
         """Test that --skip-errors returns highest exit code when files fail conversion.
@@ -186,8 +187,8 @@ class TestExitCodes:
 
         # Should return 4 (file error from malformed file)
         assert result.returncode == 4
-        # But should have processed the valid file
-        assert "valid.html" in result.stdout or "valid.md" in result.stdout
+        # But should have processed the valid file (messages in stderr)
+        assert "valid.html" in result.stderr or "valid.md" in result.stderr
 
     def test_exit_code_detect_only_missing_dependency(self, tmp_path):
         """Test exit code 2 for detect-only when converter unavailable.

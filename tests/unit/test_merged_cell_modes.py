@@ -122,10 +122,10 @@ class TestMergedCellModes:
         assert len(table.rows) == 3
 
     def test_detect_merged_cells_false(self):
-        """Test that detect_merged_cells=False disables merged cell detection."""
+        """Test that merged_cell_mode='skip' disables merged cell detection."""
         xlsx_bytes = self.create_xlsx_with_merged_cells()
 
-        options = XlsxOptions(detect_merged_cells=False)
+        options = XlsxOptions(merged_cell_mode="skip")
         parser = XlsxToAstConverter(options=options)
         doc = parser.parse(xlsx_bytes)
 

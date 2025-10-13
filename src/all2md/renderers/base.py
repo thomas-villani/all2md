@@ -270,7 +270,7 @@ class InlineContentMixin:
 
         # Render inline nodes
         for node in content:
-            node.accept(self)  # type: ignore[attr-defined]
+            node.accept(self)
 
         # Capture result and restore output state
         result = ''.join(self._output)

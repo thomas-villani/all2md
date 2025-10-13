@@ -526,7 +526,9 @@ class TestFix6AddAttachmentFootnotesRegistration:
         """Test that AddAttachmentFootnotesTransform is registered."""
         from all2md.transforms import registry
 
-        # Ensure registry is initialized (in case previous tests cleared it)
+        # Clear any test transforms and re-initialize from builtin metadata
+        registry.clear()
+        registry._initialized = False
         registry._ensure_initialized()
 
         registered_transforms = registry.list_transforms()

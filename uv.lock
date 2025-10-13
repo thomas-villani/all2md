@@ -16,18 +16,22 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "rich" },
+    { name = "tomli-w" },
 ]
 
 [package.optional-dependencies]
 all = [
     { name = "beautifulsoup4" },
     { name = "chardet" },
+    { name = "docutils" },
+    { name = "ebooklib" },
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "jinja2" },
     { name = "mistune" },
     { name = "odfpy" },
     { name = "openpyxl" },
+    { name = "orgparse" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pyth3" },
@@ -46,6 +50,8 @@ cli-extras = [
 dev = [
     { name = "beautifulsoup4" },
     { name = "chardet" },
+    { name = "docutils" },
+    { name = "ebooklib" },
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "hypothesis" },
@@ -54,6 +60,7 @@ dev = [
     { name = "mypy" },
     { name = "odfpy" },
     { name = "openpyxl" },
+    { name = "orgparse" },
     { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "pytest" },
@@ -114,6 +121,9 @@ pdf-render = [
 pptx = [
     { name = "python-pptx" },
 ]
+rst = [
+    { name = "docutils" },
+]
 rtf = [
     { name = "pyth3" },
 ]
@@ -135,6 +145,9 @@ requires-dist = [
     { name = "bleach", marker = "extra == 'sanitizer'", specifier = ">=6.2.0" },
     { name = "chardet", marker = "extra == 'all'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'html'", specifier = ">=5.2.0" },
+    { name = "docutils", marker = "extra == 'all'", specifier = ">=0.18" },
+    { name = "docutils", marker = "extra == 'rst'", specifier = ">=0.18" },
+    { name = "ebooklib", marker = "extra == 'all'", specifier = ">=0.19" },
     { name = "ebooklib", marker = "extra == 'epub'", specifier = ">=0.19" },
     { name = "fastmcp", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
@@ -150,6 +163,7 @@ requires-dist = [
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.1.5" },
     { name = "openpyxl", marker = "extra == 'spreadsheet'", specifier = ">=3.1.5" },
+    { name = "orgparse", marker = "extra == 'all'", specifier = ">=0.4.20250520" },
     { name = "orgparse", marker = "extra == 'org'", specifier = ">=0.4.20250520" },
     { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
     { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
@@ -174,6 +188,7 @@ requires-dist = [
     { name = "sphinx-copybutton", marker = "extra == 'dev'", specifier = ">=0.5.2" },
     { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=3.0.2" },
     { name = "syrupy", marker = "extra == 'dev'", specifier = ">=4.6.0" },
+    { name = "tomli-w", specifier = ">=1.0.0" },
     { name = "tqdm", marker = "extra == 'all'", specifier = ">=4.66.0" },
     { name = "tqdm", marker = "extra == 'cli-extras'", specifier = ">=4.66.0" },
     { name = "types-beautifulsoup4", marker = "extra == 'dev'" },
@@ -1956,6 +1971,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c1/90/1a442d21527009d4b40f37fe50b606ebb68a6407142c2b5cc508c34b696b/syrupy-5.0.0.tar.gz", hash = "sha256:3282fe963fa5d4d3e47231b16d1d4d0f4523705e8199eeb99a22a1bc9f5942f2", size = 48881 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9d/9a/6c68aad2ccfce6e2eeebbf5bb709d0240592eb51ff142ec4c8fbf3c2460a/syrupy-5.0.0-py3-none-any.whl", hash = "sha256:c848e1a980ca52a28715cd2d2b4d434db424699c05653bd1158fb31cf56e9546", size = 49087 },
+]
+
+[[package]]
+name = "tomli-w"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/75/241269d1da26b624c0d5e110e8149093c759b7a286138f4efd61a60e75fe/tomli_w-1.2.0.tar.gz", hash = "sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021", size = 7184 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/18/c86eb8e0202e32dd3df50d43d7ff9854f8e0603945ff398974c1d91ac1ef/tomli_w-1.2.0-py3-none-any.whl", hash = "sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90", size = 6675 },
 ]
 
 [[package]]

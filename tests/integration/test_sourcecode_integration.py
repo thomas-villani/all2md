@@ -187,7 +187,8 @@ print(fibonacci(10))"""
             ("test.rs", "fn main() {}", "rust"),
             ("test.css", "body { margin: 0; }", "css"),
             ("test.yaml", "key: value", "yaml"),
-            ("test.json", '{"key": "value"}', "json"),
+            # Note: .json files are intentionally not included - they're treated as data files, not source code
+            # Use .ast.json for AST files if JSON handling is needed
             ("test.lua", "print('Hello Lua')", "lua"),
             ("test.pl", "print 'Hello Perl';", "perl"),
         ]

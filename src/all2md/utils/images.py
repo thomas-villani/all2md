@@ -11,6 +11,7 @@ including base64-encoded data URIs and temporary file management.
 from __future__ import annotations
 
 import base64
+import binascii
 import re
 import tempfile
 from pathlib import Path
@@ -68,7 +69,7 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
         # Decode base64 data
         image_data = base64.b64decode(base64_data)
         return image_data, image_format
-    except (ValueError, base64.binascii.Error):
+    except (ValueError, binascii.Error):
         # Invalid base64 data
         return None, None
 

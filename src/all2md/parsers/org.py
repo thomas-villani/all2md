@@ -130,6 +130,15 @@ class OrgParser(BaseParser):
 
         # Convert orgparse tree to AST
         children = []
+
+        # Process root node body first (plain text without headings)
+        # Use format='raw' to preserve link syntax
+        root_body = root.get_body(format='raw').strip() if hasattr(root, 'get_body') else (root.body.strip() if root.body else "")
+        if root_body:
+            body_nodes = self._process_body(root_body)
+            children.extend(body_nodes)
+
+        # Process child nodes (headings and their content)
         for node in root.children:
             ast_nodes = self._process_node(node)
             if ast_nodes is not None:
@@ -195,7 +204,8 @@ class OrgParser(BaseParser):
             result.append(heading_ast)
 
         # Process body content
-        body_text = node.body.strip() if node.body else ""
+        # Use format='raw' to preserve link syntax
+        body_text = node.get_body(format='raw').strip() if hasattr(node, 'get_body') else (node.body.strip() if node.body else "")
         if body_text:
             body_nodes = self._process_body(body_text)
             result.extend(body_nodes)
@@ -231,24 +241,36 @@ class OrgParser(BaseParser):
         # Extract heading level (number of stars)
         level = node.level
 
-        # Extract TODO state
+        # Extract TODO state (independent of parse_tags)
+        # First try orgparse's detection, then manually parse if needed
         todo_state = None
-        if node.todo and self.options.parse_tags:
-            if node.todo in self.options.todo_keywords:
-                todo_state = node.todo
+        manually_extracted_todo = False
+        if node.todo and node.todo in self.options.todo_keywords:
+            todo_state = node.todo
+        elif not node.todo:
+            # Manually check if heading starts with a TODO keyword
+            # that orgparse didn't recognize
+            heading_parts = node.heading.split(None, 1)
+            if heading_parts and heading_parts[0] in self.options.todo_keywords:
+                todo_state = heading_parts[0]
+                manually_extracted_todo = True
 
         # Extract priority
         priority = None
         if hasattr(node, 'priority') and node.priority:
             priority = node.priority
 
-        # Extract tags
+        # Extract tags (controlled by parse_tags option)
         tags = []
         if self.options.parse_tags and hasattr(node, 'tags') and node.tags:
             tags = list(node.tags)
 
         # Parse inline content from heading text
+        # If we manually extracted TODO, remove it from the heading text
         heading_text = node.heading
+        if manually_extracted_todo and todo_state:
+            # Remove the TODO keyword from heading text
+            heading_text = heading_text[len(todo_state):].lstrip()
         content = self._parse_inline(heading_text)
 
         # Build metadata
@@ -373,7 +395,8 @@ class OrgParser(BaseParser):
         pos = 0
 
         # Pattern for Org inline formatting
-        # Matches: *bold*, /italic/, =code=, ~verbatim~, _underline_, +strikethrough+, [[links]]
+        # Note: orgparse strips [[]] from links, so we detect plain URLs instead
+        # Matches: *bold*, /italic/, =code=, ~verbatim~, _underline_, +strikethrough+, URLs
         pattern = re.compile(
             r'\*([^*]+)\*|'  # *bold*
             r'/([^/]+)/|'  # /italic/
@@ -381,7 +404,8 @@ class OrgParser(BaseParser):
             r'~([^~]+)~|'  # ~verbatim~
             r'_([^_]+)_|'  # _underline_
             r'\+([^+]+)\+|'  # +strikethrough+
-            r'\[\[([^\]]+)\](?:\[([^\]]+)\])?\]'  # [[url][desc]] or [[url]]
+            r'\[\[([^\]]+?)(?:\]\[([^\]]+))?\]\]|'  # [[url]] or [[url][desc]] (if not processed)
+            r'(?:https?|ftp)://[^\s<>"{}|\\^`\[\]]+'  # Plain URLs (after orgparse processing)
         )
 
         for match in pattern.finditer(text):
@@ -402,7 +426,7 @@ class OrgParser(BaseParser):
                 result.append(Underline(content=[Text(content=match.group(5))]))
             elif match.group(6):  # +strikethrough+
                 result.append(Strikethrough(content=[Text(content=match.group(6))]))
-            elif match.group(7):  # [[link]]
+            elif match.group(7):  # [[link]] with optional description
                 url = match.group(7)
                 description = match.group(8) if match.group(8) else url
 
@@ -415,6 +439,14 @@ class OrgParser(BaseParser):
                 else:
                     # Regular link
                     result.append(Link(url=url, content=[Text(content=description)]))
+            else:  # Plain URL (orgparse stripped the brackets)
+                url = match.group(0)
+                # Check if it's an image URL
+                if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
+                    result.append(Image(url=url, alt_text=url))
+                else:
+                    # Regular link
+                    result.append(Link(url=url, content=[Text(content=url)]))
 
             pos = match.end()
 
@@ -584,21 +616,35 @@ class OrgParser(BaseParser):
         Notes
         -----
         Org-Mode documents can have metadata in several places:
-        - File-level properties (#+TITLE:, #+AUTHOR:, etc.)
+        - File-level properties (#+TITLE:, #+AUTHOR:, etc.) via env
         - Top-level heading as title
         - Properties drawer in first heading
 
         """
         metadata = DocumentMetadata()
 
-        # Extract file-level properties
+        # Extract file-level properties (#+TITLE:, #+AUTHOR:, etc.)
+        if hasattr(document, 'get_file_property'):
+            title = document.get_file_property('TITLE')
+            if title:
+                metadata.title = title
+
+            author = document.get_file_property('AUTHOR')
+            if author:
+                metadata.author = author
+
+            date = document.get_file_property('DATE')
+            if date:
+                metadata.creation_date = date
+
+        # Also check properties (drawer-style properties)
         if hasattr(document, 'properties') and document.properties:
             props = document.properties
-            if 'TITLE' in props:
+            if 'TITLE' in props and not metadata.title:
                 metadata.title = props['TITLE']
-            if 'AUTHOR' in props:
+            if 'AUTHOR' in props and not metadata.author:
                 metadata.author = props['AUTHOR']
-            if 'DATE' in props:
+            if 'DATE' in props and not metadata.creation_date:
                 metadata.creation_date = props['DATE']
 
             # Store other properties in custom

@@ -1439,6 +1439,7 @@ EXIT_PARSING_ERROR = 6
 EXIT_RENDERING_ERROR = 7
 EXIT_SECURITY_ERROR = 8
 EXIT_PASSWORD_ERROR = 9
+EXIT_INPUT_ERROR = 10
 
 
 def get_exit_code_for_exception(exception: Exception) -> int:

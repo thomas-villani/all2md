@@ -319,7 +319,7 @@ class PptxToAstConverter(BaseParser):
             chart_type = None
 
         is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER if chart_type is not None else False
-        mode = (self.options.charts_mode or "data").lower()
+        mode = self.options.charts_mode.lower()
 
         table_node: AstTable | None = None
         mermaid_code: str | None = None

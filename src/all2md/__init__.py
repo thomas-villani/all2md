@@ -1024,8 +1024,8 @@ def convert(
     if parser_kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**parser_kwargs)
     elif parser_kwargs:
-        final_parser_options = _create_parser_options_from_kwargs(actual_source_format,
-                                                                  **parser_kwargs)  # type: ignore[arg-type]
+        final_parser_options = _create_parser_options_from_kwargs(cast(DocumentFormat, actual_source_format),
+                                                                  **parser_kwargs)
     else:
         final_parser_options = parser_options
 
@@ -1044,8 +1044,8 @@ def convert(
     if renderer_kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
-        final_renderer_options = _create_renderer_options_from_kwargs(actual_target_format,
-                                                                      **renderer_kwargs)  # type: ignore[arg-type]
+        final_renderer_options = _create_renderer_options_from_kwargs(cast(DocumentFormat, actual_target_format),
+                                                                      **renderer_kwargs)
     else:
         final_renderer_options = renderer_options
 

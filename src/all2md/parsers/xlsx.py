@@ -552,7 +552,7 @@ class XlsxToAstConverter(BaseParser):
             # Process sheet data
             # Handle merged cells based on mode
             merged_map: dict[str, str] = {}
-            if self.options.merged_cell_mode != "skip" and self.options.detect_merged_cells:
+            if self.options.merged_cell_mode != "skip":
                 merged_map = _map_merged_cells(sheet)
 
             raw_rows: list[list[Any]] = []

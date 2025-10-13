@@ -99,7 +99,11 @@ class TestZipParser:
         assert len(headings) == 1
 
     def test_include_patterns(self):
-        """Test including only specific files."""
+        """Test including only specific files.
+
+        Note: JSON files have no parser, so skip_empty_files=False is needed
+        to include them in output (they'll show as "Could not parse this file").
+        """
         files = {
             "document.txt": b"Text content",
             "image.png": b"PNG data",
@@ -108,7 +112,8 @@ class TestZipParser:
         zip_data = create_test_zip(files)
 
         options = ZipOptions(
-            include_patterns=["*.txt", "*.json"]
+            include_patterns=["*.txt", "*.json"],
+            skip_empty_files=False  # Include unparseable files like JSON
         )
 
         parser = ZipToAstConverter(options=options)
@@ -287,7 +292,11 @@ class TestZipIntegration:
         assert "test.txt" in markdown
 
     def test_mixed_file_types(self):
-        """Test ZIP with multiple file types."""
+        """Test ZIP with multiple file types.
+
+        Note: JSON files have no parser, so skip_empty_files=False is needed
+        to include them in output.
+        """
         files = {
             "document.txt": b"Plain text content",
             "data.json": b'{"key": "value"}',
@@ -295,7 +304,10 @@ class TestZipIntegration:
         }
         zip_data = create_test_zip(files)
 
-        markdown = to_markdown(zip_data, source_format="zip")
+        # Need to include unparseable files like JSON
+        from all2md.options.zip import ZipOptions
+        options = ZipOptions(skip_empty_files=False)
+        markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 
         assert "document.txt" in markdown
         assert "data.json" in markdown

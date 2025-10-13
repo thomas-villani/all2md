@@ -513,8 +513,9 @@ class TestComplexStructures:
         converter = PdfToAstConverter()
         ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
-        # Should handle multi-column (order may vary)
-        assert len(ast_doc.children) >= 4
+        # Multi-column text may be merged if on same Y-coordinate
+        # Expected: 3+ paragraphs (blocks at Y=30 from both columns may merge)
+        assert len(ast_doc.children) >= 3
 
 
 @pytest.mark.unit

@@ -18,6 +18,7 @@ from all2md import convert, to_markdown
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
+    EXIT_INPUT_ERROR,
     EXIT_SUCCESS,
     DynamicCLIBuilder,
     get_exit_code_for_exception,
@@ -968,7 +969,6 @@ def process_merge_from_list(
     """
     from all2md import to_ast
     from all2md.ast.nodes import Document, Heading, Text
-    from all2md.constants import EXIT_INPUT_ERROR
     from all2md.renderers.markdown import MarkdownRenderer
     from all2md.transforms.builtin import AddHeadingIdsTransform, GenerateTocTransform
 
@@ -1005,7 +1005,7 @@ def process_merge_from_list(
 
         try:
             # Convert file to AST
-            doc = to_ast(file_path, source_format=format_arg, **options)
+            doc = to_ast(file_path, source_format=cast(DocumentFormat, format_arg), **options)
 
             # Add section title if provided and not disabled
             if section_title and not args.no_section_titles:
@@ -1060,7 +1060,6 @@ def process_merge_from_list(
                     progress.update(task_id, advance=1)
 
         except ImportError:
-            from all2md.constants import EXIT_DEPENDENCY_ERROR
             print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
             return EXIT_DEPENDENCY_ERROR
 
@@ -1075,7 +1074,6 @@ def process_merge_from_list(
                     if exit_code != EXIT_SUCCESS and not args.skip_errors:
                         break
         except ImportError:
-            from all2md.constants import EXIT_DEPENDENCY_ERROR
             print("Error: tqdm library not installed. Install with: pip install all2md[progress]", file=sys.stderr)
             return EXIT_DEPENDENCY_ERROR
 
@@ -1098,7 +1096,9 @@ def process_merge_from_list(
     if args.generate_toc:
         # First, add heading IDs if they don't exist
         id_transform = AddHeadingIdsTransform()
-        merged_doc = id_transform.transform(merged_doc)
+        transformed = id_transform.transform(merged_doc)
+        assert isinstance(transformed, Document), "Transform should return Document"
+        merged_doc = transformed
 
         # Then generate TOC
         toc_transform = GenerateTocTransform(
@@ -1106,12 +1106,16 @@ def process_merge_from_list(
             max_depth=args.toc_depth if hasattr(args, 'toc_depth') else 3,
             position=args.toc_position if hasattr(args, 'toc_position') else "top"
         )
-        merged_doc = toc_transform.transform(merged_doc)
+        transformed = toc_transform.transform(merged_doc)
+        assert isinstance(transformed, Document), "Transform should return Document"
+        merged_doc = transformed
 
     # Apply any additional transforms
     if transforms:
         for transform in transforms:
-            merged_doc = transform.transform(merged_doc)
+            transformed = transform.transform(merged_doc)
+            assert isinstance(transformed, Document), "Transform should return Document"
+            merged_doc = transformed
 
     # Render the merged document to markdown
     try:
@@ -1590,8 +1594,8 @@ def convert_single_file_for_collation(
     """
     try:
         # Convert the document
-        markdown_content = to_markdown(input_path, source_format=format_arg, transforms=transforms,
-                                       **options)  # type: ignore[arg-type]
+        markdown_content = to_markdown(input_path, source_format=cast(DocumentFormat, format_arg),
+                                       transforms=transforms, **options)
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"
@@ -1699,7 +1703,6 @@ def process_files_collated(
                     progress.update(task_id, advance=1)
 
         except ImportError:
-            from all2md.constants import EXIT_DEPENDENCY_ERROR
             print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
             return EXIT_DEPENDENCY_ERROR
 
@@ -1951,7 +1954,6 @@ def process_with_rich_output(
         from rich.table import Table
         from rich.text import Text
     except ImportError:
-        from all2md.constants import EXIT_DEPENDENCY_ERROR
         print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR
 
@@ -2069,18 +2071,18 @@ def process_with_rich_output(
 
                 for future in as_completed(futures):
                     file, output_path = futures[future]
-                    exit_code, file_str, error = future.result()
+                    result_exit_code, result_file_str, result_error = future.result()
 
-                    if exit_code == EXIT_SUCCESS:
+                    if result_exit_code == EXIT_SUCCESS:
                         results.append((file, output_path))
                         if output_path:
                             console.print(f"[green]OK[/green] {file} -> {output_path}")
                         else:
                             console.print(f"[green]OK[/green] Converted {file}")
                     else:
-                        failed.append((file, error))
-                        console.print(f"[red]ERROR[/red] {file}: {error}")
-                        max_exit_code = max(max_exit_code, exit_code)
+                        failed.append((file, result_error))
+                        console.print(f"[red]ERROR[/red] {file}: {result_error}")
+                        max_exit_code = max(max_exit_code, result_exit_code)
                         if not args.skip_errors:
                             break
 
@@ -2099,7 +2101,7 @@ def process_with_rich_output(
                     target_format=target_format
                 )
 
-                exit_code, file_str, error = convert_single_file(
+                result_exit_code, result_file_str, result_error = convert_single_file(
                     file,
                     output_path,
                     options,
@@ -2109,16 +2111,16 @@ def process_with_rich_output(
                     target_format
                 )
 
-                if exit_code == EXIT_SUCCESS:
+                if result_exit_code == EXIT_SUCCESS:
                     results.append((file, output_path))
                     if output_path:
                         console.print(f"[green]OK[/green] {file} -> {output_path}")
                     else:
                         console.print(f"[green]OK[/green] Converted {file}")
                 else:
-                    failed.append((file, error))
-                    console.print(f"[red]ERROR[/red] {file}: {error}")
-                    max_exit_code = max(max_exit_code, exit_code)
+                    failed.append((file, result_error))
+                    console.print(f"[red]ERROR[/red] {file}: {result_error}")
+                    max_exit_code = max(max_exit_code, result_exit_code)
                     if not args.skip_errors:
                         break
 

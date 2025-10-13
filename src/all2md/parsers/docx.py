@@ -1423,7 +1423,7 @@ def _iter_block_items(
 
             # Check if paragraph contains an image
             has_image = False
-            img_data = []
+            img_data: list[ImageData] = []
 
             for run in paragraph.runs:
                 for pic in run._element.findall(
@@ -1445,17 +1445,6 @@ def _iter_block_items(
                     blip = pic.xpath(".//a:blip")[0]
                     blip_rId = blip.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
                     raw_image_data, detected_extension = extract_docx_image_data(parent, blip_rId)
-
-                    # Handle pre-formatted data URIs (for backward compatibility with tests)
-                    if isinstance(raw_image_data, str):
-                        # This is already a formatted URI, use it directly
-                        img_data.append(ImageData(url=raw_image_data, alt_text=title or "image",
-                                                  title=title))  # type: ignore[unreachable]
-                        continue
-                    if not isinstance(raw_image_data, (bytes, type(None))):
-                        logger.warning(
-                            f"Invalid image data type for image '{title or 'unnamed'}', skipping")  # type: ignore[unreachable]
-                        raw_image_data = None
 
                     # Use detected extension or fallback to png
                     extension = detected_extension or "png"
