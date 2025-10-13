@@ -252,7 +252,32 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             # Clean up temp files
             self._cleanup_temp_files()
 
-    # render_to_bytes() is inherited from BaseRenderer
+    @requires_dependencies("pdf_render", [("reportlab", "reportlab", ">=4.0.0")])
+    def render_to_bytes(self, doc: Document) -> bytes:
+        """Render the AST to PDF bytes.
+
+        Parameters
+        ----------
+        doc : Document
+            AST Document node to render
+
+        Returns
+        -------
+        bytes
+            PDF file content as bytes
+
+        Raises
+        ------
+        RenderingError
+            If PDF generation fails
+
+        """
+        # Create a BytesIO buffer and render to it
+        buffer = io.BytesIO()
+        self.render(doc, buffer)
+
+        # Return the bytes content
+        return buffer.getvalue()
 
     def _cleanup_temp_files(self) -> None:
         """Remove temporary files created during rendering."""

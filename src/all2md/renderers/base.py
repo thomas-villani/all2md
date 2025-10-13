@@ -114,11 +114,11 @@ class BaseRenderer(ABC):
             f"{self.__class__.__name__} does not support rendering to a string."
         )
 
-    def render_to_bytes(self, doc: Document) -> IO[bytes]:
-        """Render the AST to a BytesIO buffer (if applicable).
+    def render_to_bytes(self, doc: Document) -> bytes:
+        """Render the AST to bytes (if applicable).
 
         This method is provided as a default implementation for binary renderers.
-        It creates a BytesIO buffer, calls render() with it, and returns the buffer.
+        It creates a BytesIO buffer, calls render() with it, and returns the bytes.
 
         Binary renderers can use this default implementation if their render()
         method properly supports IO[bytes] output. Alternatively, they can
@@ -131,8 +131,8 @@ class BaseRenderer(ABC):
 
         Returns
         -------
-        IO[bytes]
-            BytesIO buffer containing the rendered document, positioned at the start
+        bytes
+            Rendered document as bytes
 
         Raises
         ------
@@ -141,10 +141,10 @@ class BaseRenderer(ABC):
 
         Notes
         -----
-        The returned BytesIO can be used directly or converted to bytes:
-        - Get bytes: `result.read()` or `result.getvalue()`
-        - Write to file: `Path("out.ext").write_bytes(result.read())`
-        - Pass to other functions expecting IO[bytes]
+        The returned bytes can be used in various ways:
+        - Write to file: `Path("out.ext").write_bytes(result)`
+        - Pass to IO functions: `BytesIO(result)`
+        - Send over network or process further
 
         Examples
         --------
@@ -153,8 +153,7 @@ class BaseRenderer(ABC):
             >>> from all2md.ast import Document, Paragraph, Text
             >>> doc = Document(children=[Paragraph(content=[Text(content="test")])])
             >>> renderer = DocxRenderer()
-            >>> buffer = renderer.render_to_bytes(doc)
-            >>> content = buffer.read()
+            >>> content = renderer.render_to_bytes(doc)
             >>> assert content.startswith(b'PK')  # DOCX is a ZIP file
 
         """
@@ -163,8 +162,7 @@ class BaseRenderer(ABC):
         buffer = BytesIO()
         try:
             self.render(doc, buffer)
-            buffer.seek(0)  # Reset to start for reading
-            return buffer
+            return buffer.getvalue()
         except (NotImplementedError, AttributeError, TypeError):
             raise NotImplementedError(
                 f"{self.__class__.__name__} does not support rendering to bytes."

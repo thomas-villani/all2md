@@ -88,7 +88,7 @@ if sys.version_info < (3, 12):
 import logging
 import time
 from dataclasses import fields, is_dataclass
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast, get_type_hints
 
@@ -754,14 +754,14 @@ def to_ast(
 def from_ast(
         ast_doc: ast.Document,
         target_format: DocumentFormat,
-        output: Union[str, Path, IO[bytes], None] = None,
+        output: Union[str, Path, IO[bytes], IO[str], None] = None,
         *,
         renderer_options: Optional[BaseRendererOptions] = None,
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs: Any
-) -> Union[None, str, bytes]:
+) -> Union[None, StringIO, BytesIO]:
     """Render AST document to a target format.
 
     Parameters
@@ -770,8 +770,13 @@ def from_ast(
         AST Document node to render
     target_format : DocumentFormat
         Target format name (e.g., "markdown", "docx", "pdf")
-    output : str, Path, IO[bytes], or None, optional
-        Output destination. If None, returns rendered content as string or bytes
+    output : str, Path, IO[bytes], IO[str], or None, optional
+        Output destination. If None, returns rendered content as file-like object.
+        Can be:
+        - None: Returns StringIO (for text formats) or BytesIO (for binary formats)
+        - str or Path: Writes content to file at that path
+        - IO[bytes]: Writes content to binary file-like object
+        - IO[str]: Writes content to text file-like object
     renderer_options : BaseRendererOptions, optional
         Renderer options for the target format
     transforms : list, optional
@@ -787,21 +792,28 @@ def from_ast(
 
     Returns
     -------
-    None, str, or bytes
-        None if output was specified, otherwise the rendered content
+    None, StringIO, or BytesIO
+        - None if output was specified (content written to output)
+        - StringIO if output=None and format is text-based
+        - BytesIO if output=None and format is binary
 
     Examples
     --------
-    Render AST to markdown string:
+    Render AST to StringIO (text formats):
         >>> ast_doc = to_ast("document.pdf")
-        >>> markdown = from_ast(ast_doc, "markdown")
+        >>> markdown_buffer = from_ast(ast_doc, "markdown")
+        >>> markdown_text = markdown_buffer.getvalue()
+
+    Render AST to BytesIO (binary formats):
+        >>> pdf_buffer = from_ast(ast_doc, "pdf")
+        >>> pdf_bytes = pdf_buffer.getvalue()
 
     Render AST to file:
         >>> from_ast(ast_doc, "markdown", output="output.md")
 
     With renderer options:
         >>> md_opts = MarkdownOptions(flavor="commonmark")
-        >>> markdown = from_ast(ast_doc, "markdown", renderer_options=md_opts)
+        >>> markdown_buffer = from_ast(ast_doc, "markdown", renderer_options=md_opts)
 
     """
     # Prepare renderer options
@@ -823,45 +835,15 @@ def from_ast(
         progress_callback=progress_callback
     )
 
-    # Handle output
-    if output is None:
-        return content
-    elif isinstance(output, (str, Path)):
-        # Write to file path
-        if isinstance(content, str):
-            Path(output).write_text(content, encoding="utf-8")
-        elif isinstance(content, (bytes, bytearray)):
-            Path(output).write_bytes(content)
-        elif hasattr(content, 'read'):  # type: ignore[unreachable]
-            # File-like object (BytesIO from binary renderers)
-            Path(output).write_bytes(content.read())
-        else:
-            raise TypeError(f"Unexpected content type: {type(content)}")
-        return None
-    else:
-        # File-like object output
-        if hasattr(output, 'mode') and 'b' in output.mode:
-            if isinstance(content, str):
-                output.write(content.encode('utf-8'))
-            elif hasattr(content, 'read'):
-                output.write(content.read())
-            else:
-                output.write(content)
-        else:
-            if isinstance(content, (bytes, bytearray)):
-                output.write(content.decode('utf-8'))  # type: ignore[call-overload]
-            elif hasattr(content, 'read'):
-                # BytesIO - read and decode
-                output.write(content.read().decode('utf-8'))
-            else:
-                output.write(content)  # type: ignore[call-overload]
-        return None
+    # Handle output using centralized I/O utility
+    from all2md.utils.io_utils import write_content
+    return write_content(content, output)
 
 
 def from_markdown(
         source: Union[str, Path, IO[bytes], IO[str]],
         target_format: DocumentFormat,
-        output: Union[str, Path, IO[bytes], None] = None,
+        output: Union[str, Path, IO[bytes], IO[str], None] = None,
         *,
         parser_options: Optional[MarkdownParserOptions] = None,
         renderer_options: Optional[BaseRendererOptions] = None,
@@ -869,7 +851,7 @@ def from_markdown(
         hooks: Optional[dict] = None,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs: Any
-) -> Union[None, str, bytes]:
+) -> Union[None, StringIO, BytesIO]:
     r"""Convert Markdown content to another format.
 
     Parameters
@@ -878,8 +860,13 @@ def from_markdown(
         Markdown source content as string, file path, or file-like object
     target_format : DocumentFormat
         Target format name (e.g., "docx", "pdf", "html")
-    output : str, Path, IO[bytes], or None, optional
-        Output destination. If None, returns rendered content
+    output : str, Path, IO[bytes], IO[str], or None, optional
+        Output destination. If None, returns file-like object.
+        Can be:
+        - None: Returns StringIO (for text formats) or BytesIO (for binary formats)
+        - str or Path: Writes content to file at that path
+        - IO[bytes]: Writes content to binary file-like object
+        - IO[str]: Writes content to text file-like object
     parser_options : MarkdownParserOptions, optional
         Options for parsing Markdown
     renderer_options : BaseRendererOptions, optional
@@ -897,19 +884,22 @@ def from_markdown(
 
     Returns
     -------
-    None, str, or bytes
-        None if output specified, otherwise rendered content
+    None, StringIO, or BytesIO
+        - None if output was specified (content written to output)
+        - StringIO if output=None and format is text-based
+        - BytesIO if output=None and format is binary
 
     Examples
     --------
-    Convert markdown string to HTML:
-        >>> html = from_markdown("# Title\\n\\nContent", "html")
+    Convert markdown string to HTML buffer:
+        >>> html_buffer = from_markdown("# Title\\n\\nContent", "html")
+        >>> html_text = html_buffer.getvalue()
 
-    Convert markdown file to DOCX:
+    Convert markdown file to DOCX file:
         >>> from_markdown("input.md", "docx", output="output.docx")
 
     With options:
-        >>> from_markdown("input.md", "html",
+        >>> buffer = from_markdown("input.md", "html",
         ...     parser_options=MarkdownParserOptions(flavor="gfm"),
         ...     renderer_options=HtmlOptions(...))
 
@@ -942,7 +932,7 @@ def convert(
         flavor: Optional[str] = None,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs: Any
-) -> Union[None, str, bytes]:
+) -> Union[None, StringIO, BytesIO]:
     """Convert between document formats.
 
     Parameters
@@ -950,7 +940,12 @@ def convert(
     source : str, Path, IO[bytes], IO[str], or bytes
         Source document (file path, file-like object, or content)
     output : str, Path, IO[bytes], IO[str], or None, optional
-        Output destination. If None, returns content
+        Output destination. If None, returns file-like object.
+        Can be:
+        - None: Returns StringIO (for text formats) or BytesIO (for binary formats)
+        - str or Path: Writes content to file at that path
+        - IO[bytes]: Writes content to binary file-like object
+        - IO[str]: Writes content to text file-like object
     parser_options : BaseParserOptions, optional
         Options for parsing source format
     renderer_options : BaseRendererOptions, optional
@@ -976,15 +971,22 @@ def convert(
 
     Returns
     -------
-    None, str, or bytes
-        None if output specified, otherwise rendered content
+    None, StringIO, or BytesIO
+        - None if output was specified (content written to output)
+        - StringIO if output=None and format is text-based
+        - BytesIO if output=None and format is binary
 
     Examples
     --------
-    Convert PDF to markdown:
-        >>> markdown = convert("doc.pdf", target_format="markdown")
+    Convert PDF to markdown (returns StringIO):
+        >>> markdown_buffer = convert("doc.pdf", target_format="markdown")
+        >>> markdown_text = markdown_buffer.getvalue()
 
-    Convert with options:
+    Convert to binary format (returns BytesIO):
+        >>> pdf_buffer = convert("input.md", target_format="pdf")
+        >>> pdf_bytes = pdf_buffer.getvalue()
+
+    Convert with output file:
         >>> convert("doc.pdf", "output.md",
         ...     parser_options=PdfOptions(pages=[0, 1]),
         ...     renderer_options=MarkdownOptions(flavor="commonmark"))
@@ -1061,43 +1063,9 @@ def convert(
         progress_callback=progress_callback,
     )
 
-    # Handle output
-    if output is None:
-        return rendered
-
-    if isinstance(output, (str, Path)):
-        output_path = Path(output)
-        if isinstance(rendered, str):
-            output_path.write_text(rendered, encoding='utf-8')
-        elif isinstance(rendered, (bytes, bytearray)):
-            output_path.write_bytes(rendered)
-        elif hasattr(rendered, 'read'):  # type: ignore[unreachable]
-            # File-like object (BytesIO from binary renderers)
-            output_path.write_bytes(rendered.read())
-        else:
-            raise TypeError(f"Unexpected rendered type: {type(rendered)}")
-        return None
-
-    if hasattr(output, 'write'):
-        if isinstance(rendered, str):
-            mode = getattr(output, 'mode', '')
-            if isinstance(mode, str) and 'b' in mode:
-                cast(IO[bytes], output).write(rendered.encode('utf-8'))
-            else:
-                cast(IO[str], output).write(rendered)
-        elif hasattr(rendered, 'read'):
-            # File-like object (BytesIO from binary renderers)
-            mode = getattr(output, 'mode', '')
-            if isinstance(mode, str) and 'b' in mode:
-                cast(IO[bytes], output).write(rendered.read())
-            else:
-                # Text mode - decode bytes
-                cast(IO[str], output).write(rendered.read().decode('utf-8'))
-        else:
-            cast(IO[bytes], output).write(rendered)
-        return None
-
-    raise ValueError("Unsupported output destination provided to convert().")
+    # Handle output using centralized I/O utility
+    from all2md.utils.io_utils import write_content
+    return write_content(rendered, output)
 
 
 __all__ = [

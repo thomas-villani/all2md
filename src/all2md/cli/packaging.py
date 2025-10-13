@@ -103,7 +103,7 @@ def create_package_from_conversions(
                 # BytesIO doesn't have a 'mode' attribute, so we need to manually
                 # set it to indicate binary mode for convert()
                 buffer = BytesIO()
-                buffer.mode = 'wb'  # type: ignore[misc]
+                buffer.mode = 'wb'
                 convert(
                     source=input_file,
                     output=buffer,

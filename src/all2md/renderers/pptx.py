@@ -184,7 +184,19 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 except Exception:
                     pass  # Ignore cleanup errors
 
-    # render_to_bytes() is inherited from BaseRenderer
+    @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
+    def render_to_bytes(self, doc: Document) -> bytes:
+        """Render the AST to PPTX bytes.
+
+        Returns
+        -------
+        bytes
+            PPTX file content as bytes
+
+        """
+        buffer = BytesIO()
+        self.render(doc, buffer)
+        return buffer.getvalue()
 
     def _split_into_slides(
             self,

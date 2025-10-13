@@ -182,7 +182,19 @@ class EpubRenderer(BaseRenderer):
                 original_error=e
             ) from e
 
-    # render_to_bytes() is inherited from BaseRenderer
+    @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
+    def render_to_bytes(self, doc: Document) -> bytes:
+        """Render the AST to EPUB bytes.
+
+        Returns
+        -------
+        bytes
+            EPUB file content as bytes
+
+        """
+        buffer = BytesIO()
+        self.render(doc, buffer)
+        return buffer.getvalue()
 
     def _set_metadata(self, book: Any, doc: Document) -> None:
         """Set EPUB metadata from options and document metadata.

@@ -174,7 +174,34 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Clean up temp files
             self._cleanup_temp_files()
 
-    # render_to_bytes() is inherited from BaseRenderer
+    @requires_dependencies("docx_render", [("python-docx", "docx", ">=1.2.0")])
+    def render_to_bytes(self, doc: ASTDocument) -> bytes:
+        """Render the AST to DOCX bytes.
+
+        Parameters
+        ----------
+        doc : Document
+            AST Document node to render
+
+        Returns
+        -------
+        bytes
+            DOCX file content as bytes
+
+        Raises
+        ------
+        RenderingError
+            If DOCX generation fails
+
+        """
+        from io import BytesIO
+
+        # Create a BytesIO buffer and render to it
+        buffer = BytesIO()
+        self.render(doc, buffer)
+
+        # Return the bytes content
+        return buffer.getvalue()
 
     def _set_document_defaults(self) -> None:
         """Set default document styles and formatting."""
