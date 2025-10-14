@@ -1700,7 +1700,7 @@ CONVERTER_METADATA = ConverterMetadata(
     optional_packages=[],
     import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
     parser_options_class=HtmlOptions,
-    renderer_options_class="HtmlRendererOptions",
+    renderer_options_class="all2md.options.html.HtmlRendererOptions",
     description="Convert HTML documents to/from AST",
     priority=5,
 )

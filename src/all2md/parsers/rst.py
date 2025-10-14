@@ -726,7 +726,7 @@ CONVERTER_METADATA = ConverterMetadata(
     optional_packages=[],
     import_error_message="RST parsing requires 'docutils'. Install with: pip install 'all2md[rst]'",
     parser_options_class=RstParserOptions,
-    renderer_options_class="RstRendererOptions",
+    renderer_options_class="all2md.options.rst.RstRendererOptions",
     description="Parse reStructuredText to AST and render AST to reStructuredText",
     priority=10
 )

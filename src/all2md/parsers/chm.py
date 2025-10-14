@@ -456,7 +456,7 @@ CONVERTER_METADATA = ConverterMetadata(
         "Note: pychm also requires the CHMLib C library to be installed. "
         "Install with: pip install pychm"
     ),
-    parser_options_class="ChmOptions",
+    parser_options_class=ChmOptions,
     renderer_options_class=None,
     description="Convert Microsoft Compiled HTML Help (CHM) files to AST",
     priority=5,

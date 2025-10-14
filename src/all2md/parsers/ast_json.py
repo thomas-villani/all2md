@@ -224,8 +224,8 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="",
-    parser_options_class="AstJsonParserOptions",
-    renderer_options_class="AstJsonRendererOptions",
+    parser_options_class=AstJsonParserOptions,
+    renderer_options_class="all2md.options.ast_json.AstJsonRendererOptions",
     description="Parse and render documents in JSON-serialized AST format for programmatic access.",
     priority=5  # Higher priority to check AST format before generic text
 )

@@ -1518,7 +1518,7 @@ CONVERTER_METADATA = ConverterMetadata(
         "Install with: pip install python-docx"
     ),
     parser_options_class=DocxOptions,
-    renderer_options_class="DocxRendererOptions",
+    renderer_options_class="all2md.options.docx.DocxRendererOptions",
     description="Convert Microsoft Word DOCX documents to/from AST",
     priority=8
 )

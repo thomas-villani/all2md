@@ -16,6 +16,7 @@ import re
 import string
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
+from collections import defaultdict
 
 from all2md.options.markdown import MarkdownOptions
 from all2md.options.pdf import PdfOptions
@@ -260,7 +261,6 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
 
     # Build whitespace map: find gaps between column groups
     # Group blocks by starting x-position (with small tolerance for alignment variations)
-    from collections import defaultdict
     x_tolerance = 5.0  # Points tolerance for grouping blocks with similar x0
     x0_groups = defaultdict(list)
 

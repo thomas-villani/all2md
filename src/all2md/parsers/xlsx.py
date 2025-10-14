@@ -224,16 +224,26 @@ def _extract_sheet_images(
     collected_footnotes: dict[str, str] = {}
 
     try:
-        # Access images through the sheet's _images attribute
+        # NOTE: Using private API (sheet._images) because openpyxl does not provide
+        # a public API for reading existing images from worksheets. This is the
+        # standard approach per openpyxl documentation and community practice.
+        # Compatible with openpyxl>=3.1.5. May need updates if openpyxl changes internals.
         if not hasattr(sheet, '_images') or not sheet._images:
             return images, collected_footnotes
 
         for img in sheet._images:
             try:
-                # Get image data
-                image_bytes = img._data() if hasattr(img, '_data') and callable(img._data) else None
+                # Get image data using private API methods (no public alternative exists)
+                # Primary method: img._data() - documented approach for openpyxl>=3.1
+                image_bytes = None
+                if hasattr(img, '_data') and callable(img._data):
+                    try:
+                        image_bytes = img._data()
+                    except Exception as e:
+                        logger.debug(f"Failed to call img._data(): {e!r}")
+
+                # Fallback method: access via relationships
                 if not image_bytes and hasattr(img, 'ref'):
-                    # Try alternative method via relationships
                     image_part = img.ref
                     if hasattr(image_part, 'blob'):
                         image_bytes = image_part.blob
@@ -322,7 +332,10 @@ def _extract_sheet_charts(sheet: Any, base_filename: str, options: Any) -> list[
         return chart_nodes
 
     try:
-        # Access charts through the sheet's _charts attribute or ChartSpace objects
+        # NOTE: Using private API (sheet._charts) because openpyxl does not provide
+        # a public API for reading existing charts from worksheets. This is the
+        # standard approach per openpyxl documentation and community practice.
+        # Compatible with openpyxl>=3.1.5. May need updates if openpyxl changes internals.
         charts = []
         if hasattr(sheet, '_charts') and sheet._charts:
             charts = sheet._charts
@@ -336,6 +349,8 @@ def _extract_sheet_charts(sheet: Any, base_filename: str, options: Any) -> list[
             try:
                 if options.chart_mode == "data":
                     # Extract chart data and convert to table
+                    # Note: Chart object structure uses internal openpyxl APIs
+                    # (series, values, numRef, etc.) which may vary by version
                     table_node = _chart_to_table_ast(chart)
                     if table_node:
                         chart_nodes.append(table_node)
@@ -697,7 +712,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("openpyxl", "openpyxl", "")],
     renderer_required_packages=[],
     import_error_message="XLSX conversion requires 'openpyxl'. Install with: pip install openpyxl",
-    parser_options_class="XlsxOptions",
+    parser_options_class=XlsxOptions,
     renderer_options_class=None,
     description="Convert Excel XLSX files to Markdown tables",
     priority=6
