@@ -539,7 +539,7 @@ class AsciiDocParser(BaseParser):
         self.tokens = lexer.tokenize()
         self.current_token_index = 0
 
-        self._emit_progress("tokenization_done", "Tokenization complete", current=30, total=100)
+        self._emit_progress("item_done", "Tokenization complete", current=30, total=100, item_type="tokenization")
 
         # Parse tokens into AST
         children = self._parse_document()

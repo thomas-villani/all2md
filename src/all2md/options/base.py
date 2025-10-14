@@ -21,7 +21,7 @@ from all2md.constants import (
 
 UNSET = object()
 
-
+@dataclass(frozen=True)
 class CloneFrozenMixin:
     """Mixin providing frozen dataclass cloning capabilities.
 

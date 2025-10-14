@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 import string
+from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 from collections import defaultdict
@@ -1410,18 +1411,14 @@ class PdfToAstConverter(BaseParser):
         # Add small margin (5 points) to ensure we capture the full header/footer
         if max_header_y > 0:
             # Update the options object (create new frozen instance)
-            from dataclasses import replace
-            self.options = replace(
-                self.options,
+            self.options = self.options.create_updated(
                 header_height=int(max_header_y + 5),
                 trim_headers_footers=True
             )
 
         if max_footer_y < page_height:
             footer_height_value = int(page_height - max_footer_y + 5)
-            from dataclasses import replace
-            self.options = replace(
-                self.options,
+            self.options = self.options.create_updated(
                 footer_height=footer_height_value,
                 trim_headers_footers=True
             )
@@ -1537,7 +1534,6 @@ class PdfToAstConverter(BaseParser):
             return date_str
 
         try:
-            from datetime import datetime
             # Remove D: prefix and parse
             clean_date = date_str[2:]
             if 'Z' in clean_date:
@@ -1603,10 +1599,11 @@ class PdfToAstConverter(BaseParser):
 
                 # Emit page done event
                 self._emit_progress(
-                    "page_done",
+                    "item_done",
                     f"Page {pno + 1} of {total_pages} processed",
                     current=idx + 1,
                     total=total_pages,
+                    item_type="page",
                     page=pno + 1
                 )
             except Exception as e:
@@ -1617,6 +1614,7 @@ class PdfToAstConverter(BaseParser):
                     current=idx + 1,
                     total=total_pages,
                     error=str(e),
+                    stage="page_processing",
                     page=pno + 1
                 )
                 # Re-raise to maintain existing error handling
@@ -1724,10 +1722,11 @@ class PdfToAstConverter(BaseParser):
         total_table_count = len(tabs.tables) + len(fallback_table_rects)
         if total_table_count > 0:
             self._emit_progress(
-                "table_detected",
+                "detected",
                 f"Found {total_table_count} table{'s' if total_table_count != 1 else ''} on page {page_num + 1}",
                 current=page_num + 1,
                 total=total_pages,
+                detected_type="table",
                 table_count=total_table_count,
                 page=page_num + 1
             )
@@ -2894,7 +2893,7 @@ CONVERTER_METADATA = ConverterMetadata(
         "Install with: pip install pymupdf"
     ),
     parser_options_class=PdfOptions,
-    renderer_options_class="PdfRendererOptions",
+    renderer_options_class="all2md.options.pdf.PdfRendererOptions",
     description="Convert PDF documents to/from AST with table detection",
     priority=10
 )

@@ -168,6 +168,38 @@ class TestCsvDialectDetection:
         assert len(table.header.cells) == 3
 
 
+class TestCsvDialectSampleSize:
+    """Tests for CSV dialect sample size option."""
+
+    def test_custom_dialect_sample_size(self):
+        """Test using a custom dialect sample size."""
+        # Create a CSV with multiple patterns - first pattern in small sample, second later
+        csv_data = "A,B,C\n1,2,3\n" + ("x,y,z\n" * 100)
+
+        options = CsvOptions(dialect_sample_size=8192)  # Larger sample size
+        parser = CsvToAstConverter(options=options)
+        doc = parser.parse(io.BytesIO(csv_data.encode()))
+
+        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        assert len(tables) == 1
+
+    def test_default_dialect_sample_size(self):
+        """Test that default sample size is 4096."""
+        options = CsvOptions()
+        assert options.dialect_sample_size == 4096
+
+    def test_small_dialect_sample_size(self):
+        """Test using a smaller dialect sample size."""
+        csv_data = "Name;Age;City\nAlice;30;NYC\nBob;25;LA"
+
+        options = CsvOptions(dialect_sample_size=100, detect_csv_dialect=True)
+        parser = CsvToAstConverter(options=options)
+        doc = parser.parse(io.BytesIO(csv_data.encode()))
+
+        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        assert len(tables) == 1
+
+
 class TestMakeCSVDialect:
     """Tests for the _make_csv_dialect helper function."""
 

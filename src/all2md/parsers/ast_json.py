@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 def _is_ast_json_content(content: bytes) -> bool:
     """Detect if content is AST JSON format.
 
+    This function uses a memory-efficient approach by sampling only the first
+    256 KB of content for detection, which is sufficient for identifying AST
+    JSON structure markers. The full content parsing is handled by the parser.
+
     Parameters
     ----------
     content : bytes
@@ -41,9 +45,21 @@ def _is_ast_json_content(content: bytes) -> bool:
         True if content appears to be AST JSON
 
     """
+    # Sample first 256 KB for detection (sufficient for structure detection)
+    MAX_SAMPLE_SIZE = 262144  # 256 KB
+    sample = content[:MAX_SAMPLE_SIZE]
+
     try:
-        # Try to parse as JSON
-        text = content.decode('utf-8', errors='ignore')
+        # Decode sample to text for fast string searches
+        text = sample.decode('utf-8', errors='ignore')
+
+        # Fast preliminary check: look for key AST JSON indicators
+        # before attempting JSON parsing
+        if 'node_type' not in text:
+            return False
+
+        # If we have node_type, try parsing the sample as JSON
+        # This is more efficient than parsing potentially large files
         data = json.loads(text)
 
         # Check for AST JSON markers

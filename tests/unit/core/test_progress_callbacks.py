@@ -118,5 +118,95 @@ def test_progress_event_string_no_total():
     assert "(0/0)" not in str(event) or str(event) == "[FINISHED] Done"
 
 
+class TestCanonicalEventTypes:
+    """Tests for canonical progress event types."""
+
+    def test_item_done_event_with_metadata(self):
+        """Test item_done event with item_type metadata."""
+        event = ProgressEvent(
+            event_type="item_done",
+            message="Page 5 processed",
+            current=5,
+            total=10,
+            metadata={"item_type": "page", "page": 5}
+        )
+        assert event.event_type == "item_done"
+        assert event.metadata["item_type"] == "page"
+        assert event.metadata["page"] == 5
+
+    def test_detected_event_with_metadata(self):
+        """Test detected event with detected_type metadata."""
+        event = ProgressEvent(
+            event_type="detected",
+            message="Found 3 tables",
+            current=2,
+            total=10,
+            metadata={"detected_type": "table", "table_count": 3, "page": 2}
+        )
+        assert event.event_type == "detected"
+        assert event.metadata["detected_type"] == "table"
+        assert event.metadata["table_count"] == 3
+
+    def test_error_event_with_stage_metadata(self):
+        """Test error event with stage metadata."""
+        event = ProgressEvent(
+            event_type="error",
+            message="Failed to process page 3",
+            current=3,
+            total=10,
+            metadata={"error": "Invalid PDF structure", "stage": "page_processing", "page": 3}
+        )
+        assert event.event_type == "error"
+        assert event.metadata["error"] == "Invalid PDF structure"
+        assert event.metadata["stage"] == "page_processing"
+
+    def test_started_event(self):
+        """Test started event format."""
+        event = ProgressEvent(
+            event_type="started",
+            message="Beginning conversion",
+            current=0,
+            total=100
+        )
+        assert event.event_type == "started"
+        assert event.current == 0
+        assert event.total == 100
+
+    def test_finished_event(self):
+        """Test finished event format."""
+        event = ProgressEvent(
+            event_type="finished",
+            message="Conversion complete",
+            current=100,
+            total=100
+        )
+        assert event.event_type == "finished"
+        assert event.current == event.total
+
+    def test_item_done_tokenization(self):
+        """Test item_done event for tokenization stage."""
+        event = ProgressEvent(
+            event_type="item_done",
+            message="Tokenization complete",
+            current=30,
+            total=100,
+            metadata={"item_type": "tokenization"}
+        )
+        assert event.event_type == "item_done"
+        assert event.metadata["item_type"] == "tokenization"
+
+    def test_item_done_preamble(self):
+        """Test item_done event for preamble parsing stage."""
+        event = ProgressEvent(
+            event_type="item_done",
+            message="Preamble parsed",
+            current=20,
+            total=100,
+            metadata={"item_type": "preamble"}
+        )
+        assert event.event_type == "item_done"
+        assert event.metadata["item_type"] == "preamble"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -52,10 +52,15 @@ class CsvOptions(BaseParserOptions):
         Whether to skip completely empty rows.
     strip_whitespace : bool, default False
         Whether to strip leading/trailing whitespace from all cells.
+    dialect_sample_size : int, default 4096
+        Number of bytes to sample for csv.Sniffer dialect detection.
+        Larger values may improve detection for heavily columnated files
+        but increase memory usage during detection.
 
     """
 
     detect_csv_dialect: bool = True
+    dialect_sample_size: int = 4096
     csv_delimiter: Optional[str] = None
     csv_quotechar: Optional[str] = None
     csv_escapechar: Optional[str] = None

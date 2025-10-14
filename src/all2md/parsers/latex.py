@@ -167,7 +167,7 @@ class LatexParser(BaseParser):
             content, metadata = self._extract_preamble_metadata(content)
             self.document_metadata = metadata
 
-        self._emit_progress("preamble_parsed", "Preamble parsed", current=20, total=100)
+        self._emit_progress("item_done", "Preamble parsed", current=20, total=100, item_type="preamble")
 
         # Try to import pylatexenc
         try:
@@ -188,7 +188,7 @@ class LatexParser(BaseParser):
             # In non-strict mode, try to parse as plain text
             nodelist = []
 
-        self._emit_progress("latex_parsed", "LaTeX structure parsed", current=50, total=100)
+        self._emit_progress("item_done", "LaTeX structure parsed", current=50, total=100, item_type="structure")
 
         # Convert LaTeX AST to our AST
         children = []

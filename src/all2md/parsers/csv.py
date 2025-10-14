@@ -180,7 +180,7 @@ class CsvToAstConverter(BaseParser):
 
         # Sniff dialect
         text_stream.seek(0)
-        sample = text_stream.read(4096)
+        sample = text_stream.read(self.options.dialect_sample_size)
         text_stream.seek(0)
 
         dialect_obj: type[csv.Dialect]
