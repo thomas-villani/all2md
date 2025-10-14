@@ -9,8 +9,9 @@ Classes
 - ConvertToMarkdownInput: Input schema for convert_to_markdown tool
 - RenderFromMarkdownInput: Input schema for render_from_markdown tool
 - RenderFromMarkdownOutput: Output schema for render_from_markdown tool
-- EditDocumentInput: Input schema for edit_document_ast tool
-- EditDocumentOutput: Output schema for edit_document_ast tool
+- EditDocumentSimpleInput: Input schema for edit_document tool (simplified)
+- EditDocumentSimpleOutput: Output schema for edit_document tool (simplified)
+
 
 Notes
 -----
@@ -126,141 +127,90 @@ class RenderFromMarkdownOutput:
     warnings: list[str] = field(default_factory=list)
 
 
-# Type aliases for edit_document_ast tool
-EditOperation = Literal[
-    "list_sections",
-    "get_section",
-    "add_section",
-    "remove_section",
-    "replace_section",
-    "insert_content",
-    "generate_toc",
-    "split_document"
+# Simplified edit_document tool schemas
+EditDocumentAction = Literal[
+    "list-sections",
+    "extract",
+    "add:before",
+    "add:after",
+    "remove",
+    "replace",
+    "insert:start",
+    "insert:end",
+    "insert:after_heading"
 ]
 
-InsertPosition = Literal["before", "after", "start", "end", "after_heading"]
-
-OutputFormat = Literal["markdown", "ast_json"]
-
-TOCStyle = Literal["markdown", "list", "nested"]
-
 
 @dataclass
-class EditDocumentInput:
-    """Input schema for edit_document_ast tool.
+class EditDocumentSimpleInput:
+    """Input schema for edit_document tool (simplified LLM-friendly interface).
 
-    This tool allows LLMs to manipulate document structure at the AST level,
-    supporting operations like adding/removing sections, generating TOC, etc.
+    This is a simplified wrapper around the powerful AST-based document
+    manipulation functionality. It uses sensible defaults and a streamlined
+    interface designed for LLM usage.
 
     Attributes
     ----------
-    operation : EditOperation
-        Operation to perform on the document (required)
-    source_path : str | None
-        File path to document (must be in read allowlist).
-        Mutually exclusive with source_content.
-    source_content : str | None
-        Document content as string (markdown or AST JSON).
-        Mutually exclusive with source_path.
-    content_encoding : Literal["plain", "base64"] | None
-        Encoding of source_content ("plain" or "base64")
-    source_format : Literal["markdown", "ast_json"]
-        Format of source content (default: "markdown")
-    target_heading : str | None
-        Heading text to target for section operations
-    target_index : int | None
-        Section index to target (alternative to target_heading)
+    action : EditDocumentAction
+        Operation to perform on the document. One of:
+        - "list-sections": List all sections with metadata
+        - "extract": Get a single section by heading or index
+        - "add:before": Add new section before target
+        - "add:after": Add new section after target
+        - "remove": Remove a section
+        - "replace": Replace section content
+        - "insert:start": Insert content at start of section
+        - "insert:end": Insert content at end of section
+        - "insert:after_heading": Insert content right after heading
+    doc : str
+        File path to the document (must be in read allowlist).
+        Only file paths are supported (no inline content).
+    target : str | None
+        Section to target for operations. Can be:
+        - Heading text (case-insensitive): "Introduction"
+        - Index notation: "#0", "#1", "#2", etc. (zero-based)
+        Required for all operations except "list-sections".
     content : str | None
-        Content to add/insert (markdown format for add/replace operations)
-    position : InsertPosition | None
-        Position for add/insert operations ("before", "after", "start", "end")
-    case_sensitive : bool
-        Whether heading text matching is case-sensitive (default: False)
-    max_toc_level : int
-        Maximum heading level for TOC generation (default: 3)
-    toc_style : TOCStyle
-        Style for TOC generation (default: "markdown")
-    flavor : MarkdownFlavor | None
-        Markdown flavor for parsing/rendering (default: "gfm")
-    output_path : str | None
-        Output file path (must be in write allowlist).
-        If not provided, content is returned in response.
-    output_format : OutputFormat
-        Format for output content (default: "markdown")
+        Markdown content to add/replace/insert.
+        Required for add/replace/insert operations.
+        Ignored for list-sections/extract/remove.
+
+    Notes
+    -----
+    Defaults (not configurable in simplified interface):
+    - Format: markdown only (no AST JSON)
+    - Case sensitivity: case-insensitive heading matching
+    - Flavor: "gfm" (GitHub Flavored Markdown)
+    - Output: always returned in response (no file writing)
 
     """
 
-    operation: EditOperation
-    source_path: str | None = None
-    source_content: str | None = None
-    content_encoding: Literal["plain", "base64"] | None = None
-    source_format: Literal["markdown", "ast_json"] = "markdown"
-    target_heading: str | None = None
-    target_index: int | None = None
+    action: EditDocumentAction
+    doc: str
+    target: str | None = None
     content: str | None = None
-    position: InsertPosition | None = None
-    case_sensitive: bool = False
-    max_toc_level: int = 3
-    toc_style: TOCStyle = "markdown"
-    flavor: MarkdownFlavor | None = None
-    output_path: str | None = None
-    output_format: OutputFormat = "markdown"
 
 
 @dataclass
-class SectionInfo:
-    """Information about a document section for list_sections operation.
+class EditDocumentSimpleOutput:
+    """Output schema for edit_document tool.
 
     Attributes
     ----------
-    index : int
-        Zero-based index of the section in the document
-    heading_text : str
-        Plain text of the heading
-    level : int
-        Heading level (1-6)
-    content_nodes : int
-        Number of content nodes in the section
-    start_index : int
-        Start index in document children list
-    end_index : int
-        End index in document children list
-
-    """
-
-    index: int
-    heading_text: str
-    level: int
-    content_nodes: int
-    start_index: int
-    end_index: int
-
-
-@dataclass
-class EditDocumentOutput:
-    """Output schema for edit_document_ast tool.
-
-    Attributes
-    ----------
+    success : bool
+        Whether the operation succeeded
+    message : str
+        Human-readable message describing the result.
+        For errors, contains clear error description.
+        For success, contains confirmation message.
     content : str | None
-        Modified document content (markdown or AST JSON).
-        None when operation is list_sections or when output_path is provided.
-    sections : list[SectionInfo] | None
-        Section metadata for list_sections operation
-    section_count : int | None
-        Number of sections (for list_sections)
-    sections_modified : int
-        Number of sections modified by the operation
-    output_path : str | None
-        Path where file was written (if output_path was provided in input)
-    warnings : list[str]
-        Warning messages from the operation
+        Content returned by the operation (when applicable).
+        - For "list-sections": formatted list of sections with metadata
+        - For "extract": markdown content of the extracted section
+        - For other operations: None
 
     """
 
+    success: bool
+    message: str
     content: str | None = None
-    sections: list[SectionInfo] | None = None
-    section_count: int | None = None
-    sections_modified: int = 0
-    output_path: str | None = None
-    warnings: list[str] = field(default_factory=list)

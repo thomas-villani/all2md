@@ -1,566 +1,319 @@
 """Document manipulation tool implementation for MCP server.
 
-This module implements the edit_document_ast tool that allows LLMs to
-manipulate document structure at the AST level. It supports operations like:
-- Listing and extracting sections
-- Adding, removing, and replacing sections
-- Inserting content into sections
-- Generating table of contents
-- Splitting documents by sections
+This module implements the edit_document tool that allows LLMs to
+manipulate document structure at the AST level with a simplified interface.
 
 Functions
 ---------
-- edit_document_ast_impl: Implementation of edit_document_ast tool
+- edit_document_impl: Implementation of edit_document tool
 
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
-import base64
 import logging
-from pathlib import Path
-from typing import Any, cast
 
 from all2md import from_ast, to_ast
 from all2md.ast.document_utils import (
     add_section_after,
     add_section_before,
     extract_section,
-    generate_toc,
     get_all_sections,
     insert_into_section,
     remove_section,
     replace_section,
-    split_by_sections,
 )
 from all2md.ast.nodes import Document
-from all2md.ast.serialization import ast_to_json, json_to_ast
 from all2md.exceptions import All2MdError
 from all2md.mcp.config import MCPConfig
 from all2md.mcp.schemas import (
-    EditDocumentInput,
-    EditDocumentOutput,
-    SectionInfo,
+    EditDocumentSimpleInput,
+    EditDocumentSimpleOutput,
 )
-from all2md.mcp.security import MCPSecurityError, validate_read_path, validate_write_path
+from all2md.mcp.security import MCPSecurityError, validate_read_path
 
 logger = logging.getLogger(__name__)
 
 
-def _load_source_document(
-        input_data: EditDocumentInput,
+def edit_document_impl(
+        input_data: EditDocumentSimpleInput,
         config: MCPConfig
-) -> Document:
-    """Load source document from path or content.
+) -> EditDocumentSimpleOutput:
+    """Implement edit_document tool (simplified LLM-friendly interface).
+
+    This function provides a streamlined interface for document manipulation
+    with sensible defaults for LLM usage. All errors are caught and returned
+    as error messages (no exceptions thrown).
 
     Parameters
     ----------
-    input_data : EditDocumentInput
-        Tool input with source specification
-    config : MCPConfig
-        Server configuration for path validation
-
-    Returns
-    -------
-    Document
-        Loaded AST document
-
-    Raises
-    ------
-    ValueError
-        If source is invalid or mutually exclusive inputs provided
-    MCPSecurityError
-        If path validation fails
-    All2MdError
-        If loading fails
-
-    """
-    # Validate mutually exclusive inputs
-    if input_data.source_path and input_data.source_content:
-        raise ValueError("Cannot specify both source_path and source_content")
-
-    if not input_data.source_path and not input_data.source_content:
-        raise ValueError("Must specify either source_path or source_content")
-
-    # Prepare source
-    if input_data.source_path:
-        # Validate read access
-        validated_path = validate_read_path(
-            input_data.source_path,
-            config.read_allowlist
-        )
-        logger.info(f"Loading document from: {validated_path}")
-
-        # Load based on source_format
-        if input_data.source_format == "markdown":
-            loaded_doc = to_ast(
-                validated_path,
-                source_format="markdown",
-                flavor=input_data.flavor
-            )
-            if not isinstance(loaded_doc, Document):
-                raise TypeError(f"Expected Document from to_ast, got {type(loaded_doc)}")
-            doc = loaded_doc
-        elif input_data.source_format == "ast_json":
-            # Read JSON file and parse to AST
-            json_content = validated_path.read_text(encoding='utf-8')
-            loaded_node = json_to_ast(json_content)
-            if not isinstance(loaded_node, Document):
-                raise TypeError(f"Expected Document from json_to_ast, got {type(loaded_node)}")
-            doc = loaded_node
-        else:
-            raise ValueError(f"Unsupported source_format: {input_data.source_format}")
-
-    else:
-        # Handle inline content
-        if not input_data.source_content:
-            raise ValueError("source_content cannot be empty")
-
-        encoding = input_data.content_encoding or "plain"
-
-        if encoding == "base64":
-            # Decode base64 content
-            try:
-                content_bytes = base64.b64decode(input_data.source_content)
-                content_str = content_bytes.decode('utf-8')
-            except Exception as e:
-                raise ValueError(f"Invalid base64 encoding or UTF-8 content: {e}") from e
-        else:
-            # Plain text content
-            content_str = input_data.source_content
-
-        # Parse based on source_format
-        if input_data.source_format == "markdown":
-            # Use to_ast for markdown content (from_markdown with target_format="ast" returns JSON string)
-            loaded_doc = to_ast(
-                content_str,
-                source_format="markdown",
-                flavor=input_data.flavor
-            )
-            if not isinstance(loaded_doc, Document):
-                raise TypeError(f"Expected Document from to_ast, got {type(loaded_doc)}")
-            doc = loaded_doc
-        elif input_data.source_format == "ast_json":
-            loaded_node = json_to_ast(content_str)
-            if not isinstance(loaded_node, Document):
-                raise TypeError(f"Expected Document from json_to_ast, got {type(loaded_node)}")
-            doc = loaded_node
-        else:
-            raise ValueError(f"Unsupported source_format: {input_data.source_format}")
-
-    return doc
-
-
-def _serialize_document(
-        doc: Document,
-        output_format: str,
-        flavor: str | None
-) -> str:
-    """Serialize document to string format.
-
-    Parameters
-    ----------
-    doc : Document
-        AST document to serialize
-    output_format : str
-        Output format ("markdown" or "ast_json")
-    flavor : str | None
-        Markdown flavor for markdown output
-
-    Returns
-    -------
-    str
-        Serialized document
-
-    """
-    if output_format == "markdown":
-        result = from_ast(
-            doc,
-            target_format="markdown",
-            flavor=flavor
-        )
-        # from_ast now returns str directly for text formats
-        if not isinstance(result, str):
-            raise TypeError(f"Expected str from from_ast, got {type(result)}")
-        return result
-    elif output_format == "ast_json":
-        return ast_to_json(doc)
-    else:
-        raise ValueError(f"Unsupported output_format: {output_format}")
-
-
-def _write_output(
-        content: str,
-        output_path: str,
-        config: MCPConfig
-) -> Path:
-    """Write output content to file.
-
-    Parameters
-    ----------
-    content : str
-        Content to write
-    output_path : str
-        Destination path
-    config : MCPConfig
-        Server configuration for path validation
-
-    Returns
-    -------
-    Path
-        Validated output path where content was written
-
-    Raises
-    ------
-    MCPSecurityError
-        If path validation fails
-
-    """
-    validated_path = validate_write_path(output_path, config.write_allowlist)
-    validated_path.write_text(content, encoding='utf-8')
-    logger.info(f"Wrote output to: {validated_path}")
-    return validated_path
-
-
-def edit_document_ast_impl(
-        input_data: EditDocumentInput,
-        config: MCPConfig
-) -> EditDocumentOutput:
-    """Implement edit_document_ast tool.
-
-    Parameters
-    ----------
-    input_data : EditDocumentInput
-        Tool input parameters
+    input_data : EditDocumentSimpleInput
+        Simplified tool input parameters
     config : MCPConfig
         Server configuration (for allowlists, etc.)
 
     Returns
     -------
-    EditDocumentOutput
-        Operation result with modified content or section info
-
-    Raises
-    ------
-    MCPSecurityError
-        If security validation fails
-    All2MdError
-        If document manipulation fails
-    ValueError
-        If operation parameters are invalid
+    EditDocumentSimpleOutput
+        Operation result with success flag, message, and optional content
 
     """
-    warnings: list[str] = []
-    sections_modified = 0
-
     try:
-        # Load source document
-        doc = _load_source_document(input_data, config)
-        logger.info(f"Loaded document with {len(doc.children)} nodes")
+        # Validate action
+        valid_actions = {
+            "list-sections", "extract", "add:before", "add:after",
+            "remove", "replace", "insert:start", "insert:end", "insert:after_heading"
+        }
+        if input_data.action not in valid_actions:
+            return EditDocumentSimpleOutput(
+                success=False,
+                message=f"[ERROR] Invalid action: {input_data.action!r}"
+            )
 
-        # Route operation
-        operation = input_data.operation
-        logger.info(f"Executing operation: {operation}")
+        # Parse target (heading text or index notation like "#3")
+        target: str | int | None = None
+        if input_data.target is not None:
+            target_str = input_data.target.strip()
+            # Check if it's index notation (e.g., "#3")
+            if target_str.startswith("#"):
+                try:
+                    target = int(target_str[1:])
+                except ValueError:
+                    return EditDocumentSimpleOutput(
+                        success=False,
+                        message=f"[ERROR] Invalid target index format: {input_data.target!r}. "
+                                "Expected format like '#0', '#1', '#2'."
+                    )
+            else:
+                target = target_str
 
-        if operation == "list_sections":
+        # Validate target is provided when needed
+        if input_data.action != "list-sections" and target is None:
+            return EditDocumentSimpleOutput(
+                success=False,
+                message=f"[ERROR] The '{input_data.action}' action requires a target "
+                        "(heading text or index like '#0')."
+            )
+
+        # Validate content is provided when needed
+        content_required_actions = {
+            "add:before", "add:after", "replace",
+            "insert:start", "insert:end", "insert:after_heading"
+        }
+        if input_data.action in content_required_actions and not input_data.content:
+            return EditDocumentSimpleOutput(
+                success=False,
+                message=f"[ERROR] The '{input_data.action}' action requires content parameter."
+            )
+
+        # Validate and load document
+        try:
+            validated_path = validate_read_path(input_data.doc, config.read_allowlist)
+        except MCPSecurityError as e:
+            return EditDocumentSimpleOutput(
+                success=False,
+                message=f"[ERROR] Read access denied: {e}"
+            )
+
+        logger.info(f"Loading document from: {validated_path}")
+        doc = to_ast(validated_path, source_format="markdown", flavor="gfm")
+        if not isinstance(doc, Document):
+            raise TypeError(f"Expected Document from to_ast, got {type(doc)}")
+
+        logger.info(f"Executing action: {input_data.action}")
+
+        # Execute action
+        if input_data.action == "list-sections":
             # List all sections with metadata
             sections = get_all_sections(doc)
-            section_infos = [
-                SectionInfo(
-                    index=idx,
-                    heading_text=section.get_heading_text(),
-                    level=section.level,
-                    content_nodes=len(section.content),
-                    start_index=section.start_index,
-                    end_index=section.end_index
-                )
-                for idx, section in enumerate(sections)
-            ]
-
-            return EditDocumentOutput(
-                sections=section_infos,
-                section_count=len(sections),
-                warnings=warnings
-            )
-
-        elif operation == "get_section":
-            # Extract a specific section
-            target = _resolve_target(input_data)
-            section_doc = extract_section(
-                doc,
-                target,
-                case_sensitive=input_data.case_sensitive
-            )
-            sections_modified = 1
-
-            # Serialize and optionally write
-            content = _serialize_document(
-                section_doc,
-                input_data.output_format,
-                input_data.flavor
-            )
-
-            if input_data.output_path:
-                output_path_obj = _write_output(content, input_data.output_path, config)
-                return EditDocumentOutput(
-                    output_path=str(output_path_obj),
-                    sections_modified=sections_modified,
-                    warnings=warnings
-                )
+            if sections:
+                lines = ["Document Sections:"]
+                for idx, section in enumerate(sections):
+                    indent = "  " * (section.level - 1)
+                    lines.append(
+                        f"{indent}[#{idx}] "
+                        f"{'#' * section.level} {section.get_heading_text()} "
+                        f"({len(section.content)} nodes)"
+                    )
+                content = "\n".join(lines)
             else:
-                return EditDocumentOutput(
-                    content=content,
-                    sections_modified=sections_modified,
-                    warnings=warnings
-                )
+                content = "No sections found in document."
 
-        elif operation == "add_section":
+            return EditDocumentSimpleOutput(
+                success=True,
+                message=f"Found {len(sections)} section(s).",
+                content=content
+            )
+
+        elif input_data.action == "extract":
+            # Extract a specific section
+            assert target is not None  # Already validated above
+            section_doc = extract_section(doc, target, case_sensitive=False)
+
+            # Serialize to markdown
+            result_md = from_ast(section_doc, target_format="markdown", flavor="gfm")
+            if not isinstance(result_md, str):
+                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
+
+            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
+            return EditDocumentSimpleOutput(
+                success=True,
+                message=f"Successfully extracted {target_desc}.",
+                content=result_md
+            )
+
+        elif input_data.action in ("add:before", "add:after"):
             # Add a new section before or after target
-            target = _resolve_target(input_data)
-            position = input_data.position or "after"
-
-            if not input_data.content:
-                raise ValueError("content is required for add_section operation")
+            assert target is not None  # Already validated above
+            assert input_data.content is not None  # Already validated above
 
             # Parse content as markdown to create new section
-            new_doc = to_ast(
-                input_data.content,
-                source_format="markdown",
-                flavor=input_data.flavor
-            )
+            new_doc = to_ast(input_data.content, source_format="markdown", flavor="gfm")
             if not isinstance(new_doc, Document):
                 raise TypeError(f"Expected Document, got {type(new_doc)}")
 
             # Add section
-            if position == "before":
-                modified_doc = add_section_before(
-                    doc,
-                    target,
-                    new_doc,
-                    case_sensitive=input_data.case_sensitive
-                )
-            elif position == "after":
-                modified_doc = add_section_after(
-                    doc,
-                    target,
-                    new_doc,
-                    case_sensitive=input_data.case_sensitive
-                )
+            if input_data.action == "add:before":
+                modified_doc = add_section_before(doc, target, new_doc, case_sensitive=False)
+                position_desc = "before"
             else:
-                raise ValueError(f"Invalid position for add_section: {position}")
+                modified_doc = add_section_after(doc, target, new_doc, case_sensitive=False)
+                position_desc = "after"
 
-            sections_modified = 1
+            # Serialize to markdown
+            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
+            if not isinstance(result_md, str):
+                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
 
-        elif operation == "remove_section":
-            # Remove a section
-            target = _resolve_target(input_data)
-            modified_doc = remove_section(
-                doc,
-                target,
-                case_sensitive=input_data.case_sensitive
+            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
+            return EditDocumentSimpleOutput(
+                success=True,
+                message=f"Successfully added content {position_desc} {target_desc}.",
+                content=result_md
             )
-            sections_modified = 1
 
-        elif operation == "replace_section":
+        elif input_data.action == "remove":
+            # Remove a section
+            assert target is not None  # Already validated above
+            modified_doc = remove_section(doc, target, case_sensitive=False)
+
+            # Serialize to markdown
+            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
+            if not isinstance(result_md, str):
+                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
+
+            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
+            return EditDocumentSimpleOutput(
+                success=True,
+                message=f"Successfully removed {target_desc}.",
+                content=result_md
+            )
+
+        elif input_data.action == "replace":
             # Replace a section with new content
-            target = _resolve_target(input_data)
-
-            if not input_data.content:
-                raise ValueError("content is required for replace_section operation")
+            assert target is not None  # Already validated above
+            assert input_data.content is not None  # Already validated above
 
             # Parse content as markdown
-            new_doc = to_ast(
-                input_data.content,
-                source_format="markdown",
-                flavor=input_data.flavor
-            )
+            new_doc = to_ast(input_data.content, source_format="markdown", flavor="gfm")
             if not isinstance(new_doc, Document):
                 raise TypeError(f"Expected Document, got {type(new_doc)}")
 
-            modified_doc = replace_section(
-                doc,
-                target,
-                new_doc,
-                case_sensitive=input_data.case_sensitive
+            modified_doc = replace_section(doc, target, new_doc, case_sensitive=False)
+
+            # Serialize to markdown
+            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
+            if not isinstance(result_md, str):
+                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
+
+            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
+            return EditDocumentSimpleOutput(
+                success=True,
+                message=f"Successfully replaced {target_desc}.",
+                content=result_md
             )
-            sections_modified = 1
 
-        elif operation == "insert_content":
+        elif input_data.action in ("insert:start", "insert:end", "insert:after_heading"):
             # Insert content into a section
-            target = _resolve_target(input_data)
-            position = input_data.position or "end"
-
-            if not input_data.content:
-                raise ValueError("content is required for insert_content operation")
+            assert target is not None  # Already validated above
+            assert input_data.content is not None  # Already validated above
 
             # Parse content as markdown
-            content_doc = to_ast(
-                input_data.content,
-                source_format="markdown",
-                flavor=input_data.flavor
-            )
+            content_doc = to_ast(input_data.content, source_format="markdown", flavor="gfm")
             if not isinstance(content_doc, Document):
                 raise TypeError(f"Expected Document, got {type(content_doc)}")
 
-            # Validate position for insert_into_section
-            if position not in ("start", "end", "after_heading"):
-                raise ValueError(
-                    f"Invalid position for insert_content: {position}. "
-                    "Must be 'start', 'end', or 'after_heading'."
-                )
+            # Map action to position
+            position_map = {
+                "insert:start": "start",
+                "insert:end": "end",
+                "insert:after_heading": "after_heading"
+            }
+            position = position_map[input_data.action]
 
             modified_doc = insert_into_section(
                 doc,
                 target,
                 content_doc.children,
-                position=cast(Any, position),
-                case_sensitive=input_data.case_sensitive
-            )
-            sections_modified = 1
-
-        elif operation == "generate_toc":
-            # Generate table of contents
-            toc_str = generate_toc(
-                doc,
-                max_level=input_data.max_toc_level,
-                style=input_data.toc_style
+                position=position,  # type: ignore[arg-type]
+                case_sensitive=False
             )
 
-            # For non-markdown styles, convert List node to markdown
-            if not isinstance(toc_str, str):
-                # It's a List node, render to markdown
-                from all2md.ast.nodes import Document as ASTDocument
-                toc_doc = ASTDocument(children=[toc_str])
-                toc_str = _serialize_document(
-                    toc_doc,
-                    "markdown",
-                    input_data.flavor
-                )
+            # Serialize to markdown
+            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
+            if not isinstance(result_md, str):
+                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
 
-            # Return TOC content directly (not full document)
-            if input_data.output_path:
-                output_path_obj = _write_output(toc_str, input_data.output_path, config)
-                return EditDocumentOutput(
-                    output_path=str(output_path_obj),
-                    warnings=warnings
-                )
-            else:
-                return EditDocumentOutput(
-                    content=toc_str,
-                    warnings=warnings
-                )
-
-        elif operation == "split_document":
-            # Split document by sections
-            section_docs = split_by_sections(doc, include_preamble=True)
-
-            # Serialize each section
-            split_contents = []
-            for section_doc in section_docs:
-                section_content = _serialize_document(
-                    section_doc,
-                    input_data.output_format,
-                    input_data.flavor
-                )
-                split_contents.append(section_content)
-
-            sections_modified = len(section_docs)
-
-            # For split_document, we return all sections as a single string
-            # separated by markdown thematic breaks
-            combined_content = "\n\n---\n\n".join(split_contents)
-
-            if input_data.output_path:
-                # Write combined output
-                output_path_obj = _write_output(
-                    combined_content,
-                    input_data.output_path,
-                    config
-                )
-                return EditDocumentOutput(
-                    output_path=str(output_path_obj),
-                    sections_modified=sections_modified,
-                    warnings=warnings
-                )
-            else:
-                return EditDocumentOutput(
-                    content=combined_content,
-                    sections_modified=sections_modified,
-                    warnings=warnings
-                )
+            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
+            return EditDocumentSimpleOutput(
+                success=True,
+                message=f"Successfully inserted content into {target_desc}.",
+                content=result_md
+            )
 
         else:
-            raise ValueError(f"Unknown operation: {operation}")
-
-        # For operations that modify the document, serialize and return
-        if operation in ("add_section", "remove_section", "replace_section", "insert_content"):
-            content = _serialize_document(
-                modified_doc,
-                input_data.output_format,
-                input_data.flavor
+            # Should never reach here due to validation above
+            return EditDocumentSimpleOutput(
+                success=False,
+                message=f"[ERROR] Unhandled action: {input_data.action}"
             )
 
-            if input_data.output_path:
-                output_path_obj = _write_output(content, input_data.output_path, config)
-                return EditDocumentOutput(
-                    output_path=str(output_path_obj),
-                    sections_modified=sections_modified,
-                    warnings=warnings
-                )
-            else:
-                return EditDocumentOutput(
-                    content=content,
-                    sections_modified=sections_modified,
-                    warnings=warnings
-                )
+    except ValueError as e:
+        # Handle validation errors from AST functions
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            return EditDocumentSimpleOutput(
+                success=False,
+                message=f"[ERROR] Target not found: {error_msg}"
+            )
+        return EditDocumentSimpleOutput(
+            success=False,
+            message=f"[ERROR] Invalid input: {error_msg}"
+        )
 
-        # Should not reach here
-        raise ValueError(f"Operation {operation} did not return a result")
+    except All2MdError as e:
+        # Handle document processing errors
+        return EditDocumentSimpleOutput(
+            success=False,
+            message=f"[ERROR] Document processing failed: {e}"
+        )
 
-    except (All2MdError, ValueError) as e:
-        # Let All2MdError and ValueError pass through without wrapping
-        logger.error(f"Document operation failed: {e}")
-        raise
     except MCPSecurityError as e:
-        # Let security errors pass through
-        logger.error(f"Security violation: {e}")
-        raise
+        # Handle security violations
+        return EditDocumentSimpleOutput(
+            success=False,
+            message=f"[ERROR] Security violation: {e}"
+        )
+
     except Exception as e:
-        # Only wrap truly unexpected exceptions
-        logger.error(f"Unexpected error during document operation: {e}")
-        raise All2MdError(f"Document operation failed: {e}") from e
-
-
-def _resolve_target(input_data: EditDocumentInput) -> str | int:
-    """Resolve target from input data.
-
-    Parameters
-    ----------
-    input_data : EditDocumentInput
-        Input with target_heading or target_index
-
-    Returns
-    -------
-    str or int
-        Resolved target
-
-    Raises
-    ------
-    ValueError
-        If no target is specified or both are specified
-
-    """
-    if input_data.target_heading and input_data.target_index is not None:
-        raise ValueError("Cannot specify both target_heading and target_index")
-
-    if input_data.target_heading:
-        return input_data.target_heading
-    elif input_data.target_index is not None:
-        return input_data.target_index
-    else:
-        raise ValueError("Must specify either target_heading or target_index")
+        # Catch-all for unexpected errors
+        logger.error(f"Unexpected error in edit_document: {e}", exc_info=True)
+        return EditDocumentSimpleOutput(
+            success=False,
+            message=f"[ERROR] Unexpected error: {e}"
+        )
 
 
 __all__ = [
-    "edit_document_ast_impl",
+    "edit_document_impl",
 ]

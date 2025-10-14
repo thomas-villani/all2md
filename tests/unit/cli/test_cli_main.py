@@ -1002,9 +1002,9 @@ class TestAdvancedCLIIntegration:
             good_output = output_dir / "good.md"
             assert good_output.exists()
 
-            # Error should be logged
+            # Error should be logged (format is [ERROR])
             captured = capsys.readouterr()
-            assert "Error:" in captured.err or "failed" in captured.err.lower()
+            assert "[ERROR]" in captured.err or "error" in captured.err.lower()
 
     def test_complex_option_combinations(self):
         """Test complex combinations of new CLI options."""

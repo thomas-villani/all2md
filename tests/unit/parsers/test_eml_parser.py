@@ -134,18 +134,18 @@ class TestBasicConversion:
                         assert "From:" not in content_item.content
 
     def test_content_with_htmlinline(self) -> None:
-        """Test email content preserved with HTMLInline."""
+        """Test email content preserved with Text nodes (not HTMLInline for security)."""
         email = _create_test_email(content="This is **markdown** content")
         options = EmlOptions(subject_as_h1=False, include_headers=False)
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
 
-        # Should have content paragraph with HTMLInline
+        # Should have content paragraph with Text (not HTMLInline for security)
         content_found = False
         for child in doc.children:
             if isinstance(child, Paragraph):
                 for content_item in child.content:
-                    if isinstance(content_item, HTMLInline):
+                    if isinstance(content_item, Text):
                         assert "markdown" in content_item.content
                         content_found = True
                         break
@@ -409,12 +409,12 @@ class TestEdgeCases:
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
 
-        # Content should be preserved
+        # Content should be preserved as Text nodes (not HTMLInline for security)
         content_found = False
         for child in doc.children:
             if isinstance(child, Paragraph):
                 for content_item in child.content:
-                    if isinstance(content_item, HTMLInline):
+                    if isinstance(content_item, Text):
                         assert "Line 1" in content_item.content
                         assert "Line 2" in content_item.content
                         assert "Line 3" in content_item.content

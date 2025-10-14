@@ -73,13 +73,20 @@ class TestMarkdownCells:
         doc = converter.convert_to_ast(notebook, "python")
 
         assert isinstance(doc, Document)
-        assert len(doc.children) == 1
-        assert isinstance(doc.children[0], Paragraph)
-        para = doc.children[0]
-        assert len(para.content) == 1
-        assert isinstance(para.content[0], HTMLInline)
-        # HTMLInline preserves markdown syntax
-        assert "# Heading" in para.content[0].content
+        # Markdown is now parsed into AST nodes (Heading + Paragraph)
+        assert len(doc.children) == 2
+        # First child should be a Heading
+        from all2md.ast import Heading, Text
+        assert isinstance(doc.children[0], Heading)
+        heading = doc.children[0]
+        assert heading.level == 1
+        assert isinstance(heading.content[0], Text)
+        assert heading.content[0].content == "Heading"
+        # Second child should be a Paragraph with Text
+        assert isinstance(doc.children[1], Paragraph)
+        para = doc.children[1]
+        assert isinstance(para.content[0], Text)
+        assert "Some text." in para.content[0].content
 
     def test_multiple_markdown_cells(self) -> None:
         """Test converting multiple markdown cells."""
@@ -631,11 +638,13 @@ class TestEdgeCases:
         converter = IpynbToAstConverter()
         doc = converter.convert_to_ast(notebook, "python")
 
-        # Should have 4 nodes: markdown, code, markdown, code
+        # Should have 4 nodes: Heading (from "# Introduction"), code, Paragraph, code
+        # Markdown is now parsed into proper AST nodes
+        from all2md.ast import Heading
         assert len(doc.children) == 4
-        assert isinstance(doc.children[0], Paragraph)
+        assert isinstance(doc.children[0], Heading)  # "# Introduction" becomes Heading
         assert isinstance(doc.children[1], CodeBlock)
-        assert isinstance(doc.children[2], Paragraph)
+        assert isinstance(doc.children[2], Paragraph)  # "Some explanation" becomes Paragraph
         assert isinstance(doc.children[3], CodeBlock)
 
     def test_unknown_cell_type_skipped(self) -> None:

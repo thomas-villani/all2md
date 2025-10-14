@@ -207,10 +207,12 @@ A dictionary with:
      "output_path": "/workspace/output.docx"
    }
 
-edit_document_ast
-~~~~~~~~~~~~~~~~~
+edit_document
+~~~~~~~~~~~~~
 
-Manipulate document structure at the AST level. **Requires** ``--enable-doc-edit`` flag (disabled by default for security).
+Edit markdown documents by manipulating their structure. **Requires** ``--enable-doc-edit`` flag (disabled by default for security).
+
+This tool provides a simplified, LLM-friendly interface for document manipulation with sensible defaults (markdown only, case-insensitive heading matching, GFM flavor).
 
 **Parameters:**
 
@@ -221,67 +223,90 @@ Manipulate document structure at the AST level. **Requires** ``--enable-doc-edit
    * - Parameter
      - Type
      - Description
-   * - ``operation``
+   * - ``action``
      - string
-     - **REQUIRED.** Operation to perform: ``list_sections``, ``get_section``, ``add_section``, ``remove_section``, ``replace_section``, ``insert_content``, ``generate_toc``, ``split_document``.
-   * - ``source_path``
+     - **REQUIRED.** Action to perform: ``list-sections``, ``extract``, ``add:before``, ``add:after``, ``remove``, ``replace``, ``insert:start``, ``insert:end``, ``insert:after_heading``.
+   * - ``doc``
      - string
-     - File path to document (markdown or AST JSON). Mutually exclusive with ``source_content``.
-   * - ``source_content``
+     - **REQUIRED.** File path to the document (must be in read allowlist).
+   * - ``target``
      - string
-     - Document content as string. Mutually exclusive with ``source_path``.
-   * - ``source_format``
-     - string
-     - Format of source: ``markdown`` (default) or ``ast_json``.
-   * - ``target_heading``
-     - string
-     - Heading text to target for section operations.
-   * - ``target_index``
-     - int
-     - Section index to target.
+     - Section to target. Either heading text (case-insensitive) like ``"Introduction"``, or index notation like ``"#0"``, ``"#1"`` (zero-based). Required for all actions except ``list-sections``.
    * - ``content``
      - string
-     - Markdown content to add/insert for ``add_section``, ``replace_section``, ``insert_content``.
-   * - ``position``
-     - string
-     - Position for add/insert operations: ``before``, ``after``, ``start``, ``end``.
-   * - ``output_path``
-     - string
-     - Output file path. If not provided, content is returned in the response.
-   * - ``output_format``
-     - string
-     - Format for output content: ``markdown`` (default) or ``ast_json``.
+     - Markdown content to add/replace/insert. Required for ``add:before``, ``add:after``, ``replace``, and insert actions.
+
+**Actions:**
+
+- ``list-sections``: List all sections with metadata (returns formatted section list)
+- ``extract``: Get a specific section by heading or index (returns section content)
+- ``add:before``: Add new section before the target section
+- ``add:after``: Add new section after the target section
+- ``remove``: Remove a section from the document
+- ``replace``: Replace section content with new content
+- ``insert:start``: Insert content at the start of a section
+- ``insert:end``: Insert content at the end of a section
+- ``insert:after_heading``: Insert content right after the section heading
 
 **Returns:**
 
-A dictionary with detailed results of the operation, including modified content, section information, or output path.
+A dictionary with:
+
+- ``success``: Boolean indicating if operation succeeded
+- ``message``: Human-readable result or error message
+- ``content``: Content from operation (for ``list-sections`` and ``extract`` actions)
 
 **Examples:**
 
+List all sections:
+
 .. code-block:: json
 
    {
-     "operation": "list_sections",
-     "source_path": "/workspace/document.md"
+     "action": "list-sections",
+     "doc": "/workspace/document.md"
    }
 
+Extract a section by heading:
+
 .. code-block:: json
 
    {
-     "operation": "get_section",
-     "source_path": "/workspace/document.md",
-     "target_heading": "Introduction"
+     "action": "extract",
+     "doc": "/workspace/document.md",
+     "target": "Introduction"
    }
 
+Extract a section by index:
+
 .. code-block:: json
 
    {
-     "operation": "add_section",
-     "source_path": "/workspace/document.md",
-     "target_heading": "Chapter 1",
-     "position": "after",
-     "content": "# New Section\n\nContent here.",
-     "output_path": "/workspace/updated.md"
+     "action": "extract",
+     "doc": "/workspace/document.md",
+     "target": "#2"
+   }
+
+Add a new section:
+
+.. code-block:: json
+
+   {
+     "action": "add:after",
+     "doc": "/workspace/document.md",
+     "target": "Chapter 1",
+     "content": "# New Section\n\nContent here."
+   }
+
+Replace section content:
+
+.. code-block:: json
+
+   {
+     "action": "replace",
+     "doc": "/workspace/document.md",
+     "target": "#0",
+     "content": "# Updated Heading\n\nUpdated content."
    }
 
 Configuration

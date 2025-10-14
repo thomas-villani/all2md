@@ -24,17 +24,14 @@ if TYPE_CHECKING:
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
     ConvertToMarkdownInput,
-    EditDocumentInput,
-    EditDocumentOutput,
-    EditOperation,
-    InsertPosition,
+    EditDocumentAction,
+    EditDocumentSimpleInput,
+    EditDocumentSimpleOutput,
     MarkdownFlavor,
-    OutputFormat,
     RenderFromMarkdownInput,
     RenderFromMarkdownOutput,
     SourceFormat,
     TargetFormat,
-    TOCStyle,
 )
 from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
 
@@ -48,7 +45,7 @@ def create_server(
         config: MCPConfig,
         convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], list[Any]],
         render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput],
-        edit_doc_impl: Callable[[EditDocumentInput, MCPConfig], EditDocumentOutput]
+        edit_doc_impl: Callable[[EditDocumentSimpleInput, MCPConfig], EditDocumentSimpleOutput]
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
@@ -61,7 +58,7 @@ def create_server(
     render_impl : callable
         Implementation function for render_from_markdown tool
     edit_doc_impl : callable
-        Implementation function for edit_document_ast tool
+        Implementation function for edit_document tool
 
     Returns
     -------
@@ -201,136 +198,75 @@ def create_server(
 
         logger.info("Registered tool: render_from_markdown")
 
-    # Conditionally register edit_document_ast tool
+    # Conditionally register edit_document tool
     if config.enable_doc_edit:
-        @mcp.tool(name="edit_document_ast")
-        def edit_document_ast(
-                operation: Annotated[
+        @mcp.tool(name="edit_document")
+        def edit_document(
+                action: Annotated[
                     str,
-                    "Operation to perform: list_sections, get_section, add_section, remove_section, "
-                    "replace_section, insert_content, generate_toc, split_document. REQUIRED."
+                    "Action to perform: list-sections, extract, add:before, add:after, remove, replace, "
+                    "insert:start, insert:end, insert:after_heading. REQUIRED."
                 ],
-                source_path: Annotated[
-                    str | None,
-                    "File path to document (must be within read allowlist). Mutually exclusive with source_content."
-                ] = None,
-                source_content: Annotated[
-                    str | None,
-                    "Document content as string (markdown or AST JSON). Mutually exclusive with source_path."
-                ] = None,
-                content_encoding: Annotated[
-                    str | None,
-                    "Encoding of source_content: 'plain' (default) or 'base64'."
-                ] = None,
-                source_format: Annotated[
+                doc: Annotated[
                     str,
-                    "Format of source content: 'markdown' (default) or 'ast_json'."
-                ] = "markdown",
-                target_heading: Annotated[
+                    "File path to the document (must be within read allowlist). REQUIRED."
+                ],
+                target: Annotated[
                     str | None,
-                    "Heading text to target for section operations. Mutually exclusive with target_index."
-                ] = None,
-                target_index: Annotated[
-                    int | None,
-                    "Zero-based section index to target. Mutually exclusive with target_heading."
+                    "Section to target. Either heading text (case-insensitive) like 'Introduction', or "
+                    "index notation like '#0', '#1', '#2' (zero-based). Required for all actions except "
+                    "list-sections."
                 ] = None,
                 content: Annotated[
                     str | None,
-                    ("Content to add/insert (markdown format). "
-                     "Required for add_section, replace_section, insert_content.")
-                ] = None,
-                position: Annotated[
-                    str | None,
-                    "Position for add/insert operations: 'before', 'after', 'start', 'end', 'after_heading'."
-                ] = None,
-                case_sensitive: Annotated[
-                    bool,
-                    "Whether heading text matching is case-sensitive (default: false)."
-                ] = False,
-                max_toc_level: Annotated[
-                    int,
-                    "Maximum heading level for TOC generation (default: 3)."
-                ] = 3,
-                toc_style: Annotated[
-                    str,
-                    "Style for TOC generation: 'markdown', 'list', 'nested' (default: 'markdown')."
-                ] = "markdown",
-                flavor: Annotated[
-                    str | None,
-                    "Markdown flavor for parsing/rendering: gfm (default), commonmark, multimarkdown, etc."
-                ] = None,
-                output_path: Annotated[
-                    str | None,
-                    "Output file path (must be within write allowlist). If not provided, content is returned."
-                ] = None,
-                output_format: Annotated[
-                    str,
-                    "Format for output content: 'markdown' (default) or 'ast_json'."
-                ] = "markdown"
+                    "Markdown content to add/replace/insert. Required for add:before, add:after, replace, "
+                    "insert:start, insert:end, and insert:after_heading actions."
+                ] = None
         ) -> dict:
-            """Manipulate document structure at the AST level.
+            """Edit markdown documents by manipulating their structure.
 
-            This tool allows structural document manipulation including:
-            - list_sections: Get metadata about all sections in the document
-            - get_section: Extract a specific section by heading text or index
-            - add_section: Add new section before or after a target section
-            - remove_section: Delete a section from the document
-            - replace_section: Replace section content with new content
-            - insert_content: Insert content into an existing section
-            - generate_toc: Generate table of contents from headings
-            - split_document: Split document into separate documents by sections
+            This tool provides a simplified interface for document manipulation with sensible
+            LLM-friendly defaults (markdown only, case-insensitive heading matching, GFM flavor).
+
+            Available actions:
+            - list-sections: List all sections with metadata (returns formatted section list)
+            - extract: Get a specific section by heading or index (returns section content)
+            - add:before: Add new section before the target section
+            - add:after: Add new section after the target section
+            - remove: Remove a section from the document
+            - replace: Replace section content with new content
+            - insert:start: Insert content at the start of a section
+            - insert:end: Insert content at the end of a section
+            - insert:after_heading: Insert content right after the section heading
+
+            Target format:
+            - Heading text: "Introduction", "Methods and Results", etc. (case-insensitive)
+            - Index notation: "#0" (first section), "#1" (second section), etc.
 
             Requires --enable-doc-edit flag (disabled by default for security).
 
             Returns a dictionary with:
-            - content: Modified document (if output_path not specified)
-            - sections: Section metadata (for list_sections operation)
-            - section_count: Number of sections (for list_sections)
-            - sections_modified: Number of sections affected by operation
-            - output_path: File path where content was written (if output_path specified)
-            - warnings: List of warning messages
+            - success: Boolean indicating if operation succeeded
+            - message: Human-readable result or error message
+            - content: Content from operation (for list-sections and extract actions)
             """
-            # Cast to proper Literal types (FastMCP validates these at the boundary)
-            input_obj = EditDocumentInput(
-                operation=cast(EditOperation, operation),
-                source_path=source_path,
-                source_content=source_content,
-                content_encoding=cast(ContentEncoding | None, content_encoding),
-                source_format=cast(Any, source_format),
-                target_heading=target_heading,
-                target_index=target_index,
-                content=content,
-                position=cast(InsertPosition | None, position),
-                case_sensitive=case_sensitive,
-                max_toc_level=max_toc_level,
-                toc_style=cast(TOCStyle, toc_style),
-                flavor=cast(MarkdownFlavor | None, flavor),
-                output_path=output_path,
-                output_format=cast(OutputFormat, output_format)
+            # Cast to proper Literal type (FastMCP validates at the boundary)
+            input_obj = EditDocumentSimpleInput(
+                action=cast(EditDocumentAction, action),
+                doc=doc,
+                target=target,
+                content=content
             )
 
             result = edit_doc_impl(input_obj, config)
 
             return {
-                "content": result.content,
-                "sections": [
-                    {
-                        "index": s.index,
-                        "heading_text": s.heading_text,
-                        "level": s.level,
-                        "content_nodes": s.content_nodes,
-                        "start_index": s.start_index,
-                        "end_index": s.end_index
-                    }
-                    for s in (result.sections or [])
-                ],
-                "section_count": result.section_count,
-                "sections_modified": result.sections_modified,
-                "output_path": result.output_path,
-                "warnings": result.warnings
+                "success": result.success,
+                "message": result.message,
+                "content": result.content
             }
 
-        logger.info("Registered tool: edit_document_ast")
+        logger.info("Registered tool: edit_document")
 
     return mcp
 
@@ -398,11 +334,11 @@ def main() -> int:
             logger.warning("Network access enabled - ensure this is intentional!")
 
         # Import tool implementations after setting env vars
-        from all2md.mcp.document_tools import edit_document_ast_impl
+        from all2md.mcp.document_tools import edit_document_impl
         from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
 
         # Create and run server
-        mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl, edit_document_ast_impl)
+        mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl, edit_document_impl)
 
         logger.info("Server ready, listening on stdio")
         mcp.run()  # Run with default stdio transport
