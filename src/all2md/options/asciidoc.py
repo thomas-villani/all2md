@@ -115,10 +115,6 @@ class AsciiDocRendererOptions(BaseRendererOptions):
 
     Parameters
     ----------
-    heading_style : {"atx", "setext"}, default "atx"
-        Heading rendering style:
-        - "atx": Use = prefix style (= Level 0, == Level 1, etc.)
-        - "setext": Use underline style for h1-h2
     list_indent : int, default 2
         Number of spaces for nested list indentation.
     use_attributes : bool, default True
@@ -137,13 +133,6 @@ class AsciiDocRendererOptions(BaseRendererOptions):
 
     """
 
-    heading_style: Literal["atx", "setext"] = field(
-        default="atx",
-        metadata={
-            "help": "Heading rendering style",
-            "choices": ["atx", "setext"]
-        }
-    )
     list_indent: int = field(
         default=2,
         metadata={

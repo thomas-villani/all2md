@@ -289,10 +289,6 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         else:
             # Use direct formatting
             heading = self.document.add_paragraph()
-            if self.options.heading_font_sizes and level in self.options.heading_font_sizes:
-                for run in heading.runs:
-                    run.font.size = self._Pt(self.options.heading_font_sizes[level])
-                    run.font.bold = True
 
         # Apply blockquote indentation if inside a blockquote
         if self._blockquote_depth > 0:
@@ -303,6 +299,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Render content
         for child in node.content:
             child.accept(self)
+
+        # Apply direct formatting AFTER content is rendered (when use_styles=False)
+        if not self.options.use_styles:
+            if self.options.heading_font_sizes and level in self.options.heading_font_sizes:
+                for run in heading.runs:
+                    run.font.size = self._Pt(self.options.heading_font_sizes[level])
+                    run.font.bold = True
+            else:
+                # No custom sizes specified - just make it bold
+                for run in heading.runs:
+                    run.font.bold = True
 
         self._current_paragraph = None
 
@@ -810,6 +817,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     def _add_hyperlink(self, paragraph: Paragraph, url: str, text: str) -> None:
         """Add a hyperlink to a paragraph.
 
+        This method uses OOXML private APIs to construct hyperlinks, as python-docx
+        does not provide a high-level API for this functionality. The implementation
+        may be brittle across python-docx versions.
+
         Parameters
         ----------
         paragraph : Paragraph
@@ -840,8 +851,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         rPr.append(r_style)
         new_run.append(rPr)
 
-        # Create text element (required by OOXML spec)
+        # Create text element with xml:space="preserve" to prevent whitespace collapse
         t = self._OxmlElement('w:t')
+        t.set(self._qn('xml:space'), 'preserve')
         t.text = text
         new_run.append(t)
 

@@ -219,6 +219,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
 
+        AsciiDoc uses = prefix syntax for all headings. The number of = characters
+        determines the heading level: = is document title (level 0), == is section
+        level 1, === is section level 2, etc.
+
         Parameters
         ----------
         node : Heading
@@ -227,17 +231,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         content = self._render_inline_content(node.content)
 
-        if self.options.heading_style == "setext" and node.level <= 2:
-            # Setext style with underlines
-            underline_char = '=' if node.level == 1 else '-'
-            underline = underline_char * len(content)
-            self._output.append(f"{content}\n{underline}")
-        else:
-            # ATX style with = prefix
-            # AsciiDoc levels: = is document title (level 0), == is section level 1, === is section level 2, etc.
-            # Map AST heading levels to AsciiDoc: level 1 -> ==, level 2 -> ===, etc.
-            prefix = '=' * (node.level + 1)
-            self._output.append(f"{prefix} {content}")
+        # AsciiDoc levels: = is document title (level 0), == is section level 1, === is section level 2, etc.
+        # Map AST heading levels to AsciiDoc: level 1 -> ==, level 2 -> ===, etc.
+        prefix = '=' * (node.level + 1)
+        self._output.append(f"{prefix} {content}")
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.
@@ -290,6 +287,71 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append('\n')
         self._output.append("____")
 
+    def _is_block_element(self, node: Node) -> bool:
+        """Check if a node is a block element requiring list continuation.
+
+        In AsciiDoc, block elements inside list items need a list continuation
+        line (+) to be properly associated with the list item.
+
+        Parameters
+        ----------
+        node : Node
+            Node to check
+
+        Returns
+        -------
+        bool
+            True if node is a block element
+
+        """
+        return isinstance(node, (CodeBlock, BlockQuote, List, Table))
+
+    def _flatten_blocks_to_inline(self, nodes: list[Node]) -> str:
+        """Flatten block-level nodes to inline text for use in inline contexts.
+
+        AsciiDoc footnote macros (footnote:id[text]) only accept inline content.
+        This method extracts text from block nodes and converts them to a plain
+        text representation suitable for inline use.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Block or inline nodes to flatten
+
+        Returns
+        -------
+        str
+            Flattened inline text
+
+        Notes
+        -----
+        Complex block structures (tables, nested lists, etc.) will lose formatting.
+        This is an inherent limitation of AsciiDoc's footnote syntax.
+
+        """
+        result_parts = []
+
+        for node in nodes:
+            if isinstance(node, Paragraph):
+                # Extract inline content from paragraph
+                text = self._render_inline_content(node.content)
+                result_parts.append(text)
+            elif isinstance(node, CodeBlock):
+                # Represent code block as inline code
+                # Remove newlines and represent compactly
+                code_text = node.content.replace('\n', ' ').strip()
+                result_parts.append(f"+{code_text}+")
+            elif isinstance(node, Text):
+                # Direct text node
+                result_parts.append(escape_asciidoc(node.content))
+            elif hasattr(node, 'content') and isinstance(node.content, list):
+                # Recursively flatten nodes with content lists
+                text = self._flatten_blocks_to_inline(node.content)
+                result_parts.append(text)
+            # Skip other block types that can't be meaningfully represented inline
+
+        return ' '.join(result_parts).strip()
+
     def visit_list(self, node: List) -> None:
         """Render a List node.
 
@@ -315,6 +377,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
+
+        In AsciiDoc, block elements within list items require a list continuation
+        line (+) to properly associate them with the list item. The continuation
+        appears on its own line between the list item text and the block element.
 
         Parameters
         ----------
@@ -344,13 +410,18 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     content = self._render_inline_content(child.content)
                     self._output.append(content)
                 else:
+                    # First child is a block element - needs continuation
+                    self._output.append('\n+\n')
                     child.accept(self)
             else:
-                # Subsequent children indented
-                self._output.append('\n')
-                indent = ' ' * (self._list_level * self.options.list_indent)
-                self._output.append(indent)
-                child.accept(self)
+                # Subsequent children need continuation marker if they're blocks
+                if self._is_block_element(child):
+                    self._output.append('\n+\n')
+                    child.accept(self)
+                else:
+                    # Non-block subsequent children (e.g., additional Paragraphs)
+                    self._output.append('\n+\n')
+                    child.accept(self)
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
@@ -667,6 +738,9 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
 
+        AsciiDoc footnote macros only accept inline content. If the footnote
+        definition contains block-level nodes, they will be flattened to plain text.
+
         Parameters
         ----------
         node : FootnoteReference
@@ -687,8 +761,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             footnote_text = ""
             for defn in definitions:
                 if defn.identifier == canonical_id:
-                    # Render the footnote content as inline text
-                    footnote_text = self._render_inline_content(defn.content)
+                    # Flatten the footnote content to inline text (handles block nodes)
+                    footnote_text = self._flatten_blocks_to_inline(defn.content)
                     break
 
             if footnote_text:

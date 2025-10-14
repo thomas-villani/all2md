@@ -726,3 +726,186 @@ class TestLineBreaks:
         para = docx_doc.paragraphs[0]
         assert "Line 1" in para.text
         assert "Line 2" in para.text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestHeadingFormattingWithoutStyles:
+    """Tests for heading rendering with use_styles=False."""
+
+    def test_heading_bold_without_styles(self, tmp_path):
+        """Test that headings are bold when use_styles=False."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Test Heading")])
+        ])
+        options = DocxRendererOptions(use_styles=False)
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "heading_no_styles.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        # Find the heading paragraph
+        heading_para = None
+        for para in docx_doc.paragraphs:
+            if "Test Heading" in para.text:
+                heading_para = para
+                break
+
+        assert heading_para is not None, "Heading not found"
+        # At least one run should be bold
+        has_bold = any(run.bold for run in heading_para.runs)
+        assert has_bold, "Heading should have bold formatting when use_styles=False"
+
+    def test_heading_font_size_without_styles(self, tmp_path):
+        """Test that custom heading font sizes are applied when use_styles=False."""
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Large Heading")]),
+            Heading(level=2, content=[Text(content="Medium Heading")])
+        ])
+
+        # Custom font sizes for headings
+        options = DocxRendererOptions(
+            use_styles=False,
+            heading_font_sizes={1: 24, 2: 18}
+        )
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "heading_custom_sizes.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+
+        # Find h1
+        h1_para = None
+        h2_para = None
+        for para in docx_doc.paragraphs:
+            if "Large Heading" in para.text:
+                h1_para = para
+            elif "Medium Heading" in para.text:
+                h2_para = para
+
+        assert h1_para is not None, "H1 not found"
+        assert h2_para is not None, "H2 not found"
+
+        # Check font sizes are applied
+        h1_sizes = [run.font.size for run in h1_para.runs if run.font.size]
+        h2_sizes = [run.font.size for run in h2_para.runs if run.font.size]
+
+        # Import Pt for comparison
+        from docx.shared import Pt
+        assert any(size == Pt(24) for size in h1_sizes), "H1 should have 24pt font size"
+        assert any(size == Pt(18) for size in h2_sizes), "H2 should have 18pt font size"
+
+    def test_heading_with_formatting_without_styles(self, tmp_path):
+        """Test heading with inline formatting when use_styles=False."""
+        doc = Document(children=[
+            Heading(level=1, content=[
+                Text(content="Normal "),
+                Emphasis(content=[Text(content="emphasized")])
+            ])
+        ])
+        options = DocxRendererOptions(use_styles=False)
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "heading_formatted_no_styles.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        heading_para = None
+        for para in docx_doc.paragraphs:
+            if "Normal" in para.text and "emphasized" in para.text:
+                heading_para = para
+                break
+
+        assert heading_para is not None, "Heading not found"
+        # Should have both regular and italic runs, all bold
+        has_italic = any(run.italic for run in heading_para.runs)
+        all_bold = all(run.bold for run in heading_para.runs if run.text.strip())
+        assert has_italic, "Should have italic formatting"
+        assert all_bold, "All runs should be bold (heading-level formatting)"
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestHyperlinkWhitespace:
+    """Tests for hyperlink whitespace preservation."""
+
+    def test_hyperlink_with_leading_space(self, tmp_path):
+        """Test hyperlink text with leading space is preserved."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="https://example.com", content=[Text(content=" Link Text")])
+            ])
+        ])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "link_leading_space.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+
+        # Check hyperlink element in XML
+        from docx.oxml.ns import qn
+        hyperlinks = para._element.findall(qn('w:hyperlink'))
+        assert len(hyperlinks) > 0, "No hyperlinks found"
+
+        hyperlink = hyperlinks[0]
+        runs = hyperlink.findall(qn('w:r'))
+        text_elements = runs[0].findall(qn('w:t'))
+
+        # Verify xml:space="preserve" is present
+        space_attr = text_elements[0].get(qn('xml:space'))
+        assert space_attr == 'preserve', "xml:space='preserve' attribute should be present"
+
+        # Verify text has leading space
+        assert text_elements[0].text == " Link Text", "Leading space should be preserved"
+
+    def test_hyperlink_with_trailing_space(self, tmp_path):
+        """Test hyperlink text with trailing space is preserved."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="https://example.com", content=[Text(content="Link Text ")])
+            ])
+        ])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "link_trailing_space.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+
+        # Check hyperlink element in XML
+        from docx.oxml.ns import qn
+        hyperlinks = para._element.findall(qn('w:hyperlink'))
+        text_elements = hyperlinks[0].findall(qn('w:r'))[0].findall(qn('w:t'))
+
+        # Verify xml:space="preserve" is present
+        space_attr = text_elements[0].get(qn('xml:space'))
+        assert space_attr == 'preserve', "xml:space='preserve' attribute should be present"
+
+        # Verify text has trailing space
+        assert text_elements[0].text == "Link Text ", "Trailing space should be preserved"
+
+    def test_hyperlink_with_multiple_spaces(self, tmp_path):
+        """Test hyperlink text with multiple consecutive spaces is preserved."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Link(url="https://example.com", content=[Text(content="Link  Text")])
+            ])
+        ])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "link_multiple_spaces.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+
+        # Check hyperlink element in XML
+        from docx.oxml.ns import qn
+        hyperlinks = para._element.findall(qn('w:hyperlink'))
+        text_elements = hyperlinks[0].findall(qn('w:r'))[0].findall(qn('w:t'))
+
+        # Verify xml:space="preserve" is present
+        space_attr = text_elements[0].get(qn('xml:space'))
+        assert space_attr == 'preserve', "xml:space='preserve' attribute should be present"
+
+        # Verify double space is preserved
+        assert text_elements[0].text == "Link  Text", "Multiple spaces should be preserved"
