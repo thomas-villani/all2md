@@ -68,7 +68,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.constants import DANGEROUS_SCHEMES, SAFE_LINK_SCHEMES
+from all2md.constants import SAFE_LINK_SCHEMES
 
 
 def _validate_url_scheme(url: str, context: str = "URL") -> None:

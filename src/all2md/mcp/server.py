@@ -16,20 +16,19 @@ import logging
 import os
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
-    ConvertToMarkdownInput,
     EditDocumentAction,
     EditDocumentSimpleInput,
     EditDocumentSimpleOutput,
-    MarkdownFlavor,
-    RenderFromMarkdownInput,
-    RenderFromMarkdownOutput,
+    ReadDocumentAsMarkdownInput,
+    SaveDocumentFromMarkdownInput,
+    SaveDocumentFromMarkdownOutput,
     SourceFormat,
     TargetFormat,
 )
@@ -37,14 +36,11 @@ from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
 
 logger = logging.getLogger(__name__)
 
-# Type alias for content encoding
-ContentEncoding = Literal["plain", "base64"]
-
 
 def create_server(
         config: MCPConfig,
-        convert_impl: Callable[[ConvertToMarkdownInput, MCPConfig], list[Any]],
-        render_impl: Callable[[RenderFromMarkdownInput, MCPConfig], RenderFromMarkdownOutput],
+        read_impl: Callable[[ReadDocumentAsMarkdownInput, MCPConfig], list[Any]],
+        save_impl: Callable[[SaveDocumentFromMarkdownInput, MCPConfig], SaveDocumentFromMarkdownOutput],
         edit_doc_impl: Callable[[EditDocumentSimpleInput, MCPConfig], EditDocumentSimpleOutput]
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
@@ -53,10 +49,10 @@ def create_server(
     ----------
     config : MCPConfig
         Server configuration
-    convert_impl : callable
-        Implementation function for convert_to_markdown tool
-    render_impl : callable
-        Implementation function for render_from_markdown tool
+    read_impl : callable
+        Implementation function for read_document_as_markdown tool
+    save_impl : callable
+        Implementation function for save_document_from_markdown tool
     edit_doc_impl : callable
         Implementation function for edit_document tool
 
@@ -75,34 +71,25 @@ def create_server(
     # Create MCP server
     mcp = FastMCP(name="all2md")
 
-    # Conditionally register convert_to_markdown tool
+    # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:
-        @mcp.tool(name="convert_to_markdown")
-        def convert_to_markdown(
-                source_path: Annotated[
-                    str | None,
-                    "File path to convert. Must be within read allowlist. Mutually exclusive with source_content."
-                ] = None,
-                source_content: Annotated[
-                    str | None,
-                    "Inline content to convert (plain text or base64-encoded). For text formats (HTML, "
-                    "Markdown): pass plain text. For binary formats (PDF, DOCX): pass base64-encoded and "
-                    "set content_encoding='base64'. Mutually exclusive with source_path."
-                ] = None,
-                content_encoding: Annotated[
-                    str | None,
-                    "Encoding of source_content: 'plain' (default) or 'base64'. Only relevant when "
-                    "source_content is provided."
-                ] = None,
-                source_format: Annotated[
+        @mcp.tool(name="read_document_as_markdown")
+        def read_document_as_markdown(
+                source: Annotated[
                     str,
-                    "Source format for auto-detection or explicit specification. Options: auto (default), "
-                    "pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, xlsx, csv, rst, markdown, txt."
-                ] = "auto",
-                flavor: Annotated[
+                    "Unified source parameter. Auto-detected as: file path (if exists in read allowlist), "
+                    "data URI (data:...), base64 string, or plain text content. REQUIRED."
+                ],
+                section: Annotated[
                     str | None,
-                    "Markdown flavor/dialect for output. Options: gfm (default), commonmark, "
-                    "multimarkdown, pandoc, kramdown, markdown_plus."
+                    "Optional section name to extract (case-insensitive heading match). "
+                    "If provided, only that section is returned."
+                ] = None,
+                format_hint: Annotated[
+                    str | None,
+                    "Optional format hint for ambiguous cases (e.g., extensionless files). "
+                    "Options: auto (default), pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, "
+                    "xlsx, csv, rst, markdown, txt."
                 ] = None,
                 pdf_pages: Annotated[
                     str | None,
@@ -110,93 +97,90 @@ def create_server(
                     "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
                 ] = None
         ) -> list:
-            """Convert a document to Markdown format.
+            """Read a document and convert it to Markdown format (simplified API).
 
             Supports PDF, Word (DOCX), PowerPoint (PPTX), HTML, email (EML), EPUB,
             Jupyter Notebooks (IPYNB), Excel (XLSX/CSV), ODF formats, and 200+ text formats.
 
-            Source input must be provided as either source_path OR source_content (not both).
-            Attachment handling (images, embedded files) is configured at server startup and cannot be changed per-call.
+            The source parameter is auto-detected as:
+            - File path (if file exists in read allowlist)
+            - Data URI (data:image/...)
+            - Base64-encoded content (auto-detected)
+            - Plain text content (HTML, Markdown, etc.)
+
+            Optionally extract a specific section by providing the section parameter
+            with a heading name (case-insensitive match).
+
+            Image inclusion and markdown flavor are configured at server startup and
+            cannot be changed per-call.
 
             Returns a list with markdown text as the first element, followed by FastMCP Image
-            objects for any images found (when attachment_mode=base64). For other attachment
-            modes (skip, alt_text), returns just the markdown text.
+            objects for any images found (when include_images=true). When include_images=false,
+            returns just the markdown text with image alt text.
 
             FastMCP automatically converts this list into appropriate MCP content blocks,
             allowing vLLMs to "see" the images alongside the text.
             """
             # Cast to proper Literal types (FastMCP validates these at the boundary)
-            input_obj = ConvertToMarkdownInput(
-                source_path=source_path,
-                source_content=source_content,
-                content_encoding=cast(ContentEncoding | None, content_encoding),
-                source_format=cast(SourceFormat, source_format),
-                flavor=cast(MarkdownFlavor | None, flavor),
+            input_obj = ReadDocumentAsMarkdownInput(
+                source=source,
+                section=section,
+                format_hint=cast(SourceFormat | None, format_hint),
                 pdf_pages=pdf_pages
             )
 
             # Return list directly - FastMCP converts to content blocks
-            return convert_impl(input_obj, config)
+            return read_impl(input_obj, config)
 
-        logger.info("Registered tool: convert_to_markdown")
+        logger.info("Registered tool: read_document_as_markdown")
 
-    # Conditionally register render_from_markdown tool
+    # Conditionally register save_document_from_markdown tool
     if config.enable_from_md:
-        @mcp.tool(name="render_from_markdown")
-        def render_from_markdown(
-                target_format: Annotated[
+        @mcp.tool(name="save_document_from_markdown")
+        def save_document_from_markdown(
+                format: Annotated[
                     str,
                     "Target output format. Options: html, pdf, docx, pptx, rst, epub, markdown. REQUIRED."
                 ],
-                markdown: Annotated[
-                    str | None,
-                    "Markdown content as a string to convert. Mutually exclusive with markdown_path."
-                ] = None,
-                markdown_path: Annotated[
-                    str | None,
-                    "Path to markdown file to convert. Must be within read allowlist. Mutually exclusive with markdown."
-                ] = None,
-                output_path: Annotated[
-                    str | None,
-                    "Output file path. Must be within write allowlist. If not provided, content is "
-                    "returned (base64-encoded for binary formats like PDF/DOCX)."
-                ] = None,
-                flavor: Annotated[
-                    str | None,
-                    "Markdown flavor for parsing input. Options: gfm (default), commonmark, "
-                    "multimarkdown, pandoc, kramdown, markdown_plus."
-                ] = None
+                source: Annotated[
+                    str,
+                    "Markdown content as a string to convert. REQUIRED."
+                ],
+                filename: Annotated[
+                    str,
+                    "Output file path. Must be within write allowlist. REQUIRED."
+                ]
         ) -> dict:
-            """Convert Markdown content to another format.
+            """Save Markdown content to another format (simplified API).
 
             Supports rendering to HTML, PDF, DOCX, PPTX, RST, EPUB, and Markdown.
 
-            Source must be provided as either markdown OR markdown_path (not both).
+            This tool always writes to disk (no content return). The filename parameter
+            is required and must pass write allowlist validation.
+
+            Markdown flavor for parsing is configured at server startup.
+
             This tool requires --enable-from-md flag (disabled by default for security).
 
             Returns a dictionary with:
-            - content: Rendered content (if output_path not specified). Binary formats are base64-encoded.
-            - output_path: File path where content was written (if output_path was specified)
+            - output_path: File path where content was written
             - warnings: List of warning messages from the rendering process
             """
             # Cast to proper Literal types (FastMCP validates these at the boundary)
-            input_obj = RenderFromMarkdownInput(
-                target_format=cast(TargetFormat, target_format),
-                markdown=markdown,
-                markdown_path=markdown_path,
-                output_path=output_path,
-                flavor=cast(MarkdownFlavor | None, flavor)
+            input_obj = SaveDocumentFromMarkdownInput(
+                format=cast(TargetFormat, format),
+                source=source,
+                filename=filename
             )
 
-            result = render_impl(input_obj, config)
+            result = save_impl(input_obj, config)
 
             return {
-                "content": result.content,
                 "output_path": result.output_path,
                 "warnings": result.warnings
             }
 
-        logger.info("Registered tool: render_from_markdown")
+        logger.info("Registered tool: save_document_from_markdown")
 
     # Conditionally register edit_document tool
     if config.enable_doc_edit:
@@ -305,7 +289,7 @@ def main() -> int:
             f"Configuration: enable_to_md={config.enable_to_md}, "
             f"enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}"
         )
-        logger.info(f"Attachment mode: {config.attachment_mode}")
+        logger.info(f"Include images: {config.include_images}")
 
         # Validate and prepare allowlists
         try:
@@ -335,10 +319,10 @@ def main() -> int:
 
         # Import tool implementations after setting env vars
         from all2md.mcp.document_tools import edit_document_impl
-        from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
+        from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
         # Create and run server
-        mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl, edit_document_impl)
+        mcp = create_server(config, read_document_as_markdown_impl, save_document_from_markdown_impl, edit_document_impl)
 
         logger.info("Server ready, listening on stdio")
         mcp.run()  # Run with default stdio transport

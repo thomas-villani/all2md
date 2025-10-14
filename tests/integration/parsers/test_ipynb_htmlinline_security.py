@@ -15,8 +15,8 @@ import tempfile
 from pathlib import Path
 
 from all2md import to_markdown
-from all2md.parsers.ipynb import IpynbToAstConverter
 from all2md.ast.visitors import NodeVisitor
+from all2md.parsers.ipynb import IpynbToAstConverter
 
 
 class HTMLInlineDetector(NodeVisitor):
@@ -322,7 +322,7 @@ class TestIpynbHtmlInlineSecurity:
             doc = parser.parse(notebook_path)
 
             # Walk the AST and verify we have Text nodes, not HTMLInline
-            from all2md.ast import Text, Paragraph
+            from all2md.ast import Paragraph, Text
 
             has_text_nodes = False
             for node in doc.children:

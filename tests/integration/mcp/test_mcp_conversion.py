@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 from all2md.mcp.config import MCPConfig
-from all2md.mcp.schemas import ConvertToMarkdownInput, RenderFromMarkdownInput
-from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
+from all2md.mcp.schemas import ReadDocumentAsMarkdownInput, SaveDocumentFromMarkdownInput
+from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
 
 class TestMCPEndToEndWorkflow:
@@ -15,6 +15,8 @@ class TestMCPEndToEndWorkflow:
 
     def test_html_to_markdown_workflow(self, tmp_path):
         """Test converting HTML to Markdown and back."""
+        from all2md.mcp.security import prepare_allowlist_dirs
+
         # Setup
         html_file = tmp_path / "input.html"
         html_content = """
@@ -32,27 +34,31 @@ class TestMCPEndToEndWorkflow:
         html_file.write_text(html_content)
 
         config = MCPConfig(
-            read_allowlist=[str(tmp_path)],
-            write_allowlist=[str(tmp_path)],
-            attachment_mode="skip"
+            read_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
+            include_images=False  # Use alt_text mode
         )
 
-        # Convert HTML to Markdown
-        convert_input = ConvertToMarkdownInput(
-            source_path=str(html_file),
-            source_format="html"
+        # Convert HTML to Markdown (source auto-detected as file path)
+        convert_input = ReadDocumentAsMarkdownInput(
+            source=str(html_file)
         )
 
-        result = convert_to_markdown_impl(convert_input, config)
+        result = read_document_as_markdown_impl(convert_input, config)
 
-        assert "Test Document" in result[0] if isinstance(result, list) else result.markdown
-        assert "test" in result[0] if isinstance(result, list) else result.markdown
-        assert "Item 1" in result[0] if isinstance(result, list) else result.markdown
+        # Result is a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        markdown = result[0]
+        assert "Test Document" in markdown
+        assert "test" in markdown
+        assert "Item 1" in markdown
 
     def test_markdown_to_html_workflow(self, tmp_path):
         """Test converting Markdown to HTML."""
+        from all2md.mcp.security import prepare_allowlist_dirs
+
         config = MCPConfig(
-            write_allowlist=[str(tmp_path)]
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
         )
 
         markdown_content = """
@@ -70,13 +76,14 @@ More content here.
 
         output_file = tmp_path / "output.html"
 
-        render_input = RenderFromMarkdownInput(
-            markdown=markdown_content,
-            target_format="html",
-            output_path=str(output_file)
+        # Simplified API: source + format + filename (all required)
+        save_input = SaveDocumentFromMarkdownInput(
+            format="html",
+            source=markdown_content,
+            filename=str(output_file)
         )
 
-        result = render_from_markdown_impl(render_input, config)
+        result = save_document_from_markdown_impl(save_input, config)
 
         assert result.output_path == str(output_file)
         assert output_file.exists()
@@ -87,73 +94,90 @@ More content here.
 
     def test_temp_workspace_workflow(self):
         """Test workflow using temporary workspace."""
+        from all2md.mcp.security import prepare_allowlist_dirs
+
         # Create temporary workspace
         with tempfile.TemporaryDirectory(prefix="all2md-mcp-test-") as temp_dir:
             config = MCPConfig(
-                read_allowlist=[temp_dir],
-                write_allowlist=[temp_dir],
-                attachment_mode="skip"
+                read_allowlist=prepare_allowlist_dirs([temp_dir]),
+                write_allowlist=prepare_allowlist_dirs([temp_dir]),
+                include_images=False
             )
 
             # Create test HTML file
             html_file = Path(temp_dir) / "test.html"
             html_file.write_text("<h1>Temp Test</h1><p>Content</p>")
 
-            # Convert to markdown
-            convert_input = ConvertToMarkdownInput(
-                source_path=str(html_file),
-                source_format="html"
+            # Convert to markdown (source auto-detected as file path)
+            convert_input = ReadDocumentAsMarkdownInput(
+                source=str(html_file)
             )
 
-            result = convert_to_markdown_impl(convert_input, config)
+            result = read_document_as_markdown_impl(convert_input, config)
 
-            assert "Temp Test" in result[0] if isinstance(result, list) else result.markdown
+            # Result is a list [markdown_str, ...images]
+            assert isinstance(result, list)
+            markdown = result[0]
+            assert "Temp Test" in markdown
 
-            # Render back to HTML
+            # Save back to HTML
             output_file = Path(temp_dir) / "output.html"
-            render_input = RenderFromMarkdownInput(
-                markdown=result[0] if isinstance(result, list) else result.markdown,
-                target_format="html",
-                output_path=str(output_file)
+            save_input = SaveDocumentFromMarkdownInput(
+                format="html",
+                source=markdown,
+                filename=str(output_file)
             )
 
-            render_result = render_from_markdown_impl(render_input, config)
+            save_result = save_document_from_markdown_impl(save_input, config)
 
             # Normalize paths for comparison (Windows can use 8.3 format vs full names)
-            assert Path(render_result.output_path).resolve() == output_file.resolve()
+            assert Path(save_result.output_path).resolve() == output_file.resolve()
             assert output_file.exists()
 
-    def test_inline_content_workflow(self):
+    def test_inline_content_workflow(self, tmp_path):
         """Test workflow with inline content (no files)."""
-        config = MCPConfig(attachment_mode="skip")
+        from all2md.mcp.security import prepare_allowlist_dirs
 
-        # Convert HTML string to Markdown
+        config = MCPConfig(
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
+            include_images=False
+        )
+
+        # Convert HTML string to Markdown (auto-detected as plain text)
         html_content = "<h1>Inline Test</h1><p>Some <em>content</em> here.</p>"
 
-        convert_input = ConvertToMarkdownInput(
-            source_content=html_content,
-            content_encoding="plain",
-            source_format="html"
+        convert_input = ReadDocumentAsMarkdownInput(
+            source=html_content,
+            format_hint="html"
         )
 
-        result = convert_to_markdown_impl(convert_input, config)
+        result = read_document_as_markdown_impl(convert_input, config)
 
-        assert "Inline Test" in result[0] if isinstance(result, list) else result.markdown
-        assert "content" in result[0] if isinstance(result, list) else result.markdown
+        # Result is a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        markdown = result[0]
+        assert "Inline Test" in markdown
+        assert "content" in markdown
 
-        # Render Markdown to HTML (returned as string)
-        render_input = RenderFromMarkdownInput(
-            markdown=result[0] if isinstance(result, list) else result.markdown,
-            target_format="html"
+        # Save Markdown to HTML file (always writes to disk)
+        output_file = tmp_path / "output.html"
+        save_input = SaveDocumentFromMarkdownInput(
+            format="html",
+            source=markdown,
+            filename=str(output_file)
         )
 
-        render_result = render_from_markdown_impl(render_input, config)
+        save_result = save_document_from_markdown_impl(save_input, config)
 
-        assert render_result.content is not None
-        assert "Inline Test" in render_result.content
+        assert save_result.output_path == str(output_file)
+        assert output_file.exists()
+        html_output = output_file.read_text()
+        assert "Inline Test" in html_output
 
     def test_security_prevents_path_traversal(self, tmp_path):
         """Test that security prevents accessing files outside allowlist."""
+        from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
+
         allowed_dir = tmp_path / "allowed"
         forbidden_dir = tmp_path / "forbidden"
         allowed_dir.mkdir()
@@ -164,39 +188,49 @@ More content here.
         forbidden_file.write_text("<h1>Secret</h1>")
 
         config = MCPConfig(
-            read_allowlist=[str(allowed_dir)]
+            read_allowlist=prepare_allowlist_dirs([str(allowed_dir)])
         )
 
-        # Try to access file outside allowlist
-        convert_input = ConvertToMarkdownInput(
-            source_path=str(forbidden_file),
-            source_format="html"
+        # Try to access file outside allowlist (source is auto-detected as file path)
+        convert_input = ReadDocumentAsMarkdownInput(
+            source=str(forbidden_file)
         )
 
-        from all2md.mcp.security import MCPSecurityError
         with pytest.raises(MCPSecurityError, match="not in allowlist"):
-            convert_to_markdown_impl(convert_input, config)
+            read_document_as_markdown_impl(convert_input, config)
 
-    def test_different_markdown_flavors(self):
-        """Test conversion with different markdown flavors."""
-        config = MCPConfig()
+    def test_different_markdown_flavors(self, tmp_path):
+        """Test conversion with different markdown flavors (server-level)."""
+        from all2md.mcp.security import prepare_allowlist_dirs
 
         markdown_content = "# Test\n\nContent with **bold** and *italic*."
 
-        # Test GFM flavor
-        gfm_input = RenderFromMarkdownInput(
-            markdown=markdown_content,
-            target_format="html",
+        # Test GFM flavor (server-level config)
+        gfm_config = MCPConfig(
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
             flavor="gfm"
         )
-        gfm_result = render_from_markdown_impl(gfm_input, config)
-        assert gfm_result.content is not None
+        output_file_gfm = tmp_path / "output_gfm.html"
+        gfm_input = SaveDocumentFromMarkdownInput(
+            format="html",
+            source=markdown_content,
+            filename=str(output_file_gfm)
+        )
+        gfm_result = save_document_from_markdown_impl(gfm_input, gfm_config)
+        assert gfm_result.output_path == str(output_file_gfm)
+        assert output_file_gfm.exists()
 
-        # Test CommonMark flavor
-        cm_input = RenderFromMarkdownInput(
-            markdown=markdown_content,
-            target_format="html",
+        # Test CommonMark flavor (server-level config)
+        cm_config = MCPConfig(
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
             flavor="commonmark"
         )
-        cm_result = render_from_markdown_impl(cm_input, config)
-        assert cm_result.content is not None
+        output_file_cm = tmp_path / "output_cm.html"
+        cm_input = SaveDocumentFromMarkdownInput(
+            format="html",
+            source=markdown_content,
+            filename=str(output_file_cm)
+        )
+        cm_result = save_document_from_markdown_impl(cm_input, cm_config)
+        assert cm_result.output_path == str(output_file_cm)
+        assert output_file_cm.exists()

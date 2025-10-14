@@ -23,7 +23,6 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import cast
 
-from all2md.constants import AttachmentMode
 from all2md.options.base import CloneFrozenMixin
 
 logger = logging.getLogger(__name__)
@@ -49,12 +48,16 @@ class MCPConfig(CloneFrozenMixin):
     write_allowlist : list[str | Path] | None
         List of allowed write directory paths. Initially strings from env/CLI,
         then converted to resolved Path objects by prepare_allowlist_dirs.
-    attachment_mode : AttachmentMode
-        How to handle attachments (skip|alt_text|base64).
-        Only "base64" mode enables image extraction for vLLM visibility.
-        Default: "base64" for optimal vLLM experience.
-        Note: With disable_network=True (default), base64 mode works for embedded
-        images (PDF, DOCX, PPTX) but not for external HTML images that require fetching.
+    include_images : bool
+        Whether to include images in the output for vLLM visibility.
+        - True: Images embedded as base64 (vLLMs can see them)
+        - False: Images replaced with alt text only
+        Default: True for optimal vLLM experience.
+        Note: With disable_network=True (default), only works for embedded
+        images (PDF, DOCX, PPTX), not for external HTML images that require fetching.
+    flavor : str
+        Markdown flavor/dialect to use (gfm, commonmark, multimarkdown, pandoc, kramdown, markdown_plus).
+        Default: "gfm" (GitHub Flavored Markdown)
     disable_network : bool
         Whether to disable network access globally. When True (default), prevents
         fetching external images from HTML files, but embedded images in PDF/DOCX/PPTX
@@ -69,7 +72,8 @@ class MCPConfig(CloneFrozenMixin):
     enable_doc_edit: bool = False  # Disabled by default for security (document manipulation)
     read_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     write_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
-    attachment_mode: AttachmentMode = "base64"  # Default to base64 for vLLM visibility
+    include_images: bool = True  # Default to True for vLLM visibility
+    flavor: str = "gfm"  # Default to GitHub Flavored Markdown
     disable_network: bool = True
     log_level: str = "INFO"
 
@@ -82,12 +86,12 @@ class MCPConfig(CloneFrozenMixin):
             If configuration is invalid
 
         """
-        # Validate attachment_mode is one of the allowed values (no download for MCP)
-        allowed_attachment_modes = ('skip', 'alt_text', 'base64')
-        if self.attachment_mode not in allowed_attachment_modes:
+        # Validate flavor
+        allowed_flavors = ('gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus')
+        if self.flavor not in allowed_flavors:
             raise ValueError(
-                f"Invalid attachment_mode: {self.attachment_mode}. "
-                f"Must be one of: {', '.join(allowed_attachment_modes)}"
+                f"Invalid flavor: {self.flavor}. "
+                f"Must be one of: {', '.join(allowed_flavors)}"
             )
 
         # At least one tool must be enabled
@@ -137,43 +141,6 @@ def _str_to_bool(value: str | None, default: bool = False) -> bool:
     return value.lower() in ('true', '1', 'yes', 't', 'on')
 
 
-def _validate_attachment_mode(value: str | None, default: AttachmentMode = "alt_text") -> AttachmentMode:
-    """Validate and normalize attachment mode string.
-
-    Parameters
-    ----------
-    value : str | None
-        Attachment mode string
-    default : AttachmentMode, default "alt_text"
-        Default value if input is None
-
-    Returns
-    -------
-    AttachmentMode
-        Validated attachment mode
-
-    Raises
-    ------
-    ValueError
-        If value is not a valid attachment mode
-
-    """
-    if value is None:
-        return default
-
-    # Normalize to lowercase for case-insensitive comparison
-    normalized = value.lower().strip()
-
-    # Valid attachment modes (no download for MCP)
-    valid_modes = ('skip', 'alt_text', 'base64')
-
-    if normalized not in valid_modes:
-        raise ValueError(
-            f"Invalid attachment mode: {value!r}. "
-            f"Must be one of: {', '.join(valid_modes)}"
-        )
-
-    return normalized  # type: ignore[return-value]
 
 
 def _validate_log_level(value: str | None, default: str = "INFO") -> str:
@@ -215,6 +182,45 @@ def _validate_log_level(value: str | None, default: str = "INFO") -> str:
     return normalized
 
 
+def _validate_flavor(value: str | None, default: str = "gfm") -> str:
+    """Validate and normalize markdown flavor string.
+
+    Parameters
+    ----------
+    value : str | None
+        Markdown flavor string
+    default : str, default "gfm"
+        Default value if input is None
+
+    Returns
+    -------
+    str
+        Validated and lowercase flavor
+
+    Raises
+    ------
+    ValueError
+        If value is not a valid flavor
+
+    """
+    if value is None:
+        return default
+
+    # Normalize to lowercase
+    normalized = value.lower().strip()
+
+    # Valid flavors
+    valid_flavors = ('gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus')
+
+    if normalized not in valid_flavors:
+        raise ValueError(
+            f"Invalid markdown flavor: {value!r}. "
+            f"Must be one of: {', '.join(valid_flavors)}"
+        )
+
+    return normalized
+
+
 def load_config_from_env() -> MCPConfig:
     """Load configuration from environment variables.
 
@@ -243,7 +249,8 @@ def load_config_from_env() -> MCPConfig:
         read_allowlist=cast(list[str | Path], read_allowlist_strs),
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         write_allowlist=cast(list[str | Path], write_allowlist_strs),
-        attachment_mode=_validate_attachment_mode(os.getenv('ALL2MD_MCP_ATTACHMENT_MODE'), default='base64'),
+        include_images=_str_to_bool(os.getenv('ALL2MD_MCP_INCLUDE_IMAGES'), default=True),
+        flavor=_validate_flavor(os.getenv('ALL2MD_MCP_FLAVOR'), default='gfm'),
         disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
         log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),
     )
@@ -269,7 +276,8 @@ Environment Variables:
   ALL2MD_MCP_ENABLE_DOC_EDIT       Enable edit_document tool (default: false)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
-  ALL2MD_MCP_ATTACHMENT_MODE       Attachment handling mode: skip, alt_text, base64 (default: base64)
+  ALL2MD_MCP_INCLUDE_IMAGES        Include images in output for vLLM visibility (default: true)
+  ALL2MD_MCP_FLAVOR                Markdown flavor: gfm, commonmark, multimarkdown, pandoc, kramdown, markdown_plus (default: gfm)
   ALL2MD_DISABLE_NETWORK           Disable network access (default: true)
   ALL2MD_MCP_LOG_LEVEL             Logging level (default: INFO)
 
@@ -283,8 +291,8 @@ Examples:
   # Create temporary workspace (recommended for LLM usage)
   all2md-mcp --temp
 
-  # Download attachments mode
-  all2md-mcp --temp --attachment-mode download
+  # Disable image inclusion (use alt text only)
+  all2md-mcp --temp --no-include-images
 
   # Enable writing/rendering (disabled by default)
   all2md-mcp --temp --enable-from-md
@@ -371,12 +379,28 @@ Examples:
         help='Semicolon-separated list of allowed write directories'
     )
 
-    # Attachment settings (server-level only, not per-call)
+    # Image inclusion settings (server-level only, not per-call)
+    include_images_group = parser.add_mutually_exclusive_group()
+    include_images_group.add_argument(
+        '--include-images',
+        action='store_true',
+        dest='include_images',
+        help='Include images in output for vLLM visibility (default: true)'
+    )
+    include_images_group.add_argument(
+        '--no-include-images',
+        action='store_false',
+        dest='include_images',
+        help='Do not include images, use alt text only'
+    )
+    parser.set_defaults(include_images=None)  # None = use env default
+
+    # Markdown flavor
     parser.add_argument(
-        '--attachment-mode',
+        '--flavor',
         type=str,
-        choices=['skip', 'alt_text', 'base64'],
-        help='How to handle attachments (default: base64 for vLLM visibility)'
+        choices=['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus'],
+        help='Markdown flavor/dialect to use (default: gfm)'
     )
 
     # Network control
@@ -449,8 +473,11 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     if args.write_dirs is not None:
         updated_kwargs.update(write_allowlist=_parse_semicolon_list(args.write_dirs))
 
-    if args.attachment_mode is not None:
-        updated_kwargs.update(attachment_mode=_validate_attachment_mode(args.attachment_mode))
+    if args.include_images is not None:
+        updated_kwargs.update(include_images=args.include_images)
+
+    if hasattr(args, 'flavor') and args.flavor is not None:
+        updated_kwargs.update(flavor=_validate_flavor(args.flavor))
 
     if args.disable_network is not None:
         updated_kwargs.update(disable_network=args.disable_network)

@@ -274,6 +274,7 @@ class TestZipPathTraversalSecurity:
     def test_absolute_path_blocked_during_extraction(self):
         """Test that absolute paths are blocked during resource extraction."""
         import pytest
+
         from all2md.exceptions import ZipFileSecurityError
 
         zip_buffer = io.BytesIO()
@@ -306,6 +307,7 @@ class TestZipPathTraversalSecurity:
     def test_parent_traversal_blocked_during_extraction(self):
         """Test that parent directory traversal is blocked during extraction."""
         import pytest
+
         from all2md.exceptions import ZipFileSecurityError
 
         zip_buffer = io.BytesIO()
@@ -335,6 +337,7 @@ class TestZipPathTraversalSecurity:
     def test_mixed_traversal_blocked_during_extraction(self):
         """Test that mixed path traversal patterns are blocked."""
         import pytest
+
         from all2md.exceptions import ZipFileSecurityError
 
         zip_buffer = io.BytesIO()
@@ -411,6 +414,7 @@ class TestZipPathTraversalSecurity:
 
         # Should be blocked during parse phase
         import pytest
+
         from all2md.exceptions import ZipFileSecurityError
         with pytest.raises(ZipFileSecurityError):
             with tempfile.TemporaryDirectory() as temp_dir:

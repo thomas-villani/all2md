@@ -19,19 +19,27 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from all2md.api import convert
-from all2md.cli.builder import EXIT_SUCCESS, create_parser, get_exit_code_for_exception, EXIT_VALIDATION_ERROR, \
-    EXIT_FILE_ERROR
+from all2md.cli.builder import (
+    EXIT_FILE_ERROR,
+    EXIT_SUCCESS,
+    EXIT_VALIDATION_ERROR,
+    create_parser,
+    get_exit_code_for_exception,
+)
 from all2md.cli.processors import (
     _get_rich_markdown_kwargs,
     _should_use_rich_output,
     process_detect_only,
-    process_dry_run, process_stdin, setup_and_validate_options, validate_arguments,
+    process_dry_run,
+    process_stdin,
+    setup_and_validate_options,
+    validate_arguments,
 )
-from all2md.converter_registry import registry
+from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 from all2md.converter_metadata import ConverterMetadata
+from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
 from all2md.transforms import registry as transform_registry
-from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
 
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
@@ -317,7 +325,6 @@ def collect_input_files(
         List of file paths to process
 
     """
-
     files: List[Path] = []
 
     # Default to all allowed extensions if not specified

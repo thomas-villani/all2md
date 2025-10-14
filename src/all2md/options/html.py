@@ -113,6 +113,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         ... )
 
     """
+
     # TODO: move magic numbers/strings to constants.py
 
     standalone: bool = field(

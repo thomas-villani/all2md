@@ -2,7 +2,8 @@
 
 from utils import assert_markdown_valid
 
-from all2md import HtmlOptions, to_markdown as html_to_markdown
+from all2md import HtmlOptions
+from all2md import to_markdown as html_to_markdown
 
 
 class TestHtmlEntities:

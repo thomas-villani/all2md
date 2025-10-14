@@ -23,7 +23,6 @@ from urllib.parse import unquote
 from all2md.ast import (
     Document,
     Heading,
-    HTMLInline,
     Node,
     Paragraph,
     Text,

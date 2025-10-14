@@ -42,7 +42,10 @@ from all2md.constants import (
     DEFAULT_TABLE_RULING_LINE_THRESHOLD,
     DEFAULT_TRIM_HEADERS_FOOTERS,
     DEFAULT_USE_COLUMN_CLUSTERING,
-    PageSize, ColumnDetectionMode, TableDetectionMode, ImageFormat,
+    ColumnDetectionMode,
+    ImageFormat,
+    PageSize,
+    TableDetectionMode,
 )
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import PaginatedParserOptions

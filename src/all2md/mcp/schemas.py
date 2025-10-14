@@ -6,16 +6,16 @@ to JSON schemas for the MCP protocol.
 
 Classes
 -------
-- ConvertToMarkdownInput: Input schema for convert_to_markdown tool
-- RenderFromMarkdownInput: Input schema for render_from_markdown tool
-- RenderFromMarkdownOutput: Output schema for render_from_markdown tool
+- ReadDocumentAsMarkdownInput: Input schema for read_document_as_markdown tool
+- SaveDocumentFromMarkdownInput: Input schema for save_document_from_markdown tool
+- SaveDocumentFromMarkdownOutput: Output schema for save_document_from_markdown tool
 - EditDocumentSimpleInput: Input schema for edit_document tool (simplified)
 - EditDocumentSimpleOutput: Output schema for edit_document tool (simplified)
 
 
 Notes
 -----
-The convert_to_markdown tool returns a list directly (markdown + images),
+The read_document_as_markdown tool returns a list directly (markdown + images),
 not a structured output object, to leverage FastMCP's automatic content
 block conversion for vLLM visibility.
 
@@ -42,88 +42,71 @@ MarkdownFlavor = Literal[
 
 
 @dataclass
-class ConvertToMarkdownInput:
-    """Input schema for convert_to_markdown tool.
+class ReadDocumentAsMarkdownInput:
+    """Input schema for read_document_as_markdown tool (simplified API).
 
-    Note: attachment_mode and attachment_output_dir are configured at the
-    server level and cannot be overridden per-call for security.
+    Note: Image inclusion (include_images) and markdown flavor are configured
+    at the server level and cannot be overridden per-call.
 
     Attributes
     ----------
-    source_path : str | None
-        File path to convert (must be in read allowlist).
-        Mutually exclusive with source_content.
-    source_content : str | None
-        String content to convert. Can be plain text (HTML, Markdown, etc.)
-        or base64-encoded binary content (PDF, DOCX, etc.).
-        Mutually exclusive with source_path.
-    content_encoding : Literal["plain", "base64"] | None
-        Encoding of source_content. Use "base64" for binary formats,
-        "plain" for text formats (default: "plain" if not specified).
-    source_format : SourceFormat
-        Explicit source format, or "auto" for detection (default: "auto")
-    flavor : MarkdownFlavor | None
-        Markdown flavor/dialect for output (default: server-configured or "gfm")
+    source : str
+        Unified source parameter. Auto-detected as:
+        - File path (if file exists in read allowlist)
+        - Data URI (data:...) -> decode to bytes
+        - Base64 string -> decode to bytes if valid
+        - Otherwise -> treat as plain text content
+    section : str | None
+        Optional section name to extract (case-insensitive heading match).
+        If provided, only that section is returned.
+    format_hint : SourceFormat | None
+        Optional format hint for ambiguous cases (e.g., extensionless files).
+        Use "auto" for auto-detection (default).
     pdf_pages : str | None
         Page specification for PDF sources (e.g., "1-3,5,10-")
 
     """
 
-    source_path: str | None = None
-    source_content: str | None = None
-    content_encoding: Literal["plain", "base64"] | None = None
-    source_format: SourceFormat = "auto"
-    flavor: MarkdownFlavor | None = None
+    source: str
+    section: str | None = None
+    format_hint: SourceFormat | None = None
     pdf_pages: str | None = None
 
 
 @dataclass
-class RenderFromMarkdownInput:
-    """Input schema for render_from_markdown tool.
+class SaveDocumentFromMarkdownInput:
+    """Input schema for save_document_from_markdown tool (simplified API).
 
     Attributes
     ----------
-    markdown : str | None
-        Markdown content as string.
-        Mutually exclusive with markdown_path.
-    markdown_path : str | None
-        Path to markdown file (must be in read allowlist).
-        Mutually exclusive with markdown.
-    target_format : TargetFormat
+    format : TargetFormat
         Target output format (required)
-    output_path : str | None
-        Output file path (must be in write allowlist).
-        If not provided, content is returned in the response.
-    flavor : MarkdownFlavor | None
-        Markdown flavor for parsing (default: "gfm")
+    source : str
+        Markdown content as string (required)
+    filename : str
+        Output file path (must be in write allowlist, required)
 
     """
 
-    target_format: TargetFormat = "html"  # Required but provide default for type safety
-    markdown: str | None = None
-    markdown_path: str | None = None
-    output_path: str | None = None
-    flavor: MarkdownFlavor | None = None
+    format: TargetFormat
+    source: str
+    filename: str
 
 
 @dataclass
-class RenderFromMarkdownOutput:
-    """Output schema for render_from_markdown tool.
+class SaveDocumentFromMarkdownOutput:
+    """Output schema for save_document_from_markdown tool.
 
     Attributes
     ----------
-    content : str | None
-        Rendered content (for text formats when output_path not provided).
-        For binary formats, this will be base64-encoded.
-    output_path : str | None
-        Path where file was written (if output_path was provided in input)
+    output_path : str
+        Path where file was written
     warnings : list[str]
         Warning messages from rendering process
 
     """
 
-    content: str | None = None
-    output_path: str | None = None
+    output_path: str
     warnings: list[str] = field(default_factory=list)
 
 

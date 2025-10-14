@@ -20,7 +20,6 @@ import html
 import logging
 import re
 from typing import Any
-from urllib.parse import urlparse
 
 from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,

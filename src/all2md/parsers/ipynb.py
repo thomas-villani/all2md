@@ -358,8 +358,8 @@ class IpynbToAstConverter(BaseParser):
         """
         try:
             # Import the markdown parser to parse the cell content
-            from all2md.parsers.markdown import markdown_to_ast
             from all2md.options.markdown import MarkdownParserOptions
+            from all2md.parsers.markdown import markdown_to_ast
 
             # Parse markdown content with appropriate options
             options = MarkdownParserOptions(

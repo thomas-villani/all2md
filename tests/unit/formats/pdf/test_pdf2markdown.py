@@ -11,7 +11,6 @@ import fitz
 import pytest
 
 import all2md.parsers.pdf as pdf_parser
-from all2md import to_markdown
 from all2md.options import PdfOptions
 
 

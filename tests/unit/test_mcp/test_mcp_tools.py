@@ -6,15 +6,15 @@ import pytest
 
 from all2md.exceptions import All2MdError
 from all2md.mcp.config import MCPConfig
-from all2md.mcp.schemas import ConvertToMarkdownInput, RenderFromMarkdownInput
-from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
+from all2md.mcp.schemas import ReadDocumentAsMarkdownInput, SaveDocumentFromMarkdownInput
+from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
 
-class TestConvertToMarkdownImpl:
-    """Tests for convert_to_markdown_impl function."""
+class TestReadDocumentAsMarkdownImpl:
+    """Tests for read_document_as_markdown_impl function."""
 
-    def test_convert_from_file_path(self, tmp_path):
-        """Test converting from a file path."""
+    def test_read_from_file_path(self, tmp_path):
+        """Test reading from a file path."""
         from all2md.mcp.security import prepare_allowlist_dirs
 
         # Create test file
@@ -27,14 +27,13 @@ class TestConvertToMarkdownImpl:
             write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
         )
 
-        # Create input
-        input_data = ConvertToMarkdownInput(
-            source_path=str(test_file),
-            source_format="html"
+        # Create input (source is auto-detected as file path)
+        input_data = ReadDocumentAsMarkdownInput(
+            source=str(test_file)
         )
 
         # Execute
-        result = convert_to_markdown_impl(input_data, config)
+        result = read_document_as_markdown_impl(input_data, config)
 
         # Verify - result is now a list [markdown_str, ...images]
         assert isinstance(result, list)
@@ -43,17 +42,17 @@ class TestConvertToMarkdownImpl:
         assert isinstance(markdown, str)
         assert "Hello World" in markdown
 
-    def test_convert_from_plain_text_content(self):
-        """Test converting from plain text content."""
+    def test_read_from_plain_text_content(self):
+        """Test reading from plain text content (auto-detected)."""
         config = MCPConfig()
 
-        input_data = ConvertToMarkdownInput(
-            source_content="<h1>Test</h1><p>Content</p>",
-            content_encoding="plain",
-            source_format="html"
+        # Plain HTML content (auto-detected)
+        input_data = ReadDocumentAsMarkdownInput(
+            source="<h1>Test</h1><p>Content</p>",
+            format_hint="html"
         )
 
-        result = convert_to_markdown_impl(input_data, config)
+        result = read_document_as_markdown_impl(input_data, config)
 
         # Verify - result is now a list [markdown_str, ...images]
         assert isinstance(result, list)
@@ -63,21 +62,20 @@ class TestConvertToMarkdownImpl:
         assert "Test" in markdown
         assert "Content" in markdown
 
-    def test_convert_from_base64_content(self):
-        """Test converting from base64-encoded content."""
+    def test_read_from_base64_content(self):
+        """Test reading from base64-encoded content (auto-detected)."""
         config = MCPConfig()
 
         # Create base64-encoded HTML
         html_content = b"<h1>Base64 Test</h1>"
         base64_content = base64.b64encode(html_content).decode('ascii')
 
-        input_data = ConvertToMarkdownInput(
-            source_content=base64_content,
-            content_encoding="base64",
-            source_format="html"
+        input_data = ReadDocumentAsMarkdownInput(
+            source=base64_content,
+            format_hint="html"
         )
 
-        result = convert_to_markdown_impl(input_data, config)
+        result = read_document_as_markdown_impl(input_data, config)
 
         # Verify - result is now a list [markdown_str, ...images]
         assert isinstance(result, list)
@@ -85,40 +83,6 @@ class TestConvertToMarkdownImpl:
         markdown = result[0]
         assert isinstance(markdown, str)
         assert "Base64 Test" in markdown
-
-    def test_mutually_exclusive_sources_error(self):
-        """Test that providing both source_path and source_content raises error."""
-        config = MCPConfig()
-
-        input_data = ConvertToMarkdownInput(
-            source_path="/some/path.html",
-            source_content="<h1>Test</h1>"
-        )
-
-        with pytest.raises(ValueError, match="Cannot specify both"):
-            convert_to_markdown_impl(input_data, config)
-
-    def test_no_source_provided_error(self):
-        """Test that providing neither source raises error."""
-        config = MCPConfig()
-
-        input_data = ConvertToMarkdownInput()
-
-        with pytest.raises(ValueError, match="Must specify either"):
-            convert_to_markdown_impl(input_data, config)
-
-    def test_invalid_base64_encoding(self):
-        """Test that invalid base64 content raises error."""
-        config = MCPConfig()
-
-        input_data = ConvertToMarkdownInput(
-            source_content="not-valid-base64!!!",
-            content_encoding="base64",
-            source_format="html"
-        )
-
-        with pytest.raises(ValueError, match="Invalid base64 encoding"):
-            convert_to_markdown_impl(input_data, config)
 
     def test_pdf_pages_validation_rejects_malicious_input(self):
         """Test that malicious page specs are rejected (security fix)."""
@@ -137,48 +101,48 @@ class TestConvertToMarkdownImpl:
         dummy_content = base64.b64encode(b"dummy PDF content").decode('ascii')
 
         for malicious_spec in malicious_specs:
-            input_data = ConvertToMarkdownInput(
-                source_content=dummy_content,
-                content_encoding="base64",
-                source_format="pdf",
+            input_data = ReadDocumentAsMarkdownInput(
+                source=dummy_content,
+                format_hint="pdf",
                 pdf_pages=malicious_spec
             )
 
             with pytest.raises(ValueError, match="Invalid page range format"):
-                convert_to_markdown_impl(input_data, config)
+                read_document_as_markdown_impl(input_data, config)
 
     def test_pdf_pages_option(self, tmp_path):
         """Test PDF page specification option."""
+        from all2md.mcp.security import prepare_allowlist_dirs
+
         # This would require a real PDF file, so we'll mock it
         config = MCPConfig(
-            read_allowlist=[str(tmp_path)]
+            read_allowlist=prepare_allowlist_dirs([str(tmp_path)])
         )
 
         # Create a dummy PDF file
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4\ntest content")
 
-        input_data = ConvertToMarkdownInput(
-            source_path=str(test_file),
-            source_format="pdf",
+        input_data = ReadDocumentAsMarkdownInput(
+            source=str(test_file),
+            format_hint="pdf",
             pdf_pages="1-3"
         )
 
         # This will fail without actual PDF parsing, but tests the parameter passing
         with pytest.raises(All2MdError):
-            convert_to_markdown_impl(input_data, config)
+            read_document_as_markdown_impl(input_data, config)
 
-    def test_markdown_flavor_option(self):
-        """Test markdown flavor option."""
-        config = MCPConfig()
+    def test_server_level_flavor(self):
+        """Test that server-level flavor is used."""
+        config = MCPConfig(flavor="commonmark")
 
-        input_data = ConvertToMarkdownInput(
-            source_content="# Test\n\nContent",
-            source_format="markdown",
-            flavor="commonmark"
+        input_data = ReadDocumentAsMarkdownInput(
+            source="# Test\n\nContent",
+            format_hint="markdown"
         )
 
-        result = convert_to_markdown_impl(input_data, config)
+        result = read_document_as_markdown_impl(input_data, config)
 
         # Verify - result is now a list [markdown_str, ...images]
         assert isinstance(result, list)
@@ -187,48 +151,11 @@ class TestConvertToMarkdownImpl:
         assert isinstance(markdown, str)
 
 
-class TestRenderFromMarkdownImpl:
-    """Tests for render_from_markdown_impl function."""
+class TestSaveDocumentFromMarkdownImpl:
+    """Tests for save_document_from_markdown_impl function."""
 
-    def test_render_from_markdown_string(self):
-        """Test rendering from markdown string."""
-        config = MCPConfig()
-
-        input_data = RenderFromMarkdownInput(
-            markdown="# Test\n\nSome content",
-            target_format="html"
-        )
-
-        result = render_from_markdown_impl(input_data, config)
-
-        assert result.content is not None
-        assert "Test" in result.content
-        assert result.output_path is None
-
-    def test_render_from_markdown_file(self, tmp_path):
-        """Test rendering from markdown file."""
-        from all2md.mcp.security import prepare_allowlist_dirs
-
-        # Create test markdown file
-        md_file = tmp_path / "test.md"
-        md_file.write_text("# Hello\n\nWorld")
-
-        config = MCPConfig(
-            read_allowlist=prepare_allowlist_dirs([str(tmp_path)])
-        )
-
-        input_data = RenderFromMarkdownInput(
-            markdown_path=str(md_file),
-            target_format="html"
-        )
-
-        result = render_from_markdown_impl(input_data, config)
-
-        assert result.content is not None
-        assert "Hello" in result.content
-
-    def test_render_to_output_file(self, tmp_path):
-        """Test rendering to output file."""
+    def test_save_to_html(self, tmp_path):
+        """Test saving markdown to HTML file."""
         from all2md.mcp.security import prepare_allowlist_dirs
 
         output_file = tmp_path / "output.html"
@@ -237,85 +164,95 @@ class TestRenderFromMarkdownImpl:
             write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
         )
 
-        input_data = RenderFromMarkdownInput(
-            markdown="# Test Output",
-            target_format="html",
-            output_path=str(output_file)
+        input_data = SaveDocumentFromMarkdownInput(
+            format="html",
+            source="# Test Output\n\nSome content",
+            filename=str(output_file)
         )
 
-        result = render_from_markdown_impl(input_data, config)
+        result = save_document_from_markdown_impl(input_data, config)
 
         assert result.output_path == str(output_file)
-        assert result.content is None
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "Test Output" in content
+
+    def test_save_to_pdf(self, tmp_path):
+        """Test saving markdown to PDF file."""
+        from all2md.mcp.security import prepare_allowlist_dirs
+
+        output_file = tmp_path / "output.pdf"
+
+        config = MCPConfig(
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
+        )
+
+        input_data = SaveDocumentFromMarkdownInput(
+            format="pdf",
+            source="# Test PDF\n\nContent",
+            filename=str(output_file)
+        )
+
+        result = save_document_from_markdown_impl(input_data, config)
+
+        assert result.output_path == str(output_file)
         assert output_file.exists()
 
-    def test_mutually_exclusive_markdown_sources(self):
-        """Test that providing both markdown and markdown_path raises error."""
-        config = MCPConfig()
+    def test_server_level_flavor_used(self, tmp_path):
+        """Test that server-level flavor is used."""
+        from all2md.mcp.security import prepare_allowlist_dirs
 
-        input_data = RenderFromMarkdownInput(
-            markdown="# Test",
-            markdown_path="/some/path.md",
-            target_format="html"
+        output_file = tmp_path / "output.html"
+
+        config = MCPConfig(
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
+            flavor="commonmark"
         )
 
-        with pytest.raises(ValueError, match="Cannot specify both"):
-            render_from_markdown_impl(input_data, config)
-
-    def test_no_markdown_source_provided(self):
-        """Test that providing neither markdown source raises error."""
-        config = MCPConfig()
-
-        input_data = RenderFromMarkdownInput(
-            target_format="html"
+        input_data = SaveDocumentFromMarkdownInput(
+            format="html",
+            source="# Test\n\nContent",
+            filename=str(output_file)
         )
 
-        with pytest.raises(ValueError, match="Must specify either"):
-            render_from_markdown_impl(input_data, config)
+        result = save_document_from_markdown_impl(input_data, config)
 
-    def test_binary_format_returns_base64(self):
-        """Test that binary formats return base64-encoded content when no output_path."""
-        config = MCPConfig()
-
-        input_data = RenderFromMarkdownInput(
-            markdown="# Test PDF",
-            target_format="pdf"
-        )
-
-        result = render_from_markdown_impl(input_data, config)
-
-        # Content should be base64-encoded for binary formats
-        assert result.content is not None
-        # Should be base64 (will contain warning about base64 encoding)
-        assert len(result.warnings) > 0
-        assert "base64" in result.warnings[0].lower()
+        assert result.output_path == str(output_file)
+        assert output_file.exists()
 
 
 class TestToolsErrorHandling:
     """Tests for error handling in tool implementations."""
 
-    def test_convert_catches_all2md_errors(self):
+    def test_read_catches_all2md_errors(self):
         """Test that conversion errors are properly caught and re-raised."""
         config = MCPConfig()
 
         # Intentionally malformed input to trigger error
-        input_data = ConvertToMarkdownInput(
-            source_content="not-a-valid-document",
-            source_format="pdf"  # Can't parse random text as PDF
+        input_data = ReadDocumentAsMarkdownInput(
+            source="not-a-valid-document",
+            format_hint="pdf"  # Can't parse random text as PDF
         )
 
         with pytest.raises(All2MdError):
-            convert_to_markdown_impl(input_data, config)
+            read_document_as_markdown_impl(input_data, config)
 
-    def test_render_catches_all2md_errors(self):
+    def test_save_catches_all2md_errors(self, tmp_path):
         """Test that rendering errors are properly caught and re-raised."""
-        config = MCPConfig()
+        from all2md.mcp.security import prepare_allowlist_dirs
 
-        # Invalid markdown for rendering
-        input_data = RenderFromMarkdownInput(
-            markdown="# Test",
-            target_format="invalid_format"  # type: ignore[arg-type]
+        config = MCPConfig(
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
+        )
+
+        output_file = tmp_path / "output.invalid"
+
+        # Invalid format for rendering
+        input_data = SaveDocumentFromMarkdownInput(
+            format="invalid_format",  # type: ignore[arg-type]
+            source="# Test",
+            filename=str(output_file)
         )
 
         with pytest.raises(All2MdError):
-            render_from_markdown_impl(input_data, config)
+            save_document_from_markdown_impl(input_data, config)

@@ -245,7 +245,7 @@ class TestExtractText:
 
     def test_extract_from_table_node(self):
         """Test extracting text from Table nodes (Issue 7)."""
-        from all2md.ast import Table, TableRow, TableCell
+        from all2md.ast import Table, TableCell, TableRow
 
         table = Table(
             header=TableRow(
@@ -272,7 +272,7 @@ class TestExtractText:
 
     def test_extract_from_table_with_formatted_cells(self):
         """Test extracting text from Table with inline formatting."""
-        from all2md.ast import Table, TableRow, TableCell
+        from all2md.ast import Table, TableCell, TableRow
 
         table = Table(
             header=TableRow(

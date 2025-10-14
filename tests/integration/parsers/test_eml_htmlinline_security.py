@@ -11,8 +11,8 @@ Test Coverage:
 """
 
 from all2md import to_markdown
-from all2md.parsers.eml import EmlToAstConverter
 from all2md.ast.visitors import NodeVisitor
+from all2md.parsers.eml import EmlToAstConverter
 
 
 class HTMLInlineDetector(NodeVisitor):
@@ -266,7 +266,7 @@ This is email content that should be safe.
         doc = parser.parse(eml_content.encode('utf-8'))
 
         # Walk the AST and verify we have Text nodes, not HTMLInline
-        from all2md.ast import Text, Paragraph
+        from all2md.ast import Paragraph, Text
 
         has_text_nodes = False
         for node in doc.children:

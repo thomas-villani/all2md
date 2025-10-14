@@ -15,14 +15,14 @@ transform pipeline integration, and full end-to-end conversion workflows.
 
 import tempfile
 from importlib.util import find_spec
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 
 try:
-    from docx import Document as DocxDocument
     import docx
+    from docx import Document as DocxDocument
     from pptx import Presentation
     DOCX_AVAILABLE = True
 except ImportError:
@@ -47,8 +47,16 @@ from utils import (
     create_test_temp_dir,
 )
 
-from all2md import DocxOptions, HtmlOptions, MarkdownParserOptions, convert, from_ast, from_markdown, to_ast, to_markdown
-from all2md.exceptions import All2MdError
+from all2md import (
+    DocxOptions,
+    HtmlOptions,
+    MarkdownParserOptions,
+    convert,
+    from_ast,
+    from_markdown,
+    to_ast,
+    to_markdown,
+)
 from all2md.ast import (
     BlockQuote,
     CodeBlock,
@@ -64,6 +72,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
+from all2md.exceptions import All2MdError
 from all2md.options import (
     HtmlRendererOptions,
     MarkdownOptions,

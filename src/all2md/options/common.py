@@ -21,7 +21,8 @@ from all2md.constants import (
     DEFAULT_NETWORK_TIMEOUT,
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_REQUIRE_HEAD_SUCCESS,
-    DEFAULT_REQUIRE_HTTPS, HeaderCaseOption,
+    DEFAULT_REQUIRE_HTTPS,
+    HeaderCaseOption,
 )
 from all2md.options.base import BaseParserOptions, CloneFrozenMixin
 

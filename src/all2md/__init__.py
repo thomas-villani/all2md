@@ -92,8 +92,7 @@ if TYPE_CHECKING:
     from all2md.ast import Document  # noqa: F401 - used in docstrings
 
 
-from all2md.api import to_markdown, to_ast, from_ast, from_markdown, convert
-
+from all2md.api import convert, from_ast, from_markdown, to_ast, to_markdown
 from all2md.constants import DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility

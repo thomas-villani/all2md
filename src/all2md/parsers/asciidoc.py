@@ -11,12 +11,12 @@ by parsing AsciiDoc into the same AST structure used for other formats.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, Union, cast
-import logging
 
 from all2md.ast import (
     BlockQuote,

@@ -18,7 +18,7 @@ import base64
 
 import pytest
 
-from all2md.ast import CodeBlock, Document, HTMLInline, Image, Paragraph
+from all2md.ast import CodeBlock, Document, Image, Paragraph
 from all2md.options import IpynbOptions
 from all2md.parsers.ipynb import IpynbToAstConverter
 

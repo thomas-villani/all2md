@@ -8,7 +8,7 @@ This module defines options for parsing CSV files with customizable dialects.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Literal
+from typing import Optional
 
 from all2md.constants import HeaderCaseOption
 from all2md.options.base import BaseParserOptions

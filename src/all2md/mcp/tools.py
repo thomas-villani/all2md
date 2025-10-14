@@ -1,13 +1,12 @@
 """Tool implementations for MCP server.
 
-This module implements the actual tool functions that handle convert_to_markdown
-and render_from_markdown requests. These functions validate inputs, apply
-security checks, and delegate to all2md's core API.
+This module implements the simplified tool functions for reading documents
+as markdown and saving markdown to other formats.
 
 Functions
 ---------
-- convert_to_markdown_impl: Implementation of convert_to_markdown tool
-- render_from_markdown_impl: Implementation of render_from_markdown tool
+- read_document_as_markdown_impl: Implementation of read_document_as_markdown tool
+- save_document_from_markdown_impl: Implementation of save_document_from_markdown tool
 
 """
 
@@ -20,17 +19,18 @@ from pathlib import Path
 from typing import Any, cast
 
 from all2md import from_ast, from_markdown, to_ast
-from all2md.ast.nodes import Image
+from all2md.ast.document_utils import extract_section
+from all2md.ast.nodes import Document, Image
 from all2md.ast.transforms import NodeCollector
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError
 from all2md.mcp.config import MCPConfig
 from all2md.mcp.schemas import (
-    ConvertToMarkdownInput,
-    RenderFromMarkdownInput,
-    RenderFromMarkdownOutput,
+    ReadDocumentAsMarkdownInput,
+    SaveDocumentFromMarkdownInput,
+    SaveDocumentFromMarkdownOutput,
 )
-from all2md.mcp.security import validate_read_path, validate_write_path
+from all2md.mcp.security import MCPSecurityError, validate_read_path, validate_write_path
 
 try:
     from fastmcp.utilities.types import Image as FastMCPImage
@@ -90,22 +90,98 @@ def _extract_images_from_ast(doc: Any) -> list[Any]:
     return fastmcp_images
 
 
-def convert_to_markdown_impl(
-        input_data: ConvertToMarkdownInput,
-        config: MCPConfig
-) -> list[Any]:
-    """Implement convert_to_markdown tool.
-
-    This implementation uses AST-based processing to extract images as FastMCP
-    Image objects, allowing vLLMs to "see" the images alongside markdown text.
+def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, str]:
+    """Detect and prepare source from unified source parameter.
 
     Parameters
     ----------
-    input_data : ConvertToMarkdownInput
+    source : str
+        Unified source string (path, data URI, base64, or plain text)
+    config : MCPConfig
+        Server configuration for allowlist validation
+
+    Returns
+    -------
+    tuple[Path | bytes, str]
+        Tuple of (prepared_source, detection_type) where detection_type is
+        one of: "path", "data_uri", "base64", "plain_text"
+
+    Raises
+    ------
+    MCPSecurityError
+        If path validation fails
+
+    """
+    # 1. Try to resolve as file path (if exists in allowlist)
+    try:
+        path_obj = Path(source)
+        # Only try path validation if it looks like a path (has path separators or file extension)
+        if "/" in source or "\\" in source or "." in source:
+            validated_path = validate_read_path(path_obj, config.read_allowlist)
+            logger.info(f"Detected as file path: {validated_path}")
+            return validated_path, "path"
+    except (MCPSecurityError, OSError):
+        # Not a valid file path, continue to other detection methods
+        pass
+
+    # 2. Check for data URI format (data:...)
+    if source.startswith("data:"):
+        # Parse data URI: data:[<mediatype>][;base64],<data>
+        match = re.match(r'data:([^;,]+)?(;base64)?,(.+)', source)
+        if match:
+            is_base64 = match.group(2) is not None
+            data_part = match.group(3)
+            try:
+                if is_base64:
+                    decoded = base64.b64decode(data_part)
+                    logger.info(f"Detected as data URI (base64, {len(decoded)} bytes)")
+                    return decoded, "data_uri"
+                else:
+                    # URL-decode the data part for non-base64 data URIs
+                    from urllib.parse import unquote
+                    decoded_str = unquote(data_part)
+                    logger.info(f"Detected as data URI (plain, {len(decoded_str)} chars)")
+                    return decoded_str.encode('utf-8'), "data_uri"
+            except Exception as e:
+                logger.warning(f"Failed to decode data URI: {e}")
+                # Fall through to next detection method
+
+    # 3. Attempt base64 decode (if looks like base64)
+    # Base64 strings are typically alphanumeric with +/= and reasonable length
+    if len(source) > 20 and re.match(r'^[A-Za-z0-9+/=\s]+$', source):
+        try:
+            # Remove whitespace before decoding
+            cleaned = re.sub(r'\s', '', source)
+            decoded = base64.b64decode(cleaned, validate=True)
+            # Only accept if decoded size makes sense (not too small)
+            if len(decoded) > 10:
+                logger.info(f"Detected as base64 ({len(decoded)} bytes)")
+                return decoded, "base64"
+        except Exception:
+            # Not valid base64, continue
+            pass
+
+    # 4. Otherwise, treat as plain text content
+    logger.info(f"Detected as plain text content ({len(source)} chars)")
+    return source.encode('utf-8'), "plain_text"
+
+
+def read_document_as_markdown_impl(
+        input_data: ReadDocumentAsMarkdownInput,
+        config: MCPConfig
+) -> list[Any]:
+    """Implement read_document_as_markdown tool with simplified API.
+
+    This implementation uses automatic source detection and AST-based processing
+    to extract images as FastMCP Image objects, allowing vLLMs to "see" the
+    images alongside markdown text.
+
+    Parameters
+    ----------
+    input_data : ReadDocumentAsMarkdownInput
         Tool input parameters
     config : MCPConfig
-        Server configuration (for allowlists, etc.)
-        Note: attachment_mode is overridden to "base64" for MCP compatibility
+        Server configuration (for allowlists, attachment mode, etc.)
 
     Returns
     -------
@@ -122,44 +198,8 @@ def convert_to_markdown_impl(
         If conversion fails
 
     """
-    # Validate mutually exclusive inputs
-    if input_data.source_path and input_data.source_content:
-        raise ValueError("Cannot specify both source_path and source_content")
-
-    if not input_data.source_path and not input_data.source_content:
-        raise ValueError("Must specify either source_path or source_content")
-
-    # Prepare source
-    source: Path | bytes
-    if input_data.source_path:
-        # Validate read access
-        validated_path = validate_read_path(
-            input_data.source_path,
-            config.read_allowlist
-        )
-        source = validated_path
-        logger.info(f"Converting file: {validated_path}")
-
-    else:
-        # Handle inline content (plain text or base64-encoded)
-        encoding = input_data.content_encoding or "plain"
-
-        if encoding == "base64":
-            # Decode base64 content
-            if not input_data.source_content:
-                raise ValueError("source_content cannot be empty for base64 encoding")
-            try:
-                source_bytes = base64.b64decode(input_data.source_content)
-                source = source_bytes
-                logger.info(f"Converting base64 content ({len(source_bytes)} bytes)")
-            except Exception as e:
-                raise ValueError(f"Invalid base64 encoding: {e}") from e
-        else:
-            # Use plain text content (for text-based formats like HTML, Markdown, etc.)
-            if not input_data.source_content:
-                raise ValueError("source_content cannot be empty")
-            source = input_data.source_content.encode('utf-8')
-            logger.info(f"Converting text content ({len(input_data.source_content)} characters)")
+    # Auto-detect source type and prepare source
+    source, detection_type = _detect_source_type(input_data.source, config)
 
     # Prepare conversion options
     kwargs: dict[str, Any] = {}
@@ -176,35 +216,43 @@ def convert_to_markdown_impl(
             )
         kwargs['pages'] = page_spec
 
-    # Set markdown flavor if specified
-    if input_data.flavor:
-        kwargs['flavor'] = input_data.flavor
-
-    # Set attachment mode from server config (only skip, alt_text, or base64 allowed)
-    kwargs['attachment_mode'] = config.attachment_mode
+    # Set attachment mode from server config (convert include_images bool to attachment_mode)
+    # include_images=True -> base64 (include images for vLLM)
+    # include_images=False -> alt_text (no images, just alt text)
+    kwargs['attachment_mode'] = "base64" if config.include_images else "alt_text"
 
     # Perform conversion using AST approach
     try:
-        # Convert to AST first (allows us to extract images)
+        # Convert to AST first (allows us to extract images and sections)
         doc = to_ast(
             source,
-            source_format=cast(DocumentFormat, input_data.source_format),
+            source_format=cast(DocumentFormat, input_data.format_hint or "auto"),
             **kwargs
         )
 
-        # Extract images if in base64 mode (for vLLM visibility)
+        # Validate return type
+        if not isinstance(doc, Document):
+            raise TypeError(f"Expected Document from to_ast, got {type(doc)}")
+
+        # Extract section if requested
+        if input_data.section:
+            logger.info(f"Extracting section: {input_data.section}")
+            doc = extract_section(doc, input_data.section, case_sensitive=False)
+            if not isinstance(doc, Document):
+                raise TypeError(f"Expected Document from extract_section, got {type(doc)}")
+
+        # Extract images if include_images is enabled (base64 mode for vLLM visibility)
         images: list[Any] = []
-        if config.attachment_mode == "base64":
+        if config.include_images:
             images = _extract_images_from_ast(doc)
             if images:
                 logger.info(f"Extracted {len(images)} images for vLLM")
 
-        # Convert AST to markdown (from_ast now returns str directly)
-        flavor_kwargs: dict[str, Any] = {'flavor': input_data.flavor} if input_data.flavor else {}
+        # Convert AST to markdown (server-level flavor from config)
         markdown = from_ast(
             doc,
             target_format="markdown",
-            **cast(Any, flavor_kwargs)
+            flavor=config.flavor
         )
 
         # Validate return type
@@ -224,23 +272,26 @@ def convert_to_markdown_impl(
         raise All2MdError(f"Conversion failed: {e}") from e
 
 
-def render_from_markdown_impl(
-        input_data: RenderFromMarkdownInput,
+def save_document_from_markdown_impl(
+        input_data: SaveDocumentFromMarkdownInput,
         config: MCPConfig
-) -> RenderFromMarkdownOutput:
-    """Implement render_from_markdown tool.
+) -> SaveDocumentFromMarkdownOutput:
+    """Implement save_document_from_markdown tool with simplified API.
+
+    This tool always writes to disk (no content return). The filename
+    parameter is required and must pass write allowlist validation.
 
     Parameters
     ----------
-    input_data : RenderFromMarkdownInput
+    input_data : SaveDocumentFromMarkdownInput
         Tool input parameters
     config : MCPConfig
         Server configuration (for allowlists, etc.)
 
     Returns
     -------
-    RenderFromMarkdownOutput
-        Rendering result with content or output path
+    SaveDocumentFromMarkdownOutput
+        Result with output path and warnings
 
     Raises
     ------
@@ -252,83 +303,30 @@ def render_from_markdown_impl(
     """
     warnings: list[str] = []
 
-    # Validate mutually exclusive inputs
-    if input_data.markdown and input_data.markdown_path:
-        raise ValueError("Cannot specify both markdown and markdown_path")
+    # Validate write access for output file
+    validated_output = validate_write_path(
+        input_data.filename,
+        config.write_allowlist
+    )
+    output_path = str(validated_output)
+    logger.info(f"Writing output to: {validated_output}")
 
-    if not input_data.markdown and not input_data.markdown_path:
-        raise ValueError("Must specify either markdown or markdown_path")
-
-    # Prepare markdown source
-    markdown_source: str
-    if input_data.markdown_path:
-        # Validate read access
-        validated_path = validate_read_path(
-            input_data.markdown_path,
-            config.read_allowlist
-        )
-        markdown_source = str(validated_path)
-        logger.info(f"Rendering from file: {validated_path}")
-
-    else:
-        # Use provided markdown content
-        markdown_source = input_data.markdown or ""
-        logger.info(f"Rendering from markdown content ({len(markdown_source)} characters)")
-
-    # Prepare output
-    output_arg = None
-    if input_data.output_path:
-        # Validate write access
-        validated_output = validate_write_path(
-            input_data.output_path,
-            config.write_allowlist
-        )
-        output_arg = str(validated_output)
-        logger.info(f"Writing output to: {validated_output}")
-
-    # Prepare rendering options
-    kwargs: dict[str, Any] = {}
-    if input_data.flavor:
-        kwargs['flavor'] = input_data.flavor
-
-    # Perform rendering
+    # Perform rendering (always write to disk)
     try:
-        # Cast target_format (TargetFormat is a subset of DocumentFormat)
-        result = from_markdown(
-            markdown_source,
-            target_format=cast(DocumentFormat, input_data.target_format),
-            output=output_arg,
-            **kwargs
+        # Cast format (TargetFormat is a subset of DocumentFormat)
+        # Use server-level flavor from config
+        from_markdown(
+            input_data.source,
+            target_format=cast(DocumentFormat, input_data.format),
+            output=output_path,
+            flavor=config.flavor
         )
 
-        # If output_path was specified, result is None (file written)
-        if output_arg:
-            logger.info(f"Rendering successful, written to {output_arg}")
-            return RenderFromMarkdownOutput(
-                output_path=output_arg,
-                warnings=warnings
-            )
-
-        # Otherwise, return content
-        else:
-            # Handle different content types (from_markdown now returns str/bytes directly)
-            if result is None:
-                raise ValueError("Rendering returned None unexpectedly")
-            elif isinstance(result, str):
-                # Text format - use directly
-                content = result
-            elif isinstance(result, bytes):
-                # Binary format - base64 encode for transmission
-                content = base64.b64encode(result).decode('ascii')
-                warnings.append("Binary content returned as base64-encoded string")
-            else:
-                raise TypeError(f"Unexpected result type: {type(result)}")
-
-            logger.info(f"Rendering successful ({len(content)} characters)")
-            return RenderFromMarkdownOutput(
-                content=content,
-                warnings=warnings
-            )
+        logger.info(f"Rendering successful, written to {output_path}")
+        return SaveDocumentFromMarkdownOutput(
+            output_path=output_path,
+            warnings=warnings
+        )
 
     except All2MdError as e:
         logger.error(f"Rendering failed: {e}")

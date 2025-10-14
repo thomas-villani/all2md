@@ -28,6 +28,7 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 
 -   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages.
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
+-   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
 -   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, and robust text extraction powered by PyMuPDF.
 -   **Extensible Plugin System**: Easily add support for new file formats (converters) or create custom document manipulations (transforms) using a simple entry-point system.
@@ -35,6 +36,39 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 -   **Highly Configurable**: Fine-tune every aspect of the conversion process using clean, type-safe `dataclass` options for each format.
 -   **Security-Conscious**: Built-in protections against Server-Side Request Forgery (SSRF) when fetching remote resources and security validation for archives like ZIP, DOCX, and EPUB.
 -   **Smart Dependency Management**: Core library is dependency-free. Install support for formats only as you need them.
+
+## MCP Server for AI Assistants
+
+`all2md` includes a built-in MCP (Model Context Protocol) server that allows AI assistants like Claude to directly read and convert documents:
+
+```bash
+# Install with MCP support
+pip install "all2md[mcp]"
+
+# Start MCP server with temporary workspace
+all2md-mcp --temp --enable-from-md
+```
+
+**Key features:**
+- **Smart Auto-Detection**: Automatically detect source type (file path, data URI, base64, or plain text)
+- **Section Extraction**: Extract specific sections by heading name for targeted reading
+- **Simplified API**: Just 2-3 parameters per tool with server-level configuration
+- **Security First**: File allowlists, network controls, and path validation
+- **vLLM Image Support**: Optionally embed images as base64 for vision-enabled models
+
+Configure in Claude Desktop (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "all2md": {
+      "command": "all2md-mcp",
+      "args": ["--temp", "--enable-from-md"]
+    }
+  }
+}
+```
+
+See the [MCP documentation](docs/source/mcp.rst) for full details.
 
 ## Supported Formats
 

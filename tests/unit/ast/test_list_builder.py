@@ -463,7 +463,7 @@ class TestTableBuilderSingleNodeCells:
 
     def test_add_row_mixed_strings_nodes_sequences(self) -> None:
         """Test adding rows with strings, single Nodes, and sequences."""
-        from all2md.ast import Emphasis, Strong, Text
+        from all2md.ast import Emphasis, Text
 
         builder = TableBuilder()
         builder.add_row([

@@ -14,7 +14,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-from all2md import convert, to_markdown, to_ast
+from all2md import convert, to_ast, to_markdown
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,

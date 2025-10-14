@@ -20,10 +20,11 @@ The Model Context Protocol (MCP) is an open standard that enables AI assistants 
 * Convert Markdown to other formats (HTML, PDF, DOCX, etc.)
 * Process documents with comprehensive security controls
 
-The all2md MCP server exposes two primary tools:
+The all2md MCP server exposes three primary tools:
 
-1. **convert_to_markdown** - Convert documents to Markdown format
-2. **render_from_markdown** - Convert Markdown to other formats (disabled by default for security)
+1. **read_document_as_markdown** - Read and convert documents to Markdown format
+2. **save_document_from_markdown** - Save Markdown to other formats (disabled by default for security)
+3. **edit_document** - Edit markdown documents by manipulating their structure (disabled by default for security)
 
 Features
 ~~~~~~~~
@@ -31,7 +32,9 @@ Features
 * **Format Support**: PDF, DOCX, PPTX, HTML, EPUB, XLSX, and 200+ text formats
 * **Security First**: File access allowlists, network controls, path validation
 * **Image Support**: Extract images for vLLM visibility (base64 embedding)
-* **Flexible Input**: Accept file paths or inline content (text/base64)
+* **Auto-Detection**: Smart source detection (path, data URI, base64, or plain text)
+* **Section Extraction**: Extract specific sections by heading name or index
+* **Simplified API**: Just 2-3 parameters per tool with server-level configuration
 * **Bidirectional**: Both to-Markdown and from-Markdown conversions
 * **Standards Compliant**: Uses FastMCP for MCP protocol implementation
 
@@ -93,10 +96,10 @@ By default, only document-to-Markdown conversion is enabled. To allow Markdown-t
 Available Tools
 ---------------
 
-convert_to_markdown
-~~~~~~~~~~~~~~~~~~~
+read_document_as_markdown
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Convert documents to Markdown format.
+Read and convert documents to Markdown format with smart source auto-detection.
 
 **Parameters:**
 
@@ -107,55 +110,84 @@ Convert documents to Markdown format.
    * - Parameter
      - Type
      - Description
-   * - ``source_path``
+   * - ``source``
      - string
-     - File path to convert. Must be within read allowlist. Mutually exclusive with ``source_content``.
-   * - ``source_content``
+     - **REQUIRED.** Unified source parameter. Auto-detected as: (1) file path if exists in read allowlist, (2) data URI (``data:...``), (3) base64 string if valid, or (4) plain text content.
+   * - ``section``
      - string
-     - Inline content to convert. For text formats (HTML, Markdown): plain text. For binary formats (PDF, DOCX): base64-encoded. Mutually exclusive with ``source_path``.
-   * - ``content_encoding``
+     - *Optional.* Section name to extract (case-insensitive heading match). If provided, only that section is returned.
+   * - ``format_hint``
      - string
-     - Encoding of ``source_content``: ``"plain"`` (default) or ``"base64"``.
-   * - ``source_format``
-     - string
-     - Source format: ``auto`` (default), ``pdf``, ``docx``, ``pptx``, ``html``, ``eml``, ``epub``, ``ipynb``, ``odt``, ``odp``, ``ods``, ``xlsx``, ``csv``, ``rst``, ``markdown``, ``txt``.
-   * - ``flavor``
-     - string
-     - Markdown flavor: ``gfm`` (default), ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``.
+     - *Optional.* Format hint for ambiguous cases: ``auto`` (default), ``pdf``, ``docx``, ``pptx``, ``html``, ``eml``, ``epub``, ``ipynb``, etc.
    * - ``pdf_pages``
      - string
-     - PDF page specification (e.g., ``"1-3"``, ``"1,3,5"``, ``"1-3,5,10-"``).
+     - *Optional.* PDF page specification (e.g., ``"1-3"``, ``"1,3,5"``, ``"1-3,5,10-"``).
+
+**Auto-Detection Behavior:**
+
+The ``source`` parameter is automatically detected as:
+
+1. **File path**: If the string resolves to a file in the read allowlist
+2. **Data URI**: If the string starts with ``data:`` (e.g., ``data:image/png;base64,...``)
+3. **Base64**: If the string looks like base64 and decodes successfully
+4. **Plain text**: Otherwise, treated as inline text content (HTML, Markdown, etc.)
+
+**Server-Level Configuration:**
+
+* ``include_images`` - Whether to include images (configured at server startup)
+* ``flavor`` - Markdown flavor to use (gfm, commonmark, etc.)
 
 **Returns:**
 
 A list with:
 
 * Markdown text (string) as the first element
-* Image objects (when ``attachment_mode=base64``) for vLLM visibility
+* Image objects (when ``include_images=true``) for vLLM visibility
 
 **Examples:**
 
+Convert a file by path:
+
 .. code-block:: json
 
    {
-     "source_path": "/workspace/document.pdf",
-     "source_format": "pdf",
+     "source": "/workspace/document.pdf",
      "pdf_pages": "1-5"
    }
 
+Convert HTML content (auto-detected as plain text):
+
 .. code-block:: json
 
    {
-     "source_content": "<html><body><h1>Title</h1></body></html>",
-     "content_encoding": "plain",
-     "source_format": "html",
-     "flavor": "gfm"
+     "source": "<html><body><h1>Title</h1></body></html>",
+     "format_hint": "html"
    }
 
-render_from_markdown
-~~~~~~~~~~~~~~~~~~~~
+Convert base64-encoded PDF (auto-detected):
 
-Convert Markdown to other formats. **Requires** ``--enable-from-md`` flag (disabled by default).
+.. code-block:: json
+
+   {
+     "source": "JVBERi0xLjQKJeLjz9MK...",
+     "format_hint": "pdf"
+   }
+
+Extract a specific section:
+
+.. code-block:: json
+
+   {
+     "source": "/workspace/report.md",
+     "section": "Executive Summary"
+   }
+
+save_document_from_markdown
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Save Markdown content to other formats. **Requires** ``--enable-from-md`` flag (disabled by default for security).
+
+This tool always writes to disk - the ``filename`` parameter is required and must pass write allowlist validation.
 
 **Parameters:**
 
@@ -166,45 +198,57 @@ Convert Markdown to other formats. **Requires** ``--enable-from-md`` flag (disab
    * - Parameter
      - Type
      - Description
-   * - ``target_format``
+   * - ``format``
      - string
      - **REQUIRED.** Target format: ``html``, ``pdf``, ``docx``, ``pptx``, ``rst``, ``epub``, ``markdown``.
-   * - ``markdown``
+   * - ``source``
      - string
-     - Markdown content as string. Mutually exclusive with ``markdown_path``.
-   * - ``markdown_path``
+     - **REQUIRED.** Markdown content as a string.
+   * - ``filename``
      - string
-     - Path to markdown file. Must be in read allowlist. Mutually exclusive with ``markdown``.
-   * - ``output_path``
-     - string
-     - Output file path (must be in write allowlist). If not provided, content is returned.
-   * - ``flavor``
-     - string
-     - Markdown flavor for parsing: ``gfm`` (default), ``commonmark``, etc.
+     - **REQUIRED.** Output file path (must be in write allowlist).
+
+**Server-Level Configuration:**
+
+* ``flavor`` - Markdown flavor for parsing (gfm, commonmark, etc.)
 
 **Returns:**
 
 A dictionary with:
 
-* ``content``: Rendered content (if no output_path). Binary formats are base64-encoded.
-* ``output_path``: File path where content was written (if output_path specified).
-* ``warnings``: List of warning messages.
+* ``output_path``: File path where content was written
+* ``warnings``: List of warning messages
 
 **Examples:**
 
+Save Markdown as HTML:
+
 .. code-block:: json
 
    {
-     "markdown": "# Hello World\\n\\nThis is a test.",
-     "target_format": "html"
+     "format": "html",
+     "source": "# Hello World\\n\\nThis is a test.",
+     "filename": "/workspace/output.html"
    }
 
+Save Markdown as PDF:
+
 .. code-block:: json
 
    {
-     "markdown_path": "/workspace/document.md",
-     "target_format": "docx",
-     "output_path": "/workspace/output.docx"
+     "format": "pdf",
+     "source": "# Report\\n\\nExecutive summary here.",
+     "filename": "/workspace/report.pdf"
+   }
+
+Save Markdown as DOCX:
+
+.. code-block:: json
+
+   {
+     "format": "docx",
+     "source": "# Document Title\\n\\nContent goes here.",
+     "filename": "/workspace/document.docx"
    }
 
 edit_document
@@ -337,9 +381,14 @@ Command-Line Arguments
 * ``--read-dirs PATHS`` - Semicolon-separated list of allowed read directories
 * ``--write-dirs PATHS`` - Semicolon-separated list of allowed write directories
 
-**Attachment Handling:**
+**Image Inclusion:**
 
-* ``--attachment-mode MODE`` - How to handle attachments: ``skip``, ``alt_text``, ``base64`` (default: base64)
+* ``--include-images`` - Include images in output for vLLM visibility (default: true)
+* ``--no-include-images`` - Do not include images, use alt text only
+
+**Markdown Flavor:**
+
+* ``--flavor FLAVOR`` - Markdown flavor: ``gfm`` (default), ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
 
 **Network Control:**
 
@@ -362,19 +411,25 @@ Environment Variables
      - Description
    * - ``ALL2MD_MCP_ENABLE_TO_MD``
      - ``true``
-     - Enable convert_to_markdown tool
+     - Enable read_document_as_markdown tool
    * - ``ALL2MD_MCP_ENABLE_FROM_MD``
      - ``false``
-     - Enable render_from_markdown tool
+     - Enable save_document_from_markdown tool
+   * - ``ALL2MD_MCP_ENABLE_DOC_EDIT``
+     - ``false``
+     - Enable edit_document tool
    * - ``ALL2MD_MCP_ALLOWED_READ_DIRS``
      - CWD
      - Semicolon-separated read allowlist paths
    * - ``ALL2MD_MCP_ALLOWED_WRITE_DIRS``
      - CWD
      - Semicolon-separated write allowlist paths
-   * - ``ALL2MD_MCP_ATTACHMENT_MODE``
-     - ``base64``
-     - Attachment mode: skip, alt_text, base64
+   * - ``ALL2MD_MCP_INCLUDE_IMAGES``
+     - ``true``
+     - Include images in output (true/false)
+   * - ``ALL2MD_MCP_FLAVOR``
+     - ``gfm``
+     - Markdown flavor (gfm, commonmark, etc.)
    * - ``ALL2MD_DISABLE_NETWORK``
      - ``true``
      - Disable network access globally
@@ -393,7 +448,7 @@ Configuration Examples
    all2md-mcp \
      --read-dirs "/var/app/uploads" \
      --write-dirs "/var/app/tmp" \
-     --attachment-mode base64 \
+     --include-images \
      --disable-network \
      --log-level WARNING
 
@@ -464,27 +519,37 @@ To enable network access (not recommended for untrusted content):
 
    all2md-mcp --allow-network
 
-Attachment Modes
-~~~~~~~~~~~~~~~~
+Image Inclusion
+~~~~~~~~~~~~~~~
 
-The server supports three attachment modes:
+The server supports a simple boolean flag for image handling:
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 80
+   :widths: 25 75
 
-   * - Mode
+   * - Setting
      - Behavior
-   * - ``skip``
-     - Ignore all images and attachments
-   * - ``alt_text``
-     - Include alt text and filenames in markdown
-   * - ``base64``
+   * - ``include_images=true``
      - Embed images as base64 data URIs (enables vLLM visibility)
+   * - ``include_images=false``
+     - Include alt text only (no image data)
+
+When ``include_images=true`` (default):
+
+* Images from PDF, DOCX, PPTX are embedded as base64
+* FastMCP automatically converts images to content blocks
+* vLLMs can "see" the images alongside text
+
+When ``include_images=false``:
+
+* Images are replaced with alt text only
+* Reduces output size
+* Useful when images are not needed
 
 .. note::
 
-   The ``download`` attachment mode is **not available** in MCP mode for security reasons. Images are either skipped, referenced as alt text, or embedded as base64.
+   The ``download`` attachment mode is **not available** in MCP mode for security reasons. Images are either embedded as base64 or replaced with alt text.
 
 Best Practices
 ~~~~~~~~~~~~~~
@@ -533,7 +598,8 @@ Add to your Cline MCP settings (``cline_mcp_settings.json``):
          "args": [
            "--read-dirs", "/path/to/project",
            "--write-dirs", "/path/to/output",
-           "--attachment-mode", "base64",
+           "--include-images",
+           "--flavor", "gfm",
            "--log-level", "DEBUG"
          ]
        }
@@ -562,12 +628,11 @@ Using the ``mcp`` Python client library:
            async with ClientSession(read, write) as session:
                await session.initialize()
 
-               # Call convert_to_markdown tool
+               # Call read_document_as_markdown tool
                result = await session.call_tool(
-                   "convert_to_markdown",
+                   "read_document_as_markdown",
                    arguments={
-                       "source_path": "/tmp/document.pdf",
-                       "source_format": "pdf",
+                       "source": "/tmp/document.pdf",
                        "pdf_pages": "1-3"
                    }
                )
@@ -586,21 +651,25 @@ Embedding all2md-mcp in your own MCP server:
 .. code-block:: python
 
    from all2md.mcp import create_server, MCPConfig
-   from all2md.mcp.tools import convert_to_markdown_impl, render_from_markdown_impl
+   from all2md.mcp.document_tools import edit_document_impl
+   from all2md.mcp.security import prepare_allowlist_dirs
+   from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
    # Create custom configuration
    config = MCPConfig(
        enable_to_md=True,
        enable_from_md=False,
-       read_allowlist=["/safe/documents"],
-       write_allowlist=["/safe/output"],
-       attachment_mode="base64",
+       enable_doc_edit=False,
+       read_allowlist=prepare_allowlist_dirs(["/safe/documents"]),
+       write_allowlist=prepare_allowlist_dirs(["/safe/output"]),
+       include_images=True,
+       flavor="gfm",
        disable_network=True,
        log_level="INFO"
    )
 
    # Create MCP server with custom config
-   mcp = create_server(config, convert_to_markdown_impl, render_from_markdown_impl)
+   mcp = create_server(config, read_document_as_markdown_impl, save_document_from_markdown_impl, edit_document_impl)
 
    # Run server
    mcp.run()
@@ -644,11 +713,11 @@ Images Not Visible to LLM
 
 **Solution:**
 
-Use ``base64`` attachment mode (default):
+Enable image inclusion (enabled by default):
 
 .. code-block:: bash
 
-   all2md-mcp --attachment-mode base64
+   all2md-mcp --include-images
 
 .. note::
 
@@ -689,11 +758,10 @@ Ensure binary content is properly base64-encoded:
 
    # Send to MCP server
    result = await session.call_tool(
-       "convert_to_markdown",
+       "read_document_as_markdown",
        arguments={
-           "source_content": pdf_base64,
-           "content_encoding": "base64",
-           "source_format": "pdf"
+           "source": pdf_base64,
+           "format_hint": "pdf"
        }
    )
 

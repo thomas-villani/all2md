@@ -1,5 +1,4 @@
-"""
-The major exported API functions for document conversion.
+"""The major exported API functions for document conversion.
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
@@ -7,20 +6,18 @@ The major exported API functions for document conversion.
 import logging
 import time
 from dataclasses import fields, is_dataclass
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
-from typing import get_type_hints, Any, Union, IO, Optional, cast
+from typing import IO, Any, Optional, Union, cast, get_type_hints
 
 import all2md.transforms as transforms_module
-from all2md.constants import DocumentFormat
 from all2md.ast.nodes import Document
-from all2md.progress import ProgressCallback
+from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
+from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
-from all2md.options.html import HtmlOptions
-from all2md.exceptions import FormatError, All2MdError, ParsingError, DependencyError
-
+from all2md.progress import ProgressCallback
 
 logger = logging.getLogger(__name__)
 

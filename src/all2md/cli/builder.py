@@ -1246,7 +1246,6 @@ def validate_pygments_theme(theme_name: str) -> str:
         If theme name is not valid
 
     """
-
     try:
         from pygments.styles import get_all_styles
     except ImportError:

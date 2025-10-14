@@ -14,10 +14,10 @@ from __future__ import annotations
 import logging
 import re
 import string
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
-from collections import defaultdict
 
 from all2md.options.markdown import MarkdownOptions
 from all2md.options.pdf import PdfOptions

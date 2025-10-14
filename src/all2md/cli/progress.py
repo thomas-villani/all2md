@@ -9,7 +9,7 @@ across different processing modes.
 from __future__ import annotations
 
 import sys
-from typing import Any, Optional
+from typing import Any
 
 
 class ProgressContext:
