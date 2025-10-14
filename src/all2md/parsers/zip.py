@@ -26,12 +26,13 @@ from all2md.exceptions import (
     MalformedFileError,
     ParsingError,
     ValidationError,
+    ZipFileSecurityError,
 )
 from all2md.options.zip import ZipOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.security import validate_zip_archive
+from all2md.utils.security import validate_safe_extraction_path, validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -441,12 +442,16 @@ class ZipToAstConverter(BaseParser):
             output_dir = Path(self.options.attachment_output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Preserve directory structure or flatten based on options
+            # Validate and construct safe output path to prevent path traversal
             if self.options.preserve_directory_structure and not self.options.flatten_structure:
-                output_file = output_dir / file_path
+                # Use full path from archive, but validate it's safe
+                output_file = validate_safe_extraction_path(output_dir, file_path)
+                # Ensure parent directories exist
                 output_file.parent.mkdir(parents=True, exist_ok=True)
             else:
-                output_file = output_dir / Path(file_path).name
+                # Use only the filename (flatten structure), but still validate
+                filename_only = Path(file_path).name
+                output_file = validate_safe_extraction_path(output_dir, filename_only)
 
             # Write the file
             output_file.write_bytes(file_data)
@@ -461,6 +466,9 @@ class ZipToAstConverter(BaseParser):
 
             logger.debug(f"Extracted resource: {file_path} -> {output_file}")
 
+        except ZipFileSecurityError as e:
+            # Log security violations at warning level and skip the file
+            logger.warning(f"Security violation - skipping resource {file_path}: {e}")
         except Exception as e:
             logger.warning(f"Failed to extract resource {file_path}: {e}")
 

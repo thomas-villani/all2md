@@ -6,6 +6,9 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+import pytest
+
+from all2md.ast import Document
 from all2md.options.zip import ZipOptions
 from all2md.parsers.zip import ZipToAstConverter
 
@@ -263,3 +266,215 @@ class TestZipResourceManifest:
                 for resource in parser._extracted_resources:
                     assert 'size' in resource
                     assert resource['size'] > 0
+
+
+class TestZipPathTraversalSecurity:
+    """Tests for ZIP path traversal (Zip Slip) security during resource extraction."""
+
+    def test_absolute_path_blocked_during_extraction(self):
+        """Test that absolute paths are blocked during resource extraction."""
+        import pytest
+        from all2md.exceptions import ZipFileSecurityError
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add a text file (parseable) - should be fine
+            zf.writestr('readme.txt', 'This is a readme file.')
+
+            # Add a resource with absolute path (will be caught during validation)
+            # We need to manually create a ZipInfo with an absolute path
+            # because ZipFile.writestr normalizes paths
+            info = zipfile.ZipInfo('/etc/passwd')
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, b'malicious content')
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        # This should be blocked during the parse phase by validate_zip_archive
+        # which checks for absolute paths
+        with pytest.raises(ZipFileSecurityError, match="suspicious path"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                options = ZipOptions(
+                    extract_resource_files=True,
+                    attachment_output_dir=temp_dir,
+                    preserve_directory_structure=True
+                )
+                parser = ZipToAstConverter(options=options)
+                parser.parse(zip_bytes)
+
+    def test_parent_traversal_blocked_during_extraction(self):
+        """Test that parent directory traversal is blocked during extraction."""
+        import pytest
+        from all2md.exceptions import ZipFileSecurityError
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add normal files
+            zf.writestr('readme.txt', 'Normal file.')
+
+            # Try to add a file with parent traversal
+            info = zipfile.ZipInfo('../../../etc/passwd')
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, b'malicious content')
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        # This should be blocked during the parse phase
+        with pytest.raises(ZipFileSecurityError, match="suspicious path"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                options = ZipOptions(
+                    extract_resource_files=True,
+                    attachment_output_dir=temp_dir,
+                    preserve_directory_structure=True
+                )
+                parser = ZipToAstConverter(options=options)
+                parser.parse(zip_bytes)
+
+    def test_mixed_traversal_blocked_during_extraction(self):
+        """Test that mixed path traversal patterns are blocked."""
+        import pytest
+        from all2md.exceptions import ZipFileSecurityError
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Try to add file with traversal in the middle
+            info = zipfile.ZipInfo('dir/../../../secret.txt')
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, b'malicious content')
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        # This should be blocked during the parse phase
+        with pytest.raises(ZipFileSecurityError, match="suspicious path"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                options = ZipOptions(
+                    extract_resource_files=True,
+                    attachment_output_dir=temp_dir,
+                    preserve_directory_structure=True
+                )
+                parser = ZipToAstConverter(options=options)
+                parser.parse(zip_bytes)
+
+    def test_normal_subdirectories_allowed(self):
+        """Test that normal subdirectories work correctly with security checks."""
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add normal files in subdirectories
+            zf.writestr('subdir1/file1.txt', 'File 1')
+            zf.writestr('subdir2/nested/file2.txt', 'File 2')
+            # Add a non-parseable resource
+            fake_png = b'\x89PNG' + b'\x00' * 50
+            zf.writestr('images/image1.png', fake_png)
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            options = ZipOptions(
+                extract_resource_files=True,
+                attachment_output_dir=temp_dir,
+                preserve_directory_structure=True,
+                flatten_structure=False
+            )
+            parser = ZipToAstConverter(options=options)
+            doc = parser.parse(zip_bytes)
+
+            # Should successfully parse without security errors
+            assert isinstance(doc, Document)
+
+            # Check that subdirectories were created if resources were extracted
+            output_dir = Path(temp_dir)
+            if parser._extracted_resources:
+                # Resources should be in subdirectories
+                extracted_files = list(output_dir.rglob('*'))
+                # Should have some files
+                assert len([f for f in extracted_files if f.is_file()]) > 0
+
+    def test_flatten_mode_still_validates_paths(self):
+        """Test that even in flatten mode, paths are validated."""
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Normal file
+            fake_png = b'\x89PNG' + b'\x00' * 50
+            zf.writestr('dir/image.png', fake_png)
+
+            # Try a traversal path (will be caught during parse)
+            info = zipfile.ZipInfo('../malicious.png')
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, fake_png)
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        # Should be blocked during parse phase
+        import pytest
+        from all2md.exceptions import ZipFileSecurityError
+        with pytest.raises(ZipFileSecurityError):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                options = ZipOptions(
+                    extract_resource_files=True,
+                    attachment_output_dir=temp_dir,
+                    flatten_structure=True  # Even with flatten, should be secure
+                )
+                parser = ZipToAstConverter(options=options)
+                parser.parse(zip_bytes)
+
+    def test_windows_absolute_path_blocked(self):
+        """Test that Windows-style absolute paths are blocked."""
+        from all2md.exceptions import ZipFileSecurityError
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Try Windows absolute path
+            info = zipfile.ZipInfo('C:/Windows/System32/malware.exe')
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, b'malicious content')
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        # Should be blocked during the parse phase by validate_zip_archive
+        # which now checks for Windows drive letters
+        with pytest.raises(ZipFileSecurityError, match="Windows absolute path"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                options = ZipOptions(
+                    extract_resource_files=True,
+                    attachment_output_dir=temp_dir
+                )
+                parser = ZipToAstConverter(options=options)
+                parser.parse(zip_bytes)
+
+    def test_extraction_stays_within_output_dir(self):
+        """Test that all extracted files stay within the output directory."""
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add various files
+            fake_png = b'\x89PNG' + b'\x00' * 50
+            zf.writestr('image1.png', fake_png)
+            zf.writestr('subdir/image2.png', fake_png)
+            zf.writestr('deep/nested/path/image3.png', fake_png)
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            options = ZipOptions(
+                extract_resource_files=True,
+                attachment_output_dir=temp_dir,
+                preserve_directory_structure=True
+            )
+            parser = ZipToAstConverter(options=options)
+            doc = parser.parse(zip_bytes)
+
+            # Verify all extracted files are within temp_dir
+            if parser._extracted_resources:
+                output_dir_resolved = Path(temp_dir).resolve()
+                for resource in parser._extracted_resources:
+                    resource_path = Path(resource['output_path']).resolve()
+                    # Check that resource_path is within output_dir
+                    assert str(resource_path).startswith(str(output_dir_resolved))
+
+            assert isinstance(doc, Document)

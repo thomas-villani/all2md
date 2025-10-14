@@ -219,6 +219,13 @@ def validate_zip_archive(
                 name = entry.filename
                 # Normalize backslashes to handle Windows paths
                 name_norm = name.replace('\\', '/')
+
+                # Check for Windows absolute paths (drive letters)
+                if ':' in name_norm and len(name_norm) >= 2 and name_norm[1] == ':':
+                    raise ZipFileSecurityError(
+                        f"ZIP archive contains Windows absolute path: {entry.filename}"
+                    )
+
                 p = PurePosixPath(name_norm)
                 if any(part == '..' for part in p.parts) or name_norm.startswith('/'):
                     raise ZipFileSecurityError(
@@ -249,6 +256,121 @@ def validate_zip_archive(
         raise MalformedFileError(f"Invalid ZIP archive: {e}") from e
     except (OSError, IOError) as e:
         raise MalformedFileError(f"Could not read ZIP archive: {e}") from e
+
+
+def validate_safe_extraction_path(output_dir: Union[str, Path], zip_entry_name: str) -> Path:
+    """Validate and return a safe extraction path for a ZIP entry to prevent path traversal.
+
+    This function prevents Zip Slip attacks by ensuring that extracted files
+    cannot escape the intended output directory through absolute paths or
+    parent directory traversal (..).
+
+    Parameters
+    ----------
+    output_dir : str or Path
+        The base directory where files should be extracted
+    zip_entry_name : str
+        The filename from the ZIP entry (ZipInfo.filename)
+
+    Returns
+    -------
+    Path
+        A safe, validated absolute path for extraction
+
+    Raises
+    ------
+    ZipFileSecurityError
+        If the path contains dangerous patterns or would escape output_dir
+
+    Examples
+    --------
+    >>> validate_safe_extraction_path("/tmp/out", "subdir/file.txt")
+    Path('/tmp/out/subdir/file.txt')
+
+    >>> validate_safe_extraction_path("/tmp/out", "../etc/passwd")  # doctest: +SKIP
+    ZipFileSecurityError: Unsafe path in ZIP entry: ../etc/passwd
+
+    >>> validate_safe_extraction_path("/tmp/out", "/etc/passwd")  # doctest: +SKIP
+    ZipFileSecurityError: Unsafe path in ZIP entry: /etc/passwd
+
+    Notes
+    -----
+    This function is critical for preventing Zip Slip vulnerabilities (CVE-2018-1000117
+    and related). Always use this when extracting ZIP entries to the filesystem.
+
+    See Also
+    --------
+    validate_zip_archive : Pre-validate ZIP archives for security threats
+
+    """
+    import os
+
+    # Normalize to POSIX path (ZIP archives always use forward slashes)
+    # Replace backslashes with forward slashes to handle malformed entries
+    normalized_name = zip_entry_name.replace('\\', '/')
+
+    # Check for Windows absolute paths (drive letters like C:, D:, etc.)
+    # These are not caught by PurePosixPath.is_absolute()
+    if ':' in normalized_name:
+        # Check if it looks like a drive letter (single letter followed by colon)
+        if len(normalized_name) >= 2 and normalized_name[1] == ':':
+            raise ZipFileSecurityError(
+                f"Unsafe Windows absolute path in ZIP entry: {zip_entry_name}"
+            )
+
+    # Use PurePosixPath to parse the normalized path
+    try:
+        rel_path = PurePosixPath(normalized_name)
+    except Exception as e:
+        raise ZipFileSecurityError(
+            f"Invalid path in ZIP entry: {zip_entry_name}"
+        ) from e
+
+    # Reject absolute paths (starting with /)
+    if rel_path.is_absolute():
+        raise ZipFileSecurityError(
+            f"Unsafe absolute path in ZIP entry: {zip_entry_name}"
+        )
+
+    # Reject paths containing parent directory traversal or current directory
+    # Check each component for dangerous patterns
+    for part in rel_path.parts:
+        if part in ('.', '..'):
+            raise ZipFileSecurityError(
+                f"Unsafe path component in ZIP entry: {zip_entry_name} (contains '{part}')"
+            )
+
+    # Convert output_dir to Path and resolve it
+    output_dir_path = Path(output_dir).resolve()
+
+    # Convert the relative path to a native path under output_dir
+    # Use joinpath with unpacked parts to build the path correctly
+    target_path = output_dir_path.joinpath(*rel_path.parts)
+
+    # Resolve the target path to get the absolute canonical path
+    # This handles any remaining symbolic links or path anomalies
+    try:
+        target_resolved = target_path.resolve()
+    except Exception as e:
+        raise ZipFileSecurityError(
+            f"Cannot resolve path for ZIP entry: {zip_entry_name}"
+        ) from e
+
+    # Ensure the resolved target is within the output directory
+    # Use string comparison with os.sep to ensure proper prefix matching
+    output_dir_str = str(output_dir_path)
+    target_str = str(target_resolved)
+
+    # Check if target is inside output_dir
+    # We need to be careful about paths like:
+    # - /tmp/output vs /tmp/output-sibling
+    # So we ensure the prefix is followed by a separator or is exactly the same
+    if not (target_str.startswith(output_dir_str + os.sep) or target_str == output_dir_str):
+        raise ZipFileSecurityError(
+            f"Path escapes output directory: {zip_entry_name} -> {target_str}"
+        )
+
+    return target_resolved
 
 
 def sanitize_language_identifier(language: str) -> str:
