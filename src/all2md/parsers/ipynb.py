@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
-from all2md.ast import CodeBlock, Document, HTMLInline, Image, Node, Paragraph
+from all2md.ast import CodeBlock, Document, Image, Node, Paragraph, Text
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
@@ -199,12 +199,12 @@ class IpynbToAstConverter(BaseParser):
         nodes: list[Node] = []
 
         if cell_type == "markdown":
-            # Markdown cells: render content as raw markdown using HTMLInline
-            # This preserves the original markdown without double-processing
+            # Markdown cells: parse safely to avoid XSS via HTMLInline
             source = self._get_source(cell)
             if source.strip():
-                # Use HTMLInline to preserve markdown syntax
-                nodes.append(Paragraph(content=[HTMLInline(content=source)]))
+                # Parse markdown content safely
+                markdown_nodes = self._parse_markdown_cell(source)
+                nodes.extend(markdown_nodes)
 
         elif cell_type == "code":
             # Code cells: create CodeBlock
@@ -337,6 +337,41 @@ class IpynbToAstConverter(BaseParser):
                     return CodeBlock(language="", content=collapsed_text.strip())
 
         return None
+
+    def _parse_markdown_cell(self, source: str) -> list[Node]:
+        """Parse markdown cell content into AST nodes safely.
+
+        This method avoids using HTMLInline which bypasses renderer sanitization.
+        Content is treated as plain text and split into paragraphs.
+
+        Parameters
+        ----------
+        source : str
+            Markdown cell content
+
+        Returns
+        -------
+        list[Node]
+            List of AST nodes (Paragraphs with Text content)
+
+        """
+        import re
+
+        nodes: list[Node] = []
+
+        # Split content into paragraphs (by double newlines)
+        paragraphs = re.split(r'\n\n+', source.strip())
+
+        for para_text in paragraphs:
+            para_text = para_text.strip()
+            if not para_text:
+                continue
+
+            # Create paragraph with Text nodes
+            nodes.append(Paragraph(content=[Text(content=para_text)]))
+
+        # Return at least one paragraph if we have content
+        return nodes if nodes else [Paragraph(content=[Text(content=source)])]
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from Jupyter notebook.

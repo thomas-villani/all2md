@@ -43,6 +43,7 @@ from all2md.options.org import OrgParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -435,17 +436,25 @@ class OrgParser(BaseParser):
                         url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
                     # Remove 'file:' prefix if present
                     image_url = url[5:] if url.startswith('file:') else url
+                    # Sanitize URL to prevent XSS attacks
+                    image_url = sanitize_url(image_url)
                     result.append(Image(url=image_url, alt_text=description))
                 else:
                     # Regular link
+                    # Sanitize URL to prevent XSS attacks
+                    url = sanitize_url(url)
                     result.append(Link(url=url, content=[Text(content=description)]))
             else:  # Plain URL (orgparse stripped the brackets)
                 url = match.group(0)
                 # Check if it's an image URL
                 if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
+                    # Sanitize URL to prevent XSS attacks
+                    url = sanitize_url(url)
                     result.append(Image(url=url, alt_text=url))
                 else:
                     # Regular link
+                    # Sanitize URL to prevent XSS attacks
+                    url = sanitize_url(url)
                     result.append(Link(url=url, content=[Text(content=url)]))
 
             pos = match.end()

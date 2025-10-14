@@ -999,10 +999,11 @@ class EmlToAstConverter(BaseParser):
                 header_text = "\n".join(header_lines)
                 children.append(Paragraph(content=[Text(content=header_text)]))
 
-            # Add content - use HTMLInline to preserve any markdown formatting
+            # Add content - parse safely to avoid XSS via HTMLInline
             content = item.get("content", "")
             if content.strip():
-                children.append(Paragraph(content=[HTMLInline(content=content)]))
+                content_nodes = self._parse_email_content(content)
+                children.extend(content_nodes)
 
             # Add separator
             children.append(ThematicBreak())
@@ -1016,6 +1017,39 @@ class EmlToAstConverter(BaseParser):
             )
 
         return Document(children=children)
+
+    def _parse_email_content(self, content: str) -> list[Node]:
+        """Parse email content into AST nodes safely.
+
+        This method avoids using HTMLInline which bypasses renderer sanitization.
+        Content is treated as plain text and split into paragraphs.
+
+        Parameters
+        ----------
+        content : str
+            Email content (plain text or markdown)
+
+        Returns
+        -------
+        list[Node]
+            List of AST nodes (paragraphs)
+
+        """
+        nodes: list[Node] = []
+
+        # Split content into paragraphs (by double newlines)
+        paragraphs = re.split(r'\n\n+', content.strip())
+
+        for para_text in paragraphs:
+            para_text = para_text.strip()
+            if not para_text:
+                continue
+
+            # Create paragraph with Text nodes
+            # This is safe and doesn't bypass sanitization like HTMLInline would
+            nodes.append(Paragraph(content=[Text(content=para_text)]))
+
+        return nodes if nodes else [Paragraph(content=[Text(content=content)])]
 
     def _format_date(self, dt: datetime.datetime | None) -> str:
         """Format datetime according to EmlOptions configuration.

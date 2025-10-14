@@ -48,6 +48,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options.asciidoc import AsciiDocOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -1045,6 +1046,8 @@ class AsciiDocParser(BaseParser):
                 # Restore escapes in URL and alt text
                 url = self._postprocess_escapes(url, escape_map)
                 alt_text = self._postprocess_escapes(alt_text, escape_map)
+                # Sanitize URL to prevent XSS attacks
+                url = sanitize_url(url)
                 nodes.append(Image(url=url, alt_text=alt_text))
                 pos += match.end()
                 matched = True
@@ -1056,6 +1059,8 @@ class AsciiDocParser(BaseParser):
                 url = match.group(1)
                 link_text = match.group(2)
                 url = self._postprocess_escapes(url, escape_map)
+                # Sanitize URL to prevent XSS attacks
+                url = sanitize_url(url)
                 content = self._parse_inline_recursive(link_text, escape_map) if link_text else [Text(content=url)]
                 nodes.append(Link(url=url, content=content))
                 pos += match.end()
@@ -1066,6 +1071,8 @@ class AsciiDocParser(BaseParser):
             match = self.auto_link_pattern.match(remaining[pos:])
             if match:
                 url = match.group(1)
+                # Sanitize URL to prevent XSS attacks
+                url = sanitize_url(url)
                 nodes.append(Link(url=url, content=[Text(content=url)]))
                 pos += match.end()
                 matched = True
@@ -1077,7 +1084,9 @@ class AsciiDocParser(BaseParser):
                 ref_id = match.group(1)
                 ref_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ref_id
                 # Cross-references are rendered as links with # prefix
-                nodes.append(Link(url=f"#{ref_id}", content=[Text(content=ref_text)]))
+                # Sanitize URL to prevent XSS attacks (though # prefix should make it safe)
+                url = sanitize_url(f"#{ref_id}")
+                nodes.append(Link(url=url, content=[Text(content=ref_text)]))
                 pos += match.end()
                 matched = True
                 continue

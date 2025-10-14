@@ -40,6 +40,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
 if TYPE_CHECKING:
@@ -423,6 +424,8 @@ class OdpToAstConverter(BaseParser):
                 elif qname == (self.TEXTNS, "a"):
                     # Hyperlink
                     href = node.getAttribute("href") or ""
+                    # Sanitize URL to prevent XSS attacks
+                    href = sanitize_url(href)
                     link_text = self._get_text_content(node)
                     nodes.append(Link(url=href, content=[Text(content=link_text)], title=None))
                 elif qname == (self.TEXTNS, "s"):
