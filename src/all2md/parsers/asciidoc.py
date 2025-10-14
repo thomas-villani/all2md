@@ -1580,7 +1580,8 @@ class AsciiDocParser(BaseParser):
     def _parse_table_row(self, line: str) -> TableRow:
         r"""Parse a table row from a line.
 
-        Handles escaped pipes (\|) within cells.
+        Handles escaped pipes (\|) within cells and preserves empty cells.
+        AsciiDoc table rows typically start with | which creates a leading empty split.
 
         Parameters
         ----------
@@ -1599,17 +1600,26 @@ class AsciiDocParser(BaseParser):
         # Replace escaped pipes with placeholder
         line = line.replace(r'\|', escaped_pipe_placeholder)
 
-        # Split by unescaped | and create cells
-        parts = line.split('|')
+        # Split by unescaped pipes using regex
+        parts = re.split(r'(?<!\\)\|', line)
+
+        # Remove leading empty part caused by starting | delimiter
+        # AsciiDoc rows always start with |, which creates a leading empty string
+        # For example: |cell1|cell2| produces ['', 'cell1', 'cell2', '']
+        if parts and parts[0].strip() == '':
+            parts = parts[1:]
+
+        # Keep trailing empty parts as they represent intentional empty cells
+        # For example: |A|B| should produce cells [A, B, empty]
+
         cells: list[TableCell] = []
 
         for part in parts:
-            part = part.strip()
-            if part:
-                # Restore escaped pipes
-                part = part.replace(escaped_pipe_placeholder, '|')
-                content = self._parse_inline(part)
-                cells.append(TableCell(content=content))
+            # Restore escaped pipes
+            part = part.replace(escaped_pipe_placeholder, '|')
+            # Strip whitespace but preserve empty cells
+            content = self._parse_inline(part.strip())
+            cells.append(TableCell(content=content))
 
         return TableRow(cells=cells)
 

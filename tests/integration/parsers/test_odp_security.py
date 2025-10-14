@@ -8,22 +8,36 @@ Test Coverage:
 - Safe URL preservation
 - Mixed safe and dangerous URLs
 
-Note: ODP is a binary format, so these tests use generated fixtures
-or mock ODP document structures.
+Note: ODP is a binary format, so these tests use the odfpy library
+to generate proper ODF documents.
 """
 
 import tempfile
-import zipfile
 from pathlib import Path
 
+import pytest
+
 from all2md import to_markdown
+
+# Check if odfpy is available
+try:
+    from odf.draw import Frame, Page, TextBox
+    from odf.opendocument import OpenDocumentPresentation
+    from odf.style import MasterPage, PageLayout, PageLayoutProperties
+    from odf.text import A, P
+
+    HAS_ODFPY = True
+except ImportError:
+    HAS_ODFPY = False
+
+pytestmark = pytest.mark.skipif(not HAS_ODFPY, reason="odfpy library required for ODP fixture generation")
 
 
 class TestOdpUrlSanitization:
     """Test ODP parser URL scheme security."""
 
     def _create_odp_with_links(self, links: list[tuple[str, str]]) -> Path:
-        """Create a minimal ODP file with specified links.
+        """Create a minimal ODP file with specified links using odfpy.
 
         Parameters
         ----------
@@ -36,49 +50,45 @@ class TestOdpUrlSanitization:
             Path to created ODP file
 
         """
-        # Create temporary ODP file
+        if not HAS_ODFPY:
+            pytest.skip("odfpy library required")
+
+        # Create ODP document
+        doc = OpenDocumentPresentation()
+
+        # Define basic page layout
+        page_layout = PageLayout(name="StandardLayout")
+        page_layout.addElement(PageLayoutProperties(
+            margintop="1in", marginbottom="1in",
+            marginleft="1in", marginright="1in"
+        ))
+        doc.automaticstyles.addElement(page_layout)
+
+        # Master page
+        master_page = MasterPage(name="Standard", pagelayoutname=page_layout)
+        doc.masterstyles.addElement(master_page)
+
+        # Create slides with links
+        for i, (url, text) in enumerate(links):
+            slide = Page(name=f"Slide{i+1}", masterpagename=master_page, stylename="StandardLayout")
+
+            # Content frame with link
+            frame = Frame(width="8in", height="4in", x="1in", y="2in")
+            textbox = TextBox()
+            p = P()
+            p.addText("Link: ")
+            link = A(href=url, text=text)
+            p.addElement(link)
+            textbox.addElement(p)
+            frame.addElement(textbox)
+            slide.addElement(frame)
+
+            doc.presentation.addElement(slide)
+
+        # Save to temporary file
         temp_dir = Path(tempfile.mkdtemp())
         odp_path = temp_dir / "test.odp"
-
-        # Create minimal ODP structure
-        with zipfile.ZipFile(odp_path, 'w', zipfile.ZIP_DEFLATED) as odp:
-            # Mimetype (uncompressed)
-            odp.writestr('mimetype', 'application/vnd.oasis.opendocument.presentation', compress_type=zipfile.ZIP_STORED)
-
-            # META-INF/manifest.xml
-            manifest = '''<?xml version="1.0" encoding="UTF-8"?>
-<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
-  <manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.presentation" manifest:full-path="/"/>
-  <manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/>
-</manifest:manifest>'''
-            odp.writestr('META-INF/manifest.xml', manifest)
-
-            # content.xml with links in slides
-            links_xml = '\n'.join(
-                f'''
-                <draw:page draw:name="Slide {i+1}">
-                  <draw:frame>
-                    <draw:text-box>
-                      <text:p><text:a xlink:href="{url}" xlink:type="simple">{text}</text:a></text:p>
-                    </draw:text-box>
-                  </draw:frame>
-                </draw:page>
-                '''
-                for i, (url, text) in enumerate(links)
-            )
-
-            content = f'''<?xml version="1.0" encoding="UTF-8"?>
-<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-                         xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
-                         xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"
-                         xmlns:xlink="http://www.w3.org/1999/xlink">
-  <office:body>
-    <office:presentation>
-      {links_xml}
-    </office:presentation>
-  </office:body>
-</office:document-content>'''
-            odp.writestr('content.xml', content)
+        doc.save(str(odp_path))
 
         return odp_path
 

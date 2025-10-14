@@ -8,22 +8,34 @@ Test Coverage:
 - Safe URL preservation
 - Mixed safe and dangerous URLs
 
-Note: ODT is a binary format, so these tests use generated fixtures
-or mock ODT document structures.
+Note: ODT is a binary format, so these tests use the odfpy library
+to generate proper ODF documents.
 """
 
 import tempfile
-import zipfile
 from pathlib import Path
 
+import pytest
+
 from all2md import to_markdown
+
+# Check if odfpy is available
+try:
+    from odf.opendocument import OpenDocumentText
+    from odf.text import A, H, P
+
+    HAS_ODFPY = True
+except ImportError:
+    HAS_ODFPY = False
+
+pytestmark = pytest.mark.skipif(not HAS_ODFPY, reason="odfpy library required for ODT fixture generation")
 
 
 class TestOdtUrlSanitization:
     """Test ODT parser URL scheme security."""
 
     def _create_odt_with_links(self, links: list[tuple[str, str]]) -> Path:
-        """Create a minimal ODT file with specified links.
+        """Create a minimal ODT file with specified links using odfpy.
 
         Parameters
         ----------
@@ -36,40 +48,28 @@ class TestOdtUrlSanitization:
             Path to created ODT file
 
         """
-        # Create temporary ODT file
+        if not HAS_ODFPY:
+            pytest.skip("odfpy library required")
+
+        # Create ODT document
+        doc = OpenDocumentText()
+
+        # Add title
+        title = H(outlinelevel=1, text="Security Test Document")
+        doc.text.addElement(title)
+
+        # Add links
+        for url, text in links:
+            p = P()
+            p.addText("Link: ")
+            link = A(href=url, text=text)
+            p.addElement(link)
+            doc.text.addElement(p)
+
+        # Save to temporary file
         temp_dir = Path(tempfile.mkdtemp())
         odt_path = temp_dir / "test.odt"
-
-        # Create minimal ODT structure
-        with zipfile.ZipFile(odt_path, 'w', zipfile.ZIP_DEFLATED) as odt:
-            # Mimetype (uncompressed)
-            odt.writestr('mimetype', 'application/vnd.oasis.opendocument.text', compress_type=zipfile.ZIP_STORED)
-
-            # META-INF/manifest.xml
-            manifest = '''<?xml version="1.0" encoding="UTF-8"?>
-<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
-  <manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.text" manifest:full-path="/"/>
-  <manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/>
-</manifest:manifest>'''
-            odt.writestr('META-INF/manifest.xml', manifest)
-
-            # content.xml with links
-            links_xml = '\n'.join(
-                f'<text:p><text:a xlink:href="{url}" xlink:type="simple">{text}</text:a></text:p>'
-                for url, text in links
-            )
-
-            content = f'''<?xml version="1.0" encoding="UTF-8"?>
-<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-                         xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
-                         xmlns:xlink="http://www.w3.org/1999/xlink">
-  <office:body>
-    <office:text>
-      {links_xml}
-    </office:text>
-  </office:body>
-</office:document-content>'''
-            odt.writestr('content.xml', content)
+        doc.save(str(odt_path))
 
         return odt_path
 

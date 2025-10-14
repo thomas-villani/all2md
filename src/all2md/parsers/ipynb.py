@@ -342,7 +342,8 @@ class IpynbToAstConverter(BaseParser):
         """Parse markdown cell content into AST nodes safely.
 
         This method avoids using HTMLInline which bypasses renderer sanitization.
-        Content is treated as plain text and split into paragraphs.
+        Instead, it parses the markdown content using the markdown parser to
+        get proper AST nodes.
 
         Parameters
         ----------
@@ -352,26 +353,37 @@ class IpynbToAstConverter(BaseParser):
         Returns
         -------
         list[Node]
-            List of AST nodes (Paragraphs with Text content)
+            List of AST nodes from parsed markdown
 
         """
-        import re
+        try:
+            # Import the markdown parser to parse the cell content
+            from all2md.parsers.markdown import markdown_to_ast
+            from all2md.options.markdown import MarkdownParserOptions
 
-        nodes: list[Node] = []
+            # Parse markdown content with appropriate options
+            options = MarkdownParserOptions(
+                parse_strikethrough=True,
+                parse_tables=True,
+                parse_footnotes=True,
+                parse_math=True,
+                preserve_html=False  # Important: don't preserve HTML for security
+            )
+            doc = markdown_to_ast(source, options=options)
 
-        # Split content into paragraphs (by double newlines)
-        paragraphs = re.split(r'\n\n+', source.strip())
+            # If the markdown parser returns empty document, it likely stripped all HTML
+            # In this case, we should still preserve the content as plain text
+            if not doc.children and source.strip():
+                logger.debug("Markdown parser returned empty document for cell with content, treating as plain text")
+                return [Paragraph(content=[Text(content=source)])]
 
-        for para_text in paragraphs:
-            para_text = para_text.strip()
-            if not para_text:
-                continue
+            # Return the children nodes (we don't want the Document wrapper)
+            return doc.children if doc.children else []
 
-            # Create paragraph with Text nodes
-            nodes.append(Paragraph(content=[Text(content=para_text)]))
-
-        # Return at least one paragraph if we have content
-        return nodes if nodes else [Paragraph(content=[Text(content=source)])]
+        except Exception:
+            # Fallback to simple text paragraph if markdown parsing fails
+            logger.warning("Failed to parse markdown cell, falling back to plain text")
+            return [Paragraph(content=[Text(content=source)])]
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from Jupyter notebook.

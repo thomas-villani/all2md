@@ -152,6 +152,7 @@ class EpubToAstConverter(BaseParser):
             current=0,
             total=1
         )
+        from ebooklib import ITEM_DOCUMENT
 
         children: list[Node] = []
 
@@ -163,8 +164,8 @@ class EpubToAstConverter(BaseParser):
                 children.append(ThematicBreak())
 
         # Process spine items (chapters in reading order)
-        for item in book.get_items_of_type(9):  # 9 = ITEM_DOCUMENT
-            if item.get_type() == 9:  # Document type
+        for item in book.get_items_of_type(ITEM_DOCUMENT):  # 9 = ITEM_DOCUMENT
+            if item.get_type() == ITEM_DOCUMENT:  # Document type
                 html_content = item.get_content().decode('utf-8', errors='ignore')
                 chapter_doc = self.html_parser.convert_to_ast(html_content)
                 if chapter_doc.children:

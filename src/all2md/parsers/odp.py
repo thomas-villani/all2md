@@ -354,7 +354,7 @@ class OdpToAstConverter(BaseParser):
 
         return None
 
-    def _process_frame(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Node | None:
+    def _process_frame(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
         """Process a drawing frame (could be image, text box, etc.).
 
         Parameters
@@ -366,8 +366,8 @@ class OdpToAstConverter(BaseParser):
 
         Returns
         -------
-        Node or None
-            Resulting AST node
+        Node, list[Node], or None
+            Resulting AST node(s)
 
         """
         # Try image first
@@ -375,8 +375,20 @@ class OdpToAstConverter(BaseParser):
         if image_node:
             return image_node
 
-        # Could be a text box - process text content
-        # This is simplified; real implementation might need more logic
+        # Check for text box
+        for child in frame.childNodes:
+            if hasattr(child, "qname") and child.qname == (self.DRAWNS, "text-box"):
+                # Process text box content
+                nodes: list[Node] = []
+                for element in child.childNodes:
+                    node = self._process_element(element, doc)
+                    if node:
+                        if isinstance(node, list):
+                            nodes.extend(node)
+                        else:
+                            nodes.append(node)
+                return nodes if nodes else None
+
         return None
 
     def _process_text_runs(self, element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:

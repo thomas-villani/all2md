@@ -660,6 +660,98 @@ class TestAsciiDocTableImprovements:
         assert table.header is not None
         assert len(table.rows) == 1
 
+    def test_table_with_empty_cell_middle(self) -> None:
+        """Test table with empty cell in the middle."""
+        asciidoc = """|===
+|A ||C
+|D |E |F
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.header.cells) == 3  # Should have 3 cells including empty one
+        # Check that cells are: A, empty, C
+        assert len(table.header.cells[0].content) > 0  # A
+        assert len(table.header.cells[1].content) == 0  # Empty cell
+        assert len(table.header.cells[2].content) > 0  # C
+        # Verify data row also has 3 cells
+        assert len(table.rows[0].cells) == 3
+
+    def test_table_with_empty_cell_start(self) -> None:
+        """Test table starting with empty cell."""
+        asciidoc = """|===
+||B |C
+|D |E |F
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.header.cells) == 3
+        # First cell should be empty
+        assert len(table.header.cells[0].content) == 0
+        assert len(table.header.cells[1].content) > 0  # B
+        assert len(table.header.cells[2].content) > 0  # C
+
+    def test_table_with_empty_cell_end(self) -> None:
+        """Test table ending with empty cell."""
+        asciidoc = """|===
+|A |B |
+|D |E |F
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.header.cells) == 3
+        # Last cell should be empty
+        assert len(table.header.cells[0].content) > 0  # A
+        assert len(table.header.cells[1].content) > 0  # B
+        assert len(table.header.cells[2].content) == 0  # Empty
+
+    def test_table_with_multiple_consecutive_empty_cells(self) -> None:
+        """Test table with multiple consecutive empty cells."""
+        asciidoc = """|===
+|A |||D
+|E |F |G |H
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.header.cells) == 4  # A, empty, empty, D
+        assert len(table.header.cells[0].content) > 0  # A
+        assert len(table.header.cells[1].content) == 0  # Empty
+        assert len(table.header.cells[2].content) == 0  # Empty
+        assert len(table.header.cells[3].content) > 0  # D
+
+    def test_table_with_empty_cells_preserves_alignment(self) -> None:
+        """Test that empty cells don't break column alignment."""
+        asciidoc = """|===
+|Col1 |Col2 |Col3
+|A ||C
+|D |E |F
+|||I
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        # All rows should have exactly 3 cells
+        assert len(table.header.cells) == 3
+        for row in table.rows:
+            assert len(row.cells) == 3
+
 
 class TestAsciiDocDelimitedBlocks:
     """Tests for delimited block parsing."""
