@@ -42,6 +42,7 @@ from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import append_attachment_footnotes, attachment_result_to_image_node
 
 if TYPE_CHECKING:
     import odf
@@ -188,7 +189,7 @@ class OdpToAstConverter(BaseParser):
 
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
-            self._append_attachment_footnotes(
+            append_attachment_footnotes(
                 children,
                 self._attachment_footnotes,
                 self.options.attachments_footnotes_section
@@ -729,17 +730,8 @@ class OdpToAstConverter(BaseParser):
         if result.get("footnote_label") and result.get("footnote_content"):
             self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-        # Parse markdown result to extract URL
-        import re
-
-        markdown_result = result.get("markdown", "")
-        match = re.match(r"!\[([^]]*)](?:\(([^)]+)\))?", markdown_result)
-        if match:
-            alt_text = match.group(1) or "image"
-            url = str(result.get("url", match.group(2) or ""))
-            return Image(url=url, alt_text=alt_text, title=None)
-
-        return None
+        # Convert attachment result to Image node using helper
+        return attachment_result_to_image_node(result, fallback_alt_text="image")
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from ODP document.

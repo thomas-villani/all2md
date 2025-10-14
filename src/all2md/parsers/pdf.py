@@ -22,6 +22,7 @@ from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 from all2md.options.markdown import MarkdownOptions
 from all2md.options.pdf import PdfOptions
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
+from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 if TYPE_CHECKING:
     import fitz
@@ -715,7 +716,8 @@ def extract_page_images(
             if options.include_image_captions:
                 caption = detect_image_caption(page, bbox)
 
-            images.append({"bbox": bbox, "path": result.get("markdown", ""), "caption": caption})
+            # Store the process_attachment result dict instead of just markdown string
+            images.append({"bbox": bbox, "result": result, "caption": caption})
 
             # Clean up
             if pix_rgb != pix:
@@ -2573,7 +2575,7 @@ class PdfToAstConverter(BaseParser):
         Parameters
         ----------
         img_info : dict
-            Image information dict with 'path' and 'caption' keys
+            Image information dict with 'result' (process_attachment result) and 'caption' keys
         page_num : int
             Page number for source tracking
 
@@ -2584,18 +2586,24 @@ class PdfToAstConverter(BaseParser):
 
         """
         try:
-            # Create Image node
-            img_node = Image(
-                url=img_info["path"],
-                alt_text=img_info.get("caption") or "Image",
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
-            )
+            # Get the process_attachment result
+            result = img_info.get("result", {})
+            caption = img_info.get("caption") or "Image"
 
-            # Wrap in paragraph
-            return AstParagraph(
-                content=[img_node],
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
-            )
+            # Convert result to Image node using helper
+            img_node = attachment_result_to_image_node(result, fallback_alt_text=caption)
+
+            if img_node:
+                # Add source location
+                img_node.source_location = SourceLocation(format="pdf", page=page_num + 1)
+
+                # Wrap in paragraph
+                return AstParagraph(
+                    content=[img_node],
+                    source_location=SourceLocation(format="pdf", page=page_num + 1)
+                )
+
+            return None
 
         except Exception as e:
             logger.debug(f"Failed to create image node: {e}")

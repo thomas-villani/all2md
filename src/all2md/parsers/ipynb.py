@@ -25,6 +25,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 logger = logging.getLogger(__name__)
 
@@ -311,15 +312,10 @@ class IpynbToAstConverter(BaseParser):
                         if result.get("footnote_label") and result.get("footnote_content"):
                             self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-                        # Parse markdown result to extract URL
-                        import re
-
-                        markdown_result = result.get("markdown", "")
-                        match = re.match(r"!\[([^\]]*)\](?:\(([^)]+)\))?", markdown_result)
-                        if match:
-                            alt_text = match.group(1) or "cell output"
-                            url = str(result.get("url", match.group(2) or ""))
-                            return Image(url=url, alt_text=alt_text, title=None)
+                        # Convert result to Image node using helper
+                        image_node = attachment_result_to_image_node(result, fallback_alt_text="cell output")
+                        if image_node:
+                            return image_node
 
                     except (ValueError, TypeError) as e:
                         logger.warning(f"Could not decode base64 image in cell {cell_index + 1}: {e}")

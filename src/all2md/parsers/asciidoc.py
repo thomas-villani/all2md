@@ -50,6 +50,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import parse_delimited_block
 
 logger = logging.getLogger(__name__)
 
@@ -1327,20 +1328,14 @@ class AsciiDocParser(BaseParser):
         language: Optional[str] = attrs.get('language')
 
         # Collect content until closing delimiter
-        lines = []
-        while self._current_token().type != TokenType.CODE_BLOCK_DELIMITER:
-            if self._current_token().type == TokenType.EOF:
-                break
-
-            token = self._advance()
-            if token.type == TokenType.TEXT_LINE:
-                lines.append(token.content)
-            elif token.type == TokenType.BLANK_LINE:
-                lines.append('')
-
-        # Skip closing delimiter
-        if self._current_token().type == TokenType.CODE_BLOCK_DELIMITER:
-            self._advance()
+        lines, _closed = parse_delimited_block(
+            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
+            advance_fn=lambda: self._advance(),
+            opening_delimiter_type=TokenType.CODE_BLOCK_DELIMITER,
+            closing_delimiter_type=TokenType.CODE_BLOCK_DELIMITER,
+            eof_type=TokenType.EOF,
+            collect_mode="lines"
+        )
 
         content = '\n'.join(lines)
 
@@ -1367,23 +1362,15 @@ class AsciiDocParser(BaseParser):
         self._advance()
 
         # Collect content until closing delimiter
-        children: list[Node] = []
-
-        while self._current_token().type != TokenType.QUOTE_BLOCK_DELIMITER:
-            if self._current_token().type == TokenType.EOF:
-                break
-
-            # Parse blocks inside quote
-            node = self._parse_block()
-            if node is not None:
-                if isinstance(node, list):
-                    children.extend(node)
-                else:
-                    children.append(node)
-
-        # Skip closing delimiter
-        if self._current_token().type == TokenType.QUOTE_BLOCK_DELIMITER:
-            self._advance()
+        children, _closed = parse_delimited_block(
+            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
+            advance_fn=lambda: self._advance(),
+            opening_delimiter_type=TokenType.QUOTE_BLOCK_DELIMITER,
+            closing_delimiter_type=TokenType.QUOTE_BLOCK_DELIMITER,
+            eof_type=TokenType.EOF,
+            collect_mode="blocks",
+            parse_block_fn=self._parse_block
+        )
 
         return BlockQuote(children=children)
 
@@ -1405,20 +1392,14 @@ class AsciiDocParser(BaseParser):
         self._advance()
 
         # Collect content until closing delimiter
-        lines = []
-        while self._current_token().type != TokenType.LITERAL_BLOCK_DELIMITER:
-            if self._current_token().type == TokenType.EOF:
-                break
-
-            token = self._advance()
-            if token.type == TokenType.TEXT_LINE:
-                lines.append(token.content)
-            elif token.type == TokenType.BLANK_LINE:
-                lines.append('')
-
-        # Skip closing delimiter
-        if self._current_token().type == TokenType.LITERAL_BLOCK_DELIMITER:
-            self._advance()
+        lines, _closed = parse_delimited_block(
+            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
+            advance_fn=lambda: self._advance(),
+            opening_delimiter_type=TokenType.LITERAL_BLOCK_DELIMITER,
+            closing_delimiter_type=TokenType.LITERAL_BLOCK_DELIMITER,
+            eof_type=TokenType.EOF,
+            collect_mode="lines"
+        )
 
         content = '\n'.join(lines)
 
@@ -1450,23 +1431,15 @@ class AsciiDocParser(BaseParser):
         self._advance()
 
         # Collect content until closing delimiter
-        children: list[Node] = []
-
-        while self._current_token().type != TokenType.SIDEBAR_BLOCK_DELIMITER:
-            if self._current_token().type == TokenType.EOF:
-                break
-
-            # Parse blocks inside sidebar
-            node = self._parse_block()
-            if node is not None:
-                if isinstance(node, list):
-                    children.extend(node)
-                else:
-                    children.append(node)
-
-        # Skip closing delimiter
-        if self._current_token().type == TokenType.SIDEBAR_BLOCK_DELIMITER:
-            self._advance()
+        children, _closed = parse_delimited_block(
+            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
+            advance_fn=lambda: self._advance(),
+            opening_delimiter_type=TokenType.SIDEBAR_BLOCK_DELIMITER,
+            closing_delimiter_type=TokenType.SIDEBAR_BLOCK_DELIMITER,
+            eof_type=TokenType.EOF,
+            collect_mode="blocks",
+            parse_block_fn=self._parse_block
+        )
 
         # Apply metadata with sidebar role
         metadata = {'role': 'sidebar'}
@@ -1493,23 +1466,15 @@ class AsciiDocParser(BaseParser):
         self._advance()
 
         # Collect content until closing delimiter
-        children: list[Node] = []
-
-        while self._current_token().type != TokenType.EXAMPLE_BLOCK_DELIMITER:
-            if self._current_token().type == TokenType.EOF:
-                break
-
-            # Parse blocks inside example
-            node = self._parse_block()
-            if node is not None:
-                if isinstance(node, list):
-                    children.extend(node)
-                else:
-                    children.append(node)
-
-        # Skip closing delimiter
-        if self._current_token().type == TokenType.EXAMPLE_BLOCK_DELIMITER:
-            self._advance()
+        children, _closed = parse_delimited_block(
+            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
+            advance_fn=lambda: self._advance(),
+            opening_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
+            closing_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
+            eof_type=TokenType.EOF,
+            collect_mode="blocks",
+            parse_block_fn=self._parse_block
+        )
 
         # Apply metadata with example role
         metadata = {'role': 'example'}

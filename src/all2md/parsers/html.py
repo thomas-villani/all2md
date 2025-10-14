@@ -62,6 +62,7 @@ from all2md.utils.html_sanitizer import is_element_safe
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.parser_helpers import attachment_result_to_image_node
 from all2md.utils.security import sanitize_language_identifier, validate_local_file_access
 
 logger = logging.getLogger(__name__)
@@ -1255,10 +1256,15 @@ class HtmlToAstConverter(BaseParser):
         if result.get("footnote_label") and result.get("footnote_content"):
             self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-        # Extract URL from result
-        final_url = result.get("url", "")
+        # Convert result to Image node using helper
+        image_node = attachment_result_to_image_node(result, fallback_alt_text=alt_text or "image")
+        if image_node:
+            # Preserve title if provided
+            if title:
+                image_node.title = title
+            return image_node
 
-        return Image(url=final_url, alt_text=alt_text, title=title)
+        return Image(url="", alt_text=alt_text, title=title)
 
     def _resolve_url(self, url: str, base_url: str | None = None) -> str:
         """Resolve relative URL to absolute URL if base URL is provided.

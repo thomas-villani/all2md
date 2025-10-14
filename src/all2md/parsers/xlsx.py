@@ -24,8 +24,6 @@ from all2md.ast import (
     Node,
     Paragraph,
     Table,
-    TableCell,
-    TableRow,
     Text,
 )
 from all2md.converter_metadata import ConverterMetadata
@@ -34,9 +32,11 @@ from all2md.options.xlsx import XlsxOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
+from all2md.utils.chart_helpers import build_chart_table
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import attachment_result_to_image_node
 from all2md.utils.spreadsheet import (
     build_table_ast,
     sanitize_cell_text,
@@ -292,11 +292,10 @@ def _extract_sheet_images(
                 if result.get("footnote_label") and result.get("footnote_content"):
                     collected_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-                url = result.get("url", "")
-
-                # Create Image AST node
-                if url or result.get("markdown"):
-                    images.append(Image(url=url, alt_text=alt_text))
+                # Create Image AST node using helper
+                image_node = attachment_result_to_image_node(result, fallback_alt_text=alt_text)
+                if image_node:
+                    images.append(image_node)
 
             except Exception as e:
                 logger.debug(f"Failed to extract image from XLSX: {e!r}")
@@ -380,11 +379,6 @@ def _chart_to_table_ast(chart: Any) -> Table | None:
 
     """
     try:
-        # Extract chart title (for potential future use)
-        # title = ""
-        # if hasattr(chart, 'title') and chart.title:
-        #     title = str(chart.title)
-
         # Extract series data
         series_data: list[tuple[str, list[Any]]] = []
         categories: list[str] = []
@@ -417,30 +411,8 @@ def _chart_to_table_ast(chart: Any) -> Table | None:
         if not series_data:
             return None
 
-        # Build table with categories as first column
-        header_cells = [TableCell(content=[Text(content="Category")], alignment="left")]
-        for series_name, _ in series_data:
-            header_cells.append(TableCell(content=[Text(content=series_name)], alignment="center"))
-        header_row = TableRow(cells=header_cells, is_header=True)
-
-        # Build data rows
-        data_rows = []
-        max_rows = max(len(values) for _, values in series_data) if series_data else 0
-        for i in range(max_rows):
-            category = categories[i] if i < len(categories) else f"Row {i + 1}"
-            row_cells = [TableCell(content=[Text(content=category)], alignment="left")]
-
-            for _, values in series_data:
-                value = values[i] if i < len(values) else ""
-                row_cells.append(TableCell(content=[Text(content=str(value))], alignment="center"))
-
-            data_rows.append(TableRow(cells=row_cells, is_header=False))
-
-        # Build alignments list with proper typing
-        alignments: list[Alignment | None] = [cast(Alignment | None, "left")]
-        alignments.extend([cast(Alignment | None, "center")] * len(series_data))
-
-        return Table(header=header_row, rows=data_rows, alignments=alignments)
+        # Use helper to build table from chart data
+        return build_chart_table(categories, series_data, category_header="Category")
 
     except Exception as e:
         logger.debug(f"Failed to convert chart to table: {e!r}")

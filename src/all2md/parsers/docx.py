@@ -25,6 +25,7 @@ from all2md.utils.metadata import (
     DocumentMetadata,
     map_properties_to_metadata,
 )
+from all2md.utils.parser_helpers import append_attachment_footnotes
 
 if TYPE_CHECKING:
     import docx.document
@@ -372,7 +373,7 @@ class DocxToAstConverter(BaseParser):
 
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
-            self._append_attachment_footnotes(
+            append_attachment_footnotes(
                 children,
                 self._attachment_footnotes,
                 self.options.attachments_footnotes_section
@@ -594,6 +595,16 @@ class DocxToAstConverter(BaseParser):
         -------
         list of Node
             List of inline AST nodes
+
+        Notes
+        -----
+        This method cannot use the `group_and_format_runs` helper because it handles
+        DOCX-specific complexities including:
+        - Hyperlink grouping (different URLs = different groups)
+        - Inline math extraction (OMML to LaTeX)
+        - Footnote and endnote references
+        - Comment references
+        - Special text extraction for Hyperlink objects
 
         """
         result: list[Node] = []

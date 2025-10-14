@@ -21,7 +21,6 @@ from all2md.ast import (
     Document,
     Heading,
     HTMLInline,
-    Image,
     Node,
     Paragraph,
     Text,
@@ -35,6 +34,7 @@ from all2md.utils.attachments import create_attachment_sequencer, process_attach
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import attachment_result_to_image_node
 from all2md.utils.spreadsheet import (
     build_table_ast,
     sanitize_cell_text,
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 def _extract_ods_images(
         doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
-) -> tuple[list[Image], dict[str, str]]:
+) -> tuple[list[Node], dict[str, str]]:
     """Extract images from an ODS table and convert to Image AST nodes.
 
     Parameters
@@ -66,14 +66,14 @@ def _extract_ods_images(
 
     Returns
     -------
-    tuple[list[Image], dict[str, str]]
+    tuple[list[Node], dict[str, str]]
         Tuple of (list of Image AST nodes, footnotes dict)
 
     """
     from odf.draw import Frame
     from odf.draw import Image as OdfImage
 
-    images: list[Image] = []
+    images: list[Node] = []
     collected_footnotes: dict[str, str] = {}
 
     try:
@@ -140,11 +140,10 @@ def _extract_ods_images(
                     if result.get("footnote_label") and result.get("footnote_content"):
                         collected_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-                    url = result.get("url", "")
-
-                    # Create Image AST node
-                    if url or result.get("markdown"):
-                        images.append(Image(url=url, alt_text=alt_text))
+                    # Create Image AST node using helper
+                    image_node = attachment_result_to_image_node(result, fallback_alt_text=alt_text)
+                    if image_node:
+                        images.append(image_node)
 
             except Exception as e:
                 logger.debug(f"Failed to extract image from ODS: {e!r}")

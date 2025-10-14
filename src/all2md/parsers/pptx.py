@@ -55,8 +55,10 @@ from all2md.utils.attachments import (
     extract_pptx_image_data,
     process_attachment,
 )
+from all2md.utils.chart_helpers import build_chart_table
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import OFFICE_FIELD_MAPPING, DocumentMetadata, map_properties_to_metadata
+from all2md.utils.parser_helpers import attachment_result_to_image_node, group_and_format_runs
 
 logger = logging.getLogger(__name__)
 
@@ -492,29 +494,14 @@ class PptxToAstConverter(BaseParser):
         if not series_rows:
             return None
 
-        num_cols = max((len(values) for _, values in series_rows), default=0)
-        if num_cols == 0:
-            return None
-
-        header_cells = [TableCell(content=[Text(content="Category")])]
-        if categories and len(categories) == num_cols:
-            for cat in categories:
-                header_cells.append(TableCell(content=[Text(content=str(cat))]))
-        else:
-            for i in range(num_cols):
-                header_cells.append(TableCell(content=[Text(content=f"Col {i + 1}")]))
-
-        header_row = TableRow(cells=header_cells, is_header=True)
-
-        data_rows: list[TableRow] = []
-        for series_name, values in series_rows:
-            row_cells = [TableCell(content=[Text(content=series_name)])]
-            for val in values:
-                val_str = "" if val is None else str(val)
-                row_cells.append(TableCell(content=[Text(content=val_str)]))
-            data_rows.append(TableRow(cells=row_cells))
-
-        return AstTable(header=header_row, rows=data_rows)
+        # Use the build_chart_table helper to create consistent table structure
+        # Note: build_chart_table expects categories as row labels and series as columns
+        # For PPTX charts, we transpose the data to match this expected structure
+        return build_chart_table(
+            categories=categories,
+            series_data=series_rows,
+            category_header="Category"
+        )
 
     def _scatter_chart_to_mermaid(
             self,
@@ -799,7 +786,7 @@ class PptxToAstConverter(BaseParser):
         return nodes if nodes else None
 
     def _process_paragraph_runs_to_inline(self, paragraph: Any) -> list[Node]:
-        """Process paragraph runs to inline AST nodes.
+        """Process paragraph runs to inline AST nodes using group_and_format_runs helper.
 
         Parameters
         ----------
@@ -812,59 +799,47 @@ class PptxToAstConverter(BaseParser):
             List of inline AST nodes
 
         """
-        result: list[Node] = []
+        def text_extractor(run: Any) -> str:
+            # Add space after text to preserve word boundaries
+            # The helper strips and joins without separator, so we add space explicitly
+            text = run.text if run.text else ""
+            stripped = text.strip()
+            if not stripped:
+                return ""
+            # Add space suffix if original text had trailing whitespace
+            if text != stripped and text.endswith((' ', '\t', '\n')):
+                return stripped + ' '
+            return stripped
 
-        # Group runs by formatting to avoid excessive nesting
-        grouped_runs: list[tuple[str, tuple[bool, bool, bool] | None]] = []
-        current_text: list[str] = []
-        current_format: tuple[bool, bool, bool] | None = None
+        def format_extractor(run: Any) -> tuple[bool, bool, bool]:
+            # Return format flags in order that matches desired application order
+            # group_and_format_runs processes from high index to low index
+            # Original PPTX applies: underline (first/innermost), bold (second), italic (last/outermost)
+            # So we return: (italic, bold, underline) to reverse the processing order
+            if run.font:
+                return (
+                    bool(run.font.italic),
+                    bool(run.font.bold),
+                    bool(run.font.underline),
+                )
+            return (False, False, False)
 
-        for run in paragraph.runs:
-            text = run.text
-            if not text.strip():  # Skip empty runs
-                continue
+        # Custom format builders matching format tuple order
+        # Format tuple: (italic, bold, underline)
+        # Loop processes: index 2 (first), index 1, index 0 (last)
+        # Application: underline (innermost), bold (middle), italic (outermost)
+        format_builders = (
+            lambda nodes: Emphasis(content=nodes),    # Index 0 - italic (applied last = outermost)
+            lambda nodes: Strong(content=nodes),      # Index 1 - bold (applied middle)
+            lambda nodes: Underline(content=nodes),   # Index 2 - underline (applied first = innermost)
+        )
 
-            # Get formatting key (bold, italic, underline)
-            format_key: tuple[bool, bool, bool] | None = (
-                bool(run.font.bold),
-                bool(run.font.italic),
-                bool(run.font.underline),
-            ) if run.font else None
-
-            # Start new group if format changes
-            if format_key != current_format:
-                if current_text:
-                    # Join with single space and strip
-                    grouped_runs.append((" ".join(current_text).strip(), current_format))
-                    current_text = []
-                current_format = format_key
-
-            current_text.append(text.strip())
-
-        # Add final group
-        if current_text and current_format is not None:
-            grouped_runs.append((" ".join(current_text).strip(), current_format))
-
-        # Convert groups to AST nodes
-        for text, format_key in grouped_runs:
-            if not text:
-                continue
-
-            # Build inline nodes with formatting
-            inline_node: Node = Text(content=text)
-
-            if format_key:
-                # Apply formatting layers from innermost to outermost
-                if format_key[2]:  # underline
-                    inline_node = Underline(content=[inline_node])
-                if format_key[0]:  # bold
-                    inline_node = Strong(content=[inline_node])
-                if format_key[1]:  # italic
-                    inline_node = Emphasis(content=[inline_node])
-
-            result.append(inline_node)
-
-        return result
+        return group_and_format_runs(
+            runs=paragraph.runs,
+            text_extractor=text_extractor,
+            format_extractor=format_extractor,
+            format_builders=format_builders
+        )
 
     def _process_table_to_ast(self, table: Any) -> AstTable | None:
         """Process a PPTX table to AST Table node.
@@ -967,7 +942,7 @@ class PptxToAstConverter(BaseParser):
                 extension=extension
             )
 
-            # Process attachment - now returns dict with footnote info
+            # Process attachment - returns dict with URL, markdown, and footnote info
             result = process_attachment(
                 attachment_data=image_data,
                 attachment_name=image_filename,
@@ -983,21 +958,12 @@ class PptxToAstConverter(BaseParser):
             if result.get("footnote_label") and result.get("footnote_content"):
                 self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-            # Extract URL and alt text from result
-            url = result.get("url", "")
-
-            # Parse the markdown string to extract alt text
-            markdown = result.get("markdown", "")
-            match = re.match(r'^!\[([^]]*)]', markdown)
-            if match:
-                alt_text = match.group(1)
-                return Image(url=url, alt_text=alt_text, title=None)
+            # Use helper to convert result to Image node (eliminates regex parsing)
+            return attachment_result_to_image_node(result, fallback_alt_text="image")
 
         except Exception as e:
             logger.debug(f"Failed to process image: {e}")
             return None
-
-        return None
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from PPTX presentation.
