@@ -439,6 +439,26 @@ class TestPipelineClass:
         assert "# Title" in markdown
         assert "image.png" in markdown
 
+    def test_pipeline_accepts_bytes_only_renderer(self, sample_document):
+        """Test that renderers implementing only render_to_bytes are recognized."""
+        class BytesOnlyRenderer:
+            """Renderer that only implements render_to_bytes, not render_to_string."""
+            def __init__(self, options=None):
+                self.options = options
+
+            def render_to_bytes(self, document):
+                """Render document to bytes."""
+                return b"rendered as bytes"
+
+        # Should recognize BytesOnlyRenderer instance and not replace it
+        renderer_instance = BytesOnlyRenderer()
+        pipeline = Pipeline(renderer=renderer_instance)
+        result = pipeline.execute(sample_document)
+
+        # Should return bytes from our custom renderer
+        assert result == b"rendered as bytes"
+        assert isinstance(result, bytes)
+
 
 # Dependency resolution tests
 

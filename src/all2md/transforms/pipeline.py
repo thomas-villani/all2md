@@ -250,8 +250,9 @@ class Pipeline:
             Renderer instance ready to use
 
         """
-        # If renderer is already an instance, use it
-        if renderer is not None and hasattr(renderer, 'render_to_string'):
+        # If renderer is already an instance (not a str or type), use it
+        # This correctly handles instances that implement either render_to_string or render_to_bytes
+        if renderer is not None and not isinstance(renderer, (str, type)):
             return renderer
 
         # If renderer is a class, instantiate it
@@ -516,13 +517,13 @@ class Pipeline:
         # Try render_to_string first (for text-based renderers)
         try:
             return self.renderer.render_to_string(document)
-        except NotImplementedError:
+        except (NotImplementedError, AttributeError):
             pass
 
         # Fall back to render_to_bytes (for binary renderers)
         try:
             return self.renderer.render_to_bytes(document)
-        except NotImplementedError:
+        except (NotImplementedError, AttributeError):
             pass
 
         # Neither method is implemented
@@ -645,7 +646,8 @@ class Pipeline:
         if self.hook_manager.has_hooks('post_ast'):
             stage_count += 1
         if self.transforms:
-            stage_count += len(self.transforms)
+            # Use resolved transform count to match actual execution
+            stage_count += len(self._resolve_transforms())
         if self.hook_manager.has_hooks('pre_render'):
             stage_count += 1
         # Element hooks traversal counts as 1 stage

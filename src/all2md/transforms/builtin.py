@@ -313,11 +313,13 @@ class LinkRewriterTransform(NodeTransformer):
         """
         from all2md.constants import MAX_URL_LENGTH
 
-        # Limit URL length to prevent excessive processing
-        url_to_process = node.url[:MAX_URL_LENGTH] if len(node.url) > MAX_URL_LENGTH else node.url
-
-        # Apply regex substitution
-        new_url = self.pattern.sub(self.replacement, url_to_process)
+        # Skip rewriting for excessively long URLs to prevent excessive processing
+        # Preserve the original URL instead of truncating (prevents data loss)
+        if len(node.url) > MAX_URL_LENGTH:
+            new_url = node.url
+        else:
+            # Apply regex substitution to safe-length URLs
+            new_url = self.pattern.sub(self.replacement, node.url)
 
         return Link(
             url=new_url,

@@ -65,6 +65,7 @@ from ._builtin_metadata import (
     ADD_ATTACHMENT_FOOTNOTES_METADATA,
     ADD_HEADING_IDS_METADATA,
     ADD_TIMESTAMP_METADATA,
+    GENERATE_TOC_METADATA,
     HEADING_OFFSET_METADATA,
     LINK_REWRITER_METADATA,
     REMOVE_BOILERPLATE_METADATA,
@@ -80,6 +81,7 @@ from .builtin import (
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
     CalculateWordCountTransform,
+    GenerateTocTransform,
     HeadingOffsetTransform,
     LinkRewriterTransform,
     RemoveBoilerplateTextTransform,
@@ -131,6 +133,7 @@ __all__ = [
     "AddConversionTimestampTransform",
     "CalculateWordCountTransform",
     "AddAttachmentFootnotesTransform",
+    "GenerateTocTransform",
     # Built-in Metadata
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",
@@ -142,4 +145,5 @@ __all__ = [
     "ADD_TIMESTAMP_METADATA",
     "WORD_COUNT_METADATA",
     "ADD_ATTACHMENT_FOOTNOTES_METADATA",
+    "GENERATE_TOC_METADATA",
 ]

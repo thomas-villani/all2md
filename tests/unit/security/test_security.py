@@ -806,8 +806,8 @@ class TestLinkRewriterTransformSecurity:
         link = result.children[0].content[0]
         assert link.url == "https://example.com/docs/guide"
 
-    def test_limits_url_length(self):
-        """Test that LinkRewriterTransform limits URL length."""
+    def test_preserves_long_urls_without_rewriting(self):
+        """Test that LinkRewriterTransform preserves long URLs without rewriting."""
         from all2md.ast.nodes import Document, Link, Paragraph, Text
         from all2md.constants import MAX_URL_LENGTH
         from all2md.transforms.builtin import LinkRewriterTransform
@@ -825,8 +825,9 @@ class TestLinkRewriterTransformSecurity:
         result = transform.transform(doc)
         link = result.children[0].content[0]
 
-        # URL should be truncated and processed
-        assert len(link.url) <= MAX_URL_LENGTH + 20  # Allow for replacement text
+        # URL should be preserved unchanged (not rewritten, not truncated)
+        assert link.url == long_url
+        assert len(link.url) == len(long_url)
 
 
 class TestRemoveBoilerplateTransformSecurity:

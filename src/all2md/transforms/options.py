@@ -220,6 +220,40 @@ class AddAttachmentFootnotesOptions:
     add_definitions_for_links: bool = True
 
 
+@dataclass
+class GenerateTocOptions:
+    """Options for GenerateTocTransform.
+
+    Parameters
+    ----------
+    title : str, default = "Table of Contents"
+        Title for the TOC section
+    max_depth : int, default = 3
+        Maximum heading level to include (1-6)
+    position : str, default = "top"
+        Position to insert the TOC ("top" or "bottom")
+    add_links : bool, default = True
+        Whether to create links to headings (requires heading IDs)
+    separator : str, default = "-"
+        Separator for generating heading IDs when not present
+
+    Examples
+    --------
+    >>> options = GenerateTocOptions(
+    ...     title="Contents",
+    ...     max_depth=2,
+    ...     position="bottom"
+    ... )
+
+    """
+
+    title: str = "Table of Contents"
+    max_depth: int = 3
+    position: str = "top"
+    add_links: bool = True
+    separator: str = "-"
+
+
 __all__ = [
     "RemoveNodesOptions",
     "HeadingOffsetOptions",
@@ -230,4 +264,5 @@ __all__ = [
     "AddTimestampOptions",
     "WordCountOptions",
     "AddAttachmentFootnotesOptions",
+    "GenerateTocOptions",
 ]

@@ -19,6 +19,7 @@ from .builtin import (
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
     CalculateWordCountTransform,
+    GenerateTocTransform,
     HeadingOffsetTransform,
     LinkRewriterTransform,
     RemoveBoilerplateTextTransform,
@@ -259,6 +260,49 @@ ADD_ATTACHMENT_FOOTNOTES_METADATA = TransformMetadata(
     author="all2md"
 )
 
+# GenerateTocTransform metadata
+GENERATE_TOC_METADATA = TransformMetadata(
+    name="generate-toc",
+    description="Generate table of contents from document headings",
+    transformer_class=GenerateTocTransform,
+    parameters={
+        'title': ParameterSpec(
+            type=str,
+            default="Table of Contents",
+            help="Title for the TOC section",
+            cli_flag='--toc-title'
+        ),
+        'max_depth': ParameterSpec(
+            type=int,
+            default=3,
+            help="Maximum heading level to include (1-6)",
+            cli_flag='--toc-max-depth'
+        ),
+        'position': ParameterSpec(
+            type=str,
+            default="top",
+            help="Position to insert the TOC ('top' or 'bottom')",
+            cli_flag='--toc-position'
+        ),
+        'add_links': ParameterSpec(
+            type=bool,
+            default=True,
+            help="Whether to create links to headings (requires heading IDs)",
+            cli_flag='--toc-add-links'
+        ),
+        'separator': ParameterSpec(
+            type=str,
+            default="-",
+            help="Separator for generating heading IDs when not present",
+            cli_flag='--toc-separator'
+        )
+    },
+    priority=250,
+    tags=["toc", "headings", "navigation"],
+    version="1.0.0",
+    author="all2md"
+)
+
 __all__ = [
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",
@@ -270,4 +314,5 @@ __all__ = [
     "ADD_TIMESTAMP_METADATA",
     "WORD_COUNT_METADATA",
     "ADD_ATTACHMENT_FOOTNOTES_METADATA",
+    "GENERATE_TOC_METADATA",
 ]
