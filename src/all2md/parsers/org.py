@@ -134,7 +134,10 @@ class OrgParser(BaseParser):
 
         # Process root node body first (plain text without headings)
         # Use format='raw' to preserve link syntax
-        root_body = root.get_body(format='raw').strip() if hasattr(root, 'get_body') else (root.body.strip() if root.body else "")
+        root_body = (
+            root.get_body(format='raw').strip() if hasattr(root, 'get_body')
+            else (root.body.strip() if root.body else "")
+        )
         if root_body:
             body_nodes = self._process_body(root_body)
             children.extend(body_nodes)
@@ -206,7 +209,10 @@ class OrgParser(BaseParser):
 
         # Process body content
         # Use format='raw' to preserve link syntax
-        body_text = node.get_body(format='raw').strip() if hasattr(node, 'get_body') else (node.body.strip() if node.body else "")
+        body_text = (
+            node.get_body(format='raw').strip() if hasattr(node, 'get_body')
+            else (node.body.strip() if node.body else "")
+        )
         if body_text:
             body_nodes = self._process_body(body_text)
             result.extend(body_nodes)

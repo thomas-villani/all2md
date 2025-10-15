@@ -75,7 +75,7 @@ class RstParserOptions(BaseParserOptions):
 
 @dataclass(frozen=True)
 class RstRendererOptions(BaseRendererOptions):
-    """Configuration options for AST-to-reStructuredText rendering.
+    r"""Configuration options for AST-to-reStructuredText rendering.
 
     This dataclass contains settings for rendering AST documents as
     reStructuredText output.

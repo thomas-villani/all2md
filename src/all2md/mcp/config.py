@@ -278,7 +278,8 @@ Environment Variables:
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
   ALL2MD_MCP_INCLUDE_IMAGES        Include images in output for vLLM visibility (default: true)
-  ALL2MD_MCP_FLAVOR                Markdown flavor: gfm, commonmark, multimarkdown, pandoc, kramdown, markdown_plus (default: gfm)
+  ALL2MD_MCP_FLAVOR                Markdown flavor: gfm, commonmark, multimarkdown, pandoc, kramdown,
+                                   markdown_plus (default: gfm)
   ALL2MD_DISABLE_NETWORK           Disable network access (default: true)
   ALL2MD_MCP_LOG_LEVEL             Logging level (default: INFO)
 

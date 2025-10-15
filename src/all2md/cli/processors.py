@@ -1444,8 +1444,6 @@ def process_detect_only(
     detection_results: list[dict[str, Any]] = []
     any_issues = False
 
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
-
     for file in files:
         # Detect format
         if format_arg != "auto":
@@ -2750,6 +2748,8 @@ def process_files_simple(
 
     failed = []
     max_exit_code = EXIT_SUCCESS
+
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
 
     for file in files:
         target_format = getattr(args, 'output_type', 'markdown')

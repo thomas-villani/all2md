@@ -255,10 +255,33 @@ class HelpRenderer:
     }
 
     def __init__(self, catalog: HelpCatalog, *, use_rich: bool = False) -> None:
+        """Initialize the help renderer with a catalog.
+
+        Parameters
+        ----------
+        catalog : HelpCatalog
+            Structured help content to render.
+        use_rich : bool, default False
+            Enable rich formatting when available.
+
+        """
         self.catalog = catalog
         self.use_rich = use_rich and _rich_available()
 
     def render(self, selector: str = "quick") -> str:
+        """Render help text for the specified selector.
+
+        Parameters
+        ----------
+        selector : str, default "quick"
+            Help level: "quick", "full", or a specific section/format name.
+
+        Returns
+        -------
+        str
+            Rendered help text.
+
+        """
         selector = selector.lower()
         if selector in {"", "quick"}:
             return self._render_quick()
@@ -472,6 +495,16 @@ class HelpRenderer:
         return [description, *wrapped]
 
     def print(self, selector: str = "quick", *, stream: Optional[Any] = None) -> None:
+        """Print formatted help output to the specified stream.
+
+        Parameters
+        ----------
+        selector : str, default "quick"
+            Help level: "quick", "full", or a specific section/format name.
+        stream : file-like, optional
+            Output stream. Defaults to stdout.
+
+        """
         output = self.render(selector)
         if self.use_rich:
             from rich.console import Console  # type: ignore[import-not-found]
@@ -547,7 +580,7 @@ def _rich_available() -> bool:
 
 
 def build_help_renderer(*, use_rich: bool = False) -> HelpRenderer:
-    """Convenience helper that builds the parser, catalog, and renderer."""
+    """Build a complete help renderer with parser and catalog."""
     # Use create_parser() to get the full parser with all top-level options
     # (e.g., --rich, --progress, --output-dir, --parallel, etc.)
     parser = create_parser()

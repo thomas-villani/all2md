@@ -250,7 +250,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
 
 
 def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
-    """Convert HTML content to Markdown
+    """Convert HTML content to Markdown.
 
     Parameters
     ----------

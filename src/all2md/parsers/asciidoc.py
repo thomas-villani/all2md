@@ -1329,8 +1329,8 @@ class AsciiDocParser(BaseParser):
 
         # Collect content until closing delimiter
         lines, _closed = parse_delimited_block(
-            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
-            advance_fn=lambda: self._advance(),
+            current_token_fn=self._current_token,
+            advance_fn=self._advance,
             opening_delimiter_type=TokenType.CODE_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.CODE_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
@@ -1363,8 +1363,8 @@ class AsciiDocParser(BaseParser):
 
         # Collect content until closing delimiter
         children, _closed = parse_delimited_block(
-            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
-            advance_fn=lambda: self._advance(),
+            current_token_fn=self._current_token,
+            advance_fn=self._advance,
             opening_delimiter_type=TokenType.QUOTE_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.QUOTE_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
@@ -1393,8 +1393,8 @@ class AsciiDocParser(BaseParser):
 
         # Collect content until closing delimiter
         lines, _closed = parse_delimited_block(
-            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
-            advance_fn=lambda: self._advance(),
+            current_token_fn=self._current_token,
+            advance_fn=self._advance,
             opening_delimiter_type=TokenType.LITERAL_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.LITERAL_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
@@ -1432,8 +1432,8 @@ class AsciiDocParser(BaseParser):
 
         # Collect content until closing delimiter
         children, _closed = parse_delimited_block(
-            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
-            advance_fn=lambda: self._advance(),
+            current_token_fn=self._current_token,
+            advance_fn=self._advance,
             opening_delimiter_type=TokenType.SIDEBAR_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.SIDEBAR_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
@@ -1467,8 +1467,8 @@ class AsciiDocParser(BaseParser):
 
         # Collect content until closing delimiter
         children, _closed = parse_delimited_block(
-            current_token_fn=lambda: self.tokens[self.current_token_index] if self.current_token_index < len(self.tokens) else self.tokens[-1],
-            advance_fn=lambda: self._advance(),
+            current_token_fn=self._current_token,
+            advance_fn=self._advance,
             opening_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,

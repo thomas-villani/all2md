@@ -313,7 +313,9 @@ def main() -> int:
         from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
         # Create and run server
-        mcp = create_server(config, read_document_as_markdown_impl, save_document_from_markdown_impl, edit_document_impl)
+        mcp = create_server(
+            config, read_document_as_markdown_impl, save_document_from_markdown_impl, edit_document_impl
+        )
 
         logger.info("Server ready, listening on stdio")
         mcp.run()  # Run with default stdio transport
