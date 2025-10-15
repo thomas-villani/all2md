@@ -127,13 +127,15 @@ def build_chart_table(
     # Set alignments if not provided
     if alignments is None:
         # Default: left for category, center for values
-        from all2md.ast import Alignment
         from typing import cast
+
+        from all2md.ast import Alignment
         alignments_list: list[Alignment | None] = [cast(Alignment | None, "left")]
         alignments_list.extend([cast(Alignment | None, "center")] * len(series_data))
     else:
-        from all2md.ast import Alignment
         from typing import cast
+
+        from all2md.ast import Alignment
         alignments_list = [cast(Alignment | None, a) for a in alignments]
 
     return Table(header=header_row, rows=data_rows, alignments=alignments_list)

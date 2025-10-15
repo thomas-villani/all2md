@@ -224,8 +224,7 @@ class PdfOptions(PaginatedParserOptions):
     header_sample_pages: int | list[int] | None = field(
         default=None,
         metadata={
-            "help": "Pages to sample for header detection",
-            "exclude_from_cli": True,  # Complex type, exclude for now
+            "help": "Pages to sample for header detection (single page or comma-separated list)",
             "importance": "advanced"
         }
     )
@@ -248,16 +247,16 @@ class PdfOptions(PaginatedParserOptions):
     header_size_allowlist: list[float] | None = field(
         default=None,
         metadata={
-            "exclude_from_cli": True,
+            "help": "Specific font sizes (in points) to always treat as headers",
             "importance": "advanced"
         }
     )
     header_size_denylist: list[float] | None = field(
         default=None,
         metadata={
-            "exclude_from_cli": True,
+            "help": "Font sizes (in points) to never treat as headers",
             "importance": "advanced"
-        }  # Complex type, exclude for now
+        }
     )
     header_use_font_weight: bool = field(
         default=DEFAULT_HEADER_USE_FONT_WEIGHT,
@@ -603,8 +602,7 @@ class PdfRendererOptions(BaseRendererOptions):
     heading_fonts: dict[int, tuple[str, int]] | None = field(
         default=None,
         metadata={
-            "help": "Heading font specs as {level: (font, size)}",
-            "exclude_from_cli": True,
+            "help": "Heading font specs as JSON (e.g., '{\"1\": [\"Helvetica-Bold\", 24]}')",
             "importance": "advanced"
         }
     )

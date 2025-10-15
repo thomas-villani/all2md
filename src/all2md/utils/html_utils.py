@@ -6,7 +6,7 @@ from html import escape as _html_escape
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from all2md.constants import HtmlPassthroughMode
+    pass
 
 MathNotation = Literal["latex", "mathml", "html"]
 

@@ -691,6 +691,10 @@ class TestHTMLNodes:
         ])
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
+        assert result == "&lt;div&gt;Custom HTML&lt;/div&gt;"
+
+        renderer = MarkdownRenderer(MarkdownOptions(html_sanitization="pass-through"))
+        result = renderer.render_to_string(doc)
         assert result == "<div>Custom HTML</div>"
 
     def test_html_inline(self):
@@ -703,6 +707,10 @@ class TestHTMLNodes:
             ])
         ])
         renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        assert result == "Text with &lt;span&gt;HTML&lt;/span&gt; inline"
+
+        renderer = MarkdownRenderer(MarkdownOptions(html_sanitization="pass-through"))
         result = renderer.render_to_string(doc)
         assert result == "Text with <span>HTML</span> inline"
 

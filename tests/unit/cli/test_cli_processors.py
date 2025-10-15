@@ -11,9 +11,9 @@ import pytest
 from all2md.cli import processors
 from all2md.cli.processors import (
     EXIT_SUCCESS,
+    _should_use_rich_output,
     build_transform_instances,
     convert_single_file,
-    _should_use_rich_output,
 )
 from all2md.converter_registry import registry
 from all2md.exceptions import DependencyError
@@ -22,7 +22,6 @@ from all2md.exceptions import DependencyError
 @pytest.fixture
 def dummy_transform_registry(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Provide a stub transform registry for CLI processor tests."""
-
     metadata_instances: list[Any] = []
     registry_instances: list[Any] = []
 
@@ -59,7 +58,6 @@ def dummy_transform_registry(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 @pytest.mark.unit
 def test_build_transform_instances_records_transform_specs(dummy_transform_registry) -> None:
     """CLI transform builder should persist serializable transform specs."""
-
     args = argparse.Namespace(transforms=['demo-transform'], _provided_args=set())
 
     transforms = build_transform_instances(args)
@@ -79,7 +77,6 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
     tmp_path,
 ) -> None:
     """convert_single_file should materialize transforms from serialized specs."""
-
     captured: dict[str, Any] = {}
 
     def fake_convert(*_, transforms=None, **__):  # type: ignore[no-untyped-def]
@@ -117,7 +114,6 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
 @pytest.mark.unit
 def test_should_use_rich_output_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """_should_use_rich_output should raise DependencyError when rich is unavailable."""
-
     args = argparse.Namespace(rich=True, force_rich=False)
     monkeypatch.setattr(processors, '_check_rich_available', lambda: False)
 
@@ -130,7 +126,6 @@ def test_should_use_rich_output_missing_dependency(monkeypatch: pytest.MonkeyPat
 @pytest.mark.unit
 def test_registry_default_extension_uses_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     """Registry helper should respect metadata-provided extensions."""
-
     metadata = SimpleNamespace(extensions=['custom'])
     monkeypatch.setattr(registry, 'get_format_info', lambda name: [metadata])
 
@@ -140,7 +135,6 @@ def test_registry_default_extension_uses_metadata(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.unit
 def test_registry_default_extension_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Registry helper should fall back to .<format> when metadata is missing."""
-
     monkeypatch.setattr(registry, 'get_format_info', lambda name: None)
 
     assert registry.get_default_extension_for_format('pptx') == '.pptx'

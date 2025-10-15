@@ -865,7 +865,6 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
 
 def handle_help_command(args: list[str] | None = None) -> int | None:
     """Handle the ``help`` subcommand for tiered CLI documentation."""
-
     if not args:
         args = sys.argv[1:]
 
@@ -1198,7 +1197,6 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
 def handle_config_generate_command(args: list[str] | None = None) -> int:
     """Handle ``config generate`` to create default configuration files."""
-
     parser = argparse.ArgumentParser(
         prog='all2md config generate',
         description='Generate a default configuration file with all available options.',
@@ -1340,7 +1338,6 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
 
 def handle_config_show_command(args: list[str] | None = None) -> int:
     """Handle ``config show`` command to display effective configuration."""
-
     from all2md.cli.config import get_config_search_paths, load_config_with_priority
 
     parser = argparse.ArgumentParser(

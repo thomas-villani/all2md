@@ -75,12 +75,10 @@ class DocxRendererOptions(BaseRendererOptions):
         }
     )
 
-    # TODO: why is this excluded from cli too? Can take a list.
     heading_font_sizes: dict[int, int] | None = field(
         default=None,
         metadata={
-            "help": "Font sizes for heading levels 1-6 (None = use built-in styles)",
-            "exclude_from_cli": True,  # Complex type, should handle a list
+            "help": "Font sizes for heading levels 1-6 as JSON object (e.g., '{\"1\": 24, \"2\": 18}')",
             "importance": "advanced"
         }
     )

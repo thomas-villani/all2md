@@ -15,11 +15,12 @@ from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_or
 
 from all2md import DependencyError, FormatError, ParsingError
 from all2md.cli.custom_actions import (
+    DynamicVersionAction,
     TrackingAppendAction,
     TrackingPositiveIntAction,
     TrackingStoreAction,
     TrackingStoreFalseAction,
-    TrackingStoreTrueAction, DynamicVersionAction,
+    TrackingStoreTrueAction,
 )
 from all2md.cli.presets import get_preset_names
 from all2md.constants import DocumentFormat
@@ -279,6 +280,47 @@ class DynamicCLIBuilder:
         elif 'choices' in metadata:
             kwargs['choices'] = metadata['choices']
 
+        # Handle Union types (for types like int | list[int])
+        elif get_origin(resolved_type) in (Union, types.UnionType):
+            args = get_args(resolved_type)
+            # Filter out None type
+            non_none_args = [arg for arg in args if arg is not type(None)]
+
+            # Check if this is Union[scalar, list[scalar]] (e.g., int | list[int])
+            if len(non_none_args) == 2:
+                scalar_type = None
+                list_type = None
+
+                for arg in non_none_args:
+                    if get_origin(arg) is list:
+                        list_args = get_args(arg)
+                        if list_args:
+                            list_type = list_args[0]
+                    elif arg in (int, float, str):
+                        scalar_type = arg
+
+                # If we have matching scalar and list types, create a flexible parser
+                if scalar_type and list_type and scalar_type == list_type:
+                    if scalar_type is int:
+                        def parse_int_or_list(value: str) -> int | list[int]:
+                            if ',' in value:
+                                try:
+                                    return [int(x.strip()) for x in value.split(',')]
+                                except ValueError as e:
+                                    raise argparse.ArgumentTypeError(
+                                        f"Expected integer or comma-separated integers, got: {value}"
+                                    ) from e
+                            else:
+                                try:
+                                    return int(value)
+                                except ValueError as e:
+                                    raise argparse.ArgumentTypeError(
+                                        f"Expected integer or comma-separated integers, got: {value}"
+                                    ) from e
+
+                        kwargs['type'] = parse_int_or_list
+                        help_suffix = '(single value or comma-separated)'
+
         # Handle list types using modern typing introspection
         elif get_origin(resolved_type) is list:
             # Get the list item type if available
@@ -297,6 +339,18 @@ class DynamicCLIBuilder:
 
                     kwargs['type'] = parse_int_list
                     help_suffix = '(comma-separated integers)'
+                elif item_type is float:
+                    # Add type function to parse comma-separated floats
+                    def parse_float_list(value: str) -> list[float]:
+                        try:
+                            return [float(x.strip()) for x in value.split(',')]
+                        except ValueError as e:
+                            raise argparse.ArgumentTypeError(
+                                f"Expected comma-separated floats, got: {value}"
+                            ) from e
+
+                    kwargs['type'] = parse_float_list
+                    help_suffix = '(comma-separated floats)'
                 else:
                     # Add type function to parse comma-separated strings
                     def parse_str_list(value: str) -> list[str]:
@@ -311,6 +365,24 @@ class DynamicCLIBuilder:
 
                 kwargs['type'] = parse_str_list_fallback
                 help_suffix = '(comma-separated values)'
+
+        # Handle dict types using JSON parsing
+        elif get_origin(resolved_type) is dict:
+            import json
+
+            def parse_json_dict(value: str) -> dict:
+                try:
+                    result = json.loads(value)
+                    if not isinstance(result, dict):
+                        raise ValueError("Expected JSON object")
+                    return result
+                except (json.JSONDecodeError, ValueError) as e:
+                    raise argparse.ArgumentTypeError(
+                        f"Expected JSON object, got: {value}. Error: {e}"
+                    ) from e
+
+            kwargs['type'] = parse_json_dict
+            help_suffix = '(JSON format)'
 
         # Handle special metadata types (legacy support for list_int)
         elif metadata.get('type') == 'list_int':
@@ -655,7 +727,6 @@ class DynamicCLIBuilder:
             format_name: str,
     ) -> None:
         """Add renderer options for a given format with dedicated prefixes."""
-
         cli_prefix = f"{format_name}-renderer"
         dest_prefix = f"renderer_{format_name}"
         group_name = f"{format_name.upper()} renderer options"

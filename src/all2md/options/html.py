@@ -15,10 +15,12 @@ from all2md.constants import (
     DEFAULT_CSP_ENABLED,
     DEFAULT_CSP_POLICY,
     DEFAULT_EXTRACT_TITLE,
+    DEFAULT_HTML_PASSTHROUGH_MODE,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
-    HtmlPassthroughMode, HTML_PASSTHROUGH_MODES, DEFAULT_HTML_PASSTHROUGH_MODE,
+    HTML_PASSTHROUGH_MODES,
+    HtmlPassthroughMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
@@ -238,8 +240,7 @@ class HtmlRendererOptions(BaseRendererOptions):
     css_class_map: dict[str, str | list[str]] | None = field(
         default=None,
         metadata={
-            "help": "Map AST node types to custom CSS classes",
-            "exclude_from_cli": True,  # TODO: Why exclude from CLI? Should parse
+            "help": "Map AST node types to custom CSS classes as JSON (e.g., '{\"Heading\": \"prose-heading\"}')",
             "importance": "advanced"
         }
     )

@@ -409,7 +409,7 @@ class TestConfigPriority:
 
         with patch('pathlib.Path.cwd', return_value=temp_path):
             loaded = load_config_with_priority()
-
+            print(loaded)
             assert loaded["test"] == "auto"
 
 

@@ -401,7 +401,7 @@ def group_and_format_runs(
 
     """
     # Import AST nodes here to avoid circular dependencies
-    from all2md.ast import Emphasis, Node, Strong, Text, Underline
+    from all2md.ast import Emphasis, Strong, Text, Underline
 
     # Default format builders if not provided
     if format_builders is None:

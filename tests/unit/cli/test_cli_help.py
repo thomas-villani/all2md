@@ -8,7 +8,6 @@ from all2md.cli.commands import handle_help_command
 
 def test_tiered_help_action_quick(capsys):
     """Invoking --help without selector prints quick help and exits."""
-
     parser = create_parser()
 
     with pytest.raises(SystemExit) as excinfo:
@@ -31,7 +30,6 @@ def test_tiered_help_action_quick(capsys):
 
 def test_tiered_help_action_full_selector(capsys):
     """--help full yields the expanded help output."""
-
     parser = create_parser()
 
     with pytest.raises(SystemExit):
@@ -48,7 +46,6 @@ def test_tiered_help_action_full_selector(capsys):
 
 def test_help_subcommand_handles_selector(capsys):
     """`all2md help pdf` renders section-specific help."""
-
     exit_code = handle_help_command(['help', 'pdf'])
     assert exit_code == 0
 
@@ -60,5 +57,4 @@ def test_help_subcommand_handles_selector(capsys):
 
 def test_handle_help_command_passthrough():
     """Non-help commands return None so other handlers can process them."""
-
     assert handle_help_command(['convert']) is None

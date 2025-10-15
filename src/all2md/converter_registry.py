@@ -652,8 +652,8 @@ class ConverterRegistry:
         -------
         str
             Preferred extension beginning with a leading dot.
-        """
 
+        """
         if format_name in ('auto', 'markdown'):
             return '.md'
 

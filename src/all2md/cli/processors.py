@@ -28,7 +28,6 @@ from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
 
-
 logger = logging.getLogger(__name__)
 
 _OPTION_COMPAT_WARNINGS: set[str] = set()
@@ -43,7 +42,6 @@ class TransformSpec(TypedDict):
 
 def _final_option_segment(remainder: str) -> str:
     """Return the terminal segment of a dot-delimited option path."""
-
     return remainder.split('.')[-1]
 
 
@@ -69,7 +67,6 @@ def _filter_options_for_formats(
         Options dictionary suitable for passing to convert()/to_markdown().
 
     """
-
     filtered: Dict[str, Any] = {}
     parser_fallback: Dict[str, Any] = {}
     renderer_fallback: Dict[str, Any] = {}
@@ -123,7 +120,6 @@ def _filter_options_for_formats(
 
 def _detect_format_for_path(input_path: Path | None) -> str | None:
     """Best-effort format detection for an input path."""
-
     if input_path is None:
         return None
 
@@ -143,7 +139,6 @@ def prepare_options_for_execution(
         renderer_hint: str | None = None,
 ) -> Dict[str, Any]:
     """Prepare CLI options for API consumption based on detected formats."""
-
     parser_format: str | None
     if parser_hint != 'auto':
         parser_format = parser_hint
@@ -504,8 +499,8 @@ def _instantiate_transforms_from_specs(transform_specs: list[TransformSpec]) -> 
     -------
     list[Any]
         List of transform instances instantiated from the registry.
-    """
 
+    """
     if not transform_specs:
         return []
 

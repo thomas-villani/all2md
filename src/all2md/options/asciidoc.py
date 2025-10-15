@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import HtmlPassthroughMode, DEFAULT_HTML_PASSTHROUGH_MODE, HTML_PASSTHROUGH_MODES
+from all2md.constants import DEFAULT_HTML_PASSTHROUGH_MODE, HTML_PASSTHROUGH_MODES, HtmlPassthroughMode
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 

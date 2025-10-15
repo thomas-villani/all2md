@@ -34,7 +34,6 @@ from all2md.ast import (
     Emphasis,
     Heading,
     HTMLBlock,
-    Image,
     Link,
     Node,
     SourceLocation,

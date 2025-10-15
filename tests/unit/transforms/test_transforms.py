@@ -443,6 +443,7 @@ class TestPipelineClass:
         """Test that renderers implementing only render_to_bytes are recognized."""
         class BytesOnlyRenderer:
             """Renderer that only implements render_to_bytes, not render_to_string."""
+
             def __init__(self, options=None):
                 self.options = options
 

@@ -158,12 +158,10 @@ class LocalFileAccessOptions(CloneFrozenMixin):
             "importance": "security"
         }
     )
-    # FIXME: these settings should not be excluded from the cli, we should parse them.
     local_file_allowlist: list[str] | None = field(
         default=None,
         metadata={
             "help": "List of directories allowed for local file access (when allow_local_files=True)",
-            "exclude_from_cli": True,  # Complex type, exclude for now
             "importance": "security"
         }
     )
@@ -171,7 +169,6 @@ class LocalFileAccessOptions(CloneFrozenMixin):
         default=None,
         metadata={
             "help": "List of directories denied for local file access",
-            "exclude_from_cli": True,  # Complex type, exclude for now
             "importance": "security"
         }
     )
