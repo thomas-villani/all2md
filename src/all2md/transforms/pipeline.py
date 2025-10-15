@@ -124,16 +124,37 @@ class HookAwareVisitor(NodeTransformer):
             # Execute element hook if registered
             if node_type and self.hook_manager.has_hooks(node_type):
                 # Execute hooks for this node type (may replace node variable)
-                node = self.hook_manager.execute_hooks(node_type, node, self.context)
+                result = self.hook_manager.execute_hooks(node_type, node, self.context)
 
                 # Hook removed node
-                if node is None:
+                if result is None:
                     return None  # type: ignore[unreachable]
 
-                # If hook replaced the node with a different object, update the path
-                # so descendants see the new node in their ancestry
-                if node is not self.context.node_path[-1]:
-                    self.context.node_path[-1] = node
+                # Validate that hook returned a Node instance
+                if not isinstance(result, Node):
+                    error_msg = (
+                        f"Hook for node type '{node_type}' returned invalid type "
+                        f"{type(result).__name__} instead of Node. "
+                        f"Hooks must return a Node instance or None to remove the node."
+                    )
+                    logger.error(error_msg)
+
+                    # In strict mode, raise error to abort pipeline
+                    if self.hook_manager.strict:
+                        raise TypeError(error_msg)
+
+                    # In non-strict mode, skip the invalid replacement and continue with original node
+                    logger.warning(
+                        f"Ignoring invalid hook result for '{node_type}', continuing with original node"
+                    )
+                else:
+                    # Valid node replacement - update the reference
+                    node = result
+
+                    # If hook replaced the node with a different object, update the path
+                    # so descendants see the new node in their ancestry
+                    if node is not self.context.node_path[-1]:
+                        self.context.node_path[-1] = node
 
             # Continue normal traversal with node still on path
             # This ensures children see this node in their ancestry

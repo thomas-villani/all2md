@@ -639,7 +639,7 @@ class AddConversionTimestampTransform(NodeTransformer):
     ----------
     field_name : str, default = "conversion_timestamp"
         Metadata field name for the timestamp
-    format : str, default = "iso"
+    timestamp_format : str, default = "iso"
         Timestamp format: "iso" for ISO 8601 with timezone, "unix" for Unix timestamp,
         or any strftime format string
     timespec : str, default = "seconds"
@@ -650,7 +650,7 @@ class AddConversionTimestampTransform(NodeTransformer):
         - "seconds": Seconds precision (default, reduces noisy diffs)
         - "milliseconds": Milliseconds precision
         - "microseconds": Microseconds precision
-        Only applies when format="iso". Ignored for other formats.
+        Only applies when timestamp_format="iso". Ignored for other formats.
 
     Examples
     --------
@@ -668,7 +668,7 @@ class AddConversionTimestampTransform(NodeTransformer):
 
     Add Unix timestamp:
 
-        >>> transform = AddConversionTimestampTransform(format="unix")
+        >>> transform = AddConversionTimestampTransform(timestamp_format="unix")
         >>> new_doc = transform.transform(document)
         >>> # metadata['conversion_timestamp'] = "1735732800"
 
@@ -676,7 +676,7 @@ class AddConversionTimestampTransform(NodeTransformer):
 
         >>> transform = AddConversionTimestampTransform(
         ...     field_name="converted_at",
-        ...     format="%Y-%m-%d %H:%M:%S UTC"
+        ...     timestamp_format="%Y-%m-%d %H:%M:%S UTC"
         ... )
         >>> new_doc = transform.transform(document)
         >>> # metadata['converted_at'] = "2025-01-01 12:00:00 UTC"
@@ -696,7 +696,7 @@ class AddConversionTimestampTransform(NodeTransformer):
     def __init__(
             self,
             field_name: str = "conversion_timestamp",
-            format: str = "iso",
+            timestamp_format: str = "iso",
             timespec: str = "seconds"
     ):
         """Initialize with field name, format, and time precision.
@@ -705,14 +705,14 @@ class AddConversionTimestampTransform(NodeTransformer):
         ----------
         field_name : str
             Metadata field name
-        format : str
+        timestamp_format : str
             Timestamp format
         timespec : str
             Time precision for ISO format (default: "seconds")
 
         """
         self.field_name = field_name
-        self.format = format
+        self.timestamp_format = timestamp_format
         self.timespec = timespec
 
     def visit_document(self, node: Document) -> Document:
@@ -732,13 +732,13 @@ class AddConversionTimestampTransform(NodeTransformer):
         # Generate timestamp (timezone-aware UTC)
         now = datetime.now(timezone.utc)
 
-        if self.format == "iso":
+        if self.timestamp_format == "iso":
             timestamp = now.isoformat(timespec=self.timespec)
-        elif self.format == "unix":
+        elif self.timestamp_format == "unix":
             timestamp = str(int(now.timestamp()))
         else:
             # Custom strftime format
-            timestamp = now.strftime(self.format)
+            timestamp = now.strftime(self.timestamp_format)
 
         # Add to metadata
         new_metadata = node.metadata.copy()

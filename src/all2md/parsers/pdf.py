@@ -616,11 +616,12 @@ def extract_page_images(
     -------
     tuple[list[dict], dict[str, str]]
         Tuple containing:
-        - List of dictionaries with image info:
-          - 'bbox': Image bounding box
-          - 'path': Path to saved image or data URI
-          - 'caption': Detected caption text (if any)
-        - Dictionary of footnote definitions (label -> content) collected during processing
+            - List of dictionaries with image info:
+                - 'bbox': Image bounding box
+                - 'path': Path to saved image or data URI
+                - 'caption': Detected caption text (if any)
+            - Dictionary of footnote definitions (label -> content) collected during processing
+
 
     Notes
     -----
@@ -797,9 +798,10 @@ def detect_tables_by_ruling_lines(
     -------
     tuple[list[PyMuPDF Rect], list[tuple[list, list]]]
         Tuple containing:
-        - List of bounding boxes for detected tables
-        - List of (h_lines, v_lines) tuples for each table, where each line
-          is a tuple of (x0, y0, x1, y1) coordinates
+            - List of bounding boxes for detected tables
+            - List of (h_lines, v_lines) tuples for each table, where each line
+              is a tuple of (x0, y0, x1, y1) coordinates
+
 
     """
     # Get page dimensions

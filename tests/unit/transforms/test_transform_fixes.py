@@ -469,7 +469,7 @@ class TestFix5TimezoneAwareTimestamps:
         from all2md.transforms.builtin import AddConversionTimestampTransform
 
         doc = Document(children=[])
-        transform = AddConversionTimestampTransform(format="iso")
+        transform = AddConversionTimestampTransform(timestamp_format="iso")
         result = transform.transform(doc)
 
         timestamp = result.metadata['conversion_timestamp']
@@ -485,7 +485,7 @@ class TestFix5TimezoneAwareTimestamps:
         from all2md.transforms.builtin import AddConversionTimestampTransform
 
         doc = Document(children=[])
-        transform = AddConversionTimestampTransform(format="unix")
+        transform = AddConversionTimestampTransform(timestamp_format="unix")
 
         before = int(datetime.now(timezone.utc).timestamp())
         result = transform.transform(doc)
@@ -512,7 +512,7 @@ class TestFix5TimezoneAwareTimestamps:
         ]
 
         for format_str, expected_min_length in test_formats:
-            transform = AddConversionTimestampTransform(format=format_str)
+            transform = AddConversionTimestampTransform(timestamp_format=format_str)
             result = transform.transform(doc)
             timestamp = result.metadata['conversion_timestamp']
             assert len(timestamp) >= expected_min_length, \

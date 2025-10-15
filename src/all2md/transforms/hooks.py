@@ -332,6 +332,9 @@ class HookManager:
         Hooks for the same target are executed in priority order (lower first).
         If priorities are equal, hooks run in registration order.
 
+        Sorting is deferred until execution time for better performance when
+        registering many hooks.
+
         Examples
         --------
         >>> manager = HookManager()
@@ -341,11 +344,8 @@ class HookManager:
         if target not in self._hooks:
             self._hooks[target] = []
 
-        # Store hook with priority
+        # Store hook with priority (sorting deferred to execution time)
         self._hooks[target].append((priority, hook))
-
-        # Sort by priority
-        self._hooks[target].sort(key=lambda x: x[0])
 
         logger.debug(f"Registered hook for '{target}' with priority {priority}")
 
@@ -418,13 +418,20 @@ class HookManager:
         In strict mode, exceptions from hooks are re-raised and abort execution.
         In non-strict mode (default), exceptions are logged and execution continues.
 
+        Hooks are sorted by priority at execution time for better registration
+        performance when many hooks are registered.
+
         """
         if target not in self._hooks:
             return obj
 
         result = obj
 
-        for priority, hook in self._hooks[target]:
+        # Sort hooks by priority (lower priority runs first)
+        # Sorting is done here rather than at registration time for better performance
+        sorted_hooks = sorted(self._hooks[target], key=lambda x: x[0])
+
+        for priority, hook in sorted_hooks:
             try:
                 result = hook(result, context)
 

@@ -441,7 +441,7 @@ class TestAddConversionTimestampTransform:
         """Test adding Unix timestamp."""
         doc = Document(children=[])
 
-        transform = AddConversionTimestampTransform(format="unix")
+        transform = AddConversionTimestampTransform(timestamp_format="unix")
         result = transform.transform(doc)
 
         assert 'conversion_timestamp' in result.metadata
@@ -461,7 +461,7 @@ class TestAddConversionTimestampTransform:
         """Test custom strftime format."""
         doc = Document(children=[])
 
-        transform = AddConversionTimestampTransform(format="%Y-%m-%d")
+        transform = AddConversionTimestampTransform(timestamp_format="%Y-%m-%d")
         result = transform.transform(doc)
 
         # Should be in YYYY-MM-DD format

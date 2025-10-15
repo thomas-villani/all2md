@@ -191,7 +191,7 @@ ADD_TIMESTAMP_METADATA = TransformMetadata(
             help="Metadata field name for the timestamp",
             cli_flag='--timestamp-field'
         ),
-        'format': ParameterSpec(
+        'timestamp_format': ParameterSpec(
             type=str,
             default="iso",
             help="Timestamp format: 'iso' for ISO 8601, 'unix' for Unix timestamp, or any strftime format string",

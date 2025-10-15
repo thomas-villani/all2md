@@ -474,11 +474,13 @@ class TransformMetadata:
         if self.priority < 0:
             raise ValueError(f"Priority must be non-negative, got {self.priority}")
 
-    def create_instance(self, **kwargs: Any) -> NodeTransformer:
+    def create_instance(self, strict: bool = False, **kwargs: Any) -> NodeTransformer:
         """Create an instance of the transform with given parameters.
 
         Parameters
         ----------
+        strict : bool, default = False
+            If True, log warnings for unknown parameters to aid debugging
         **kwargs
             Parameters to pass to the transform constructor
 
@@ -503,6 +505,9 @@ class TransformMetadata:
         >>> instance = metadata.create_instance(threshold=20)
 
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Validate and filter parameters
         validated_params = {}
 
@@ -516,6 +521,14 @@ class TransformMetadata:
                 raise ValueError(f"Required parameter '{param_name}' not provided")
             elif param_spec.default is not None:
                 validated_params[param_name] = param_spec.default
+
+        # Check for unknown parameters (debugging aid)
+        unknown_params = set(kwargs.keys()) - set(self.parameters.keys())
+        if unknown_params and (strict or logger.isEnabledFor(logging.DEBUG)):
+            logger.warning(
+                f"Transform '{self.name}' received unknown parameter(s): {', '.join(sorted(unknown_params))}. "
+                f"These will be ignored. Valid parameters are: {', '.join(sorted(self.parameters.keys()))}"
+            )
 
         # Create instance
         try:
