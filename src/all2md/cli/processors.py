@@ -8,6 +8,7 @@ function to improve maintainability and testability.
 
 import argparse
 import json
+import logging
 import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -24,9 +25,131 @@ from all2md.cli.builder import (
     get_exit_code_for_exception,
 )
 from all2md.constants import DocumentFormat
+from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
 
 
+logger = logging.getLogger(__name__)
+
+_OPTION_COMPAT_WARNINGS: set[str] = set()
+
+
+def _final_option_segment(remainder: str) -> str:
+    """Return the terminal segment of a dot-delimited option path."""
+
+    return remainder.split('.')[-1]
+
+
+def _filter_options_for_formats(
+        options: Dict[str, Any],
+        parser_format: str | None,
+        renderer_format: str | None,
+) -> Dict[str, Any]:
+    """Project a namespaced options dict onto parser/renderer kwargs.
+
+    Parameters
+    ----------
+    options : dict
+        Fully-qualified options dictionary (e.g., {'pdf.pages': [1]})
+    parser_format : str or None
+        Detected parser format. When None, fall back to legacy behaviour with warnings.
+    renderer_format : str or None
+        Target renderer format. When None, fall back with warnings for renderer-prefixed keys.
+
+    Returns
+    -------
+    dict
+        Options dictionary suitable for passing to convert()/to_markdown().
+
+    """
+
+    filtered: Dict[str, Any] = {}
+    parser_fallback: Dict[str, Any] = {}
+    renderer_fallback: Dict[str, Any] = {}
+
+    for key, value in options.items():
+        if '.' not in key:
+            filtered[key] = value
+            continue
+
+        prefix, remainder = key.split('.', 1)
+        terminal = _final_option_segment(remainder)
+
+        if parser_format and prefix == parser_format:
+            filtered[terminal] = value
+            continue
+
+        if renderer_format and prefix == renderer_format:
+            filtered[terminal] = value
+            continue
+
+        if not parser_format:
+            parser_fallback[terminal] = value
+
+        if not renderer_format:
+            renderer_fallback[terminal] = value
+
+    if not parser_format and parser_fallback:
+        for legacy_key, legacy_value in parser_fallback.items():
+            if legacy_key not in filtered:
+                filtered[legacy_key] = legacy_value
+            if legacy_key not in _OPTION_COMPAT_WARNINGS:
+                logger.warning(
+                    "Using legacy parser option '%s'. Specify --format to avoid relying on implicit mapping.",
+                    legacy_key,
+                )
+                _OPTION_COMPAT_WARNINGS.add(legacy_key)
+
+    if not renderer_format and renderer_fallback:
+        for legacy_key, legacy_value in renderer_fallback.items():
+            if legacy_key not in filtered:
+                filtered[legacy_key] = legacy_value
+            if legacy_key not in _OPTION_COMPAT_WARNINGS:
+                logger.warning(
+                    "Using legacy renderer option '%s'. Specify --output-type to avoid implicit mapping.",
+                    legacy_key,
+                )
+                _OPTION_COMPAT_WARNINGS.add(legacy_key)
+
+    return filtered
+
+
+def _detect_format_for_path(input_path: Path | None) -> str | None:
+    """Best-effort format detection for an input path."""
+
+    if input_path is None:
+        return None
+
+    try:
+        detected = registry.detect_format(input_path)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.debug("Failed to detect format for %s: %s", input_path, exc)
+        return None
+
+    return cast(Optional[str], detected)
+
+
+def prepare_options_for_execution(
+        options: Dict[str, Any],
+        input_path: Path | None,
+        parser_hint: str,
+        renderer_hint: str | None = None,
+) -> Dict[str, Any]:
+    """Prepare CLI options for API consumption based on detected formats."""
+
+    parser_format: str | None
+    if parser_hint != 'auto':
+        parser_format = parser_hint
+    else:
+        parser_format = _detect_format_for_path(input_path)
+
+    renderer_format: str | None
+    if renderer_hint and renderer_hint != 'auto':
+        renderer_format = renderer_hint
+    else:
+        renderer_format = None
+
+    return _filter_options_for_formats(options, parser_format, renderer_format)
 def _process_items_with_progress(
         items: List[Any],
         process_fn: Any,
@@ -582,11 +705,18 @@ def process_stdin(
     input_source = stdin_data
 
     try:
+        effective_options = prepare_options_for_execution(
+            options,
+            None,
+            format_arg,
+            'markdown',
+        )
+
         markdown_content = to_markdown(
             input_source,
             source_format=cast(DocumentFormat, format_arg),
             transforms=transforms,
-            **options
+            **effective_options
         )
 
         if parsed_args.out:
@@ -711,12 +841,19 @@ def process_multi_file(
         # Handle pager for stdout output
         if output_path is None and parsed_args.pager:
             try:
+                effective_options = prepare_options_for_execution(
+                    options,
+                    file,
+                    format_arg,
+                    'markdown',
+                )
+
                 # Convert the document
                 markdown_content = to_markdown(
                     file,
                     source_format=cast(DocumentFormat, format_arg),
                     transforms=transforms,
-                    **options
+                    **effective_options
                 )
 
                 # Display with pager
@@ -1106,7 +1243,13 @@ def process_merge_from_list(
 
         try:
             # Convert file to AST
-            doc = to_ast(file_path, source_format=cast(DocumentFormat, format_arg), **options)
+            effective_options = prepare_options_for_execution(
+                options,
+                file_path,
+                format_arg,
+            )
+
+            doc = to_ast(file_path, source_format=cast(DocumentFormat, format_arg), **effective_options)
 
             # Add section title if provided and not disabled
             if section_title and not args.no_section_titles:
@@ -1662,9 +1805,20 @@ def convert_single_file_for_collation(
 
     """
     try:
+        effective_options = prepare_options_for_execution(
+            options,
+            input_path,
+            format_arg,
+            'markdown',
+        )
+
         # Convert the document
-        markdown_content = to_markdown(input_path, source_format=cast(DocumentFormat, format_arg),
-                                       transforms=transforms, **options)
+        markdown_content = to_markdown(
+            input_path,
+            source_format=cast(DocumentFormat, format_arg),
+            transforms=transforms,
+            **effective_options
+        )
 
         # Add file header and separator
         header = f"# File: {input_path.name}\n\n"
@@ -1894,6 +2048,22 @@ def convert_single_file(
 
     """
     try:
+        renderer_hint = target_format
+        if renderer_hint == 'auto' and output_path:
+            try:
+                detected_target = registry.detect_format(output_path)
+                if detected_target and detected_target != 'txt':
+                    renderer_hint = detected_target
+            except Exception:  # pragma: no cover - best effort
+                renderer_hint = 'auto'
+
+        effective_options = prepare_options_for_execution(
+            options,
+            input_path,
+            format_arg,
+            renderer_hint,
+        )
+
         # Convert the document using the convert() API for bidirectional conversion
         if output_path:
             # Write to file - convert() handles the target format correctly
@@ -1903,7 +2073,7 @@ def convert_single_file(
                 source_format=cast(DocumentFormat, format_arg),
                 target_format=cast(DocumentFormat, target_format),
                 transforms=transforms,
-                **options
+                **effective_options
             )
             return EXIT_SUCCESS, str(input_path), None
         else:
@@ -1914,7 +2084,7 @@ def convert_single_file(
                 source_format=cast(DocumentFormat, format_arg),
                 target_format='markdown',
                 transforms=transforms,
-                **options
+                **effective_options
             )
             # convert() returns str for markdown, bytes for binary formats
             if isinstance(result, bytes):
@@ -1990,11 +2160,17 @@ def process_files_unified(
                 with ProgressContext(use_rich, True, 1, f"Converting {file.name}") as progress:
                     try:
                         # Convert the document
+                        effective_options = prepare_options_for_execution(
+                            options,
+                            file,
+                            format_arg,
+                            'markdown',
+                        )
                         markdown_content = to_markdown(
                             file,
                             source_format=cast(Any, format_arg),
                             transforms=transforms,
-                            **options
+                            **effective_options
                         )
                         progress.update()
                     except Exception as e:
@@ -2018,11 +2194,17 @@ def process_files_unified(
 
         # Plain output (no rich)
         try:
+            effective_options = prepare_options_for_execution(
+                options,
+                file,
+                format_arg,
+                'markdown',
+            )
             markdown_content = to_markdown(
                 file,
                 source_format=cast(Any, format_arg),
                 transforms=transforms,
-                **options
+                **effective_options
             )
             print(markdown_content)
             return EXIT_SUCCESS
@@ -2217,7 +2399,17 @@ def process_with_rich_output(
 
             try:
                 # Convert the document
-                markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **options)
+                effective_options = prepare_options_for_execution(
+                    options,
+                    file,
+                    format_arg,
+                    'markdown',
+                )
+                markdown_content = to_markdown(
+                    file,
+                    source_format=cast(Any, format_arg),
+                    **effective_options
+                )
                 progress.update(task_id, advance=1)
             except Exception as e:
                 exit_code = get_exit_code_for_exception(e)

@@ -130,10 +130,8 @@ from all2md.progress import ProgressCallback, ProgressEvent
 from . import (
     ast,  # noqa: F401
     parsers,  # noqa: F401
+    transforms  # noqa: F401
 )
-
-# Import transforms module for AST transformation
-from . import transforms as transforms_module  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

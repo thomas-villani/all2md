@@ -8,13 +8,14 @@ This module tests the enhanced CLI features including:
 - Security preset flags
 """
 
+import logging
 from unittest.mock import Mock, patch
 
 import pytest
 
 from all2md.cli import create_parser, process_detect_only, process_dry_run
 from all2md.cli.commands import handle_list_formats_command
-from all2md.cli.processors import apply_security_preset
+from all2md.cli.processors import apply_security_preset, prepare_options_for_execution
 from all2md.exceptions import DependencyError
 
 
@@ -560,3 +561,35 @@ class TestSecurityPresetOptionsMapping:
             assert 'alert' not in markdown
         finally:
             temp_file.unlink()
+
+
+@pytest.mark.unit
+class TestOptionPreparation:
+    """Tests for options preparation helper used by CLI conversions."""
+
+    def test_prepare_options_filters_by_format(self):
+        """Only relevant namespaced options should be preserved."""
+        options = {
+            'pdf.pages': [1, 2],
+            'docx.keep_styles': True,
+            'markdown.emphasis_symbol': '_',
+            'max_asset_size_bytes': 1024,
+        }
+
+        result = prepare_options_for_execution(options, None, 'pdf', 'markdown')
+
+        assert result['pages'] == [1, 2]
+        assert 'keep_styles' not in result
+        assert result['emphasis_symbol'] == '_'
+        assert result['max_asset_size_bytes'] == 1024
+
+    def test_prepare_options_fallback_warns_when_format_unknown(self, caplog):
+        """Unknown formats should fall back to legacy keys with a warning."""
+        options = {'pdf.pages': [3, 4]}
+
+        caplog.set_level(logging.WARNING, logger='all2md.cli.processors')
+
+        result = prepare_options_for_execution(options, None, 'auto', 'markdown')
+
+        assert result['pages'] == [3, 4]
+        assert any('legacy parser option' in record.message for record in caplog.records)

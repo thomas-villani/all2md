@@ -10,8 +10,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import tomli_w
 
+try:
+    import tomli_w
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    tomli_w = None
+
+
+def require_tomli_w() -> None:
+    if tomli_w is None:
+        pytest.skip("tomli_w is required for this test")
+
+from all2md.cli.commands import handle_config_generate_command, handle_config_show_command
 from all2md.cli.config import (
     discover_config_file,
     get_config_search_paths,
@@ -131,6 +141,7 @@ class TestConfigDiscovery:
 
 @pytest.mark.unit
 @pytest.mark.cli
+@pytest.mark.skipif(tomli_w is None, reason="tomli_w is required for these tests")
 class TestConfigLoading:
     """Test configuration file loading functionality."""
 
@@ -357,6 +368,7 @@ class TestConfigMerging:
 
 @pytest.mark.unit
 @pytest.mark.cli
+@pytest.mark.skipif(tomli_w is None, reason="tomli_w is required for these tests")
 class TestConfigPriority:
     """Test configuration priority and loading logic."""
 
@@ -395,10 +407,55 @@ class TestConfigPriority:
             with open(config_file, "wb") as f:
                 tomli_w.dump({"test": "auto"}, f)
 
-            with patch('pathlib.Path.cwd', return_value=temp_path):
-                loaded = load_config_with_priority()
+        with patch('pathlib.Path.cwd', return_value=temp_path):
+            loaded = load_config_with_priority()
 
-                assert loaded["test"] == "auto"
+            assert loaded["test"] == "auto"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigCommands:
+    """Tests for config-related CLI commands."""
+
+    def test_config_generate_writes_json(self, tmp_path):
+        """Generating configuration to a file should succeed."""
+        output_path = tmp_path / 'generated.json'
+
+        exit_code = handle_config_generate_command([
+            '--format', 'json',
+            '--out', str(output_path),
+        ])
+
+        assert exit_code == 0
+        assert output_path.exists()
+
+        data = json.loads(output_path.read_text(encoding='utf-8'))
+        assert data['attachment_mode'] == 'skip'
+        assert 'pdf' in data
+
+    def test_config_generate_stdout_toml(self, capsys):
+        """Default invocation should emit TOML to stdout."""
+        exit_code = handle_config_generate_command([])
+        assert exit_code == 0
+
+        captured = capsys.readouterr()
+        assert '[pdf]' in captured.out
+        assert 'attachment_mode' in captured.out
+
+    def test_config_show_json_no_source(self, capsys, monkeypatch):
+        """Config show should honor --format json and --no-source."""
+        monkeypatch.delenv('ALL2MD_CONFIG', raising=False)
+
+        with patch('all2md.cli.config.load_config_with_priority', return_value={'pdf': {'pages': [1]}}), \
+                patch('all2md.cli.config.get_config_search_paths', return_value=[]):
+            exit_code = handle_config_show_command(['--format', 'json', '--no-source'])
+
+        assert exit_code == 0
+
+        captured = capsys.readouterr()
+        assert 'Configuration Sources' not in captured.out
+        assert '"pdf"' in captured.out
 
     def test_load_config_with_priority_returns_empty_when_not_found(self):
         """Test that empty dict is returned when no config found."""
@@ -413,6 +470,8 @@ class TestConfigPriority:
 
     def test_load_config_with_priority_explicit_overrides_env(self):
         """Test that explicit path overrides env var path."""
+        require_tomli_w()
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 

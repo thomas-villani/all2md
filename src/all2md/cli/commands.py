@@ -30,8 +30,10 @@ from all2md.cli.help_formatter import display_help
 from all2md.cli.processors import (
     _get_rich_markdown_kwargs,
     _should_use_rich_output,
+    prepare_options_for_execution,
     process_detect_only,
     process_dry_run,
+    process_files_collated,
     process_stdin,
     setup_and_validate_options,
     validate_arguments,
@@ -337,19 +339,31 @@ def collect_input_files(
 
         # Handle glob patterns
         if '*' in input_path_str:
-            files.extend(Path.cwd().glob(input_path_str))
+            for matched in Path.cwd().glob(input_path_str):
+                if matched.is_file():
+                    files.append(matched)
         elif input_path.is_file():
             # Single file
             if not extensions or input_path.suffix.lower() in extensions:
                 files.append(input_path)
         elif input_path.is_dir():
             # Directory - collect files
+            normalized_exts = {ext.lower() for ext in extensions} if extensions else None
+
             if recursive:
-                for ext in extensions:
-                    files.extend(input_path.rglob(f'*{ext}'))
+                for child in input_path.rglob('*'):
+                    if not child.is_file():
+                        continue
+                    if normalized_exts and child.suffix.lower() not in normalized_exts:
+                        continue
+                    files.append(child)
             else:
-                for ext in extensions:
-                    files.extend(input_path.glob(f'*{ext}'))
+                for child in input_path.iterdir():
+                    if not child.is_file():
+                        continue
+                    if normalized_exts and child.suffix.lower() not in normalized_exts:
+                        continue
+                    files.append(child)
         else:
             logging.warning(f"Path does not exist: {input_path}")
 
@@ -988,10 +1002,6 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     if parsed_args.dry_run:
         return process_dry_run(files, parsed_args, format_arg)
 
-    if parsed_args.collate:
-        print("Error: --collate is only supported for markdown output", file=sys.stderr)
-        return EXIT_VALIDATION_ERROR
-
     if not parsed_args.out and not parsed_args.output_dir and len(files) > 1:
         print("Error: Multiple inputs require --output-dir or --out", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
@@ -1003,6 +1013,12 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     if parsed_args.output_dir and parsed_args.output_type == 'auto':
         print("Error: --output-dir requires --output-type to determine file extensions", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
+
+    if parsed_args.collate:
+        if parsed_args.output_type not in ('auto', 'markdown'):
+            print("Error: --collate is only supported for markdown output", file=sys.stderr)
+            return EXIT_VALIDATION_ERROR
+        return process_files_collated(files, parsed_args, options, format_arg, transforms)
 
     base_input_dir: Optional[Path] = None
     if parsed_args.preserve_structure and len(files) > 0:
@@ -1051,16 +1067,34 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
         try:
             target_format = parsed_args.output_type
+            renderer_hint = target_format
 
             if output_path is None:
                 target_format = 'markdown'
+                renderer_hint = 'markdown'
+            elif renderer_hint == 'auto' and output_path:
+                try:
+                    detected_target = registry.detect_format(output_path)
+                    if detected_target and detected_target != 'txt':
+                        renderer_hint = detected_target
+                except Exception:
+                    renderer_hint = 'auto'
+
+            effective_options = prepare_options_for_execution(
+                options,
+                file,
+                format_arg,
+                renderer_hint,
+            )
+
+            if output_path is None:
                 rendered = convert(
                     file,
                     output=None,
                     source_format=format_arg,  # type: ignore[arg-type]
                     target_format=target_format,  # type: ignore[arg-type]
                     transforms=transforms,
-                    **options,
+                    **effective_options,
                 )
 
                 if isinstance(rendered, bytes):
@@ -1104,7 +1138,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                 source_format=format_arg,  # type: ignore[arg-type]
                 target_format=target_format,
                 transforms=transforms,
-                **options,
+                **effective_options,
             )
 
             successes.append((file, output_path))
@@ -1156,66 +1190,28 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
 
 def handle_config_generate_command(args: list[str] | None = None) -> int:
-    """Handle config generate command to create default configuration files.
+    """Handle ``config generate`` to create default configuration files."""
 
-    Parameters
-    ----------
-    args : list[str], optional
-        Command line arguments (beyond 'config generate')
+    parser = argparse.ArgumentParser(
+        prog='all2md config generate',
+        description='Generate a default configuration file with all available options.',
+    )
+    parser.add_argument(
+        '--format',
+        choices=('toml', 'json'),
+        default='toml',
+        help='Output format for the generated configuration (default: toml).',
+    )
+    parser.add_argument(
+        '--out',
+        dest='out',
+        help='Write configuration to the given path instead of stdout.',
+    )
 
-    Returns
-    -------
-    int
-        Exit code (0 for success)
-
-    """
-    # Parse arguments
-    output_format = 'toml'
-    output_path = None
-
-    if args:
-        i = 0
-        while i < len(args):
-            arg = args[i]
-            if arg in ('--help', '-h'):
-                print("""Usage: all2md config generate [OPTIONS]
-
-Generate a default configuration file with all available options.
-
-Options:
-  --format FORMAT    Output format: 'toml' (default) or 'json'
-  --out PATH         Output file path (default: prints to stdout)
-  -h, --help        Show this help message
-
-Examples:
-  all2md config generate                           # Print TOML to stdout
-  all2md config generate --format json             # Print JSON to stdout
-  all2md config generate --out .all2md.toml        # Save TOML to file
-  all2md config generate --format json --out config.json
-""")
-                return 0
-            elif arg == '--format':
-                if i + 1 < len(args):
-                    output_format = args[i + 1]
-                    i += 2
-                else:
-                    print("Error: --format requires an argument", file=sys.stderr)
-                    return 1
-            elif arg == '--out':
-                if i + 1 < len(args):
-                    output_path = args[i + 1]
-                    i += 2
-                else:
-                    print("Error: --out requires an argument", file=sys.stderr)
-                    return 1
-            else:
-                print(f"Error: Unknown argument '{arg}'", file=sys.stderr)
-                return 1
-
-    # Validate format
-    if output_format not in ('toml', 'json'):
-        print(f"Error: Invalid format '{output_format}'. Use 'toml' or 'json'", file=sys.stderr)
-        return 1
+    try:
+        parsed_args = parser.parse_args(args or [])
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 0
 
     # FIXME: THIS IS NOT the default config!
     # Generate default configuration with comments
@@ -1251,9 +1247,7 @@ Examples:
         },
     }
 
-    # Generate output
-    if output_format == 'toml':
-        # Generate TOML with helpful comments
+    if parsed_args.format == 'toml':
         output_lines = [
             '# all2md configuration file',
             '# Automatically generated default configuration',
@@ -1320,125 +1314,85 @@ Examples:
         ]
         output_text = '\n'.join(output_lines)
     else:
-        # JSON output
         output_text = json.dumps(default_config, indent=2, ensure_ascii=False)
 
-    # Write output
-    if output_path:
+    if parsed_args.out:
         try:
-            output_path_obj = Path(output_path)
-            output_path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(output_path_obj, 'w', encoding='utf-8') as f:
-                f.write(output_text)
-
-            print(f"Configuration written to {output_path}")
-            return 0
-        except Exception as e:
-            print(f"Error writing configuration file: {e}", file=sys.stderr)
+            output_path = Path(parsed_args.out)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(output_text, encoding='utf-8')
+            print(f"Configuration written to {parsed_args.out}")
+        except Exception as exc:
+            print(f"Error writing configuration file: {exc}", file=sys.stderr)
             return 1
-    else:
-        print(output_text)
         return 0
+
+    print(output_text)
+    return 0
 
 
 def handle_config_show_command(args: list[str] | None = None) -> int:
-    """Handle config show command to display effective configuration.
+    """Handle ``config show`` command to display effective configuration."""
 
-    Parameters
-    ----------
-    args : list[str], optional
-        Command line arguments (beyond 'config show')
-
-    Returns
-    -------
-    int
-        Exit code (0 for success)
-
-    """
     from all2md.cli.config import get_config_search_paths, load_config_with_priority
 
-    # Parse arguments
-    output_format = 'toml'
-    show_source = True
+    parser = argparse.ArgumentParser(
+        prog='all2md config show',
+        description='Display the effective configuration that all2md will use.',
+    )
+    parser.add_argument(
+        '--format',
+        choices=('toml', 'json'),
+        default='toml',
+        help='Output format for the configuration (default: toml).',
+    )
+    parser.add_argument(
+        '--no-source',
+        dest='show_source',
+        action='store_false',
+        default=True,
+        help='Hide configuration source information.',
+    )
 
-    if args:
-        for arg in args:
-            if arg in ('--help', '-h'):
-                print("""Usage: all2md config show [OPTIONS]
+    try:
+        parsed_args = parser.parse_args(args or [])
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 0
 
-Display the effective configuration that would be used by all2md.
-
-This shows the merged configuration from all sources in priority order:
-1. ALL2MD_CONFIG environment variable
-2. .all2md.toml or .all2md.json in current directory
-3. .all2md.toml or .all2md.json in home directory
-
-Options:
-  --format FORMAT    Output format: 'toml' (default) or 'json'
-  --no-source       Don't show configuration source information
-  -h, --help        Show this help message
-
-Examples:
-  all2md config show                    # Show effective config
-  all2md config show --format json      # Show as JSON
-  all2md config show --no-source        # Hide source info
-""")
-                return 0
-            elif arg == '--format':
-                # Get next arg
-                idx = args.index(arg)
-                if idx + 1 < len(args):
-                    output_format = args[idx + 1]
-            elif arg == '--no-source':
-                show_source = False
-            elif not arg.startswith('-') and args[args.index(arg) - 1] != '--format':
-                print(f"Error: Unknown argument '{arg}'", file=sys.stderr)
-                return 1
-
-    # Validate format
-    if output_format not in ('toml', 'json'):
-        print(f"Error: Invalid format '{output_format}'. Use 'toml' or 'json'", file=sys.stderr)
-        return 1
-
-    # Load configuration with priority
     env_config_path = os.environ.get('ALL2MD_CONFIG')
     config = load_config_with_priority(
         explicit_path=None,
-        env_var_path=env_config_path
+        env_var_path=env_config_path,
     )
 
-    # Show source information
-    if show_source:
-        print("Configuration Sources (in priority order):")
-        print("-" * 60)
+    if parsed_args.show_source:
+        print('Configuration Sources (in priority order):')
+        print('-' * 60)
 
         if env_config_path:
             exists = Path(env_config_path).exists()
-            status = "FOUND" if exists else "NOT FOUND"
+            status = 'FOUND' if exists else 'NOT FOUND'
             print(f"1. ALL2MD_CONFIG env var: {env_config_path} [{status}]")
         else:
-            print("1. ALL2MD_CONFIG env var: (not set)")
+            print('1. ALL2MD_CONFIG env var: (not set)')
 
-        search_paths = get_config_search_paths()
-        for i, path in enumerate(search_paths, start=2):
-            exists = path.exists()
-            status = "FOUND" if exists else "-"
-            print(f"{i}. {path} [{status}]")
+        for index, path in enumerate(get_config_search_paths(), start=2):
+            status = 'FOUND' if path.exists() else '-'
+            print(f"{index}. {path} [{status}]")
 
         print()
 
-    # Display configuration
     if not config:
-        print("No configuration found. Using defaults.")
-        print("\nTo create a config file, run: all2md config generate --out .all2md.toml")
+        print('No configuration found. Using defaults.')
+        print('\nTo create a config file, run: all2md config generate --out .all2md.toml')
         return 0
 
-    print("Effective Configuration:")
-    print("=" * 60)
+    print('Effective Configuration:')
+    print('=' * 60)
 
-    if output_format == 'toml':
+    if parsed_args.format == 'toml':
         import tomli_w
+
         output_text = tomli_w.dumps(config)
     else:
         output_text = json.dumps(config, indent=2, ensure_ascii=False)

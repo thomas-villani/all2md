@@ -232,8 +232,8 @@ class DynamicCLIBuilder:
             self, field: Any, resolved_type: Type,
             is_optional: bool, metadata: Dict[str, Any],
             cli_name: str
-    ) -> Dict[str, Any]:
-        """Infer argparse type and action from resolved field type.
+    ) -> tuple[Dict[str, Any], str | None]:
+        """Infer argparse type/action metadata from resolved field type.
 
         Parameters
         ----------
@@ -250,11 +250,12 @@ class DynamicCLIBuilder:
 
         Returns
         -------
-        dict
-            Argparse kwargs for type and action
+        tuple[dict, str | None]
+            Argparse kwargs (type/action/choices only) and optional help suffix
 
         """
         kwargs: Dict[str, Any] = {}
+        help_suffix: str | None = None
 
         # Handle boolean fields
         if resolved_type is bool:
@@ -295,21 +296,21 @@ class DynamicCLIBuilder:
                             ) from e
 
                     kwargs['type'] = parse_int_list
-                    kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated integers)'
+                    help_suffix = '(comma-separated integers)'
                 else:
                     # Add type function to parse comma-separated strings
                     def parse_str_list(value: str) -> list[str]:
                         return [x.strip() for x in value.split(',') if x.strip()]
 
                     kwargs['type'] = parse_str_list
-                    kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated values)'
+                    help_suffix = '(comma-separated values)'
             else:
                 # Fallback for untyped lists
                 def parse_str_list_fallback(value: str) -> list[str]:
                     return [x.strip() for x in value.split(',') if x.strip()]
 
                 kwargs['type'] = parse_str_list_fallback
-                kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated values)'
+                help_suffix = '(comma-separated values)'
 
         # Handle special metadata types (legacy support for list_int)
         elif metadata.get('type') == 'list_int':
@@ -323,7 +324,7 @@ class DynamicCLIBuilder:
                     ) from e
 
             kwargs['type'] = parse_legacy_int_list
-            kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated integers)'
+            help_suffix = '(comma-separated integers)'
 
         # Handle basic types
         elif resolved_type in (int, float):
@@ -332,7 +333,7 @@ class DynamicCLIBuilder:
             # str is default, don't specify unless needed
             pass
 
-        return kwargs
+        return kwargs, help_suffix
 
     def snake_to_kebab(self, name: str) -> str:
         """Convert snake_case to kebab-case.
@@ -428,10 +429,13 @@ class DynamicCLIBuilder:
         underlying_type, is_optional = self._handle_optional_type(resolved_type)
 
         # Get type-based kwargs
-        type_kwargs = self._infer_argument_type_and_action(
+        type_kwargs, help_suffix = self._infer_argument_type_and_action(
             field, underlying_type, is_optional, metadata, cli_name
         )
         kwargs.update(type_kwargs)
+
+        if help_suffix:
+            kwargs['help'] = f"{kwargs['help']} {help_suffix}"
 
         # Handle metadata-specified types that override type inference
         if metadata.get('type') in (int, float):
@@ -1055,6 +1059,20 @@ Examples:
 
         return None
 
+    def _flatten_config_options(self, data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+        """Flatten nested configuration dictionaries into dot-key form."""
+        flattened: Dict[str, Any] = {}
+
+        for key, value in data.items():
+            full_key = f"{prefix}.{key}" if prefix else key
+
+            if isinstance(value, dict):
+                flattened.update(self._flatten_config_options(value, full_key))
+            else:
+                flattened[full_key] = value
+
+        return flattened
+
     def map_args_to_options(self, parsed_args: argparse.Namespace, json_options: dict | None = None) -> dict:
         """Map CLI arguments to options using dot notation parsing.
 
@@ -1074,42 +1092,11 @@ Examples:
             Mapped options dictionary ready for to_markdown()
 
         """
-        # Start with JSON options if provided, processing dot notation keys
-        options = {}
+        # Start with JSON options if provided, flattening nested structures to dot-notation keys
+        options: Dict[str, Any] = {}
         if json_options:
-            # Import helpers for dot notation parsing
-            from all2md.cli.custom_actions import merge_nested_dicts, parse_dot_notation
-
-            # Process JSON options that may contain dot notation keys
-            nested_config: Dict[str, Any] = {}
-            for key, value in json_options.items():
-                if '.' in key:
-                    # Parse full dot notation into nested dict
-                    # e.g., "html.network.allowed_hosts" -> {'html': {'network': {'allowed_hosts': ...}}}
-                    parsed = parse_dot_notation(key, value)
-                    nested_config = merge_nested_dicts(nested_config, parsed)
-                else:
-                    # Direct field name (no nesting)
-                    options[key] = value
-
-            # Flatten nested config into options dict, preserving full dot-notation paths
-            # This prevents name collisions and ensures options are correctly mapped
-            for format_key, format_opts in nested_config.items():
-                if isinstance(format_opts, dict):
-                    # Recursively flatten nested dicts, preserving prefixes
-                    for nested_key, nested_value in format_opts.items():
-                        if isinstance(nested_value, dict):
-                            # Further nested (e.g., html.network.* fields)
-                            # Keep fully qualified key: "html.network.allowed_hosts"
-                            for field_key, field_value in nested_value.items():
-                                options[f"{format_key}.{nested_key}.{field_key}"] = field_value
-                        else:
-                            # One level nested (e.g., pdf.pages)
-                            # Keep fully qualified key: "pdf.pages"
-                            options[f"{format_key}.{nested_key}"] = nested_value
-                else:
-                    # Top-level value (no nesting)
-                    options[format_key] = format_opts
+            flattened = self._flatten_config_options(json_options)
+            options.update(flattened)
 
         # Get the set of explicitly provided arguments first
         provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
@@ -1183,9 +1170,7 @@ Examples:
                                 was_provided=True
                             )
                             if processed_value is not None:
-                                # Store using just the field name for CLI arguments
-                                # e.g., "allowed_hosts" not "html.network.allowed_hosts"
-                                options[field.name] = processed_value
+                                options[arg_name] = processed_value
                         elif arg_value is not None:
                             # Track unknown argument
                             unknown_args.append(arg_name)
@@ -1201,9 +1186,7 @@ Examples:
                                     was_provided=True
                                 )
                                 if processed_value is not None:
-                                    # Store using just the field name for CLI arguments
-                                    # e.g., "pages" not "pdf.pages"
-                                    options[field.name] = processed_value
+                                    options[arg_name] = processed_value
                                 field_found = True
                                 break
 

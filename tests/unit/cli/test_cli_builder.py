@@ -5,12 +5,18 @@ option mapping, and validation logic.
 """
 
 import argparse
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
-from all2md.cli.commands import collect_input_files, handle_dependency_commands, save_config_to_file
+from all2md.cli.commands import (
+    _run_convert_command,
+    collect_input_files,
+    handle_dependency_commands,
+    save_config_to_file,
+)
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
 
 
@@ -79,13 +85,18 @@ class TestDynamicCLIBuilder:
             options = builder.map_args_to_options(parsed_args)
 
         # Check PDF options mapping
-        assert 'pages' in options
-        assert options['pages'] == "1,2,3"
-        assert options['password'] == 'secret'
-        assert options['detect_columns'] is False
+        assert 'pdf.pages' in options
+        assert options['pdf.pages'] == "1,2,3"
+        assert options['pdf.password'] == 'secret'
+        assert options['pdf.detect_columns'] is False
 
         # Check Markdown options mapping
-        assert options['emphasis_symbol'] == '_'
+        assert options['markdown.emphasis_symbol'] == '_'
+
+        # Legacy keys should no longer be present
+        assert 'pages' not in options
+        assert 'password' not in options
+        assert 'detect_columns' not in options
 
     def test_list_int_processing(self):
         """Test processing of list_int type arguments."""
@@ -117,6 +128,30 @@ class TestDynamicCLIBuilder:
         # Test that not provided returns None
         result = builder._process_argument_value(mock_field, metadata, "1,2,3", "pdf.pages", was_provided=False)
         assert result is None
+
+    def test_help_suffix_appended_without_overwriting(self):
+        """Ensure metadata help text is preserved when adding suffixes."""
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class SampleOptions:
+            tags: list[str] = field(
+                default_factory=list,
+                metadata={'help': 'Comma separated tags to include'},
+            )
+
+        builder = DynamicCLIBuilder()
+        options_class = SampleOptions
+        sample_field = options_class.__dataclass_fields__['tags']
+
+        kwargs = builder.get_argument_kwargs(
+            sample_field,
+            dict(sample_field.metadata),
+            '--tags',
+            options_class,
+        )
+
+        assert kwargs['help'] == 'Comma separated tags to include (comma-separated values)'
 
     def test_json_dot_notation_preserves_full_paths(self):
         """Test that JSON options with dot notation preserve full key paths (Issue #8)."""
@@ -229,12 +264,13 @@ class TestDynamicCLIBuilder:
         cli_name = "--bool-no-default"
 
         # Get argument kwargs
-        kwargs = builder._infer_argument_type_and_action(
+        kwargs, help_suffix = builder._infer_argument_type_and_action(
             test_field, bool, False, metadata, cli_name
         )
 
         # Should get store_true action (not crash trying to compare MISSING to True/False)
         assert kwargs['action'] == 'store_true'
+        assert help_suffix is None
 
     def test_logger_used_instead_of_print(self):
         """Test that logger is used instead of print for warnings (Issue #13)."""
@@ -309,14 +345,15 @@ class TestDynamicCLIBuilder:
         }):
             options = builder.map_args_to_options(parsed_args)
 
-        # Verify options are mapped correctly
-        # For nested options, the final field name should be used as the key
-        assert 'allow_remote_fetch' in options
-        assert options['allow_remote_fetch'] is True
-        assert 'require_https' in options
-        assert options['require_https'] is True
-        assert 'allowed_hosts' in options
-        assert options['allowed_hosts'] == ['example.com', 'cdn.example.com']
+        # Verify options are mapped correctly with fully qualified keys
+        assert options['html.network.allow_remote_fetch'] is True
+        assert options['html.network.require_https'] is True
+        assert options['html.network.allowed_hosts'] == ['example.com', 'cdn.example.com']
+
+        # Legacy keys should not be present
+        assert 'allow_remote_fetch' not in options
+        assert 'require_https' not in options
+        assert 'allowed_hosts' not in options
 
     def test_nested_field_resolution(self):
         """Test the _resolve_nested_field helper for multi-level nesting."""
@@ -370,7 +407,7 @@ class TestCLIParser:
         """Test basic parser creation and help text."""
         parser = create_parser()
         assert parser.prog == "all2md"
-        assert "Convert documents to Markdown format" in parser.description
+        assert "Convert documents to Markdown" in parser.description
 
     def test_parser_required_arguments(self):
         """Test that input argument is optional at parser level but validated in main()."""
@@ -796,6 +833,13 @@ class TestNewCLIFeatures:
             pdf_files = [f for f in files if f.suffix == '.pdf']
             assert len(pdf_files) >= 1
 
+            # Glob patterns should exclude directories even when matched
+            with patch('pathlib.Path.cwd', return_value=temp_path):
+                globbed = collect_input_files(['*'])
+                assert all(p.is_file() for p in globbed)
+                names = {p.name for p in globbed}
+                assert 'subdir' not in names
+
     def test_output_path_generation(self):
         """Test output path generation logic."""
         import tempfile
@@ -841,12 +885,63 @@ class TestNewCLIFeatures:
         assert "--collate" in help_text
         assert "--no-summary" in help_text
 
-        # Check help descriptions are meaningful
-        assert "rich terminal output" in help_text.lower()
-        assert "progress bar" in help_text.lower()
-        assert "parallel" in help_text.lower()
-        assert "recursive" in help_text.lower()
-        assert "collate" in help_text.lower() or "combine" in help_text.lower()
+        help_text_lower = help_text.lower()
+        assert "rich terminal output" in help_text_lower
+        assert "progress bar" in help_text_lower
+        assert "parallel" in help_text_lower
+        assert "recursive" in help_text_lower
+        assert "collate" in help_text_lower or "combine" in help_text_lower
+
+    def test_run_convert_command_collate_delegates(self):
+        """Ensure the convert subcommand delegates to the collate processor."""
+        with (
+            patch('all2md.cli.commands.process_files_collated', return_value=0) as mock_collate,
+            patch('all2md.cli.commands.collect_input_files', return_value=[Path('dummy.pdf')]),
+            patch('all2md.cli.commands.setup_and_validate_options', return_value=({}, 'pdf', None)),
+            patch('all2md.cli.commands.validate_arguments', return_value=True),
+        ):
+            parsed_args = argparse.Namespace(
+                input=['dummy.pdf'],
+                output_type='markdown',
+                collate=True,
+                out=None,
+                output_dir=None,
+                preserve_structure=False,
+                progress=False,
+                rich=False,
+                skip_errors=False,
+                format='auto',
+                recursive=False,
+                exclude=None,
+                detect_only=False,
+                dry_run=False,
+                pager=False,
+                no_summary=False,
+                log_level='WARNING',
+                log_file=None,
+                trace=False,
+                verbose=False,
+                strict_args=False,
+                transforms=None,
+                merge_from_list=None,
+                generate_toc=False,
+                toc_title=None,
+                toc_depth=None,
+                toc_position=None,
+                list_separator=None,
+                no_section_titles=False,
+                watch=False,
+                watch_debounce=None,
+                parallel=None,
+                zip=None,
+                assets_layout=None,
+                save_config=None,
+            )
+
+            exit_code = _run_convert_command(parsed_args)
+
+            assert exit_code == 0
+            mock_collate.assert_called_once()
 
 
 @pytest.mark.unit
@@ -1088,6 +1183,7 @@ class TestNewEnhancedCLIFeatures:
         from unittest.mock import Mock, patch
 
         from all2md.cli import process_dry_run
+        pytest.importorskip('rich.console')
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
