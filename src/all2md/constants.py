@@ -126,6 +126,7 @@ DEFAULT_LINK_STYLE: LinkStyleType = "inline"
 DEFAULT_REFERENCE_LINK_PLACEMENT: ReferenceLinkPlacement = "end_of_document"
 DEFAULT_AUTOLINK_BARE_URLS = False
 DEFAULT_TABLE_PIPE_ESCAPE = True
+DEFAULT_MARKDOWN_HTML_SANITIZATION: HtmlPassthroughMode = "escape"  # Secure by default
 
 # =============================================================================
 # PDF-specific Constants
@@ -222,6 +223,11 @@ MAX_LANGUAGE_IDENTIFIER_LENGTH = 50
 # Table handling
 DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
 TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "justify": ":---"}
+
+# HTML rendering security defaults
+DEFAULT_ALLOW_REMOTE_SCRIPTS = False  # Secure by default - require opt-in for CDN scripts
+DEFAULT_CSP_ENABLED = False
+DEFAULT_CSP_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
 
 # Local file security
 DEFAULT_ALLOW_LOCAL_FILES = False

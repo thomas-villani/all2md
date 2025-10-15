@@ -408,7 +408,7 @@ class TestAsciiDocOptions:
             Heading(level=2, content=[Text(content="Section")])
         ])
 
-        options = AsciiDocRendererOptions(heading_style="setext")
+        options = AsciiDocRendererOptions()
         renderer = AsciiDocRenderer(options=options)
         result = renderer.render_to_string(doc)
 

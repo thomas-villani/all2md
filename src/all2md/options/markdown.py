@@ -21,6 +21,7 @@ from all2md.constants import (
     DEFAULT_INCLUDE_METADATA_FRONTMATTER,
     DEFAULT_LINK_STYLE,
     DEFAULT_LIST_INDENT_WIDTH,
+    DEFAULT_MARKDOWN_HTML_SANITIZATION,
     DEFAULT_MATH_MODE,
     DEFAULT_METADATA_FORMAT,
     DEFAULT_REFERENCE_LINK_PLACEMENT,
@@ -29,6 +30,7 @@ from all2md.constants import (
     CodeFenceChar,
     EmphasisSymbol,
     FlavorType,
+    HtmlPassthroughMode,
     LinkStyleType,
     MathMode,
     MetadataFormatType,
@@ -130,6 +132,14 @@ class MarkdownOptions(BaseRendererOptions):
         requested representation is unavailable on a node, the renderer falls
         back to any available representation while preserving flavor
         constraints.
+    html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "escape"
+        How to handle raw HTML content in markdown (HTMLBlock and HTMLInline nodes):
+        - "pass-through": Pass HTML through unchanged (use only with trusted content)
+        - "escape": HTML-escape the content to show as text (secure default)
+        - "drop": Remove HTML content entirely
+        - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
+        Note: This does not affect fenced code blocks with language="html", which are
+        always rendered as code and are already safe.
 
     """
 
@@ -310,6 +320,16 @@ class MarkdownOptions(BaseRendererOptions):
         metadata={
             "help": "Format for metadata frontmatter: yaml, toml, or json",
             "choices": ["yaml", "toml", "json"]
+        }
+    )
+    html_sanitization: HtmlPassthroughMode = field(
+        default=DEFAULT_MARKDOWN_HTML_SANITIZATION,
+        metadata={
+            "help": "How to handle raw HTML content in markdown: "
+                    "pass-through (allow HTML as-is), escape (show as text), "
+                    "drop (remove entirely), sanitize (remove dangerous elements). "
+                    "Default is 'escape' for security. Does not affect code blocks.",
+            "choices": ["pass-through", "escape", "drop", "sanitize"]
         }
     )
 

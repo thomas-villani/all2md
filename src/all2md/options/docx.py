@@ -17,6 +17,7 @@ from all2md.constants import (
     CommentMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.common import NetworkFetchOptions
 
 
 # src/all2md/options/docx.py
@@ -50,6 +51,11 @@ class DocxRendererOptions(BaseRendererOptions):
         styles (headings, body text, etc.) instead of creating a blank document. This
         is powerful for corporate environments where documents must adopt specific style
         guidelines defined in a template.
+    network : NetworkFetchOptions, default NetworkFetchOptions()
+        Network security settings for fetching remote images. By default,
+        remote image fetching is disabled (allow_remote_fetch=False).
+        Set network.allow_remote_fetch=True to enable secure remote image fetching
+        with the same security guardrails as PPTX renderer.
 
     """
 
@@ -98,6 +104,13 @@ class DocxRendererOptions(BaseRendererOptions):
         default=None,
         metadata={
             "help": "Path to .docx template file for styles (None = default blank document)"
+        }
+    )
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
+        metadata={
+            "help": "Network security settings for remote image fetching",
+            "exclude_from_cli": True  # Handled via flattened fields
         }
     )
 

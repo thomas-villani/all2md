@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import io
 import logging
+import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
@@ -71,6 +72,7 @@ from all2md.options.pdf import PdfRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file
+from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -798,8 +800,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(node.url)
             elif urlparse(node.url).scheme in ('http', 'https'):
-                # Remote URL - skip for now
-                return
+                # Remote URL - use secure fetching if enabled
+                image_file = self._fetch_remote_image(node.url)
             else:
                 # Local file
                 image_file = node.url
@@ -851,6 +853,70 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         if temp_path:
             self._temp_files.append(temp_path)
         return temp_path
+
+    def _fetch_remote_image(self, url: str) -> str | None:
+        """Fetch remote image securely.
+
+        Parameters
+        ----------
+        url : str
+            Remote image URL
+
+        Returns
+        -------
+        str or None
+            Path to temporary file with image data, or None if fetch failed
+
+        """
+        # Check global network disable flag
+        if is_network_disabled():
+            logger.debug(f"Network disabled, skipping remote image: {url}")
+            return None
+
+        # Check if remote fetching is allowed
+        if not self.options.network.allow_remote_fetch:
+            logger.debug(f"Remote fetching disabled, skipping image: {url}")
+            return None
+
+        try:
+            # Fetch image data securely
+            image_data = fetch_image_securely(
+                url=url,
+                allowed_hosts=self.options.network.allowed_hosts,
+                require_https=self.options.network.require_https,
+                max_size_bytes=self.options.max_asset_size_bytes,
+                timeout=self.options.network.network_timeout,
+                require_head_success=self.options.network.require_head_success
+            )
+
+            # Determine file extension from URL or content type
+            parsed = urlparse(url)
+            path_lower = parsed.path.lower()
+
+            if path_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
+                ext = path_lower.split('.')[-1]
+            else:
+                # Default to png
+                ext = 'png'
+
+            # Write to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}') as f:
+                f.write(image_data)
+                temp_path = f.name
+
+            self._temp_files.append(temp_path)
+            logger.debug(f"Successfully fetched remote image: {url}")
+            return temp_path
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch remote image {url}: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to fetch remote image {url}: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e
+                ) from e
+            return None
 
     def visit_line_break(self, node: LineBreak) -> None:
         """Render a LineBreak node.

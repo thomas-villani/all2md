@@ -849,3 +849,176 @@ class TestFootnotes:
 
         # Definition should be dropped
         assert "Footnote text" not in result
+
+
+@pytest.mark.unit
+class TestHTMLSanitization:
+    """Tests for HTML sanitization options."""
+
+    def test_html_block_escape_default(self):
+        """Test that HTML blocks are escaped by default (secure-by-default)."""
+        doc = Document(children=[
+            HTMLBlock(content="<script>alert('xss')</script>")
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        # Should be escaped
+        assert "&lt;script&gt;" in result
+        assert "&lt;/script&gt;" in result
+        # Should not contain raw HTML
+        assert "<script>" not in result
+
+    def test_html_inline_escape_default(self):
+        """Test that inline HTML is escaped by default (secure-by-default)."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Text with "),
+                HTMLInline(content="<img src=x onerror=alert(1)>"),
+                Text(content=" inline")
+            ])
+        ])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        # Should be escaped
+        assert "&lt;img" in result
+        assert "&gt;" in result
+        # Should not contain raw HTML
+        assert "<img" not in result
+
+    def test_html_sanitization_pass_through_mode(self):
+        """Test HTML pass-through mode (allows raw HTML)."""
+        doc = Document(children=[
+            HTMLBlock(content="<div class='custom'>Content</div>")
+        ])
+        options = MarkdownOptions(html_sanitization="pass-through")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should pass through unchanged
+        assert "<div class='custom'>Content</div>" in result
+
+    def test_html_sanitization_escape_mode(self):
+        """Test HTML escape mode (shows HTML as text)."""
+        doc = Document(children=[
+            HTMLBlock(content="<script>dangerous()</script>")
+        ])
+        options = MarkdownOptions(html_sanitization="escape")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should be HTML-escaped
+        assert "&lt;script&gt;dangerous()&lt;/script&gt;" in result
+        assert "<script>" not in result
+
+    def test_html_sanitization_drop_mode(self):
+        """Test HTML drop mode (removes HTML entirely)."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Before")]),
+            HTMLBlock(content="<div>Removed content</div>"),
+            Paragraph(content=[Text(content="After")])
+        ])
+        options = MarkdownOptions(html_sanitization="drop")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # HTML content should be removed
+        assert "Removed content" not in result
+        assert "<div>" not in result
+        # Other content should remain
+        assert "Before" in result
+        assert "After" in result
+
+    def test_html_sanitization_sanitize_mode(self):
+        """Test HTML sanitize mode (removes dangerous elements)."""
+        doc = Document(children=[
+            HTMLBlock(content="<p>Safe paragraph</p><script>alert('bad')</script>")
+        ])
+        options = MarkdownOptions(html_sanitization="sanitize")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Safe HTML should be preserved
+        assert "<p>" in result or "Safe paragraph" in result
+        # Dangerous script tag should be removed (text content may remain, which is expected)
+        assert "<script>" not in result
+        assert "</script>" not in result
+
+    def test_html_inline_sanitization_modes(self):
+        """Test that inline HTML respects all sanitization modes."""
+        html_content = "<span onclick='bad()'>Text</span>"
+
+        # Escape mode
+        doc_escape = Document(children=[
+            Paragraph(content=[HTMLInline(content=html_content)])
+        ])
+        options_escape = MarkdownOptions(html_sanitization="escape")
+        renderer_escape = MarkdownRenderer(options_escape)
+        result_escape = renderer_escape.render_to_string(doc_escape)
+        assert "&lt;span" in result_escape
+
+        # Drop mode
+        doc_drop = Document(children=[
+            Paragraph(content=[
+                Text(content="Before "),
+                HTMLInline(content=html_content),
+                Text(content=" After")
+            ])
+        ])
+        options_drop = MarkdownOptions(html_sanitization="drop")
+        renderer_drop = MarkdownRenderer(options_drop)
+        result_drop = renderer_drop.render_to_string(doc_drop)
+        assert "Before  After" in result_drop or "Before After" in result_drop
+        assert "<span" not in result_drop
+
+    def test_html_sanitization_does_not_affect_code_blocks(self):
+        """Test that HTML sanitization does NOT affect code blocks."""
+        doc = Document(children=[
+            CodeBlock(content="<script>alert('This is code')</script>", language="html")
+        ])
+        # Even with escape mode, code blocks should render their content unchanged
+        options = MarkdownOptions(html_sanitization="escape")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Code block should contain the raw HTML (not escaped)
+        assert "```html\n<script>alert('This is code')</script>\n```" in result
+
+    def test_html_sanitization_does_not_affect_inline_code(self):
+        """Test that HTML sanitization does NOT affect inline code."""
+        doc = Document(children=[
+            Paragraph(content=[
+                Text(content="Example: "),
+                Code(content="<div>code</div>")
+            ])
+        ])
+        # Even with escape mode, inline code should render their content unchanged
+        options = MarkdownOptions(html_sanitization="escape")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Inline code should contain the raw HTML (not escaped)
+        assert "`<div>code</div>`" in result
+
+    def test_html_sanitization_multiple_html_blocks(self):
+        """Test HTML sanitization with multiple HTML blocks."""
+        doc = Document(children=[
+            HTMLBlock(content="<div>Block 1</div>"),
+            Paragraph(content=[Text(content="Regular text")]),
+            HTMLBlock(content="<script>evil()</script>")
+        ])
+        options = MarkdownOptions(html_sanitization="escape")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Both HTML blocks should be escaped
+        assert "&lt;div&gt;Block 1&lt;/div&gt;" in result
+        assert "&lt;script&gt;evil()&lt;/script&gt;" in result
+        # Regular text unaffected
+        assert "Regular text" in result
+
+    def test_html_sanitization_empty_html_block(self):
+        """Test HTML sanitization with empty HTML content."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Before")]),
+            HTMLBlock(content=""),
+            Paragraph(content=[Text(content="After")])
+        ])
+        options = MarkdownOptions(html_sanitization="escape")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should not produce errors
+        assert "Before" in result
+        assert "After" in result

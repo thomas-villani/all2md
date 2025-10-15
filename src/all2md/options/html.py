@@ -10,7 +10,10 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from all2md.constants import (
+    DEFAULT_ALLOW_REMOTE_SCRIPTS,
     DEFAULT_CONVERT_NBSP,
+    DEFAULT_CSP_ENABLED,
+    DEFAULT_CSP_POLICY,
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
@@ -84,6 +87,16 @@ class HtmlRendererOptions(BaseRendererOptions):
     css_class_map : dict[str, str | list[str]] or None, default None
         Map AST node type names to custom CSS classes.
         Example: {"Heading": "article-heading", "CodeBlock": ["code", "highlight"]}
+    allow_remote_scripts : bool, default False
+        Allow loading remote scripts (e.g., MathJax/KaTeX from CDN).
+        Default is False for security - requires explicit opt-in for CDN usage.
+        When False and math_renderer != 'none', will raise a warning.
+    csp_enabled : bool, default False
+        Add Content-Security-Policy meta tag to standalone HTML documents.
+        Helps prevent XSS attacks by restricting resource loading.
+    csp_policy : str or None, default (secure policy)
+        Custom Content-Security-Policy header value.
+        If None, uses default: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
 
     Examples
     --------
@@ -203,6 +216,26 @@ class HtmlRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Map AST node types to custom CSS classes",
             "exclude_from_cli": True  # TODO: Why exclude from CLI? Should parse json.
+        }
+    )
+    allow_remote_scripts: bool = field(
+        default=DEFAULT_ALLOW_REMOTE_SCRIPTS,
+        metadata={
+            "help": "Allow loading remote scripts (e.g., MathJax/KaTeX CDN). "
+                    "Default is False for security - opt-in required for CDN usage."
+        }
+    )
+    csp_enabled: bool = field(
+        default=DEFAULT_CSP_ENABLED,
+        metadata={
+            "help": "Add Content-Security-Policy meta tag to standalone HTML documents"
+        }
+    )
+    csp_policy: str | None = field(
+        default=DEFAULT_CSP_POLICY,
+        metadata={
+            "help": "Custom Content-Security-Policy header value. "
+                    "If None, uses default secure policy."
         }
     )
 

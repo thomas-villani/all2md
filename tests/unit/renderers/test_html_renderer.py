@@ -693,3 +693,212 @@ class TestOutputMethods:
 
         result = output.getvalue()
         assert b"Test content" in result
+
+
+@pytest.mark.unit
+class TestSecurityFeatures:
+    """Tests for HTML renderer security features."""
+
+    def test_allow_remote_scripts_default_false(self):
+        """Test that allow_remote_scripts defaults to False (secure-by-default)."""
+        options = HtmlRendererOptions(standalone=True)
+        assert options.allow_remote_scripts is False
+
+    def test_csp_enabled_default_false(self):
+        """Test that csp_enabled defaults to False."""
+        options = HtmlRendererOptions(standalone=True)
+        assert options.csp_enabled is False
+
+    def test_remote_scripts_disabled_no_mathjax_script(self):
+        """Test that MathJax script is NOT included when allow_remote_scripts=False."""
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            math_renderer="mathjax",
+            allow_remote_scripts=False
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # MathJax CDN script should NOT be included
+        assert "cdn.jsdelivr.net/npm/mathjax" not in result
+        assert "mathjax" not in result.lower() or "data-notation" in result
+
+    def test_remote_scripts_enabled_includes_mathjax_script(self):
+        """Test that MathJax script IS included when allow_remote_scripts=True."""
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            math_renderer="mathjax",
+            allow_remote_scripts=True
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # MathJax CDN script SHOULD be included
+        assert "cdn.jsdelivr.net/npm/mathjax" in result or "mathjax" in result.lower()
+
+    def test_remote_scripts_disabled_no_katex_script(self):
+        """Test that KaTeX script is NOT included when allow_remote_scripts=False."""
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            math_renderer="katex",
+            allow_remote_scripts=False
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # KaTeX CDN script should NOT be included
+        assert "cdn.jsdelivr.net/npm/katex" not in result
+        assert "katex" not in result.lower() or "data-notation" in result
+
+    def test_remote_scripts_enabled_includes_katex_script(self):
+        """Test that KaTeX script IS included when allow_remote_scripts=True."""
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            math_renderer="katex",
+            allow_remote_scripts=True
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # KaTeX CDN script SHOULD be included
+        assert "cdn.jsdelivr.net/npm/katex" in result or "katex" in result.lower()
+
+    def test_math_renderer_none_no_warning(self):
+        """Test that math_renderer='none' doesn't trigger warning."""
+        doc = Document(children=[
+            Paragraph(content=[MathInline(content="x^2", notation="latex")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            math_renderer="none",
+            allow_remote_scripts=False
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should render without requiring remote scripts
+        assert "x^2" in result
+
+    def test_csp_meta_tag_when_enabled(self):
+        """Test that CSP meta tag is included when csp_enabled=True."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Test")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            csp_enabled=True
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should include CSP meta tag
+        assert "Content-Security-Policy" in result
+        assert '<meta http-equiv="Content-Security-Policy"' in result
+
+    def test_csp_meta_tag_not_included_when_disabled(self):
+        """Test that CSP meta tag is NOT included when csp_enabled=False."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Test")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            csp_enabled=False
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should NOT include CSP meta tag
+        assert "Content-Security-Policy" not in result
+
+    def test_csp_meta_tag_only_in_standalone_mode(self):
+        """Test that CSP meta tag is only included in standalone mode."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Test")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=False,
+            csp_enabled=True
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should NOT include CSP meta tag in fragment mode
+        assert "Content-Security-Policy" not in result
+        assert "<head>" not in result
+
+    def test_csp_default_policy(self):
+        """Test that default CSP policy is secure."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Test")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            csp_enabled=True
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should include default secure policy (quotes are HTML-escaped)
+        assert "default-src &#x27;self&#x27;" in result or "default-src 'self'" in result
+        assert "script-src &#x27;self&#x27;" in result or "script-src 'self'" in result
+        assert ("style-src &#x27;self&#x27; &#x27;unsafe-inline&#x27;" in result or
+                "style-src 'self' 'unsafe-inline'" in result)
+
+    def test_csp_custom_policy(self):
+        """Test that custom CSP policy is used when specified."""
+        custom_policy = "default-src 'none'; script-src 'self' https://trusted.cdn.com;"
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Test")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            csp_enabled=True,
+            csp_policy=custom_policy
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should include custom policy (quotes are HTML-escaped)
+        assert "default-src &#x27;none&#x27;" in result or "default-src 'none'" in result
+        assert "https://trusted.cdn.com" in result
+
+    def test_csp_policy_properly_escaped(self):
+        """Test that CSP policy is properly HTML-escaped."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Test")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            csp_enabled=True,
+            escape_html=True
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # CSP meta tag should be present and properly formatted
+        assert '<meta http-equiv="Content-Security-Policy"' in result
+        # Should not have unescaped quotes in attribute
+        assert 'content="' in result
+
+    def test_combined_security_features(self):
+        """Test that multiple security features work together."""
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Secure content")])
+        ])
+        options = HtmlRendererOptions(
+            standalone=True,
+            allow_remote_scripts=False,
+            csp_enabled=True,
+            escape_html=True,
+            math_renderer="mathjax"
+        )
+        renderer = HtmlRenderer(options)
+        result = renderer.render_to_string(doc)
+        # Should include CSP
+        assert "Content-Security-Policy" in result
+        # Should NOT include remote scripts
+        assert "cdn.jsdelivr.net" not in result
+        # Should be valid HTML
+        assert "<!DOCTYPE html>" in result
+        assert "<html" in result

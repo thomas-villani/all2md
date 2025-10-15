@@ -72,7 +72,7 @@ class MCPConfig(CloneFrozenMixin):
     enable_doc_edit: bool = False  # Disabled by default for security (document manipulation)
     read_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     write_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
-    include_images: bool = True  # Default to True for vLLM visibility
+    include_images: bool = False  # Enable for vision-enabled LLMs
     flavor: str = "gfm"  # Default to GitHub Flavored Markdown
     disable_network: bool = True
     log_level: str = "INFO"
@@ -93,6 +93,7 @@ class MCPConfig(CloneFrozenMixin):
                 f"Invalid flavor: {self.flavor}. "
                 f"Must be one of: {', '.join(allowed_flavors)}"
             )
+
 
         # At least one tool must be enabled
         if not self.enable_to_md and not self.enable_from_md and not self.enable_doc_edit:
@@ -249,7 +250,7 @@ def load_config_from_env() -> MCPConfig:
         read_allowlist=cast(list[str | Path], read_allowlist_strs),
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         write_allowlist=cast(list[str | Path], write_allowlist_strs),
-        include_images=_str_to_bool(os.getenv('ALL2MD_MCP_INCLUDE_IMAGES'), default=True),
+        include_images=_str_to_bool(os.getenv('ALL2MD_MCP_INCLUDE_IMAGES'), default=False),
         flavor=_validate_flavor(os.getenv('ALL2MD_MCP_FLAVOR'), default='gfm'),
         disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
         log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),

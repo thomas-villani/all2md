@@ -48,7 +48,7 @@ from all2md.constants import (
     TableDetectionMode,
 )
 from all2md.options.base import BaseRendererOptions
-from all2md.options.common import PaginatedParserOptions
+from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
 
 # src/all2md/options/pdf.py
@@ -495,6 +495,11 @@ class PdfRendererOptions(BaseRendererOptions):
         Add page numbers to footer.
     include_toc : bool, default False
         Generate table of contents from headings.
+    network : NetworkFetchOptions, default NetworkFetchOptions()
+        Network security settings for fetching remote images. By default,
+        remote image fetching is disabled (allow_remote_fetch=False).
+        Set network.allow_remote_fetch=True to enable secure remote image fetching
+        with the same security guardrails as PPTX renderer.
 
     """
 
@@ -555,4 +560,11 @@ class PdfRendererOptions(BaseRendererOptions):
     include_toc: bool = field(
         default=False,
         metadata={"help": "Generate table of contents"}
+    )
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
+        metadata={
+            "help": "Network security settings for remote image fetching",
+            "exclude_from_cli": True  # Handled via flattened fields
+        }
     )

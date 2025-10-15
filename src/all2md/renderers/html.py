@@ -14,8 +14,11 @@ generate HTML output with appropriate semantic markup.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import IO, Union
+
+logger = logging.getLogger(__name__)
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -171,6 +174,16 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                  '<head>']
         parts.append('<meta charset="UTF-8">')
         parts.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
+
+        # Add Content-Security-Policy meta tag if enabled
+        if self.options.csp_enabled:
+            csp_policy = self.options.csp_policy or (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline';"
+            )
+            parts.append(f'<meta http-equiv="Content-Security-Policy" content="{escape_html(csp_policy, enabled=self.options.escape_html)}">')
+
         parts.append(f'<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>')
 
         # Add CSS
@@ -181,14 +194,23 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         elif self.options.css_style == 'external' and self.options.css_file:
             parts.append(f'<link rel="stylesheet" href="{self.options.css_file}">')
 
-        # Add math renderer scripts
-        if self.options.math_renderer == 'mathjax':
-            parts.append('<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>')
-        elif self.options.math_renderer == 'katex':
-            parts.append('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">')
-            parts.append('<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>')
-            parts.append(
-                '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>')
+        # Add math renderer scripts (with security check)
+        if self.options.math_renderer != 'none':
+            if not self.options.allow_remote_scripts:
+                logger.warning(
+                    f"Math renderer '{self.options.math_renderer}' requires remote CDN scripts, "
+                    f"but allow_remote_scripts=False. Math rendering may not work. "
+                    f"Set allow_remote_scripts=True to enable CDN script loading."
+                )
+            else:
+                # Load remote scripts only if explicitly allowed
+                if self.options.math_renderer == 'mathjax':
+                    parts.append('<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>')
+                elif self.options.math_renderer == 'katex':
+                    parts.append('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">')
+                    parts.append('<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>')
+                    parts.append(
+                        '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>')
 
         parts.append('</head>')
         parts.append('<body>')

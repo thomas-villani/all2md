@@ -15,6 +15,7 @@ list nesting) during traversal.
 
 from __future__ import annotations
 
+import html
 import re
 from pathlib import Path
 from typing import IO, Any, Union
@@ -64,6 +65,7 @@ from all2md.utils.flavors import (
     MultiMarkdownFlavor,
     PandocFlavor,
 )
+from all2md.utils.html_sanitizer import sanitize_html_content
 from all2md.utils.html_utils import render_math_html
 
 
@@ -296,6 +298,35 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return f'<{url}>'
 
         return re.sub(url_pattern, replace_url, text)
+
+    def _process_html_content(self, content: str) -> str:
+        """Process HTML content based on sanitization mode.
+
+        Parameters
+        ----------
+        content : str
+            Raw HTML content
+
+        Returns
+        -------
+        str
+            Processed HTML content based on html_sanitization option
+
+        """
+        mode = self.options.html_sanitization
+
+        if mode == "pass-through":
+            # Pass HTML through unchanged (use only with trusted content)
+            return content
+        elif mode == "escape":
+            # HTML-escape the content to show as text (secure default)
+            return html.escape(content)
+        elif mode == "drop":
+            # Remove HTML content entirely
+            return ""
+        else:  # mode == "sanitize"
+            # Remove dangerous elements/attributes
+            return sanitize_html_content(content, mode="sanitize")
 
     def _emit_block_references(self) -> None:
         """Emit accumulated link references after a block.
@@ -896,7 +927,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             HTML block to render
 
         """
-        self._output.append(node.content)
+        processed_html = self._process_html_content(node.content)
+        if processed_html:  # Only append if not empty (e.g., after "drop" mode)
+            self._output.append(processed_html)
 
         # Emit block references if using after_block placement
         if (self.options.link_style == "reference"
@@ -1112,7 +1145,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Inline HTML to render
 
         """
-        self._output.append(node.content)
+        processed_html = self._process_html_content(node.content)
+        if processed_html:  # Only append if not empty (e.g., after "drop" mode)
+            self._output.append(processed_html)
 
     def visit_footnote_reference(self, node: "FootnoteReference") -> None:
         """Render a FootnoteReference node.
