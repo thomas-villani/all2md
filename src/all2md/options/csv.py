@@ -59,26 +59,102 @@ class CsvOptions(BaseParserOptions):
 
     """
 
-    detect_csv_dialect: bool = True
-    dialect_sample_size: int = 4096
-    csv_delimiter: Optional[str] = None
-    csv_quotechar: Optional[str] = None
-    csv_escapechar: Optional[str] = None
-    csv_doublequote: Optional[bool] = None
-    has_header: bool = True
-    max_rows: Optional[int] = None
-    max_cols: Optional[int] = None
-    truncation_indicator: str = "..."
+    detect_csv_dialect: bool = field(
+        default=True,
+        metadata={
+            "help": "Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set)",
+            "cli_name": "no-detect-csv-dialect",
+            "importance": "advanced"
+        }
+    )
+    dialect_sample_size: int = field(
+        default=4096,
+        metadata={
+            "help": "Number of bytes to sample for dialect detection",
+            "type": int,
+            "importance": "advanced"
+        }
+    )
+    csv_delimiter: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|')",
+            "importance": "core"
+        }
+    )
+    csv_quotechar: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Override quote character (e.g., '\"', \"'\")",
+            "importance": "advanced"
+        }
+    )
+    csv_escapechar: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Override escape character (e.g., '\\\\')",
+            "importance": "advanced"
+        }
+    )
+    csv_doublequote: Optional[bool] = field(
+        default=None,
+        metadata={
+            "help": "Enable/disable double quoting (two quote chars = one literal quote)",
+            "importance": "advanced"
+        }
+    )
+    has_header: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether first row contains column headers",
+            "cli_name": "no-has-header",
+            "importance": "core"
+        }
+    )
+    max_rows: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Maximum rows per table (None = unlimited)",
+            "type": int,
+            "importance": "advanced"
+        }
+    )
+    max_cols: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Maximum columns per table (None = unlimited)",
+            "type": int,
+            "importance": "advanced"
+        }
+    )
+    truncation_indicator: str = field(
+        default="...",
+        metadata={
+            "help": "Note appended when rows/columns are truncated",
+            "importance": "advanced"
+        }
+    )
 
     header_case: HeaderCaseOption = field(
         default="preserve",
-        metadata={"help": "Transform header case: preserve, title, upper, or lower"}
+        metadata={
+            "help": "Transform header case: preserve, title, upper, or lower",
+            "choices": ["preserve", "title", "upper", "lower"],
+            "importance": "core"
+        }
     )
     skip_empty_rows: bool = field(
         default=True,
-        metadata={"help": "Skip completely empty rows"}
+        metadata={
+            "help": "Skip completely empty rows",
+            "cli_name": "no-skip-empty-rows",
+            "importance": "core"
+        }
     )
     strip_whitespace: bool = field(
         default=False,
-        metadata={"help": "Strip leading/trailing whitespace from all cells"}
+        metadata={
+            "help": "Strip leading/trailing whitespace from all cells",
+            "importance": "core"
+        }
     )

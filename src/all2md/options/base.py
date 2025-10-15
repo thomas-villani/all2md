@@ -71,14 +71,16 @@ class BaseRendererOptions(CloneFrozenMixin):
     fail_on_resource_errors: bool = field(
         default=False,
         metadata={
-            "help": "Raise RenderingError on resource failures (images, etc.) instead of logging warnings"
+            "help": "Raise RenderingError on resource failures (images, etc.) instead of logging warnings",
+            "importance": "advanced"
         }
     )
     max_asset_size_bytes: int = field(
         default=DEFAULT_MAX_ASSET_SIZE_BYTES,
         metadata={
             "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
-            "type": int
+            "type": int,
+            "importance": "security"
         }
     )
 
@@ -106,56 +108,80 @@ class BaseParserOptions(CloneFrozenMixin):
     """
 
     attachment_mode: AttachmentMode = field(
-        default=DEFAULT_ATTACHMENT_MODE,
+        default=DEFAULT_ATTACHMENT_MODE,  # alt_text
         metadata={
             "help": "How to handle attachments/images",
-            "choices": ["skip", "alt_text", "download", "base64"]
+            "choices": ["skip", "alt_text", "download", "base64"],
+            "importance": "core"
         }
     )
     alt_text_mode: AltTextMode = field(
         default=DEFAULT_ALT_TEXT_MODE,
         metadata={
             "help": "How to render alt-text content when using alt_text attachment mode",
-            "choices": ["default", "plain_filename", "strict_markdown", "footnote"]
+            "choices": ["default", "plain_filename", "strict_markdown", "footnote"],
+            "importance": "core"
         }
     )
     attachment_output_dir: str | None = field(
         default=DEFAULT_ATTACHMENT_OUTPUT_DIR,
-        metadata={"help": "Directory to save attachments when using download mode"}
+        metadata={
+            "help": "Directory to save attachments when using download mode",
+            "importance": "advanced"
+        }
     )
     attachment_base_url: str | None = field(
         default=DEFAULT_ATTACHMENT_BASE_URL,
-        metadata={"help": "Base URL for resolving attachment references"}
+        metadata={
+            "help": "Base URL for resolving attachment references",
+            "importance": "advanced"
+        }
     )
     extract_metadata: bool = field(
         default=DEFAULT_EXTRACT_METADATA,
-        metadata={"help": "Extract document metadata as YAML front matter"}
+        metadata={
+            "help": "Extract document metadata as YAML front matter",
+            "importance": "core"
+        }
     )
     max_asset_size_bytes: int = field(
         default=DEFAULT_MAX_ASSET_SIZE_BYTES,
         metadata={
             "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
-            "type": int
+            "type": int,
+            "importance": "security"
         }
     )
 
     # Advanced attachment handling options
     attachment_filename_template: str = field(
         default="{stem}_{type}{seq}.{ext}",
-        metadata={"help": "Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}"}
+        metadata={
+            "help": "Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}",
+            "importance": "advanced"
+
+        }
     )
     attachment_overwrite: Literal["unique", "overwrite", "skip"] = field(
         default="unique",
         metadata={
             "help": "File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'",
-            "choices": ["unique", "overwrite", "skip"]
+            "choices": ["unique", "overwrite", "skip"],
+            "importance": "advanced"
         }
     )
     attachment_deduplicate_by_hash: bool = field(
         default=False,
-        metadata={"help": "Avoid saving duplicate attachments by content hash"}
+        metadata={
+            "help": "Avoid saving duplicate attachments by content hash",
+            "importance": "advanced"
+        }
     )
     attachments_footnotes_section: str | None = field(
         default="Attachments",
-        metadata={"help": "Section title for footnote-style attachment references (None to disable)"}
+        metadata={
+            "help": "Section title for footnote-style attachment references (None to disable)",
+            "importance": "advanced"
+
+        }
     )

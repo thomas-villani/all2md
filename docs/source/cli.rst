@@ -13,6 +13,9 @@ Basic Usage
 Simple Conversion
 ~~~~~~~~~~~~~~~~~
 
+The primary entry point is simply ``all2md`` (equivalent to ``all2md convert``). Provide one or more
+input paths and optional output arguments to drive the conversion pipeline.
+
 .. code-block:: bash
 
    # Convert any document (output to stdout)
@@ -50,9 +53,19 @@ Version and Help
    # Show version
    all2md --version
 
-   # Show help
+   # Quick help with the most important options
    all2md --help
-   all2md -h
+   all2md help
+
+   # Full reference (all options, grouped by format)
+   all2md help full
+
+   # Format-specific help (parser + renderer options)
+   all2md help pdf
+   all2md help docx
+
+   # Rich-formatted help (colour, emphasis) when Rich is installed
+   all2md help full --rich
 
    # Show detailed about information
    all2md --about
@@ -2555,3 +2568,14 @@ For security-sensitive environments, use ``ALL2MD_DISABLE_NETWORK`` to globally 
    all2md webpage.html  # Will skip all remote resources
 
 For complete option details and programmatic usage, see the :doc:`options` reference and Python API documentation.
+Enhanced Help System
+--------------------
+
+The CLI exposes a tiered help system that mirrors the dynamic options generated from dataclasses:
+
+* ``all2md --help`` or ``all2md help`` renders a concise overview with the most important flags.
+* ``all2md help full`` lists every parser and renderer option, grouped by format.
+* ``all2md help <format>`` (for example ``pdf`` or ``docx``) shows only the options relevant to that format. Renderer options appear alongside parser options so you can see both halves of the pipeline in one view.
+* ``--rich`` is available on the help subcommand to colourise headings, flags, defaults, and metadata when the `rich` library is installed.
+
+The same formatting and grouping logic is used by the generated CLI output and this reference documentation, ensuring that new options surface automatically as dataclass metadata evolves.

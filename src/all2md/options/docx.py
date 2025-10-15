@@ -61,49 +61,72 @@ class DocxRendererOptions(BaseRendererOptions):
 
     default_font: str = field(
         default=DEFAULT_DOCX_FONT,
-        metadata={"help": "Default font for body text"}
+        metadata={
+            "help": "Default font for body text",
+            "importance": "core"
+        }
     )
     default_font_size: int = field(
         default=DEFAULT_DOCX_FONT_SIZE,
-        metadata={"help": "Default font size in points", "type": int}
+        metadata={
+            "help": "Default font size in points",
+            "type": int,
+            "importance": "core"
+        }
     )
+
+    # TODO: why is this excluded from cli too? Can take a list.
     heading_font_sizes: dict[int, int] | None = field(
         default=None,
         metadata={
             "help": "Font sizes for heading levels 1-6 (None = use built-in styles)",
-            "exclude_from_cli": True
+            "exclude_from_cli": True,
+            "importance": "advanced"
         }
     )
     use_styles: bool = field(
         default=True,
         metadata={
             "help": "Use built-in Word styles vs direct formatting",
-            "cli_name": "no-use-styles"
+            "cli_name": "no-use-styles",
+            "importance": "advanced"
         }
     )
     table_style: str | None = field(
         default=DEFAULT_DOCX_TABLE_STYLE,
-        metadata={"help": "Built-in table style name (None = plain formatting)"}
+        metadata={
+            "help": "Built-in table style name (None = plain formatting)",
+            "importance": "advanced"
+        }
     )
     code_font: str = field(
         default=DEFAULT_DOCX_CODE_FONT,
-        metadata={"help": "Font for code blocks and inline code"}
+        metadata={
+            "help": "Font for code blocks and inline code",
+            "importance": "core"
+        }
     )
     code_font_size: int = field(
         default=DEFAULT_DOCX_CODE_FONT_SIZE,
-        metadata={"help": "Font size for code", "type": int}
+        metadata={
+            "help": "Font size for code",
+            "type": int,
+            "importance": "core"
+        }
     )
     preserve_formatting: bool = field(
         default=True,
         metadata={
             "help": "Preserve text formatting (bold, italic, etc.)",
-            "cli_name": "no-preserve-formatting"
+            "cli_name": "no-preserve-formatting",
+            "importance": "core"
         }
     )
     template_path: str | None = field(
         default=None,
         metadata={
-            "help": "Path to .docx template file for styles (None = default blank document)"
+            "help": "Path to .docx template file for styles (None = default blank document)",
+            "importance": "core"
         }
     )
     network: NetworkFetchOptions = field(
@@ -138,7 +161,8 @@ class DocxOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Preserve table formatting in Markdown",
-            "cli_name": "no-preserve-tables"
+            "cli_name": "no-preserve-tables",
+            "importance": "core"
         }
     )
 
@@ -147,45 +171,55 @@ class DocxOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Include footnotes in output",
-            "cli_name": "no-include-footnotes"
+            "cli_name": "no-include-footnotes",
+            "importance": "advanced"
         }
     )
     include_endnotes: bool = field(
         default=True,
         metadata={
             "help": "Include endnotes in output",
-            "cli_name": "no-include-endnotes"
+            "cli_name": "no-include-endnotes",
+            "importance": "advanced"
         }
     )
     include_comments: bool = field(
         default=False,
-        metadata={"help": "Include document comments in output"}
+        metadata={
+            "help": "Include document comments in output",
+            "importance": "advanced"
+        }
     )
+
     comments_position: Literal["inline", "footnotes"] = field(
         default="footnotes",
         metadata={
             "help": "Render comments inline or at document end",
             "choices": ["inline", "footnotes"],
+            "importance": "advanced"
         },
     )
     comment_mode: CommentMode = field(
         default=DEFAULT_COMMENT_MODE,
         metadata={
             "help": "How to render comments: html (HTML comments), blockquote (quoted blocks), ignore (skip)",
-            "choices": ["html", "blockquote", "ignore"]
+            "choices": ["html", "blockquote", "ignore"],
+            "importance": "advanced"
         }
     )
     include_image_captions: bool = field(
         default=True,
         metadata={
             "help": "Include image captions/descriptions in output",
-            "cli_name": "no-include-image-captions"
+            "cli_name": "no-include-image-captions",
+            "importance": "advanced"
         }
     )
     list_numbering_style: Literal["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"] = field(
         default="detect",
         metadata={
             "help": "List numbering style: detect, decimal, lowerroman, upperroman, loweralpha, upperalpha",
-            "choices": ["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"]
+            "choices": ["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"],
+            "importance": "advanced"
         }
     )

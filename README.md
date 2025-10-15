@@ -8,7 +8,7 @@
 
 **Rapid, lightweight conversion of various document formats to and from markdown for LLMs.**
 
-`all2md` provides a unified, extensible framework for converting diverse document formats into clean, consistent Markdown. It's designed to be the bridge between complex binary files (like `.docx`, `.pdf`, `.pptx`) and the plain-text world of Large Language Models (LLMs), enabling seamless ingestion and generation of documents.
+all2md is a universal document converter that transforms PDFs, Office files, HTML, email, code snippets, and more into consistent Markdown — and back again. It powers cleaning, inspection, and round-tripping of documents for human workflows and AI assistants alike.
 
 ## The Problem
 

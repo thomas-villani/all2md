@@ -62,57 +62,70 @@ class NetworkFetchOptions(CloneFrozenMixin):
         default=DEFAULT_ALLOW_REMOTE_FETCH,
         metadata={
             "help": "Allow fetching remote URLs for images and other resources. "
-                    "When False, prevents SSRF attacks by blocking all network requests."
+                    "When False, prevents SSRF attacks by blocking all network requests.",
+            "importance": "security"
         }
     )
     allowed_hosts: list[str] | None = field(
         default=DEFAULT_ALLOWED_HOSTS,
         metadata={
             "help": "List of allowed hostnames or CIDR blocks for remote fetching. "
-                    "If None, all hosts are allowed (subject to other security constraints)."
+                    "If None, all hosts are allowed (subject to other security constraints).",
+            "importance": "security"
         }
     )
     require_https: bool = field(
         default=DEFAULT_REQUIRE_HTTPS,
-        metadata={"help": "Require HTTPS for all remote URL fetching"}
+        metadata={
+            "help": "Require HTTPS for all remote URL fetching",
+            "importance": "security"
+        }
     )
     require_head_success: bool = field(
         default=DEFAULT_REQUIRE_HEAD_SUCCESS,
-        metadata={"help": "Require HEAD request success before remote URL fetching"}
+        metadata={
+            "help": "Require HEAD request success before remote URL fetching",
+            "importance": "security"
+        }
     )
     network_timeout: float = field(
         default=DEFAULT_NETWORK_TIMEOUT,
         metadata={
             "help": "Timeout in seconds for remote URL fetching",
-            "type": float
+            "type": float,
+            "importance": "security"
         }
     )
     max_redirects: int = field(
         default=5,
         metadata={
             "help": "Maximum number of HTTP redirects to follow",
-            "type": int
+            "type": int,
+            "importance": "security"
         }
     )
     allowed_content_types: tuple[str, ...] | None = field(
         default=("image/",),
         metadata={
             "help": "Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')",
-            "action": "append"
+            "action": "append",
+            "importance": "security"
         }
     )
     max_requests_per_second: float = field(
         default=DEFAULT_MAX_REQUESTS_PER_SECOND,
         metadata={
             "help": "Maximum number of network requests per second (rate limiting)",
-            "type": float
+            "type": float,
+            "importance": "security"
         }
     )
     max_concurrent_requests: int = field(
         default=DEFAULT_MAX_CONCURRENT_REQUESTS,
         metadata={
             "help": "Maximum number of concurrent network requests",
-            "type": int
+            "type": int,
+            "importance": "security"
         }
     )
 
@@ -140,27 +153,34 @@ class LocalFileAccessOptions(CloneFrozenMixin):
 
     allow_local_files: bool = field(
         default=DEFAULT_ALLOW_LOCAL_FILES,
-        metadata={"help": "Allow access to local files via file:// URLs (security setting)"}
+        metadata={
+            "help": "Allow access to local files via file:// URLs (security setting)",
+            "importance": "security"
+        }
     )
+    # FIXME: these settings should not be excluded from the cli, we should parse them.
     local_file_allowlist: list[str] | None = field(
         default=None,
         metadata={
             "help": "List of directories allowed for local file access (when allow_local_files=True)",
-            "exclude_from_cli": True  # Complex type, exclude for now
+            "exclude_from_cli": True,  # Complex type, exclude for now
+            "importance": "security"
         }
     )
     local_file_denylist: list[str] | None = field(
         default=None,
         metadata={
             "help": "List of directories denied for local file access",
-            "exclude_from_cli": True  # Complex type, exclude for now
+            "exclude_from_cli": True,  # Complex type, exclude for now
+            "importance": "security"
         }
     )
     allow_cwd_files: bool = field(
         default=DEFAULT_ALLOW_CWD_FILES,
         metadata={
             "help": "Allow local files from current working directory and subdirectories",
-            "cli_name": "allow-cwd-files"  # default=False, use store_true
+            "cli_name": "allow-cwd-files",  # default=False, use store_true
+            "importance": "security"
         }
     )
 
@@ -183,7 +203,9 @@ class PaginatedParserOptions(BaseParserOptions):
     page_separator_template: str = field(
         default=DEFAULT_PAGE_SEPARATOR,
         metadata={
-            "help": "Template for page/slide separators. Supports placeholders: {page_num}, {total_pages}."
+            "help": "Template for page/slide separators. Supports placeholders: {page_num}, {total_pages}. This "
+                    "string is inserted between pages/slides",
+            "importance": "advanced"
         }
     )
 
@@ -230,33 +252,49 @@ class SpreadsheetParserOptions(BaseParserOptions):
 
     sheets: Union[list[str], str, None] = field(
         default=None,
-        metadata={"help": "Sheet names to include (list or regex pattern). None = all sheets"}
+        metadata={
+            "help": "Sheet names to include (list or regex pattern). default = all sheets",
+            "importance": "core"
+        }
     )
     include_sheet_titles: bool = field(
         default=True,
         metadata={
             "help": "Prepend each sheet with '## {sheet_name}' heading",
-            "cli_name": "no-include-sheet-titles"
+            "cli_name": "no-include-sheet-titles",
+            "importance": "core"
         }
     )
     render_formulas: bool = field(
         default=True,
         metadata={
             "help": "Use stored cell values (True) or show formulas (False)",
-            "cli_name": "no-render-formulas"
+            "cli_name": "no-render-formulas",
+            "importance": "core"
         }
     )
     max_rows: Optional[int] = field(
         default=None,
-        metadata={"help": "Maximum rows per table (None = unlimited)", "type": int}
+        metadata={
+            "help": "Maximum rows per table (None = unlimited)",
+            "type": int,
+            "importance": "advanced"
+        }
     )
     max_cols: Optional[int] = field(
         default=None,
-        metadata={"help": "Maximum columns per table (None = unlimited)", "type": int}
+        metadata={
+            "help": "Maximum columns per table (None = unlimited)",
+            "type": int,
+            "importance": "advanced"
+        }
     )
     truncation_indicator: str = field(
         default="...",
-        metadata={"help": "Note appended when rows/columns are truncated"}
+        metadata={
+            "help": "Note appended when rows/columns are truncated",
+            "importance": "advanced"
+        }
     )
     preserve_newlines_in_cells: bool = field(
         default=False,
@@ -266,27 +304,32 @@ class SpreadsheetParserOptions(BaseParserOptions):
         default="trailing",
         metadata={
             "help": "Trim empty rows/columns: none, leading, trailing, or both",
-            "choices": ["none", "leading", "trailing", "both"]
+            "choices": ["none", "leading", "trailing", "both"],
+            "importance": "core"
         }
     )
     header_case: HeaderCaseOption = field(
         default="preserve",
         metadata={
             "help": "Transform header case: preserve, title, upper, or lower",
-            "choices": ["preserve", "title", "upper", "lower"]
+            "choices": ["preserve", "title", "upper", "lower"],
+            "importance": "core"
         }
     )
+    # TODO: move magic strings
     chart_mode: Literal["data", "skip"] = field(
         default="skip",
         metadata={
-            "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts)",
-            "choices": ["data", "skip"]
+            "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts, default)",
+            "choices": ["data", "skip"],
+            "importance": "advanced"
         }
     )
     merged_cell_mode: Literal["spans", "flatten", "skip"] = field(
         default="flatten",
         metadata={
             "help": "Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'",
-            "choices": ["spans", "flatten", "skip"]
+            "choices": ["spans", "flatten", "skip"],
+            "importance": "advanced"
         }
     )

@@ -208,12 +208,16 @@ class PdfOptions(PaginatedParserOptions):
         default=None,
         metadata={
             "help": "Pages to convert. Supports ranges: '1-3,5,10-' or list like [1,2,3]. Always 1-based.",
-            "type": str
+            "type": str,
+            "importance": "core"
         }
     )
     password: str | None = field(
         default=None,
-        metadata={"help": "Password for encrypted PDF documents"}
+        metadata={
+            "help": "Password for encrypted PDF documents",
+            "importance": "security"
+        }
     )
 
     # Header detection parameters
@@ -221,63 +225,77 @@ class PdfOptions(PaginatedParserOptions):
         default=None,
         metadata={
             "help": "Pages to sample for header detection",
-            "exclude_from_cli": True  # Complex type, exclude for now
+            "exclude_from_cli": True,  # Complex type, exclude for now
+            "importance": "advanced"
         }
     )
     header_percentile_threshold: float = field(
         default=DEFAULT_HEADER_PERCENTILE_THRESHOLD,
         metadata={
             "help": "Percentile threshold for header detection",
-            "type": float
+            "type": float,
+            "importance": "advanced"
         }
     )
     header_min_occurrences: int = field(
         default=DEFAULT_HEADER_MIN_OCCURRENCES,
         metadata={
             "help": "Minimum occurrences of a font size to consider for headers",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
     header_size_allowlist: list[float] | None = field(
         default=None,
-        metadata={"exclude_from_cli": True}  # Complex type, exclude for now
+        metadata={
+            "exclude_from_cli": True,
+            "importance": "advanced"
+        }
     )
     header_size_denylist: list[float] | None = field(
         default=None,
-        metadata={"exclude_from_cli": True}  # Complex type, exclude for now
+        metadata={
+            "exclude_from_cli": True,
+            "importance": "advanced"
+        }  # Complex type, exclude for now
     )
     header_use_font_weight: bool = field(
         default=DEFAULT_HEADER_USE_FONT_WEIGHT,
         metadata={
             "help": "Consider bold/font weight when detecting headers",
-            "cli_name": "no-header-use-font-weight"  # default=True, use --no-*
+            "cli_name": "no-header-use-font-weight",  # default=True, use --no-*
+            "importance": "advanced"
         }
     )
     header_use_all_caps: bool = field(
         default=DEFAULT_HEADER_USE_ALL_CAPS,
         metadata={
             "help": "Consider all-caps text as potential headers",
-            "cli_name": "no-header-use-all-caps"  # default=True, use --no-*
+            "cli_name": "no-header-use-all-caps",  # default=True, use --no-*
+            "importance": "advanced"
         }
     )
     header_font_size_ratio: float = field(
         default=DEFAULT_HEADER_FONT_SIZE_RATIO,
         metadata={
             "help": "Minimum ratio between header and body text font size",
-            "type": float
+            "type": float,
+            "importance": "advanced"
         }
     )
     header_max_line_length: int = field(
         default=DEFAULT_HEADER_MAX_LINE_LENGTH,
         metadata={
             "help": "Maximum character length for text to be considered a header",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
     header_debug_output: bool = field(
         default=DEFAULT_HEADER_DEBUG_OUTPUT,
         metadata={
-            "help": "Enable debug output for header detection analysis (stores font size distribution)"
+            "help": "Enable debug output for header detection analysis (stores font size distribution)",
+            "importance": "advanced"
         }
     )
 
@@ -286,41 +304,47 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_DETECT_COLUMNS,
         metadata={
             "help": "Enable multi-column layout detection",
-            "cli_name": "no-detect-columns"  # default=True, use --no-*
+            "cli_name": "no-detect-columns",  # default=True, use --no-*
+            "importance": "core"
         }
     )
     merge_hyphenated_words: bool = field(
         default=DEFAULT_MERGE_HYPHENATED_WORDS,
         metadata={
             "help": "Merge words split by hyphens at line breaks",
-            "cli_name": "no-merge-hyphenated-words"  # default=True, use --no-*
+            "cli_name": "no-merge-hyphenated-words",  # default=True, use --no-*
+            "importance": "core"
         }
     )
     handle_rotated_text: bool = field(
         default=DEFAULT_HANDLE_ROTATED_TEXT,
         metadata={
             "help": "Process rotated text blocks",
-            "cli_name": "no-handle-rotated-text"  # default=True, use --no-*
+            "cli_name": "no-handle-rotated-text",  # default=True, use --no-*
+            "importance": "advanced"
         }
     )
     column_gap_threshold: float = field(
         default=DEFAULT_COLUMN_GAP_THRESHOLD,
         metadata={
             "help": "Minimum gap between columns in points",
-            "type": float
+            "type": float,
+            "importance": "advanced"
         }
     )
     column_detection_mode: ColumnDetectionMode = field(
         default=DEFAULT_COLUMN_DETECTION_MODE,
         metadata={
             "help": "Column detection strategy: 'auto', 'force_single', 'force_multi', 'disabled'",
-            "choices": ["auto", "force_single", "force_multi", "disabled"]
+            "choices": ["auto", "force_single", "force_multi", "disabled"],
+            "importance": "advanced"
         }
     )
     use_column_clustering: bool = field(
         default=DEFAULT_USE_COLUMN_CLUSTERING,
         metadata={
-            "help": "Use k-means clustering for more robust column detection (alternative to gap heuristics)"
+            "help": "Use k-means clustering for more robust column detection (alternative to gap heuristics)",
+            "importance": "advanced"
         }
     )
 
@@ -329,28 +353,32 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_TABLE_FALLBACK_DETECTION,
         metadata={
             "help": "Use heuristic fallback if PyMuPDF table detection fails",
-            "cli_name": "no-enable-table-fallback-detection"  # default=True, use --no-*
+            "cli_name": "no-enable-table-fallback-detection",  # default=True, use --no-*
+            "importance": "advanced"
         }
     )
     detect_merged_cells: bool = field(
         default=DEFAULT_DETECT_MERGED_CELLS,
         metadata={
             "help": "Attempt to identify merged cells in tables",
-            "cli_name": "no-detect-merged-cells"  # default=True, use --no-*
+            "cli_name": "no-detect-merged-cells",  # default=True, use --no-*
+            "importance": "advanced"
         }
     )
     table_ruling_line_threshold: float = field(
         default=DEFAULT_TABLE_RULING_LINE_THRESHOLD,
         metadata={
-            "help": "Threshold for detecting table ruling lines",
-            "type": float
+            "help": "Threshold for detecting table ruling lines (0.0-1.0)",
+            "type": float,
+            "importance": "advanced"
         }
     )
     table_fallback_extraction_mode: Literal["none", "grid", "text_clustering"] = field(
         default=DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE,
         metadata={
             "help": "Table extraction mode for ruling line fallback: 'none', 'grid', 'text_clustering'",
-            "choices": ["none", "grid", "text_clustering"]
+            "choices": ["none", "grid", "text_clustering"],
+            "importance": "advanced"
         }
     )
 
@@ -358,14 +386,16 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_IMAGE_PLACEMENT_MARKERS,
         metadata={
             "help": "Add markers showing image positions",
-            "cli_name": "no-image-placement-markers"  # default=True, use --no-*
+            "cli_name": "no-image-placement-markers",  # default=True, use --no-*
+            "importance": "core"
         }
     )
     include_image_captions: bool = field(
         default=DEFAULT_INCLUDE_IMAGE_CAPTIONS,
         metadata={
             "help": "Try to extract image captions",
-            "cli_name": "no-include-image-captions"  # default=True, use --no-*
+            "cli_name": "no-include-image-captions",  # default=True, use --no-*
+            "importance": "core"
         }
     )
 
@@ -373,7 +403,8 @@ class PdfOptions(PaginatedParserOptions):
     include_page_numbers: bool = field(
         default=DEFAULT_INCLUDE_PAGE_NUMBERS,
         metadata={
-            "help": "Include page numbers in output (e.g., 'Page 1/10')"
+            "help": "Include page numbers in output (e.g., 'Page 1/10')",
+            "importance": "core"
         }
     )
 
@@ -382,7 +413,8 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_TABLE_DETECTION_MODE,
         metadata={
             "help": "Table detection strategy: 'pymupdf', 'ruling', 'both', or 'none'",
-            "choices": ["pymupdf", "ruling", "both", "none"]
+            "choices": ["pymupdf", "ruling", "both", "none"],
+            "importance": "core"
         }
     )
 
@@ -391,14 +423,16 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_IMAGE_FORMAT,
         metadata={
             "help": "Output format for extracted images: 'png' or 'jpeg'",
-            "choices": ["png", "jpeg"]
+            "choices": ["png", "jpeg"],
+            "importance": "advanced"
         }
     )
     image_quality: int = field(
         default=DEFAULT_IMAGE_QUALITY,
         metadata={
             "help": "JPEG quality (1-100, only used when image_format='jpeg')",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
 
@@ -406,7 +440,8 @@ class PdfOptions(PaginatedParserOptions):
     trim_headers_footers: bool = field(
         default=DEFAULT_TRIM_HEADERS_FOOTERS,
         metadata={
-            "help": "Remove repeated headers and footers from pages"
+            "help": "Remove repeated headers and footers from pages",
+            "importance": "core"
         }
     )
     auto_trim_headers_footers: bool = field(
@@ -415,21 +450,24 @@ class PdfOptions(PaginatedParserOptions):
             "help": (
                 "Automatically detect and remove repeating headers/footers "
                 "(overrides manual header_height/footer_height)"
-            )
+            ),
+            "importance": "advanced"
         }
     )
     header_height: int = field(
         default=DEFAULT_HEADER_HEIGHT,
         metadata={
             "help": "Height in points to trim from top of page (requires trim_headers_footers)",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
     footer_height: int = field(
         default=DEFAULT_FOOTER_HEIGHT,
         metadata={
             "help": "Height in points to trim from bottom of page (requires trim_headers_footers)",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
 
@@ -441,7 +479,8 @@ class PdfOptions(PaginatedParserOptions):
                 "Percentage overlap required for link detection (0-100). "
                 "Lower values detect links with less overlap."
             ),
-            "type": float
+            "type": float,
+            "importance": "advanced"
         }
     )
 
@@ -449,14 +488,16 @@ class PdfOptions(PaginatedParserOptions):
     skip_image_extraction: bool = field(
         default=False,
         metadata={
-            "help": "Completely skip image extraction for text-only conversion (improves performance for large PDFs)"
+            "help": "Completely skip image extraction for text-only conversion (improves performance for large PDFs)",
+            "importance": "advanced"
         }
     )
     lazy_image_processing: bool = field(
         default=False,
         metadata={
             "help": "Placeholder for future lazy image loading support. Note: Full implementation would require "
-                    "paginator interface for streaming large PDFs. Currently has no effect."
+                    "paginator interface for streaming large PDFs. Currently has no effect.",
+            "importance": "advanced"
         }
     )
 
@@ -507,59 +548,95 @@ class PdfRendererOptions(BaseRendererOptions):
         default=DEFAULT_PDF_PAGE_SIZE,
         metadata={
             "help": "Page size: letter, a4, or legal",
-            "choices": ["letter", "a4", "legal"]
+            "choices": ["letter", "a4", "legal"],
+            "importance": "core"
         }
     )
     margin_top: float = field(
         default=DEFAULT_PDF_MARGIN,
-        metadata={"help": "Top margin in points (72pt = 1 inch)", "type": float}
+        metadata={
+            "help": "Top margin in points (72pt = 1 inch)",
+            "type": float,
+            "importance": "advanced"
+        }
     )
     margin_bottom: float = field(
         default=DEFAULT_PDF_MARGIN,
-        metadata={"help": "Bottom margin in points", "type": float}
+        metadata={
+            "help": "Bottom margin in points",
+            "type": float,
+            "importance": "advanced"
+        }
     )
     margin_left: float = field(
         default=DEFAULT_PDF_MARGIN,
-        metadata={"help": "Left margin in points", "type": float}
+        metadata={
+            "help": "Left margin in points",
+            "type": float,
+            "importance": "advanced"
+        }
     )
     margin_right: float = field(
         default=DEFAULT_PDF_MARGIN,
-        metadata={"help": "Right margin in points", "type": float}
+        metadata={
+            "help": "Right margin in points",
+            "type": float,
+            "importance": "advanced"
+        }
     )
 
     font_name: str = field(
         default=DEFAULT_PDF_FONT_FAMILY,
-        metadata={"help": "Default font (Helvetica, Times-Roman, Courier)"}
+        metadata={
+            "help": "Default font (Helvetica, Times-Roman, Courier)",
+            "importance": "core"
+        }
     )
     font_size: int = field(
         default=DEFAULT_PDF_FONT_SIZE,
-        metadata={"help": "Default font size in points", "type": int}
+        metadata={
+            "help": "Default font size in points",
+            "type": int,
+            "importance": "core"
+        }
     )
     heading_fonts: dict[int, tuple[str, int]] | None = field(
         default=None,
         metadata={
             "help": "Heading font specs as {level: (font, size)}",
-            "exclude_from_cli": True
+            "exclude_from_cli": True,
+            "importance": "advanced"
         }
     )
     code_font: str = field(
         default=DEFAULT_PDF_CODE_FONT,
-        metadata={"help": "Monospace font for code"}
+        metadata={
+            "help": "Monospace font for code",
+            "importance": "core"
+        }
     )
     line_spacing: float = field(
         default=DEFAULT_PDF_LINE_SPACING,
-        metadata={"help": "Line spacing multiplier (1.0 = single)", "type": float}
+        metadata={
+            "help": "Line spacing multiplier (1.0 = single)",
+            "type": float,
+            "importance": "advanced"
+        }
     )
     include_page_numbers: bool = field(
         default=True,
         metadata={
             "help": "Add page numbers to footer",
-            "cli_name": "no-page-numbers"
+            "cli_name": "no-page-numbers",
+            "importance": "core"
         }
     )
     include_toc: bool = field(
         default=False,
-        metadata={"help": "Generate table of contents"}
+        metadata={
+            "help": "Generate table of contents",
+            "importance": "core"
+        }
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions,

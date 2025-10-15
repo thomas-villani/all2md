@@ -48,7 +48,8 @@ class ZipOptions(BaseParserOptions):
         default=None,
         metadata={
             "help": "Glob patterns for files to include",
-            "cli_name": "include"
+            "cli_name": "include",
+            "importance": "core"
         }
     )
 
@@ -56,14 +57,16 @@ class ZipOptions(BaseParserOptions):
         default=None,
         metadata={
             "help": "Glob patterns for files to exclude",
-            "cli_name": "exclude"
+            "cli_name": "exclude",
+            "importance": "core"
         }
     )
 
     max_depth: Optional[int] = field(
         default=None,
         metadata={
-            "help": "Maximum directory depth to traverse"
+            "help": "Maximum directory depth to traverse",
+            "importance": "advanced"
         }
     )
 
@@ -71,7 +74,8 @@ class ZipOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Create section headings for each file",
-            "cli_name": "no-section-headings"
+            "cli_name": "no-section-headings",
+            "importance": "core"
         }
     )
 
@@ -79,7 +83,8 @@ class ZipOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Include directory path in section headings",
-            "cli_name": "no-preserve-directory"
+            "cli_name": "no-preserve-directory",
+            "importance": "core"
         }
     )
 
@@ -87,7 +92,8 @@ class ZipOptions(BaseParserOptions):
         default=False,
         metadata={
             "help": "Flatten directory structure in output",
-            "cli_name": "flatten"
+            "cli_name": "flatten",
+            "importance": "advanced"
         }
     )
 
@@ -95,7 +101,8 @@ class ZipOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Extract non-parseable files to attachment directory",
-            "cli_name": "no-extract-resources"
+            "cli_name": "no-extract-resources",
+            "importance": "core"
         }
     )
 
@@ -103,7 +110,8 @@ class ZipOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Skip files with no content or parse failures",
-            "cli_name": "no-skip-empty"
+            "cli_name": "no-skip-empty",
+            "importance": "advanced"
         }
     )
 
@@ -111,6 +119,7 @@ class ZipOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Include manifest table of extracted resources",
-            "cli_name": "no-resource-manifest"
+            "cli_name": "no-resource-manifest",
+            "importance": "advanced"
         }
     )

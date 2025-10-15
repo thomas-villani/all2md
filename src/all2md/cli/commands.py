@@ -26,6 +26,7 @@ from all2md.cli.builder import (
     create_parser,
     get_exit_code_for_exception,
 )
+from all2md.cli.help_formatter import display_help
 from all2md.cli.processors import (
     _get_rich_markdown_kwargs,
     _should_use_rich_output,
@@ -847,6 +848,39 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
     return 0
 
 
+def handle_help_command(args: list[str] | None = None) -> int | None:
+    """Handle the ``help`` subcommand for tiered CLI documentation."""
+
+    if not args:
+        args = sys.argv[1:]
+
+    if not args or args[0] != 'help':
+        return None
+
+    help_args = args[1:]
+
+    parser = argparse.ArgumentParser(
+        prog='all2md help',
+        description='Show all2md CLI help sections (quick, full, or format-specific).',
+    )
+    parser.add_argument(
+        'section',
+        nargs='?',
+        default='quick',
+        help='Help selector (quick, full, pdf, docx, html, etc.). Default: quick.',
+    )
+    parser.add_argument(
+        '--rich',
+        action='store_true',
+        help='Render help with rich formatting when the rich package is installed.',
+    )
+
+    parsed = parser.parse_args(help_args)
+
+    display_help(parsed.section, use_rich=parsed.rich)
+    return 0
+
+
 def handle_convert_command(args: list[str] | None = None) -> int | None:
     """Handle the `convert` subcommand for bidirectional conversions."""
     if not args:
@@ -1177,6 +1211,7 @@ Examples:
         print(f"Error: Invalid format '{output_format}'. Use 'toml' or 'json'", file=sys.stderr)
         return 1
 
+    # FIXME: THIS IS NOT the default config!
     # Generate default configuration with comments
     default_config: Dict[str, Any] = {
         'attachment_mode': 'skip',
@@ -1569,26 +1604,6 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
             # Check for help flags after format
             if len(args) > 2 and args[2] in ('--help', '-h'):
                 deps_args.append('--help')
-
-        return deps_main(deps_args)
-
-    elif args[0] == 'install-deps':
-        from all2md.dependencies import main as deps_main
-        # Convert to standard deps CLI format
-        deps_args = ['install']
-
-        # Check for help flags first
-        if len(args) > 1 and args[1] in ('--help', '-h'):
-            deps_args.append('--help')
-        elif len(args) > 1 and args[1] not in ('--help', '-h'):
-            # Only add format if it's not a help flag
-            deps_args.append(args[1])  # format argument
-            # Check for additional flags
-            for arg in args[2:]:
-                if arg == '--upgrade':
-                    deps_args.append('--upgrade')
-                elif arg in ('--help', '-h'):
-                    deps_args.append('--help')
 
         return deps_main(deps_args)
 

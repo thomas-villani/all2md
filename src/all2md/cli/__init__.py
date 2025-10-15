@@ -58,6 +58,7 @@ from all2md.cli.commands import (
     collect_input_files,
     handle_convert_command,
     handle_dependency_commands,
+    handle_help_command,
     save_config_to_file,
 )
 from all2md.cli.processors import (
@@ -90,6 +91,10 @@ def main(args: list[str] | None = None) -> int:
     convert_result = handle_convert_command(args)
     if convert_result is not None:
         return convert_result
+
+    help_result = handle_help_command(args)
+    if help_result is not None:
+        return help_result
 
     # Check for dependency management commands first
     deps_result = handle_dependency_commands(args)

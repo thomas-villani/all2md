@@ -60,6 +60,7 @@ class MediaWikiOptions(BaseRendererOptions):
         metadata={
             "help": "Use HTML tags for unsupported elements",
             "cli_name": "no-use-html-for-unsupported",
+            "importance": "core"
         }
     )
     image_thumb: bool = field(
@@ -67,12 +68,14 @@ class MediaWikiOptions(BaseRendererOptions):
         metadata={
             "help": "Render images as thumbnails",
             "cli_name": "no-image-thumb",
+            "importance": "core"
         }
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
         default="pass-through",
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
-            "choices": ["pass-through", "escape", "drop", "sanitize"]
+            "choices": ["pass-through", "escape", "drop", "sanitize"],
+            "importance": "security"
         }
     )

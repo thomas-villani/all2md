@@ -47,34 +47,46 @@ class IpynbOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Include cell input (source code) in output",
-            "cli_name": "no-include-inputs"
+            "cli_name": "no-include-inputs",
+            "importance": "core"
         }
     )
     include_outputs: bool = field(
         default=True,
         metadata={
             "help": "Include cell outputs in the markdown",
-            "cli_name": "no-include-outputs"
+            "cli_name": "no-include-outputs",
+            "importance": "core"
         }
     )
     show_execution_count: bool = field(
         default=False,
-        metadata={"help": "Show execution counts for code cells"}
+        metadata={
+            "help": "Show execution counts for code cells",
+            "importance": "advanced"
+        }
     )
     output_types: tuple[str, ...] | None = field(
         default=("stream", "execute_result", "display_data"),
         metadata={
             "help": "Types of outputs to include (stream, execute_result, display_data, error)",
-            "action": "append"
+            "action": "append",
+            "importance": "core"
         }
     )
     image_format: str = field(
         default="png",
-        metadata={"help": "Preferred image format for notebook outputs (png, jpeg)"}
+        metadata={
+            "help": "Preferred image format for notebook outputs (png, jpeg)",
+            "importance": "advanced"
+        }
     )
     image_quality: int = field(
         default=85,
-        metadata={"help": "JPEG quality setting (1-100) for image conversion"}
+        metadata={
+            "help": "JPEG quality setting (1-100) for image conversion",
+            "importance": "advanced"
+        }
     )
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE

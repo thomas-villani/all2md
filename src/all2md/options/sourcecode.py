@@ -41,7 +41,8 @@ class SourceCodeOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Automatically detect programming language from file extension",
-            "cli_name": "no-detect-language"
+            "cli_name": "no-detect-language",
+            "importance": "core"
         }
     )
 
@@ -49,7 +50,8 @@ class SourceCodeOptions(BaseParserOptions):
         default=None,
         metadata={
             "help": "Override language identifier for syntax highlighting",
-            "cli_name": "language"
+            "cli_name": "language",
+            "importance": "core"
         }
     )
 
@@ -57,6 +59,7 @@ class SourceCodeOptions(BaseParserOptions):
         default=False,
         metadata={
             "help": "Include filename as comment in code block",
-            "cli_name": "include-filename"
+            "cli_name": "include-filename",
+            "importance": "advanced"
         }
     )

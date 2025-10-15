@@ -52,20 +52,23 @@ class RstParserOptions(BaseParserOptions):
         default=DEFAULT_RST_PARSE_DIRECTIVES,
         metadata={
             "help": "Parse RST directives (code-block, image, etc.)",
-            "cli_name": "no-parse-directives"
+            "cli_name": "no-parse-directives",
+            "importance": "core"
         }
     )
     strict_mode: bool = field(
         default=DEFAULT_RST_STRICT_MODE,
         metadata={
-            "help": "Raise errors on invalid RST syntax (vs. graceful recovery)"
+            "help": "Raise errors on invalid RST syntax (vs. graceful recovery)",
+            "importance": "advanced"
         }
     )
     preserve_raw_directives: bool = field(
         default=DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
         metadata={
             "help": "Preserve unknown directives as code blocks",
-            "cli_name": "preserve-raw-directives"
+            "cli_name": "preserve-raw-directives",
+            "importance": "advanced"
         }
     )
 
@@ -132,34 +135,39 @@ class RstRendererOptions(BaseRendererOptions):
     heading_chars: str = field(
         default=DEFAULT_RST_HEADING_CHARS,
         metadata={
-            "help": "Characters for heading underlines (h1-h5)"
+            "help": "Characters for heading underlines (h1-h5)",
+            "importance": "advanced"
         }
     )
     table_style: RstTableStyle = field(
         default=DEFAULT_RST_TABLE_STYLE,
         metadata={
             "help": "Table rendering style",
-            "choices": ["grid", "simple"]
+            "choices": ["grid", "simple"],
+            "importance": "core"
         }
     )
     code_directive_style: RstCodeStyle = field(
         default=DEFAULT_RST_CODE_STYLE,
         metadata={
             "help": "Code block rendering style",
-            "choices": ["double_colon", "directive"]
+            "choices": ["double_colon", "directive"],
+            "importance": "core"
         }
     )
     line_length: int = field(
         default=DEFAULT_RST_LINE_LENGTH,
         metadata={
             "help": "Target line length for wrapping",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
     hard_line_break_mode: RstLineBreakMode = field(
         default=DEFAULT_RST_HARD_LINE_BREAK_MODE,
         metadata={
             "help": "Hard line break rendering mode: line_block (use | syntax) or raw (plain newline)",
-            "choices": ["line_block", "raw"]
+            "choices": ["line_block", "raw"],
+            "importance": "advanced"
         }
     )

@@ -38,21 +38,29 @@ class OdpOptions(PaginatedParserOptions):
         default=True,
         metadata={
             "help": "Preserve table formatting in Markdown",
-            "cli_name": "no-preserve-tables"
+            "cli_name": "no-preserve-tables",
+            "importance": "core"
         }
     )
     include_slide_numbers: bool = field(
         default=False,
-        metadata={"help": "Include slide numbers in output"}
+        metadata={
+            "help": "Include slide numbers in output",
+            "importance": "core"
+        }
     )
     include_notes: bool = field(
         default=True,
         metadata={
             "help": "Include speaker notes from slides",
-            "cli_name": "no-include-notes"
+            "cli_name": "no-include-notes",
+            "importance": "core"
         }
     )
     slides: str | None = field(
         default=None,
-        metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)"}
+        metadata={
+            "help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)",
+            "importance": "core"
+        }
     )

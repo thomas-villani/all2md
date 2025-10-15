@@ -55,6 +55,7 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Maximum line width for wrapping (None = no wrapping)",
             "type": int,
+            "importance": "core"
         }
     )
     table_cell_separator: str = field(
@@ -62,6 +63,7 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Separator between table cells",
             "type": str,
+            "importance": "advanced"
         }
     )
     include_table_headers: bool = field(
@@ -69,6 +71,7 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Include table headers in output",
             "cli_name": "no-include-table-headers",
+            "importance": "core"
         }
     )
     paragraph_separator: str = field(
@@ -76,6 +79,7 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Separator between paragraphs",
             "type": str,
+            "importance": "advanced"
         }
     )
     list_item_prefix: str = field(
@@ -83,6 +87,7 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Prefix for list items",
             "type": str,
+            "importance": "advanced"
         }
     )
     preserve_code_blocks: bool = field(
@@ -90,5 +95,6 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Preserve code block formatting",
             "cli_name": "no-preserve-code-blocks",
+            "importance": "core"
         }
     )

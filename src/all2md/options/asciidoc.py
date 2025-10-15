@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import HtmlPassthroughMode
+from all2md.constants import HtmlPassthroughMode, DEFAULT_HTML_PASSTHROUGH_MODE, HTML_PASSTHROUGH_MODES
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -46,62 +46,71 @@ class AsciiDocOptions(BaseParserOptions):
         default=True,
         metadata={
             "help": "Parse document attributes",
-            "cli_name": "no-parse-attributes"
+            "cli_name": "no-parse-attributes",
+            "importance": "core"
         }
     )
     parse_admonitions: bool = field(
         default=True,
         metadata={
             "help": "Parse admonition blocks ([NOTE], [IMPORTANT], etc.)",
-            "cli_name": "no-parse-admonitions"
+            "cli_name": "no-parse-admonitions",
+            "importance": "core"
         }
     )
     parse_includes: bool = field(
         default=False,
         metadata={
             "help": "Process include directives (SECURITY: disabled by default)",
-            "cli_name": "parse-includes"
+            "cli_name": "parse-includes",
+            "importance": "security"
         }
     )
     strict_mode: bool = field(
         default=False,
         metadata={
-            "help": "Raise errors on invalid AsciiDoc syntax"
+            "help": "Raise errors on invalid AsciiDoc syntax",
+            "importance": "advanced"
         }
     )
     resolve_attribute_refs: bool = field(
         default=True,
         metadata={
             "help": "Resolve attribute references ({name}) in text",
-            "cli_name": "no-resolve-attributes"
+            "cli_name": "no-resolve-attributes",
+            "importance": "advanced"
         }
     )
     attribute_missing_policy: Literal["keep", "blank", "warn"] = field(
         default="keep",
         metadata={
             "help": "Policy for undefined attribute references: keep literal, use blank, or warn",
-            "choices": ["keep", "blank", "warn"]
+            "choices": ["keep", "blank", "warn"],
+            "importance": "advanced"
         }
     )
     support_unconstrained_formatting: bool = field(
         default=True,
         metadata={
             "help": "Support unconstrained formatting (e.g., **b**old for mid-word)",
-            "cli_name": "no-unconstrained-formatting"
+            "cli_name": "no-unconstrained-formatting",
+            "importance": "advanced"
         }
     )
     table_header_detection: Literal["first-row", "attribute-based", "auto"] = field(
         default="attribute-based",
         metadata={
             "help": "How to detect table headers: always first-row, use block attributes, or auto-detect",
-            "choices": ["first-row", "attribute-based", "auto"]
+            "choices": ["first-row", "attribute-based", "auto"],
+            "importance": "core"
         }
     )
     honor_hard_breaks: bool = field(
         default=True,
         metadata={
             "help": "Honor explicit line breaks (trailing space + plus)",
-            "cli_name": "no-honor-hard-breaks"
+            "cli_name": "no-honor-hard-breaks",
+            "importance": "advanced"
         }
     )
 
@@ -144,27 +153,31 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         default=True,
         metadata={
             "help": "Include document attributes in output",
-            "cli_name": "no-use-attributes"
+            "cli_name": "no-use-attributes",
+            "importance": "core"
         }
     )
     preserve_comments: bool = field(
         default=False,
         metadata={
             "help": "Include comments in rendered output",
-            "cli_name": "preserve-comments"
+            "cli_name": "preserve-comments",
+            "importance": "core"
         }
     )
     line_length: int = field(
         default=0,
         metadata={
             "help": "Target line length for wrapping (0 = no wrapping)",
-            "type": int
+            "type": int,
+            "importance": "core"
         }
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
-        default="pass-through",
+        default=DEFAULT_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
-            "choices": ["pass-through", "escape", "drop", "sanitize"]
+            "choices": HTML_PASSTHROUGH_MODES,
+            "importance": "security"
         }
     )

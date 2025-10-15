@@ -80,64 +80,91 @@ class PptxRendererOptions(BaseRendererOptions):
         default="auto",
         metadata={
             "help": "Slide splitting strategy: separator, heading, or auto",
-            "choices": ["separator", "heading", "auto"]
+            "choices": ["separator", "heading", "auto"],
+            "importance": "core"
         }
     )
     slide_split_heading_level: int = field(
         default=2,
         metadata={
             "help": "Heading level for slide splits (H2 = level 2)",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
     default_layout: str = field(
         default="Title and Content",
-        metadata={"help": "Default slide layout name"}
+        metadata={
+            "help": "Default slide layout name",
+            "importance": "advanced"
+        }
     )
     title_slide_layout: str = field(
         default="Title Slide",
-        metadata={"help": "Layout for first slide"}
+        metadata={
+            "help": "Layout for first slide",
+            "importance": "advanced"
+        }
     )
     use_heading_as_slide_title: bool = field(
         default=True,
         metadata={
             "help": "Use first heading as slide title",
-            "cli_name": "no-use-heading-as-slide-title"
+            "cli_name": "no-use-heading-as-slide-title",
+            "importance": "core"
         }
     )
     template_path: str | None = field(
         default=None,
-        metadata={"help": "Path to .pptx template file (None = default)"}
+        metadata={
+            "help": "Path to .pptx template file (None = default)",
+            "importance": "core"
+        }
     )
     default_font: str = field(
         default="Calibri",
-        metadata={"help": "Default font for slide content"}
+        metadata={
+            "help": "Default font for slide content",
+            "importance": "core"
+        }
     )
     default_font_size: int = field(
         default=18,
-        metadata={"help": "Default font size for body text", "type": int}
+        metadata={
+            "help": "Default font size for body text",
+            "type": int,
+            "importance": "core"
+        }
     )
     title_font_size: int = field(
         default=44,
-        metadata={"help": "Font size for slide titles", "type": int}
+        metadata={
+            "help": "Font size for slide titles",
+            "type": int,
+            "importance": "advanced"
+        }
     )
     list_number_spacing: int = field(
         default=1,
         metadata={
             "help": "Number of spaces after number prefix in ordered lists",
-            "type": int
+            "type": int,
+            "importance": "advanced"
         }
     )
     list_indent_per_level: float = field(
         default=0.5,
         metadata={
             "help": "Indentation per nesting level for lists (in inches)",
-            "type": float
+            "type": float,
+            "importance": "advanced"
         }
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions,
-        metadata={"help": "Network security options for fetching remote images"}
+        metadata={
+            "help": "Network security options for fetching remote images"
+        }
     )
 
 
@@ -167,34 +194,43 @@ class PptxOptions(PaginatedParserOptions):
 
     include_slide_numbers: bool = field(
         default=DEFAULT_SLIDE_NUMBERS,
-        metadata={"help": "Include slide numbers in output"}
+        metadata={
+            "help": "Include slide numbers in output",
+            "importance": "core"
+        }
     )
     include_notes: bool = field(
         default=True,
         metadata={
             "help": "Include speaker notes from slides",
-            "cli_name": "no-include-notes"
+            "cli_name": "no-include-notes",
+            "importance": "core"
         }
     )
 
     # Advanced PPTX options
     slides: str | None = field(
         default=None,
-        metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)"}
+        metadata={
+            "help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)",
+            "importance": "core"
+        }
     )
     charts_mode: Literal["data", "mermaid", "both"] = field(
         default="data",
         metadata={
             "help": "Chart conversion mode: 'data' (default, tables only), "
                     "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
-            "choices": ["data", "mermaid", "both"]
+            "choices": ["data", "mermaid", "both"],
+            "importance": "advanced"
         }
     )
     include_titles_as_h2: bool = field(
         default=True,
         metadata={
             "help": "Include slide titles as H2 headings",
-            "cli_name": "no-include-titles-as-h2"
+            "cli_name": "no-include-titles-as-h2",
+            "importance": "core"
         }
     )
     strict_list_detection: bool = field(
@@ -202,6 +238,7 @@ class PptxOptions(PaginatedParserOptions):
         metadata={
             "help": "Use strict list detection (XML-only, no heuristics). "
                     "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
-                    "When False (default), uses XML detection with heuristic fallbacks for unformatted lists."
+                    "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
+            "importance": "advanced"
         }
     )

@@ -19,7 +19,7 @@ from all2md.cli.custom_actions import (
     TrackingPositiveIntAction,
     TrackingStoreAction,
     TrackingStoreFalseAction,
-    TrackingStoreTrueAction,
+    TrackingStoreTrueAction, DynamicVersionAction,
 )
 from all2md.cli.presets import get_preset_names
 from all2md.constants import DocumentFormat
@@ -29,6 +29,27 @@ from all2md.options.markdown import MarkdownOptions
 
 # Module logger for consistent warning/error reporting
 logger = logging.getLogger(__name__)
+
+
+class TieredHelpAction(argparse.Action):
+    """Custom help action that integrates the enhanced help formatter."""
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, **kwargs):
+        kwargs.setdefault('nargs', '?')
+        kwargs.setdefault('default', argparse.SUPPRESS)
+        kwargs.setdefault('metavar', 'SECTION')
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None) -> None:
+        selector = values or 'quick'
+        try:
+            from all2md.cli.help_formatter import display_help
+        except ImportError:  # pragma: no cover - defensive
+            parser.print_help()
+            parser.exit()
+
+        display_help(selector)
+        parser.exit()
 
 
 class DynamicCLIBuilder:
@@ -43,6 +64,7 @@ class DynamicCLIBuilder:
         """Initialize the CLI builder."""
         self.parser: Optional[argparse.ArgumentParser] = None
         self.dest_to_cli_flag: Dict[str, str] = {}  # Maps dest names to actual CLI flags
+        self._options_class_cache: Optional[Dict[str, Type[Any]]] = None
 
     def _has_default(self, field: Any) -> bool:
         """Check if a dataclass field has a default value.
@@ -168,6 +190,44 @@ class DynamicCLIBuilder:
         # Regular type
         return field_type, False
 
+    def _get_options_classes(self) -> Dict[str, Type[Any]]:
+        """Return mapping of option namespaces to their dataclass classes."""
+        if self._options_class_cache is not None:
+            return self._options_class_cache
+
+        options_classes: Dict[str, Type[Any]] = {}
+
+        from all2md.options import BaseParserOptions, BaseRendererOptions
+
+        options_classes['base'] = BaseParserOptions
+        options_classes['renderer_base'] = BaseRendererOptions
+        options_classes['markdown'] = MarkdownOptions
+
+        registry.auto_discover()
+
+        for format_name in registry.list_formats():
+            if format_name == 'markdown':
+                continue
+
+            try:
+                options_class = registry.get_parser_options_class(format_name)
+            except Exception:
+                options_class = None
+
+            if options_class and is_dataclass(options_class):
+                options_classes.setdefault(format_name, options_class)
+
+            try:
+                renderer_class = registry.get_renderer_options_class(format_name)
+            except Exception:
+                renderer_class = None
+
+            if renderer_class and is_dataclass(renderer_class):
+                options_classes.setdefault(f'renderer_{format_name}', renderer_class)
+
+        self._options_class_cache = options_classes
+        return self._options_class_cache
+
     def _infer_argument_type_and_action(
             self, field: Any, resolved_type: Type,
             is_optional: bool, metadata: Dict[str, Any],
@@ -235,21 +295,21 @@ class DynamicCLIBuilder:
                             ) from e
 
                     kwargs['type'] = parse_int_list
-                    kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
+                    kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated integers)'
                 else:
                     # Add type function to parse comma-separated strings
                     def parse_str_list(value: str) -> list[str]:
                         return [x.strip() for x in value.split(',') if x.strip()]
 
                     kwargs['type'] = parse_str_list
-                    kwargs['help'] = kwargs.get('help', '') + ' (comma-separated values)'
+                    kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated values)'
             else:
                 # Fallback for untyped lists
                 def parse_str_list_fallback(value: str) -> list[str]:
                     return [x.strip() for x in value.split(',') if x.strip()]
 
                 kwargs['type'] = parse_str_list_fallback
-                kwargs['help'] = kwargs.get('help', '') + ' (comma-separated values)'
+                kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated values)'
 
         # Handle special metadata types (legacy support for list_int)
         elif metadata.get('type') == 'list_int':
@@ -263,7 +323,7 @@ class DynamicCLIBuilder:
                     ) from e
 
             kwargs['type'] = parse_legacy_int_list
-            kwargs['help'] = kwargs.get('help', '') + ' (comma-separated integers)'
+            kwargs['help'] = (kwargs.get('help') or f'Configure {field.name}') + ' (comma-separated integers)'
 
         # Handle basic types
         elif resolved_type in (int, float):
@@ -584,6 +644,27 @@ class DynamicCLIBuilder:
             parser, options_class, format_prefix, group_name, exclude_base_fields=True
         )
 
+    def add_renderer_options(
+            self,
+            parser: argparse.ArgumentParser,
+            options_class: Type,
+            format_name: str,
+    ) -> None:
+        """Add renderer options for a given format with dedicated prefixes."""
+
+        cli_prefix = f"{format_name}-renderer"
+        dest_prefix = f"renderer_{format_name}"
+        group_name = f"{format_name.upper()} renderer options"
+
+        self._add_options_arguments_internal(
+            parser,
+            options_class,
+            format_prefix=cli_prefix,
+            group_name=group_name,
+            exclude_base_fields=False,
+            dest_prefix=dest_prefix,
+        )
+
     def add_transform_arguments(self, parser: argparse.ArgumentParser) -> None:
         """Add transform-related CLI arguments.
 
@@ -656,8 +737,9 @@ class DynamicCLIBuilder:
         """
         parser = argparse.ArgumentParser(
             prog="all2md",
-            description="Convert documents to Markdown format",
+            description="Convert documents to Markdown (and other formats)",
             formatter_class=argparse.RawDescriptionHelpFormatter,
+            add_help=False,
             epilog="""
 Supported formats:
   PDF, Word (DOCX), PowerPoint (PPTX), HTML, Email (EML), EPUB,
@@ -685,6 +767,13 @@ Examples:
   all2md document.pdf --config config.toml
   all2md document.docx --config config.json --out custom.md
         """,
+        )
+
+        parser.add_argument(
+            '-h', '--help',
+            action=TieredHelpAction,
+            help='Show CLI help. Omit SECTION for a quick overview, or provide full/pdf/etc. '
+                 '(e.g., --help full, --help pdf).'
         )
 
         # Core arguments (keep these manual)
@@ -762,9 +851,6 @@ Examples:
             help="Fail on unknown command-line arguments instead of warning (helps catch typos)"
         )
 
-        # Version and about options
-        from all2md.cli.custom_actions import DynamicVersionAction
-
         def get_version() -> str:
             """Get the version of all2md package."""
             try:
@@ -816,6 +902,14 @@ Examples:
                         options_class,
                         format_prefix=format_name,
                         group_name=group_name
+                    )
+
+                renderer_options_class = registry.get_renderer_options_class(format_name)
+                if renderer_options_class and is_dataclass(renderer_options_class):
+                    self.add_renderer_options(
+                        parser,
+                        renderer_options_class,
+                        format_name=format_name
                     )
             except Exception as e:
                 logger.warning(f"Could not process converter {format_name}: {e}")
@@ -886,6 +980,42 @@ Examples:
                 return None
 
             current_class = underlying_type
+
+        return None
+
+    def resolve_option_field(self, dest: str) -> tuple[Any, Dict[str, Any]] | None:
+        """Return the dataclass field and metadata for a CLI destination."""
+        options_classes = self._get_options_classes()
+
+        if '.' in dest:
+            prefix, remainder = dest.split('.', 1)
+            options_class = options_classes.get(prefix)
+            if not options_class:
+                return None
+
+            if '.' in remainder:
+                field_path = remainder.split('.')
+                result = self._resolve_nested_field(options_class, field_path)
+                if result:
+                    field, _ = result
+                    metadata = dict(field.metadata) if field.metadata else {}
+                    return field, metadata
+                return None
+
+            for field in fields(options_class):
+                if field.name == remainder:
+                    metadata = dict(field.metadata) if field.metadata else {}
+                    return field, metadata
+            return None
+
+        base_class = options_classes.get('base')
+        if not base_class:
+            return None
+
+        for field in fields(base_class):
+            if field.name == dest:
+                metadata = dict(field.metadata) if field.metadata else {}
+                return field, metadata
 
         return None
 
@@ -987,27 +1117,8 @@ Examples:
         # Create a copy of the args dict to avoid "dictionary changed size during iteration" errors
         args_dict = dict(vars(parsed_args))
 
-        # Auto-discover parsers to get their options classes for validation
-        registry.auto_discover()
-
         # Collect all options classes for field validation
-        options_classes: Dict[str, Type[Any]] = {}
-
-        # Add BaseParserOptions
-        from all2md.options import BaseParserOptions
-        options_classes['base'] = BaseParserOptions
-        options_classes['markdown'] = MarkdownOptions
-
-        # Add converter-specific parser options
-        for format_name in registry.list_formats():
-            try:
-                options_class = registry.get_parser_options_class(format_name)
-                if options_class and is_dataclass(options_class):
-                    # Don't overwrite manually-set options classes (like MarkdownOptions)
-                    if format_name not in options_classes:
-                        options_classes[format_name] = options_class
-            except Exception:
-                continue
+        options_classes = dict(self._get_options_classes())
 
         # Track unknown arguments for validation
         unknown_args = []
