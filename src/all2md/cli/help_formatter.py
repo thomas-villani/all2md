@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Literal, Optional, Sequence
 
 from all2md.cli.builder import DynamicCLIBuilder
+from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.options.base import UNSET
 
 OptionImportance = Literal["core", "advanced", "security"]
@@ -179,6 +180,17 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
             dest = getattr(action, "dest", option_strings[0].lstrip("-"))
             importance = _lookup_importance(builder, dest)
 
+            nargs = getattr(action, "nargs", None)
+            is_flag_action = isinstance(
+                action,
+                (
+                    TrackingStoreTrueAction,
+                    TrackingStoreFalseAction,
+                    argparse._StoreTrueAction,
+                    argparse._StoreFalseAction,
+                ),
+            )
+
             entry = OptionEntry(
                 option_strings=option_strings,
                 dest=dest,
@@ -187,7 +199,7 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
                 metavar=getattr(action, "metavar", None),
                 choices=getattr(action, "choices", None),
                 importance=importance,  # type: ignore[arg-type]
-                is_flag=getattr(action, "nargs", None) in (0, None) and getattr(action, "const", None) is None,
+                is_flag=nargs == 0 or is_flag_action,
                 group_title=title,
             )
             options.append(entry)

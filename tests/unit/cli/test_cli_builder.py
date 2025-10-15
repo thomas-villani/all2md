@@ -17,6 +17,7 @@ from all2md.cli.commands import (
     handle_dependency_commands,
     save_config_to_file,
 )
+from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
 
 
@@ -271,6 +272,58 @@ class TestDynamicCLIBuilder:
         # Should get store_true action (not crash trying to compare MISSING to True/False)
         assert kwargs['action'] == 'store_true'
         assert help_suffix is None
+
+    def test_boolean_cli_negates_default_with_custom_flag(self):
+        """Boolean flags honor cli_negates_default metadata without forced --no- prefix."""
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class SampleOptions:
+            disable_feature: bool = field(
+                default=True,
+                metadata={
+                    'help': 'Disable expensive feature checks',
+                    'cli_negates_default': True,
+                    'cli_negated_name': 'disable-feature',
+                }
+            )
+
+        builder = DynamicCLIBuilder()
+        parser = argparse.ArgumentParser()
+        builder._add_options_arguments_internal(parser, SampleOptions)
+
+        action = next(
+            a for a in parser._actions
+            if '--disable-feature' in getattr(a, 'option_strings', [])
+        )
+
+        assert isinstance(action, TrackingStoreFalseAction)
+        assert action.dest == 'disable_feature'
+        assert action.default is True
+
+    def test_boolean_default_factory_is_treated_as_missing(self):
+        """Boolean default_factory should not force --no flag semantics."""
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class FactoryOptions:
+            feature_enabled: bool = field(
+                default_factory=lambda: True,
+                metadata={'help': 'Factory default should be ignored by CLI'},
+            )
+
+        builder = DynamicCLIBuilder()
+        parser = argparse.ArgumentParser()
+        builder._add_options_arguments_internal(parser, FactoryOptions)
+
+        action = next(
+            a for a in parser._actions
+            if '--feature-enabled' in getattr(a, 'option_strings', [])
+        )
+
+        assert isinstance(action, TrackingStoreTrueAction)
+        # store_true defaults to False until the user passes the flag
+        assert action.default is False
 
     def test_logger_used_instead_of_print(self):
         """Test that logger is used instead of print for warnings (Issue #13)."""
@@ -812,6 +865,7 @@ class TestNewCLIFeatures:
             (temp_path / "file1.pdf").write_text("test")
             (temp_path / "file2.docx").write_text("test")
             (temp_path / "file3.txt").write_text("test")
+            (temp_path / "file4.PDF").write_text("test")
             (temp_path / "subdir").mkdir()
             (temp_path / "subdir" / "nested.pdf").write_text("test")
 
@@ -830,15 +884,16 @@ class TestNewCLIFeatures:
 
             # Test specific extensions
             files = collect_input_files([str(temp_path)], extensions=['.pdf'])
-            pdf_files = [f for f in files if f.suffix == '.pdf']
-            assert len(pdf_files) >= 1
+            assert files
+            assert all(f.suffix.lower() == '.pdf' for f in files)
 
             # Glob patterns should exclude directories even when matched
             with patch('pathlib.Path.cwd', return_value=temp_path):
-                globbed = collect_input_files(['*'])
+                globbed = collect_input_files(['*'], extensions=['.pdf'])
                 assert all(p.is_file() for p in globbed)
                 names = {p.name for p in globbed}
                 assert 'subdir' not in names
+                assert {p.suffix.lower() for p in globbed} == {'.pdf'}
 
     def test_output_path_generation(self):
         """Test output path generation logic."""
@@ -1148,6 +1203,7 @@ class TestNewEnhancedCLIFeatures:
             args.recursive = False
             args.parallel = 1
             args.exclude = None
+            args.output_type = 'markdown'
             # Add _provided_args to avoid TypeError when checking 'in' operator
             args._provided_args = set()
 
@@ -1200,6 +1256,7 @@ class TestNewEnhancedCLIFeatures:
             args.recursive = False
             args.parallel = 1
             args.exclude = None
+            args.output_type = 'markdown'
             # Add _provided_args to avoid TypeError when checking 'in' operator
             args._provided_args = set()
 

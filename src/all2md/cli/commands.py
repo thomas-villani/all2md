@@ -335,35 +335,32 @@ def collect_input_files(
     if extensions is None:
         extensions = ALL_ALLOWED_EXTENSIONS.copy()
 
+    normalized_exts = {ext.lower() for ext in extensions} if extensions else None
+
+    def extension_allowed(path: Path) -> bool:
+        if normalized_exts is None:
+            return True
+        return path.suffix.lower() in normalized_exts
+
     for input_path_str in input_paths:
         input_path = Path(input_path_str)
 
         # Handle glob patterns
         if '*' in input_path_str:
             for matched in Path.cwd().glob(input_path_str):
-                if matched.is_file():
+                if matched.is_file() and extension_allowed(matched):
                     files.append(matched)
         elif input_path.is_file():
             # Single file
-            if not extensions or input_path.suffix.lower() in extensions:
+            if extension_allowed(input_path):
                 files.append(input_path)
         elif input_path.is_dir():
             # Directory - collect files
-            normalized_exts = {ext.lower() for ext in extensions} if extensions else None
-
-            if recursive:
-                for child in input_path.rglob('*'):
-                    if not child.is_file():
-                        continue
-                    if normalized_exts and child.suffix.lower() not in normalized_exts:
-                        continue
-                    files.append(child)
-            else:
-                for child in input_path.iterdir():
-                    if not child.is_file():
-                        continue
-                    if normalized_exts and child.suffix.lower() not in normalized_exts:
-                        continue
+            iterator = input_path.rglob('*') if recursive else input_path.iterdir()
+            for child in iterator:
+                if not child.is_file():
+                    continue
+                if extension_allowed(child):
                     files.append(child)
         else:
             logging.warning(f"Path does not exist: {input_path}")
@@ -940,19 +937,6 @@ def handle_convert_command(args: list[str] | None = None) -> int | None:
             return 1
 
     return _run_convert_command(parsed_args)
-
-
-    try:
-        metadata_list = registry.get_format_info(target_format)
-        if metadata_list and len(metadata_list) > 0:
-            # Use the highest priority (first) converter
-            metadata = metadata_list[0]
-            if metadata.extensions:
-                return metadata.extensions[0]
-    except Exception:
-        pass
-
-    return f'.{target_format}'
 
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:

@@ -234,13 +234,13 @@ class TestEscapeHtmlEntities:
         """Test escaping basic HTML special characters."""
         text = "<div>Test & 'quote' \"test\"</div>"
         result = escape_html_entities(text)
-        assert result == "&lt;div&gt;Test &amp; &apos;quote&apos; &quot;test&quot;&lt;/div&gt;"
+        assert result == "&lt;div&gt;Test &amp; &#x27;quote&#x27; &quot;test&quot;&lt;/div&gt;"
 
     def test_escape_script_tag(self) -> None:
         """Test escaping script tags."""
         text = "<script>alert('XSS')</script>"
         result = escape_html_entities(text)
-        assert result == "&lt;script&gt;alert(&apos;XSS&apos;)&lt;/script&gt;"
+        assert result == "&lt;script&gt;alert(&#x27;XSS&#x27;)&lt;/script&gt;"
 
     def test_escape_ampersand_first(self) -> None:
         """Test that ampersands are escaped without double-escaping."""

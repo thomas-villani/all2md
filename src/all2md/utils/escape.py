@@ -10,6 +10,8 @@ special characters are properly handled in rendered output.
 
 from __future__ import annotations
 
+import html
+
 
 def escape_asciidoc(text: str) -> str:
     r"""Escape special AsciiDoc characters in text content.
@@ -269,9 +271,20 @@ def escape_inline_code(code: str, delimiter: str = '`') -> tuple[str, str]:
 
 
 def escape_mediawiki(text: str) -> str:
-    """Escape special MediaWiki characters.
+    """Escape special MediaWiki characters (minimal/experimental implementation).
 
-    MediaWiki is generally lenient but some characters can cause issues.
+    WARNING: This is a minimal implementation. MediaWiki markup has complex
+    escaping rules, and this function currently performs no actual escaping.
+
+    MediaWiki is generally lenient with special characters in plain text contexts.
+    The main characters that can cause formatting issues are:
+    - '' (two apostrophes) for italic
+    - ''' (three apostrophes) for bold
+    - [[ and ]] for links
+    - {{ and }} for templates
+
+    However, in most plain text contexts (like within <code> tags or table cells),
+    MediaWiki handles these gracefully without explicit escaping.
 
     Parameters
     ----------
@@ -281,41 +294,39 @@ def escape_mediawiki(text: str) -> str:
     Returns
     -------
     str
-        Escaped text safe for MediaWiki
+        Text (currently unchanged - passes through as-is)
 
     Examples
     --------
         >>> escape_mediawiki("Text with ''quotes''")
-        "Text with '''quotes'''"
+        "Text with ''quotes''"
+        >>> escape_mediawiki("Normal text")
+        'Normal text'
+
+    Notes
+    -----
+    This function is marked as experimental because:
+    - MediaWiki's escaping rules are context-dependent
+    - Most text renders correctly without escaping in the contexts where this is used
+    - Full escaping would require <nowiki> tags, which may not be appropriate in all contexts
+
+    If you need robust MediaWiki escaping, consider using <nowiki> tags explicitly
+    or HTML entities for special characters.
 
     """
     if not text:
         return text
 
-    # MediaWiki uses doubled apostrophes for formatting
-    # '' for italic, ''' for bold
-    # To display literal '', we need to escape by adding one more
-    # This is a simplified approach; full escaping is complex
-
-    # For now, we'll escape sequences of apostrophes that match formatting
-    # by inserting <nowiki></nowiki> tags
-    # Actually, MediaWiki is quite lenient, so minimal escaping
-
-    # Escape only if we have formatting sequences
-    # This is a conservative approach - only escape obvious formatting
-    result = text
-
-    # Only escape if we have complete formatting sequences
-    # '' or ''' at boundaries could trigger formatting
-    # For safety, we'll leave most text as-is since MediaWiki is lenient
-
-    return result
+    # MediaWiki is lenient in most contexts, so we pass text through as-is
+    # Future enhancement: Could implement <nowiki> wrapping for problematic sequences
+    return text
 
 
 def escape_html_entities(text: str) -> str:
     """Escape HTML special characters to entities.
 
-    Used when embedding text in HTML contexts.
+    Used when embedding text in HTML contexts. This function uses Python's
+    built-in html.escape() for standard HTML5 entity encoding.
 
     Parameters
     ----------
@@ -330,23 +341,19 @@ def escape_html_entities(text: str) -> str:
     Examples
     --------
         >>> escape_html_entities("<script>alert('XSS')</script>")
-        '&lt;script&gt;alert(&apos;XSS&apos;)&lt;/script&gt;'
+        '&lt;script&gt;alert(&#x27;XSS&#x27;)&lt;/script&gt;'
+
+    Notes
+    -----
+    This function escapes the following characters:
+    - & -> &amp;
+    - < -> &lt;
+    - > -> &gt;
+    - " -> &quot;
+    - ' -> &#x27; (HTML5 standard)
 
     """
     if not text:
         return text
 
-    entities = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&apos;',
-    }
-
-    result = text
-    # Replace & first to avoid double-escaping
-    for char, entity in entities.items():
-        result = result.replace(char, entity)
-
-    return result
+    return html.escape(text, quote=True)

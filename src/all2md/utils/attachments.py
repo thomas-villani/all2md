@@ -385,38 +385,69 @@ def process_attachment(
             "footnote_content": footnote_content,
         }
 
-    # Helper function for fallback mode (replicates alt_text logic)
-    def _make_fallback_result() -> dict[str, Any]:
+    # Helper function to build attachment markdown (centralized logic)
+    def _build_attachment_markdown(
+            is_image: bool,
+            alt_text_mode: AltTextMode,
+            text_content: str,
+            attachment_name: str
+    ) -> tuple[str, str | None, str | None]:
+        """Build attachment markdown based on mode.
+
+        Parameters
+        ----------
+        is_image : bool
+            Whether this is an image attachment
+        alt_text_mode : AltTextMode
+            How to render alt-text content
+        text_content : str
+            Text to display (alt text for images, filename for files)
+        attachment_name : str
+            Attachment filename (used for footnote labels)
+
+        Returns
+        -------
+        tuple[str, str | None, str | None]
+            Tuple of (markdown, footnote_label, footnote_content)
+
+        """
         if is_image:
             # Escape alt text for images to prevent Markdown injection
-            escaped_alt = escape_markdown_context_aware(alt_text or attachment_name, context="image_alt")
+            escaped_text = escape_markdown_context_aware(text_content, context="image_alt")
 
             if alt_text_mode == "strict_markdown":
-                return _make_result(f"![{escaped_alt}](#)", url="#")
+                return (f"![{escaped_text}](#)", None, None)
             elif alt_text_mode == "footnote":
                 footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"![{escaped_alt}] [^{footnote_label}]"
-                footnote_content = alt_text or attachment_name
-                return _make_result(markdown, url="", footnote_label=footnote_label,
-                                    footnote_content=footnote_content)
-            else:
-                return _make_result(f"![{escaped_alt}]")
+                markdown = f"![{escaped_text}] [^{footnote_label}]"
+                return (markdown, footnote_label, text_content)
+            else:  # default mode
+                return (f"![{escaped_text}]", None, None)
         else:
             # Escape link text for files to prevent Markdown injection
-            escaped_name = escape_markdown_context_aware(attachment_name, context="link")
+            escaped_text = escape_markdown_context_aware(text_content, context="link")
 
             if alt_text_mode == "plain_filename":
-                return _make_result(attachment_name)
+                return (text_content, None, None)
             elif alt_text_mode == "strict_markdown":
-                return _make_result(f"[{escaped_name}](#)", url="#")
+                return (f"[{escaped_text}](#)", None, None)
             elif alt_text_mode == "footnote":
                 footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"[{escaped_name}] [^{footnote_label}]"
-                footnote_content = attachment_name
-                return _make_result(markdown, url="", footnote_label=footnote_label,
-                                    footnote_content=footnote_content)
-            else:
-                return _make_result(f"[{escaped_name}]")
+                markdown = f"[{escaped_text}] [^{footnote_label}]"
+                return (markdown, footnote_label, text_content)
+            else:  # default mode
+                return (f"[{escaped_text}]", None, None)
+
+    # Helper function for fallback mode (replicates alt_text logic)
+    def _make_fallback_result() -> dict[str, Any]:
+        text_content = alt_text or attachment_name
+        markdown, footnote_label, footnote_content = _build_attachment_markdown(
+            is_image, alt_text_mode, text_content, attachment_name
+        )
+        # For strict_markdown mode, set url to "#"
+        url = "#" if alt_text_mode == "strict_markdown" else ""
+        return _make_result(markdown, url=url, footnote_label=footnote_label,
+                            footnote_content=footnote_content)
 
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")

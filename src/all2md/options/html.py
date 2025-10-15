@@ -353,7 +353,7 @@ class HtmlOptions(BaseParserOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for remote resource fetching",
-            "exclude_from_cli": True  # Nested, handled separately
+            "cli_flatten": True  # Nested, handled separately
         }
     )
 
@@ -362,7 +362,7 @@ class HtmlOptions(BaseParserOptions):
         default_factory=LocalFileAccessOptions,
         metadata={
             "help": "Local file access security settings",
-            "exclude_from_cli": True  # Nested, handled separately
+            "cli_flatten": True  # Nested, handled separately
         }
     )
 

@@ -171,6 +171,6 @@ class EpubOptions(BaseParserOptions):
     html_options: HtmlOptions | None = field(
         default=None,
         metadata={
-            "exclude_from_cli": True  # Nested, handled separately
+            "cli_flatten": True  # Nested, handled separately
         }
     )

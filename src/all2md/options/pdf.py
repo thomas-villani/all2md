@@ -640,6 +640,6 @@ class PdfRendererOptions(BaseRendererOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for remote image fetching",
-            "exclude_from_cli": True  # Handled via flattened fields
+            "cli_flatten": True  # Handled via flattened fields
         }
     )

@@ -384,6 +384,10 @@ def format_special_text(text: str, format_type: str, mode: str = "html") -> str:
 def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str:
     r"""Format a heading in Markdown using either hash or underline style.
 
+    This function formats only the heading itself, without adding trailing blank
+    lines. Block-level spacing should be handled by the caller (e.g., document
+    renderers that add spacing between block elements).
+
     Parameters
     ----------
     text : str
@@ -396,16 +400,16 @@ def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str
     Returns
     -------
     str
-        Formatted heading string with appropriate newlines
+        Formatted heading string ending with a single newline
 
     Examples
     --------
     >>> format_markdown_heading("Main Title", 1, use_hash=True)
-    '# Main Title\n\n'
+    '# Main Title\n'
     >>> format_markdown_heading("Main Title", 1, use_hash=False)
-    'Main Title\n==========\n\n'
+    'Main Title\n==========\n'
     >>> format_markdown_heading("Subtitle", 2, use_hash=False)
-    'Subtitle\n--------\n\n'
+    'Subtitle\n--------\n'
 
     Notes
     -----
@@ -418,6 +422,9 @@ def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str
     - Supports levels 1-6 (# to ######)
     - Levels beyond 6 are clamped to 6
 
+    Spacing between blocks should be handled externally. This function does NOT
+    add trailing blank lines to avoid conflicts with document-level spacing logic.
+
     """
     # Clamp level to valid ranges
     level = max(1, min(level, 6))
@@ -427,7 +434,7 @@ def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str
 
     if use_hash:
         # Hash-style: # Heading, ## Heading, etc.
-        return f"{'#' * level} {text}\n\n"
+        return f"{'#' * level} {text}\n"
     else:
         # Underline style: only supported for levels 1-2
         if level == 1:
@@ -436,10 +443,10 @@ def format_markdown_heading(text: str, level: int, use_hash: bool = True) -> str
             underline_char = "-"
         else:
             # Fall back to hash style for levels 3+
-            return f"{'#' * level} {text}\n\n"
+            return f"{'#' * level} {text}\n"
 
         underline = underline_char * len(text)
-        return f"{text}\n{underline}\n\n"
+        return f"{text}\n{underline}\n"
 
 
 def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:

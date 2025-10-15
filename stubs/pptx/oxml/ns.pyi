@@ -1,6 +1,5 @@
 """Type stubs for pptx.oxml.ns module."""
 
-from typing import Any
 
 
 class NamespacePrefixedTag:

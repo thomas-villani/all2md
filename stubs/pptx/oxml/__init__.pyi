@@ -2,7 +2,6 @@
 
 from typing import Any
 
-
 def parse_xml(xml: str | bytes) -> Any:
     """Return root lxml element obtained by parsing XML character string.
 

@@ -131,7 +131,7 @@ class DocxRendererOptions(BaseRendererOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for remote image fetching",
-            "exclude_from_cli": True  # Nested, handled separately
+            "cli_flatten": True  # Nested, handled separately
         }
     )
 

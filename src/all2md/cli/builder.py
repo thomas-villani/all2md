@@ -31,6 +31,12 @@ from all2md.options.markdown import MarkdownOptions
 # Module logger for consistent warning/error reporting
 logger = logging.getLogger(__name__)
 
+# Well-known metadata keys used across option definitions. Centralizing the
+# string constants here keeps option modules and the CLI builder aligned.
+CLI_METADATA_NEGATES_DEFAULT = 'cli_negates_default'
+CLI_METADATA_FLATTEN = 'cli_flatten'
+CLI_METADATA_NEGATED_NAME = 'cli_negated_name'
+
 
 class TieredHelpAction(argparse.Action):
     """Custom help action that integrates the enhanced help formatter."""
@@ -260,21 +266,40 @@ class DynamicCLIBuilder:
 
         # Handle boolean fields
         if resolved_type is bool:
-            # Safely get default value, checking for MISSING
+            default_value = MISSING
+
             if self._has_default(field):
-                default_value = self._get_default(field)
-                if default_value is True and '-no-' in cli_name:
-                    # For --no-* flags (True defaults), use store_false
-                    kwargs['action'] = 'store_false'
-                elif default_value is False:
-                    # For regular boolean flags (False defaults), use store_true
-                    kwargs['action'] = 'store_true'
+                candidate_default = self._get_default(field)
+                if isinstance(candidate_default, bool):
+                    default_value = candidate_default
+                elif callable(candidate_default):
+                    logger.debug(
+                        "Boolean field %s uses default_factory; treating as no default for CLI",
+                        field.name,
+                    )
                 else:
-                    # For other boolean values, use type conversion
-                    kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
-            else:
-                # No default specified - use store_true with False default
+                    default_value = candidate_default
+
+            negate_via_metadata = bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False))
+
+            if negate_via_metadata and default_value not in (True, False, MISSING):
+                logger.debug(
+                    "Boolean field %s sets cli_negates_default but default is %r; CLI will still use store_false",
+                    field.name,
+                    default_value,
+                )
+
+            if negate_via_metadata or default_value is True:
+                kwargs['action'] = 'store_false'
+            elif default_value is False:
                 kwargs['action'] = 'store_true'
+            elif default_value is MISSING:
+                # No usable default specified - use store_true with False default
+                kwargs['action'] = 'store_true'
+            else:
+                # For other boolean values (e.g., Optional[bool] defaulting to None),
+                # accept explicit true/false strings instead of treating as a flag.
+                kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
 
         # Handle choices from metadata
         elif 'choices' in metadata:
@@ -586,13 +611,22 @@ class DynamicCLIBuilder:
 
             metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
-            # Skip excluded fields
-            if metadata.get('exclude_from_cli', False):
-                # Check if this is a nested dataclass we should handle
+            should_flatten = bool(metadata.get(CLI_METADATA_FLATTEN, False))
+            exclude_from_cli = bool(metadata.get('exclude_from_cli', False))
+
+            field_type: Optional[Type] = None
+            if should_flatten or exclude_from_cli:
                 field_type = self._resolve_field_type(field, options_class)
                 field_type, _ = self._handle_optional_type(field_type)
 
-                if is_dataclass(field_type):
+            if should_flatten or (exclude_from_cli and field_type is not None and is_dataclass(field_type)):
+                if not should_flatten and exclude_from_cli:
+                    logger.debug(
+                        "Field %s uses exclude_from_cli to flatten nested options; set cli_flatten=True instead",
+                        field.name,
+                    )
+
+                if field_type is not None and is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
                     # Decouple CLI prefix (hyphenated) from dest prefix (dot-separated)
                     kebab_name = self.snake_to_kebab(field.name)
@@ -610,6 +644,9 @@ class DynamicCLIBuilder:
                     )
                 continue
 
+            if exclude_from_cli:
+                continue
+
             # Skip markdown_options field - handled separately
             if field.name == 'markdown_options':
                 continue
@@ -618,19 +655,32 @@ class DynamicCLIBuilder:
             # Use resolved type instead of raw field.type for robust handling
             resolved_field_type = self._resolve_field_type(field, options_class)
             underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
-            # Check for MISSING before accessing field.default
-            is_bool_true_default = (
-                    underlying_field_type is bool and
-                    self._has_default(field) and
-                    self._get_default(field) is True
+
+            bool_default_value = MISSING
+            if underlying_field_type is bool and self._has_default(field):
+                candidate_default = self._get_default(field)
+                if isinstance(candidate_default, bool):
+                    bool_default_value = candidate_default
+                elif callable(candidate_default):
+                    bool_default_value = MISSING
+
+            negate_via_metadata = (
+                bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False))
+                if underlying_field_type is bool
+                else False
             )
+            use_negated_flag = bool_default_value is True or negate_via_metadata
 
             # Get CLI name (explicit or inferred)
             if 'cli_name' in metadata:
                 cli_meta_name = metadata['cli_name']
                 cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
+            elif use_negated_flag and CLI_METADATA_NEGATED_NAME in metadata:
+                negated_name_hint = metadata[CLI_METADATA_NEGATED_NAME]
+                kebab_hint = self.snake_to_kebab(str(negated_name_hint))
+                cli_name = f"--{format_prefix}-{kebab_hint}" if format_prefix else f"--{kebab_hint}"
             else:
-                cli_name = self.infer_cli_name(field.name, format_prefix, is_bool_true_default)
+                cli_name = self.infer_cli_name(field.name, format_prefix, use_negated_flag)
 
             # Build argument kwargs
             kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)

@@ -9,7 +9,7 @@ to_markdown, to_ast, from_ast, from_markdown, and convert. Focus is on to_ast
 """
 
 from importlib.util import find_spec
-from io import BytesIO, StringIO
+from io import BytesIO
 
 import pytest
 
@@ -538,22 +538,20 @@ class TestMultiStepWorkflowsE2E:
         ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
 
         # Step 2: Create multiple outputs with different options
-        md_output = from_ast(
+        md_content = from_ast(
             ast_doc,
             "markdown",
             renderer_options=MarkdownOptions(bullet_symbols="-")
         )
 
-        html_output = from_ast(
+        html_content = from_ast(
             ast_doc,
             "html",
             renderer_options=HtmlRendererOptions(standalone=True)
         )
 
-        assert isinstance(md_output, StringIO)
-        assert isinstance(html_output, StringIO)
-        md_content = md_output.getvalue()
-        html_content = html_output.getvalue()
+        assert isinstance(md_content, str)
+        assert isinstance(html_content, str)
 
         # Both should contain table content
         assert "Table Test Document" in md_content or "Alice Johnson" in md_content
@@ -706,8 +704,8 @@ class TestRealWorldUsagePatternsE2E:
                 "markdown",
                 transforms=["heading-offset"]
             )
-            assert isinstance(markdown, StringIO)
-            outputs.append(markdown.getvalue())
+            assert isinstance(markdown, str)
+            outputs.append(markdown)
 
         # Verify all processed
         assert len(outputs) == 5

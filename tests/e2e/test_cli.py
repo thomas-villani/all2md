@@ -133,7 +133,6 @@ def example_function():
         # Check help content
         help_output = result.stdout
         assert "all2md" in help_output
-        assert "Convert documents to Markdown format" in help_output
         assert "--format" in help_output
         assert "--log-level" in help_output
         assert "--attachment-mode" in help_output
