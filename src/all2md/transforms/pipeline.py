@@ -236,12 +236,26 @@ class Pipeline:
 
         Parameters
         ----------
+        transforms : list, optional
+            List of transforms to apply. Can be transform names (str) or
+            NodeTransformer instances
+        hooks : dict, optional
+            Dictionary mapping hook targets to lists of hook callables
         renderer : str, type, renderer instance, False, or None
             - str: Format name to look up via registry (e.g., "markdown")
             - type: Renderer class to instantiate
             - instance: Pre-configured renderer to use
             - False: Skip renderer setup (for AST-only processing)
             - None: Use default MarkdownRenderer (default)
+        options : BaseRendererOptions or MarkdownOptions, optional
+            Options for rendering (used if renderer is string or class,
+            ignored if renderer is instance)
+        progress_callback : ProgressCallback, optional
+            Optional callback for progress updates during rendering
+        strict_hooks : bool, default = False
+            Enable strict mode for hook exception handling. If True, hook exceptions
+            are re-raised and abort the pipeline. If False, exceptions are
+            logged and execution continues.
 
         """
         self.transforms = transforms or []

@@ -14,31 +14,14 @@ Tests cover:
 """
 
 
+import importlib.util
+
 import pytest
 
-try:
-    from docx import Document as DocxDocument
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-
-try:
-    from reportlab.platypus import SimpleDocTemplate  # noqa: F401
-    REPORTLAB_AVAILABLE = True
-except ImportError:
-    REPORTLAB_AVAILABLE = False
-
-try:
-    from ebooklib import epub
-    EBOOKLIB_AVAILABLE = True
-except ImportError:
-    EBOOKLIB_AVAILABLE = False
-
-try:
-    from pptx import Presentation
-    PPTX_AVAILABLE = True
-except ImportError:
-    PPTX_AVAILABLE = False
+DOCX_AVAILABLE = importlib.util.find_spec("docx") is not None
+REPORTLAB_AVAILABLE = importlib.util.find_spec("reportlab") is not None
+EBOOKLIB_AVAILABLE = importlib.util.find_spec("ebooklib") is not None
+PPTX_AVAILABLE = importlib.util.find_spec("pptx") is not None
 
 from all2md.ast import (
     BlockQuote,
@@ -73,6 +56,8 @@ if EBOOKLIB_AVAILABLE:
     from all2md.renderers.epub import EpubRenderer
 
 if PPTX_AVAILABLE:
+    from pptx import Presentation
+
     from all2md.renderers.pptx import PptxRenderer
 
 

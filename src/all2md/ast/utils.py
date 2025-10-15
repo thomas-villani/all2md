@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> str:
-    """Extract plain text from a node or list of nodes.
+    r"""Extract plain text from a node or list of nodes.
 
     This function recursively traverses the AST and concatenates all Text node
     content, joining text parts with the specified joiner string. It uses

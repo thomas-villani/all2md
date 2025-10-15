@@ -824,12 +824,10 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             # Note: Actual spacing may vary across templates
             if nesting_level > 0:
                 try:
-                    # Use python-pptx Inches helper for indentation
-                    indent_inches = nesting_level * self.options.list_indent_per_level
-                    p.level = nesting_level  # Already set above, but explicit for clarity
                     # python-pptx's level property handles indentation automatically,
                     # but templates may override this. The list_indent_per_level option
                     # documents the intent, though actual rendering depends on template.
+                    p.level = nesting_level  # Already set above, but explicit for clarity
                 except Exception as e:
                     logger.debug(f"Failed to apply list indentation: {e}")
         else:
@@ -845,9 +843,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 # For simple bullets, we add a buChar element (bullet character)
                 from pptx.oxml import parse_xml
                 # Check if bullet is already configured
-                if pPr.find('.//a:buChar', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}) is None:
+                ns = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
+                if pPr.find('.//a:buChar', namespaces=ns) is None:
                     # Add bullet character (standard bullet: U+2022)
-                    bu_char_xml = '<a:buChar xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" char="\u2022"/>'
+                    xml_ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+                    bu_char_xml = f'<a:buChar xmlns:a="{xml_ns}" char="\u2022"/>'
                     bu_char = parse_xml(bu_char_xml)
                     pPr.append(bu_char)
             except Exception as e:

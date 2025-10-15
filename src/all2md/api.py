@@ -1,5 +1,4 @@
-"""The major exported API functions for document conversion.
-"""
+"""The major exported API functions for document conversion."""
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 # src/all2md/api.py

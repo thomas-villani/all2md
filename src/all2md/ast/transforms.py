@@ -1050,7 +1050,7 @@ class LinkRewriter(NodeTransformer):
 
 
 class TextReplacer(NodeTransformer):
-    """Transformer that replaces text patterns.
+    r"""Transformer that replaces text patterns.
 
     Parameters
     ----------

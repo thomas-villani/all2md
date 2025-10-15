@@ -10,10 +10,19 @@ project, including extensions, themes, and HTML output options.
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("../src"))
+DOCS_SOURCE_DIR = Path(__file__).resolve().parent
+DOCS_ROOT = DOCS_SOURCE_DIR.parent
+PROJECT_ROOT = DOCS_ROOT.parent
+
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
+if str(DOCS_ROOT) not in sys.path:
+    sys.path.insert(0, str(DOCS_ROOT))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -77,3 +86,24 @@ doctest_default_flags = 0
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+
+
+def _generate_options_reference(_app) -> None:
+    """Build the generated options reference before the documentation build."""
+    from generate_options_doc import generate_options_document
+
+    output_path = DOCS_SOURCE_DIR / "options.rst"
+    narrative_path = DOCS_SOURCE_DIR / "_options-narrative.rst"
+    generate_options_document(output_path, narrative_path)
+
+
+def setup(app):
+    """Configure Sphinx application with custom hooks.
+
+    Parameters
+    ----------
+    app : sphinx.application.Sphinx
+        The Sphinx application instance.
+
+    """
+    app.connect("builder-inited", _generate_options_reference)

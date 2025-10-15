@@ -51,9 +51,6 @@ import os
 import sys
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
-
 from all2md.cli.builder import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR, DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
     _configure_logging,
@@ -79,6 +76,8 @@ from all2md.cli.validation import (
     report_validation_problems,
     validate_arguments,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "main",

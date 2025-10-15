@@ -12,7 +12,10 @@ import os
 import sys
 import textwrap
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Literal, Optional, Sequence
+
+if TYPE_CHECKING:
+    from rich.text import Text
 
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction

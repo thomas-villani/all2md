@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from all2md.ast.transforms import NodeTransformer
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
     _run_convert_command,
@@ -22,7 +23,6 @@ from all2md.cli.commands import (
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
 from all2md.transforms import ParameterSpec, TransformMetadata
-from all2md.ast.transforms import NodeTransformer
 
 
 @pytest.mark.unit
@@ -488,7 +488,7 @@ class TestDynamicCLIBuilder:
     def test_dest_to_cli_flag_mapping_with_nested(self):
         """Test that dest_to_cli_flag mapping works correctly for nested options."""
         builder = DynamicCLIBuilder()
-        parser = builder.build_parser()
+        builder.build_parser()  # Populates dest_to_cli_flag mapping
 
         # After building parser, dest_to_cli_flag should have nested mappings with dot notation
         assert 'html.network.allow_remote_fetch' in builder.dest_to_cli_flag
@@ -1751,5 +1751,5 @@ class TestTransformParameterExposure:
         assert "--hidden" not in option_strings
 
         args = parser.parse_args(["--transform", "demo", "--offset", "3"])
-        assert getattr(args, "demo_offset") == 3
+        assert args.demo_offset == 3
         assert builder.dest_to_cli_flag["demo_offset"] == "--offset"

@@ -16,6 +16,8 @@ from typing import Literal, Sequence
 
 from all2md.ast.nodes import (
     Alignment,
+    DefinitionDescription,
+    DefinitionTerm,
     Document,
     List,
     ListItem,

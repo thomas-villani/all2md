@@ -473,7 +473,7 @@ def parse_delimited_block(
         collect_mode: str = "lines",
         parse_block_fn: Callable[[], Any] | None = None
 ) -> tuple[list[str] | list[Any], bool]:
-    """Parse a delimited block with opening and closing delimiters.
+    r"""Parse a delimited block with opening and closing delimiters.
 
     This helper consolidates the common pattern in AsciiDoc parser for parsing
     delimited blocks (code blocks, quote blocks, literal blocks, etc.) that have:

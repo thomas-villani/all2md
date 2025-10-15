@@ -1,3 +1,37 @@
+"""Complex test fixture generators for various document formats."""
+
+import datetime
+import email.utils
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from pathlib import Path
+
+# Optional dependencies - imported conditionally
+try:
+    import docx
+    from docx.enum.text import WD_ALIGN_VERTICAL
+    from docx.shared import Inches
+except ImportError:
+    docx = None  # type: ignore[assignment]
+    Inches = None  # type: ignore[assignment,misc]
+    WD_ALIGN_VERTICAL = None  # type: ignore[assignment,misc]
+
+try:
+    from pptx import Presentation
+    from pptx.chart.data import ChartData
+    from pptx.enum.chart import XL_CHART_TYPE
+    from pptx.util import Inches as PptxInches
+except ImportError:
+    Presentation = None  # type: ignore[assignment,misc]
+    ChartData = None  # type: ignore[assignment,misc]
+    XL_CHART_TYPE = None  # type: ignore[assignment,misc]
+    PptxInches = None  # type: ignore[assignment,misc]
+
+# Import test utilities
+from tests.utils import MINIMAL_PNG_BYTES
+
+
 class DocxTestGenerator:
     """Generator for complex DOCX test documents with edge cases."""
 
@@ -530,3 +564,7 @@ to test email chain processing.
 > Quoted content from previous message
 > With multiple quoted lines
 > And various formatting
+"""
+            chain_parts.append(message)
+
+        return "\n\n".join(chain_parts)

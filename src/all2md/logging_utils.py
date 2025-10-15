@@ -27,6 +27,7 @@ def configure_logging(
     -------
     logging.Logger
         The configured root logger instance.
+
     """
     resolved_level = (
         log_level

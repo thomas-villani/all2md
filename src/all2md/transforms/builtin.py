@@ -140,6 +140,7 @@ class RemoveNodesTransform(NodeTransformer):
 
         """
         import difflib
+
         from all2md.transforms.hooks import _NODE_TYPE_MAP
 
         # Validate that 'document' is not in node_types

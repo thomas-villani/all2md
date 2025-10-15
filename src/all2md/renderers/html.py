@@ -20,7 +20,7 @@ from typing import IO, Union
 
 logger = logging.getLogger(__name__)
 
-from all2md.ast.nodes import (
+from all2md.ast.nodes import (  # noqa: E402
     BlockQuote,
     Code,
     CodeBlock,
@@ -54,11 +54,11 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
-from all2md.ast.visitors import NodeVisitor
-from all2md.options import HtmlRendererOptions
-from all2md.renderers.base import BaseRenderer, InlineContentMixin
-from all2md.utils.html_sanitizer import sanitize_html_content, strip_html_tags
-from all2md.utils.html_utils import escape_html, render_math_html
+from all2md.ast.visitors import NodeVisitor  # noqa: E402
+from all2md.options import HtmlRendererOptions  # noqa: E402
+from all2md.renderers.base import BaseRenderer, InlineContentMixin  # noqa: E402
+from all2md.utils.html_sanitizer import sanitize_html_content, strip_html_tags  # noqa: E402
+from all2md.utils.html_utils import escape_html, render_math_html  # noqa: E402
 
 
 class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
@@ -182,7 +182,8 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 "script-src 'self'; "
                 "style-src 'self' 'unsafe-inline';"
             )
-            parts.append(f'<meta http-equiv="Content-Security-Policy" content="{escape_html(csp_policy, enabled=self.options.escape_html)}">')
+            escaped_csp = escape_html(csp_policy, enabled=self.options.escape_html)
+            parts.append(f'<meta http-equiv="Content-Security-Policy" content="{escaped_csp}">')
 
         parts.append(f'<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>')
 

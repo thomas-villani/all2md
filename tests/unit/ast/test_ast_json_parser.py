@@ -59,25 +59,7 @@ class TestAstJsonContentDetector:
 
     def test_detect_large_ast_json_with_prefix_sampling(self):
         """Test that large AST JSON files are detected efficiently using prefix sampling."""
-        # Create a properly formed AST JSON in the prefix, followed by large content
-        # This simulates a real AST JSON file where the structure is clear from the start
-        small_ast = {
-            "schema_version": 1,
-            "node_type": "Document",
-            "children": [
-                {
-                    "node_type": "Paragraph",
-                    "content": [{"node_type": "Text", "content": "Start content"}],
-                    "metadata": {}
-                }
-            ],
-            "metadata": {}
-        }
-
-        # Convert to JSON and get the first part
-        small_json = json.dumps(small_ast)
-
-        # Create a large document by adding many paragraphs in the middle
+        # Create a large document by adding many paragraphs
         # But keep the structure parseable in the prefix
         large_children = []
         for i in range(1000):

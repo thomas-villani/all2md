@@ -40,8 +40,6 @@ from all2md.cli.processors import (
     setup_and_validate_options,
 )
 from all2md.cli.validation import (
-    collect_argument_problems,
-    report_validation_problems,
     validate_arguments,
 )
 from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
@@ -49,8 +47,8 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
 from all2md.exceptions import DependencyError
-from all2md.transforms import registry as transform_registry
 from all2md.logging_utils import configure_logging as configure_root_logging
+from all2md.transforms import registry as transform_registry
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +58,6 @@ ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTE
 
 def _serialize_config_value(value: Any) -> Any:
     """Convert dataclass default values into config-friendly primitives."""
-
     if is_dataclass(value):
         result: Dict[str, Any] = {}
         for field in fields(value):
@@ -100,7 +97,6 @@ def _serialize_config_value(value: Any) -> Any:
 
 def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[str, Any]:
     """Instantiate an options dataclass and extract CLI-relevant defaults."""
-
     if options_class is None or not is_dataclass(options_class):
         return {}
 
@@ -134,7 +130,6 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
 
 def _build_default_config_data() -> Dict[str, Any]:
     """Assemble default configuration from registered option classes."""
-
     builder = DynamicCLIBuilder()
     options_map = builder.get_options_class_map()
     config: Dict[str, Any] = {}
@@ -350,7 +345,6 @@ def _configure_logging(
         trace_mode: bool = False
 ) -> None:
     """Backward-compatible wrapper around shared logging configuration."""
-
     configure_root_logging(log_level, log_file=log_file, trace_mode=trace_mode)
 
 

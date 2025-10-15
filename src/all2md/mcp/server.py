@@ -259,7 +259,6 @@ def create_server(
 
 def configure_logging(level: str) -> None:
     """Configure logging for the MCP server."""
-
     configure_root_logging(level, trace_mode=True)
 
 

@@ -680,7 +680,6 @@ def validate_arguments(
         logger: Optional[logging.Logger] = None,
 ) -> bool:
     """Backward-compatible shim for CLI argument validation."""
-
     return _validate_arguments(parsed_args, files, logger=logger)
 
 

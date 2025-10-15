@@ -155,7 +155,7 @@ class ParameterSpec:
             # Provide helpful error message for common tuple/list confusion
             if self.type is list and isinstance(value, tuple):
                 # This shouldn't happen due to coercion above, but handle edge cases
-                raise ValueError(f"Expected list, got tuple (this should have been coerced)")
+                raise ValueError("Expected list, got tuple (this should have been coerced)")
             raise ValueError(f"Expected type {self.type.__name__}, got {type(value).__name__}")
 
         # Check list element types
@@ -203,7 +203,6 @@ class ParameterSpec:
 
     def should_expose(self, default: Optional[bool] = None) -> bool:
         """Determine whether this parameter should surface in the CLI."""
-
         if default is None:
             default = self.DEFAULT_EXPOSE
 
