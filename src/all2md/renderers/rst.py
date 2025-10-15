@@ -609,8 +609,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """Render a LineBreak node.
 
         Soft line breaks render as spaces to maintain paragraph flow.
-        Hard line breaks use RST line block syntax (newline followed by ``| ``),
-        which is the standard way to preserve line structure in reStructuredText.
+        Hard line breaks rendering depends on the ``hard_line_break_mode`` option.
 
         Parameters
         ----------
@@ -620,16 +619,26 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Notes
         -----
         RST does not have a direct equivalent to hard line breaks within paragraphs.
-        The line block syntax (``|``) is the idiomatic approach for preserving
-        explicit line breaks while maintaining semantic structure.
+
+        **line_block mode (default)**: Uses line block syntax (``| ``) which is the
+        idiomatic RST approach for preserving explicit line breaks. May change
+        semantic structure in complex containers like lists.
+
+        **raw mode**: Uses plain newlines. Less faithful to RST but simpler in
+        complex containers. May not preserve visual breaks in all RST processors.
 
         """
         if node.soft:
             # Soft breaks render as space in RST
             self._output.append(' ')
         else:
-            # Hard line break in RST uses line block syntax
-            self._output.append('\n| ')
+            # Hard line break rendering depends on configured mode
+            if self.options.hard_line_break_mode == "line_block":
+                # Standard RST line block syntax
+                self._output.append('\n| ')
+            else:  # "raw"
+                # Plain newline (simpler but less faithful)
+                self._output.append('\n')
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.

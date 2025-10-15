@@ -41,8 +41,36 @@ class PptxRendererOptions(BaseRendererOptions):
         Default font size in points for body text.
     title_font_size : int, default 44
         Font size for slide titles.
+    list_number_spacing : int, default 1
+        Number of spaces after the number prefix in ordered lists (e.g., "1. " has 1 space).
+        Affects visual consistency of manually numbered lists.
+    list_indent_per_level : float, default 0.5
+        Indentation per nesting level for lists, in inches.
+        Controls horizontal spacing for nested lists. Note that actual indentation
+        behavior may vary across PowerPoint templates.
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security options for fetching remote images in slides.
+
+    Notes
+    -----
+    **List Rendering Limitations:**
+
+    python-pptx has limited support for automatic list numbering. This renderer
+    uses manual numbering for ordered lists by adding number prefixes (e.g., "1. ")
+    as text runs. The following options provide some control over list formatting:
+
+    - ``list_number_spacing``: Controls spacing after numbers
+    - ``list_indent_per_level``: Controls nesting indentation
+
+    However, deeper nesting and exact spacing behavior can be inconsistent across
+    different PowerPoint templates. These limitations are inherent to python-pptx's
+    API and the complexity of PowerPoint's list formatting system.
+
+    **Unordered Lists in Text Boxes:**
+
+    For unordered lists, bullets are explicitly enabled via OOXML manipulation
+    to ensure they appear in both text boxes and content placeholders. Text boxes
+    do not enable bullets by default, unlike content placeholders.
 
     """
 
@@ -92,6 +120,20 @@ class PptxRendererOptions(BaseRendererOptions):
     title_font_size: int = field(
         default=44,
         metadata={"help": "Font size for slide titles", "type": int}
+    )
+    list_number_spacing: int = field(
+        default=1,
+        metadata={
+            "help": "Number of spaces after number prefix in ordered lists",
+            "type": int
+        }
+    )
+    list_indent_per_level: float = field(
+        default=0.5,
+        metadata={
+            "help": "Indentation per nesting level for lists (in inches)",
+            "type": float
+        }
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions,

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.ast.nodes import Document, Heading, Image, Node
+from all2md.ast.transforms import clone_node
 from all2md.exceptions import RenderingError
 from all2md.options import EpubRendererOptions, HtmlRendererOptions
 from all2md.renderers._split_utils import (
@@ -97,8 +98,18 @@ class EpubRenderer(BaseRenderer):
         RenderingError
             If EPUB generation fails
 
+        Notes
+        -----
+        The original AST document is preserved and not mutated during rendering.
+        Image URL rewriting is performed on a deep copy of the document to ensure
+        the input AST can be safely reused for multiple renderings.
+
         """
         from ebooklib import epub
+
+        # Clone document to avoid mutating the original AST during image URL rewriting.
+        # This ensures the input document can be reused for rendering to other formats.
+        doc = clone_node(doc)
 
         # Create EPUB book
         book = epub.EpubBook()

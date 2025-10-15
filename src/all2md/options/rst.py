@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from all2md.constants import (
     DEFAULT_RST_CODE_STYLE,
+    DEFAULT_RST_HARD_LINE_BREAK_MODE,
     DEFAULT_RST_HEADING_CHARS,
     DEFAULT_RST_LINE_LENGTH,
     DEFAULT_RST_PARSE_DIRECTIVES,
@@ -18,6 +19,7 @@ from all2md.constants import (
     DEFAULT_RST_STRICT_MODE,
     DEFAULT_RST_TABLE_STYLE,
     RstCodeStyle,
+    RstLineBreakMode,
     RstTableStyle,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -90,6 +92,10 @@ class RstRendererOptions(BaseRendererOptions):
         - "directive": Use ``.. code-block:: directive``
     line_length : int, default 80
         Target line length for wrapping text.
+    hard_line_break_mode : {"line_block", "raw"}, default "line_block"
+        How to render hard line breaks:
+        - "line_block": Use RST line block syntax (``\\n| ``), the standard approach
+        - "raw": Use plain newline (``\\n``), less faithful but simpler in complex containers
 
     Notes
     -----
@@ -98,9 +104,18 @@ class RstRendererOptions(BaseRendererOptions):
         angle brackets) are automatically escaped in text nodes to prevent unintended formatting.
 
     **Line Breaks:**
-        Hard line breaks are rendered using RST line block syntax (newline followed by ``| ``).
-        This is the standard approach for preserving line structure in reStructuredText.
-        Soft line breaks render as spaces, consistent with RST paragraph semantics.
+        Hard line breaks behavior depends on the ``hard_line_break_mode`` option:
+
+        - **line_block mode (default)**: Uses RST line block syntax (``| ``). This is the
+          standard RST approach for preserving line structure. May be surprising inside
+          complex containers like lists and block quotes as it changes semantic structure.
+        - **raw mode**: Uses plain newlines. Less faithful to RST semantics but simpler
+          in complex containers. May not preserve visual line breaks in all RST processors.
+
+        Soft line breaks always render as spaces, consistent with RST paragraph semantics.
+
+        **Recommendation**: Use "raw" mode if line blocks cause formatting issues in
+        lists or nested structures. Use "line_block" (default) for maximum RST fidelity.
 
     **Unsupported Features:**
         - **Strikethrough**: RST has no native strikethrough syntax. Content renders as plain text.
@@ -139,5 +154,12 @@ class RstRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Target line length for wrapping",
             "type": int
+        }
+    )
+    hard_line_break_mode: RstLineBreakMode = field(
+        default=DEFAULT_RST_HARD_LINE_BREAK_MODE,
+        metadata={
+            "help": "Hard line break rendering mode: line_block (use | syntax) or raw (plain newline)",
+            "choices": ["line_block", "raw"]
         }
     )

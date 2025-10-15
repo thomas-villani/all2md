@@ -51,7 +51,7 @@ from all2md.ast.visitors import NodeVisitor
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options import MediaWikiOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
-from all2md.utils.escape import escape_mediawiki
+from all2md.utils.escape import escape_html_entities, escape_mediawiki
 from all2md.utils.html_sanitizer import sanitize_html_content
 
 
@@ -381,8 +381,15 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         node : Code
             Code to render
 
+        Notes
+        -----
+        Code content is HTML-escaped to prevent markup injection and ensure
+        special characters like <, >, and & display correctly.
+
         """
-        self._output.append(f"<code>{node.content}</code>")
+        # Escape HTML entities to prevent injection and correctly display special chars
+        escaped_content = escape_html_entities(node.content)
+        self._output.append(f"<code>{escaped_content}</code>")
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.

@@ -236,16 +236,63 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         str
             Text with bare URLs converted to autolinks
 
+        Notes
+        -----
+        This implementation uses a more robust URL regex that handles:
+        - Balanced parentheses (e.g., Wikipedia URLs)
+        - Query strings with punctuation
+        - URL fragments (#section)
+        - Trailing punctuation that's not part of the URL
+
+        **Edge Cases Handled:**
+        - `https://en.wikipedia.org/wiki/Foo_(bar)` - keeps closing paren
+        - `http://example.com?q=test` - handles query params
+        - `(see http://example.com)` - strips closing paren
+        - `http://example.com.` - strips trailing period
+
         """
-        # URL regex pattern that matches common URL schemes
-        # Matches: http://, https://, ftp://, ftps://
+        # Improved URL pattern that handles common URL schemes
+        # Pattern breakdown:
+        # 1. Scheme: https?:// or ftps?://
+        # 2. Domain/path: [^\s<>]+ but with special handling
+        # 3. Balanced parentheses and smart trailing punctuation
+
+        # Main URL character class: all except whitespace and angle brackets
+        # We'll handle parentheses and trailing punctuation specially
         url_pattern = r'(https?://[^\s<>]+|ftps?://[^\s<>]+)'
 
         def replace_url(match: re.Match[str]) -> str:
             url = match.group(1)
-            # Remove trailing punctuation that's likely not part of the URL
-            while url and url[-1] in '.,;:!?)':
-                url = url[:-1]
+
+            # Smart trailing punctuation removal
+            # Remove trailing punctuation ONLY if it's not part of URL structure
+            # (i.e., not in query params or fragments)
+
+            # Check if URL has query string or fragment
+            has_query = '?' in url
+            has_fragment = '#' in url
+
+            # If no query/fragment, aggressively strip trailing punctuation
+            if not has_query and not has_fragment:
+                while url and url[-1] in '.,;:!?':
+                    url = url[:-1]
+            else:
+                # With query/fragment, only strip obvious sentence-ending punctuation
+                # but preserve URL-valid characters like '&', '=', etc.
+                while url and url[-1] in ',;:':
+                    url = url[:-1]
+
+            # Handle unbalanced parentheses:
+            # If URL ends with ')' but doesn't have balanced parens, strip it
+            # This handles "(see http://example.com)" correctly
+            if url.endswith(')'):
+                open_count = url.count('(')
+                close_count = url.count(')')
+                # Remove extra closing parens
+                while close_count > open_count and url.endswith(')'):
+                    url = url[:-1]
+                    close_count -= 1
+
             return f'<{url}>'
 
         return re.sub(url_pattern, replace_url, text)
