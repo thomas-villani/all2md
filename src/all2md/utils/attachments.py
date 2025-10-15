@@ -363,7 +363,7 @@ def process_attachment(
                 return _make_result(f"![{alt_text or attachment_name}](#)", url="#")
             elif alt_text_mode == "footnote":
                 footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"![{alt_text or attachment_name}][^{footnote_label}]"
+                markdown = f"![{alt_text or attachment_name}] [^{footnote_label}]"
                 footnote_content = alt_text or attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
                                     footnote_content=footnote_content)
@@ -376,7 +376,7 @@ def process_attachment(
                 return _make_result(f"[{attachment_name}](#)", url="#")
             elif alt_text_mode == "footnote":
                 footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"[{attachment_name}][^{footnote_label}]"
+                markdown = f"[{attachment_name}] [^{footnote_label}]"
                 footnote_content = attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
                                     footnote_content=footnote_content)

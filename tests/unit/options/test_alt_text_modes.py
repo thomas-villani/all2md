@@ -101,7 +101,8 @@ class TestAltTextModes:
             is_image=True
         )
         # Footnote labels are sanitized and extension is removed for cleaner references
-        assert result["markdown"] == "![Test Image][^test]"
+        # Note: Space between image and footnote reference for valid Markdown syntax
+        assert result["markdown"] == "![Test Image] [^test]"
         assert result["footnote_label"] == "test"
         assert result["footnote_content"] == "Test Image"
         assert result["url"] == ""
@@ -117,7 +118,8 @@ class TestAltTextModes:
             is_image=False
         )
         # Footnote labels are sanitized and extension is removed for cleaner references
-        assert result["markdown"] == "[document.pdf][^document]"
+        # Note: Space between link and footnote reference for valid Markdown syntax
+        assert result["markdown"] == "[document.pdf] [^document]"
         assert result["footnote_label"] == "document"
         assert result["footnote_content"] == "document.pdf"
 

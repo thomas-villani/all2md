@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from html import escape as _html_escape
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from all2md.constants import HtmlPassthroughMode
 
 MathNotation = Literal["latex", "mathml", "html"]
 
@@ -56,16 +59,18 @@ def render_math_html(
         escaped = escape_html(content, enabled=escape_enabled)
         inner = f"${escaped}$" if inline else f"$$\n{escaped}\n$$"
     elif notation == "mathml":
-        # MathML is typically trusted XML, but still respect escape_enabled
+        # MathML content must be sanitized to prevent XSS when escape_enabled=True
         if escape_enabled:
-            # For MathML, only escape if it doesn't look like valid MathML
-            stripped = content.strip()
-            if stripped.startswith("<"):
-                inner = stripped  # Assume valid MathML, don't escape
-            else:
-                # Not valid MathML, treat as text and escape
-                inner = f"<math>{escape_html(content, enabled=True)}</math>"
+            # Import at runtime to avoid circular dependency
+            from all2md.utils.html_sanitizer import sanitize_html_content
+            # Sanitize MathML to remove dangerous elements/attributes
+            inner = sanitize_html_content(content, mode="sanitize")
+            # If content doesn't look like MathML after sanitization, wrap it
+            stripped = inner.strip()
+            if not stripped.startswith("<"):
+                inner = f"<math>{escape_html(stripped, enabled=True)}</math>"
         else:
+            # When escaping is disabled, preserve content as-is (trusted source)
             stripped = content.strip()
             inner = stripped if stripped.startswith("<") else f"<math>{content}</math>"
     else:  # notation == "html"

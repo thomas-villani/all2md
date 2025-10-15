@@ -10,8 +10,10 @@ including base64-encoded data URIs and temporary file management.
 
 from __future__ import annotations
 
+import atexit
 import base64
 import binascii
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -122,16 +124,26 @@ def decode_base64_image_to_file(
     try:
         # Create temporary file
         suffix = f'.{image_format}'
-        dir_path = Path(output_dir) if output_dir else None
+        dir_path = str(output_dir) if output_dir else None
 
-        # Create temp file
-        with tempfile.NamedTemporaryFile(
-                delete=delete_on_exit,
-                suffix=suffix,
-                dir=dir_path
-        ) as f:
-            f.write(image_data)
-            temp_path = f.name
+        # Use mkstemp to create temp file that persists after creation
+        fd, temp_path = tempfile.mkstemp(suffix=suffix, dir=dir_path)
+
+        # Write the image data
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(image_data)
+        except Exception:
+            # If writing fails, clean up the file
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
+            raise
+
+        # Register cleanup handler if delete_on_exit is True
+        if delete_on_exit:
+            atexit.register(lambda path=temp_path: Path(path).unlink(missing_ok=True))
 
         return temp_path
 
