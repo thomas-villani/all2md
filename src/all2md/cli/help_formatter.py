@@ -14,7 +14,7 @@ import textwrap
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Literal, Optional, Sequence
 
-from all2md.cli.builder import DynamicCLIBuilder
+from all2md.cli.builder import DynamicCLIBuilder, create_parser
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.options.base import UNSET
 
@@ -545,8 +545,11 @@ def _rich_available() -> bool:
 
 def build_help_renderer(*, use_rich: bool = False) -> HelpRenderer:
     """Convenience helper that builds the parser, catalog, and renderer."""
+    # Use create_parser() to get the full parser with all top-level options
+    # (e.g., --rich, --progress, --output-dir, --parallel, etc.)
+    parser = create_parser()
+    # We still need a builder instance for resolve_option_field() in build_catalog()
     builder = DynamicCLIBuilder()
-    parser = builder.build_parser()
     catalog = build_catalog(parser, builder)
     return HelpRenderer(catalog, use_rich=use_rich)
 

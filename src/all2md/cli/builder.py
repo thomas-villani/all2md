@@ -1500,7 +1500,7 @@ def create_parser() -> argparse.ArgumentParser:
     rich_group = parser.add_argument_group(
         'Rich output customization',
         'Customize rich terminal output with syntax highlighting and formatting. '
-        'Requires: pip install all2md[rich]'
+        'Requires: `pip install all2md[rich]`'
     )
     rich_group.add_argument(
         '--rich-code-theme',
