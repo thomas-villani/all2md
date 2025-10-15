@@ -8,6 +8,7 @@ supported when the ``rich`` package is available and requested.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import textwrap
 from dataclasses import dataclass
@@ -111,7 +112,6 @@ def _determine_section_key(title: str) -> str:
 
 def _classify_section_title(title: str) -> str:
     """Return category for a section title (parser, renderer, or global)."""
-
     lowered = title.lower()
 
     if 'renderer' in lowered:
@@ -137,7 +137,6 @@ def _lookup_importance(builder: DynamicCLIBuilder, dest: str) -> OptionImportanc
 
 def _format_default(value: Any) -> Optional[str]:
     """Return human-readable default representation or ``None`` when omitted."""
-
     if value is argparse.SUPPRESS:
         return None
     if value is None:
@@ -155,7 +154,6 @@ def _format_default(value: Any) -> Optional[str]:
 
 def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -> HelpCatalog:
     """Create a help catalog from the configured parser."""
-
     sections: list[HelpSection] = []
     section_lookup: Dict[str, HelpSection] = {}
     format_sections: Dict[str, list[HelpSection]] = {}
@@ -463,9 +461,10 @@ class HelpRenderer:
         if self.use_rich:
             from rich.console import Console  # type: ignore[import-not-found]
 
-            console = Console()
+            target = stream or sys.stdout
+            console = Console(file=target, force_terminal=True)
             for line in output.splitlines():
-                console.print(self._style_line(line))
+                console.print(self._style_line(line), soft_wrap=True)
         else:
             target = stream or sys.stdout
             print(output, file=target)
@@ -540,12 +539,22 @@ def build_help_renderer(*, use_rich: bool = False) -> HelpRenderer:
     return HelpRenderer(catalog, use_rich=use_rich)
 
 
-def display_help(selector: str = "quick", *, use_rich: bool = False, stream: Optional[Any] = None) -> None:
-    """Render help for ``selector`` to stdout (or ``stream``) with optional rich output."""
+def display_help(
+    selector: str = "quick",
+    *,
+    use_rich: Optional[bool] = None,
+    stream: Optional[Any] = None,
+) -> None:
+    """Render help for ``selector`` to stdout (or ``stream``) with optional rich output.
 
-    renderer = build_help_renderer(use_rich=use_rich)
+    When ``use_rich`` is ``None`` the renderer automatically enables rich output when
+    supported, the target stream is a TTY, and color has not been disabled via
+    ``NO_COLOR`` or a ``dumb`` terminal.
+    """
+    resolved_use_rich = _should_enable_rich(use_rich=use_rich, stream=stream)
+    renderer = build_help_renderer(use_rich=resolved_use_rich)
 
-    if use_rich and not renderer.use_rich:
+    if resolved_use_rich and not renderer.use_rich:
         warning_target = stream or sys.stderr
         print(
             "Rich output requested but the 'rich' package is not installed. Falling back to plain text.",
@@ -553,6 +562,37 @@ def display_help(selector: str = "quick", *, use_rich: bool = False, stream: Opt
         )
 
     renderer.print(selector, stream=stream)
+
+
+def _should_enable_rich(*, use_rich: Optional[bool], stream: Optional[Any]) -> bool:
+    """Return ``True`` when rich output should be used for help rendering."""
+    if use_rich is False:
+        return False
+
+    if not _rich_available():
+        return False
+
+    if os.environ.get('NO_COLOR'):
+        return False
+
+    term = os.environ.get('TERM', '')
+    if term.lower() == 'dumb':
+        return False
+
+    # Explicit request overrides TTY checks when color is otherwise permitted.
+    if use_rich is True:
+        return True
+
+    target = stream or sys.stdout
+    isatty = getattr(target, 'isatty', None)
+    if callable(isatty):
+        try:
+            if isatty():
+                return True
+        except Exception:  # pragma: no cover - defensive: respect failures
+            return False
+
+    return False
 
 
 __all__ = [

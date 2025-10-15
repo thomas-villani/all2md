@@ -877,7 +877,13 @@ def handle_help_command(args: list[str] | None = None) -> int | None:
 
     parsed = parser.parse_args(help_args)
 
-    display_help(parsed.section, use_rich=parsed.rich)
+    requested_rich: Optional[bool]
+    if parsed.rich:
+        requested_rich = True
+    else:
+        requested_rich = None
+
+    display_help(parsed.section, use_rich=requested_rich)
     return 0
 
 

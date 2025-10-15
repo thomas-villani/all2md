@@ -14,6 +14,7 @@ from all2md.utils.images import (
     is_data_uri,
     parse_image_data_uri,
 )
+from all2md.utils.text import make_unique_slug, slugify
 
 __all__ = [
     "decode_base64_image",
@@ -21,4 +22,6 @@ __all__ = [
     "get_image_format_from_path",
     "is_data_uri",
     "parse_image_data_uri",
+    "slugify",
+    "make_unique_slug",
 ]

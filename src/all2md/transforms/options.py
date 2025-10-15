@@ -155,6 +155,10 @@ class AddTimestampOptions:
         Metadata field name for timestamp
     format : str, default = "iso"
         Timestamp format: "iso", "unix", or strftime format string
+    timespec : str, default = "seconds"
+        Time precision for ISO format timestamps. Valid values are:
+        "auto", "hours", "minutes", "seconds", "milliseconds", "microseconds".
+        Only applies when format="iso".
 
     Examples
     --------
@@ -163,10 +167,16 @@ class AddTimestampOptions:
     ...     format="%Y-%m-%d %H:%M:%S"
     ... )
 
+    >>> options = AddTimestampOptions(
+    ...     format="iso",
+    ...     timespec="microseconds"
+    ... )
+
     """
 
     field_name: str = "conversion_timestamp"
     format: str = "iso"
+    timespec: str = "seconds"
 
 
 @dataclass

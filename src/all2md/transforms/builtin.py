@@ -70,6 +70,7 @@ from all2md.ast.utils import extract_text
 from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
 from all2md.transforms.hooks import HookManager
 from all2md.utils.attachments import sanitize_footnote_label
+from all2md.utils.text import make_unique_slug, slugify
 
 
 class RemoveImagesTransform(NodeTransformer):
@@ -451,15 +452,11 @@ class AddHeadingIdsTransform(NodeTransformer):
         # Extract text from heading content (no joiner for slugification)
         text = extract_text(node.content, joiner="")
 
-        # Generate slug
-        slug = self._slugify(text)
+        # Generate slug using shared utility
+        base_slug = slugify(text, separator=self.separator)
 
-        # Handle duplicates
-        if slug in self._id_counts:
-            self._id_counts[slug] += 1
-            slug = f"{slug}{self.separator}{self._id_counts[slug]}"
-        else:
-            self._id_counts[slug] = 1
+        # Make unique using shared utility
+        slug = make_unique_slug(base_slug, self._id_counts, separator=self.separator)
 
         # Add prefix
         final_id = f"{self.id_prefix}{slug}" if self.id_prefix else slug
@@ -474,32 +471,6 @@ class AddHeadingIdsTransform(NodeTransformer):
             metadata=new_metadata,
             source_location=node.source_location
         )
-
-    def _slugify(self, text: str) -> str:
-        """Convert text to URL-safe slug.
-
-        Parameters
-        ----------
-        text : str
-            Text to slugify
-
-        Returns
-        -------
-        str
-            Slugified text
-
-        """
-        # Lowercase
-        text = text.lower()
-
-        # Replace spaces and special chars with separator
-        text = re.sub(r'[^\w\s-]', '', text)
-        text = re.sub(r'[\s_]+', self.separator, text)
-
-        # Remove leading/trailing separators
-        text = text.strip(self.separator)
-
-        return text or 'heading'  # Fallback if empty
 
 
 class RemoveBoilerplateTextTransform(NodeTransformer):
@@ -912,9 +883,10 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         # Traverse document to collect footnote references
         self._collect_footnote_refs(node)
 
-        # If no footnotes found, return unchanged
+        # If no footnotes found, still perform normal traversal
+        # This ensures subclasses and other transforms work correctly
         if not self._footnote_refs:
-            return node
+            return super().visit_document(node)
 
         # Create footnote definitions
         new_children = list(node.children)
@@ -996,6 +968,9 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
     def _get_link_text(self, node: Link) -> str:
         """Extract text content from link node.
 
+        This method uses extract_text to capture all nested text content,
+        including text inside Emphasis, Strong, and other formatting nodes.
+
         Parameters
         ----------
         node : Link
@@ -1007,12 +982,8 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
             Text content of link
 
         """
-        text_parts = []
-        if node.content:
-            for child in node.content:
-                if isinstance(child, Text):
-                    text_parts.append(child.content)
-        return ' '.join(text_parts)
+        # Use extract_text to get all nested text content
+        return extract_text(node.content, joiner="")
 
 
 class GenerateTocTransform(NodeTransformer):
@@ -1188,26 +1159,11 @@ class GenerateTocTransform(NodeTransformer):
             Slugified ID
 
         """
-        # Lowercase
-        slug = text.lower()
+        # Generate slug using shared utility
+        base_slug = slugify(text, separator=self.separator)
 
-        # Replace spaces and special chars with separator
-        slug = re.sub(r'[^\w\s-]', '', slug)
-        slug = re.sub(r'[\s_]+', self.separator, slug)
-
-        # Remove leading/trailing separators
-        slug = slug.strip(self.separator)
-
-        # Handle empty slugs
-        if not slug:
-            slug = 'heading'
-
-        # Handle duplicates
-        if slug in self._id_counts:
-            self._id_counts[slug] += 1
-            slug = f"{slug}{self.separator}{self._id_counts[slug]}"
-        else:
-            self._id_counts[slug] = 1
+        # Make unique using shared utility
+        slug = make_unique_slug(base_slug, self._id_counts, separator=self.separator)
 
         return slug
 

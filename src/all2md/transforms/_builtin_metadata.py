@@ -196,6 +196,17 @@ ADD_TIMESTAMP_METADATA = TransformMetadata(
             default="iso",
             help="Timestamp format: 'iso' for ISO 8601, 'unix' for Unix timestamp, or any strftime format string",
             cli_flag='--timestamp-format'
+        ),
+        'timespec': ParameterSpec(
+            type=str,
+            default="seconds",
+            choices=["auto", "hours", "minutes", "seconds", "milliseconds", "microseconds"],
+            help=(
+                "Time precision for ISO format timestamps "
+                "(auto, hours, minutes, seconds, milliseconds, microseconds). "
+                "Only applies when format='iso'"
+            ),
+            cli_flag='--timestamp-timespec'
         )
     },
     priority=300,

@@ -74,6 +74,44 @@ from all2md.ast.nodes import (
 
 logger = logging.getLogger(__name__)
 
+# Module-level constant for node type mapping (performance optimization)
+# Used by HookManager.get_node_type() in hot path during tree traversal
+# Format: list of (node_class, type_string) tuples
+# Order matters: more specific types should be checked before more general ones
+_NODE_TYPE_MAP: list[tuple[type[Node], str]] = [
+    (Document, 'document'),
+    (Heading, 'heading'),
+    (Paragraph, 'paragraph'),
+    (CodeBlock, 'code_block'),
+    (BlockQuote, 'block_quote'),
+    (List, 'list'),
+    (ListItem, 'list_item'),
+    (Table, 'table'),
+    (TableRow, 'table_row'),
+    (TableCell, 'table_cell'),
+    (ThematicBreak, 'thematic_break'),
+    (HTMLBlock, 'html_block'),
+    (Text, 'text'),
+    (Emphasis, 'emphasis'),
+    (Strong, 'strong'),
+    (Code, 'code'),
+    (Link, 'link'),
+    (Image, 'image'),
+    (LineBreak, 'line_break'),
+    (Strikethrough, 'strikethrough'),
+    (Underline, 'underline'),
+    (Superscript, 'superscript'),
+    (Subscript, 'subscript'),
+    (HTMLInline, 'html_inline'),
+    (FootnoteReference, 'footnote_reference'),
+    (FootnoteDefinition, 'footnote_definition'),
+    (MathInline, 'math_inline'),
+    (MathBlock, 'math_block'),
+    (DefinitionList, 'definition_list'),
+    (DefinitionTerm, 'definition_term'),
+    (DefinitionDescription, 'definition_description'),
+]
+
 # Type aliases
 HookPoint = Literal[
     'post_ast',
@@ -451,45 +489,13 @@ class HookManager:
         by their base type. For example, a custom MyImage(Image) subclass will
         be identified as type 'image'.
 
-        """
-        # Map node classes to type strings
-        # Order matters: more specific types should be checked before more general ones
-        type_map = {
-            Document: 'document',
-            Heading: 'heading',
-            Paragraph: 'paragraph',
-            CodeBlock: 'code_block',
-            BlockQuote: 'block_quote',
-            List: 'list',
-            ListItem: 'list_item',
-            Table: 'table',
-            TableRow: 'table_row',
-            TableCell: 'table_cell',
-            ThematicBreak: 'thematic_break',
-            HTMLBlock: 'html_block',
-            Text: 'text',
-            Emphasis: 'emphasis',
-            Strong: 'strong',
-            Code: 'code',
-            Link: 'link',
-            Image: 'image',
-            LineBreak: 'line_break',
-            Strikethrough: 'strikethrough',
-            Underline: 'underline',
-            Superscript: 'superscript',
-            Subscript: 'subscript',
-            HTMLInline: 'html_inline',
-            FootnoteReference: 'footnote_reference',
-            FootnoteDefinition: 'footnote_definition',
-            MathInline: 'math_inline',
-            MathBlock: 'math_block',
-            DefinitionList: 'definition_list',
-            DefinitionTerm: 'definition_term',
-            DefinitionDescription: 'definition_description',
-        }
+        Performance: Uses module-level _NODE_TYPE_MAP constant to avoid
+        reconstructing the mapping on every call (hot path optimization).
 
+        """
         # Use isinstance to support subclasses
-        for node_class, node_type in type_map.items():
+        # Iterate over module-level constant (avoids repeated dict construction)
+        for node_class, node_type in _NODE_TYPE_MAP:
             if isinstance(node, node_class):
                 return cast(NodeType, node_type)
 

@@ -324,8 +324,19 @@ class Pipeline:
         logger.debug(f"Resolved {len(result)} transform(s) for execution")
         return result
 
-    def _apply_transforms(self, document: Document, context: HookContext) -> Document:
+    def _apply_transforms(
+            self,
+            document: Document,
+            context: HookContext,
+            emit_progress: bool = False,
+            current_stage: int = 0,
+            total_stages: int = 0
+    ) -> tuple[Document, int]:
         """Apply all transforms in order.
+
+        This is the centralized transform application logic used by both
+        execute() and apply() functions. It handles transform resolution,
+        hook execution, and optional progress emission.
 
         Parameters
         ----------
@@ -333,16 +344,24 @@ class Pipeline:
             Document to transform
         context : HookContext
             Context for hook execution
+        emit_progress : bool, default = False
+            Whether to emit progress events for each transform
+        current_stage : int, default = 0
+            Current stage number for progress reporting
+        total_stages : int, default = 0
+            Total stages for progress reporting
 
         Returns
         -------
-        Document
-            Transformed document
+        tuple[Document, int]
+            Tuple of (transformed document, updated current_stage)
 
         Raises
         ------
         ValueError
-            If a hook removes the document node
+            If a hook removes the document node or transform returns None
+        TypeError
+            If transform returns non-Document type
 
         """
         result = document
@@ -350,7 +369,7 @@ class Pipeline:
 
         logger.debug(f"Applying {len(transforms)} transform(s)")
 
-        for transformer in transforms:
+        for i, transformer in enumerate(transforms, 1):
             # Pre-transform hook
             if self.hook_manager.has_hooks('pre_transform'):
                 context.transform_name = transformer.__class__.__name__
@@ -374,8 +393,7 @@ class Pipeline:
                         f"Transform {transformer.__class__.__name__} returned None"
                     )
 
-                # Type check: transformed_result should be a Document, but mypy sees it as Node | None
-                # We use isinstance to narrow the type for mypy and ensure transforms return Document
+                # Type check: transformed_result should be a Document
                 if not isinstance(transformed_result, Document):
                     raise TypeError(
                         f"Transform {transformer.__class__.__name__} must return Document, "
@@ -404,8 +422,19 @@ class Pipeline:
                 # Update context.document to reflect any modifications
                 context.document = result
 
+            # Emit progress after each transform if requested
+            if emit_progress:
+                current_stage += 1
+                self._emit_progress(
+                    "page_done",
+                    f"Completed transform {i}/{len(transforms)}: {transformer.__class__.__name__}",
+                    current=current_stage,
+                    total=total_stages,
+                    metadata={"transform": transformer.__class__.__name__}
+                )
+
         context.transform_name = None
-        return result
+        return result, current_stage
 
     def _apply_element_hooks(self, document: Document, context: HookContext) -> Document:
         """Apply element-specific hooks via tree traversal.
@@ -693,71 +722,15 @@ class Pipeline:
                     total=stage_count
                 )
 
-            # Apply transforms
+            # Apply transforms using centralized logic
             if self.transforms:
-                transforms = self._resolve_transforms()
-                for i, transformer in enumerate(transforms, 1):
-                    # Pre-transform hook
-                    if self.hook_manager.has_hooks('pre_transform'):
-                        context.transform_name = transformer.__class__.__name__
-                        result = self.hook_manager.execute_hooks('pre_transform', document, context)
-
-                        if result is None:
-                            raise ValueError("pre_transform hook removed document")
-
-                        document = result
-                        context.document = result
-
-                    # Apply transform
-                    logger.debug(f"Applying transform: {transformer.__class__.__name__}")
-                    context.transform_name = transformer.__class__.__name__
-
-                    try:
-                        transformed_result = transformer.transform(document)
-
-                        if transformed_result is None:
-                            raise ValueError(
-                                f"Transform {transformer.__class__.__name__} returned None"
-                            )
-
-                        # Type check: transformed_result should be a Document
-                        if not isinstance(transformed_result, Document):
-                            raise TypeError(
-                                f"Transform {transformer.__class__.__name__} must return Document, "
-                                f"got {type(transformed_result).__name__}"
-                            )
-                        document = transformed_result
-                        context.document = document
-
-                    except Exception as e:
-                        logger.error(
-                            f"Transform {transformer.__class__.__name__} failed: {e}",
-                            exc_info=True
-                        )
-                        # Re-raise - transform failures are critical
-                        raise
-
-                    # Post-transform hook
-                    if self.hook_manager.has_hooks('post_transform'):
-                        result = self.hook_manager.execute_hooks('post_transform', document, context)
-
-                        if result is None:
-                            raise ValueError("post_transform hook removed document")
-
-                        document = result
-                        context.document = result
-
-                    # Emit progress after each transform
-                    current_stage += 1
-                    self._emit_progress(
-                        "page_done",
-                        f"Completed transform {i}/{len(transforms)}: {transformer.__class__.__name__}",
-                        current=current_stage,
-                        total=stage_count,
-                        metadata={"transform": transformer.__class__.__name__}
-                    )
-
-                context.transform_name = None
+                document, current_stage = self._apply_transforms(
+                    document,
+                    context,
+                    emit_progress=True,
+                    current_stage=current_stage,
+                    total_stages=stage_count
+                )
 
             # Pre-render hook (before element hooks, for document-level validation)
             if self.hook_manager.has_hooks('pre_render'):
@@ -1034,71 +1007,15 @@ def apply(
                 total=stage_count
             )
 
-        # Apply transforms
+        # Apply transforms using centralized logic
         if pipeline.transforms:
-            transforms_list = pipeline._resolve_transforms()
-            for i, transformer in enumerate(transforms_list, 1):
-                # Pre-transform hook
-                if pipeline.hook_manager.has_hooks('pre_transform'):
-                    context.transform_name = transformer.__class__.__name__
-                    result = pipeline.hook_manager.execute_hooks('pre_transform', document, context)
-
-                    if result is None:
-                        raise ValueError("pre_transform hook removed document")
-
-                    document = result
-                    context.document = result
-
-                # Apply transform
-                logger.debug(f"Applying transform: {transformer.__class__.__name__}")
-                context.transform_name = transformer.__class__.__name__
-
-                try:
-                    transformed_result = transformer.transform(document)
-
-                    if transformed_result is None:
-                        raise ValueError(
-                            f"Transform {transformer.__class__.__name__} returned None"
-                        )
-
-                    # Type check: transformed_result should be a Document
-                    if not isinstance(transformed_result, Document):
-                        raise TypeError(
-                            f"Transform {transformer.__class__.__name__} must return Document, "
-                            f"got {type(transformed_result).__name__}"
-                        )
-                    document = transformed_result
-                    context.document = document
-
-                except Exception as e:
-                    logger.error(
-                        f"Transform {transformer.__class__.__name__} failed: {e}",
-                        exc_info=True
-                    )
-                    # Re-raise - transform failures are critical
-                    raise
-
-                # Post-transform hook
-                if pipeline.hook_manager.has_hooks('post_transform'):
-                    result = pipeline.hook_manager.execute_hooks('post_transform', document, context)
-
-                    if result is None:
-                        raise ValueError("post_transform hook removed document")
-
-                    document = result
-                    context.document = result
-
-                # Emit progress after each transform
-                current_stage += 1
-                emit_progress(
-                    "page_done",
-                    f"Completed transform {i}/{len(transforms_list)}: {transformer.__class__.__name__}",
-                    current=current_stage,
-                    total=stage_count,
-                    metadata={"transform": transformer.__class__.__name__}
-                )
-
-            context.transform_name = None
+            document, current_stage = pipeline._apply_transforms(
+                document,
+                context,
+                emit_progress=(progress_callback is not None),
+                current_stage=current_stage,
+                total_stages=stage_count
+            )
 
         # Pre-render hook (before element hooks, for document-level validation)
         if pipeline.hook_manager.has_hooks('pre_render'):

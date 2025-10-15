@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def sanitize_html_content(
         content: str,
-        mode: HtmlPassthroughMode = "pass-through"
+        mode: HtmlPassthroughMode = "escape"
 ) -> str:
     """Sanitize HTML content string according to the specified mode.
 
