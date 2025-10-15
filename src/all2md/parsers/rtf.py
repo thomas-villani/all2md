@@ -375,7 +375,7 @@ class RtfToAstConverter(BaseParser):
 
             # Convert result to Image node using helper
             image_node = attachment_result_to_image_node(result, fallback_alt_text="Image")
-            if image_node:
+            if image_node and isinstance(image_node, Image):
                 return image_node
 
         except Exception as e:

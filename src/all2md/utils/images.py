@@ -18,6 +18,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +184,9 @@ def decode_base64_image_to_file(
 
         # Register cleanup handler if delete_on_exit is True
         if delete_on_exit:
-            atexit.register(lambda path=temp_path: Path(path).unlink(missing_ok=True))
+            def cleanup_temp_file(path: str = temp_path) -> None:
+                Path(path).unlink(missing_ok=True)
+            atexit.register(cleanup_temp_file)
 
         return temp_path
 
@@ -191,7 +194,7 @@ def decode_base64_image_to_file(
         return None
 
 
-def parse_image_data_uri(data_uri: str) -> dict[str, str] | None:
+def parse_image_data_uri(data_uri: str) -> dict[str, Any] | None:
     """Parse a data URI and extract metadata.
 
     Extracts format, encoding, and data from a data URI without decoding.

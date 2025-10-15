@@ -374,7 +374,7 @@ class ParameterSpec:
         value = getattr(namespace, dest)
 
         # Check if explicitly provided by user (via tracking actions)
-        provided_args = getattr(namespace, '_provided_args', set())
+        provided_args: set[str] = getattr(namespace, '_provided_args', set())
         was_provided = dest in provided_args
 
         # Only return non-None values that were explicitly provided or differ from default

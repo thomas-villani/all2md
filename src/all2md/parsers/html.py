@@ -1258,7 +1258,7 @@ class HtmlToAstConverter(BaseParser):
 
         # Convert result to Image node using helper
         image_node = attachment_result_to_image_node(result, fallback_alt_text=alt_text or "image")
-        if image_node:
+        if image_node and isinstance(image_node, Image):
             # Preserve title if provided
             if title:
                 image_node.title = title

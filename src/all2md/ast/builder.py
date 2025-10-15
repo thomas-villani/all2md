@@ -21,6 +21,7 @@ from all2md.ast.nodes import (
     Document,
     List,
     ListItem,
+    MathNotation,
     Node,
     Table,
     TableCell,
@@ -655,7 +656,7 @@ class DocumentBuilder:
     def add_math_block(
             self,
             content: str,
-            notation: str = "latex"
+            notation: MathNotation = "latex"
     ) -> DocumentBuilder:
         """Add a math block to the document.
 
@@ -663,8 +664,8 @@ class DocumentBuilder:
         ----------
         content : str
             Math expression content
-        notation : str, default = "latex"
-            Math notation system (e.g., "latex", "mathml")
+        notation : {"latex", "mathml", "html"}, default = "latex"
+            Math notation system
 
         Returns
         -------

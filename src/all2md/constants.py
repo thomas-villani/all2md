@@ -92,7 +92,7 @@ MetadataFormatType = Literal["yaml", "toml", "json"]
 PageSize = Literal["letter", "a4", "legal"]
 HtmlPassthroughMode = Literal["pass-through", "escape", "drop", "sanitize"]
 HTML_PASSTHROUGH_MODES = ["pass-through", "escape", "drop", "sanitize"]
-DEFAULT_HTML_PASSTHROUGH_MODE = "escape"
+DEFAULT_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"
 
 HeaderCaseOption = Literal["preserve", "title", "upper", "lower"]
 

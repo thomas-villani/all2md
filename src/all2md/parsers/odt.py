@@ -535,7 +535,10 @@ class OdtToAstConverter(BaseParser):
             self._attachment_footnotes[result["footnote_label"]] = result["footnote_content"]
 
         # Use helper to convert result to Image node (eliminates regex parsing)
-        return attachment_result_to_image_node(result, fallback_alt_text="image")
+        image_node = attachment_result_to_image_node(result, fallback_alt_text="image")
+        if image_node and isinstance(image_node, Image):
+            return image_node
+        return None
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from ODT document.

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Union, cast
 
 
 def write_content(
@@ -108,18 +108,20 @@ def write_content(
 
         if is_binary_mode:
             # Binary mode - write bytes
+            binary_output = cast(IO[bytes], output)
             if isinstance(content, str):
-                output.write(content.encode('utf-8'))  # type: ignore[union-attr]
+                binary_output.write(content.encode('utf-8'))
             elif isinstance(content, bytes):
-                output.write(content)  # type: ignore[union-attr]
+                binary_output.write(content)
             else:
                 raise TypeError(f"Content must be str or bytes, got {type(content)}")
         else:
             # Text mode - write str
+            text_output = cast(IO[str], output)
             if isinstance(content, bytes):
-                output.write(content.decode('utf-8'))  # type: ignore[union-attr]
+                text_output.write(content.decode('utf-8'))
             elif isinstance(content, str):
-                output.write(content)  # type: ignore[union-attr]
+                text_output.write(content)
             else:
                 raise TypeError(f"Content must be str or bytes, got {type(content)}")
         return None
