@@ -206,19 +206,33 @@ class Pipeline:
             self,
             transforms: Optional[list[Union[str, NodeTransformer]]] = None,
             hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-            renderer: Optional[Union[str, type, Any]] = None,
+            renderer: Optional[Union[str, type, Any, bool]] = None,
             options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
             progress_callback: Optional[ProgressCallback] = None,
             strict_hooks: bool = False
     ):
-        """Initialize pipeline with transforms, hooks, renderer, and options."""
+        """Initialize pipeline with transforms, hooks, renderer, and options.
+
+        Parameters
+        ----------
+        renderer : str, type, renderer instance, False, or None
+            - str: Format name to look up via registry (e.g., "markdown")
+            - type: Renderer class to instantiate
+            - instance: Pre-configured renderer to use
+            - False: Skip renderer setup (for AST-only processing)
+            - None: Use default MarkdownRenderer (default)
+
+        """
         self.transforms = transforms or []
         self.hook_manager = HookManager(strict=strict_hooks)
         self.registry = registry  # Use global registry instance
         self.progress_callback = progress_callback
 
-        # Set up renderer
-        self.renderer = self._setup_renderer(renderer, options)
+        # Set up renderer (skip if renderer=False for AST-only processing)
+        if renderer is False:
+            self.renderer = None
+        else:
+            self.renderer = self._setup_renderer(renderer, options)
 
         # Store options for backward compatibility (some code may access pipeline.options)
         self.options = options if isinstance(options, (BaseRendererOptions, MarkdownOptions)) else MarkdownOptions()
@@ -540,7 +554,21 @@ class Pipeline:
         str or bytes
             Rendered output (type depends on renderer)
 
+        Raises
+        ------
+        RuntimeError
+            If no renderer is configured (pipeline was created with renderer=False)
+        NotImplementedError
+            If renderer doesn't implement render_to_string or render_to_bytes
+
         """
+        if self.renderer is None:
+            raise RuntimeError(
+                "No renderer configured. This Pipeline was created with renderer=False for "
+                "AST-only processing. Use apply() function instead of execute(), or create "
+                "Pipeline with a renderer."
+            )
+
         logger.debug(f"Rendering document using {self.renderer.__class__.__name__}")
 
         # Try render_to_string first (for text-based renderers)
@@ -955,7 +983,8 @@ def apply(
 
     # Create a temporary pipeline without a renderer to reuse internals
     # We don't actually call execute(), just use the helper methods
-    pipeline = Pipeline(transforms=transforms, hooks=hooks, strict_hooks=strict_hooks)
+    # Pass renderer=False to skip renderer setup for AST-only processing
+    pipeline = Pipeline(transforms=transforms, hooks=hooks, renderer=False, strict_hooks=strict_hooks)
 
     # Calculate total stages for progress reporting
     stage_count = 0

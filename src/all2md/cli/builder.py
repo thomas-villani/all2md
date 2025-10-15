@@ -235,6 +235,11 @@ class DynamicCLIBuilder:
         self._options_class_cache = options_classes
         return self._options_class_cache
 
+    def get_options_class_map(self) -> Dict[str, Type[Any]]:
+        """Expose cached options classes for external introspection."""
+
+        return dict(self._get_options_classes())
+
     def _infer_argument_type_and_action(
             self, field: Any, resolved_type: Type,
             is_optional: bool, metadata: Dict[str, Any],
@@ -829,14 +834,10 @@ class DynamicCLIBuilder:
                 metadata = transform_registry.get_metadata(transform_name)
 
                 for param_name, param_spec in metadata.parameters.items():
-                    # Get CLI flag - use explicit cli_flag if specified, otherwise auto-generate
-                    cli_flag = param_spec.get_cli_flag(param_name)
-
-                    # Skip parameters not exposed to CLI (no explicit cli_flag and not auto-generated)
-                    if not param_spec.cli_flag:
-                        # For backwards compatibility: only add if there was an explicit cli_flag before
-                        # This maintains the original behavior where params without cli_flag were skipped
+                    if not param_spec.should_expose():
                         continue
+
+                    cli_flag = param_spec.get_cli_flag(param_name)
 
                     # Get argparse kwargs from ParameterSpec (centralized logic)
                     # This includes action, type, default, help, choices, dest, etc.
@@ -844,6 +845,9 @@ class DynamicCLIBuilder:
 
                     # Add the argument to the transform options group
                     transform_group.add_argument(cli_flag, **kwargs)
+                    dest_name = kwargs.get('dest')
+                    if dest_name:
+                        self.dest_to_cli_flag[dest_name] = cli_flag
 
             except Exception as e:
                 # Skip problematic transforms
@@ -1338,15 +1342,23 @@ Examples:
             # Check if strict mode is enabled (can be controlled via env var or arg)
             strict_mode = getattr(parsed_args, 'strict_args', False)
 
+            help_hint = "See 'all2md help full' or 'all2md help <format>'."
+
             error_messages = []
             for unknown_arg in unknown_args:
                 # Suggest similar argument using dest-to-CLI-flag mapping
                 suggestion = self._suggest_similar_argument(unknown_arg)
 
                 if suggestion:
-                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. Did you mean {suggestion}?"
+                    msg = (
+                        f"Unknown argument: --{unknown_arg.replace('_', '-')}. "
+                        f"Did you mean {suggestion}? {help_hint}"
+                    )
                 else:
-                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}"
+                    msg = (
+                        f"Unknown argument: --{unknown_arg.replace('_', '-')}. "
+                        f"{help_hint}"
+                    )
 
                 error_messages.append(msg)
 
@@ -1355,7 +1367,7 @@ Examples:
                 full_error = "\n".join(error_messages)
                 raise argparse.ArgumentTypeError(
                     f"Invalid arguments:\n{full_error}\n"
-                    f"Use 'all2md --help' to see available options."
+                    "See 'all2md help full' or 'all2md help <format>' for complete option lists."
                 )
             else:
                 # Warn about unknown arguments via logger

@@ -5,6 +5,8 @@ option mapping, and validation logic.
 """
 
 import argparse
+import logging
+from dataclasses import make_dataclass
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -19,6 +21,8 @@ from all2md.cli.commands import (
 )
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
+from all2md.transforms import ParameterSpec, TransformMetadata
+from all2md.ast.transforms import NodeTransformer
 
 
 @pytest.mark.unit
@@ -1662,3 +1666,90 @@ class TestMergeFromListFeature:
         assert "--toc-position" in help_text
         assert "--list-separator" in help_text
         assert "--no-section-titles" in help_text
+
+
+class TestUnknownArgumentHints:
+    """Validate user guidance when encountering unknown CLI arguments."""
+
+    def test_warning_includes_help_hint_and_suggestion(self, monkeypatch, caplog):
+        builder = DynamicCLIBuilder()
+        builder.dest_to_cli_flag["good_option"] = "--good-option"
+
+        dummy_base = make_dataclass("DummyBase", [])
+        monkeypatch.setattr(builder, "_get_options_classes", lambda: [("base", dummy_base)])
+
+        namespace = argparse.Namespace(
+            goog_option=True,
+            _provided_args={"goog_option"},
+            strict_args=False,
+        )
+
+        caplog.set_level(logging.WARNING, logger="all2md.cli.builder")
+
+        builder.map_args_to_options(namespace)
+
+        assert "Did you mean --good-option?" in caplog.text
+        assert "See 'all2md help full' or 'all2md help <format>'." in caplog.text
+
+    def test_strict_mode_error_includes_help_hint(self, monkeypatch):
+        builder = DynamicCLIBuilder()
+        dummy_base = make_dataclass("DummyBase", [])
+        monkeypatch.setattr(builder, "_get_options_classes", lambda: [("base", dummy_base)])
+
+        namespace = argparse.Namespace(
+            bad_option=True,
+            _provided_args={"bad_option"},
+            strict_args=True,
+        )
+
+        with pytest.raises(argparse.ArgumentTypeError) as excinfo:
+            builder.map_args_to_options(namespace)
+
+        message = str(excinfo.value)
+        assert "Unknown argument: --bad-option" in message
+        assert "See 'all2md help full' or 'all2md help <format>'" in message
+
+
+class DummyNodeTransformer(NodeTransformer):
+    """Minimal transformer used for registry stubbing."""
+
+
+class TestTransformParameterExposure:
+    """Ensure transform parameter metadata controls CLI exposure."""
+
+    def _install_stub_registry(self, monkeypatch, metadata):
+        transform_module = __import__("all2md.transforms", fromlist=["registry"])
+
+        class StubRegistry:
+            def list_transforms(self):
+                return [metadata.name]
+
+            def get_metadata(self, name):
+                return metadata
+
+        monkeypatch.setattr(transform_module, "registry", StubRegistry())
+
+    def test_exposed_parameter_without_cli_flag_adds_argument(self, monkeypatch):
+        metadata = TransformMetadata(
+            name="demo",
+            description="Demo transform",
+            transformer_class=DummyNodeTransformer,
+            parameters={
+                "offset": ParameterSpec(type=int, default=1, expose=True),
+                "hidden": ParameterSpec(type=bool, expose=False),
+            },
+        )
+
+        self._install_stub_registry(monkeypatch, metadata)
+
+        builder = DynamicCLIBuilder()
+        parser = argparse.ArgumentParser(add_help=False)
+        builder.add_transform_arguments(parser)
+
+        option_strings = parser._option_string_actions.keys()
+        assert "--offset" in option_strings
+        assert "--hidden" not in option_strings
+
+        args = parser.parse_args(["--transform", "demo", "--offset", "3"])
+        assert getattr(args, "demo_offset") == 3
+        assert builder.dest_to_cli_flag["demo_offset"] == "--offset"

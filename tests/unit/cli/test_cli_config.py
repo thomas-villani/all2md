@@ -9,6 +9,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import tomllib
+
 import pytest
 
 try:
@@ -182,7 +184,7 @@ class TestConfigLoading:
             loaded = load_config_file(config_file)
 
             assert loaded["attachment_mode"] == "skip"
-            assert loaded["pdf"]["detect_columns"] is False
+        assert loaded["pdf"]["detect_columns"] is False
 
     def test_load_config_auto_detects_format(self):
         """Test that config loader auto-detects file format."""
@@ -204,6 +206,34 @@ class TestConfigLoading:
 
             loaded = load_config_file(json_file)
             assert loaded["test"] == "other"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigGenerateDefaults:
+    """Validate default config generation."""
+
+    def test_generate_config_json_defaults(self, capsys):
+        exit_code = handle_config_generate_command(['--format', 'json'])
+        assert exit_code == 0
+
+        output = capsys.readouterr().out
+        data = json.loads(output)
+
+        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+        assert "pdf" in data and "detect_columns" in data["pdf"]
+        assert "renderer_pdf" in data
+
+    def test_generate_config_toml_defaults(self, capsys):
+        exit_code = handle_config_generate_command(['--format', 'toml'])
+        assert exit_code == 0
+
+        output = capsys.readouterr().out
+        data = tomllib.loads(output)
+
+        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+        assert "pdf" in data and "detect_columns" in data["pdf"]
+        assert "renderer_pdf" in data
 
     def test_load_config_invalid_file_raises_error(self):
         """Test that loading non-existent file raises error."""
@@ -431,7 +461,7 @@ class TestConfigCommands:
         assert output_path.exists()
 
         data = json.loads(output_path.read_text(encoding='utf-8'))
-        assert data['attachment_mode'] == 'skip'
+        assert data['attachment_mode'] in {"alt_text", "skip", "download", "base64"}
         assert 'pdf' in data
 
     def test_config_generate_stdout_toml(self, capsys):
@@ -440,8 +470,9 @@ class TestConfigCommands:
         assert exit_code == 0
 
         captured = capsys.readouterr()
-        assert '[pdf]' in captured.out
-        assert 'attachment_mode' in captured.out
+        data = tomllib.loads(captured.out)
+        assert 'pdf' in data
+        assert data['attachment_mode'] in {"alt_text", "skip", "download", "base64"}
 
     def test_config_show_json_no_source(self, capsys, monkeypatch):
         """Config show should honor --format json and --no-source."""

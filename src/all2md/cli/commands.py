@@ -14,6 +14,7 @@ import logging
 import os
 import platform
 import sys
+from dataclasses import fields, is_dataclass
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -23,6 +24,7 @@ from all2md.cli.builder import (
     EXIT_FILE_ERROR,
     EXIT_SUCCESS,
     EXIT_VALIDATION_ERROR,
+    DynamicCLIBuilder,
     create_parser,
     get_exit_code_for_exception,
 )
@@ -54,6 +56,155 @@ logger = logging.getLogger(__name__)
 
 
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
+
+
+def _serialize_config_value(value: Any) -> Any:
+    """Convert dataclass default values into config-friendly primitives."""
+
+    if is_dataclass(value):
+        result: Dict[str, Any] = {}
+        for field in fields(value):
+            serialized = _serialize_config_value(getattr(value, field.name))
+            if serialized is None:
+                continue
+            result[field.name] = serialized
+        return result
+
+    if isinstance(value, Path):
+        return str(value)
+
+    if isinstance(value, dict):
+        items = {}
+        for k, v in value.items():
+            serialized = _serialize_config_value(v)
+            if serialized is None:
+                continue
+            items[str(k)] = serialized
+        return items
+
+    if isinstance(value, (list, tuple, set)):
+        serialized_items = [_serialize_config_value(v) for v in value]
+        return [item for item in serialized_items if item is not None]
+
+    if hasattr(value, "value") and not isinstance(value, (str, bytes)):
+        try:
+            return _serialize_config_value(value.value)
+        except AttributeError:  # pragma: no cover - defensive
+            pass
+
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+
+    return str(value)
+
+
+def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[str, Any]:
+    """Instantiate an options dataclass and extract CLI-relevant defaults."""
+
+    if options_class is None or not is_dataclass(options_class):
+        return {}
+
+    try:
+        instance = options_class()
+    except TypeError:
+        logger.debug("Skipping %s: could not instantiate without arguments", options_class)
+        return {}
+
+    defaults: Dict[str, Any] = {}
+
+    for field in fields(instance):
+        metadata = field.metadata or {}
+        if metadata.get('exclude_from_cli', False):
+            continue
+
+        serialized = _serialize_config_value(getattr(instance, field.name))
+        if serialized is None:
+            continue
+
+        if isinstance(serialized, dict) and not serialized:
+            continue
+
+        if isinstance(serialized, list) and not serialized:
+            continue
+
+        defaults[field.name] = serialized
+
+    return defaults
+
+
+def _build_default_config_data() -> Dict[str, Any]:
+    """Assemble default configuration from registered option classes."""
+
+    builder = DynamicCLIBuilder()
+    options_map = builder.get_options_class_map()
+    config: Dict[str, Any] = {}
+
+    base_defaults = _collect_defaults_from_options_class(options_map.get('base'))
+    config.update(base_defaults)
+
+    ordered_keys = sorted(options_map.keys())
+    for key in ordered_keys:
+        if key == 'base':
+            continue
+
+        defaults = _collect_defaults_from_options_class(options_map.get(key))
+        if defaults:
+            config[key] = defaults
+
+    return config
+
+
+def _format_toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, (int, float)):
+        return str(value)
+    if value is None:
+        return 'null'
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        items = ', '.join(_format_toml_value(item) for item in value)
+        return f'[{items}]'
+    if isinstance(value, dict):
+        # Should not hit here; dicts are handled at section level
+        return '{}'
+    return f'"{value}"'
+
+
+def _emit_toml_section(name: str, data: Dict[str, Any]) -> List[str]:
+    lines: List[str] = [f'[{name}]']
+
+    scalar_keys = [k for k, v in data.items() if not isinstance(v, dict)]
+    for key in sorted(scalar_keys):
+        lines.append(f"{key} = {_format_toml_value(data[key])}")
+
+    nested_keys = [k for k, v in data.items() if isinstance(v, dict)]
+    for key in sorted(nested_keys):
+        lines.append("")
+        nested_name = f"{name}.{key}"
+        lines.extend(_emit_toml_section(nested_name, data[key]))
+
+    return lines
+
+
+def _format_config_as_toml(config: Dict[str, Any]) -> str:
+    lines = [
+        '# all2md configuration file',
+        '# Generated from current converter defaults',
+        '# Edit values as needed and remove sections you do not use.',
+    ]
+
+    scalar_keys = [k for k, v in config.items() if not isinstance(v, dict)]
+    for key in sorted(scalar_keys):
+        lines.append(f"{key} = {_format_toml_value(config[key])}")
+
+    section_keys = [k for k, v in config.items() if isinstance(v, dict)]
+    for key in sorted(section_keys):
+        lines.append("")
+        lines.extend(_emit_toml_section(key, config[key]))
+
+    return "\n".join(lines)
 
 def _get_version() -> str:
     """Get the version of all2md package."""
@@ -757,11 +908,12 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
 
                     for name, spec in metadata.parameters.items():
                         type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
+                        cli_flag = spec.get_cli_flag(name) if spec.should_expose() else 'N/A'
                         table.add_row(
                             name,
                             type_str,
                             str(spec.default) if spec.default is not None else 'None',
-                            spec.cli_flag or 'N/A',
+                            cli_flag,
                             spec.help or ''
                         )
 
@@ -803,12 +955,12 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
                 for name, spec in metadata.parameters.items():
                     type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
                     default_str = f"(default: {spec.default})" if spec.default is not None else ""
-                    cli_str = f"  CLI: {spec.cli_flag}" if spec.cli_flag else ""
+                    cli_flag = spec.get_cli_flag(name) if spec.should_expose() else None
                     print(f"  {name} ({type_str}) {default_str}")
                     if spec.help:
                         print(f"    {spec.help}")
-                    if cli_str:
-                        print(cli_str)
+                    if cli_flag:
+                        print(f"  CLI: {cli_flag}")
         else:
             print("\nAvailable Transforms")
             print("=" * 60)
@@ -1165,108 +1317,12 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 0
 
-    # FIXME: THIS IS NOT the default config!
-    # Generate default configuration with comments
-    default_config: Dict[str, Any] = {
-        'attachment_mode': 'skip',
-        'pdf': {
-            'detect_columns': False,
-            'skip_image_extraction': False,
-            'enable_table_fallback_detection': True,
-            'merge_hyphenated_words': False,
-        },
-        'html': {
-            'strip_dangerous_elements': True,
-            'extract_title': False,
-        },
-        'markdown': {
-            'emphasis_symbol': '*',
-        },
-        'pptx': {
-            'include_notes': False,
-            'slide_numbers': False,
-        },
-        'epub': {
-            'merge_chapters': False,
-            'include_toc': False,
-        },
-        'ipynb': {
-            'truncate_long_outputs': None,
-        },
-        'eml': {
-            'include_headers': False,
-            'preserve_thread_structure': False,
-        },
-    }
+    config_data = _build_default_config_data()
 
     if parsed_args.format == 'toml':
-        output_lines = [
-            '# all2md configuration file',
-            '# Automatically generated default configuration',
-            '#',
-            '# Priority order for configuration:',
-            '# 1. CLI arguments (highest priority)',
-            '# 2. --config file specified on command line',
-            '# 3. ALL2MD_CONFIG environment variable',
-            '# 4. .all2md.toml or .all2md.json in current directory',
-            '# 5. .all2md.toml or .all2md.json in home directory',
-            '',
-            '# Attachment handling mode: "skip", "download", or "base64"',
-            f'attachment_mode = "{default_config["attachment_mode"]}"',
-            '',
-            '# PDF conversion options',
-            '[pdf]',
-            '# Detect multi-column layouts',
-            f'detect_columns = {str(default_config["pdf"]["detect_columns"]).lower()}',
-            '# Skip extracting images from PDFs',
-            f'skip_image_extraction = {str(default_config["pdf"]["skip_image_extraction"]).lower()}',
-            '# Enable fallback table detection',
-            (f'enable_table_fallback_detection = '
-             f'{str(default_config["pdf"]["enable_table_fallback_detection"]).lower()}'),
-            '# Merge hyphenated words at line breaks',
-            f'merge_hyphenated_words = {str(default_config["pdf"]["merge_hyphenated_words"]).lower()}',
-            '',
-            '# HTML conversion options',
-            '[html]',
-            '# Strip potentially dangerous HTML elements',
-            f'strip_dangerous_elements = {str(default_config["html"]["strip_dangerous_elements"]).lower()}',
-            '# Extract title from HTML',
-            f'extract_title = {str(default_config["html"]["extract_title"]).lower()}',
-            '',
-            '# Markdown output options',
-            '[markdown]',
-            '# Symbol to use for emphasis: "*" or "_"',
-            f'emphasis_symbol = "{default_config["markdown"]["emphasis_symbol"]}"',
-            '',
-            '# PowerPoint conversion options',
-            '[pptx]',
-            '# Include speaker notes',
-            f'include_notes = {str(default_config["pptx"]["include_notes"]).lower()}',
-            '# Include slide numbers in output',
-            f'slide_numbers = {str(default_config["pptx"]["slide_numbers"]).lower()}',
-            '',
-            '# EPUB conversion options',
-            '[epub]',
-            '# Merge all chapters into single output',
-            f'merge_chapters = {str(default_config["epub"]["merge_chapters"]).lower()}',
-            '# Include table of contents',
-            f'include_toc = {str(default_config["epub"]["include_toc"]).lower()}',
-            '',
-            '# Jupyter Notebook conversion options',
-            '[ipynb]',
-            '# Truncate long outputs (null for no truncation, or line count)',
-            'truncate_long_outputs = null',
-            '',
-            '# Email conversion options',
-            '[eml]',
-            '# Include email headers',
-            f'include_headers = {str(default_config["eml"]["include_headers"]).lower()}',
-            '# Preserve email thread structure',
-            f'preserve_thread_structure = {str(default_config["eml"]["preserve_thread_structure"]).lower()}',
-        ]
-        output_text = '\n'.join(output_lines)
+        output_text = _format_config_as_toml(config_data)
     else:
-        output_text = json.dumps(default_config, indent=2, ensure_ascii=False)
+        output_text = json.dumps(config_data, indent=2, ensure_ascii=False, sort_keys=True)
 
     if parsed_args.out:
         try:

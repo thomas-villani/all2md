@@ -135,14 +135,39 @@ class RemoveNodesTransform(NodeTransformer):
         Raises
         ------
         ValueError
-            If 'document' is in node_types (cannot remove root node)
+            If 'document' is in node_types (cannot remove root node), or
+            if any node_type is unknown (typo detection)
 
         """
+        import difflib
+        from all2md.transforms.hooks import _NODE_TYPE_MAP
+
         # Validate that 'document' is not in node_types
         if 'document' in node_types:
             raise ValueError(
                 "Cannot remove 'document' node type - this would break the pipeline. "
                 "Consider using specific child node types instead (e.g., 'heading', 'paragraph')."
+            )
+
+        # Build set of known node types from _NODE_TYPE_MAP
+        known_types = {node_type for _, node_type in _NODE_TYPE_MAP}
+
+        # Validate each node_type against known types
+        invalid_types = []
+        for node_type in node_types:
+            if node_type not in known_types:
+                # Find close matches using difflib
+                suggestions = difflib.get_close_matches(node_type, known_types, n=3, cutoff=0.6)
+                if suggestions:
+                    suggestion_str = ', '.join(f"'{s}'" for s in suggestions)
+                    invalid_types.append(f"'{node_type}' (did you mean {suggestion_str}?)")
+                else:
+                    invalid_types.append(f"'{node_type}'")
+
+        if invalid_types:
+            raise ValueError(
+                f"Unknown node type(s): {', '.join(invalid_types)}. "
+                f"Valid types are: {', '.join(sorted(known_types))}"
             )
 
         self.node_types = set(node_types)
@@ -484,6 +509,10 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
     ----------
     patterns : list[str], optional
         List of regex patterns to match (default: common boilerplate)
+    skip_if_truncated : bool, default = True
+        If True, skip pattern matching when text exceeds MAX_TEXT_LENGTH_FOR_REGEX
+        to avoid false positives with end-anchored patterns ($). If False, match
+        against truncated text (may produce incorrect results with anchors).
 
     Raises
     ------
@@ -505,6 +534,11 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
         ... )
         >>> cleaned_doc = transform.transform(document)
 
+    Allow matching truncated text (not recommended):
+
+        >>> transform = RemoveBoilerplateTextTransform(skip_if_truncated=False)
+        >>> cleaned_doc = transform.transform(document)
+
     Notes
     -----
     For security reasons, this transform validates user-supplied regex patterns
@@ -512,15 +546,25 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
     Patterns with nested quantifiers or excessive backtracking potential are
     rejected. See `validate_user_regex_pattern()` for details.
 
+    **Truncation Behavior**: Text longer than MAX_TEXT_LENGTH_FOR_REGEX
+    (10000 characters) is truncated before matching for ReDoS protection.
+    With ``skip_if_truncated=True`` (default), such paragraphs are preserved
+    to avoid false positives from patterns using end anchors ($). This is
+    safer but may miss some boilerplate. With ``skip_if_truncated=False``,
+    matching proceeds on truncated text, which may incorrectly match or
+    not match patterns with anchors.
+
     """
 
-    def __init__(self, patterns: list[str] | None = None):
+    def __init__(self, patterns: list[str] | None = None, skip_if_truncated: bool = True):
         """Initialize with patterns.
 
         Parameters
         ----------
         patterns : list[str] or None
             Regex patterns to match (None uses defaults)
+        skip_if_truncated : bool
+            Skip matching when text is truncated (safer default)
 
         Raises
         ------
@@ -531,6 +575,7 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
         from all2md.utils.security import validate_user_regex_pattern
 
         self.patterns = patterns if patterns is not None else DEFAULT_BOILERPLATE_PATTERNS
+        self.skip_if_truncated = skip_if_truncated
 
         # Only validate user-supplied patterns (not defaults, which we trust)
         if patterns is not None:
@@ -560,8 +605,16 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
 
         # Limit text length to prevent excessive regex processing
         text_stripped = text.strip()
-        if len(text_stripped) > MAX_TEXT_LENGTH_FOR_REGEX:
-            text_to_check = text_stripped[:MAX_TEXT_LENGTH_FOR_REGEX]
+        is_truncated = len(text_stripped) > MAX_TEXT_LENGTH_FOR_REGEX
+
+        if is_truncated:
+            if self.skip_if_truncated:
+                # Skip matching entirely to avoid false positives with end anchors
+                # Preserve the paragraph unchanged
+                return super().visit_paragraph(node)
+            else:
+                # Use truncated text (may produce incorrect results with anchors)
+                text_to_check = text_stripped[:MAX_TEXT_LENGTH_FOR_REGEX]
         else:
             text_to_check = text_stripped
 
@@ -1005,6 +1058,10 @@ class GenerateTocTransform(NodeTransformer):
         Whether to create links to headings (requires heading IDs)
     separator : str, default = "-"
         Separator for generating heading IDs when not present
+    set_ids_if_missing : bool, default = False
+        If True, inject generated IDs into heading metadata when missing.
+        This ensures renderers create anchors matching the TOC links.
+        If False (default), IDs are only used for TOC links.
 
     Examples
     --------
@@ -1022,12 +1079,24 @@ class GenerateTocTransform(NodeTransformer):
         ... )
         >>> doc_with_toc = transform.transform(document)
 
+    Inject IDs into headings:
+
+        >>> transform = GenerateTocTransform(set_ids_if_missing=True)
+        >>> doc_with_toc = transform.transform(document)
+        >>> # Headings now have 'id' in metadata for renderer anchors
+
     Notes
     -----
     This transform works best when combined with AddHeadingIdsTransform,
     which generates unique IDs for headings that can be used for navigation.
     If headings don't have IDs, the transform will generate slugified IDs
     on-the-fly for link targets.
+
+    **ID Injection**: With ``set_ids_if_missing=True``, generated IDs are
+    injected into heading metadata so renderers can create matching anchors.
+    This is recommended when not using AddHeadingIdsTransform. Alternatively,
+    run AddHeadingIdsTransform before GenerateTocTransform to ensure all
+    headings have IDs upfront.
 
     """
 
@@ -1037,7 +1106,8 @@ class GenerateTocTransform(NodeTransformer):
             max_depth: int = 3,
             position: str = "top",
             add_links: bool = True,
-            separator: str = "-"
+            separator: str = "-",
+            set_ids_if_missing: bool = False
     ):
         """Initialize with TOC generation options.
 
@@ -1053,6 +1123,8 @@ class GenerateTocTransform(NodeTransformer):
             Whether to generate links
         separator : str
             Separator for ID generation
+        set_ids_if_missing : bool
+            Inject generated IDs into heading metadata
 
         Raises
         ------
@@ -1070,8 +1142,10 @@ class GenerateTocTransform(NodeTransformer):
         self.position = position
         self.add_links = add_links
         self.separator = separator
+        self.set_ids_if_missing = set_ids_if_missing
         self._headings: list[tuple[int, str, str | None]] = []  # (level, text, id)
         self._id_counts: dict[str, int] = {}
+        self._heading_id_map: dict[int, str] = {}  # heading index -> generated ID
 
     def visit_document(self, node: Document) -> Document:
         """Generate TOC and add to document.
@@ -1090,13 +1164,19 @@ class GenerateTocTransform(NodeTransformer):
         # Reset heading collection
         self._headings = []
         self._id_counts = {}
+        self._heading_id_map = {}
 
-        # Collect headings from document
+        # First pass: collect headings and track which need IDs injected
         self._collect_headings(node)
 
         # If no headings found, return unchanged
         if not self._headings:
             return node
+
+        # Second pass: if set_ids_if_missing is True, inject IDs into headings
+        if self.set_ids_if_missing and self._heading_id_map:
+            # Create a new document with updated headings
+            node = self._inject_heading_ids(node)
 
         # Generate TOC structure
         toc_nodes = self._generate_toc()
@@ -1132,6 +1212,10 @@ class GenerateTocTransform(NodeTransformer):
             heading_id = node.metadata.get('id')
             if not heading_id and self.add_links:
                 heading_id = self._generate_id(text)
+                # Track heading index and generated ID for potential injection
+                if self.set_ids_if_missing:
+                    heading_idx = len(self._headings)
+                    self._heading_id_map[heading_idx] = heading_id
 
             self._headings.append((node.level, text, heading_id))
 
@@ -1166,6 +1250,69 @@ class GenerateTocTransform(NodeTransformer):
         slug = make_unique_slug(base_slug, self._id_counts, separator=self.separator)
 
         return slug
+
+    def _inject_heading_ids(self, node: Node) -> Node:
+        """Recursively inject generated IDs into headings.
+
+        This method traverses the document and injects IDs from _heading_id_map
+        into headings that were missing them during collection.
+
+        Parameters
+        ----------
+        node : Node
+            Node to process
+
+        Returns
+        -------
+        Node
+            Node with updated headings
+
+        """
+        # Track current heading index during traversal
+        if not hasattr(self, '_current_heading_idx'):
+            self._current_heading_idx = 0
+
+        # If this is a heading within our depth range, inject ID if needed
+        if isinstance(node, Heading) and node.level <= self.max_depth:
+            current_idx = self._current_heading_idx
+            self._current_heading_idx += 1
+
+            # If this heading needs an ID injected
+            if current_idx in self._heading_id_map:
+                new_metadata = node.metadata.copy()
+                new_metadata['id'] = self._heading_id_map[current_idx]
+                return Heading(
+                    level=node.level,
+                    content=node.content,  # Don't recurse into content for headings
+                    metadata=new_metadata,
+                    source_location=node.source_location
+                )
+            else:
+                return node
+
+        # Recurse into children
+        if hasattr(node, 'children') and isinstance(node.children, list):
+            new_children = []
+            for child in node.children:
+                updated_child = self._inject_heading_ids(child)
+                new_children.append(updated_child)
+
+            # Rebuild node with updated children
+            if isinstance(node, Document):
+                return Document(
+                    children=new_children,
+                    metadata=node.metadata,
+                    source_location=node.source_location
+                )
+            elif isinstance(node, Paragraph):
+                return node  # Paragraphs can't have Heading children
+            else:
+                # For other node types, try to update children if they have that attribute
+                if hasattr(node, 'children'):
+                    from dataclasses import replace
+                    return replace(node, children=new_children)
+
+        return node
 
     def _generate_toc(self) -> list[Node]:
         """Generate TOC nodes from collected headings.

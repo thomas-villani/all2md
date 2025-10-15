@@ -451,7 +451,7 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         # Extract parameters from CLI args using centralized logic
         params = {}
         for param_name, param_spec in metadata.parameters.items():
-            if param_spec.cli_flag:
+            if param_spec.should_expose():
                 # Get the dest name used in argparse namespace (consistent with builder)
                 dest = param_spec.get_dest_name(param_name, transform_name)
 
@@ -466,8 +466,11 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         for param_name, param_spec in metadata.parameters.items():
             if param_spec.required and param_name not in params:
                 print(f"Error: Transform '{transform_name}' requires parameter: {param_name}", file=sys.stderr)
-                if param_spec.cli_flag:
-                    print(f"Use {param_spec.cli_flag} to specify this parameter", file=sys.stderr)
+                if param_spec.should_expose():
+                    print(
+                        f"Use {param_spec.get_cli_flag(param_name)} to specify this parameter",
+                        file=sys.stderr,
+                    )
                 raise argparse.ArgumentTypeError(
                     f"Transform '{transform_name}' missing required parameter: {param_name}"
                 )

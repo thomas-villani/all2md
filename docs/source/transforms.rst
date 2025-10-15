@@ -470,6 +470,8 @@ ParameterSpec Options
 - **default**: Default value
 - **help**: Help text for CLI
 - **cli_flag**: Command-line flag
+- **expose**: Set to ``True`` to expose the parameter on the CLI with an
+  auto-generated flag (defaults to hidden unless ``cli_flag`` is provided)
 - **required**: Whether required (default: False)
 - **choices**: List of allowed values
 - **validator**: Custom validation function

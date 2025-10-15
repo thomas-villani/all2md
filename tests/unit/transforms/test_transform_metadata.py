@@ -135,6 +135,21 @@ class TestParameterSpec:
         # Empty list should pass validation
         assert param.validate([]) is True
 
+    def test_should_expose_defaults(self):
+        """Parameters without explicit flags are hidden by default."""
+        param = ParameterSpec(type=int)
+        assert param.should_expose() is False
+
+    def test_should_expose_with_cli_flag(self):
+        """Explicit CLI flags remain exposed for backwards compatibility."""
+        param = ParameterSpec(type=int, cli_flag="--custom")
+        assert param.should_expose() is True
+
+    def test_should_expose_override(self):
+        """Explicit expose=True surfaces parameters without cli_flag."""
+        param = ParameterSpec(type=int, expose=True)
+        assert param.should_expose() is True
+
 
 class TestTransformMetadata:
     """Tests for TransformMetadata class."""

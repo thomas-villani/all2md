@@ -1,7 +1,13 @@
-all2md.transforms.metadata module
-=================================
+﻿all2md.transforms.metadata
+==========================
 
 .. automodule:: all2md.transforms.metadata
-   :members:
-   :show-inheritance:
-   :undoc-members:
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ParameterSpec
+      TransformMetadata
+   

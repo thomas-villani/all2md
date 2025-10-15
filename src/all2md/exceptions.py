@@ -8,22 +8,31 @@ exceptions provide more specific error information than generic built-ins.
 Exception Hierarchy
 -------------------
 - All2MdError (base exception)
+
   - ValidationError (parameter/option validation)
     - PageRangeError (page range parsing errors)
+
   - FileError (file access and I/O)
     - FileNotFoundError (file doesn't exist)
     - FileAccessError (permissions, locked files)
     - MalformedFileError (corrupted/invalid file structure)
+
   - FormatError (unsupported/unknown formats)
+
   - ParsingError (input document parsing failures)
     - PasswordProtectedError (password-protected files)
+
   - RenderingError (output generation failures)
     - OutputWriteError (file write failures)
+
   - TransformError (AST transformation failures)
+
   - SecurityError (security violations)
     - NetworkSecurityError (SSRF, network violations)
     - ZipFileSecurityError (zip bombs, path traversal)
+
   - DependencyError (missing/incompatible packages)
+
 """
 
 from typing import Any

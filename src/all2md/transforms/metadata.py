@@ -36,7 +36,7 @@ Define a transform with metadata:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, ClassVar, Optional, Type
 
 from all2md.ast.transforms import NodeTransformer
 
@@ -67,6 +67,9 @@ class ParameterSpec:
         Custom validation function: takes value, returns bool or raises ValueError
     element_type : type, optional
         For list parameters, the expected type of list elements (e.g., str, int)
+    expose : bool, optional
+        Whether to expose this parameter on the CLI when no explicit ``cli_flag``
+        is provided. ``None`` defers to global defaults (currently ``False``).
 
     Examples
     --------
@@ -111,6 +114,10 @@ class ParameterSpec:
     choices: Optional[list[Any]] = None
     validator: Optional[Callable[[Any], bool]] = None
     element_type: Optional[Type] = None
+    expose: Optional[bool] = None
+
+    # Default CLI exposure policy when ``expose`` is not provided.
+    DEFAULT_EXPOSE: ClassVar[bool] = False
 
     def validate(self, value: Any) -> bool:
         """Validate a parameter value.
@@ -118,7 +125,8 @@ class ParameterSpec:
         Parameters
         ----------
         value : Any
-            Value to validate
+            Value to validate. For list types, tuples are accepted and
+            coerced to lists automatically.
 
         Returns
         -------
@@ -130,9 +138,24 @@ class ParameterSpec:
         ValueError
             If value is invalid
 
+        Notes
+        -----
+        When validating list parameters, this method accepts both list
+        and tuple types. Tuples are automatically coerced to lists to
+        accommodate CLI parsers that often yield tuples. The coercion
+        is transparent to the caller.
+
         """
+        # Special handling for list types: accept tuples from CLI/parsers
+        if self.type is list and isinstance(value, tuple):
+            value = list(value)  # Coerce tuple to list
+
         # Check type
         if not isinstance(value, self.type):
+            # Provide helpful error message for common tuple/list confusion
+            if self.type is list and isinstance(value, tuple):
+                # This shouldn't happen due to coercion above, but handle edge cases
+                raise ValueError(f"Expected list, got tuple (this should have been coerced)")
             raise ValueError(f"Expected type {self.type.__name__}, got {type(value).__name__}")
 
         # Check list element types
@@ -177,6 +200,20 @@ class ParameterSpec:
         # Auto-generate: convert snake_case to kebab-case
         flag_name = param_name.replace('_', '-')
         return f'--{flag_name}'
+
+    def should_expose(self, default: Optional[bool] = None) -> bool:
+        """Determine whether this parameter should surface in the CLI."""
+
+        if default is None:
+            default = self.DEFAULT_EXPOSE
+
+        if self.expose is not None:
+            return self.expose
+
+        if self.cli_flag:
+            return True
+
+        return default
 
     def get_dest_name(self, param_name: str, transform_name: str) -> str:
         """Get argparse dest name for this parameter.

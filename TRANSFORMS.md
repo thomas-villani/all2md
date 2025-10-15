@@ -219,6 +219,8 @@ WATERMARK_METADATA = TransformMetadata(
 - **default**: Default value if not specified
 - **help**: Help text for CLI
 - **cli_flag**: Command-line flag (e.g., `--watermark-text`)
+- **expose**: Set to `True` to auto-generate a CLI flag when no `cli_flag`
+  is provided (defaults to hidden unless explicitly exposed)
 - **required**: Whether parameter is required (default: False)
 - **choices**: List of allowed values
 - **validator**: Custom validation function

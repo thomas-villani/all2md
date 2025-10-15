@@ -133,6 +133,9 @@ class RemoveBoilerplateOptions:
     ----------
     patterns : list[str], default = common patterns
         List of regex patterns to match for removal
+    skip_if_truncated : bool, default = True
+        Skip pattern matching when text exceeds MAX_TEXT_LENGTH_FOR_REGEX
+        to avoid false positives with end-anchored patterns
 
     Examples
     --------
@@ -143,6 +146,7 @@ class RemoveBoilerplateOptions:
     """
 
     patterns: list[str] = field(default_factory=lambda: DEFAULT_BOILERPLATE_PATTERNS.copy())
+    skip_if_truncated: bool = True
 
 
 @dataclass
@@ -246,6 +250,8 @@ class GenerateTocOptions:
         Whether to create links to headings (requires heading IDs)
     separator : str, default = "-"
         Separator for generating heading IDs when not present
+    set_ids_if_missing : bool, default = False
+        Inject generated IDs into heading metadata when missing
 
     Examples
     --------
@@ -262,6 +268,7 @@ class GenerateTocOptions:
     position: str = "top"
     add_links: bool = True
     separator: str = "-"
+    set_ids_if_missing: bool = False
 
 
 __all__ = [

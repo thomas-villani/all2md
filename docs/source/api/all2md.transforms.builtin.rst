@@ -1,7 +1,22 @@
-all2md.transforms.builtin module
-================================
+﻿all2md.transforms.builtin
+=========================
 
 .. automodule:: all2md.transforms.builtin
-   :members:
-   :show-inheritance:
-   :undoc-members:
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AddAttachmentFootnotesTransform
+      AddConversionTimestampTransform
+      AddHeadingIdsTransform
+      CalculateWordCountTransform
+      GenerateTocTransform
+      HeadingOffsetTransform
+      LinkRewriterTransform
+      RemoveBoilerplateTextTransform
+      RemoveImagesTransform
+      RemoveNodesTransform
+      TextReplacerTransform
+   
