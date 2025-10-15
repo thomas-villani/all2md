@@ -652,9 +652,9 @@ Configuration for Jupyter Notebook conversion.
 OdfOptions
 ~~~~~~~~~~
 
-Configuration for OpenDocument Text and Presentation files.
+Configuration for OpenDocument Text files.
 
-.. autoclass:: all2md.options.OdfOptions
+.. autoclass:: all2md.options.OdtOptions
    :noindex:
 
 **CLI Prefix:** ``--odf-``

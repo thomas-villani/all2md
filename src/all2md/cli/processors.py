@@ -24,6 +24,7 @@ from all2md.cli.builder import (
     DynamicCLIBuilder,
     get_exit_code_for_exception,
 )
+from all2md.cli.validation import validate_arguments as _validate_arguments
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
@@ -669,45 +670,15 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     return options, format_arg, transforms
 
 
-def validate_arguments(parsed_args: argparse.Namespace, files: Optional[List[Path]] = None) -> bool:
-    """Validate command line arguments and file inputs.
+def validate_arguments(
+        parsed_args: argparse.Namespace,
+        files: Optional[List[Path]] = None,
+        *,
+        logger: Optional[logging.Logger] = None,
+) -> bool:
+    """Backward-compatible shim for CLI argument validation."""
 
-    Parameters
-    ----------
-    parsed_args : argparse.Namespace
-        Parsed command line arguments
-    files : List[Path], optional
-        List of input files to validate
-
-    Returns
-    -------
-    bool
-        True if arguments are valid, False otherwise
-
-    Side Effects
-    ------------
-    Prints error messages to stderr for invalid arguments
-
-    """
-    # Validate attachment options
-    if parsed_args.attachment_output_dir and parsed_args.attachment_mode != "download":
-        print("Warning: --attachment-output-dir specified but attachment mode is "
-              f"'{parsed_args.attachment_mode}' (not 'download')", file=sys.stderr)
-
-    # Validate output directory if specified
-    if parsed_args.output_dir:
-        output_dir_path = Path(parsed_args.output_dir)
-        if output_dir_path.exists() and not output_dir_path.is_dir():
-            print(f"Error: --output-dir must be a directory, not a file: {parsed_args.output_dir}",
-                  file=sys.stderr)
-            return False
-
-    # For multi-file, --out becomes --output-dir
-    if files and len(files) > 1 and parsed_args.out and not parsed_args.output_dir:
-        print("Warning: --out is ignored for multiple files. Use --output-dir instead.",
-              file=sys.stderr)
-
-    return True
+    return _validate_arguments(parsed_args, files, logger=logger)
 
 
 def process_stdin(

@@ -440,7 +440,13 @@ def process_attachment(
 
     # Helper function for fallback mode (replicates alt_text logic)
     def _make_fallback_result() -> dict[str, Any]:
-        text_content = alt_text or attachment_name
+        # For images: use alt_text if available, otherwise filename
+        # For files: always use filename (alt_text is only for images)
+        if is_image:
+            text_content = alt_text or attachment_name
+        else:
+            text_content = attachment_name
+
         markdown, footnote_label, footnote_content = _build_attachment_markdown(
             is_image, alt_text_mode, text_content, attachment_name
         )

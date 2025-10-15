@@ -36,6 +36,10 @@ from all2md.cli.processors import (
     process_files_collated,
     process_stdin,
     setup_and_validate_options,
+)
+from all2md.cli.validation import (
+    collect_argument_problems,
+    report_validation_problems,
     validate_arguments,
 )
 from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
@@ -44,6 +48,10 @@ from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
 from all2md.exceptions import DependencyError
 from all2md.transforms import registry as transform_registry
+from all2md.logging_utils import configure_logging as configure_root_logging
+
+logger = logging.getLogger(__name__)
+
 
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
@@ -190,55 +198,9 @@ def _configure_logging(
         log_file: Optional[str] = None,
         trace_mode: bool = False
 ) -> None:
-    """Configure logging with console and optional file output.
+    """Backward-compatible wrapper around shared logging configuration."""
 
-    Parameters
-    ----------
-    log_level : int
-        Logging level (DEBUG, INFO, WARNING, ERROR)
-    log_file : str, optional
-        Path to log file for writing logs
-    trace_mode : bool, default False
-        Enable trace mode with timestamps and detailed formatting
-
-    """
-    # Create root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-
-    # Remove existing handlers to avoid duplicates
-    root_logger.handlers.clear()
-
-    # Format string depends on trace mode
-    if trace_mode:
-        # Trace mode: detailed format with timestamps
-        format_str = '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
-        date_format = '%Y-%m-%d %H:%M:%S'
-    else:
-        # Normal mode: simple format
-        format_str = '%(levelname)s: %(message)s'
-        date_format = None
-
-    formatter = logging.Formatter(format_str, datefmt=date_format)
-
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
-
-    # File handler if log_file is specified
-    if log_file:
-        try:
-            file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
-            file_handler.setLevel(log_level)
-            file_handler.setFormatter(formatter)
-            root_logger.addHandler(file_handler)
-
-            # Log to stderr so user knows where logs are going
-            print(f"Logging to file: {log_file}", file=sys.stderr)
-        except Exception as e:
-            print(f"Warning: Could not create log file {log_file}: {e}", file=sys.stderr)
+    configure_root_logging(log_level, log_file=log_file, trace_mode=trace_mode)
 
 
 def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
@@ -959,7 +921,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
         trace_mode=parsed_args.trace
     )
 
-    if not validate_arguments(parsed_args):
+    if not validate_arguments(parsed_args, logger=logger):
         return EXIT_VALIDATION_ERROR
 
     if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':

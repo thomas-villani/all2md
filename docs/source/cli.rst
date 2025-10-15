@@ -832,6 +832,13 @@ Configuration and Debugging
 
    **Choices:** ``DEBUG``, ``INFO``, ``WARNING`` (default), ``ERROR``
 
+   .. tip::
+
+      Validation warnings such as ignored ``--out`` arguments or attachment
+      directory mismatches are emitted through the logger. Make sure the
+      selected log level includes ``WARNING`` messages when you want those
+      hints on the console.
+
    .. code-block:: bash
 
       # Enable debug logging

@@ -112,17 +112,25 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
         If path validation fails
 
     """
-    # 1. Try to resolve as file path (if exists in allowlist)
-    try:
-        path_obj = Path(source)
-        # Only try path validation if it looks like a path (has path separators or file extension)
-        if "/" in source or "\\" in source or "." in source:
+    # Quick checks to skip path detection for obvious content types
+    if source.startswith("<") or "<" in source[:100]:  # HTML/XML content
+        logger.debug("Skipping path detection: appears to be HTML/XML content")
+    elif source.startswith("data:"):  # Data URI
+        logger.debug("Skipping path detection: appears to be data URI")
+    # 1. Try to resolve as file path (if looks plausible and not HTML/JSON/etc)
+    elif ("/" in source or "\\" in source or  # Has path separators
+          ("." in source and len(source) < 500)):  # Or has dot and reasonable length
+        try:
+            path_obj = Path(source)
             validated_path = validate_read_path(path_obj, config.read_allowlist)
             logger.info(f"Detected as file path: {validated_path}")
             return validated_path, "path"
-    except (MCPSecurityError, OSError):
-        # Not a valid file path, continue to other detection methods
-        pass
+        except MCPSecurityError:
+            # Security violation - re-raise immediately
+            raise
+        except (OSError, ValueError):
+            # Not a valid path, continue to other detection methods
+            pass
 
     # 2. Check for data URI format (data:...)
     if source.startswith("data:"):

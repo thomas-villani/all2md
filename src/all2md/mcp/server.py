@@ -18,6 +18,8 @@ import sys
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
+from all2md.logging_utils import configure_logging as configure_root_logging
+
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
@@ -256,19 +258,9 @@ def create_server(
 
 
 def configure_logging(level: str) -> None:
-    """Configure logging for the MCP server.
+    """Configure logging for the MCP server."""
 
-    Parameters
-    ----------
-    level : str
-        Logging level (DEBUG|INFO|WARNING|ERROR)
-
-    """
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        handlers=[logging.StreamHandler(sys.stderr)]  # Log to stderr, not stdout (MCP uses stdout)
-    )
+    configure_root_logging(level, trace_mode=True)
 
 
 def main() -> int:

@@ -51,6 +51,9 @@ import os
 import sys
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
+
 from all2md.cli.builder import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR, DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
     _configure_logging,
@@ -70,6 +73,10 @@ from all2md.cli.processors import (
     process_multi_file,
     process_stdin,
     setup_and_validate_options,
+)
+from all2md.cli.validation import (
+    collect_argument_problems,
+    report_validation_problems,
     validate_arguments,
 )
 
@@ -83,6 +90,9 @@ __all__ = [
     "process_dry_run",
     "process_multi_file",
     "process_stdin",
+    "collect_argument_problems",
+    "report_validation_problems",
+    "validate_arguments",
 ]
 
 
@@ -157,7 +167,7 @@ def main(args: list[str] | None = None) -> int:
             return EXIT_VALIDATION_ERROR
 
         # Validate arguments
-        if not validate_arguments(parsed_args):
+        if not validate_arguments(parsed_args, logger=logger):
             return EXIT_VALIDATION_ERROR
 
         return process_stdin(parsed_args, options, format_arg, transforms)
@@ -203,7 +213,7 @@ def main(args: list[str] | None = None) -> int:
             return EXIT_VALIDATION_ERROR
 
     # Validate arguments
-    if not validate_arguments(parsed_args, files):
+    if not validate_arguments(parsed_args, files, logger=logger):
         return EXIT_VALIDATION_ERROR
 
     # Set up options
