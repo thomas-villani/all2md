@@ -172,7 +172,7 @@ class DocxOptions(BaseParserOptions):
         metadata={
             "help": "Include footnotes in output",
             "cli_name": "no-include-footnotes",
-            "importance": "advanced"
+            "importance": "core"
         }
     )
     include_endnotes: bool = field(
@@ -180,14 +180,14 @@ class DocxOptions(BaseParserOptions):
         metadata={
             "help": "Include endnotes in output",
             "cli_name": "no-include-endnotes",
-            "importance": "advanced"
+            "importance": "core"
         }
     )
     include_comments: bool = field(
         default=False,
         metadata={
             "help": "Include document comments in output",
-            "importance": "advanced"
+            "importance": "core"
         }
     )
 

@@ -99,7 +99,6 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("list-formats", "List available input formats"),
     ("list-transforms", "List registered AST transforms"),
     ("check-deps", "Check optional dependencies for converters"),
-    ("install-deps", "Install optional converter dependencies"),
 )
 
 def _determine_section_key(title: str) -> str:
@@ -290,6 +289,7 @@ class HelpRenderer:
                 lines.extend(rendered)
 
         lines.append(
+            "\nNote: showing only core options. Most parsers/renderers have advanced/security options as well."
             "\nRun 'all2md help full' for every option or 'all2md help <section>' for a specific format."
         )
 
@@ -352,8 +352,12 @@ class HelpRenderer:
         for section in sections:
             if core_only:
                 core_options = [opt for opt in section.options if opt.importance == 'core']
+                # non_core_options = [opt for opt in section.options if opt.importance != 'core']
+
                 if core_options:
                     block = self._render_section_block(section, core_options, indent_section="  ")
+                    # if len(non_core_options) > 0:
+                    #     block.append("   Note: advanced/security options not shown.")
                 elif section.options:
                     block = self._render_section_placeholder(section, indent_section="  ")
                 else:
