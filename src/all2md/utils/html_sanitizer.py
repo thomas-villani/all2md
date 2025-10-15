@@ -31,6 +31,118 @@ from all2md.constants import (
 logger = logging.getLogger(__name__)
 
 
+def _is_style_safe(style_value: str) -> bool:
+    """Check if a CSS style attribute value is safe.
+
+    Checks for dangerous patterns in CSS including:
+    - expression() function (IE-specific XSS)
+    - url() function with dangerous schemes (javascript:, data:text/html, etc.)
+
+    Parameters
+    ----------
+    style_value : str
+        CSS style attribute value to check
+
+    Returns
+    -------
+    bool
+        True if style is safe, False if it contains dangerous patterns
+
+    Examples
+    --------
+        >>> _is_style_safe("color: red; font-size: 12px;")
+        True
+        >>> _is_style_safe("background: url(javascript:alert(1))")
+        False
+        >>> _is_style_safe("width: expression(alert(1))")
+        False
+
+    """
+    if not style_value:
+        return True
+
+    style_lower = style_value.lower()
+
+    # Check for IE-specific expression() function
+    if 'expression(' in style_lower or 'expression (' in style_lower:
+        return False
+
+    # Check for url() with dangerous schemes
+    # Match url(...) patterns and extract the URL
+    url_pattern = r'url\s*\(\s*["\']?\s*([^)"\']+)'
+    matches = re.finditer(url_pattern, style_lower)
+
+    for match in matches:
+        url = match.group(1).strip()
+        # Check if the URL uses a dangerous scheme
+        if not is_url_safe(url):
+            return False
+
+    return True
+
+
+def _sanitize_srcset(srcset_value: str) -> str | None:
+    """Sanitize an HTML srcset attribute value.
+
+    Parses srcset format and removes or rejects URLs with dangerous schemes.
+    The srcset format is: "url1 descriptor1, url2 descriptor2, ..."
+
+    Parameters
+    ----------
+    srcset_value : str
+        srcset attribute value to sanitize
+
+    Returns
+    -------
+    str or None
+        Sanitized srcset with only safe URLs, or None if all URLs are unsafe
+
+    Examples
+    --------
+        >>> _sanitize_srcset("image1.jpg 1x, image2.jpg 2x")
+        'image1.jpg 1x, image2.jpg 2x'
+        >>> _sanitize_srcset("javascript:alert(1) 1x")
+        None
+        >>> _sanitize_srcset("safe.jpg 1x, javascript:alert(1) 2x")
+        'safe.jpg 1x'
+
+    """
+    if not srcset_value:
+        return None
+
+    # Split by comma to get individual srcset entries
+    entries = srcset_value.split(',')
+    safe_entries = []
+
+    for entry in entries:
+        entry = entry.strip()
+        if not entry:
+            continue
+
+        # Split by whitespace to separate URL from descriptor
+        # Format: "url descriptor" or just "url"
+        parts = entry.split(None, 1)
+        if not parts:
+            continue
+
+        url = parts[0]
+        descriptor = parts[1] if len(parts) > 1 else ''
+
+        # Check if URL is safe
+        if is_url_safe(url):
+            # Reconstruct the entry with the descriptor if present
+            if descriptor:
+                safe_entries.append(f"{url} {descriptor}")
+            else:
+                safe_entries.append(url)
+
+    # Return None if no safe entries remain
+    if not safe_entries:
+        return None
+
+    return ', '.join(safe_entries)
+
+
 def sanitize_html_content(
         content: str,
         mode: HtmlPassthroughMode = "escape"
@@ -107,6 +219,7 @@ def _sanitize_html_string(content: str) -> str:
     # Try to use bleach if available for better sanitization
     try:
         import bleach  # type: ignore[import-untyped]
+        from bleach.css_sanitizer import CSSSanitizer  # type: ignore[import-untyped]
 
         # Define allowed tags (basic safe HTML)
         allowed_tags = [
@@ -120,22 +233,74 @@ def _sanitize_html_string(content: str) -> str:
         # Define allowed attributes per tag
         allowed_attributes = {
             'a': ['href', 'title', 'rel'],
-            'img': ['src', 'alt', 'title', 'width', 'height'],
+            'img': ['src', 'srcset', 'alt', 'title', 'width', 'height'],
             'abbr': ['title'],
             'acronym': ['title'],
-            '*': ['class', 'id']  # Allow class and id on all elements
+            '*': ['class', 'id', 'style']  # Allow class, id, and style on all elements
         }
 
         # Define allowed protocols for URLs
         allowed_protocols = ['http', 'https', 'mailto', 'ftp']
 
-        return bleach.clean(
+        # Define CSS sanitizer with common safe properties
+        css_sanitizer = CSSSanitizer(
+            allowed_css_properties=[
+                'color', 'background-color', 'font-size', 'font-family', 'font-weight',
+                'text-align', 'text-decoration', 'margin', 'padding', 'border',
+                'width', 'height', 'display', 'float', 'position', 'top', 'bottom',
+                'left', 'right', 'z-index', 'line-height', 'letter-spacing',
+                'background', 'border-radius', 'box-shadow', 'opacity'
+            ]
+        )
+
+        # Create a custom filter to sanitize srcset attributes
+        def filter_attributes(tag: str, name: str, value: str) -> bool:
+            """Filter function to sanitize srcset attributes."""
+            # Check if attribute is in the allowed list for this tag
+            tag_attrs = allowed_attributes.get(tag, [])
+            global_attrs = allowed_attributes.get('*', [])
+
+            if name not in tag_attrs and name not in global_attrs:
+                return False
+
+            # Additional checks for style attribute
+            if name == 'style':
+                return _is_style_safe(value)
+
+            # Additional checks for srcset attribute
+            if name == 'srcset':
+                # Sanitize srcset and update value
+                # Note: bleach doesn't allow modifying values in filter, so we'll handle this differently
+                return _sanitize_srcset(value) is not None
+
+            return True
+
+        cleaned = bleach.clean(
             content,
             tags=allowed_tags,
-            attributes=allowed_attributes,
+            attributes=filter_attributes,
             protocols=allowed_protocols,
+            css_sanitizer=css_sanitizer,
             strip=True
         )
+
+        # Post-process to sanitize srcset values (bleach doesn't allow modifying attribute values)
+        # We need to parse the HTML again and fix srcset attributes
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(cleaned, 'html.parser')
+
+            for img in soup.find_all('img'):
+                if 'srcset' in img.attrs:
+                    sanitized = _sanitize_srcset(img['srcset'])
+                    if sanitized:
+                        img['srcset'] = sanitized
+                    else:
+                        del img['srcset']
+
+            return str(soup)
+        except ImportError:
+            return cleaned
     except ImportError:
         logger.debug("`bleach` not found, falling back to beautifulsoup sanitization")
         # Fallback to basic regex-based sanitization
@@ -174,26 +339,54 @@ def _basic_sanitize_html_string(content: str) -> str:
             if hasattr(element, 'attrs'):
                 # Remove dangerous attributes
                 attrs_to_remove = []
+                attrs_to_update = {}  # For attributes we want to sanitize rather than remove
+
                 for attr_name in element.attrs:
                     if attr_name.lower() in DANGEROUS_HTML_ATTRIBUTES:
                         attrs_to_remove.append(attr_name)
 
                     # Check URL attributes for dangerous schemes
-                    if attr_name.lower() in ('href', 'src', 'action', 'formaction'):
+                    elif attr_name.lower() in ('href', 'src', 'action', 'formaction'):
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str) and not is_url_safe(attr_value):
                             attrs_to_remove.append(attr_name)
 
-                    # Check style-related attributes for dangerous content
-                    if attr_name.lower() in ('style', 'background', 'expression'):
+                    # Check and sanitize srcset attribute
+                    elif attr_name.lower() == 'srcset':
+                        attr_value = element.attrs[attr_name]
+                        if isinstance(attr_value, str):
+                            sanitized_srcset = _sanitize_srcset(attr_value)
+                            if sanitized_srcset is None:
+                                # All URLs in srcset were unsafe, remove the attribute
+                                attrs_to_remove.append(attr_name)
+                            elif sanitized_srcset != attr_value:
+                                # Some URLs were removed, update with sanitized version
+                                attrs_to_update[attr_name] = sanitized_srcset
+
+                    # Enhanced style attribute checking
+                    elif attr_name.lower() == 'style':
+                        attr_value = element.attrs[attr_name]
+                        if isinstance(attr_value, str):
+                            # Use the comprehensive style safety check
+                            if not _is_style_safe(attr_value):
+                                attrs_to_remove.append(attr_name)
+
+                    # Check other style-related attributes (background, expression) for dangerous content
+                    elif attr_name.lower() in ('background', 'expression'):
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str):
                             attr_value_lower = attr_value.lower()
+                            # Check for dangerous schemes
                             if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
                                 attrs_to_remove.append(attr_name)
 
+                # Apply attribute removals
                 for attr in attrs_to_remove:
                     del element.attrs[attr]
+
+                # Apply attribute updates
+                for attr, value in attrs_to_update.items():
+                    element.attrs[attr] = value
 
         return str(soup)
 

@@ -67,21 +67,7 @@ def create_package_from_conversions(
     from all2md.converter_registry import registry
 
     # Get target extension
-    if target_format in ('auto', 'markdown'):
-        extension = '.md'
-    else:
-        try:
-            metadata_list = registry.get_format_info(target_format)
-            if metadata_list and len(metadata_list) > 0:
-                metadata = metadata_list[0]
-                if metadata.extensions:
-                    extension = metadata.extensions[0]
-                else:
-                    extension = f'.{target_format}'
-            else:
-                extension = f'.{target_format}'
-        except Exception:
-            extension = f'.{target_format}'
+    extension = registry.get_default_extension_for_format(target_format)
 
     # Prepare options with base64 embedding for attachments
     conversion_options = options.copy() if options else {}

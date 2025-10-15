@@ -640,6 +640,32 @@ class ConverterRegistry:
         """
         return self._converters.get(format_name)
 
+    def get_default_extension_for_format(self, format_name: str) -> str:
+        """Return the preferred file extension for a format.
+
+        Parameters
+        ----------
+        format_name : str
+            Converter format name (e.g., "markdown", "docx").
+
+        Returns
+        -------
+        str
+            Preferred extension beginning with a leading dot.
+        """
+
+        if format_name in ('auto', 'markdown'):
+            return '.md'
+
+        metadata_list = self.get_format_info(format_name)
+        if metadata_list:
+            metadata = metadata_list[0]
+            if metadata.extensions:
+                extension = metadata.extensions[0]
+                return extension if extension.startswith('.') else f'.{extension}'
+
+        return f'.{format_name}' if not format_name.startswith('.') else format_name
+
     def check_dependencies(
             self,
             format_name: Optional[str] = None,

@@ -28,9 +28,11 @@ import re
 import unicodedata
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import quote as url_quote
 from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
+from all2md.utils.escape import escape_markdown_context_aware
 
 logger = logging.getLogger(__name__)
 
@@ -359,29 +361,35 @@ def process_attachment(
     # Helper function for fallback mode (replicates alt_text logic)
     def _make_fallback_result() -> dict[str, Any]:
         if is_image:
+            # Escape alt text for images to prevent Markdown injection
+            escaped_alt = escape_markdown_context_aware(alt_text or attachment_name, context="image_alt")
+
             if alt_text_mode == "strict_markdown":
-                return _make_result(f"![{alt_text or attachment_name}](#)", url="#")
+                return _make_result(f"![{escaped_alt}](#)", url="#")
             elif alt_text_mode == "footnote":
                 footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"![{alt_text or attachment_name}] [^{footnote_label}]"
+                markdown = f"![{escaped_alt}] [^{footnote_label}]"
                 footnote_content = alt_text or attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
                                     footnote_content=footnote_content)
             else:
-                return _make_result(f"![{alt_text or attachment_name}]")
+                return _make_result(f"![{escaped_alt}]")
         else:
+            # Escape link text for files to prevent Markdown injection
+            escaped_name = escape_markdown_context_aware(attachment_name, context="link")
+
             if alt_text_mode == "plain_filename":
                 return _make_result(attachment_name)
             elif alt_text_mode == "strict_markdown":
-                return _make_result(f"[{attachment_name}](#)", url="#")
+                return _make_result(f"[{escaped_name}](#)", url="#")
             elif alt_text_mode == "footnote":
                 footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"[{attachment_name}] [^{footnote_label}]"
+                markdown = f"[{escaped_name}] [^{footnote_label}]"
                 footnote_content = attachment_name
                 return _make_result(markdown, url="", footnote_label=footnote_label,
                                     footnote_content=footnote_content)
             else:
-                return _make_result(f"[{attachment_name}]")
+                return _make_result(f"[{escaped_name}]")
 
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")
@@ -409,7 +417,10 @@ def process_attachment(
 
             b64_data = base64.b64encode(attachment_data).decode("utf-8")
             data_uri = f"data:{mime_type};base64,{b64_data}"
-            markdown = f"![{alt_text or attachment_name}]({data_uri})"
+
+            # Escape alt text for images to prevent Markdown injection
+            escaped_alt = escape_markdown_context_aware(alt_text or attachment_name, context="image_alt")
+            markdown = f"![{escaped_alt}]({data_uri})"
             return _make_result(markdown, url=data_uri)
 
     if attachment_mode == "download":
@@ -453,18 +464,29 @@ def process_attachment(
 
         # Build URL using the final filename
         final_filename = unique_path.name
+
+        # URL-encode the filename to handle special characters (spaces, &, #, etc.)
+        # Use safe='' to encode all special characters
+        encoded_filename = url_quote(final_filename, safe='')
+
         if attachment_base_url:
-            url = urljoin(attachment_base_url.rstrip("/") + "/", final_filename)
+            # When using base URL, construct URL with encoded filename
+            url = urljoin(attachment_base_url.rstrip("/") + "/", encoded_filename)
         else:
-            url = str(unique_path)
+            # For local paths (no base URL), use POSIX-style paths with forward slashes
+            # This ensures URLs work correctly even on Windows
+            url = str(unique_path.as_posix())
 
         # Use the sanitized filename for display if no alt_text provided
         display_name = alt_text or safe_name
 
+        # Escape display name to prevent Markdown injection
         if is_image:
-            markdown = f"![{display_name}]({url})"
+            escaped_display = escape_markdown_context_aware(display_name, context="image_alt")
+            markdown = f"![{escaped_display}]({url})"
         else:
-            markdown = f"[{display_name}]({url})"
+            escaped_display = escape_markdown_context_aware(display_name, context="link")
+            markdown = f"[{escaped_display}]({url})"
 
         return _make_result(markdown, url=url)
 

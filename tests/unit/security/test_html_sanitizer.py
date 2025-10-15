@@ -381,3 +381,95 @@ class TestEdgeCases:
         url = "https://example.com/page#section"
         assert is_url_safe(url) is True
         assert sanitize_url(url) == url
+
+
+class TestStyleAttributeSanitization:
+    """Test suite for CSS style attribute sanitization."""
+
+    def test_safe_style_preserved(self):
+        """Test that safe CSS styles are preserved."""
+        content = '<div style="color: red; font-size: 12px;">Text</div>'
+        result = sanitize_html_content(content, mode="sanitize")
+        assert "color: red" in result or "color:red" in result
+        assert "Text" in result
+
+    def test_expression_in_style_removed(self):
+        """Test that style with expression() is removed."""
+        content = '<div style="width: expression(alert(1));">Text</div>'
+        result = sanitize_html_content(content, mode="sanitize")
+        # Style attribute should be removed
+        assert "expression" not in result.lower() or "expression" not in result
+        assert "Text" in result
+
+    def test_javascript_url_in_style_removed(self):
+        """Test that style with url(javascript:...) is removed."""
+        content = '<div style="background: url(javascript:alert(1));">Text</div>'
+        result = sanitize_html_content(content, mode="sanitize")
+        # Style attribute should be removed
+        assert "javascript:" not in result.lower()
+        assert "Text" in result
+
+    def test_data_url_in_style_removed(self):
+        """Test that style with url(data:text/html,...) is removed."""
+        content = '<div style="background: url(data:text/html,<script>alert(1)</script>);">Text</div>'
+        result = sanitize_html_content(content, mode="sanitize")
+        # Style attribute should be removed
+        assert "data:text/html" not in result.lower()
+        assert "Text" in result
+
+    def test_safe_url_in_style_preserved(self):
+        """Test that style with safe url() is preserved."""
+        content = '<div style="background: url(https://example.com/image.png);">Text</div>'
+        result = sanitize_html_content(content, mode="sanitize")
+        # Safe URL should be preserved
+        assert "example.com" in result or "background" in result
+        assert "Text" in result
+
+    def test_expression_with_space_removed(self):
+        """Test that expression with space is also detected."""
+        content = '<div style="width: expression (alert(1));">Text</div>'
+        result = sanitize_html_content(content, mode="sanitize")
+        # Style attribute should be removed
+        assert "expression" not in result.lower()
+        assert "Text" in result
+
+
+class TestSrcsetSanitization:
+    """Test suite for srcset attribute sanitization."""
+
+    def test_safe_srcset_preserved(self):
+        """Test that safe srcset is preserved."""
+        content = '<img srcset="image1.jpg 1x, image2.jpg 2x" alt="Test">'
+        result = sanitize_html_content(content, mode="sanitize")
+        assert "image1.jpg" in result
+        assert "image2.jpg" in result
+
+    def test_javascript_in_srcset_removed(self):
+        """Test that srcset with javascript: URL is removed."""
+        content = '<img srcset="javascript:alert(1) 1x" alt="Test">'
+        result = sanitize_html_content(content, mode="sanitize")
+        # srcset should be removed or javascript should not be present
+        assert "javascript:" not in result.lower()
+
+    def test_mixed_srcset_sanitized(self):
+        """Test that srcset with mixed safe and unsafe URLs is sanitized."""
+        content = '<img srcset="safe.jpg 1x, javascript:alert(1) 2x, image.png 3x" alt="Test">'
+        result = sanitize_html_content(content, mode="sanitize")
+        # Safe URLs should be preserved
+        assert "safe.jpg" in result or "image.png" in result
+        # Unsafe URL should be removed
+        assert "javascript:" not in result.lower()
+
+    def test_data_url_in_srcset_removed(self):
+        """Test that srcset with data:text/html URL is removed."""
+        content = '<img srcset="data:text/html,<script>alert(1)</script> 1x" alt="Test">'
+        result = sanitize_html_content(content, mode="sanitize")
+        # data:text/html should be removed
+        assert "data:text/html" not in result.lower()
+
+    def test_srcset_with_descriptors_preserved(self):
+        """Test that srcset with various descriptors is handled correctly."""
+        content = '<img srcset="small.jpg 480w, medium.jpg 800w, large.jpg 1200w" alt="Test">'
+        result = sanitize_html_content(content, mode="sanitize")
+        # URLs should be preserved
+        assert "small.jpg" in result or "medium.jpg" in result or "large.jpg" in result

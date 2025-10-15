@@ -55,6 +55,6 @@ class ChmOptions(BaseParserOptions):
     html_options: HtmlOptions | None = field(
         default=None,
         metadata={
-            "exclude_from_cli": True  # Special field, handled separately
+            "exclude_from_cli": True  # Nested, handled separately
         }
     )

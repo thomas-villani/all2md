@@ -13,7 +13,7 @@ import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 from all2md import convert, to_ast, to_markdown
 from all2md.cli.builder import (
@@ -32,6 +32,13 @@ from all2md.exceptions import All2MdError, DependencyError
 logger = logging.getLogger(__name__)
 
 _OPTION_COMPAT_WARNINGS: set[str] = set()
+
+
+class TransformSpec(TypedDict):
+    """Serializable specification for reconstructing a transform instance."""
+
+    name: str
+    params: Dict[str, Any]
 
 
 def _final_option_segment(remainder: str) -> str:
@@ -291,10 +298,14 @@ def _should_use_rich_output(args: argparse.Namespace) -> bool:
 
     # Check if Rich is available
     if not _check_rich_available():
-        # Print helpful error message
-        print("Error: Rich library not installed but --rich flag was used.", file=sys.stderr)
-        print("Install with: pip install all2md[rich]", file=sys.stderr)
-        sys.exit(EXIT_DEPENDENCY_ERROR)
+        raise DependencyError(
+            converter_name='rich-output',
+            missing_packages=[('rich', '')],
+            message=(
+                "Rich output requires the optional 'rich' dependency. "
+                "Install with: pip install all2md[rich]"
+            ),
+        )
 
     # Force rich output regardless of TTY if explicitly requested
     if hasattr(args, 'force_rich') and args.force_rich:
@@ -417,7 +428,11 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         If transform is unknown or required parameters are missing
 
     """
+    if not hasattr(parsed_args, 'transform_specs'):
+        parsed_args.transform_specs = []  # type: ignore[attr-defined]
+
     if not hasattr(parsed_args, 'transforms') or not parsed_args.transforms:
+        parsed_args.transform_specs = []  # type: ignore[attr-defined]
         return None
 
     try:
@@ -427,6 +442,7 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         return None
 
     transform_instances = []
+    transform_specs: list[TransformSpec] = []
 
     for transform_name in parsed_args.transforms:
         try:
@@ -460,6 +476,9 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
                     f"Transform '{transform_name}' missing required parameter: {param_name}"
                 )
 
+        # Record serializable transform spec for reuse (e.g., across processes)
+        transform_specs.append({'name': transform_name, 'params': dict(params)})
+
         # Create transform instance
         try:
             transform = metadata.create_instance(**params)
@@ -468,7 +487,37 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
             print(f"Error creating transform '{transform_name}': {e}", file=sys.stderr)
             raise argparse.ArgumentTypeError(f"Failed to create transform: {transform_name}") from e
 
+    parsed_args.transform_specs = transform_specs  # type: ignore[attr-defined]
+
     return transform_instances
+
+
+def _instantiate_transforms_from_specs(transform_specs: list[TransformSpec]) -> list[Any]:
+    """Recreate transform instances from serialized specs.
+
+    Parameters
+    ----------
+    transform_specs : list[TransformSpec]
+        Serializable transform specifications containing names and parameters.
+
+    Returns
+    -------
+    list[Any]
+        List of transform instances instantiated from the registry.
+    """
+
+    if not transform_specs:
+        return []
+
+    from all2md.transforms import registry as transform_registry
+
+    instances: list[Any] = []
+    for spec in transform_specs:
+        name = spec['name']
+        params = spec.get('params', {})
+        instances.append(transform_registry.get_transform(name, **params))
+
+    return instances
 
 
 def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, Any]) -> Dict[str, Any]:
@@ -727,7 +776,14 @@ def process_stdin(
         else:
             if parsed_args.pager:
                 try:
-                    if _should_use_rich_output(parsed_args):
+                    try:
+                        use_rich_output = _should_use_rich_output(parsed_args)
+                        rich_error: str | None = None
+                    except DependencyError as exc:
+                        use_rich_output = False
+                        rich_error = str(exc)
+
+                    if use_rich_output:
                         from rich.console import Console
                         from rich.markdown import Markdown
                         console = Console()
@@ -741,6 +797,9 @@ def process_stdin(
                     else:
                         content_to_page = markdown_content
                         is_rich = False
+
+                    if rich_error:
+                        print(f"Warning: {rich_error}", file=sys.stderr)
 
                     # Try to page the content using available pager
                     if not _page_content(content_to_page, is_rich=is_rich):
@@ -809,9 +868,19 @@ def process_multi_file(
     if parsed_args.dry_run:
         return process_dry_run(files, parsed_args, format_arg)
 
+    try:
+        should_use_rich = _should_use_rich_output(parsed_args)
+        rich_dependency_error: Optional[str] = None
+    except DependencyError as exc:
+        should_use_rich = False
+        rich_dependency_error = str(exc)
+
+    if rich_dependency_error:
+        print(f"Warning: {rich_dependency_error}", file=sys.stderr)
+
     # Process single file (without rich/progress)
     # This includes cases where --rich is set but TTY check fails (piped output)
-    if len(files) == 1 and not _should_use_rich_output(parsed_args) and not parsed_args.progress:
+    if len(files) == 1 and not should_use_rich and not parsed_args.progress:
         file = files[0]
 
         # Determine output path and target format
@@ -857,7 +926,7 @@ def process_multi_file(
                 )
 
                 # Display with pager
-                if _should_use_rich_output(parsed_args):
+                if should_use_rich:
                     from rich.console import Console
                     from rich.markdown import Markdown
                     console = Console()
@@ -890,8 +959,16 @@ def process_multi_file(
                     print(f"Error: {e}", file=sys.stderr)
                 return exit_code
 
+        transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(parsed_args, 'transform_specs', None))
         exit_code, file_str, error = convert_single_file(
-            file, output_path, options, format_arg, transforms, False, target_format
+            file,
+            output_path,
+            options,
+            format_arg,
+            transforms,
+            False,
+            target_format,
+            transform_specs_for_workers,
         )
 
         if exit_code == 0:
@@ -1398,6 +1475,8 @@ def process_detect_only(
     # Gather detection info
     detection_results: list[dict[str, Any]] = []
     any_issues = False
+
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
 
     for file in files:
         # Detect format
@@ -1975,21 +2054,7 @@ def generate_output_path(
     # Determine output file extension based on target format
     from all2md.converter_registry import registry
 
-    if target_format in ('auto', 'markdown'):
-        extension = '.md'
-    else:
-        try:
-            metadata_list = registry.get_format_info(target_format)
-            if metadata_list and len(metadata_list) > 0:
-                metadata = metadata_list[0]
-                if metadata.extensions:
-                    extension = metadata.extensions[0]
-                else:
-                    extension = f'.{target_format}'
-            else:
-                extension = f'.{target_format}'
-        except Exception:
-            extension = f'.{target_format}'
+    extension = registry.get_default_extension_for_format(target_format)
 
     # Generate output filename
     output_name = input_file.stem + extension
@@ -2020,7 +2085,8 @@ def convert_single_file(
         format_arg: str,
         transforms: Optional[list] = None,
         show_progress: bool = False,
-        target_format: str = 'markdown'
+        target_format: str = 'markdown',
+        transform_specs: Optional[list[TransformSpec]] = None
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2041,6 +2107,9 @@ def convert_single_file(
     target_format : str, default 'markdown'
         Target output format (e.g., 'markdown', 'docx', 'pdf', 'html')
 
+    transform_specs : list[TransformSpec], optional
+        Serializable transform specifications to rebuild in worker processes.
+
     Returns
     -------
     Tuple[int, str, Optional[str]]
@@ -2048,6 +2117,10 @@ def convert_single_file(
 
     """
     try:
+        local_transforms = transforms
+        if local_transforms is None and transform_specs:
+            local_transforms = _instantiate_transforms_from_specs(transform_specs)
+
         renderer_hint = target_format
         if renderer_hint == 'auto' and output_path:
             try:
@@ -2072,7 +2145,7 @@ def convert_single_file(
                 output=output_path,
                 source_format=cast(DocumentFormat, format_arg),
                 target_format=cast(DocumentFormat, target_format),
-                transforms=transforms,
+                transforms=local_transforms,
                 **effective_options
             )
             return EXIT_SUCCESS, str(input_path), None
@@ -2083,7 +2156,7 @@ def convert_single_file(
                 output=None,
                 source_format=cast(DocumentFormat, format_arg),
                 target_format='markdown',
-                transforms=transforms,
+                transforms=local_transforms,
                 **effective_options
             )
             # convert() returns str for markdown, bytes for binary formats
@@ -2143,12 +2216,22 @@ def process_files_unified(
     if args.preserve_structure and len(files) > 0:
         base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
 
+    try:
+        should_use_rich = _should_use_rich_output(args)
+        rich_dependency_error: Optional[str] = None
+    except DependencyError as exc:
+        should_use_rich = False
+        rich_dependency_error = str(exc)
+
+    if rich_dependency_error:
+        print(f"Warning: {rich_dependency_error}", file=sys.stderr)
+
     # Special case: single file to stdout with rich formatting
     if len(files) == 1 and not args.out and not args.output_dir:
         file = files[0]
 
         # Check if we should use rich output for this
-        if _should_use_rich_output(args):
+        if should_use_rich:
             # Import rich components
             from rich.markdown import Markdown
             try:
@@ -2156,8 +2239,7 @@ def process_files_unified(
                 console = Console()
 
                 # Show progress during conversion
-                use_rich = True
-                with ProgressContext(use_rich, True, 1, f"Converting {file.name}") as progress:
+                with ProgressContext(True, True, 1, f"Converting {file.name}") as progress:
                     try:
                         # Convert the document
                         effective_options = prepare_options_for_execution(
@@ -2219,8 +2301,10 @@ def process_files_unified(
     max_exit_code = EXIT_SUCCESS
 
     # Determine if progress should be shown
-    show_progress = args.progress or args.rich or len(files) > 1
-    use_rich = args.rich
+    show_progress = args.progress or (should_use_rich and args.rich) or len(files) > 1
+    use_rich = should_use_rich
+
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
 
     # Check if parallel processing is enabled
     use_parallel = (
@@ -2252,9 +2336,10 @@ def process_files_unified(
                         output_path,
                         options,
                         format_arg,
-                        transforms,
+                        None,
                         False,
-                        target_format
+                        target_format,
+                        transform_specs_for_workers,
                     )
                     futures[future] = (file, output_path)
 
@@ -2299,7 +2384,8 @@ def process_files_unified(
                     format_arg,
                     transforms,
                     False,
-                    target_format
+                    target_format,
+                    transform_specs_for_workers,
                 )
 
                 if result_exit_code == EXIT_SUCCESS:
@@ -2444,6 +2530,8 @@ def process_with_rich_output(
     failed: list[tuple[Path, str | None]] = []
     max_exit_code = EXIT_SUCCESS
 
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
+
     with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -2486,9 +2574,10 @@ def process_with_rich_output(
                         output_path,
                         options,
                         format_arg,
-                        transforms,
+                        None,
                         False,
-                        target_format
+                        target_format,
+                        transform_specs_for_workers,
                     )
                     futures[future] = (file, output_path)
 
@@ -2531,7 +2620,8 @@ def process_with_rich_output(
                     format_arg,
                     transforms,
                     False,
-                    target_format
+                    target_format,
+                    transform_specs_for_workers,
                 )
 
                 if result_exit_code == EXIT_SUCCESS:
@@ -2612,6 +2702,8 @@ def process_with_progress_bar(
     max_exit_code = EXIT_SUCCESS
 
     # Process files with progress bar
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
+
     with tqdm(files, desc="Converting files", unit="file") as pbar:
         for file in pbar:
             pbar.set_postfix_str(f"Processing {file.name}")
@@ -2632,7 +2724,8 @@ def process_with_progress_bar(
                 format_arg,
                 transforms,
                 False,
-                target_format
+                target_format,
+                transform_specs_for_workers,
             )
 
             if exit_code == EXIT_SUCCESS:
@@ -2707,7 +2800,8 @@ def process_files_simple(
             format_arg,
             transforms,
             False,
-            target_format
+            target_format,
+            transform_specs_for_workers,
         )
 
         if exit_code == EXIT_SUCCESS:

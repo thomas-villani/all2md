@@ -54,13 +54,45 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
     if not data_uri or not isinstance(data_uri, str):
         return None, None
 
-    # Match data URI pattern: data:image/{format};base64,{data}
-    match = re.match(r'data:image/(\w+);base64,(.+)', data_uri)
+    # Match data URI pattern: data:{mime};base64,{data}
+    # Use a more robust regex that captures the full MIME type (e.g., image/svg+xml)
+    match = re.match(r'^data:(?P<mime>[^;]+);base64,(?P<data>.+)', data_uri)
     if not match:
         return None, None
 
-    image_format = match.group(1).lower()
-    base64_data = match.group(2)
+    mime_type = match.group('mime').lower()
+    base64_data = match.group('data')
+
+    # Map MIME types to file extensions
+    mime_to_ext = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+        'image/svg+xml': 'svg',
+        'image/bmp': 'bmp',
+        'image/tiff': 'tiff',
+        'image/tif': 'tif',
+        'image/x-icon': 'ico',
+        'image/vnd.microsoft.icon': 'ico',
+    }
+
+    # Get extension from MIME type, or try to extract from simple MIME types
+    image_format = mime_to_ext.get(mime_type)
+    if not image_format:
+        # Try to extract format from MIME type if it's simple (e.g., "image/png" -> "png")
+        if mime_type.startswith('image/'):
+            potential_format = mime_type.split('/')[-1].lower()
+            # Only accept if it's alphanumeric (no special chars except hyphen)
+            if re.match(r'^[a-z0-9\-]+$', potential_format):
+                # Remove common MIME type prefixes
+                potential_format = potential_format.replace('x-', '')
+                image_format = potential_format
+
+        if not image_format:
+            # Unknown or invalid MIME type
+            return None, None
 
     # Validate format is a known image type
     valid_formats = {'png', 'jpeg', 'jpg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'ico'}
@@ -68,8 +100,8 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
         return None, None
 
     try:
-        # Decode base64 data
-        image_data = base64.b64decode(base64_data)
+        # Decode base64 data with validation
+        image_data = base64.b64decode(base64_data, validate=True)
         return image_data, image_format
     except (ValueError, binascii.Error):
         # Invalid base64 data
@@ -155,6 +187,7 @@ def parse_image_data_uri(data_uri: str) -> dict[str, str] | None:
     """Parse a data URI and extract metadata.
 
     Extracts format, encoding, and data from a data URI without decoding.
+    Supports data URIs with parameters like charset, base64 encoding marker, etc.
 
     Parameters
     ----------
@@ -164,7 +197,7 @@ def parse_image_data_uri(data_uri: str) -> dict[str, str] | None:
     Returns
     -------
     dict or None
-        Dictionary with keys: 'mime_type', 'format', 'encoding', 'data'
+        Dictionary with keys: 'mime_type', 'format', 'encoding', 'data', 'params', 'charset'
         Returns None if URI is malformed
 
     Examples
@@ -176,28 +209,67 @@ def parse_image_data_uri(data_uri: str) -> dict[str, str] | None:
         >>> print(info['encoding'])
         base64
 
+        >>> uri = "data:text/plain;charset=utf-8;base64,SGVsbG8="
+        >>> info = parse_image_data_uri(uri)
+        >>> print(info['charset'])
+        utf-8
+
     """
     if not data_uri or not isinstance(data_uri, str):
         return None
 
-    # Match pattern: data:{mime};{encoding},{data}
-    match = re.match(r'data:([^;]+);([^,]+),(.+)', data_uri)
+    # Match pattern: data:{mime}[;param1][;param2]...,{data}
+    # This handles data URIs with multiple parameters like charset, base64 encoding, etc.
+    match = re.match(r'^data:(?P<mime>[^,;]+)(?P<params>(?:;[^,]+)*),(?P<data>.*)', data_uri)
     if not match:
         return None
 
-    mime_type = match.group(1)
-    encoding = match.group(2)
-    data = match.group(3)
+    mime_type = match.group('mime')
+    params_str = match.group('params')
+    data = match.group('data')
 
-    # Extract format from MIME type (e.g., "image/png" -> "png")
-    format_match = re.match(r'image/(\w+)', mime_type)
-    image_format = format_match.group(1) if format_match else None
+    # Parse parameters
+    params = []
+    charset = None
+    encoding = None
+
+    if params_str:
+        # Split by semicolon and strip whitespace
+        params = [p.strip() for p in params_str.split(';') if p.strip()]
+
+        # Check for base64 encoding
+        if 'base64' in params:
+            encoding = 'base64'
+
+        # Extract charset if present
+        for param in params:
+            if param.startswith('charset='):
+                charset = param.split('=', 1)[1]
+                break
+
+    # If no encoding specified, assume URL-encoded (standard for data URIs without base64)
+    if not encoding:
+        encoding = 'url'
+
+    # Extract format from MIME type (e.g., "image/png" -> "png", "image/svg+xml" -> "svg")
+    image_format = None
+    if mime_type.startswith('image/'):
+        # Handle complex MIME types like image/svg+xml
+        format_part = mime_type.split('/')[-1].lower()
+        # Map known formats
+        format_map = {
+            'svg+xml': 'svg',
+            'jpeg': 'jpg',
+        }
+        image_format = format_map.get(format_part, format_part)
 
     return {
         'mime_type': mime_type,
         'format': image_format or '',
         'encoding': encoding,
-        'data': data
+        'data': data,
+        'params': params,
+        'charset': charset or '',
     }
 
 

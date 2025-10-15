@@ -80,7 +80,7 @@ class DocxRendererOptions(BaseRendererOptions):
         default=None,
         metadata={
             "help": "Font sizes for heading levels 1-6 (None = use built-in styles)",
-            "exclude_from_cli": True,
+            "exclude_from_cli": True,  # Complex type, should handle a list
             "importance": "advanced"
         }
     )
@@ -133,7 +133,7 @@ class DocxRendererOptions(BaseRendererOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for remote image fetching",
-            "exclude_from_cli": True  # Handled via flattened fields
+            "exclude_from_cli": True  # Nested, handled separately
         }
     )
 

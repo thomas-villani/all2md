@@ -154,7 +154,7 @@ class EmlOptions(BaseParserOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for HTML part conversion",
-            "exclude_from_cli": True  # Handled via flattened fields
+            "exclude_from_cli": True  # Nested, handled separately
         }
     )
 

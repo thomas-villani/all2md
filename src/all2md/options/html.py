@@ -239,7 +239,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         default=None,
         metadata={
             "help": "Map AST node types to custom CSS classes",
-            "exclude_from_cli": True,  # TODO: Why exclude from CLI? Should parse json.
+            "exclude_from_cli": True,  # TODO: Why exclude from CLI? Should parse
             "importance": "advanced"
         }
     )
@@ -352,7 +352,7 @@ class HtmlOptions(BaseParserOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for remote resource fetching",
-            "exclude_from_cli": True  # Handled via flattened fields
+            "exclude_from_cli": True  # Nested, handled separately
         }
     )
 
@@ -361,7 +361,7 @@ class HtmlOptions(BaseParserOptions):
         default_factory=LocalFileAccessOptions,
         metadata={
             "help": "Local file access security settings",
-            "exclude_from_cli": True  # Handled via flattened fields
+            "exclude_from_cli": True  # Nested, handled separately
         }
     )
 

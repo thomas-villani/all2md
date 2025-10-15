@@ -42,6 +42,7 @@ from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EX
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
+from all2md.exceptions import DependencyError
 from all2md.transforms import registry as transform_registry
 
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
@@ -942,10 +943,6 @@ def handle_convert_command(args: list[str] | None = None) -> int | None:
     return _run_convert_command(parsed_args)
 
 
-def _default_extension_for_format(target_format: str) -> str:
-    if target_format in ('auto', 'markdown'):
-        return '.md'
-
     try:
         metadata_list = registry.get_format_info(target_format)
         if metadata_list and len(metadata_list) > 0:
@@ -1044,7 +1041,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
         if parsed_args.out:
             return Path(parsed_args.out)
         if parsed_args.output_dir:
-            ext = _default_extension_for_format(parsed_args.output_type)
+            ext = registry.get_default_extension_for_format(parsed_args.output_type)
             stem = input_file.stem
             relative_parent = Path()
             if parsed_args.preserve_structure and base_input_dir:
@@ -1104,7 +1101,14 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
                 if parsed_args.pager:
                     try:
-                        if _should_use_rich_output(parsed_args):
+                        try:
+                            use_rich_output = _should_use_rich_output(parsed_args)
+                            rich_error: str | None = None
+                        except DependencyError as exc:
+                            use_rich_output = False
+                            rich_error = str(exc)
+
+                        if use_rich_output:
                             from rich.console import Console
                             from rich.markdown import Markdown
                             console = Console()
@@ -1118,6 +1122,9 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                         else:
                             content_to_page = rendered_text
                             is_rich = False
+
+                        if rich_error:
+                            print(f"Warning: {rich_error}", file=sys.stderr)
 
                         # Import the helper function
                         from all2md.cli.processors import _page_content
