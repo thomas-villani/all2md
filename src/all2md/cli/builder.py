@@ -1427,10 +1427,10 @@ def validate_pygments_theme(theme_name: str) -> str:
     available_themes = list(get_all_styles())
     if theme_name not in available_themes:
         # Show top 10 suggestions
-        suggestions = sorted(available_themes)[:10]
+        suggestions = sorted(difflib.get_close_matches(theme_name, available_themes))
         raise argparse.ArgumentTypeError(
             f"Invalid Pygments theme '{theme_name}'. "
-            f"Popular themes: {', '.join(suggestions)}... "
+            f"Did you mean: {', '.join(suggestions)}... "
             f"See https://pygments.org/styles/ for full list."
         )
     return theme_name
