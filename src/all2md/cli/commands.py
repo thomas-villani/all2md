@@ -994,6 +994,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
         print("Error: --output-dir requires --output-type to determine file extensions", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
+    # TODO: Why only supported with markdown? Should be easy to implement with other formats as well.
     if parsed_args.collate:
         if parsed_args.output_type not in ('auto', 'markdown'):
             print("Error: --collate is only supported for markdown output", file=sys.stderr)

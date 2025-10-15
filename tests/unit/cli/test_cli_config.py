@@ -407,10 +407,10 @@ class TestConfigPriority:
             with open(config_file, "wb") as f:
                 tomli_w.dump({"test": "auto"}, f)
 
-        with patch('pathlib.Path.cwd', return_value=temp_path):
-            loaded = load_config_with_priority()
-            print(loaded)
-            assert loaded["test"] == "auto"
+            with patch('pathlib.Path.cwd', return_value=temp_path):
+                loaded = load_config_with_priority()
+                print(loaded)
+                assert loaded["test"] == "auto"
 
 
 @pytest.mark.unit
