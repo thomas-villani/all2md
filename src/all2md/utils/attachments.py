@@ -254,6 +254,27 @@ def sanitize_attachment_filename(
 def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> Path:
     """Ensure a unique file path by adding numeric suffixes for collisions.
 
+    Thread Safety and Race Conditions
+    ----------------------------------
+    WARNING: This function is susceptible to TOCTOU (Time-of-Check to Time-of-Use)
+    race conditions. Between checking if a path exists and when the caller actually
+    creates the file, another process or thread could create a file at that path,
+    leading to potential file overwrites.
+
+    This implementation is safe for:
+    - Single-process, single-threaded usage (typical use case)
+    - Scenarios where file collisions are acceptable
+
+    This implementation is NOT safe for:
+    - Concurrent file creation from multiple processes
+    - Concurrent file creation from multiple threads
+    - Security-critical applications requiring guaranteed uniqueness
+
+    For production concurrent use, callers should implement atomic file operations:
+    - Use os.open() with O_CREAT | O_EXCL flags (POSIX)
+    - Retry on FileExistsError when opening the file
+    - Use NamedTemporaryFile with delete=False for temporary files
+
     Parameters
     ----------
     base_path : Path
@@ -264,7 +285,7 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
     Returns
     -------
     Path
-        A unique file path that doesn't exist on the filesystem
+        A unique file path that doesn't exist on the filesystem at check time
 
     Raises
     ------
@@ -276,6 +297,12 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
     >>> # If image.png exists, returns image-1.png
     >>> ensure_unique_attachment_path(Path("./attachments/image.png"))
     Path('./attachments/image-1.png')
+
+    Notes
+    -----
+    For typical single-process document conversion, this function is adequate.
+    The race window is small and the consequences of collision are minimal
+    (one attachment overwrites another in the same conversion run).
 
     """
     if not base_path.exists():

@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/ast/flavors.py
+# src/all2md/utils/flavors.py
 """Markdown flavor definitions and capabilities.
 
 This module defines different markdown dialects/flavors and their capabilities.

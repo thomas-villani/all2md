@@ -670,26 +670,46 @@ def enrich_metadata_with_conversion_info(
     if isinstance(input_data, (str, Path)):
         metadata.source_path = str(input_data)
 
-    # Calculate SHA256 hash
+    # Calculate SHA256 hash using chunked reading to avoid memory issues with large files
+    # Use 1MB chunks for efficient memory usage
+    chunk_size = 1024 * 1024  # 1MB
     try:
         if isinstance(input_data, bytes):
             metadata.sha256 = hashlib.sha256(input_data).hexdigest()
         elif isinstance(input_data, (str, Path)):
-            # Hash file content if it's a path
+            # Hash file content if it's a path using chunked reading
             try:
+                hash_obj = hashlib.sha256()
                 with open(str(input_data), 'rb') as f:
-                    metadata.sha256 = hashlib.sha256(f.read()).hexdigest()
+                    while True:
+                        chunk = f.read(chunk_size)
+                        if not chunk:
+                            break
+                        hash_obj.update(chunk)
+                metadata.sha256 = hash_obj.hexdigest()
             except Exception:
                 pass  # Skip if file can't be read
         elif hasattr(input_data, 'read'):
-            # For file-like objects
+            # For file-like objects, use chunked reading
             try:
+                # Save position if seekable
                 current_pos = input_data.tell() if hasattr(input_data, 'tell') else None
-                data = input_data.read()
-                metadata.sha256 = hashlib.sha256(data).hexdigest()
-                # Try to restore position
+
+                # Hash in chunks
+                hash_obj = hashlib.sha256()
+                while True:
+                    chunk = input_data.read(chunk_size)
+                    if not chunk:
+                        break
+                    hash_obj.update(chunk)
+                metadata.sha256 = hash_obj.hexdigest()
+
+                # Try to restore position if seekable
                 if current_pos is not None and hasattr(input_data, 'seek'):
-                    input_data.seek(current_pos)
+                    try:
+                        input_data.seek(current_pos)
+                    except Exception:
+                        pass  # If seek fails, continue without restoring position
             except Exception:
                 pass  # Skip if reading fails
     except Exception:

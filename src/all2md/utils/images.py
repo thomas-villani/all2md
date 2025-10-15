@@ -13,10 +13,13 @@ from __future__ import annotations
 import atexit
 import base64
 import binascii
+import logging
 import os
 import re
 import tempfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
@@ -52,12 +55,14 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
 
     """
     if not data_uri or not isinstance(data_uri, str):
+        logger.debug("Invalid input to decode_base64_image: not a string or empty")
         return None, None
 
     # Match data URI pattern: data:{mime};base64,{data}
     # Use a more robust regex that captures the full MIME type (e.g., image/svg+xml)
     match = re.match(r'^data:(?P<mime>[^;]+);base64,(?P<data>.+)', data_uri)
     if not match:
+        logger.debug(f"Invalid data URI format: regex match failed for URI starting with '{data_uri[:50]}...'")
         return None, None
 
     mime_type = match.group('mime').lower()
@@ -92,19 +97,22 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
 
         if not image_format:
             # Unknown or invalid MIME type
+            logger.debug(f"Unknown or unsupported MIME type: {mime_type}")
             return None, None
 
     # Validate format is a known image type
     valid_formats = {'png', 'jpeg', 'jpg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'ico'}
     if image_format not in valid_formats:
+        logger.debug(f"Invalid image format: {image_format} (not in valid formats list)")
         return None, None
 
     try:
         # Decode base64 data with validation
         image_data = base64.b64decode(base64_data, validate=True)
         return image_data, image_format
-    except (ValueError, binascii.Error):
+    except (ValueError, binascii.Error) as e:
         # Invalid base64 data
+        logger.debug(f"Invalid base64 encoding: failed to decode ({type(e).__name__}: {e})")
         return None, None
 
 
