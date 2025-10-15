@@ -614,19 +614,11 @@ class DynamicCLIBuilder:
             should_flatten = bool(metadata.get(CLI_METADATA_FLATTEN, False))
             exclude_from_cli = bool(metadata.get('exclude_from_cli', False))
 
-            field_type: Optional[Type] = None
-            if should_flatten or exclude_from_cli:
+            if should_flatten:
                 field_type = self._resolve_field_type(field, options_class)
                 field_type, _ = self._handle_optional_type(field_type)
 
-            if should_flatten or (exclude_from_cli and field_type is not None and is_dataclass(field_type)):
-                if not should_flatten and exclude_from_cli:
-                    logger.debug(
-                        "Field %s uses exclude_from_cli to flatten nested options; set cli_flatten=True instead",
-                        field.name,
-                    )
-
-                if field_type is not None and is_dataclass(field_type):
+                if is_dataclass(field_type):
                     # Handle nested dataclass by flattening its fields
                     # Decouple CLI prefix (hyphenated) from dest prefix (dot-separated)
                     kebab_name = self.snake_to_kebab(field.name)
@@ -641,6 +633,12 @@ class DynamicCLIBuilder:
                         group_name=None,  # Don't create separate groups for nested classes
                         exclude_base_fields=exclude_base_fields,
                         dest_prefix=nested_dest_prefix
+                    )
+                else:
+                    logger.debug(
+                        "Field %s requested cli_flatten but resolved type %s is not a dataclass",
+                        field.name,
+                        field_type,
                     )
                 continue
 

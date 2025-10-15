@@ -325,6 +325,50 @@ class TestDynamicCLIBuilder:
         # store_true defaults to False until the user passes the flag
         assert action.default is False
 
+    def test_cli_flatten_metadata_expands_nested_fields(self):
+        """Fields marked with cli_flatten are expanded into prefixed CLI options."""
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class NestedOptions:
+            allow_remote: bool = field(default=False, metadata={'help': 'Nested toggle'})
+
+        @dataclass
+        class ContainerOptions:
+            nested: NestedOptions = field(
+                default_factory=NestedOptions,
+                metadata={'cli_flatten': True, 'help': 'Flatten nested'},
+            )
+            regular: bool = field(default=False, metadata={'help': 'Regular toggle'})
+
+        builder = DynamicCLIBuilder()
+        parser = argparse.ArgumentParser()
+        builder._add_options_arguments_internal(parser, ContainerOptions)
+
+        option_strings = {opt for action in parser._actions for opt in getattr(action, 'option_strings', [])}
+        assert '--nested-allow-remote' in option_strings
+        assert '--regular' in option_strings
+
+    def test_exclude_from_cli_removes_field(self):
+        """Fields with exclude_from_cli metadata are omitted from the CLI entirely."""
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class SampleOptions:
+            visible: bool = field(default=False, metadata={'help': 'Visible flag'})
+            hidden: bool = field(
+                default=False,
+                metadata={'help': 'Hidden flag', 'exclude_from_cli': True},
+            )
+
+        builder = DynamicCLIBuilder()
+        parser = argparse.ArgumentParser()
+        builder._add_options_arguments_internal(parser, SampleOptions)
+
+        option_strings = {opt for action in parser._actions for opt in getattr(action, 'option_strings', [])}
+        assert '--visible' in option_strings
+        assert all('--hidden' not in opt for opt in option_strings)
+
     def test_logger_used_instead_of_print(self):
         """Test that logger is used instead of print for warnings (Issue #13)."""
         import logging
