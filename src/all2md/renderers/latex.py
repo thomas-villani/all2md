@@ -12,7 +12,7 @@ for controlling output format and can generate complete documents or fragments.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Dict, Union
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -122,16 +122,18 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output = []
         self._in_table = False
 
+        metadata_block = self._prepare_metadata(document.metadata)
+
         # Generate preamble if requested
         if self.options.include_preamble:
-            self._render_preamble(document)
+            self._render_preamble(metadata_block)
 
         # Render document body
         if self.options.include_preamble:
             self._output.append("\\begin{document}\n\n")
 
             # Render title if present in metadata
-            if document.metadata.get('title'):
+            if metadata_block.get('title'):
                 self._output.append("\\maketitle\n\n")
 
         for i, child in enumerate(document.children):
@@ -145,13 +147,13 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return ''.join(self._output)
 
-    def _render_preamble(self, document: Document) -> None:
+    def _render_preamble(self, metadata: Dict[str, Any]) -> None:
         """Render LaTeX document preamble.
 
         Parameters
         ----------
-        document : Document
-            Document node with metadata
+        metadata : dict[str, Any]
+            Document metadata dictionary
 
         """
         self._output.append(f"\\documentclass{{{self.options.document_class}}}\n\n")
@@ -163,12 +165,14 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append('\n')
 
         # Add metadata commands
-        if document.metadata.get('title'):
-            self._output.append(f"\\title{{{self._escape(document.metadata['title'])}}}\n")
-        if document.metadata.get('author'):
-            self._output.append(f"\\author{{{self._escape(document.metadata['author'])}}}\n")
-        if document.metadata.get('date'):
-            self._output.append(f"\\date{{{self._escape(document.metadata['date'])}}}\n")
+        if metadata.get('title'):
+            self._output.append(f"\\title{{{self._escape(metadata['title'])}}}\n")
+        if metadata.get('author'):
+            self._output.append(f"\\author{{{self._escape(metadata['author'])}}}\n")
+
+        date_value = metadata.get('creation_date') or metadata.get('date')
+        if date_value:
+            self._output.append(f"\\date{{{self._escape(str(date_value))}}}\n")
         else:
             self._output.append("\\date{\\today}\n")
 

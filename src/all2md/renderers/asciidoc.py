@@ -132,9 +132,11 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._collect_footnote_definitions(node)
 
         # Render metadata as attributes if enabled
-        if self.options.use_attributes and node.metadata:
-            self._render_attributes(node.metadata)
-            self._output.append('\n')
+        if self.options.use_attributes:
+            metadata_block = self._prepare_metadata(node.metadata)
+            if metadata_block:
+                self._render_attributes(metadata_block)
+                self._output.append('\n')
 
         for i, child in enumerate(node.children):
             child.accept(self)
@@ -182,7 +184,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # These are conversion metadata, not document attributes
         skip_fields = {
             'creation_date', 'modification_date', 'creator', 'producer',
-            'url', 'source_path', 'page_count', 'word_count',
+            'source_path', 'page_count', 'word_count',
             'sha256', 'extraction_date', 'category'
         }
 

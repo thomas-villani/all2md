@@ -91,13 +91,13 @@ class RstRendererOptions(BaseRendererOptions):
         - "simple": Simple tables with === separators
     code_directive_style : {"double_colon", "directive"}, default "directive"
         Code block rendering style:
-        - "double_colon": Use ``:: literal blocks``
-        - "directive": Use ``.. code-block:: directive``
+        - "double_colon": Use \`\`:: literal blocks\`\`
+        - "directive": Use \`\`.. code-block:: directive\`\`
     line_length : int, default 80
         Target line length for wrapping text.
     hard_line_break_mode : {"line_block", "raw"}, default "line_block"
         How to render hard line breaks:
-        - "line_block": Use RST line block syntax (``\\n| ``), the standard approach
+        - "line_block": Use RST line block syntax (``\\n\|``), the standard approach
         - "raw": Use plain newline (``\\n``), less faithful but simpler in complex containers
 
     Notes
@@ -109,7 +109,7 @@ class RstRendererOptions(BaseRendererOptions):
     **Line Breaks:**
         Hard line breaks behavior depends on the ``hard_line_break_mode`` option:
 
-        - **line_block mode (default)**: Uses RST line block syntax (``| ``). This is the
+        - **line_block mode (default)**: Uses RST line block syntax (``\| ``). This is the
           standard RST approach for preserving line structure. May be surprising inside
           complex containers like lists and block quotes as it changes semantic structure.
         - **raw mode**: Uses plain newlines. Less faithful to RST semantics but simpler

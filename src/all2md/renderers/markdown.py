@@ -427,7 +427,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Render metadata as frontmatter if present and enabled
-        if self.options.metadata_frontmatter and node.metadata:
+        if self.options.metadata_frontmatter:
             self._render_frontmatter(node.metadata)
             # Frontmatter formatters already include trailing newlines
 
@@ -436,7 +436,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             if i < len(node.children) - 1:
                 self._output.append('\n\n')
 
-    def _render_frontmatter(self, metadata: dict) -> None:
+    def _render_frontmatter(self, metadata: dict | None) -> None:
         """Render metadata as frontmatter in the configured format.
 
         Parameters
@@ -445,7 +445,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Metadata dictionary to render
 
         """
-        if not metadata:
+        filtered_metadata = self._prepare_metadata(metadata)
+        if not filtered_metadata:
             return
 
         # Import formatters
@@ -457,11 +458,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Select formatter based on metadata_format option
         if self.options.metadata_format == "toml":
-            frontmatter = format_toml_frontmatter(metadata)
+            frontmatter = format_toml_frontmatter(filtered_metadata, policy=self.metadata_policy)
         elif self.options.metadata_format == "json":
-            frontmatter = format_json_frontmatter(metadata)
+            frontmatter = format_json_frontmatter(filtered_metadata, policy=self.metadata_policy)
         else:  # default to yaml
-            frontmatter = format_yaml_frontmatter(metadata)
+            frontmatter = format_yaml_frontmatter(filtered_metadata, policy=self.metadata_policy)
 
         if frontmatter:
             self._output.append(frontmatter)

@@ -5,6 +5,7 @@ from all2md.options import MarkdownOptions
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.utils.metadata import (
     DocumentMetadata,
+    MetadataRenderPolicy,
     format_json_frontmatter,
     format_toml_frontmatter,
     format_yaml_frontmatter,
@@ -131,7 +132,7 @@ def test_markdown_renderer_json_frontmatter():
 
 
 def test_extended_metadata_fields():
-    """Test that extended metadata fields are included in output."""
+    """Test that extended metadata fields are included with default policy."""
     metadata = DocumentMetadata(
         title="Extended Test",
         url="https://example.com",
@@ -144,12 +145,33 @@ def test_extended_metadata_fields():
 
     result = format_yaml_frontmatter(metadata)
 
-    assert "url:" in result and "https://example.com" in result
-    assert "source_path: /path/to/file.pdf" in result
+    assert "source: \"https://example.com\"" in result
     assert "page_count: 10" in result
     assert "word_count: 2000" in result
+    assert "accessed_date: \"2025-01-01 12:00:00\"" in result
+    assert "source_path" not in result
+    assert "sha256" not in result
+
+
+def test_metadata_policy_all_visibility():
+    """Test that all metadata fields can be rendered via policy changes."""
+    metadata = DocumentMetadata(
+        title="Extended Test",
+        url="https://example.com",
+        source_path="/path/to/file.pdf",
+        page_count=10,
+        word_count=2000,
+        sha256="abc123",
+        extraction_date="2025-01-01 12:00:00",
+    )
+
+    policy = MetadataRenderPolicy(visibility="all")
+    result = format_yaml_frontmatter(metadata, policy=policy)
+
+    assert "source: \"https://example.com\"" in result
+    assert "source_path: /path/to/file.pdf" in result
     assert "sha256: abc123" in result
-    assert "extraction_date:" in result and "2025-01-01 12:00:00" in result
+    assert "extraction_date: \"2025-01-01 12:00:00\"" in result
 
 
 def test_empty_metadata():

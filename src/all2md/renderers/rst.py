@@ -73,7 +73,8 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     --------
     Basic usage:
 
-        >>> from all2md.options.rst import RstRendererOptions        >>> from all2md.ast import Document, Heading, Text
+        >>> from all2md.options.rst import RstRendererOptions
+        >>> from all2md.ast import Document, Heading, Text
         >>> from all2md.renderers.rst import RestructuredTextRenderer
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Title")])
@@ -170,8 +171,9 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Render metadata as docinfo if present
-        if node.metadata:
-            self._render_docinfo(node.metadata)
+        metadata_block = self._prepare_metadata(node.metadata)
+        if metadata_block:
+            self._render_docinfo(metadata_block)
 
         for i, child in enumerate(node.children):
             child.accept(self)
@@ -190,16 +192,35 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not metadata:
             return
 
-        # RST docinfo fields
         docinfo_fields = []
 
-        if 'author' in metadata:
+        if metadata.get('title'):
+            docinfo_fields.append(f":Title: {metadata['title']}")
+        if metadata.get('author'):
             docinfo_fields.append(f":Author: {metadata['author']}")
-        if 'creation_date' in metadata:
+        if metadata.get('source'):
+            docinfo_fields.append(f":Source: {metadata['source']}")
+        if metadata.get('creation_date'):
             docinfo_fields.append(f":Date: {metadata['creation_date']}")
+        if metadata.get('modification_date'):
+            docinfo_fields.append(f":Updated: {metadata['modification_date']}")
+        if metadata.get('accessed_date'):
+            docinfo_fields.append(f":Accessed: {metadata['accessed_date']}")
+        if metadata.get('description'):
+            docinfo_fields.append(f":Summary: {metadata['description']}")
+        if metadata.get('keywords'):
+            keywords = metadata['keywords']
+            if isinstance(keywords, list):
+                keywords_str = ', '.join(str(k) for k in keywords)
+            else:
+                keywords_str = str(keywords)
+            docinfo_fields.append(f":Keywords: {keywords_str}")
+        if metadata.get('language'):
+            docinfo_fields.append(f":Language: {metadata['language']}")
+        if metadata.get('category'):
+            docinfo_fields.append(f":Category: {metadata['category']}")
 
-        # Add other custom properties
-        if 'custom' in metadata:
+        if 'custom' in metadata and isinstance(metadata['custom'], dict):
             for key, value in metadata['custom'].items():
                 docinfo_fields.append(f":{key.title()}: {value}")
 
@@ -606,7 +627,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append(f"   :alt: {node.alt_text}\n")
 
     def visit_line_break(self, node: LineBreak) -> None:
-        """Render a LineBreak node.
+        r"""Render a LineBreak node.
 
         Soft line breaks render as spaces to maintain paragraph flow.
         Hard line breaks rendering depends on the ``hard_line_break_mode`` option.
@@ -620,7 +641,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         -----
         RST does not have a direct equivalent to hard line breaks within paragraphs.
 
-        **line_block mode (default)**: Uses line block syntax (``| ``) which is the
+        **line_block mode (default)**: Uses line block syntax (``\| ``) which is the
         idiomatic RST approach for preserving explicit line breaks. May change
         semantic structure in complex containers like lists.
 

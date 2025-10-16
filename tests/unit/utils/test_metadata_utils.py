@@ -2,7 +2,13 @@
 
 import pytest
 
-from all2md.utils.metadata import DocumentMetadata, format_yaml_frontmatter, prepend_metadata_if_enabled
+from all2md.utils.metadata import (
+    DocumentMetadata,
+    MetadataRenderPolicy,
+    format_yaml_frontmatter,
+    prepare_metadata_for_render,
+    prepend_metadata_if_enabled,
+)
 
 
 @pytest.mark.unit
@@ -230,3 +236,43 @@ class TestPrependMetadataIfEnabled:
         # Should have proper separation
         assert lines[end_frontmatter_idx + 1] == ''  # Empty line after front matter
         assert lines[end_frontmatter_idx + 2] == '# Title'  # Content starts after empty line
+
+
+@pytest.mark.unit
+class TestMetadataRenderPolicy:
+    """Tests for metadata policy normalization and filtering."""
+
+    def test_prepare_metadata_aliases(self):
+        """Ensure URL and extraction_date aliases are normalized."""
+        metadata = DocumentMetadata(
+            title="Alias Test",
+            url="https://example.com",
+            extraction_date="2025-02-01",
+        )
+
+        result = prepare_metadata_for_render(metadata)
+
+        assert result["source"] == "https://example.com"
+        assert result["accessed_date"] == "2025-02-01"
+        assert "extraction_date" not in result
+
+    def test_prepare_metadata_visibility_all(self):
+        """Ensure internal fields are available when requested."""
+        metadata = DocumentMetadata(sha256="abc123", extraction_date="2025-02-01")
+        policy = MetadataRenderPolicy(visibility="all")
+
+        result = prepare_metadata_for_render(metadata, policy)
+
+        assert result["sha256"] == "abc123"
+        assert result["extraction_date"] == "2025-02-01"
+
+    def test_prepend_metadata_with_policy(self):
+        """Verify prepend respects custom policy exclusions."""
+        content = "# Heading\n\nBody"
+        metadata = DocumentMetadata(title="Title", sha256="ignored")
+        policy = MetadataRenderPolicy(visibility="core")
+
+        result = prepend_metadata_if_enabled(content, metadata, True, policy=policy)
+
+        assert "sha256" not in result
+        assert "title: Title" in result

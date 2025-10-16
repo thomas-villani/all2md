@@ -16,7 +16,10 @@ import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
+
+
+MetadataVisibility = Literal["core", "standard", "extended", "all"]
 
 # Standard property mappings for different document formats
 PDF_FIELD_MAPPING = {
@@ -49,6 +52,229 @@ SPREADSHEET_FIELD_MAPPING: Mapping[str, Union[str, List[str]]] = {
     'creation_date': 'created',
     'modification_date': 'modified',
 }
+
+
+CORE_METADATA_FIELDS: tuple[str, ...] = (
+    'title',
+    'author',
+    'source',
+    'creation_date',
+    'modification_date',
+    'accessed_date',
+)
+
+DESCRIPTIVE_METADATA_FIELDS: tuple[str, ...] = (
+    'description',
+    'keywords',
+    'language',
+    'category',
+)
+
+TECHNICAL_METADATA_FIELDS: tuple[str, ...] = (
+    'creator',
+    'producer',
+    'page_count',
+    'word_count',
+)
+
+INTERNAL_METADATA_FIELDS: tuple[str, ...] = (
+    'source_path',
+    'sha256',
+    'extraction_date',
+)
+
+FIELD_NORMALIZATION_ALIASES: Mapping[str, str] = {
+    'url': 'source',
+    'source_url': 'source',
+    'link': 'source',
+    'website': 'source',
+    'publication': 'source',
+    'accessed': 'accessed_date',
+    'accessed_on': 'accessed_date',
+    'date_accessed': 'accessed_date',
+    'date_published': 'creation_date',
+    'published_date': 'creation_date',
+    'created_at': 'creation_date',
+    'modified_at': 'modification_date',
+}
+
+
+FIELD_VISIBILITY_MAP: Mapping[MetadataVisibility, tuple[str, ...]] = {
+    'core': CORE_METADATA_FIELDS,
+    'standard': CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS,
+    'extended': CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS + TECHNICAL_METADATA_FIELDS,
+    'all': CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS + TECHNICAL_METADATA_FIELDS + INTERNAL_METADATA_FIELDS,
+}
+
+FIELD_OUTPUT_ORDER: tuple[str, ...] = (
+    'title',
+    'author',
+    'source',
+    'creation_date',
+    'modification_date',
+    'accessed_date',
+    'description',
+    'keywords',
+    'language',
+    'category',
+    'creator',
+    'producer',
+    'page_count',
+    'word_count',
+    'source_path',
+    'sha256',
+    'extraction_date',
+)
+
+
+def _normalize_field_name(field: str) -> str:
+    """Return canonical field name for metadata filtering."""
+
+    return FIELD_NORMALIZATION_ALIASES.get(field, field)
+
+
+ALL_KNOWN_FIELDS: tuple[str, ...] = (
+    CORE_METADATA_FIELDS
+    + DESCRIPTIVE_METADATA_FIELDS
+    + TECHNICAL_METADATA_FIELDS
+    + INTERNAL_METADATA_FIELDS
+    + ('accessed_date', 'source')
+)
+
+
+@dataclass(frozen=True)
+class MetadataRenderPolicy:
+    """Configuration describing how document metadata should be rendered."""
+
+    visibility: MetadataVisibility = 'extended'
+    include_fields: Tuple[str, ...] = field(default_factory=tuple)
+    exclude_fields: Tuple[str, ...] = field(default_factory=tuple)
+    include_custom_fields: bool = True
+    field_aliases: Dict[str, str] = field(default_factory=dict)
+
+
+DEFAULT_METADATA_RENDER_POLICY = MetadataRenderPolicy()
+
+
+def _value_is_meaningful(value: Any) -> bool:
+    """Return True if the metadata value should be rendered."""
+
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    return True
+
+
+def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any], set[str]]:
+    """Normalize metadata keys and collect custom fields."""
+
+    normalized: Dict[str, Any] = {}
+    custom_fields: set[str] = set()
+
+    for key, value in metadata.items():
+        if not _value_is_meaningful(value):
+            continue
+
+        canonical = _normalize_field_name(key)
+
+        if canonical == 'url':
+            canonical = 'source'
+        elif canonical == 'extraction_date':
+            normalized['extraction_date'] = value
+            if 'accessed_date' not in normalized:
+                normalized['accessed_date'] = value
+            continue
+
+        normalized[canonical] = value
+
+        if canonical not in ALL_KNOWN_FIELDS:
+            custom_fields.add(canonical)
+
+    # Ensure source/accessed aliases are populated when only alternate keys exist
+    if 'source' not in normalized:
+        for alias in ('url', 'source_url', 'link', 'website', 'publication'):
+            if alias in metadata and _value_is_meaningful(metadata[alias]):
+                normalized['source'] = metadata[alias]
+                break
+
+    if 'accessed_date' not in normalized:
+        for alias in ('accessed_date', 'accessed', 'accessed_on', 'date_accessed', 'extraction_date'):
+            if alias in metadata and _value_is_meaningful(metadata[alias]):
+                normalized['accessed_date'] = metadata[alias]
+                break
+
+    return normalized, custom_fields
+
+
+def prepare_metadata_for_render(
+        metadata: Union["DocumentMetadata", Mapping[str, Any], None],
+        policy: MetadataRenderPolicy | None = None
+) -> Dict[str, Any]:
+    """Return metadata filtered for rendering according to the policy."""
+
+    if not metadata:
+        return {}
+
+    policy = policy or DEFAULT_METADATA_RENDER_POLICY
+
+    if isinstance(metadata, DocumentMetadata):
+        metadata_dict = metadata.to_dict()
+    else:
+        metadata_dict = dict(metadata)
+
+    normalized, custom_fields = _normalize_metadata_dict(metadata_dict)
+
+    visibility_fields = set(FIELD_VISIBILITY_MAP.get(policy.visibility, FIELD_VISIBILITY_MAP['extended']))
+    include_fields = {_normalize_field_name(name) for name in policy.include_fields}
+    exclude_fields = {_normalize_field_name(name) for name in policy.exclude_fields}
+
+    output: list[tuple[str, Any]] = []
+    added_fields: set[str] = set()
+
+    def add_field(field_name: str) -> None:
+        canonical = _normalize_field_name(field_name)
+        if canonical in added_fields:
+            return
+        if canonical in exclude_fields:
+            return
+
+        value = normalized.get(canonical)
+        if value is None:
+            raw_value = metadata_dict.get(field_name)
+            if raw_value is None and canonical != field_name:
+                raw_value = metadata_dict.get(canonical)
+            value = raw_value
+
+        if not _value_is_meaningful(value):
+            return
+
+        output_key = policy.field_aliases.get(canonical, canonical)
+        output.append((output_key, value))
+        added_fields.add(canonical)
+
+    for field in FIELD_OUTPUT_ORDER:
+        if field not in normalized:
+            continue
+        if field not in visibility_fields and field not in include_fields:
+            continue
+        add_field(field)
+
+    if policy.include_custom_fields:
+        for field in sorted(custom_fields):
+            if field in added_fields:
+                continue
+            if field in exclude_fields and field not in include_fields:
+                continue
+            add_field(field)
+
+    for field in include_fields:
+        add_field(field)
+
+    return dict(output)
+
 
 
 @dataclass
@@ -244,7 +470,10 @@ def format_yaml_value(value: Any) -> str:
         return str(value)
 
 
-def format_yaml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -> str:
+def format_yaml_frontmatter(
+        metadata: Union[DocumentMetadata, Dict[str, Any]],
+        policy: MetadataRenderPolicy | None = None
+) -> str:
     """Format metadata as YAML front matter.
 
     This function creates a simple YAML front matter block without requiring
@@ -255,6 +484,8 @@ def format_yaml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     ----------
     metadata : DocumentMetadata or dict
         Metadata to format as YAML front matter
+    policy : MetadataRenderPolicy or None, optional
+        Filtering policy describing which metadata fields to include
 
     Returns
     -------
@@ -276,13 +507,9 @@ def format_yaml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     ---
 
     """
-    # Convert DocumentMetadata to dict if needed
-    if isinstance(metadata, DocumentMetadata):
-        data = metadata.to_dict()
-    else:
-        data = metadata
+    data = prepare_metadata_for_render(metadata, policy)
 
-    # Skip if no metadata
+    # Skip if no metadata after policy filtering
     if not data:
         return ""
 
@@ -309,7 +536,10 @@ def format_yaml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     return '\n'.join(lines) + '\n\n'
 
 
-def format_toml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -> str:
+def format_toml_frontmatter(
+        metadata: Union[DocumentMetadata, Dict[str, Any]],
+        policy: MetadataRenderPolicy | None = None
+) -> str:
     """Format metadata as TOML front matter.
 
     This function creates TOML front matter using standard library json module
@@ -319,6 +549,8 @@ def format_toml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     ----------
     metadata : DocumentMetadata or dict
         Metadata to format as TOML front matter
+    policy : MetadataRenderPolicy or None, optional
+        Filtering policy describing which metadata fields to include
 
     Returns
     -------
@@ -340,13 +572,8 @@ def format_toml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     +++
 
     """
-    # Convert DocumentMetadata to dict if needed
-    if isinstance(metadata, DocumentMetadata):
-        data = metadata.to_dict()
-    else:
-        data = metadata
+    data = prepare_metadata_for_render(metadata, policy)
 
-    # Skip if no metadata
     if not data:
         return ""
 
@@ -388,8 +615,11 @@ def format_toml_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     return '\n'.join(lines) + '\n\n'
 
 
-def format_json_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -> str:
-    """Format metadata as JSON front matter.
+def format_json_frontmatter(
+        metadata: Union[DocumentMetadata, Dict[str, Any]],
+        policy: MetadataRenderPolicy | None = None
+) -> str:
+    r"""Format metadata as JSON front matter.
 
     This function creates JSON front matter with proper escaping and formatting.
 
@@ -397,11 +627,13 @@ def format_json_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     ----------
     metadata : DocumentMetadata or dict
         Metadata to format as JSON front matter
+    policy : MetadataRenderPolicy or None, optional
+        Filtering policy describing which metadata fields to include
 
     Returns
     -------
     str
-        JSON front matter string with ```json delimiters, or empty string if no metadata
+        JSON front matter string with \`\`\`json delimiters, or empty string if no metadata
 
     Examples
     --------
@@ -411,24 +643,19 @@ def format_json_frontmatter(metadata: Union[DocumentMetadata, Dict[str, Any]]) -
     ...     keywords=["python", "conversion"]
     ... )
     >>> print(format_json_frontmatter(metadata))
-    ```json
+    \`\`\`json
     {
       "title": "My Document",
       "author": "John Doe",
       "keywords": ["python", "conversion"]
     }
-    ```
+    \`\`\`
 
     """
     import json
 
-    # Convert DocumentMetadata to dict if needed
-    if isinstance(metadata, DocumentMetadata):
-        data = metadata.to_dict()
-    else:
-        data = metadata
+    data = prepare_metadata_for_render(metadata, policy)
 
-    # Skip if no metadata
     if not data:
         return ""
 
@@ -609,7 +836,12 @@ def extract_dict_metadata(
     return map_properties_to_metadata(dict_obj, field_mapping)
 
 
-def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadata], extract_metadata: bool) -> str:
+def prepend_metadata_if_enabled(
+        content: str,
+        metadata: Optional[DocumentMetadata],
+        extract_metadata: bool,
+        policy: MetadataRenderPolicy | None = None
+) -> str:
     """Prepend metadata to content if extraction is enabled.
 
     Parameters
@@ -620,6 +852,8 @@ def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadat
         The extracted metadata
     extract_metadata : bool
         Whether metadata extraction is enabled
+    policy : MetadataRenderPolicy or None, optional
+        Policy controlling which metadata fields are prepended
 
     Returns
     -------
@@ -628,7 +862,7 @@ def prepend_metadata_if_enabled(content: str, metadata: Optional[DocumentMetadat
 
     """
     if extract_metadata and metadata:
-        frontmatter = format_yaml_frontmatter(metadata)
+        frontmatter = format_yaml_frontmatter(metadata, policy=policy)
         if frontmatter:
             return frontmatter + content
     return content

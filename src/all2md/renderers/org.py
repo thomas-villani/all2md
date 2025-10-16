@@ -144,8 +144,9 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Render metadata as file-level properties if present
-        if node.metadata:
-            self._render_file_properties(node.metadata)
+        metadata_block = self._prepare_metadata(node.metadata)
+        if metadata_block:
+            self._render_file_properties(metadata_block)
 
         for i, child in enumerate(node.children):
             child.accept(self)
@@ -165,15 +166,33 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return
 
         # Org file-level properties
-        if 'title' in metadata:
+        if metadata.get('title'):
             self._output.append(f"#+TITLE: {metadata['title']}\n")
-        if 'author' in metadata:
+        if metadata.get('author'):
             self._output.append(f"#+AUTHOR: {metadata['author']}\n")
-        if 'creation_date' in metadata:
+        if metadata.get('source'):
+            self._output.append(f"#+SOURCE: {metadata['source']}\n")
+        if metadata.get('creation_date'):
             self._output.append(f"#+DATE: {metadata['creation_date']}\n")
+        if metadata.get('modification_date'):
+            self._output.append(f"#+UPDATED: {metadata['modification_date']}\n")
+        if metadata.get('accessed_date'):
+            self._output.append(f"#+ACCESS_DATE: {metadata['accessed_date']}\n")
+        if metadata.get('description'):
+            self._output.append(f"#+DESCRIPTION: {metadata['description']}\n")
+        if metadata.get('keywords'):
+            if isinstance(metadata['keywords'], list):
+                keywords = ', '.join(str(k) for k in metadata['keywords'])
+            else:
+                keywords = str(metadata['keywords'])
+            self._output.append(f"#+KEYWORDS: {keywords}\n")
+        if metadata.get('language'):
+            self._output.append(f"#+LANGUAGE: {metadata['language']}\n")
+        if metadata.get('category'):
+            self._output.append(f"#+CATEGORY: {metadata['category']}\n")
 
         # Add other custom properties
-        if 'custom' in metadata:
+        if 'custom' in metadata and isinstance(metadata['custom'], dict):
             for key, value in metadata['custom'].items():
                 self._output.append(f"#+{key.upper()}: {value}\n")
 

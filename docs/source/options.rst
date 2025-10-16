@@ -420,6 +420,15 @@ AsciiDoc output.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--asciidoc-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **list_indent**
 
    Spaces for nested list indentation
@@ -459,7 +468,7 @@ AsciiDoc output.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--asciidoc-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -602,9 +611,18 @@ Options for rendering documents to JSON AST format.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--ast-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **indent**
 
-   :Type: ``UnionType[int, NoneType]``
+   :Type: ``int | None``
    :CLI flag: ``--ast-renderer-indent``
    :Default: ``2``
 
@@ -1178,6 +1196,15 @@ including fonts, styles, and formatting preferences.
    :CLI flag: ``--docx-renderer-max-asset-size-bytes``
    :Default: ``52428800``
    :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--docx-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
 
 **default_font**
 
@@ -1770,6 +1797,15 @@ including chapter splitting strategies, metadata, and EPUB structure.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--epub-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **chapter_split_mode**
 
    Chapter splitting strategy: separator, heading, or auto
@@ -1793,7 +1829,7 @@ including chapter splitting strategies, metadata, and EPUB structure.
 
    EPUB book title (None = use document metadata)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--epub-renderer-title``
    :Default: ``None``
    :Importance: core
@@ -1802,7 +1838,7 @@ including chapter splitting strategies, metadata, and EPUB structure.
 
    EPUB book author (None = use document metadata)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--epub-renderer-author``
    :Default: ``None``
    :Importance: core
@@ -1820,7 +1856,7 @@ including chapter splitting strategies, metadata, and EPUB structure.
 
    Unique identifier (ISBN, UUID, etc.)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--epub-renderer-identifier``
    :Default: ``None``
    :Importance: advanced
@@ -1865,7 +1901,7 @@ including chapter splitting strategies, metadata, and EPUB structure.
 
    Path to cover image file
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--epub-renderer-cover-image-path``
    :Default: ``None``
    :Importance: advanced
@@ -2149,6 +2185,15 @@ including document structure, styling, templating, and feature toggles.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--html-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **standalone**
 
    Generate complete HTML document (vs content fragment)
@@ -2172,7 +2217,7 @@ including document structure, styling, templating, and feature toggles.
 
    Path to external CSS file (when css_style='external')
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--html-renderer-css-file``
    :Default: ``None``
    :Importance: advanced
@@ -2218,7 +2263,7 @@ including document structure, styling, templating, and feature toggles.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--html-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -2247,7 +2292,7 @@ including document structure, styling, templating, and feature toggles.
 
    Path to template file (required when template_mode is set)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--html-renderer-template-file``
    :Default: ``None``
    :Importance: advanced
@@ -2284,7 +2329,7 @@ including document structure, styling, templating, and feature toggles.
 
    Map AST node types to custom CSS classes as JSON (e.g., '{"Heading": "prose-heading"}')
 
-   :Type: ``UnionType[dict[str, UnionType[str, list[str]]], NoneType]``
+   :Type: ``dict[str, str | list[str]] | None``
    :CLI flag: ``--html-renderer-css-class-map``
    :Default: ``None``
    :Importance: advanced
@@ -2311,7 +2356,7 @@ including document structure, styling, templating, and feature toggles.
 
    Custom Content-Security-Policy header value. If None, uses default secure policy.
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--html-renderer-csp-policy``
    :Default: ``"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"``
    :Importance: security
@@ -2515,6 +2560,15 @@ between AST and .ipynb formats.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--ipynb-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **nbformat**
 
    Major notebook format version (auto = preserve from source)
@@ -2566,7 +2620,7 @@ between AST and .ipynb formats.
    Infer language from Document metadata before using defaults
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-no-infer-language-from-document``
+   :CLI flag: ``--ipynb-renderer-infer-language-from-document``
    :Default: ``True``
    :Importance: advanced
 
@@ -2575,7 +2629,7 @@ between AST and .ipynb formats.
    Infer kernelspec information from Document metadata when present
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-no-infer-kernel-from-document``
+   :CLI flag: ``--ipynb-renderer-infer-kernel-from-document``
    :Default: ``True``
    :Importance: advanced
 
@@ -2602,7 +2656,7 @@ between AST and .ipynb formats.
    Retain unrecognized metadata keys instead of dropping them
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-no-preserve-unknown-metadata``
+   :CLI flag: ``--ipynb-renderer-preserve-unknown-metadata``
    :Default: ``True``
    :Importance: advanced
 
@@ -2611,7 +2665,7 @@ between AST and .ipynb formats.
    Embed attachments directly inside notebook cells
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-no-inline-attachments``
+   :CLI flag: ``--ipynb-renderer-inline-attachments``
    :Default: ``True``
    :Importance: core
 
@@ -2619,7 +2673,7 @@ between AST and .ipynb formats.
 
    Override markdown renderer configuration for markdown cells
 
-   :Type: ``UnionType[MarkdownOptions, NoneType]``
+   :Type: ``MarkdownOptions | None``
    :CLI flag: ``--ipynb-renderer-markdown-options``
    :Default: ``None``
    :Importance: advanced
@@ -2808,6 +2862,15 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
    :CLI flag: ``--latex-renderer-max-asset-size-bytes``
    :Default: ``52428800``
    :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--latex-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
 
 **document_class**
 
@@ -3092,6 +3155,15 @@ modules to ensure consistent Markdown generation.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--markdown-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **escape_special**
 
    Escape special Markdown characters (e.g. asterisks) in text content
@@ -3105,7 +3177,7 @@ modules to ensure consistent Markdown generation.
 
    Symbol to use for emphasis/italic formatting
 
-   :Type: ``Literal['*', '_']``
+   :Type: ``EmphasisSymbol``
    :CLI flag: ``--markdown-renderer-emphasis-symbol``
    :Default: ``'*'``
    :Choices: ``*``, ``_``
@@ -3133,7 +3205,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle underlined text
 
-   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Type: ``UnderlineMode``
    :CLI flag: ``--markdown-renderer-underline-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -3143,7 +3215,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle superscript text
 
-   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Type: ``SuperscriptMode``
    :CLI flag: ``--markdown-renderer-superscript-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -3153,7 +3225,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle subscript text
 
-   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Type: ``SubscriptMode``
    :CLI flag: ``--markdown-renderer-subscript-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -3172,7 +3244,7 @@ modules to ensure consistent Markdown generation.
 
    Markdown flavor/dialect to use for output
 
-   :Type: ``Literal['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus']``
+   :Type: ``FlavorType``
    :CLI flag: ``--markdown-renderer-flavor``
    :Default: ``'gfm'``
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
@@ -3191,9 +3263,9 @@ modules to ensure consistent Markdown generation.
 
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
-   :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
+   :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001580B5C0940>``
+   :Default: ``<object object at 0x0000023C151109B0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3201,9 +3273,9 @@ modules to ensure consistent Markdown generation.
 
    How to handle inline elements unsupported by flavor: plain (render content without formatting), force (use markdown syntax anyway), html (use HTML tags)
 
-   :Type: ``Literal['plain', 'force', 'html'] | object``
+   :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001580B5C0940>``
+   :Default: ``<object object at 0x0000023C151109B0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -3229,7 +3301,7 @@ modules to ensure consistent Markdown generation.
 
    Maximum line width for wrapping (None for no limit)
 
-   :Type: ``UnionType[int, NoneType]``
+   :Type: ``int | None``
    :CLI flag: ``--markdown-renderer-max-line-width``
    :Default: ``None``
    :Importance: advanced
@@ -3257,7 +3329,7 @@ modules to ensure consistent Markdown generation.
 
    Character to use for code fences (backtick or tilde)
 
-   :Type: ``Literal['`', '~']``
+   :Type: ``CodeFenceChar``
    :CLI flag: ``--markdown-renderer-code-fence-char``
    :Default: ``'`'``
    :Choices: `````, ``~``
@@ -3285,7 +3357,7 @@ modules to ensure consistent Markdown generation.
 
    Link style: inline [text](url) or reference [text][ref]
 
-   :Type: ``Literal['inline', 'reference']``
+   :Type: ``LinkStyleType``
    :CLI flag: ``--markdown-renderer-link-style``
    :Default: ``'inline'``
    :Choices: ``inline``, ``reference``
@@ -3295,7 +3367,7 @@ modules to ensure consistent Markdown generation.
 
    Where to place reference link definitions: end_of_document or after_block
 
-   :Type: ``Literal['end_of_document', 'after_block']``
+   :Type: ``ReferenceLinkPlacement``
    :CLI flag: ``--markdown-renderer-reference-link-placement``
    :Default: ``'end_of_document'``
    :Choices: ``end_of_document``, ``after_block``
@@ -3323,7 +3395,7 @@ modules to ensure consistent Markdown generation.
 
    Preferred math representation: latex, mathml, or html
 
-   :Type: ``Literal['latex', 'mathml', 'html']``
+   :Type: ``MathMode``
    :CLI flag: ``--markdown-renderer-math-mode``
    :Default: ``'latex'``
    :Choices: ``latex``, ``mathml``, ``html``
@@ -3342,7 +3414,7 @@ modules to ensure consistent Markdown generation.
 
    Format for metadata frontmatter: yaml, toml, or json
 
-   :Type: ``Literal['yaml', 'toml', 'json']``
+   :Type: ``MetadataFormatType``
    :CLI flag: ``--markdown-renderer-metadata-format``
    :Default: ``'yaml'``
    :Choices: ``yaml``, ``toml``, ``json``
@@ -3352,7 +3424,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
-   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--markdown-renderer-html-sanitization``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -3388,6 +3460,15 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--mediawiki-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **use_html_for_unsupported**
 
    Use HTML tags for unsupported elements
@@ -3410,7 +3491,7 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--mediawiki-renderer-html-passthrough-mode``
    :Default: ``'pass-through'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -4342,11 +4423,20 @@ Org-Mode output.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--org-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **heading_style**
 
    Style for rendering headings
 
-   :Type: ``Literal['stars']``
+   :Type: ``OrgHeadingStyle``
    :CLI flag: ``--org-renderer-heading-style``
    :Default: ``'stars'``
    :Choices: ``stars``
@@ -4847,6 +4937,15 @@ including page layout, fonts, margins, and formatting preferences.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--pdf-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **page_size**
 
    Page size: letter, a4, or legal
@@ -5179,6 +5278,15 @@ is stripped, leaving only the text content.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--plaintext-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **max_line_width**
 
    Maximum line width for wrapping (None = no wrapping)
@@ -5428,6 +5536,15 @@ generation from AST, including slide splitting strategies and layout.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--pptx-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **slide_split_mode**
 
    Slide splitting strategy: separator, heading, or auto
@@ -5478,7 +5595,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Path to .pptx template file (None = default)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--pptx-renderer-template-path``
    :Default: ``None``
    :Importance: core
@@ -5757,6 +5874,15 @@ reStructuredText output.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--rst-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **heading_chars**
 
    Characters for heading underlines (h1-h5)
@@ -5770,7 +5896,7 @@ reStructuredText output.
 
    Table rendering style
 
-   :Type: ``Literal['grid', 'simple']``
+   :Type: ``RstTableStyle``
    :CLI flag: ``--rst-renderer-table-style``
    :Default: ``'grid'``
    :Choices: ``grid``, ``simple``
@@ -5780,7 +5906,7 @@ reStructuredText output.
 
    Code block rendering style
 
-   :Type: ``Literal['double_colon', 'directive']``
+   :Type: ``RstCodeStyle``
    :CLI flag: ``--rst-renderer-code-directive-style``
    :Default: ``'directive'``
    :Choices: ``double_colon``, ``directive``
@@ -5799,7 +5925,7 @@ reStructuredText output.
 
    Hard line break rendering mode: line_block (use | syntax) or raw (plain newline)
 
-   :Type: ``Literal['line_block', 'raw']``
+   :Type: ``RstLineBreakMode``
    :CLI flag: ``--rst-renderer-hard-line-break-mode``
    :Default: ``'line_block'``
    :Choices: ``line_block``, ``raw``
@@ -5932,6 +6058,15 @@ Configuration options for rendering AST documents to RTF.
    :CLI flag: ``--rtf-renderer-max-asset-size-bytes``
    :Default: ``52428800``
    :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--rtf-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
 
 **font_family**
 
@@ -6610,6 +6745,15 @@ Renderers convert AST documents into various output formats (Markdown, DOCX, PDF
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 Markdown Options
 ^^^^^^^^^^^^^^^^
 
@@ -6642,6 +6786,15 @@ modules to ensure consistent Markdown generation.
    :Default: ``52428800``
    :Importance: security
 
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--markdown-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
 **escape_special**
 
    Escape special Markdown characters (e.g. asterisks) in text content
@@ -6655,7 +6808,7 @@ modules to ensure consistent Markdown generation.
 
    Symbol to use for emphasis/italic formatting
 
-   :Type: ``Literal['*', '_']``
+   :Type: ``EmphasisSymbol``
    :CLI flag: ``--markdown-emphasis-symbol``
    :Default: ``'*'``
    :Choices: ``*``, ``_``
@@ -6683,7 +6836,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle underlined text
 
-   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Type: ``UnderlineMode``
    :CLI flag: ``--markdown-underline-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -6693,7 +6846,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle superscript text
 
-   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Type: ``SuperscriptMode``
    :CLI flag: ``--markdown-superscript-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -6703,7 +6856,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle subscript text
 
-   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Type: ``SubscriptMode``
    :CLI flag: ``--markdown-subscript-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -6722,7 +6875,7 @@ modules to ensure consistent Markdown generation.
 
    Markdown flavor/dialect to use for output
 
-   :Type: ``Literal['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus']``
+   :Type: ``FlavorType``
    :CLI flag: ``--markdown-flavor``
    :Default: ``'gfm'``
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
@@ -6741,9 +6894,9 @@ modules to ensure consistent Markdown generation.
 
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
-   :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
+   :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001580B5C0940>``
+   :Default: ``<object object at 0x0000023C151109B0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -6751,9 +6904,9 @@ modules to ensure consistent Markdown generation.
 
    How to handle inline elements unsupported by flavor: plain (render content without formatting), force (use markdown syntax anyway), html (use HTML tags)
 
-   :Type: ``Literal['plain', 'force', 'html'] | object``
+   :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001580B5C0940>``
+   :Default: ``<object object at 0x0000023C151109B0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -6779,7 +6932,7 @@ modules to ensure consistent Markdown generation.
 
    Maximum line width for wrapping (None for no limit)
 
-   :Type: ``UnionType[int, NoneType]``
+   :Type: ``int | None``
    :CLI flag: ``--markdown-max-line-width``
    :Default: ``None``
    :Importance: advanced
@@ -6807,7 +6960,7 @@ modules to ensure consistent Markdown generation.
 
    Character to use for code fences (backtick or tilde)
 
-   :Type: ``Literal['`', '~']``
+   :Type: ``CodeFenceChar``
    :CLI flag: ``--markdown-code-fence-char``
    :Default: ``'`'``
    :Choices: `````, ``~``
@@ -6835,7 +6988,7 @@ modules to ensure consistent Markdown generation.
 
    Link style: inline [text](url) or reference [text][ref]
 
-   :Type: ``Literal['inline', 'reference']``
+   :Type: ``LinkStyleType``
    :CLI flag: ``--markdown-link-style``
    :Default: ``'inline'``
    :Choices: ``inline``, ``reference``
@@ -6845,7 +6998,7 @@ modules to ensure consistent Markdown generation.
 
    Where to place reference link definitions: end_of_document or after_block
 
-   :Type: ``Literal['end_of_document', 'after_block']``
+   :Type: ``ReferenceLinkPlacement``
    :CLI flag: ``--markdown-reference-link-placement``
    :Default: ``'end_of_document'``
    :Choices: ``end_of_document``, ``after_block``
@@ -6873,7 +7026,7 @@ modules to ensure consistent Markdown generation.
 
    Preferred math representation: latex, mathml, or html
 
-   :Type: ``Literal['latex', 'mathml', 'html']``
+   :Type: ``MathMode``
    :CLI flag: ``--markdown-math-mode``
    :Default: ``'latex'``
    :Choices: ``latex``, ``mathml``, ``html``
@@ -6892,7 +7045,7 @@ modules to ensure consistent Markdown generation.
 
    Format for metadata frontmatter: yaml, toml, or json
 
-   :Type: ``Literal['yaml', 'toml', 'json']``
+   :Type: ``MetadataFormatType``
    :CLI flag: ``--markdown-metadata-format``
    :Default: ``'yaml'``
    :Choices: ``yaml``, ``toml``, ``json``
@@ -6902,7 +7055,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
-   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--markdown-html-sanitization``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``

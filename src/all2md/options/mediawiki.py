@@ -18,7 +18,7 @@ from all2md.options.base import BaseRendererOptions
 
 @dataclass(frozen=True)
 class MediaWikiOptions(BaseRendererOptions):
-    """Configuration options for MediaWiki rendering.
+    r"""Configuration options for MediaWiki rendering.
 
     This dataclass contains settings for rendering AST documents as
     MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
@@ -31,7 +31,7 @@ class MediaWikiOptions(BaseRendererOptions):
         When False, unsupported formatting is stripped.
     image_thumb : bool, default True
         Whether to render images as thumbnails.
-        When True, images use |thumb option in MediaWiki syntax.
+        When True, images use \|thumb option in MediaWiki syntax.
         When False, images are rendered at full size.
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
         How to handle HTMLBlock and HTMLInline nodes:

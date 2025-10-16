@@ -13,11 +13,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import IO, Union
+from typing import IO, Any, Dict, Mapping, Union
 
 from all2md.ast import Document
 from all2md.ast.nodes import Node
 from all2md.options.base import BaseRendererOptions
+from all2md.utils.metadata import MetadataRenderPolicy, prepare_metadata_for_render
 
 
 class BaseRenderer(ABC):
@@ -61,6 +62,9 @@ class BaseRenderer(ABC):
 
         """
         self.options = options
+        self.metadata_policy: MetadataRenderPolicy = (
+            options.metadata_policy if options else MetadataRenderPolicy()
+        )
 
     @abstractmethod
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -167,6 +171,14 @@ class BaseRenderer(ABC):
             raise NotImplementedError(
                 f"{self.__class__.__name__} does not support rendering to bytes."
             ) from None
+
+    def _prepare_metadata(
+            self,
+            metadata: Union[Mapping[str, Any], "DocumentMetadata", None]
+    ) -> Dict[str, Any]:
+        """Normalize and filter metadata according to the renderer policy."""
+
+        return prepare_metadata_for_render(metadata, self.metadata_policy)
 
     @staticmethod
     def write_text_output(text: str, output: Union[str, Path, IO[bytes]]) -> None:

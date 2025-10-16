@@ -50,51 +50,77 @@ Core Components
 .. code-block:: text
 
    all2md/
-   ├── __init__.py           # Main entry point and format detection
-   ├── __main__.py          # Entry point for CLI (python -m all2md)
-   ├── constants.py         # Default values and configuration
-   ├── exceptions.py        # Custom exception hierarchy
-   ├── options.py           # Configuration dataclasses
-   ├── converter_registry.py # Registry system for converters
-   ├── converter_metadata.py # Metadata and dependency management
-   ├── cli/                 # Command-line interface package
-   │   ├── __init__.py      # CLI package initialization
-   │   ├── custom_actions.py       # Core CLI actions and commands
-   │   ├── builder.py       # Argument parser construction
-   │   └── processors.py    # File processing and batch operations
    ├── ast/                 # Abstract Syntax Tree module
    │   ├── __init__.py      # AST public API
-   │   ├── nodes.py         # AST node definitions
-   │   ├── visitors.py      # Visitor pattern for traversal
-   │   ├── transforms.py    # AST transformation utilities
    │   ├── builder.py       # AST construction helpers
-   │   └── serialization.py # JSON serialization
-   ├── parsers/             # Input → AST converters (PDF, DOCX, HTML, AsciiDoc, ZIP, ...)
-   ├── renderers/           # AST → Output renderers (Markdown, DOCX, HTML, PDF, LaTeX, Org, ...)
-   ├── transforms/          # Pipeline, builtin transforms, hooks, registry
-   ├── options/             # Dataclass configuration (base, markdown, per-format, security)
-   ├── cli/                 # Argument builder, command handlers, processors, help system
+   │   ├── document_utils.py # Document manipulation utilities
+   │   ├── nodes.py         # AST node definitions
+   │   ├── serialization.py # JSON serialization
+   │   ├── transforms.py    # AST transformation utilities
+   │   ├── utils.py         # AST utility functions
+   │   └── visitors.py      # Visitor pattern for traversal
+   ├── cli/                 # Command-line interface package
+   │   ├── __init__.py      # CLI package initialization
+   │   ├── builder.py       # Argument parser construction
+   │   ├── commands.py      # CLI command implementations
+   │   ├── config.py        # Configuration management
+   │   ├── custom_actions.py # Custom argparse actions
+   │   ├── help_formatter.py # Help text formatting
+   │   ├── packaging.py     # Package metadata
+   │   ├── presets.py       # Configuration presets
+   │   ├── processors.py    # File processing and batch operations
+   │   ├── progress.py      # Progress display
+   │   ├── timing.py        # Performance timing
+   │   ├── validation.py    # Input validation
+   │   └── watch.py         # File watching for auto-conversion
    ├── mcp/                 # Model Context Protocol server and tools
-   └── utils/               # Shared utilities (attachments, metadata, security, networking, progress)
+   │   ├── __init__.py      # MCP package initialization
+   │   ├── __main__.py      # MCP server entry point
+   │   ├── config.py        # MCP configuration
+   │   ├── document_tools.py # Document conversion tools
+   │   ├── schemas.py       # MCP schema definitions
+   │   ├── security.py      # MCP security utilities
+   │   ├── server.py        # MCP server implementation
+   │   └── tools.py         # MCP tool definitions
+   ├── options/             # Format-specific options dataclasses
+   ├── parsers/             # Input format → AST converters
+   ├── renderers/           # AST → output format renderers
+   ├── transforms/          # AST transform pipeline and registry
+   ├── utils/               # Shared utilities (attachments, metadata, security, etc.)
+   ├── __init__.py         # Public API exports
+   ├── __main__.py         # Entry point for CLI (python -m all2md)
+   ├── api.py              # Core conversion functions
+   ├── constants.py        # Default values and configuration
+   ├── converter_metadata.py # Metadata and dependency management
+   ├── converter_registry.py # Registry system for converters
+   ├── dependencies.py     # Dependency checking utilities
+   ├── exceptions.py       # Custom exception hierarchy
+   ├── logging_utils.py    # Logging configuration
+   └── progress.py         # Progress callback system
 
-The Main Entry Point
-~~~~~~~~~~~~~~~~~~~~~
+Primary Conversion Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``to_markdown()`` function in ``__init__.py`` acts as the orchestrator:
+The library provides several core conversion functions in ``api.py``. The ``to_markdown()`` function is the primary convenience function for converting documents to Markdown:
 
 .. code-block:: python
 
    def to_markdown(
-       input: Union[str, Path, IO[bytes], bytes],
+       source: Union[str, Path, IO[bytes], bytes],
        *,
-       options: Optional[BaseOptions] = None,
-       format: DocumentFormat = "auto",
-       **kwargs
+       parser_options: Optional[BaseParserOptions] = None,
+       renderer_options: Optional[MarkdownOptions] = None,
+       source_format: DocumentFormat = "auto",
+       flavor: Optional[str] = None,
+       transforms: Optional[list] = None,
+       hooks: Optional[dict] = None,
+       progress_callback: Optional[ProgressCallback] = None,
+       **kwargs: Any
    ) -> str:
-       # 1. Input normalization (file path → file object)
-       # 2. Format detection (if format="auto")
-       # 3. Options processing and merging
-       # 4. Route to appropriate converter
+       # 1. Format detection (if source_format="auto")
+       # 2. Parse document to AST using appropriate parser
+       # 3. Apply transforms to AST (if specified)
+       # 4. Render AST to Markdown
        # 5. Return clean Markdown string
 
 General Format Conversion
@@ -237,22 +263,86 @@ For complete AST documentation, see :doc:`ast_guide`. For bidirectional conversi
 Converter Architecture
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Each converter module follows a consistent pattern:
+The library uses a **registry-based architecture** with class-based parsers and renderers:
+
+**Parser Classes**
+
+All parsers extend ``BaseParser`` and implement the ``parse()`` method to convert documents to AST:
 
 .. code-block:: python
 
-   def format_to_markdown(
-       input_data: Union[IO, str],
-       options: Optional[FormatOptions] = None
-   ) -> str:
-       """
-       1. Validate input and options
-       2. Parse document structure
-       3. Extract content with formatting
-       4. Handle attachments (images, etc.)
-       5. Generate clean Markdown
-       6. Apply post-processing
-       """
+   from all2md.parsers.base import BaseParser
+   from all2md.ast import Document
+   from all2md.options.base import BaseParserOptions
+
+   class CustomParser(BaseParser):
+       """Parser for a custom document format."""
+
+       def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+           """Parse input document into AST representation.
+
+           1. Validate and normalize input
+           2. Load document using format-specific library
+           3. Extract metadata
+           4. Build AST from document structure
+           5. Return Document node
+           """
+           # Implementation here
+           return Document(children=[...])
+
+       def extract_metadata(self, document: Any) -> DocumentMetadata:
+           """Extract format-specific metadata."""
+           # Implementation here
+           return DocumentMetadata(...)
+
+**Converter Registration**
+
+Each parser module registers itself with ``ConverterMetadata`` that describes its capabilities:
+
+.. code-block:: python
+
+   from all2md.converter_metadata import ConverterMetadata
+
+   CONVERTER_METADATA = ConverterMetadata(
+       format_name="pdf",
+       extensions=[".pdf"],
+       mime_types=["application/pdf"],
+       magic_bytes=[(b"%PDF", 0)],
+       parser_class=PdfToAstConverter,
+       renderer_class="all2md.renderers.pdf.PdfRenderer",
+       parser_options_class="PdfOptions",
+       renderer_options_class="PdfRendererOptions",
+       parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
+       renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
+   )
+
+**Dynamic Discovery**
+
+The ``ConverterRegistry`` automatically discovers and registers converters at runtime:
+
+.. code-block:: python
+
+   from all2md.converter_registry import registry
+
+   # Auto-discover converters from parsers/ and renderers/ directories
+   registry.auto_discover()
+
+   # Get parser for a format
+   parser_class = registry.get_parser("pdf")
+   parser = parser_class(options=PdfOptions(...))
+   ast_doc = parser.parse("document.pdf")
+
+   # Get renderer for output format
+   renderer_class = registry.get_renderer("docx")
+   renderer = renderer_class(options=DocxRendererOptions(...))
+   output = renderer.render(ast_doc)
+
+This registry-based design enables:
+
+* **Pluggable architecture**: Add new formats via entry points without modifying core code
+* **Priority-based selection**: Multiple converters can register for the same format with different priorities
+* **Lazy loading**: Converters are only imported when needed
+* **Dynamic capability detection**: Check format support at runtime based on available dependencies
 
 Options System
 --------------
@@ -699,167 +789,86 @@ For automated setups, CI/CD pipelines, or installation scripts, all2md provides 
    report = print_dependency_report()
    print(report)
 
-**Automated Setup Script:**
+
+**Dynamic Format Discovery with Converter Registry:**
+
+The ``ConverterRegistry`` provides dynamic awareness of registered parsers and renderers, including their dependencies and capabilities:
 
 .. code-block:: python
 
    """
-   Automated all2md setup and validation script.
-   """
-   from all2md.dependencies import (
-       check_all_dependencies,
-       get_missing_dependencies,
-       generate_install_command
-   )
-   import subprocess
-   import sys
-
-   def check_and_install_format(format_name):
-       """Check and install dependencies for a specific format."""
-       missing = get_missing_dependencies(format_name)
-
-       if not missing:
-           print(f"✓ {format_name}: All dependencies available")
-           return True
-
-       print(f"✗ {format_name}: Missing {len(missing)} package(s)")
-       cmd = generate_install_command(missing)
-       print(f"  Installing: {cmd}")
-
-       try:
-           subprocess.check_call(cmd.split())
-           print(f"  ✓ Installation successful")
-           return True
-       except subprocess.CalledProcessError as e:
-           print(f"  ✗ Installation failed: {e}")
-           return False
-
-   def main():
-       """Main setup routine."""
-       required_formats = ['pdf', 'docx', 'html']
-
-       print("Checking all2md dependencies...")
-       success = True
-
-       for fmt in required_formats:
-           if not check_and_install_format(fmt):
-               success = False
-
-       if success:
-           print("\n✓ All required formats ready")
-       else:
-           print("\n✗ Some dependencies failed to install")
-           sys.exit(1)
-
-   if __name__ == '__main__':
-       main()
-
-**CI/CD Pipeline Integration:**
-
-.. code-block:: python
-
-   """
-   CI/CD pre-flight check for all2md capabilities.
-   """
-   from all2md.dependencies import check_all_dependencies, get_missing_dependencies
-   import json
-   import sys
-
-   def ci_dependency_check():
-       """Check dependencies and output results for CI."""
-       results = check_all_dependencies()
-
-       # Generate CI-friendly report
-       available_formats = []
-       missing_formats = []
-
-       for format_name, packages in results.items():
-           all_installed = all(packages.values())
-           if all_installed:
-               available_formats.append(format_name)
-           else:
-               missing_pkgs = [pkg for pkg, installed in packages.items() if not installed]
-               missing_formats.append({
-                   'format': format_name,
-                   'missing_packages': missing_pkgs
-               })
-
-       report = {
-           'available_formats': available_formats,
-           'missing_formats': missing_formats,
-           'total_formats': len(results),
-           'ready': len(missing_formats) == 0
-       }
-
-       # Output JSON for parsing by CI tools
-       print(json.dumps(report, indent=2))
-
-       # Exit with error code if not ready
-       if not report['ready']:
-           print("\n❌ Some dependencies are missing", file=sys.stderr)
-           sys.exit(1)
-       else:
-           print("\n✅ All dependencies available")
-           sys.exit(0)
-
-   if __name__ == '__main__':
-       ci_dependency_check()
-
-**Recommended Approach for CI/CD:**
-
-For most use cases, it's recommended to use pip extras directly rather than programmatic dependency management:
-
-.. code-block:: bash
-
-   # Install specific formats
-   pip install all2md[pdf,docx,html]
-
-   # Install all formats
-   pip install all2md[all]
-
-**Conditional Feature Loading:**
-
-.. code-block:: python
-
-   """
-   Application that adapts based on available formats.
+   Application that adapts based on available formats using the converter registry.
    """
    from all2md import to_markdown
-   from all2md.dependencies import check_all_dependencies
+   from all2md.converter_registry import registry
 
    class DocumentConverter:
-       """Converter that adapts to available dependencies."""
+       """Converter that dynamically detects format support via the registry."""
 
        def __init__(self):
+           # Discover all registered converters
+           registry.auto_discover()
            self.supported_formats = self._detect_formats()
 
        def _detect_formats(self):
-           """Detect which formats are available."""
-           results = check_all_dependencies()
-           # Return formats where all packages are installed
-           return [
-               fmt for fmt, packages in results.items()
-               if all(packages.values())
-           ]
+           """Detect which formats have available dependencies."""
+           available_formats = []
+
+           # Get all registered formats
+           for format_name in registry.list_formats():
+               # Check if dependencies are available
+               missing = registry.check_dependencies(format_name, operation="parse")
+               if not missing:
+                   available_formats.append(format_name)
+
+           return available_formats
+
+       def get_format_info(self, format_name: str):
+           """Get detailed information about a format."""
+           metadata_list = registry.get_format_info(format_name)
+           if not metadata_list:
+               return None
+
+           # Return info from highest priority converter
+           metadata = metadata_list[0]
+           return {
+               'extensions': metadata.extensions,
+               'mime_types': metadata.mime_types,
+               'has_parser': metadata.parser_class is not None,
+               'has_renderer': metadata.renderer_class is not None,
+           }
 
        def convert(self, filepath, format='auto'):
-           """Convert file with fallback handling."""
-           if format != 'auto' and format not in self.supported_formats:
-               raise ValueError(
-                   f"Format '{format}' not available. "
-                   f"Supported: {', '.join(self.supported_formats)}"
-               )
+           """Convert file with dynamic format detection and fallback handling."""
+           if format != 'auto':
+               # Check if explicitly requested format is available
+               if format not in self.supported_formats:
+                   missing = registry.check_dependencies(format, operation="parse")
+                   if missing:
+                       missing_pkgs = ', '.join(missing[format])
+                       raise ValueError(
+                           f"Format '{format}' requires missing dependencies: {missing_pkgs}. "
+                           f"Available formats: {', '.join(self.supported_formats)}"
+                       )
 
            return to_markdown(filepath, source_format=format)
 
    # Usage
    converter = DocumentConverter()
-   print(f"Supported formats: {converter.supported_formats}")
+   print(f"Supported formats: {', '.join(converter.supported_formats)}")
 
+   # Check specific format availability
    if 'pdf' in converter.supported_formats:
        result = converter.convert('document.pdf')
+       print("PDF conversion successful")
    else:
-       print("PDF support not available")
+       print("PDF support not available - install with: pip install all2md[pdf]")
+
+   # Get format details
+   pdf_info = converter.get_format_info('pdf')
+   if pdf_info:
+       print(f"PDF extensions: {pdf_info['extensions']}")
+       print(f"PDF MIME types: {pdf_info['mime_types']}")
 
 Performance Considerations
 --------------------------

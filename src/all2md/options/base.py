@@ -18,6 +18,7 @@ from all2md.constants import (
     AltTextMode,
     AttachmentMode,
 )
+from all2md.utils.metadata import MetadataRenderPolicy
 
 UNSET = object()
 
@@ -81,6 +82,13 @@ class BaseRendererOptions(CloneFrozenMixin):
             "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
             "type": int,
             "importance": "security"
+        }
+    )
+    metadata_policy: MetadataRenderPolicy = field(
+        default_factory=MetadataRenderPolicy,
+        metadata={
+            "help": "Metadata rendering policy controlling which fields appear in output",
+            "importance": "advanced"
         }
     )
 

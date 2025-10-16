@@ -338,23 +338,23 @@ class AsciiDocParser(BaseParser):
     Supported Features
     ------------------
     - Headings (= through ======)
-    - Paragraphs with hard line breaks (trailing ` +`)
+    - Paragraphs with hard line breaks (trailing `` +``)
     - Inline formatting:
-      - Bold: *text* (constrained), **text** (unconstrained)
-      - Italic: _text_ (constrained), __text__ (unconstrained)
-      - Monospace: `code`
+      - Bold: \*text\* (constrained), \*\*text\*\* (unconstrained)
+      - Italic: \_text\_ (constrained), \__text\__ (unconstrained)
+      - Monospace: \`code\`
       - Superscript: ^text^
       - Subscript: ~text~
-      - Escape sequences: \*, \_, \{, etc.
+      - Escape sequences: \\\*, \_, \{, etc.
     - Lists with nesting:
-      - Unordered (* through *****)
+      - Unordered (\* through \*****)
       - Ordered (. through .....)
-      - Checklists (* [x] or * [ ])
+      - Checklists (\* [x] or \* [ ])
       - Description lists (term::)
     - Code blocks (----) with language support via [source,lang]
     - Literal blocks (....) for preformatted text
     - Block quotes (____)
-    - Sidebar blocks (****) rendered as block quotes with role='sidebar'
+    - Sidebar blocks (\****) rendered as block quotes with role='sidebar'
     - Example blocks (====) rendered as block quotes with role='example'
     - Tables (|===) with:
       - Attribute-based header detection
@@ -366,7 +366,7 @@ class AsciiDocParser(BaseParser):
     - Attribute references: {name}
     - Block attributes: [#id], [.role], [source,python], [options="header"]
     - Anchors: [[anchor-id]]
-    - Thematic breaks (''', ---, ***)
+    - Thematic breaks (''', ---, \***)
     - Passthrough: ++text++, +text+, pass:[text]
     - Document attributes (:name: value)
 
