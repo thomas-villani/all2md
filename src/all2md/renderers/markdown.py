@@ -197,7 +197,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         return text
 
     def _escape_markdown(self, text: str) -> str:
-        """Escape special markdown characters.
+        """Escape special markdown characters with context awareness.
+
+        This method provides intelligent escaping that considers context:
+        - Does not escape # in inline text (only dangerous at line start)
+        - Does not escape _ in the middle of words (e.g., snake_case)
+        - Always escapes backslash, backticks, asterisks, braces, brackets
 
         Parameters
         ----------
@@ -209,20 +214,54 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         str
             Escaped text
 
+        Notes
+        -----
+        Context-aware escaping prevents over-escaping while maintaining safety:
+
+        - **Hash symbols (#)**: Only need escaping at the start of a line to prevent
+          accidental heading syntax. In inline text, # is safe and doesn't need escaping.
+
+        - **Underscores (_)**: Only need escaping at word boundaries where they could
+          trigger emphasis. Underscores in the middle of words (e.g., "snake_case",
+          "my_variable") are safe in most Markdown flavors and don't need escaping.
+
+        - **Always escaped**: Backslash, backticks, asterisks, braces, brackets are
+          always escaped as they have special meaning in all contexts.
+
         """
         if not self.options.escape_special:
             return text
 
-        # Escape characters that need it in inline content
-        # Note: Some chars like +, -, ., ! only need escaping in specific contexts
-        # but # can start a heading, so we escape it
-        special_chars = r'\`*_{}[]#'
+        # Characters that always need escaping in inline content
+        always_escape = r'\`*{}[]'
+
         escaped = ''
-        for char in text:
-            if char in special_chars:
+        for i, char in enumerate(text):
+            if char in always_escape:
+                # Always escape these special characters
                 escaped += '\\' + char
+            elif char == '#':
+                # Only escape # at the start of text (where it could start a heading)
+                # In inline contexts, # is safe and doesn't need escaping
+                if i == 0:
+                    escaped += '\\' + char
+                else:
+                    escaped += char
+            elif char == '_':
+                # Smart underscore escaping: don't escape if in middle of word
+                # Check if surrounded by alphanumeric characters (word context)
+                prev_alnum = i > 0 and text[i-1].isalnum()
+                next_alnum = i < len(text) - 1 and text[i+1].isalnum()
+
+                if prev_alnum and next_alnum:
+                    # In middle of word (e.g., snake_case) - safe, no escaping needed
+                    escaped += char
+                else:
+                    # At word boundary - could trigger emphasis, needs escaping
+                    escaped += '\\' + char
             else:
                 escaped += char
+
         return escaped
 
     def _autolink_bare_urls(self, text: str) -> str:

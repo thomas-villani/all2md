@@ -24,6 +24,9 @@ if str(SRC_PATH) not in sys.path:
 if str(DOCS_ROOT) not in sys.path:
     sys.path.insert(0, str(DOCS_ROOT))
 
+if str(DOCS_SOURCE_DIR) not in sys.path:
+    sys.path.insert(0, str(DOCS_SOURCE_DIR))
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -87,24 +90,16 @@ doctest_default_flags = 0
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
-# from generate_options_doc import generate_options_document
-#
-# def _generate_options_reference(_app) -> None:
-#     """Build the generated options reference before the documentation build."""
-#
-#
-#     output_path = DOCS_SOURCE_DIR / "options.rst"
-#     narrative_path = DOCS_SOURCE_DIR / "_options-narrative.rst"
-#     generate_options_document(output_path, narrative_path)
-#
-#
-# def setup(app):
-#     """Configure Sphinx application with custom hooks.
-#
-#     Parameters
-#     ----------
-#     app : sphinx.application.Sphinx
-#         The Sphinx application instance.
-#
-#     """
-#     app.connect("builder-inited", _generate_options_reference)
+from generate_options_doc import generate_options_document  # noqa: E402
+
+
+def _generate_options_reference(_app) -> None:
+    """Build the generated options reference before the documentation build."""
+    output_path = DOCS_SOURCE_DIR / "options.rst"
+    narrative_path = DOCS_SOURCE_DIR / "_options-narrative.rst"
+    generate_options_document(output_path, narrative_path)
+
+
+def setup(app):
+    """Configure Sphinx application with custom hooks."""
+    app.connect("builder-inited", _generate_options_reference)

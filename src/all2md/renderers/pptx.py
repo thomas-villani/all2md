@@ -391,11 +391,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if num_cols == 0 or num_rows == 0:
             return
 
-        # Create table shape
-        left = Inches(0.5)
-        top = Inches(2.0)
-        width = Inches(9.0)
-        height = Inches(0.5 * num_rows)
+        # Use configurable positioning and sizing
+        left = Inches(self.options.table_left)
+        top = Inches(self.options.table_top)
+        width = Inches(self.options.table_width)
+        height = Inches(self.options.table_height_per_row * num_rows)
 
         table_shape = slide.shapes.add_table(num_rows, num_cols, left, top, width, height)
         pptx_table = table_shape.table
@@ -451,13 +451,13 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             if image_file:
                 from pptx.util import Inches
 
-                # Position image in content area
-                left = Inches(1.0)
-                top = Inches(2.5)
+                # Use configurable positioning and sizing
+                left = Inches(self.options.image_left)
+                top = Inches(self.options.image_top)
 
-                # Add image with default width, maintaining aspect ratio
+                # Add image with configurable width, maintaining aspect ratio
                 try:
-                    slide.shapes.add_picture(image_file, left, top, width=Inches(4.0))
+                    slide.shapes.add_picture(image_file, left, top, width=Inches(self.options.image_width))
                 except Exception as e:
                     logger.warning(f"Failed to add image to slide: {e}")
                     if self.options.fail_on_resource_errors:

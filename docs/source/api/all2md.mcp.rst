@@ -13,6 +13,7 @@ Submodules
    :maxdepth: 4
 
    all2md.mcp.config
+   all2md.mcp.document_tools
    all2md.mcp.schemas
    all2md.mcp.security
    all2md.mcp.server

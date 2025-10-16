@@ -13,6 +13,7 @@ Submodules
    :maxdepth: 4
 
    all2md.options.asciidoc
+   all2md.options.ast_json
    all2md.options.base
    all2md.options.chm
    all2md.options.common
@@ -29,6 +30,7 @@ Submodules
    all2md.options.odp
    all2md.options.ods
    all2md.options.odt
+   all2md.options.org
    all2md.options.pdf
    all2md.options.pptx
    all2md.options.rst

@@ -48,6 +48,20 @@ class PptxRendererOptions(BaseRendererOptions):
         Indentation per nesting level for lists, in inches.
         Controls horizontal spacing for nested lists. Note that actual indentation
         behavior may vary across PowerPoint templates.
+    table_left : float, default 0.5
+        Left position for tables in inches.
+    table_top : float, default 2.0
+        Top position for tables in inches.
+    table_width : float, default 9.0
+        Width for tables in inches.
+    table_height_per_row : float, default 0.5
+        Height per row for tables in inches.
+    image_left : float, default 1.0
+        Left position for images in inches.
+    image_top : float, default 2.5
+        Top position for images in inches.
+    image_width : float, default 4.0
+        Width for images in inches (aspect ratio maintained).
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security options for fetching remote images in slides.
 
@@ -156,6 +170,62 @@ class PptxRendererOptions(BaseRendererOptions):
         default=0.5,
         metadata={
             "help": "Indentation per nesting level for lists (in inches)",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    table_left: float = field(
+        default=0.5,
+        metadata={
+            "help": "Left position for tables in inches",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    table_top: float = field(
+        default=2.0,
+        metadata={
+            "help": "Top position for tables in inches",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    table_width: float = field(
+        default=9.0,
+        metadata={
+            "help": "Width for tables in inches",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    table_height_per_row: float = field(
+        default=0.5,
+        metadata={
+            "help": "Height per row for tables in inches",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    image_left: float = field(
+        default=1.0,
+        metadata={
+            "help": "Left position for images in inches",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    image_top: float = field(
+        default=2.5,
+        metadata={
+            "help": "Top position for images in inches",
+            "type": float,
+            "importance": "advanced"
+        }
+    )
+    image_width: float = field(
+        default=4.0,
+        metadata={
+            "help": "Width for images in inches",
             "type": float,
             "importance": "advanced"
         }

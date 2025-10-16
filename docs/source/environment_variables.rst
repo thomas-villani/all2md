@@ -304,12 +304,30 @@ Pattern: ALL2MD_<OPTION_NAME>
    * - ``ALL2MD_RICH``
      - ``--rich``
      - ``true``
+   * - ``ALL2MD_FORCE_RICH``
+     - ``--force-rich``
+     - ``true``
    * - ``ALL2MD_OUTPUT_DIR``
      - ``--output-dir``
      - ``./converted``
-   * - ``ALL2MD_SOURCE_FORMAT``
-     - ``--source-format``
+   * - ``ALL2MD_FORMAT``
+     - ``--format``
      - ``pdf``
+   * - ``ALL2MD_RICH_CODE_THEME``
+     - ``--rich-code-theme``
+     - ``dracula``
+   * - ``ALL2MD_RICH_INLINE_CODE_THEME``
+     - ``--rich-inline-code-theme``
+     - ``material``
+   * - ``ALL2MD_RICH_WORD_WRAP``
+     - ``--rich-word-wrap``
+     - ``true``
+   * - ``ALL2MD_RICH_HYPERLINKS``
+     - ``--no-rich-hyperlinks``
+     - ``false``
+   * - ``ALL2MD_RICH_JUSTIFY``
+     - ``--rich-justify``
+     - ``full``
 
 **Format-Specific Options:**
 

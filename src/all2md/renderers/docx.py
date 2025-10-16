@@ -590,6 +590,41 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Skip HTML content in DOCX
         pass
 
+    def _extract_text_from_inlines(self, nodes: list[Node]) -> str:
+        """Extract plain text from inline nodes without creating temporary elements.
+
+        This method recursively extracts text content from inline nodes,
+        providing an efficient alternative to rendering to a temporary paragraph.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Inline nodes to extract text from
+
+        Returns
+        -------
+        str
+            Plain text content
+
+        """
+        text_parts: list[str] = []
+
+        def collect_text(node_list: list[Node]) -> None:
+            """Recursively collect text from nodes."""
+            for node in node_list:
+                if isinstance(node, Text):
+                    text_parts.append(node.content)
+                elif isinstance(node, Code):
+                    text_parts.append(node.content)
+                elif hasattr(node, 'content'):
+                    if isinstance(node.content, list):
+                        collect_text(node.content)
+                    elif isinstance(node.content, str):
+                        text_parts.append(node.content)
+
+        collect_text(nodes)
+        return ''.join(text_parts)
+
     def _render_inlines(
             self,
             paragraph: Paragraph,
@@ -707,16 +742,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 )
 
             elif isinstance(node, Link):
-                # Extract link text by rendering to a temporary paragraph
-                temp_para = self.document.add_paragraph()
-                self._render_inlines(
-                    temp_para, node.content,
-                    bold=bold, italic=italic, underline=underline, strike=strike,
-                    superscript=superscript, subscript=subscript, code_font=code_font
-                )
-                link_text = temp_para.text
-                # Remove the temporary paragraph
-                self.document._element.body.remove(temp_para._element)
+                # Extract link text using efficient in-memory extraction
+                link_text = self._extract_text_from_inlines(node.content)
                 # Add hyperlink to target paragraph
                 self._add_hyperlink(paragraph, node.url, link_text)
 

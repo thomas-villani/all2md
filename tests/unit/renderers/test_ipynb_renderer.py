@@ -13,7 +13,6 @@ from all2md.renderers.ipynb import IpynbRenderer
 
 def _round_trip_notebook(notebook: dict, renderer_options: IpynbRendererOptions | None = None) -> dict:
     """Helper to convert notebook -> AST -> notebook dict."""
-
     parser = IpynbToAstConverter()
     document = parser.convert_to_ast(notebook, "python")
     renderer = IpynbRenderer(renderer_options)

@@ -47,7 +47,6 @@ class IpynbRenderer(BaseRenderer):
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST document to a file path or binary stream."""
-
         notebook_str = self.render_to_string(doc)
         data = notebook_str.encode("utf-8")
 
@@ -63,7 +62,6 @@ class IpynbRenderer(BaseRenderer):
 
     def render_to_string(self, doc: Document) -> str:
         """Render the AST document to an in-memory JSON string."""
-
         notebook = self._build_notebook(doc)
         return json.dumps(notebook, ensure_ascii=False, indent=2) + "\n"
 
@@ -118,7 +116,6 @@ class IpynbRenderer(BaseRenderer):
 
     def _prepare_metadata(self, document: Document, bundle: Dict[str, Any]) -> Dict[str, Any]:
         """Construct notebook-level metadata with inference heuristics."""
-
         metadata = bundle.get("metadata")
         if not isinstance(metadata, dict):
             metadata = {}
@@ -134,7 +131,6 @@ class IpynbRenderer(BaseRenderer):
 
     def _resolve_language(self, document: Document, metadata: Dict[str, Any]) -> str:
         """Determine preferred programming language for language_info."""
-
         if isinstance(metadata.get("language_info"), dict):
             lang = metadata["language_info"].get("name")
             if isinstance(lang, str) and lang.strip():

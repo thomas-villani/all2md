@@ -204,7 +204,6 @@ class IpynbToAstConverter(BaseParser):
 
     def _process_cell(self, cell: dict[str, Any], cell_index: int, language: str) -> list[Node]:
         """Process a notebook cell to AST nodes with metadata for round-tripping."""
-
         cell_type = cell.get("cell_type")
         nodes: list[Node] = []
 
@@ -444,7 +443,6 @@ class IpynbToAstConverter(BaseParser):
             **extra: Any,
     ) -> None:
         """Attach Jupyter-specific metadata to a node for renderer reconstruction."""
-
         node_metadata = dict(getattr(node, "metadata", {}) or {})
         ipynb_meta = deepcopy(base_info)
         ipynb_meta["role"] = role

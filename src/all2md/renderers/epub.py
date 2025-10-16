@@ -105,8 +105,9 @@ class EpubRenderer(BaseRenderer):
         the input AST can be safely reused for multiple renderings.
 
         """
-        from ebooklib import epub
         from typing import cast
+
+        from ebooklib import epub
 
         # Clone document to avoid mutating the original AST during image URL rewriting.
         # This ensures the input document can be reused for rendering to other formats.
@@ -418,7 +419,20 @@ class EpubRenderer(BaseRenderer):
                 image_path = Path(image_url)
                 if image_path.exists() and image_path.is_file():
                     image_data = image_path.read_bytes()
-                    image_format = image_path.suffix.lstrip('.')
+
+                    # Detect format from file content (more reliable than extension)
+                    from all2md.utils.images import detect_image_format_from_bytes
+                    detected_format = detect_image_format_from_bytes(image_data[:32])
+
+                    # Fall back to extension if content detection fails
+                    if detected_format:
+                        image_format = detected_format
+                    else:
+                        image_format = image_path.suffix.lstrip('.')
+                        if not image_format:
+                            logger.debug("Could not detect format from content or extension")
+                            return None
+                        logger.debug(f"Could not detect format from content, using extension: {image_format}")
 
                     internal_path = f"images/img_{index:03d}.{image_format}"
 

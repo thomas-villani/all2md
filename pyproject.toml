@@ -27,7 +27,7 @@ odf = [
     "odfpy>=1.4.1",
 ]
 pdf = [
-    "pymupdf>=1.26.4"
+    "pymupdf>=1.26.5"
 ]
 docx = [
     "python-docx>=1.2.0"
@@ -58,7 +58,8 @@ dev = [
     "all2md[all]",
     "mypy>=1.18.2",
     "pytest>=8.4.2",
-    "ruff>=0.13.3",
+    "ruff>=0.14.0",
+    "black>=25.9.0",
     "sphinx>=8.2.3",
     "sphinx-rtd-theme>=3.0.2",
     "sphinx-copybutton>=0.5.2",
@@ -98,7 +99,7 @@ templates = [
     "jinja2>=3.1.0",
 ]
 rst = [
-    "docutils>=0.18",
+    "docutils>=0.20",
 ]
 org = [
     "orgparse>=0.4.20250520",
@@ -107,7 +108,7 @@ org = [
 all = [
     "beautifulsoup4>=4.14.2",
     "chardet>=5.2.0",
-    "docutils>=0.18",
+    "docutils>=0.20",
     "ebooklib>=0.19",
     "fastmcp>=2.0.0",
     "httpx>=0.28.1",
@@ -116,7 +117,7 @@ all = [
     "odfpy>=1.4.1",
     "openpyxl>=3.1.5",
     "orgparse>=0.4.20250520",
-    "pymupdf>=1.26.4",
+    "pymupdf>=1.26.5",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "pyth3>=0.7",
@@ -251,3 +252,10 @@ cache_dir = ".mypy_cache"
 [[tool.mypy.overrides]]
 module = "docx.*"
 ignore_missing_imports = false
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+include = '\.pyi?$'
+exclude = '\.git|\.mypy_cache|\.pytest_cache|build|dist'
+skip-string-normalization = false

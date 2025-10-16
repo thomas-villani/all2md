@@ -193,20 +193,23 @@ Core Components
 
 **Base Class:** ``BaseParser``
 
-**Available Parsers:**
+**Available Parsers (highlights):**
 
-* ``pdf.py`` - PDF via PyMuPDF
-* ``html.py`` - HTML via BeautifulSoup
-* ``docx.py`` - Word via python-docx
-* ``pptx.py`` - PowerPoint via python-pptx
-* ``xlsx.py``, ``ods_spreadsheet.py``, ``csv.py`` - Spreadsheet formats (XLSX, ODS, CSV/TSV)
-* ``odf.py`` - OpenDocument via odfpy
-* ``epub.py`` - EPUB via ebooklib
-* ``ipynb.py`` - Jupyter via nbformat
-* ``eml.py`` - Email via email package
-* ``rtf.py`` - RTF via pyth3
-* ``markdown.py`` - Markdown via mistune
-* ``sourcecode.py`` - 200+ text formats via Pygments
+* ``pdf.py`` – PDF via PyMuPDF with table/column heuristics
+* ``docx.py`` / ``pptx.py`` – Microsoft Office documents via python-docx / python-pptx
+* ``html.py`` / ``mhtml.py`` – HTML and web archives via BeautifulSoup + MIME parsing
+* ``asciidoc.py`` / ``markdown.py`` / ``rst.py`` / ``latex.py`` – markup languages (AsciiDoc, Markdown, reStructuredText, LaTeX)
+* ``org.py`` – Org-mode documents via orgparse
+* ``epub.py`` – EPUB containers via ebooklib
+* ``eml.py`` – Email threads with attachment extraction
+* ``xlsx.py`` / ``ods_spreadsheet.py`` / ``csv.py`` – Spreadsheet and tabular data via openpyxl/odfpy/builtins
+* ``odt.py`` / ``odp.py`` – OpenDocument text and presentations via odfpy
+* ``ipynb.py`` – Jupyter notebooks via nbformat
+* ``rtf.py`` – RTF via pyth3
+* ``chm.py`` – Compiled HTML Help archives
+* ``sourcecode.py`` / ``txt.py`` – Code and plain-text lexers (200+ formats)
+* ``zip.py`` – Mixed archives with per-entry detection
+* ``ast_json.py`` – Developer-facing AST JSON interchange
 
 **Parser Interface:**
 

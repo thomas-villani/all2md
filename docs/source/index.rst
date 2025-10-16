@@ -18,21 +18,21 @@ Welcome to all2md, a Python document conversion library for rapid, lightweight t
 Key Features
 ------------
 
-🚀 **Rapid Conversion** - Lightweight and fast document processing
+🚀 **Rapid Conversion Pipelines** – Optimised parsers and renderers for fast, reliable Markdown
 
-🔍 **Smart Detection** - Automatic format detection from content and filenames
+🔍 **Smart Detection** – Multi-stage format detection (extension, MIME, magic bytes) with graceful fallbacks
 
-📄 **Multiple Formats** - Support for 15+ document formats plus 200+ text formats
+📄 **Wide Format Coverage** – 20+ document, markup, and archive formats plus 200+ source-code/flat text types
 
-⚙️ **Highly Configurable** - Extensive options for customizing Markdown output
+⚙️ **Dynamic Configuration** – Dataclass-driven options, presets, and CLI/env overrides for every converter
 
-🖼️ **Image Handling** - Download, embed as base64, or skip images entirely
+🖼️ **Attachment Management** – Unified system for downloading, embedding, or annotating images and binaries
 
-💻 **CLI & API** - Use from command line or integrate into Python applications
+🧠 **AST Transforms** – Hookable transformation pipeline with built-in TOC generation, boilerplate removal, and plugins
 
-🔧 **Modular Design** - Optional dependencies per format to keep installs lightweight
+🧭 **Rich CLI Toolkit** – Batch processing, watch mode, parallel workers, collated output, and themed Rich terminals
 
-📊 **Progress Callbacks** - Real-time progress updates for UI integration and monitoring
+🤖 **Integrations Ready** – MCP server, plugin entry points, static-site templating, and bidirectional conversion APIs
 
 Quick Example
 -------------
@@ -98,32 +98,48 @@ New to all2md? Start here:
 2. :doc:`quickstart` - Get up and running in 5 minutes
 3. :doc:`overview` - Understand the library architecture and capabilities
 
-User Guide
-----------
+Guides & References
+-------------------
 
 .. toctree::
    :maxdepth: 2
+   :caption: Getting Started
 
    installation
    quickstart
    overview
-   architecture
-   ast_guide
-   bidirectional
-   static_sites
-   transforms
    formats
-   attachments
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Core Workflows
+
+   cli
    options
+   attachments
+   transforms
+   ast_guide
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Topics
+
+   bidirectional
+   architecture
+   static_sites
+   performance
    security
    threat_model
-   cli
-   environment_variables
-   mcp
    recipes
-   integrations
-   performance
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Integrations & Operations
+
+   mcp
    plugins
+   integrations
+   environment_variables
    troubleshooting
 
 API Reference

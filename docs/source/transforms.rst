@@ -309,6 +309,30 @@ CLI usage:
 
    all2md document.pdf --transform word-count
 
+add-attachment-footnotes
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Convert attachment references (typically produced by ``attachment_mode=alt_text`` with ``alt_text_mode="footnote"``)
+into numbered footnotes so readers can find the extracted assets.
+
+.. code-block:: python
+
+   from all2md.transforms import AddAttachmentFootnotesTransform
+
+   transform = AddAttachmentFootnotesTransform(section_title="Referenced Assets")
+
+CLI usage:
+
+.. code-block:: bash
+
+   all2md document.pdf \
+     --attachment-mode alt_text \
+     --alt-text-mode footnote \
+     --transform add-attachment-footnotes \
+     --attachment-section-title "Referenced Assets"
+
+Use ``--add-image-footnotes`` or ``--add-link-footnotes`` to toggle which references receive footnote definitions.
+
 generate-toc
 ~~~~~~~~~~~~
 

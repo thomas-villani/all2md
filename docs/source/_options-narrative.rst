@@ -1,128 +1,166 @@
 Configuration Options
 =====================
 
-This reference documents all configuration options available in all2md. Options are organized by dataclass and control conversion behavior for different document formats.
-
-.. contents::
-   :local:
-   :depth: 2
+all2md exposes every converter knob as an immutable dataclass. The command line, environment variables, presets,
+and Python API all hydrate the same option objects, so behaviour stays consistent regardless of entry point.
 
 Overview
 --------
 
-all2md uses dataclass-based configuration to provide type-safe, well-documented options for each conversion module. Each converter has its own options class, plus shared classes for common functionality.
+The options stack is intentionally layered:
 
-Options Hierarchy
-~~~~~~~~~~~~~~~~~~
+1. :class:`~all2md.options.base.BaseParserOptions` — shared attachment policy, metadata extraction, asset limits
+2. Nested security helpers such as :class:`~all2md.options.common.NetworkFetchOptions` and
+   :class:`~all2md.options.common.LocalFileAccessOptions`
+3. Format-specific options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) which may embed
+   :class:`~all2md.options.markdown.MarkdownOptions` or renderer counterparts
 
-The all2md options system uses a clear inheritance structure that separates universal settings from format-specific configurations:
-
-.. code-block:: text
-
-   BaseParserOptions (universal attachment/metadata options)
-   ├── PdfOptions (PDF-specific options)
-   ├── DocxOptions (Word document options)
-   ├── HtmlOptions (HTML conversion options)
-   ├── PptxOptions (PowerPoint options)
-   ├── EmlOptions (Email processing options)
-   ├── RtfOptions (Rich Text Format options)
-   ├── IpynbOptions (Jupyter Notebook options)
-   ├── OdfOptions (OpenDocument options)
-   ├── EpubOptions (EPUB e-book options)
-   ├── MhtmlOptions (MHTML web archive options)
-   ├── ZipOptions (ZIP archive options)
-   ├── XlsxOptions (Excel XLSX options)
-   ├── OdsSpreadsheetOptions (OpenDocument Spreadsheet options)
-   └── CsvOptions (CSV/TSV options)
-
-   MarkdownOptions (common Markdown formatting - used by all format options)
-
-**How it works:**
-
-1. **BaseParserOptions** provides universal settings that all converters use, including:
-
-   - Attachment handling (``attachment_mode``, ``attachment_output_dir``)
-   - Metadata extraction (``extract_metadata``)
-   - Network security settings (``max_download_bytes``)
-
-2. **Format-specific Options** (e.g., ``PdfOptions``, ``HtmlOptions``) inherit from ``BaseParserOptions`` and add their own specialized settings:
-
-   - PDF: page selection, header detection, table parsing
-   - HTML: content sanitization, network security
-   - PowerPoint: slide numbering, notes inclusion
-
-3. **MarkdownOptions** contains common Markdown formatting settings and can be embedded in any format-specific options via the ``markdown_options`` field:
-
-   - Text formatting (emphasis symbols, bullet styles)
-   - Special character handling
-
-**Options Merging Logic:**
-
-When you pass both an ``options`` object and individual ``**kwargs`` to ``to_markdown()``, the kwargs override the options object settings. This allows you to use a base configuration and selectively override specific values.
-
-Using Options
-~~~~~~~~~~~~~
-
-**Python API:**
+Because every class inherits from ``CloneFrozenMixin`` you can derive safe variants without mutating originals:
 
 .. code-block:: python
 
-   from all2md import to_markdown, PdfOptions, MarkdownOptions
+   from all2md.options import HtmlOptions, NetworkFetchOptions
 
-   # Create custom Markdown formatting
-   md_options = MarkdownOptions(
-       emphasis_symbol="_",
-       bullet_symbols="•◦▪"
+   hardened_network = NetworkFetchOptions(
+       allow_remote_fetch=False,
+       require_https=True,
+       allowed_hosts=["docs.example.com"],
    )
 
-   # Create PDF-specific options
-   pdf_options = PdfOptions(
-       pages=[1, 2, 3],
-       attachment_mode="download",
-       markdown_options=md_options
+   html_options = HtmlOptions(
+       extract_title=True,
+       network=hardened_network,
    )
 
-   # Convert with options
-   result = to_markdown("document.pdf", options=pdf_options)
+   secure_variant = html_options.create_updated(markdown_options=html_options.markdown_options.create_updated(
+       flavor="gfm",
+   ))
 
-**Command Line Interface:**
+CLI flag mapping follows the field path. For example ``HtmlOptions.network.require_https`` becomes
+``--html-network-require-https`` (and the env var ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``). Nested collections such as
+``ZipOptions.include_patterns`` accept multiple values via repeated flags or comma-separated lists.
 
-.. code-block:: bash
+Options Map
+-----------
 
-   # Options map to CLI arguments with prefixes
-   all2md document.pdf --pdf-pages "1,2,3" --attachment-mode download --markdown-emphasis-symbol "_"
-
-**Environment Variables:**
-
-All CLI options also support environment variable defaults. Use the pattern ``ALL2MD_<OPTION_NAME>`` where option names are converted to uppercase with hyphens and dots replaced by underscores:
-
-.. code-block:: bash
-
-   # Set defaults via environment variables
-   export ALL2MD_ATTACHMENT_MODE="download"
-   export ALL2MD_PDF_PAGES="1,2,3"
-   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
-
-   # CLI arguments override environment variables
-   all2md document.pdf  # Uses environment defaults
-
-See the :doc:`cli` reference for complete environment variable documentation.
-
-Boolean Options Quick Reference
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Many options are boolean flags that default to ``True``. In code, you set them directly. On the CLI, you use the ``--<prefix>-no-<option>`` pattern to **disable** them.
-
-**Common Boolean Options Cheat Sheet:**
+The table below shows where to look for the most commonly tuned converters. See :doc:`options` for the full,
+auto-generated reference including every field and default.
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 15 25 30
+   :widths: 25 30 45
 
-   * - Option Field (Python)
+   * - Format / Feature
+     - Options Class
+     - Highlights
+   * - PDF documents
+     - ``PdfOptions``
+     - Page selection, table/ruling detection, column heuristics, attachment templating
+   * - Microsoft Office (DOCX/PPTX)
+     - ``DocxOptions`` / ``PptxOptions``
+     - Style preservation, image extraction, slide numbering, speaker notes
+   * - Web content
+     - ``HtmlOptions`` / ``MhtmlOptions``
+     - Network security, sanitisation presets, Markdown flavour bridging
+   * - Email threads
+     - ``EmlOptions``
+     - Header preservation, thread stitching, inline attachment handling
+   * - EPUB / eBook containers
+     - ``EpubOptions``
+     - Chapter merging, TOC generation, CSS asset limits
+   * - Spreadsheets & tabular data
+     - ``XlsxOptions`` / ``OdsSpreadsheetOptions`` / ``CsvOptions``
+     - Sheet filtering, row/column caps, truncation indicators
+   * - Archives / batch processing
+     - ``ZipOptions``
+     - Include/exclude patterns, directory depth limits, section heading layout
+   * - Markdown rendering
+     - ``MarkdownOptions`` / ``MarkdownParserOptions``
+     - Flavour defaults (GFM/CommonMark/etc), table handling, HTML passthrough policy
+
+Using Options
+-------------
+
+Python API
+~~~~~~~~~~
+
+Pass an options object directly or let ``to_markdown`` assemble one from keyword arguments. Nested dataclasses are
+constructed automatically from matching kwargs.
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options import HtmlOptions
+
+   markdown = to_markdown(
+       "page.html",
+       options=HtmlOptions(
+           extract_title=True,
+           network=dict(
+               allow_remote_fetch=False,
+               allowed_hosts=["docs.example.com"],
+               require_https=True,
+           ),
+       ),
+   )
+
+   # Kwargs override existing settings
+   hardened = markdown = to_markdown(
+       "page.html",
+       options=HtmlOptions(),
+       allow_remote_fetch=False,
+   )
+
+Command Line
+~~~~~~~~~~~~
+
+CLI flags mirror the dataclass field names. Format-specific options use prefixes like ``--pdf-*`` or ``--html-*``.
+Nested fields join their parents with dashes:
+
+.. code-block:: bash
+
+   # Harden HTML fetching and customise Markdown output
+   all2md site.mhtml \
+     --html-network-allow-remote-fetch false \
+     --html-network-allowed-hosts docs.example.com \
+     --html-network-require-https \
+     --markdown-flavor gfm
+
+   # ZIP archives with include/exclude filters
+   all2md archive.zip \
+     --zip-include "docs/**/*.md" \
+     --zip-exclude "**/__pycache__/**" \
+     --zip-create-section-headings
+
+Environment Variables
+~~~~~~~~~~~~~~~~~~~~~
+
+Any CLI flag can be expressed as ``ALL2MD_<DESTINATION>``. Dashes and dots become underscores. Booleans recognise
+``true/false`` (or ``1/0``). Example shell snippet:
+
+.. code-block:: bash
+
+   export ALL2MD_ATTACHMENT_MODE=download
+   export ALL2MD_PDF_PAGES="1-3,10"
+   export ALL2MD_HTML_NETWORK_REQUIRE_HTTPS=true
+   export ALL2MD_MARKDOWN_FLAVOR=gfm
+
+   all2md report.pdf  # picks up defaults, still overrideable via CLI
+
+Boolean Defaults Cheat Sheet
+----------------------------
+
+Options that default to ``True`` use ``--<prefix>-no-<field>`` on the CLI. This keeps the positive form in Python while
+following common ``--no-*`` conventions in shell scripts.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 32 16 23 29
+
+   * - Dataclass field
      - Default
-     - CLI Flag to Enable
-     - CLI Flag to Disable
+     - CLI to enable
+     - CLI to disable
    * - ``MarkdownOptions.use_hash_headings``
      - ``True``
      - (default)
@@ -135,18 +173,14 @@ Many options are boolean flags that default to ``True``. In code, you set them d
      - ``True``
      - (default)
      - ``--pdf-no-merge-hyphenated-words``
-   * - ``PdfOptions.enable_table_fallback_detection``
-     - ``True``
-     - (default)
-     - ``--pdf-no-enable-table-fallback-detection``
-   * - ``HtmlOptions.detect_table_alignment``
-     - ``True``
-     - (default)
-     - ``--html-no-detect-table-alignment``
    * - ``HtmlOptions.preserve_nested_structure``
      - ``True``
      - (default)
      - ``--html-no-preserve-nested-structure``
+   * - ``HtmlOptions.detect_table_alignment``
+     - ``True``
+     - (default)
+     - ``--html-no-detect-table-alignment``
    * - ``PptxOptions.include_notes``
      - ``True``
      - (default)
@@ -155,57 +189,15 @@ Many options are boolean flags that default to ``True``. In code, you set them d
      - ``True``
      - (default)
      - ``--eml-no-include-headers``
-   * - ``EmlOptions.preserve_thread_structure``
-     - ``True``
-     - (default)
-     - ``--eml-no-preserve-thread-structure``
-   * - ``OdfOptions.preserve_tables``
-     - ``True``
-     - (default)
-     - ``--odf-no-preserve-tables``
    * - ``EpubOptions.merge_chapters``
      - ``True``
      - (default)
      - ``--epub-no-merge-chapters``
-   * - ``EpubOptions.include_toc``
+   * - ``OdtOptions.preserve_tables``
      - ``True``
      - (default)
-     - ``--epub-no-include-toc``
+     - ``--odt-no-preserve-tables``
 
-**Pattern Explanation:**
+For booleans that default to ``False`` simply use the positive flag (e.g. ``--html-strip-dangerous-elements``). The
+full list—including renderer toggles and security helpers—is maintained in the generated :doc:`options` reference.
 
-* **Python API**: Set boolean directly: ``PdfOptions(detect_columns=False)``
-* **CLI Default=True**: Use ``--<prefix>-no-<field-name>`` to disable: ``--pdf-no-detect-columns``
-* **CLI Default=False**: Use ``--<prefix>-<field-name>`` to enable (less common)
-
-**Examples:**
-
-.. code-block:: python
-
-   # Python: Explicitly disable column detection
-   from all2md.options import PdfOptions
-
-   options = PdfOptions(
-       detect_columns=False,
-       merge_hyphenated_words=False,
-       enable_table_fallback_detection=True  # Leave this enabled
-   )
-
-.. code-block:: bash
-
-   # CLI: Disable column detection and hyphenation merging
-   all2md document.pdf --pdf-no-detect-columns --pdf-no-merge-hyphenated-words
-
-   # CLI: Disable hash headings (use underline style)
-   all2md document.docx --markdown-no-use-hash-headings
-
-   # CLI: Disable speaker notes in PowerPoint
-   all2md presentation.pptx --pptx-no-include-notes
-
-**Why the "no-" pattern?**
-
-This pattern (called "negative flags" or "disable flags") is used because:
-
-1. It makes the default behavior clear - the base flag name describes what's enabled by default
-2. It follows Unix conventions (e.g., ``--no-color``, ``--no-verify``)
-3. It prevents ambiguity - ``--pdf-detect-columns`` could mean "enable" or just state the option name

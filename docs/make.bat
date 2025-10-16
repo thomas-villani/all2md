@@ -1,4 +1,5 @@
 @ECHO OFF
+setlocal
 
 pushd %~dp0
 
@@ -23,6 +24,11 @@ if errorlevel 9009 (
 	exit /b 1
 )
 
+if /I "%1"=="--nocolor" (
+     set NO_COLOR=1
+     shift
+ )
+
 if "%1" == "" goto help
 
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
@@ -32,4 +38,5 @@ goto end
 %SPHINXBUILD% -M help %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
 
 :end
+endlocal
 popd

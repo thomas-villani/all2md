@@ -348,24 +348,16 @@ Output Control
       all2md document.pdf -o converted.md
 
 ``--format``
-   Force specific file format instead of auto-detection.
-
-   **Choices:** ``auto``, ``pdf``, ``docx``, ``pptx``, ``html``, ``mhtml``, ``eml``, ``epub``, ``rtf``, ``ipynb``, ``odf``, ``spreadsheet``, ``image``, ``txt``
-
-   **Default:** ``auto``
-
-   .. note::
-
-      * ``odf`` handles both OpenDocument Text (.odt) and Presentation (.odp) files
-      * ``spreadsheet`` handles Excel (.xlsx), CSV (.csv), and TSV (.tsv) files
+   Force a parser instead of using auto-detection (``auto`` remains the default). Accepted values line up with
+   ``all2md list-formats`` (e.g. ``pdf``, ``docx``, ``markdown``, ``asciidoc``, ``pptx``, ``zip``, ``ast`` …).
 
    .. code-block:: bash
 
       # Force PDF processing for file without extension
       all2md mysterious_file --format pdf
 
-      # Process as plain text
-      all2md document.pdf --format txt
+      # Treat binary data as markdown for rendering
+      cat draft.md | all2md - --format markdown
 
 Attachment Handling
 ~~~~~~~~~~~~~~~~~~~
@@ -444,6 +436,33 @@ Markdown Formatting
 
       # Include page numbers in separator
       all2md document.pdf --markdown-page-separator-template "--- Page {page_num} ---"
+
+Rich Terminal Output
+~~~~~~~~~~~~~~~~~~~~
+
+``--rich``
+   Enable Rich-rendered Markdown with colour, hyperlinks, and tables. Automatically disables itself when stdout is
+   redirected, unless ``--force-rich`` is present.
+
+``--force-rich``
+   Force Rich formatting even when piping or redirecting output. Useful for capturing styled console logs.
+
+``--rich-code-theme`` / ``--rich-inline-code-theme``
+   Pick Pygments themes for fenced code blocks and inline code. ``monokai`` is the default. List available styles with
+   ``pygmentize -L styles``.
+
+``--rich-word-wrap``
+   Apply word-wrapping to long lines in the Rich renderer.
+
+``--no-rich-hyperlinks``
+   Disable clickable hyperlinks (maps to ``ALL2MD_RICH_HYPERLINKS=false`` in env vars).
+
+``--rich-justify``
+   Control text justification for Rich Markdown (``left`` | ``center`` | ``right`` | ``full``).
+
+The related environment variables are ``ALL2MD_RICH``, ``ALL2MD_FORCE_RICH``, ``ALL2MD_RICH_CODE_THEME``,
+``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_WORD_WRAP``, ``ALL2MD_RICH_HYPERLINKS`` (set to ``false`` to disable),
+and ``ALL2MD_RICH_JUSTIFY``.
 
 Configuration and Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1478,18 +1497,18 @@ Email Options
       # Flatten email thread structure
       all2md thread.eml --eml-no-preserve-thread-structure
 
-OpenDocument Options
-~~~~~~~~~~~~~~~~~~~~
+OpenDocument Text (ODT) Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``--odf-no-preserve-tables``
-   Don't preserve table formatting in Markdown.
+``--odt-no-preserve-tables``
+   Disable table preservation when parsing ODT documents.
 
-   **Default:** Tables are preserved
+   **Default:** Tables are preserved.
 
    .. code-block:: bash
 
-      # Convert tables to plain text
-      all2md document.odt --odf-no-preserve-tables
+      # Convert ODT tables to simple paragraphs
+      all2md document.odt --odt-no-preserve-tables
 
 Jupyter Notebook Options
 ~~~~~~~~~~~~~~~~~~~~~~~~

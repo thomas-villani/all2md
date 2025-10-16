@@ -27,9 +27,11 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   all2md.api
    all2md.constants
    all2md.converter_metadata
    all2md.converter_registry
    all2md.dependencies
    all2md.exceptions
+   all2md.logging_utils
    all2md.progress

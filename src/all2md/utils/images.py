@@ -311,6 +311,88 @@ def is_data_uri(uri: str) -> bool:
     return uri.startswith('data:')
 
 
+def detect_image_format_from_bytes(data: bytes, max_bytes: int = 32) -> str | None:
+    r"""Detect image format from file content using magic bytes.
+
+    This function examines the first few bytes of image data to determine
+    the format, providing more reliable detection than file extensions.
+
+    Parameters
+    ----------
+    data : bytes
+        Image file content (at least first 32 bytes for reliable detection)
+    max_bytes : int, default 32
+        Number of bytes to examine (default is sufficient for all formats)
+
+    Returns
+    -------
+    str or None
+        Image format (lowercase extension without dot) or None if unrecognized
+
+    Examples
+    --------
+        >>> with open("photo.jpg", "rb") as f:
+        ...     data = f.read(32)
+        ...     fmt = detect_image_format_from_bytes(data)
+        >>> print(fmt)
+        jpg
+
+    Notes
+    -----
+    Supported formats and their magic byte signatures:
+
+    - **PNG**: Starts with `\x89PNG\r\n\x1a\n`
+    - **JPEG**: Starts with `\xff\xd8\xff`
+    - **GIF**: Starts with `GIF87a` or `GIF89a`
+    - **WebP**: Contains `WEBP` at offset 8
+    - **BMP**: Starts with `BM`
+    - **TIFF**: Starts with `II*\x00` (little-endian) or `MM\x00*` (big-endian)
+    - **ICO**: Starts with `\x00\x00\x01\x00`
+    - **SVG**: Starts with `<svg` or `<?xml` (after whitespace)
+
+    """
+    if not data or len(data) < 4:
+        return None
+
+    # Check magic bytes for each format
+    # PNG: 89 50 4E 47 0D 0A 1A 0A
+    if data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'png'
+
+    # JPEG: FF D8 FF
+    if data.startswith(b'\xff\xd8\xff'):
+        return 'jpg'
+
+    # GIF: "GIF87a" or "GIF89a"
+    if data.startswith(b'GIF87a') or data.startswith(b'GIF89a'):
+        return 'gif'
+
+    # WebP: "RIFF" followed by file size, then "WEBP"
+    if len(data) >= 12 and data.startswith(b'RIFF') and data[8:12] == b'WEBP':
+        return 'webp'
+
+    # BMP: "BM"
+    if data.startswith(b'BM'):
+        return 'bmp'
+
+    # TIFF: Little-endian (II*\x00) or Big-endian (MM\x00*)
+    if data.startswith(b'II*\x00') or data.startswith(b'MM\x00*'):
+        return 'tiff'
+
+    # ICO: 00 00 01 00
+    if data.startswith(b'\x00\x00\x01\x00'):
+        return 'ico'
+
+    # SVG: XML-based, starts with "<svg" or "<?xml"
+    # Strip leading whitespace and check
+    stripped = data.lstrip()
+    if stripped.startswith(b'<svg') or stripped.startswith(b'<?xml'):
+        # For <?xml, we should check further for <svg but that's likely beyond first bytes
+        return 'svg'
+
+    return None
+
+
 def get_image_format_from_path(path: str | Path) -> str | None:
     """Extract image format from file path.
 

@@ -69,45 +69,13 @@ Core Components
    │   ├── transforms.py    # AST transformation utilities
    │   ├── builder.py       # AST construction helpers
    │   └── serialization.py # JSON serialization
-   ├── parsers/             # Format parsers (input → AST)
-   │   ├── __init__.py
-   │   ├── base.py          # Base parser class
-   │   ├── pdf.py           # PDF → AST
-   │   ├── docx.py          # DOCX → AST
-   │   ├── html.py          # HTML → AST
-   │   ├── eml.py           # Email → AST
-   │   ├── pptx.py          # PowerPoint → AST
-   │   ├── ipynb.py         # Jupyter → AST
-   │   ├── epub.py          # EPUB → AST
-   │   ├── odt.py           # ODT (text) → AST
-   │   ├── odp.py           # ODP (presentation) → AST
-   │   ├── mhtml.py         # MHTML → AST
-   │   ├── rtf.py           # RTF → AST
-   │   ├── rst.py           # reStructuredText → AST
-   │   ├── org.py           # Org-Mode → AST
-   │   ├── markdown.py      # Markdown → AST
-   │   ├── sourcecode.py    # Source code → AST
-   │   ├── xlsx.py          # Excel → AST
-   │   ├── ods_spreadsheet.py # ODS spreadsheet → AST
-   │   └── csv.py           # CSV/TSV → AST
-   ├── renderers/           # Format renderers (AST → output)
-   │   ├── __init__.py
-   │   ├── base.py          # Base renderer class
-   │   ├── markdown.py      # AST → Markdown
-   │   ├── docx.py          # AST → DOCX
-   │   ├── html.py          # AST → HTML
-   │   ├── pdf.py           # AST → PDF
-   │   ├── epub.py          # AST → EPUB
-   │   ├── pptx.py          # AST → PowerPoint
-   │   └── rst.py           # AST → reStructuredText
-   └── utils/               # Shared utilities
-       ├── __init__.py
-       ├── inputs.py        # Input validation and handling
-       ├── attachments.py   # Image and attachment processing
-       ├── metadata.py      # Document metadata extraction
-       ├── security.py      # Security utilities
-       ├── flavors.py       # Markdown flavor support
-       └── network_security.py # Network and SSRF protection
+   ├── parsers/             # Input → AST converters (PDF, DOCX, HTML, AsciiDoc, ZIP, ...)
+   ├── renderers/           # AST → Output renderers (Markdown, DOCX, HTML, PDF, LaTeX, Org, ...)
+   ├── transforms/          # Pipeline, builtin transforms, hooks, registry
+   ├── options/             # Dataclass configuration (base, markdown, per-format, security)
+   ├── cli/                 # Argument builder, command handlers, processors, help system
+   ├── mcp/                 # Model Context Protocol server and tools
+   └── utils/               # Shared utilities (attachments, metadata, security, networking, progress)
 
 The Main Entry Point
 ~~~~~~~~~~~~~~~~~~~~~
@@ -292,28 +260,35 @@ Options System
 Hierarchical Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The options system uses a two-level hierarchy:
+Options are expressed as frozen dataclasses so configurations are explicit, type safe, and composable. Each converter builds on three layers:
 
-1. **Format-specific options** (``PdfOptions``, ``DocxOptions``, etc.)
-2. **Common Markdown options** (``MarkdownOptions``)
+1. **``BaseParserOptions``** shared fields (attachment handling, metadata extraction, asset limits)
+2. **Nested security helpers** such as ``NetworkFetchOptions`` and ``LocalFileAccessOptions`` (used by HTML/MHTML/EPUB/CHM parsers)
+3. **Format-specific options** (``PdfOptions``, ``HtmlOptions``, ``OrgParserOptions``, ``ZipOptions``, etc.) that may embed **``MarkdownOptions``** for renderer tweaks
 
 .. code-block:: python
 
-   @dataclass
-   class PdfOptions:
-       pages: Optional[list[int]] = None
-       table_detection: bool = True
-       attachment_mode: AttachmentMode = "skip"
-       # ... PDF-specific settings
+   from all2md.options import (
+       MarkdownOptions,
+       NetworkFetchOptions,
+       HtmlOptions,
+   )
 
-       markdown_options: Optional[MarkdownOptions] = None
+   markdown_defaults = MarkdownOptions(emphasis_symbol="_")
 
-   @dataclass
-   class MarkdownOptions:
-       emphasis_symbol: EmphasisSymbol = "*"
-       bullet_symbols: list[str] = field(default_factory=lambda: ["*", "-", "+"])
-       use_hash_headings: bool = True
-       # ... common Markdown formatting options
+   html_network = NetworkFetchOptions(
+       allow_remote_fetch=False,
+       require_https=True,
+       allowed_hosts=["example.com"],
+   )
+
+   html_options = HtmlOptions(
+       extract_title=True,
+       markdown_options=markdown_defaults.create_updated(flavor="gfm"),
+       network=html_network,
+   )
+
+All CLI flags are generated from these dataclasses (nesting included), so ``HtmlOptions.network.require_https`` maps to ``--html-network-require-https`` and also honours the ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS`` environment variable. See :doc:`options` for the full reference and :doc:`environment_variables` for naming rules.
 
 Flexible Option Merging
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -332,7 +307,7 @@ Options can be provided in multiple ways and are merged intelligently:
    # Method 3: Mixed (kwargs override options)
    markdown = to_markdown('doc.pdf', options=options, attachment_mode='base64')
 
-The merger prioritizes keyword arguments over pre-configured options, allowing flexible overrides.
+The merger prioritises keyword arguments over pre-configured options, allowing flexible overrides. CLI flags, presets, configuration files, and environment variables all feed into the same dataclasses, ensuring consistent behaviour regardless of entrypoint.
 
 Format-Specific Capabilities
 -----------------------------

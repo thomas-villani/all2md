@@ -14,8 +14,13 @@ Submodules
 
    all2md.cli.builder
    all2md.cli.commands
+   all2md.cli.config
    all2md.cli.custom_actions
+   all2md.cli.help_formatter
    all2md.cli.packaging
+   all2md.cli.presets
    all2md.cli.processors
+   all2md.cli.progress
    all2md.cli.timing
+   all2md.cli.validation
    all2md.cli.watch

@@ -197,15 +197,54 @@ def heading(text: str, level: int) -> str:
     return f"{text}\n{char * len(text)}\n"
 
 
+SECTION_BREAK_HEADINGS = {
+    "Parameters",
+    "Returns",
+    "Yields",
+    "Attributes",
+    "Raises",
+    "Examples",
+    "See Also",
+    "Notes",
+}
+
+
 def format_docstring(cls: DataclassType) -> list[str]:
-    """Return formatted docstring lines for a dataclass."""
+    """Return formatted docstring synopsis for a dataclass.
+
+    Only the summary portion (up to the first section heading such as
+    ``Parameters``) is returned to avoid duplicating the generated field tables
+    and to prevent nested section under/overline issues in the output.
+    """
     doc = inspect.getdoc(cls)
     if not doc:
         return []
-    lines = [line.rstrip() for line in doc.splitlines()]
-    # Remove empty trailing lines
+
+    raw_lines = [line.rstrip() for line in doc.splitlines()]
+
+    # Trim trailing blank lines first
+    while raw_lines and not raw_lines[-1]:
+        raw_lines.pop()
+
+    cut_index = None
+    for idx, line in enumerate(raw_lines):
+        if line.strip() in SECTION_BREAK_HEADINGS:
+            cut_index = idx
+            break
+        # Support Google-style "Parameters" headings with preceding blank line
+        if idx + 1 < len(raw_lines) and raw_lines[idx + 1].startswith("-") and line.strip() in SECTION_BREAK_HEADINGS:
+            cut_index = idx
+            break
+
+    if cut_index is not None:
+        lines = raw_lines[:cut_index]
+    else:
+        lines = raw_lines
+
+    # Remove trailing empties again post-slice
     while lines and not lines[-1]:
         lines.pop()
+
     return lines
 
 

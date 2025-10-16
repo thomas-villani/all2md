@@ -1,128 +1,166 @@
 Configuration Options
 =====================
 
-This reference documents all configuration options available in all2md. Options are organized by dataclass and control conversion behavior for different document formats.
-
-.. contents::
-   :local:
-   :depth: 2
+all2md exposes every converter knob as an immutable dataclass. The command line, environment variables, presets,
+and Python API all hydrate the same option objects, so behaviour stays consistent regardless of entry point.
 
 Overview
 --------
 
-all2md uses dataclass-based configuration to provide type-safe, well-documented options for each conversion module. Each converter has its own options class, plus shared classes for common functionality.
+The options stack is intentionally layered:
 
-Options Hierarchy
-~~~~~~~~~~~~~~~~~~
+1. :class:`~all2md.options.base.BaseParserOptions` — shared attachment policy, metadata extraction, asset limits
+2. Nested security helpers such as :class:`~all2md.options.common.NetworkFetchOptions` and
+   :class:`~all2md.options.common.LocalFileAccessOptions`
+3. Format-specific options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) which may embed
+   :class:`~all2md.options.markdown.MarkdownOptions` or renderer counterparts
 
-The all2md options system uses a clear inheritance structure that separates universal settings from format-specific configurations:
-
-.. code-block:: text
-
-   BaseParserOptions (universal attachment/metadata options)
-   ├── PdfOptions (PDF-specific options)
-   ├── DocxOptions (Word document options)
-   ├── HtmlOptions (HTML conversion options)
-   ├── PptxOptions (PowerPoint options)
-   ├── EmlOptions (Email processing options)
-   ├── RtfOptions (Rich Text Format options)
-   ├── IpynbOptions (Jupyter Notebook options)
-   ├── OdfOptions (OpenDocument options)
-   ├── EpubOptions (EPUB e-book options)
-   ├── MhtmlOptions (MHTML web archive options)
-   ├── ZipOptions (ZIP archive options)
-   ├── XlsxOptions (Excel XLSX options)
-   ├── OdsSpreadsheetOptions (OpenDocument Spreadsheet options)
-   └── CsvOptions (CSV/TSV options)
-
-   MarkdownOptions (common Markdown formatting - used by all format options)
-
-**How it works:**
-
-1. **BaseParserOptions** provides universal settings that all converters use, including:
-
-   - Attachment handling (``attachment_mode``, ``attachment_output_dir``)
-   - Metadata extraction (``extract_metadata``)
-   - Network security settings (``max_download_bytes``)
-
-2. **Format-specific Options** (e.g., ``PdfOptions``, ``HtmlOptions``) inherit from ``BaseParserOptions`` and add their own specialized settings:
-
-   - PDF: page selection, header detection, table parsing
-   - HTML: content sanitization, network security
-   - PowerPoint: slide numbering, notes inclusion
-
-3. **MarkdownOptions** contains common Markdown formatting settings and can be embedded in any format-specific options via the ``markdown_options`` field:
-
-   - Text formatting (emphasis symbols, bullet styles)
-   - Special character handling
-
-**Options Merging Logic:**
-
-When you pass both an ``options`` object and individual ``**kwargs`` to ``to_markdown()``, the kwargs override the options object settings. This allows you to use a base configuration and selectively override specific values.
-
-Using Options
-~~~~~~~~~~~~~
-
-**Python API:**
+Because every class inherits from ``CloneFrozenMixin`` you can derive safe variants without mutating originals:
 
 .. code-block:: python
 
-   from all2md import to_markdown, PdfOptions, MarkdownOptions
+   from all2md.options import HtmlOptions, NetworkFetchOptions
 
-   # Create custom Markdown formatting
-   md_options = MarkdownOptions(
-       emphasis_symbol="_",
-       bullet_symbols="•◦▪"
+   hardened_network = NetworkFetchOptions(
+       allow_remote_fetch=False,
+       require_https=True,
+       allowed_hosts=["docs.example.com"],
    )
 
-   # Create PDF-specific options
-   pdf_options = PdfOptions(
-       pages=[1, 2, 3],
-       attachment_mode="download",
-       markdown_options=md_options
+   html_options = HtmlOptions(
+       extract_title=True,
+       network=hardened_network,
    )
 
-   # Convert with options
-   result = to_markdown("document.pdf", options=pdf_options)
+   secure_variant = html_options.create_updated(markdown_options=html_options.markdown_options.create_updated(
+       flavor="gfm",
+   ))
 
-**Command Line Interface:**
+CLI flag mapping follows the field path. For example ``HtmlOptions.network.require_https`` becomes
+``--html-network-require-https`` (and the env var ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``). Nested collections such as
+``ZipOptions.include_patterns`` accept multiple values via repeated flags or comma-separated lists.
 
-.. code-block:: bash
+Options Map
+-----------
 
-   # Options map to CLI arguments with prefixes
-   all2md document.pdf --pdf-pages "1,2,3" --attachment-mode download --markdown-emphasis-symbol "_"
-
-**Environment Variables:**
-
-All CLI options also support environment variable defaults. Use the pattern ``ALL2MD_<OPTION_NAME>`` where option names are converted to uppercase with hyphens and dots replaced by underscores:
-
-.. code-block:: bash
-
-   # Set defaults via environment variables
-   export ALL2MD_ATTACHMENT_MODE="download"
-   export ALL2MD_PDF_PAGES="1,2,3"
-   export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"
-
-   # CLI arguments override environment variables
-   all2md document.pdf  # Uses environment defaults
-
-See the :doc:`cli` reference for complete environment variable documentation.
-
-Boolean Options Quick Reference
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Many options are boolean flags that default to ``True``. In code, you set them directly. On the CLI, you use the ``--<prefix>-no-<option>`` pattern to **disable** them.
-
-**Common Boolean Options Cheat Sheet:**
+The table below shows where to look for the most commonly tuned converters. See :doc:`options` for the full,
+auto-generated reference including every field and default.
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 15 25 30
+   :widths: 25 30 45
 
-   * - Option Field (Python)
+   * - Format / Feature
+     - Options Class
+     - Highlights
+   * - PDF documents
+     - ``PdfOptions``
+     - Page selection, table/ruling detection, column heuristics, attachment templating
+   * - Microsoft Office (DOCX/PPTX)
+     - ``DocxOptions`` / ``PptxOptions``
+     - Style preservation, image extraction, slide numbering, speaker notes
+   * - Web content
+     - ``HtmlOptions`` / ``MhtmlOptions``
+     - Network security, sanitisation presets, Markdown flavour bridging
+   * - Email threads
+     - ``EmlOptions``
+     - Header preservation, thread stitching, inline attachment handling
+   * - EPUB / eBook containers
+     - ``EpubOptions``
+     - Chapter merging, TOC generation, CSS asset limits
+   * - Spreadsheets & tabular data
+     - ``XlsxOptions`` / ``OdsSpreadsheetOptions`` / ``CsvOptions``
+     - Sheet filtering, row/column caps, truncation indicators
+   * - Archives / batch processing
+     - ``ZipOptions``
+     - Include/exclude patterns, directory depth limits, section heading layout
+   * - Markdown rendering
+     - ``MarkdownOptions`` / ``MarkdownParserOptions``
+     - Flavour defaults (GFM/CommonMark/etc), table handling, HTML passthrough policy
+
+Using Options
+-------------
+
+Python API
+~~~~~~~~~~
+
+Pass an options object directly or let ``to_markdown`` assemble one from keyword arguments. Nested dataclasses are
+constructed automatically from matching kwargs.
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options import HtmlOptions
+
+   markdown = to_markdown(
+       "page.html",
+       options=HtmlOptions(
+           extract_title=True,
+           network=dict(
+               allow_remote_fetch=False,
+               allowed_hosts=["docs.example.com"],
+               require_https=True,
+           ),
+       ),
+   )
+
+   # Kwargs override existing settings
+   hardened = markdown = to_markdown(
+       "page.html",
+       options=HtmlOptions(),
+       allow_remote_fetch=False,
+   )
+
+Command Line
+~~~~~~~~~~~~
+
+CLI flags mirror the dataclass field names. Format-specific options use prefixes like ``--pdf-*`` or ``--html-*``.
+Nested fields join their parents with dashes:
+
+.. code-block:: bash
+
+   # Harden HTML fetching and customise Markdown output
+   all2md site.mhtml \
+     --html-network-allow-remote-fetch false \
+     --html-network-allowed-hosts docs.example.com \
+     --html-network-require-https \
+     --markdown-flavor gfm
+
+   # ZIP archives with include/exclude filters
+   all2md archive.zip \
+     --zip-include "docs/**/*.md" \
+     --zip-exclude "**/__pycache__/**" \
+     --zip-create-section-headings
+
+Environment Variables
+~~~~~~~~~~~~~~~~~~~~~
+
+Any CLI flag can be expressed as ``ALL2MD_<DESTINATION>``. Dashes and dots become underscores. Booleans recognise
+``true/false`` (or ``1/0``). Example shell snippet:
+
+.. code-block:: bash
+
+   export ALL2MD_ATTACHMENT_MODE=download
+   export ALL2MD_PDF_PAGES="1-3,10"
+   export ALL2MD_HTML_NETWORK_REQUIRE_HTTPS=true
+   export ALL2MD_MARKDOWN_FLAVOR=gfm
+
+   all2md report.pdf  # picks up defaults, still overrideable via CLI
+
+Boolean Defaults Cheat Sheet
+----------------------------
+
+Options that default to ``True`` use ``--<prefix>-no-<field>`` on the CLI. This keeps the positive form in Python while
+following common ``--no-*`` conventions in shell scripts.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 32 16 23 29
+
+   * - Dataclass field
      - Default
-     - CLI Flag to Enable
-     - CLI Flag to Disable
+     - CLI to enable
+     - CLI to disable
    * - ``MarkdownOptions.use_hash_headings``
      - ``True``
      - (default)
@@ -135,18 +173,14 @@ Many options are boolean flags that default to ``True``. In code, you set them d
      - ``True``
      - (default)
      - ``--pdf-no-merge-hyphenated-words``
-   * - ``PdfOptions.enable_table_fallback_detection``
-     - ``True``
-     - (default)
-     - ``--pdf-no-enable-table-fallback-detection``
-   * - ``HtmlOptions.detect_table_alignment``
-     - ``True``
-     - (default)
-     - ``--html-no-detect-table-alignment``
    * - ``HtmlOptions.preserve_nested_structure``
      - ``True``
      - (default)
      - ``--html-no-preserve-nested-structure``
+   * - ``HtmlOptions.detect_table_alignment``
+     - ``True``
+     - (default)
+     - ``--html-no-detect-table-alignment``
    * - ``PptxOptions.include_notes``
      - ``True``
      - (default)
@@ -155,60 +189,17 @@ Many options are boolean flags that default to ``True``. In code, you set them d
      - ``True``
      - (default)
      - ``--eml-no-include-headers``
-   * - ``EmlOptions.preserve_thread_structure``
-     - ``True``
-     - (default)
-     - ``--eml-no-preserve-thread-structure``
-   * - ``OdfOptions.preserve_tables``
-     - ``True``
-     - (default)
-     - ``--odf-no-preserve-tables``
    * - ``EpubOptions.merge_chapters``
      - ``True``
      - (default)
      - ``--epub-no-merge-chapters``
-   * - ``EpubOptions.include_toc``
+   * - ``OdtOptions.preserve_tables``
      - ``True``
      - (default)
-     - ``--epub-no-include-toc``
+     - ``--odt-no-preserve-tables``
 
-**Pattern Explanation:**
-
-* **Python API**: Set boolean directly: ``PdfOptions(detect_columns=False)``
-* **CLI Default=True**: Use ``--<prefix>-no-<field-name>`` to disable: ``--pdf-no-detect-columns``
-* **CLI Default=False**: Use ``--<prefix>-<field-name>`` to enable (less common)
-
-**Examples:**
-
-.. code-block:: python
-
-   # Python: Explicitly disable column detection
-   from all2md.options import PdfOptions
-
-   options = PdfOptions(
-       detect_columns=False,
-       merge_hyphenated_words=False,
-       enable_table_fallback_detection=True  # Leave this enabled
-   )
-
-.. code-block:: bash
-
-   # CLI: Disable column detection and hyphenation merging
-   all2md document.pdf --pdf-no-detect-columns --pdf-no-merge-hyphenated-words
-
-   # CLI: Disable hash headings (use underline style)
-   all2md document.docx --markdown-no-use-hash-headings
-
-   # CLI: Disable speaker notes in PowerPoint
-   all2md presentation.pptx --pptx-no-include-notes
-
-**Why the "no-" pattern?**
-
-This pattern (called "negative flags" or "disable flags") is used because:
-
-1. It makes the default behavior clear - the base flag name describes what's enabled by default
-2. It follows Unix conventions (e.g., ``--no-color``, ``--no-verify``)
-3. It prevents ambiguity - ``--pdf-detect-columns`` could mean "enable" or just state the option name
+For booleans that default to ``False`` simply use the positive flag (e.g. ``--html-strip-dangerous-elements``). The
+full list—including renderer toggles and security helpers—is maintained in the generated :doc:`options` reference.
 
 Generated Reference
 -------------------
@@ -226,24 +217,6 @@ Configuration options for AsciiDoc-to-AST parsing.
 
 This dataclass contains settings specific to parsing AsciiDoc documents
 into AST representation using a custom parser.
-
-Parameters
-----------
-parse_attributes : bool, default True
-    Whether to parse document attributes (:name: value syntax).
-    When True, attributes are collected and can be referenced.
-parse_admonitions : bool, default True
-    Whether to parse admonition blocks ([NOTE], [IMPORTANT], etc.).
-    When True, admonitions are converted to appropriate AST nodes.
-parse_includes : bool, default False
-    Whether to process include directives (include::file[]).
-    SECURITY: Disabled by default to prevent file system access.
-strict_mode : bool, default False
-    Whether to raise errors on invalid AsciiDoc syntax.
-    When False, attempts to recover gracefully.
-resolve_attribute_refs : bool, default True
-    Whether to resolve attribute references ({name}) in text.
-    When True, {name} is replaced with attribute value.
 
 **attachment_mode**
 
@@ -429,24 +402,6 @@ Configuration options for AST-to-AsciiDoc rendering.
 This dataclass contains settings for rendering AST documents as
 AsciiDoc output.
 
-Parameters
-----------
-list_indent : int, default 2
-    Number of spaces for nested list indentation.
-use_attributes : bool, default True
-    Whether to include document attributes in output.
-    When True, renders :name: value attributes at document start.
-preserve_comments : bool, default False
-    Whether to include // comments in rendered output.
-line_length : int, default 0
-    Target line length for wrapping text (0 = no wrapping).
-html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
-    How to handle HTMLBlock and HTMLInline nodes:
-    - "pass-through": Pass through unchanged (use only with trusted content)
-    - "escape": HTML-escape the content
-    - "drop": Remove HTML content entirely
-    - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -518,13 +473,6 @@ AST Parser Options
 ^^^^^^^^^^^^^^^^^^
 
 Options for parsing JSON AST documents.
-
-Parameters
-----------
-validate_schema : bool, default = True
-    Whether to validate the schema version during parsing
-strict_mode : bool, default = False
-    Whether to fail on unknown node types or attributes
 
 **attachment_mode**
 
@@ -636,26 +584,6 @@ AST Renderer Options
 
 Options for rendering documents to JSON AST format.
 
-Parameters
-----------
-indent : int or None, default = 2
-    Number of spaces for JSON indentation. None for compact output.
-ensure_ascii : bool, default = False
-    Whether to escape non-ASCII characters in JSON output
-sort_keys : bool, default = False
-    Whether to sort JSON object keys alphabetically
-
-Examples
---------
-Compact JSON output:
-    >>> options = AstJsonRendererOptions(indent=None)
-
-Pretty-printed JSON with sorted keys:
-    >>> options = AstJsonRendererOptions(indent=2, sort_keys=True)
-
-ASCII-only output:
-    >>> options = AstJsonRendererOptions(ensure_ascii=True)
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -676,7 +604,7 @@ ASCII-only output:
 
 **indent**
 
-   :Type: ``int | None``
+   :Type: ``UnionType[int, NoneType]``
    :CLI flag: ``--ast-renderer-indent``
    :Default: ``2``
 
@@ -704,18 +632,6 @@ Configuration options for CHM-to-Markdown conversion.
 This dataclass contains settings specific to Microsoft Compiled HTML Help (CHM)
 document processing, including page handling, table of contents generation, and
 HTML parsing configuration.
-
-Parameters
-----------
-include_toc : bool, default True
-    Whether to generate and prepend a Markdown Table of Contents from the CHM's
-    internal TOC structure at the start of the document.
-merge_pages : bool, default True
-    Whether to merge all pages into a single continuous document. If False,
-    pages are separated with thematic breaks.
-html_options : HtmlOptions or None, default None
-    Options for parsing HTML content within the CHM file. If None, uses default
-    HTML parsing options.
 
 **attachment_mode**
 
@@ -846,42 +762,6 @@ Configuration options for CSV/TSV conversion.
 This dataclass contains settings specific to delimiter-separated value
 file processing, including dialect detection and data limits.
 
-Parameters
-----------
-detect_csv_dialect : bool, default True
-    Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set).
-delimiter : str | None, default None
-    Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|').
-    When set, disables dialect detection.
-quote_char : str | None, default None
-    Override quote character (e.g., '"', "'").
-    When set, uses this for quoting.
-escape_char : str | None, default None
-    Override escape character (e.g., '\\\\').
-    When set, uses this for escaping.
-double_quote : bool | None, default None
-    Enable/disable double quoting (two quote chars = one literal quote).
-    When set, overrides dialect's doublequote setting.
-has_header : bool, default True
-    Whether the first row contains column headers.
-    When False, generates generic headers (Column 1, Column 2, etc.).
-max_rows : int | None, default None
-    Maximum number of data rows per table (excluding header). None = unlimited.
-max_cols : int | None, default None
-    Maximum number of columns per table. None = unlimited.
-truncation_indicator : str, default "..."
-    Appended note when rows/columns are truncated.
-header_case : str, default "preserve"
-    Transform header case: preserve, title, upper, or lower.
-skip_empty_rows : bool, default True
-    Whether to skip completely empty rows.
-strip_whitespace : bool, default False
-    Whether to strip leading/trailing whitespace from all cells.
-dialect_sample_size : int, default 4096
-    Number of bytes to sample for csv.Sniffer dialect detection.
-    Larger values may improve detection for heavily columnated files
-    but increase memory usage during detection.
-
 **attachment_mode**
 
    How to handle attachments/images
@@ -997,7 +877,7 @@ dialect_sample_size : int, default 4096
 
    Override CSV/TSV delimiter (e.g., ',', '\t', ';', '|')
 
-   :Type: ``Optional[str]``
+   :Type: ``str | None``
    :CLI flag: ``--csv-delimiter``
    :Default: ``None``
    :Importance: core
@@ -1006,7 +886,7 @@ dialect_sample_size : int, default 4096
 
    Override quote character (e.g., '"', "'")
 
-   :Type: ``Optional[str]``
+   :Type: ``str | None``
    :CLI flag: ``--csv-quote-char``
    :Default: ``None``
    :Importance: advanced
@@ -1015,7 +895,7 @@ dialect_sample_size : int, default 4096
 
    Override escape character (e.g., '\\')
 
-   :Type: ``Optional[str]``
+   :Type: ``str | None``
    :CLI flag: ``--csv-escape-char``
    :Default: ``None``
    :Importance: advanced
@@ -1024,7 +904,7 @@ dialect_sample_size : int, default 4096
 
    Enable/disable double quoting (two quote chars = one literal quote)
 
-   :Type: ``Optional[bool]``
+   :Type: ``bool | None``
    :CLI flag: ``--csv-double-quote``
    :Default: ``None``
    :Importance: advanced
@@ -1042,7 +922,7 @@ dialect_sample_size : int, default 4096
 
    Maximum rows per table (None = unlimited)
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--csv-max-rows``
    :Default: ``None``
    :Importance: advanced
@@ -1051,7 +931,7 @@ dialect_sample_size : int, default 4096
 
    Maximum columns per table (None = unlimited)
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--csv-max-cols``
    :Default: ``None``
    :Importance: advanced
@@ -1104,16 +984,6 @@ Configuration options for DOCX-to-Markdown conversion.
 
 This dataclass contains settings specific to Word document processing,
 including image handling and formatting preferences.
-
-Parameters
-----------
-preserve_tables : bool, default True
-    Whether to preserve table formatting in Markdown.
-
-Examples
---------
-Convert with base64 image embedding:
-    >>> options = DocxOptions(attachment_mode="base64")
 
 **attachment_mode**
 
@@ -1291,35 +1161,6 @@ Configuration options for rendering AST to DOCX format.
 This dataclass contains settings specific to Word document generation,
 including fonts, styles, and formatting preferences.
 
-Parameters
-----------
-default_font : str, default "Calibri"
-    Default font name for body text.
-default_font_size : int, default 11
-    Default font size in points for body text.
-heading_font_sizes : dict[int, int] or None, default None
-    Font sizes for heading levels 1-6. If None, uses built-in Word heading styles.
-use_styles : bool, default True
-    Whether to use built-in Word styles vs direct formatting.
-table_style : str or None, default "Light Grid Accent 1"
-    Built-in table style name. If None, uses plain table formatting.
-code_font : str, default "Courier New"
-    Font name for code blocks and inline code.
-code_font_size : int, default 10
-    Font size for code blocks and inline code.
-preserve_formatting : bool, default True
-    Whether to preserve text formatting (bold, italic, etc.).
-template_path : str or None, default None
-    Path to .docx template file. When specified, the renderer uses the template's
-    styles (headings, body text, etc.) instead of creating a blank document. This
-    is powerful for corporate environments where documents must adopt specific style
-    guidelines defined in a template.
-network : NetworkFetchOptions, default NetworkFetchOptions()
-    Network security settings for fetching remote images. By default,
-    remote image fetching is disabled (allow_remote_fetch=False).
-    Set network.allow_remote_fetch=True to enable secure remote image fetching
-    with the same security guardrails as PPTX renderer.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -1428,27 +1269,6 @@ This dataclass contains settings that control how remote resources
 (images, CSS, etc.) are fetched, including security constraints
 to prevent SSRF attacks.
 
-Parameters
-----------
-allow_remote_fetch : bool, default False
-    Whether to allow fetching remote URLs for images and other resources.
-    When False, prevents SSRF attacks by blocking all network requests.
-allowed_hosts : list[str] | None, default None
-    List of allowed hostnames or CIDR blocks for remote fetching.
-    If None, all hosts are allowed (subject to other security constraints).
-require_https : bool, default False
-    Whether to require HTTPS for all remote URL fetching.
-network_timeout : float, default 10.0
-    Timeout in seconds for remote URL fetching.
-max_requests_per_second : float, default 10.0
-    Maximum number of network requests per second (rate limiting).
-max_concurrent_requests : int, default 5
-    Maximum number of concurrent network requests.
-
-Notes
------
-Asset size limits are inherited from BaseParserOptions.max_asset_size_bytes.
-
 **allow_remote_fetch**
 
    Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
@@ -1542,46 +1362,6 @@ Configuration options for EML-to-Markdown conversion.
 
 This dataclass contains settings specific to email message processing,
 including robust parsing, date handling, quote processing, and URL cleaning.
-
-Parameters
-----------
-include_headers : bool, default True
-    Whether to include email headers (From, To, Subject, Date) in output.
-preserve_thread_structure : bool, default True
-    Whether to maintain email thread/reply chain structure.
-date_format_mode : {"iso8601", "locale", "strftime"}, default "strftime"
-    How to format dates in output:
-    - "iso8601": Use ISO 8601 format (2023-01-01T10:00:00Z)
-    - "locale": Use system locale-aware formatting
-    - "strftime": Use custom strftime pattern
-date_strftime_pattern : str, default "%m/%d/%y %H:%M"
-    Custom strftime pattern when date_format_mode is "strftime".
-convert_html_to_markdown : bool, default False
-    Whether to convert HTML content to Markdown
-    When True, HTML parts are converted to Markdown; when False, HTML is preserved as-is.
-clean_quotes : bool, default True
-    Whether to clean and normalize quoted content ("> " prefixes, etc.).
-detect_reply_separators : bool, default True
-    Whether to detect common reply separators like "On <date>, <name> wrote:".
-normalize_headers : bool, default True
-    Whether to normalize header casing and whitespace.
-preserve_raw_headers : bool, default False
-    Whether to preserve both raw and decoded header values.
-clean_wrapped_urls : bool, default True
-    Whether to clean URL defense/safety wrappers from links.
-url_wrappers : list[str], default from constants
-    List of URL wrapper domains to clean (urldefense.com, safelinks, etc.).
-
-Examples
---------
-Convert email with ISO 8601 date formatting:
-    >>> options = EmlOptions(date_format_mode="iso8601")
-
-Convert with HTML-to-Markdown conversion enabled:
-    >>> options = EmlOptions(convert_html_to_markdown=True)
-
-Disable quote cleaning and URL unwrapping:
-    >>> options = EmlOptions(clean_quotes=False, clean_wrapped_urls=False)
 
 **attachment_mode**
 
@@ -1847,14 +1627,6 @@ Configuration options for EPUB-to-Markdown conversion.
 This dataclass contains settings specific to EPUB document processing,
 including chapter handling, table of contents generation, and image handling.
 
-Parameters
-----------
-merge_chapters : bool, default True
-    Whether to merge chapters into a single continuous document. If False,
-    a separator is placed between chapters.
-include_toc : bool, default True
-    Whether to generate and prepend a Markdown Table of Contents.
-
 **attachment_mode**
 
    How to handle attachments/images
@@ -1979,35 +1751,6 @@ Configuration options for rendering AST to EPUB format.
 
 This dataclass contains settings specific to EPUB generation from AST,
 including chapter splitting strategies, metadata, and EPUB structure.
-
-Parameters
-----------
-chapter_split_mode : {"separator", "heading", "auto"}, default "auto"
-    How to split the AST into chapters:
-    - "separator": Split on ThematicBreak nodes (mirrors parser behavior)
-    - "heading": Split on specific heading level
-    - "auto": Try separator first, fallback to heading-based splitting
-chapter_split_heading_level : int, default 1
-    Heading level to use for chapter splits when using heading mode.
-    Level 1 (H1) typically represents chapter boundaries.
-title : str or None, default None
-    EPUB book title. If None, extracted from document metadata.
-author : str or None, default None
-    EPUB book author. If None, extracted from document metadata.
-language : str, default "en"
-    EPUB book language code (ISO 639-1).
-identifier : str or None, default None
-    Unique identifier (ISBN, UUID, etc.). Auto-generated if None.
-chapter_title_template : str, default "Chapter {num}"
-    Template for auto-generated chapter titles. Supports {num} placeholder.
-use_heading_as_chapter_title : bool, default True
-    Use first heading in chapter as chapter title in NCX/navigation.
-generate_toc : bool, default True
-    Generate table of contents (NCX and nav.xhtml files).
-include_cover : bool, default False
-    Include cover image in EPUB package.
-cover_image_path : str or None, default None
-    Path to cover image file. Only used if include_cover=True.
 
 **fail_on_resource_errors**
 
@@ -2139,45 +1882,6 @@ Configuration options for HTML-to-Markdown conversion.
 This dataclass contains settings specific to HTML document processing,
 including heading styles, title extraction, image handling, content
 sanitization, and advanced formatting options.
-
-Parameters
-----------
-extract_title : bool, default False
-    Whether to extract and use the HTML <title> element.
-convert_nbsp : bool, default False
-    Whether to convert non-breaking spaces (&nbsp;) to regular spaces in the output.
-strip_dangerous_elements : bool, default False
-    Whether to remove potentially dangerous HTML elements (script, style, etc.).
-detect_table_alignment : bool, default True
-    Whether to automatically detect table column alignment from CSS/attributes.
-preserve_nested_structure : bool, default True
-    Whether to maintain proper nesting for blockquotes and other elements.
-allowed_attributes : tuple[str, ...] | dict[str, tuple[str, ...]] | None, default None
-    Whitelist of allowed HTML attributes. Supports two modes:
-    - Global allowlist: tuple of attribute names applied to all elements
-    - Per-element allowlist: dict mapping element names to tuples of allowed attributes
-base_url : str or None, default None
-    Base URL for resolving relative hrefs in <a> tags. This is separate from
-    attachment_base_url (used for images/assets). Allows precise control over
-    navigational link URLs vs. resource URLs.
-
-Examples
---------
-Convert and extract page title:
-    >>> options = HtmlOptions(extract_title=True)
-
-Convert with content sanitization:
-    >>> options = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=True)
-
-Use global attribute allowlist:
-    >>> options = HtmlOptions(allowed_attributes=('class', 'id', 'href', 'src'))
-
-Use per-element attribute allowlist:
-    >>> options = HtmlOptions(allowed_attributes={
-    ...     'img': ('src', 'alt', 'title'),
-    ...     'a': ('href', 'title'),
-    ...     'div': ('class', 'id')
-    ... })
 
 **attachment_mode**
 
@@ -2373,7 +2077,7 @@ Use per-element attribute allowlist:
 
 **allowed_attributes**
 
-   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}
+   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. CLI note: For complex dict structures, pass as JSON string: --allowed-attributes '{"img": ["src", "alt"], "a": ["href"]}'
 
    :Type: ``tuple[str, ...] | dict[str, tuple[str, ...]] | None``
    :CLI flag: ``--html-allowed-attributes``
@@ -2426,99 +2130,6 @@ Configuration options for rendering AST to HTML format.
 
 This dataclass contains settings specific to HTML generation,
 including document structure, styling, templating, and feature toggles.
-
-Parameters
-----------
-standalone : bool, default True
-    Generate complete HTML document with <html>, <head>, <body> tags.
-    If False, generates only the content fragment.
-    Ignored when template_mode is not None.
-css_style : {"inline", "embedded", "external", "none"}, default "embedded"
-    How to include CSS styles:
-    - "inline": Add style attributes to elements
-    - "embedded": Include <style> block in <head>
-    - "external": Reference external CSS file
-    - "none": No styling
-css_file : str or None, default None
-    Path to external CSS file (used when css_style="external").
-include_toc : bool, default False
-    Generate table of contents from headings.
-syntax_highlighting : bool, default True
-    Add language classes to code blocks for syntax highlighting.
-escape_html : bool, default True
-    Escape HTML special characters in text content.
-math_renderer : {"mathjax", "katex", "none"}, default "mathjax"
-    Math rendering library to use for MathML/LaTeX math:
-    - "mathjax": Include MathJax CDN script
-    - "katex": Include KaTeX CDN script
-    - "none": Render math as plain text
-html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
-    How to handle HTMLBlock and HTMLInline nodes:
-    - "pass-through": Pass through unchanged (use only with trusted content)
-    - "escape": HTML-escape the content
-    - "drop": Remove HTML content entirely
-    - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
-language : str, default "en"
-    Document language code (ISO 639-1) for the <html lang="..."> attribute.
-    Can be overridden by document metadata.
-template_mode : {"inject", "replace", "jinja"} or None, default None
-    Template mode for rendering HTML:
-    - None: Use standalone mode (default behavior)
-    - "inject": Inject content into existing HTML file at selector
-    - "replace": Replace placeholders in template file
-    - "jinja": Use Jinja2 template engine with full context
-    When set, standalone is ignored.
-template_file : str or None, default None
-    Path to template file (required when template_mode is not None).
-template_selector : str, default "#content"
-    CSS selector for injection target (used with template_mode="inject").
-injection_mode : {"append", "prepend", "replace"}, default "replace"
-    How to inject content at selector (used with template_mode="inject"):
-    - "append": Add content after existing content
-    - "prepend": Add content before existing content
-    - "replace": Replace existing content
-content_placeholder : str, default "{CONTENT}"
-    Placeholder string to replace with content (used with template_mode="replace").
-css_class_map : dict[str, str | list[str]] or None, default None
-    Map AST node type names to custom CSS classes.
-    Example: {"Heading": "article-heading", "CodeBlock": ["code", "highlight"]}
-allow_remote_scripts : bool, default False
-    Allow loading remote scripts (e.g., MathJax/KaTeX from CDN).
-    Default is False for security - requires explicit opt-in for CDN usage.
-    When False and math_renderer != 'none', will raise a warning.
-csp_enabled : bool, default False
-    Add Content-Security-Policy meta tag to standalone HTML documents.
-    Helps prevent XSS attacks by restricting resource loading.
-csp_policy : str or None, default (secure policy)
-    Custom Content-Security-Policy header value.
-    If None, uses default: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
-
-Examples
---------
-Inject into existing HTML:
-    >>> options = HtmlRendererOptions(
-    ...     template_mode="inject",
-    ...     template_file="layout.html",
-    ...     template_selector="#main-content"
-    ... )
-
-Replace placeholders:
-    >>> options = HtmlRendererOptions(
-    ...     template_mode="replace",
-    ...     template_file="template.html",
-    ...     content_placeholder="{CONTENT}"
-    ... )
-
-Use Jinja2 template:
-    >>> options = HtmlRendererOptions(
-    ...     template_mode="jinja",
-    ...     template_file="article.html"
-    ... )
-
-Custom CSS classes:
-    >>> options = HtmlRendererOptions(
-    ...     css_class_map={"Heading": "prose-heading", "CodeBlock": "code-block"}
-    ... )
 
 **fail_on_resource_errors**
 
@@ -2717,27 +2328,6 @@ Configuration options for IPYNB-to-Markdown conversion.
 This dataclass contains settings specific to Jupyter Notebook processing,
 including output handling and image conversion preferences.
 
-Parameters
-----------
-include_inputs : bool, default True
-    Whether to include cell input (source code) in output.
-include_outputs : bool, default True
-    Whether to include cell outputs in the markdown.
-show_execution_count : bool, default False
-    Whether to show execution counts for code cells.
-output_types : list[str] or None, default ["stream", "execute_result", "display_data"]
-    Types of outputs to include. Valid types: "stream", "execute_result", "display_data", "error".
-    If None, includes all output types.
-image_format : str, default "png"
-    Preferred image format for notebook outputs. Options: "png", "jpeg".
-image_quality : int, default 85
-    JPEG quality setting (1-100) when converting images to JPEG format.
-truncate_long_outputs : int or None, default DEFAULT_TRUNCATE_OUTPUT_LINES
-    Maximum number of lines for text outputs before truncating.
-    If None, outputs are not truncated.
-truncate_output_message : str or None, default DEFAULT_TRUNCATE_OUTPUT_MESSAGE
-    The message to place to indicate truncated output.
-
 **attachment_mode**
 
    How to handle attachments/images
@@ -2898,6 +2488,142 @@ truncate_output_message : str or None, default DEFAULT_TRUNCATE_OUTPUT_MESSAGE
    :CLI flag: ``--ipynb-truncate-output-message``
    :Default: ``'\n... (output truncated) ...\n'``
 
+IPYNB Renderer Options
+^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for rendering AST documents to Jupyter notebooks.
+
+These options control notebook metadata inference, attachment handling, and
+preservation of notebook-specific metadata to support near round-tripping
+between AST and .ipynb formats.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--ipynb-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**nbformat**
+
+   Major notebook format version (auto = preserve from source)
+
+   :Type: ``int | Literal['auto']``
+   :CLI flag: ``--ipynb-renderer-nbformat``
+   :Default: ``4``
+   :Choices: ``auto``, ``4``, ``5``
+   :Importance: advanced
+
+**nbformat_minor**
+
+   Minor notebook format revision (auto = preserve from source)
+
+   :Type: ``int | Literal['auto']``
+   :CLI flag: ``--ipynb-renderer-nbformat-minor``
+   :Default: ``'auto'``
+   :Importance: advanced
+
+**default_language**
+
+   Fallback programming language for language_info
+
+   :Type: ``str``
+   :CLI flag: ``--ipynb-renderer-default-language``
+   :Default: ``'python'``
+   :Importance: core
+
+**default_kernel_name**
+
+   Fallback kernelspec name when inference fails
+
+   :Type: ``str``
+   :CLI flag: ``--ipynb-renderer-default-kernel-name``
+   :Default: ``'python3'``
+   :Importance: core
+
+**default_kernel_display_name**
+
+   Fallback kernelspec display name when inference fails
+
+   :Type: ``str``
+   :CLI flag: ``--ipynb-renderer-default-kernel-display-name``
+   :Default: ``'Python 3'``
+   :Importance: core
+
+**infer_language_from_document**
+
+   Infer language from Document metadata before using defaults
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-no-infer-language-from-document``
+   :Default: ``True``
+   :Importance: advanced
+
+**infer_kernel_from_document**
+
+   Infer kernelspec information from Document metadata when present
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-no-infer-kernel-from-document``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_trusted_metadata**
+
+   Preserve cell.metadata.trusted values in output notebook
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-include-trusted-metadata``
+   :Default: ``False``
+   :Importance: advanced
+
+**include_ui_metadata**
+
+   Preserve UI metadata like collapsed/scrolled/widget state
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-include-ui-metadata``
+   :Default: ``False``
+   :Importance: advanced
+
+**preserve_unknown_metadata**
+
+   Retain unrecognized metadata keys instead of dropping them
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-no-preserve-unknown-metadata``
+   :Default: ``True``
+   :Importance: advanced
+
+**inline_attachments**
+
+   Embed attachments directly inside notebook cells
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-renderer-no-inline-attachments``
+   :Default: ``True``
+   :Importance: core
+
+**markdown_options**
+
+   Override markdown renderer configuration for markdown cells
+
+   :Type: ``UnionType[MarkdownOptions, NoneType]``
+   :CLI flag: ``--ipynb-renderer-markdown-options``
+   :Default: ``None``
+   :Importance: advanced
+
 LATEX Options
 ~~~~~~~~~~~~~
 
@@ -2909,26 +2635,6 @@ Configuration options for LaTeX-to-AST parsing.
 
 This dataclass contains settings specific to parsing LaTeX documents
 into AST representation using pylatexenc library.
-
-Parameters
-----------
-parse_preamble : bool, default True
-    Whether to parse document preamble for metadata.
-    When True, extracts \title, \author, \date, etc.
-parse_math : bool, default True
-    Whether to parse math environments into MathBlock/MathInline nodes.
-    When True, preserves LaTeX math notation in AST.
-parse_custom_commands : bool, default False
-    Whether to attempt parsing custom LaTeX commands.
-    SECURITY: Disabled by default to prevent unexpected behavior.
-strict_mode : bool, default False
-    Whether to raise errors on invalid LaTeX syntax.
-    When False, attempts to recover gracefully.
-encoding : str, default "utf-8"
-    Text encoding to use when reading LaTeX files.
-preserve_comments : bool, default False
-    Whether to preserve LaTeX comments in the AST.
-    When True, comments are stored in node metadata.
 
 **attachment_mode**
 
@@ -3085,26 +2791,6 @@ Configuration options for AST-to-LaTeX rendering.
 This dataclass contains settings for rendering AST documents as
 LaTeX output suitable for compilation with pdflatex/xelatex.
 
-Parameters
-----------
-document_class : str, default "article"
-    LaTeX document class to use (article, report, book, etc.).
-include_preamble : bool, default True
-    Whether to generate a complete document with preamble.
-    When False, generates only document body (for inclusion).
-packages : list[str], default ["amsmath", "graphicx", "hyperref"]
-    LaTeX packages to include in preamble.
-math_mode : {"inline", "display"}, default "display"
-    Preferred math rendering mode for ambiguous cases.
-line_width : int, default 0
-    Target line width for text wrapping (0 = no wrapping).
-escape_special : bool, default True
-    Whether to escape special LaTeX characters ($, %, &, etc.).
-    Only disable if input is already LaTeX-safe.
-use_unicode : bool, default True
-    Whether to allow Unicode characters in output.
-    When False, uses LaTeX escapes for special characters.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -3198,29 +2884,6 @@ Configuration options for Markdown-to-AST parsing.
 
 This dataclass contains settings specific to parsing Markdown documents
 into AST representation, supporting various Markdown flavors and extensions.
-
-Parameters
-----------
-flavor : {"gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"}, default "gfm"
-    Markdown flavor to parse. Determines which extensions are enabled.
-parse_tables : bool, default True
-    Whether to parse table syntax (GFM pipe tables).
-parse_footnotes : bool, default True
-    Whether to parse footnote references and definitions.
-parse_math : bool, default True
-    Whether to parse inline ($...$) and block ($$...$$) math.
-parse_task_lists : bool, default True
-    Whether to parse task list checkboxes (- [ ] and - [x]).
-parse_definition_lists : bool, default True
-    Whether to parse definition lists (term : definition).
-parse_strikethrough : bool, default True
-    Whether to parse strikethrough syntax (~~text~~).
-strict_parsing : bool, default False
-    Whether to raise errors on invalid/ambiguous markdown syntax.
-    When False, attempts to recover gracefully.
-preserve_html : bool, default True
-    Whether to preserve raw HTML in the AST (HTMLBlock/HTMLInline nodes).
-    When False, HTML is stripped.
 
 **attachment_mode**
 
@@ -3411,89 +3074,6 @@ This dataclass contains settings that control how Markdown output is
 formatted and structured. These options are used by multiple conversion
 modules to ensure consistent Markdown generation.
 
-Parameters
-----------
-escape_special : bool, default True
-    Whether to escape special Markdown characters in text content.
-    When True, characters like \*, \_, #, [, ], (, ), \\ are escaped
-    to prevent unintended formatting.
-emphasis_symbol : {"\*", "\_"}, default "\*"
-    Symbol to use for emphasis/italic formatting in Markdown.
-bullet_symbols : str, default "\*-+"
-    Characters to cycle through for nested bullet lists.
-list_indent_width : int, default 4
-    Number of spaces to use for each level of list indentation.
-underline_mode : {"html", "markdown", "ignore"}, default "html"
-    How to handle underlined text:
-    - "html": Use <u>text</u> tags
-    - "markdown": Use __text__ (non-standard)
-    - "ignore": Strip underline formatting
-superscript_mode : {"html", "markdown", "ignore"}, default "html"
-    How to handle superscript text:
-    - "html": Use <sup>text</sup> tags
-    - "markdown": Use ^text^ (non-standard)
-    - "ignore": Strip superscript formatting
-subscript_mode : {"html", "markdown", "ignore"}, default "html"
-    How to handle subscript text:
-    - "html": Use <sub>text</sub> tags
-    - "markdown": Use ~text~ (non-standard)
-    - "ignore": Strip subscript formatting
-use_hash_headings : bool, default True
-    Whether to use # syntax for headings instead of underline style.
-    When True, generates "# Heading" style. When False, generates
-    "Heading\n=======" style for level 1 and "Heading\n-------" for levels 2+.
-flavor : {"gfm", "commonmark", "markdown_plus"}, default "gfm"
-    Markdown flavor/dialect to use for output:
-    - "gfm": GitHub Flavored Markdown (tables, strikethrough, task lists)
-    - "commonmark": Strict CommonMark specification
-    - "markdown_plus": All extensions enabled (footnotes, definition lists, etc.)
-unsupported_table_mode : {"drop", "ascii", "force", "html"}, default "force"
-    How to handle tables when the selected flavor doesn't support them:
-    - "drop": Skip table entirely
-    - "ascii": Render as ASCII art table
-    - "force": Render as pipe table anyway (may not be valid for flavor)
-    - "html": Render as HTML <table>
-unsupported_inline_mode : {"plain", "force", "html"}, default "plain"
-    How to handle inline elements unsupported by the selected flavor:
-    - "plain": Render content without the unsupported formatting
-    - "force": Use markdown syntax anyway (may not be valid for flavor)
-    - "html": Use HTML tags (e.g., <u> for underline)
-heading_level_offset : int, default 0
-    Shift all heading levels by this amount (positive or negative).
-    Useful when collating multiple documents into a parent document with existing structure.
-code_fence_char : {"`", "~"}, default "`"
-    Character to use for code fences (backtick or tilde).
-code_fence_min : int, default 3
-    Minimum length for code fences (typically 3).
-collapse_blank_lines : bool, default True
-    Collapse multiple consecutive blank lines into at most 2 (normalizing whitespace).
-link_style : {"inline", "reference"}, default "inline"
-    Link style to use:
-    - "inline": [text](url) style links
-    - "reference": [text][ref] style with reference definitions at end
-reference_link_placement : {"end_of_document", "after_block"}, default "end_of_document"
-    Where to place reference link definitions when using reference-style links:
-    - "end_of_document": All reference definitions at document end (current behavior)
-    - "after_block": Reference definitions placed after each block-level element
-autolink_bare_urls : bool, default False
-    Automatically convert bare URLs (e.g., http://example.com) found in Text nodes
-    into Markdown autolinks (<http://example.com>). Ensures all URLs are clickable.
-table_pipe_escape : bool, default True
-    Whether to escape pipe characters (|) in table cell content.
-math_mode : {"latex", "mathml", "html"}, default "latex"
-    Preferred math representation for flavors that support math. When the
-    requested representation is unavailable on a node, the renderer falls
-    back to any available representation while preserving flavor
-    constraints.
-html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "escape"
-    How to handle raw HTML content in markdown (HTMLBlock and HTMLInline nodes):
-    - "pass-through": Pass HTML through unchanged (use only with trusted content)
-    - "escape": HTML-escape the content to show as text (secure default)
-    - "drop": Remove HTML content entirely
-    - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
-    Note: This does not affect fenced code blocks with language="html", which are
-    always rendered as code and are already safe.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -3598,13 +3178,22 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
    :Importance: core
 
+**strict_flavor_validation**
+
+   Raise errors on flavor-incompatible options instead of just warnings. When True, validate_flavor_compatibility warnings become ValueError exceptions.
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown-renderer-strict-flavor-validation``
+   :Default: ``False``
+   :Importance: advanced
+
 **unsupported_table_mode**
 
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x000001B6288B0940>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3614,7 +3203,7 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x000001B6288B0940>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -3781,36 +3370,6 @@ Configuration options for MediaWiki rendering.
 This dataclass contains settings for rendering AST documents as
 MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
 
-Parameters
-----------
-use_html_for_unsupported : bool, default True
-    Whether to use HTML tags as fallback for unsupported elements.
-    When True, unsupported formatting uses HTML tags (e.g., <u>underline</u>).
-    When False, unsupported formatting is stripped.
-image_thumb : bool, default True
-    Whether to render images as thumbnails.
-    When True, images use |thumb option in MediaWiki syntax.
-    When False, images are rendered at full size.
-html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
-    How to handle HTMLBlock and HTMLInline nodes:
-    - "pass-through": Pass through unchanged (use only with trusted content)
-    - "escape": HTML-escape the content
-    - "drop": Remove HTML content entirely
-    - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
-
-Examples
---------
-Basic MediaWiki rendering:
-    >>> from all2md.ast import Document, Heading, Text
-    >>> from all2md.renderers.mediawiki import MediaWikiRenderer
-    >>> from all2md.options.mediawiki import MediaWikiOptions
-    >>> doc = Document(children=[
-    ...     Heading(level=1, content=[Text(content="Title")])
-    ... ])
-    >>> options = MediaWikiOptions()
-    >>> renderer = MediaWikiRenderer(options)
-    >>> wiki_text = renderer.render_to_string(doc)
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -3868,10 +3427,6 @@ Configuration options for MHTML-to-Markdown conversion.
 
 This dataclass contains settings specific to MHTML file processing,
 primarily for handling embedded assets like images and local file security.
-
-Parameters
-----------
-Inherited from HtmlOptions
 
 **attachment_mode**
 
@@ -4067,7 +3622,7 @@ Inherited from HtmlOptions
 
 **allowed_attributes**
 
-   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}
+   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. CLI note: For complex dict structures, pass as JSON string: --allowed-attributes '{"img": ["src", "alt"], "a": ["href"]}'
 
    :Type: ``tuple[str, ...] | dict[str, tuple[str, ...]] | None``
    :CLI flag: ``--mhtml-allowed-attributes``
@@ -4124,19 +3679,6 @@ Configuration options for ODP-to-Markdown conversion.
 
 This dataclass contains settings specific to OpenDocument Presentation (ODP)
 processing, including slide selection, numbering, and notes.
-
-Parameters
-----------
-preserve_tables : bool, default True
-    Whether to preserve table formatting in Markdown.
-include_slide_numbers : bool, default False
-    Whether to include slide numbers in the output.
-include_notes : bool, default True
-    Whether to include speaker notes in the conversion.
-page_separator_template : str, default "---"
-    Template for slide separators. Supports placeholders: {page_num}, {total_pages}.
-slides : str or None, default None
-    Slide selection (e.g., "1,3-5,8" for slides 1, 3-5, and 8).
 
 **attachment_mode**
 
@@ -4288,13 +3830,6 @@ Configuration options for ODS spreadsheet conversion.
 This dataclass inherits all spreadsheet options from SpreadsheetParserOptions
 and adds ODS-specific options.
 
-Parameters
-----------
-has_header : bool, default True
-    Whether the first row contains column headers.
-
-See SpreadsheetParserOptions for complete documentation of inherited options.
-
 **attachment_mode**
 
    How to handle attachments/images
@@ -4392,7 +3927,7 @@ See SpreadsheetParserOptions for complete documentation of inherited options.
 
    Sheet names to include (list or regex pattern). default = all sheets
 
-   :Type: ``Union[list[str], str, None]``
+   :Type: ``list[str] | str | None``
    :CLI flag: ``--ods-sheets``
    :Default: ``None``
    :Importance: core
@@ -4419,7 +3954,7 @@ See SpreadsheetParserOptions for complete documentation of inherited options.
 
    Maximum rows per table (None = unlimited)
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--ods-max-rows``
    :Default: ``None``
    :Importance: advanced
@@ -4428,7 +3963,7 @@ See SpreadsheetParserOptions for complete documentation of inherited options.
 
    Maximum columns per table (None = unlimited)
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--ods-max-cols``
    :Default: ``None``
    :Importance: advanced
@@ -4510,17 +4045,6 @@ Configuration options for ODT-to-Markdown conversion.
 
 This dataclass contains settings specific to OpenDocument Text (ODT)
 processing, including table preservation, footnotes, and comments.
-
-Parameters
-----------
-preserve_tables : bool, default True
-    Whether to preserve table formatting in Markdown.
-preserve_comments : bool, default False
-    Whether to include document comments in output.
-include_footnotes : bool, default True
-    Whether to include footnotes in output.
-include_endnotes : bool, default True
-    Whether to include endnotes in output.
 
 **attachment_mode**
 
@@ -4663,33 +4187,6 @@ Configuration options for Org-Mode-to-AST parsing.
 This dataclass contains settings specific to parsing Org-Mode documents
 into AST representation using orgparse.
 
-Parameters
-----------
-parse_drawers : bool, default True
-    Whether to parse Org drawers (e.g., :PROPERTIES:, :LOGBOOK:).
-    When True, drawer contents are preserved in metadata.
-    When False, drawers are ignored.
-parse_properties : bool, default True
-    Whether to parse Org properties within drawers.
-    When True, properties are extracted and stored in metadata.
-parse_tags : bool, default True
-    Whether to parse heading tags (e.g., :work:urgent:).
-    When True, tags are extracted and stored in heading metadata.
-todo_keywords : list[str], default ["TODO", "DONE"]
-    List of TODO keywords to recognize in headings.
-    Common keywords: TODO, DONE, IN-PROGRESS, WAITING, CANCELLED, etc.
-
-Examples
---------
-Basic usage:
-    >>> options = OrgParserOptions()
-    >>> parser = OrgParser(options)
-
-Custom TODO keywords:
-    >>> options = OrgParserOptions(
-    ...     todo_keywords=["TODO", "IN-PROGRESS", "DONE", "CANCELLED"]
-    ... )
-
 **attachment_mode**
 
    How to handle attachments/images
@@ -4827,42 +4324,6 @@ Configuration options for AST-to-Org-Mode rendering.
 This dataclass contains settings for rendering AST documents as
 Org-Mode output.
 
-Parameters
-----------
-heading_style : {"stars"}, default "stars"
-    Style for rendering headings. Currently only "stars" is supported
-    (e.g., * Level 1, ** Level 2, *** Level 3).
-preserve_drawers : bool, default False
-    Whether to preserve drawer content in rendered output.
-    When True, drawers stored in metadata are rendered back.
-preserve_properties : bool, default True
-    Whether to preserve properties in rendered output.
-    When True, properties stored in metadata are rendered in :PROPERTIES: drawer.
-preserve_tags : bool, default True
-    Whether to preserve heading tags in rendered output.
-    When True, tags stored in metadata are rendered (e.g., :work:urgent:).
-todo_keywords : list[str], default ["TODO", "DONE"]
-    List of TODO keywords that may appear in headings.
-    Used for validation and rendering.
-
-Notes
------
-**Heading Rendering:**
-    Headings are rendered with stars (*, **, ***, etc.) based on level.
-    TODO states and tags are preserved if present in metadata.
-
-**TODO States:**
-    If a heading has metadata["org_todo_state"], it's rendered before the heading text.
-    Example: * TODO Write documentation
-
-**Tags:**
-    If preserve_tags is True and metadata["org_tags"] exists, tags are rendered.
-    Example: * Heading :work:urgent:
-
-**Properties:**
-    If preserve_properties is True and metadata["org_properties"] exists,
-    a :PROPERTIES: drawer is rendered under the heading.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -4938,149 +4399,6 @@ Configuration options for PDF-to-Markdown conversion.
 
 This dataclass contains settings specific to PDF document processing,
 including page selection, image handling, and formatting preferences.
-
-Parameters
-----------
-pages : list[int], str, or None, default None
-    Pages to convert (1-based indexing, like "page 1, page 2").
-    Can be a list [1, 2, 3] or string range "1-3,5,10-".
-    If None, converts all pages.
-password : str or None, default None
-    Password for encrypted PDF documents.
-
-# Header detection parameters
-header_sample_pages : int | list[int] | None, default None
-    Pages to sample for header font size analysis. If None, samples all pages.
-header_percentile_threshold : float, default 75
-    Percentile threshold for header detection (e.g., 75 = top 25% of font sizes).
-header_min_occurrences : int, default 3
-    Minimum occurrences of a font size to consider it for headers.
-header_size_allowlist : list[float] | None, default None
-    Specific font sizes to always treat as headers.
-header_size_denylist : list[float] | None, default None
-    Font sizes to never treat as headers.
-header_use_font_weight : bool, default True
-    Consider bold/font weight when detecting headers.
-header_use_all_caps : bool, default True
-    Consider all-caps text as potential headers.
-header_font_size_ratio : float, default 1.2
-    Minimum ratio between header and body text font size.
-header_max_line_length : int, default 100
-    Maximum character length for text to be considered a header.
-header_debug_output : bool, default False
-    Enable debug output for header detection analysis. When enabled,
-    stores font size distribution and classification decisions for inspection.
-
-# Reading order and layout parameters
-detect_columns : bool, default True
-    Enable multi-column layout detection.
-merge_hyphenated_words : bool, default True
-    Merge words split by hyphens at line breaks.
-handle_rotated_text : bool, default True
-    Process rotated text blocks.
-column_gap_threshold : float, default 20
-    Minimum gap between columns in points.
-column_detection_mode : str, default "auto"
-    Column detection strategy: "auto" (heuristic-based), "force_single" (disable detection),
-    "force_multi" (force multi-column), or "disabled" (same as force_single).
-use_column_clustering : bool, default False
-    Use k-means clustering on x-coordinates for more robust column detection.
-    Alternative to gap heuristics, better for layouts with irregular column positions.
-
-# Table detection parameters
-enable_table_fallback_detection : bool, default True
-    Use heuristic fallback if PyMuPDF table detection fails.
-detect_merged_cells : bool, default True
-    Attempt to identify merged cells in tables.
-table_ruling_line_threshold : float, default 0.5
-    Threshold for detecting table ruling lines (0.0-1.0, ratio of line length to page size).
-table_fallback_extraction_mode : str, default "grid"
-    Table extraction mode for ruling line fallback: "none" (detect only, don't extract),
-    "grid" (grid-based cell segmentation), or "text_clustering" (future: text position clustering).
-
-link_overlap_threshold : float, default 70.0
-    Percentage overlap required for link detection (0-100). Lower values detect links
-    with less overlap but may incorrectly link non-link text. Higher values reduce
-    false positives but may miss valid links.
-
-image_placement_markers : bool, default True
-    Add markers showing image positions.
-include_image_captions : bool, default True
-    Try to extract image captions.
-
-include_page_numbers : bool, default False
-    Include page numbers in output (automatically added to separator).
-page_separator_template : str, default "-----"
-    Template for page separators between pages.
-    Supports placeholders: {page_num}, {total_pages}.
-
-table_detection_mode : str, default "both"
-    Table detection strategy: "pymupdf", "ruling", "both", or "none".
-image_format : str, default "png"
-    Output format for extracted images: "png" or "jpeg".
-image_quality : int, default 90
-    JPEG quality (1-100, only used when image_format="jpeg").
-
-trim_headers_footers : bool, default False
-    Remove repeated headers and footers from pages.
-auto_trim_headers_footers : bool, default False
-    Automatically detect and remove repeating headers/footers. When enabled,
-    analyzes content across pages to identify repeating header/footer patterns
-    and automatically sets header_height/footer_height values. Takes precedence
-    over manually specified header_height/footer_height.
-header_height : int, default 0
-    Height in points to trim from top of page (requires trim_headers_footers).
-footer_height : int, default 0
-    Height in points to trim from bottom of page (requires trim_headers_footers).
-skip_image_extraction : bool, default False
-    Skip all image extraction for text-only conversion (improves performance for large PDFs).
-lazy_image_processing : bool, default False
-    Placeholder for future lazy image loading support (currently no effect).
-
-Notes
------
-For large PDFs (hundreds of pages), consider using skip_image_extraction=True if you only need
-text content. This significantly reduces memory pressure by avoiding image decoding.
-Parallel processing (CLI --parallel flag) can further improve throughput for multi-file batches,
-but note that each worker process imports dependencies anew, adding startup overhead.
-
-Examples
---------
-Convert only pages 1-3 with base64 images:
-    >>> options = PdfOptions(pages=[1, 2, 3], attachment_mode="base64")
-    >>> # Or using string range:
-    >>> options = PdfOptions(pages="1-3", attachment_mode="base64")
-
-Convert with custom page separators:
-    >>> options = PdfOptions(
-    ...     page_separator_template="--- Page {page_num} of {total_pages} ---",
-    ...     include_page_numbers=True
-    ... )
-
-Configure header detection with debug output:
-    >>> options = PdfOptions(
-    ...     header_sample_pages=[1, 2, 3],
-    ...     header_percentile_threshold=80,
-    ...     header_use_all_caps=True,
-    ...     header_debug_output=True  # Enable debug analysis
-    ... )
-
-Use k-means clustering for robust column detection:
-    >>> options = PdfOptions(
-    ...     use_column_clustering=True,
-    ...     column_gap_threshold=25
-    ... )
-
-Configure link detection sensitivity:
-    >>> options = PdfOptions(
-    ...     link_overlap_threshold=80.0  # Stricter link detection
-    ... )
-
-Enable table ruling line extraction:
-    >>> options = PdfOptions(
-    ...     table_detection_mode="ruling",
-    ...     table_fallback_extraction_mode="grid"
-    ... )
 
 **attachment_mode**
 
@@ -5511,39 +4829,6 @@ Configuration options for rendering AST to PDF format.
 This dataclass contains settings specific to PDF generation using ReportLab,
 including page layout, fonts, margins, and formatting preferences.
 
-Parameters
-----------
-page_size : {"letter", "a4", "legal"}, default "letter"
-    Page size for the PDF document.
-margin_top : float, default 72.0
-    Top margin in points (72 points = 1 inch).
-margin_bottom : float, default 72.0
-    Bottom margin in points.
-margin_left : float, default 72.0
-    Left margin in points.
-margin_right : float, default 72.0
-    Right margin in points.
-font_name : str, default "Helvetica"
-    Default font for body text. Standard PDF fonts: Helvetica, Times-Roman, Courier.
-font_size : int, default 11
-    Default font size in points for body text.
-heading_fonts : dict[int, tuple[str, int]] or None, default None
-    Font specifications for headings as {level: (font_name, font_size)}.
-    If None, uses scaled versions of default font.
-code_font : str, default "Courier"
-    Monospace font for code blocks and inline code.
-line_spacing : float, default 1.2
-    Line spacing multiplier (1.0 = single spacing).
-include_page_numbers : bool, default True
-    Add page numbers to footer.
-include_toc : bool, default False
-    Generate table of contents from headings.
-network : NetworkFetchOptions, default NetworkFetchOptions()
-    Network security settings for fetching remote images. By default,
-    remote image fetching is disabled (allow_remote_fetch=False).
-    Set network.allow_remote_fetch=True to enable secure remote image fetching
-    with the same security guardrails as PPTX renderer.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -5680,27 +4965,6 @@ This dataclass contains settings that control how remote resources
 (images, CSS, etc.) are fetched, including security constraints
 to prevent SSRF attacks.
 
-Parameters
-----------
-allow_remote_fetch : bool, default False
-    Whether to allow fetching remote URLs for images and other resources.
-    When False, prevents SSRF attacks by blocking all network requests.
-allowed_hosts : list[str] | None, default None
-    List of allowed hostnames or CIDR blocks for remote fetching.
-    If None, all hosts are allowed (subject to other security constraints).
-require_https : bool, default False
-    Whether to require HTTPS for all remote URL fetching.
-network_timeout : float, default 10.0
-    Timeout in seconds for remote URL fetching.
-max_requests_per_second : float, default 10.0
-    Maximum number of network requests per second (rate limiting).
-max_concurrent_requests : int, default 5
-    Maximum number of concurrent network requests.
-
-Notes
------
-Asset size limits are inherited from BaseParserOptions.max_asset_size_bytes.
-
 **allow_remote_fetch**
 
    Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
@@ -5794,19 +5058,6 @@ Base class for all parser options.
 
 This class serves as the foundation for format-specific parser options.
 Parsers convert source documents into AST representation.
-
-Parameters
-----------
-attachment_mode : AttachmentMode
-    How to handle attachments/images during parsing
-alt_text_mode : AltTextMode
-    How to render alt-text content
-extract_metadata : bool
-    Whether to extract document metadata
-
-Notes
------
-Subclasses should define format-specific parsing options as frozen dataclass fields.
 
 **attachment_mode**
 
@@ -5910,37 +5161,6 @@ This dataclass contains settings for rendering AST documents as
 plain, unformatted text. All formatting (bold, italic, headings, etc.)
 is stripped, leaving only the text content.
 
-Parameters
-----------
-max_line_width : int or None, default 80
-    Maximum line width for wrapping text. Set to None to disable wrapping.
-    When enabled, long lines will be wrapped at word boundaries.
-table_cell_separator : str, default " | "
-    Separator string to use between table cells.
-include_table_headers : bool, default True
-    Whether to include table headers in the output.
-    When False, only table body rows are rendered.
-paragraph_separator : str, default "\n\n"
-    Separator string to use between paragraphs and block elements.
-list_item_prefix : str, default "- "
-    Prefix to use for list items (both ordered and unordered).
-preserve_code_blocks : bool, default True
-    Whether to preserve code block content with original formatting.
-    When False, code blocks are treated like regular paragraphs.
-
-Examples
---------
-Basic plain text rendering:
-    >>> from all2md.ast import Document, Paragraph, Text
-    >>> from all2md.renderers.plaintext import PlainTextRenderer
-    >>> from all2md.options import PlainTextOptions
-    >>> doc = Document(children=[
-    ...     Paragraph(content=[Text(content="Hello world")])
-    ... ])
-    >>> options = PlainTextOptions(max_line_width=None)
-    >>> renderer = PlainTextRenderer(options)
-    >>> text = renderer.render_to_string(doc)
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -6024,21 +5244,6 @@ Configuration options for PPTX-to-Markdown conversion.
 
 This dataclass contains settings specific to PowerPoint presentation
 processing, including slide numbering and image handling.
-
-Parameters
-----------
-include_slide_numbers : bool, default False
-    Whether to include slide numbers in the output.
-include_notes : bool, default True
-    Whether to include speaker notes in the conversion.
-
-Examples
---------
-Convert with slide numbers and base64 images:
-    >>> options = PptxOptions(include_slide_numbers=True, attachment_mode="base64")
-
-Convert slides only (no notes):
-    >>> options = PptxOptions(include_notes=False)
 
 **attachment_mode**
 
@@ -6205,61 +5410,6 @@ Configuration options for rendering AST to PPTX format.
 This dataclass contains settings specific to PowerPoint presentation
 generation from AST, including slide splitting strategies and layout.
 
-Parameters
-----------
-slide_split_mode : {"separator", "heading", "auto"}, default "auto"
-    How to split the AST into slides:
-    - "separator": Split on ThematicBreak nodes (mirrors parser behavior)
-    - "heading": Split on specific heading level
-    - "auto": Try separator first, fallback to heading-based splitting
-slide_split_heading_level : int, default 2
-    Heading level to use for slide splits when using heading mode.
-    Level 2 (H2) is typical (H1 might be document title).
-default_layout : str, default "Title and Content"
-    Default slide layout name from template.
-title_slide_layout : str, default "Title Slide"
-    Layout name for the first slide.
-use_heading_as_slide_title : bool, default True
-    Use first heading in slide content as slide title.
-template_path : str or None, default None
-    Path to .pptx template file. If None, uses default blank template.
-default_font : str, default "Calibri"
-    Default font for slide content.
-default_font_size : int, default 18
-    Default font size in points for body text.
-title_font_size : int, default 44
-    Font size for slide titles.
-list_number_spacing : int, default 1
-    Number of spaces after the number prefix in ordered lists (e.g., "1. " has 1 space).
-    Affects visual consistency of manually numbered lists.
-list_indent_per_level : float, default 0.5
-    Indentation per nesting level for lists, in inches.
-    Controls horizontal spacing for nested lists. Note that actual indentation
-    behavior may vary across PowerPoint templates.
-network : NetworkFetchOptions, default NetworkFetchOptions()
-    Network security options for fetching remote images in slides.
-
-Notes
------
-**List Rendering Limitations:**
-
-python-pptx has limited support for automatic list numbering. This renderer
-uses manual numbering for ordered lists by adding number prefixes (e.g., "1. ")
-as text runs. The following options provide some control over list formatting:
-
-- ``list_number_spacing``: Controls spacing after numbers
-- ``list_indent_per_level``: Controls nesting indentation
-
-However, deeper nesting and exact spacing behavior can be inconsistent across
-different PowerPoint templates. These limitations are inherent to python-pptx's
-API and the complexity of PowerPoint's list formatting system.
-
-**Unordered Lists in Text Boxes:**
-
-For unordered lists, bullets are explicitly enabled via OOXML manipulation
-to ensure they appear in both text boxes and content placeholders. Text boxes
-do not enable bullets by default, unlike content placeholders.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -6398,20 +5548,6 @@ Configuration options for reStructuredText-to-AST parsing.
 This dataclass contains settings specific to parsing reStructuredText documents
 into AST representation using docutils.
 
-Parameters
-----------
-parse_directives : bool, default True
-    Whether to parse RST directives (code-block, image, note, etc.).
-    When True, directives are converted to appropriate AST nodes.
-    When False, directives are preserved as code blocks.
-strict_mode : bool, default False
-    Whether to raise errors on invalid RST syntax.
-    When False, attempts to recover gracefully.
-preserve_raw_directives : bool, default False
-    Whether to preserve unknown directives as code blocks.
-    When True, unknown directives become CodeBlock nodes.
-    When False, they are processed through docutils default handling.
-
 **attachment_mode**
 
    How to handle attachments/images
@@ -6540,56 +5676,6 @@ Configuration options for AST-to-reStructuredText rendering.
 This dataclass contains settings for rendering AST documents as
 reStructuredText output.
 
-Parameters
-----------
-heading_chars : str, default "=-~^*"
-    Characters to use for heading underlines from h1 to h5.
-    First character is for level 1, second for level 2, etc.
-table_style : {"grid", "simple"}, default "grid"
-    Table rendering style:
-    - "grid": Grid tables with +---+ borders
-    - "simple": Simple tables with === separators
-code_directive_style : {"double_colon", "directive"}, default "directive"
-    Code block rendering style:
-    - "double_colon": Use ``:: literal blocks``
-    - "directive": Use ``.. code-block:: directive``
-line_length : int, default 80
-    Target line length for wrapping text.
-hard_line_break_mode : {"line_block", "raw"}, default "line_block"
-    How to render hard line breaks:
-    - "line_block": Use RST line block syntax (``\\n| ``), the standard approach
-    - "raw": Use plain newline (``\\n``), less faithful but simpler in complex containers
-
-Notes
------
-**Text Escaping:**
-    Special RST characters (asterisks, underscores, backticks, brackets, pipes, colons,
-    angle brackets) are automatically escaped in text nodes to prevent unintended formatting.
-
-**Line Breaks:**
-    Hard line breaks behavior depends on the ``hard_line_break_mode`` option:
-
-    - **line_block mode (default)**: Uses RST line block syntax (``| ``). This is the
-      standard RST approach for preserving line structure. May be surprising inside
-      complex containers like lists and block quotes as it changes semantic structure.
-    - **raw mode**: Uses plain newlines. Less faithful to RST semantics but simpler
-      in complex containers. May not preserve visual line breaks in all RST processors.
-
-    Soft line breaks always render as spaces, consistent with RST paragraph semantics.
-
-    **Recommendation**: Use "raw" mode if line blocks cause formatting issues in
-    lists or nested structures. Use "line_block" (default) for maximum RST fidelity.
-
-**Unsupported Features:**
-    - **Strikethrough**: RST has no native strikethrough syntax. Content renders as plain text.
-    - **Underline**: RST has no native underline syntax. Content renders as plain text.
-    - **Superscript/Subscript**: Rendered using RST role syntax (``:sup:`` and ``:sub:``).
-
-**Table Limitations:**
-    Both grid and simple table styles do not support multi-line content within cells.
-    Cell content must be single-line text. Complex cell content (multiple paragraphs,
-    nested lists) will be rendered inline, which may cause formatting issues.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -6667,10 +5753,6 @@ Configuration options for RTF-to-Markdown conversion.
 
 This dataclass contains settings specific to Rich Text Format processing,
 primarily for handling embedded images and other attachments.
-
-Parameters
-----------
-Inherited from `BaseParserOptions`
 
 **attachment_mode**
 
@@ -6770,15 +5852,6 @@ RTF Renderer Options
 
 Configuration options for rendering AST documents to RTF.
 
-Parameters
-----------
-font_family : {"roman", "swiss"}, default "roman"
-    Base font family to pass to ``pyth``'s ``Rtf15Writer``. The ``roman``
-    family maps to Times New Roman, while ``swiss`` maps to Calibri.
-bold_headings : bool, default True
-    When True, heading text is rendered with the RTF bold style to
-    distinguish it from body paragraphs.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -6827,21 +5900,6 @@ Configuration options for source code to Markdown conversion.
 
 This dataclass contains settings specific to source code file processing,
 including language detection, formatting options, and output customization.
-
-Parameters
-----------
-detect_language : bool, default True
-    Whether to automatically detect programming language from file extension.
-    When enabled, uses file extension to determine appropriate syntax highlighting
-    language identifier for the Markdown code block.
-language_override : str or None, default None
-    Manual override for the language identifier. When provided, this language
-    will be used instead of automatic detection. Useful for files with
-    non-standard extensions or when forcing a specific syntax highlighting.
-include_filename : bool, default False
-    Whether to include the original filename as a comment at the top of the
-    code block. The comment style is automatically chosen based on the
-    detected or specified language.
 
 **attachment_mode**
 
@@ -6949,7 +6007,7 @@ include_filename : bool, default False
 
    Override language identifier for syntax highlighting
 
-   :Type: ``Optional[str]``
+   :Type: ``str | None``
    :CLI flag: ``--sourcecode-language``
    :Default: ``None``
    :Importance: core
@@ -7074,7 +6132,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Sheet names to include (list or regex pattern). default = all sheets
 
-   :Type: ``Union[list[str], str, None]``
+   :Type: ``list[str] | str | None``
    :CLI flag: ``--xlsx-sheets``
    :Default: ``None``
    :Importance: core
@@ -7101,7 +6159,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Maximum rows per table (None = unlimited)
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--xlsx-max-rows``
    :Default: ``None``
    :Importance: advanced
@@ -7110,7 +6168,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Maximum columns per table (None = unlimited)
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--xlsx-max-cols``
    :Default: ``None``
    :Importance: advanced
@@ -7183,28 +6241,6 @@ Configuration options for ZIP archive to Markdown conversion.
 
 This dataclass contains settings specific to ZIP/archive processing,
 including file filtering, directory structure handling, and attachment extraction.
-
-Parameters
-----------
-include_patterns : list[str] or None, default None
-    Glob patterns for files to include (e.g., ['*.pdf', '*.docx']).
-    If None, all parseable files are included.
-exclude_patterns : list[str] or None, default None
-    Glob patterns for files to exclude (e.g., ['__MACOSX/*', '.DS_Store']).
-max_depth : int or None, default None
-    Maximum directory depth to traverse. None means unlimited.
-create_section_headings : bool, default True
-    Whether to create section headings for each extracted file.
-preserve_directory_structure : bool, default True
-    Whether to include directory path in section headings.
-flatten_structure : bool, default False
-    Whether to flatten directory structure (ignore paths in output).
-extract_resource_files : bool, default True
-    Whether to extract non-parseable files (images, CSS, etc.) to attachment directory.
-skip_empty_files : bool, default True
-    Whether to skip files with no content or that fail to parse.
-include_resource_manifest : bool, default True
-    Whether to include a manifest table of extracted resources at the end of the document.
 
 **attachment_mode**
 
@@ -7303,7 +6339,7 @@ include_resource_manifest : bool, default True
 
    Glob patterns for files to include
 
-   :Type: ``Optional[list[str]]``
+   :Type: ``list[str] | None``
    :CLI flag: ``--zip-include``
    :Default: ``None``
    :Importance: core
@@ -7312,7 +6348,7 @@ include_resource_manifest : bool, default True
 
    Glob patterns for files to exclude
 
-   :Type: ``Optional[list[str]]``
+   :Type: ``list[str] | None``
    :CLI flag: ``--zip-exclude``
    :Default: ``None``
    :Importance: core
@@ -7321,7 +6357,7 @@ include_resource_manifest : bool, default True
 
    Maximum directory depth to traverse
 
-   :Type: ``Optional[int]``
+   :Type: ``int | None``
    :CLI flag: ``--zip-max-depth``
    :Default: ``None``
    :Importance: advanced
@@ -7391,19 +6427,6 @@ Base class for all parser options.
 
 This class serves as the foundation for format-specific parser options.
 Parsers convert source documents into AST representation.
-
-Parameters
-----------
-attachment_mode : AttachmentMode
-    How to handle attachments/images during parsing
-alt_text_mode : AltTextMode
-    How to render alt-text content
-extract_metadata : bool
-    Whether to extract document metadata
-
-Notes
------
-Subclasses should define format-specific parsing options as frozen dataclass fields.
 
 **attachment_mode**
 
@@ -7506,19 +6529,6 @@ Base class for all renderer options.
 This class serves as the foundation for format-specific renderer options.
 Renderers convert AST documents into various output formats (Markdown, DOCX, PDF, etc.).
 
-Parameters
-----------
-fail_on_resource_errors : bool, default=False
-    Whether to raise RenderingError when resource loading fails (e.g., images).
-    If False (default), warnings are logged but rendering continues.
-    If True, rendering stops immediately on resource errors.
-max_asset_size_bytes : int
-    Maximum allowed size in bytes for any single asset (images, downloads, etc.)
-
-Notes
------
-Subclasses should define format-specific rendering options as frozen dataclass fields.
-
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
@@ -7550,89 +6560,6 @@ apply flavor-aware defaults before instance creation.
 This dataclass contains settings that control how Markdown output is
 formatted and structured. These options are used by multiple conversion
 modules to ensure consistent Markdown generation.
-
-Parameters
-----------
-escape_special : bool, default True
-    Whether to escape special Markdown characters in text content.
-    When True, characters like \*, \_, #, [, ], (, ), \\ are escaped
-    to prevent unintended formatting.
-emphasis_symbol : {"\*", "\_"}, default "\*"
-    Symbol to use for emphasis/italic formatting in Markdown.
-bullet_symbols : str, default "\*-+"
-    Characters to cycle through for nested bullet lists.
-list_indent_width : int, default 4
-    Number of spaces to use for each level of list indentation.
-underline_mode : {"html", "markdown", "ignore"}, default "html"
-    How to handle underlined text:
-    - "html": Use <u>text</u> tags
-    - "markdown": Use __text__ (non-standard)
-    - "ignore": Strip underline formatting
-superscript_mode : {"html", "markdown", "ignore"}, default "html"
-    How to handle superscript text:
-    - "html": Use <sup>text</sup> tags
-    - "markdown": Use ^text^ (non-standard)
-    - "ignore": Strip superscript formatting
-subscript_mode : {"html", "markdown", "ignore"}, default "html"
-    How to handle subscript text:
-    - "html": Use <sub>text</sub> tags
-    - "markdown": Use ~text~ (non-standard)
-    - "ignore": Strip subscript formatting
-use_hash_headings : bool, default True
-    Whether to use # syntax for headings instead of underline style.
-    When True, generates "# Heading" style. When False, generates
-    "Heading\n=======" style for level 1 and "Heading\n-------" for levels 2+.
-flavor : {"gfm", "commonmark", "markdown_plus"}, default "gfm"
-    Markdown flavor/dialect to use for output:
-    - "gfm": GitHub Flavored Markdown (tables, strikethrough, task lists)
-    - "commonmark": Strict CommonMark specification
-    - "markdown_plus": All extensions enabled (footnotes, definition lists, etc.)
-unsupported_table_mode : {"drop", "ascii", "force", "html"}, default "force"
-    How to handle tables when the selected flavor doesn't support them:
-    - "drop": Skip table entirely
-    - "ascii": Render as ASCII art table
-    - "force": Render as pipe table anyway (may not be valid for flavor)
-    - "html": Render as HTML <table>
-unsupported_inline_mode : {"plain", "force", "html"}, default "plain"
-    How to handle inline elements unsupported by the selected flavor:
-    - "plain": Render content without the unsupported formatting
-    - "force": Use markdown syntax anyway (may not be valid for flavor)
-    - "html": Use HTML tags (e.g., <u> for underline)
-heading_level_offset : int, default 0
-    Shift all heading levels by this amount (positive or negative).
-    Useful when collating multiple documents into a parent document with existing structure.
-code_fence_char : {"`", "~"}, default "`"
-    Character to use for code fences (backtick or tilde).
-code_fence_min : int, default 3
-    Minimum length for code fences (typically 3).
-collapse_blank_lines : bool, default True
-    Collapse multiple consecutive blank lines into at most 2 (normalizing whitespace).
-link_style : {"inline", "reference"}, default "inline"
-    Link style to use:
-    - "inline": [text](url) style links
-    - "reference": [text][ref] style with reference definitions at end
-reference_link_placement : {"end_of_document", "after_block"}, default "end_of_document"
-    Where to place reference link definitions when using reference-style links:
-    - "end_of_document": All reference definitions at document end (current behavior)
-    - "after_block": Reference definitions placed after each block-level element
-autolink_bare_urls : bool, default False
-    Automatically convert bare URLs (e.g., http://example.com) found in Text nodes
-    into Markdown autolinks (<http://example.com>). Ensures all URLs are clickable.
-table_pipe_escape : bool, default True
-    Whether to escape pipe characters (|) in table cell content.
-math_mode : {"latex", "mathml", "html"}, default "latex"
-    Preferred math representation for flavors that support math. When the
-    requested representation is unavailable on a node, the renderer falls
-    back to any available representation while preserving flavor
-    constraints.
-html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "escape"
-    How to handle raw HTML content in markdown (HTMLBlock and HTMLInline nodes):
-    - "pass-through": Pass HTML through unchanged (use only with trusted content)
-    - "escape": HTML-escape the content to show as text (secure default)
-    - "drop": Remove HTML content entirely
-    - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
-    Note: This does not affect fenced code blocks with language="html", which are
-    always rendered as code and are already safe.
 
 **fail_on_resource_errors**
 
@@ -7738,13 +6665,22 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
    :Importance: core
 
+**strict_flavor_validation**
+
+   Raise errors on flavor-incompatible options instead of just warnings. When True, validate_flavor_compatibility warnings become ValueError exceptions.
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown-strict-flavor-validation``
+   :Default: ``False``
+   :Importance: advanced
+
 **unsupported_table_mode**
 
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x000001B6288B0940>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -7754,7 +6690,7 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x000001B6288B0940>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -7918,27 +6854,6 @@ This dataclass contains settings that control how remote resources
 (images, CSS, etc.) are fetched, including security constraints
 to prevent SSRF attacks.
 
-Parameters
-----------
-allow_remote_fetch : bool, default False
-    Whether to allow fetching remote URLs for images and other resources.
-    When False, prevents SSRF attacks by blocking all network requests.
-allowed_hosts : list[str] | None, default None
-    List of allowed hostnames or CIDR blocks for remote fetching.
-    If None, all hosts are allowed (subject to other security constraints).
-require_https : bool, default False
-    Whether to require HTTPS for all remote URL fetching.
-network_timeout : float, default 10.0
-    Timeout in seconds for remote URL fetching.
-max_requests_per_second : float, default 10.0
-    Maximum number of network requests per second (rate limiting).
-max_concurrent_requests : int, default 5
-    Maximum number of concurrent network requests.
-
-Notes
------
-Asset size limits are inherited from BaseParserOptions.max_asset_size_bytes.
-
 **allow_remote_fetch**
 
    Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
@@ -8028,18 +6943,6 @@ Local file access security options.
 
 This dataclass contains settings that control access to local files
 via file:// URLs and similar mechanisms.
-
-Parameters
-----------
-allow_local_files : bool, default False
-    Whether to allow access to local files via file:// URLs.
-local_file_allowlist : list[str] | None, default None
-    List of directories allowed for local file access.
-    Only applies when allow_local_files=True.
-local_file_denylist : list[str] | None, default None
-    List of directories denied for local file access.
-allow_cwd_files : bool, default False
-    Whether to allow local files from current working directory and subdirectories.
 
 **allow_local_files**
 

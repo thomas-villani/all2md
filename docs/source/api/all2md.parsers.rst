@@ -13,6 +13,7 @@ Submodules
    :maxdepth: 4
 
    all2md.parsers.asciidoc
+   all2md.parsers.ast_json
    all2md.parsers.base
    all2md.parsers.chm
    all2md.parsers.csv
@@ -27,6 +28,7 @@ Submodules
    all2md.parsers.odp
    all2md.parsers.ods_spreadsheet
    all2md.parsers.odt
+   all2md.parsers.org
    all2md.parsers.pdf
    all2md.parsers.pptx
    all2md.parsers.rst
