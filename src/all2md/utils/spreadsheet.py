@@ -49,9 +49,7 @@ def sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
     return s
 
 
-def build_table_ast(
-        header: list[str], rows: list[list[str]], alignments: list[Alignment]
-) -> Table:
+def build_table_ast(header: list[str], rows: list[list[str]], alignments: list[Alignment]) -> Table:
     """Build an AST Table from header, rows, and alignments.
 
     Parameters
@@ -91,12 +89,7 @@ def build_table_ast(
     return Table(header=header_row, rows=data_rows, alignments=table_alignments)
 
 
-def create_table_cell(
-        text: str,
-        alignment: Alignment | None = None,
-        colspan: int = 1,
-        rowspan: int = 1
-) -> TableCell:
+def create_table_cell(text: str, alignment: Alignment | None = None, colspan: int = 1, rowspan: int = 1) -> TableCell:
     """Create a table cell with optional spans and alignment.
 
     Parameters
@@ -117,10 +110,7 @@ def create_table_cell(
 
     """
     return TableCell(
-        content=[Text(content=text)],
-        alignment=alignment if alignment else "center",
-        colspan=colspan,
-        rowspan=rowspan
+        content=[Text(content=text)], alignment=alignment if alignment else "center", colspan=colspan, rowspan=rowspan
     )
 
 
@@ -151,10 +141,7 @@ def transform_header_case(header: list[str], case_mode: str) -> list[str]:
     return header
 
 
-def trim_rows(
-        rows: list[list[str]],
-        trim_mode: Literal["none", "leading", "trailing", "both"]
-) -> list[list[str]]:
+def trim_rows(rows: list[list[str]], trim_mode: Literal["none", "leading", "trailing", "both"]) -> list[list[str]]:
     """Trim empty rows based on trim mode.
 
     Parameters
@@ -186,10 +173,7 @@ def trim_rows(
     return rows
 
 
-def trim_columns(
-        rows: list[list[str]],
-        trim_mode: Literal["none", "leading", "trailing", "both"]
-) -> list[list[str]]:
+def trim_columns(rows: list[list[str]], trim_mode: Literal["none", "leading", "trailing", "both"]) -> list[list[str]]:
     """Trim empty columns based on trim mode.
 
     Parameters

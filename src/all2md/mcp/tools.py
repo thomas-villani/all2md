@@ -75,7 +75,7 @@ def _extract_images_from_ast(doc: Any) -> list[Any]:
         if not isinstance(img_node, Image):
             continue
 
-        match = re.match(r'data:image/(\w+);base64,(.+)', img_node.url)
+        match = re.match(r"data:image/(\w+);base64,(.+)", img_node.url)
         if match:
             img_format = match.group(1)
             b64_data = match.group(2)
@@ -118,8 +118,9 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
     elif source.startswith("data:"):  # Data URI
         logger.debug("Skipping path detection: appears to be data URI")
     # 1. Try to resolve as file path (if looks plausible and not HTML/JSON/etc)
-    elif ("/" in source or "\\" in source or  # Has path separators
-          ("." in source and len(source) < 500)):  # Or has dot and reasonable length
+    elif (
+        "/" in source or "\\" in source or ("." in source and len(source) < 500)  # Has path separators
+    ):  # Or has dot and reasonable length
         try:
             path_obj = Path(source)
             validated_path = validate_read_path(path_obj, config.read_allowlist)
@@ -135,7 +136,7 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
     # 2. Check for data URI format (data:...)
     if source.startswith("data:"):
         # Parse data URI: data:[<mediatype>][;base64],<data>
-        match = re.match(r'data:([^;,]+)?(;base64)?,(.+)', source)
+        match = re.match(r"data:([^;,]+)?(;base64)?,(.+)", source)
         if match:
             is_base64 = match.group(2) is not None
             data_part = match.group(3)
@@ -147,19 +148,20 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
                 else:
                     # URL-decode the data part for non-base64 data URIs
                     from urllib.parse import unquote
+
                     decoded_str = unquote(data_part)
                     logger.info(f"Detected as data URI (plain, {len(decoded_str)} chars)")
-                    return decoded_str.encode('utf-8'), "data_uri"
+                    return decoded_str.encode("utf-8"), "data_uri"
             except Exception as e:
                 logger.warning(f"Failed to decode data URI: {e}")
                 # Fall through to next detection method
 
     # 3. Attempt base64 decode (if looks like base64)
     # Base64 strings are typically alphanumeric with +/= and reasonable length
-    if len(source) > 20 and re.match(r'^[A-Za-z0-9+/=\s]+$', source):
+    if len(source) > 20 and re.match(r"^[A-Za-z0-9+/=\s]+$", source):
         try:
             # Remove whitespace before decoding
-            cleaned = re.sub(r'\s', '', source)
+            cleaned = re.sub(r"\s", "", source)
             decoded = base64.b64decode(cleaned, validate=True)
             # Only accept if decoded size makes sense (not too small)
             if len(decoded) > 10:
@@ -171,13 +173,10 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
 
     # 4. Otherwise, treat as plain text content
     logger.info(f"Detected as plain text content ({len(source)} chars)")
-    return source.encode('utf-8'), "plain_text"
+    return source.encode("utf-8"), "plain_text"
 
 
-def read_document_as_markdown_impl(
-        input_data: ReadDocumentAsMarkdownInput,
-        config: MCPConfig
-) -> list[Any]:
+def read_document_as_markdown_impl(input_data: ReadDocumentAsMarkdownInput, config: MCPConfig) -> list[Any]:
     """Implement read_document_as_markdown tool with simplified API.
 
     This implementation uses automatic source detection and AST-based processing
@@ -217,26 +216,22 @@ def read_document_as_markdown_impl(
         # Validate page specification format before passing to converter
         # (Full validation with page count happens in converter)
         page_spec = input_data.pdf_pages.strip()
-        if not re.match(r'^[\d\s,\-]+$', page_spec):
+        if not re.match(r"^[\d\s,\-]+$", page_spec):
             raise ValueError(
                 f"Invalid page range format: '{input_data.pdf_pages}'. "
                 "Expected format like '1-3,5,10-' with only digits, commas, and hyphens."
             )
-        kwargs['pages'] = page_spec
+        kwargs["pages"] = page_spec
 
     # Set attachment mode from server config (convert include_images bool to attachment_mode)
     # include_images=True -> base64 (include images for vLLM)
     # include_images=False -> alt_text (no images, just alt text)
-    kwargs['attachment_mode'] = "base64" if config.include_images else "alt_text"
+    kwargs["attachment_mode"] = "base64" if config.include_images else "alt_text"
 
     # Perform conversion using AST approach
     try:
         # Convert to AST first (allows us to extract images and sections)
-        doc = to_ast(
-            source,
-            source_format=cast(DocumentFormat, input_data.format_hint or "auto"),
-            **kwargs
-        )
+        doc = to_ast(source, source_format=cast(DocumentFormat, input_data.format_hint or "auto"), **kwargs)
 
         # Validate return type
         if not isinstance(doc, Document):
@@ -257,11 +252,7 @@ def read_document_as_markdown_impl(
                 logger.info(f"Extracted {len(images)} images for vLLM")
 
         # Convert AST to markdown (server-level flavor from config)
-        markdown = from_ast(
-            doc,
-            target_format="markdown",
-            flavor=config.flavor
-        )
+        markdown = from_ast(doc, target_format="markdown", flavor=config.flavor)
 
         # Validate return type
         if not isinstance(markdown, str):
@@ -281,8 +272,7 @@ def read_document_as_markdown_impl(
 
 
 def save_document_from_markdown_impl(
-        input_data: SaveDocumentFromMarkdownInput,
-        config: MCPConfig
+    input_data: SaveDocumentFromMarkdownInput, config: MCPConfig
 ) -> SaveDocumentFromMarkdownOutput:
     """Implement save_document_from_markdown tool with simplified API.
 
@@ -312,10 +302,7 @@ def save_document_from_markdown_impl(
     warnings: list[str] = []
 
     # Validate write access for output file
-    validated_output = validate_write_path(
-        input_data.filename,
-        config.write_allowlist
-    )
+    validated_output = validate_write_path(input_data.filename, config.write_allowlist)
     output_path = str(validated_output)
     logger.info(f"Writing output to: {validated_output}")
 
@@ -327,14 +314,11 @@ def save_document_from_markdown_impl(
             input_data.source,
             target_format=cast(DocumentFormat, input_data.format),
             output=output_path,
-            flavor=config.flavor
+            flavor=config.flavor,
         )
 
         logger.info(f"Rendering successful, written to {output_path}")
-        return SaveDocumentFromMarkdownOutput(
-            output_path=output_path,
-            warnings=warnings
-        )
+        return SaveDocumentFromMarkdownOutput(output_path=output_path, warnings=warnings)
 
     except All2MdError as e:
         logger.error(f"Rendering failed: {e}")

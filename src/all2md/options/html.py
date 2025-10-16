@@ -136,136 +136,116 @@ class HtmlRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Generate complete HTML document (vs content fragment)",
             "cli_name": "no-standalone",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     css_style: Literal["inline", "embedded", "external", "none"] = field(
         default="embedded",
         metadata={
             "help": "CSS inclusion method: inline, embedded, external, or none",
             "choices": ["inline", "embedded", "external", "none"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     css_file: str | None = field(
         default=None,
-        metadata={
-            "help": "Path to external CSS file (when css_style='external')",
-            "importance": "advanced"
-        }
+        metadata={"help": "Path to external CSS file (when css_style='external')", "importance": "advanced"},
     )
     include_toc: bool = field(
-        default=False,
-        metadata={
-            "help": "Generate table of contents from headings",
-            "importance": "core"
-        }
+        default=False, metadata={"help": "Generate table of contents from headings", "importance": "core"}
     )
     syntax_highlighting: bool = field(
         default=True,
         metadata={
             "help": "Add language classes for syntax highlighting",
             "cli_name": "no-syntax-highlighting",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     escape_html: bool = field(
         default=True,
         metadata={
             "help": "Escape HTML special characters in text",
             "cli_name": "no-escape-html",
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     math_renderer: Literal["mathjax", "katex", "none"] = field(
         default="mathjax",
         metadata={
             "help": "Math rendering library: mathjax, katex, or none",
             "choices": ["mathjax", "katex", "none"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
         default=DEFAULT_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": HTML_PASSTHROUGH_MODES,
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     language: str = field(
         default="en",
-        metadata={
-            "help": "Document language code (ISO 639-1) for HTML lang attribute",
-            "importance": "advanced"
-        }
+        metadata={"help": "Document language code (ISO 639-1) for HTML lang attribute", "importance": "advanced"},
     )
     template_mode: Literal["inject", "replace", "jinja"] | None = field(
         default=None,
         metadata={
             "help": "Template mode: inject, replace, jinja, or none",
             "choices": ["inject", "replace", "jinja"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     template_file: str | None = field(
         default=None,
-        metadata={
-            "help": "Path to template file (required when template_mode is set)",
-            "importance": "advanced"
-        }
+        metadata={"help": "Path to template file (required when template_mode is set)", "importance": "advanced"},
     )
     template_selector: str = field(
         default="#content",
-        metadata={
-            "help": "CSS selector for injection target (template_mode='inject')",
-            "importance": "advanced"
-        }
+        metadata={"help": "CSS selector for injection target (template_mode='inject')", "importance": "advanced"},
     )
     injection_mode: Literal["append", "prepend", "replace"] = field(
         default="replace",
         metadata={
             "help": "How to inject content: append, prepend, or replace",
             "choices": ["append", "prepend", "replace"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     content_placeholder: str = field(
         default="{CONTENT}",
-        metadata={
-            "help": "Placeholder to replace with content (template_mode='replace')",
-            "importance": "advanced"
-        }
+        metadata={"help": "Placeholder to replace with content (template_mode='replace')", "importance": "advanced"},
     )
     css_class_map: dict[str, str | list[str]] | None = field(
         default=None,
         metadata={
-            "help": "Map AST node types to custom CSS classes as JSON (e.g., '{\"Heading\": \"prose-heading\"}')",
-            "importance": "advanced"
-        }
+            "help": 'Map AST node types to custom CSS classes as JSON (e.g., \'{"Heading": "prose-heading"}\')',
+            "importance": "advanced",
+        },
     )
     allow_remote_scripts: bool = field(
         default=DEFAULT_ALLOW_REMOTE_SCRIPTS,
         metadata={
             "help": "Allow loading remote scripts (e.g., MathJax/KaTeX CDN). "
-                    "Default is False for security - opt-in required for CDN usage.",
-            "importance": "security"
-        }
+            "Default is False for security - opt-in required for CDN usage.",
+            "importance": "security",
+        },
     )
     csp_enabled: bool = field(
         default=DEFAULT_CSP_ENABLED,
         metadata={
             "help": "Add Content-Security-Policy meta tag to standalone HTML documents",
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     csp_policy: str | None = field(
         default=DEFAULT_CSP_POLICY,
         metadata={
-            "help": "Custom Content-Security-Policy header value. "
-                    "If None, uses default secure policy.",
-            "importance": "security"
-        }
+            "help": "Custom Content-Security-Policy header value. " "If None, uses default secure policy.",
+            "importance": "security",
+        },
     )
 
     def __post_init__(self) -> None:
@@ -279,15 +259,11 @@ class HtmlRendererOptions(BaseRendererOptions):
         """
         # Validate that template_mode requires template_file
         if self.template_mode is not None and self.template_file is None:
-            raise ValueError(
-                f"template_mode='{self.template_mode}' requires template_file to be set"
-            )
+            raise ValueError(f"template_mode='{self.template_mode}' requires template_file to be set")
 
         # Validate that external CSS requires css_file
         if self.css_style == "external" and self.css_file is None:
-            raise ValueError(
-                "css_style='external' requires css_file to be set"
-            )
+            raise ValueError("css_style='external' requires css_file to be set")
 
 
 @dataclass(frozen=True)
@@ -342,32 +318,23 @@ class HtmlOptions(BaseParserOptions):
 
     extract_title: bool = field(
         default=DEFAULT_EXTRACT_TITLE,
-        metadata={
-            "help": "Extract and use HTML <title> element as main heading",
-            "importance": "core"
-        }
+        metadata={"help": "Extract and use HTML <title> element as main heading", "importance": "core"},
     )
     convert_nbsp: bool = field(
         default=DEFAULT_CONVERT_NBSP,
-        metadata={
-            "help": "Convert non-breaking spaces (&nbsp;) to regular spaces",
-            "importance": "core"
-        }
+        metadata={"help": "Convert non-breaking spaces (&nbsp;) to regular spaces", "importance": "core"},
     )
     strip_dangerous_elements: bool = field(
         default=DEFAULT_STRIP_DANGEROUS_ELEMENTS,
-        metadata={
-            "help": "Remove potentially dangerous HTML elements (script, style, etc.)",
-            "importance": "security"
-        }
+        metadata={"help": "Remove potentially dangerous HTML elements (script, style, etc.)", "importance": "security"},
     )
     detect_table_alignment: bool = field(
         default=DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
         metadata={
             "help": "Automatically detect table column alignment from CSS/attributes",
             "cli_name": "no-detect-table-alignment",  # default=True, use --no-*
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     # Network security options
@@ -375,17 +342,14 @@ class HtmlOptions(BaseParserOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for remote resource fetching",
-            "cli_flatten": True  # Nested, handled separately
-        }
+            "cli_flatten": True,  # Nested, handled separately
+        },
     )
 
     # Local file access options
     local_files: LocalFileAccessOptions = field(
         default_factory=LocalFileAccessOptions,
-        metadata={
-            "help": "Local file access security settings",
-            "cli_flatten": True  # Nested, handled separately
-        }
+        metadata={"help": "Local file access security settings", "cli_flatten": True},  # Nested, handled separately
     )
 
     preserve_nested_structure: bool = field(
@@ -393,84 +357,80 @@ class HtmlOptions(BaseParserOptions):
         metadata={
             "help": "Maintain proper nesting for blockquotes and other elements",
             "cli_name": "no-preserve-nested-structure",  # default=True, use --no-*
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     # Advanced HTML processing options
     strip_comments: bool = field(
         default=True,
-        metadata={
-            "help": "Remove HTML comments from output",
-            "cli_name": "no-strip-comments",
-            "importance": "core"
-        },
+        metadata={"help": "Remove HTML comments from output", "cli_name": "no-strip-comments", "importance": "core"},
     )
     collapse_whitespace: bool = field(
         default=True,
         metadata={
             "help": "Collapse multiple spaces/newlines into single spaces",
             "cli_name": "no-collapse-whitespace",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     br_handling: Literal["newline", "space"] = field(
         default="newline",
         metadata={
             "help": "How to handle <br> tags: 'newline' or 'space'",
             "choices": ["newline", "space"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     allowed_elements: tuple[str, ...] | None = field(
         default=None,
         metadata={
             "help": "Whitelist of allowed HTML elements (if set, only these are processed)",
             "action": "append",
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     allowed_attributes: tuple[str, ...] | dict[str, tuple[str, ...]] | None = field(
         default=None,
         metadata={
             "help": "Whitelist of allowed HTML attributes. Can be a tuple of attribute names "
-                    "(global allowlist) or a dict mapping element names to tuples of allowed "
-                    "attributes (per-element allowlist). Examples: ('class', 'id') or "
-                    "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
-                    "CLI note: For complex dict structures, pass as JSON string: "
-                    "--allowed-attributes '{\"img\": [\"src\", \"alt\"], \"a\": [\"href\"]}'",
+            "(global allowlist) or a dict mapping element names to tuples of allowed "
+            "attributes (per-element allowlist). Examples: ('class', 'id') or "
+            "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
+            "CLI note: For complex dict structures, pass as JSON string: "
+            '--allowed-attributes \'{"img": ["src", "alt"], "a": ["href"]}\'',
             "action": "append",
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     figure_rendering: Literal["blockquote", "image_with_caption", "html"] = field(
         default="blockquote",
         metadata={
             "help": "How to render <figure> elements: blockquote, image_with_caption, html",
             "choices": ["blockquote", "image_with_caption", "html"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     details_rendering: Literal["blockquote", "html", "ignore"] = field(
         default="blockquote",
         metadata={
             "help": "How to render <details>/<summary> elements: blockquote, html, ignore",
             "choices": ["blockquote", "html", "ignore"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     extract_microdata: bool = field(
         default=True,
         metadata={
             "help": "Extract microdata and structured data to metadata",
             "cli_name": "no-extract-microdata",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     base_url: str | None = field(
         default=None,
         metadata={
             "help": "Base URL for resolving relative hrefs in <a> tags (separate from attachment_base_url for images)",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )

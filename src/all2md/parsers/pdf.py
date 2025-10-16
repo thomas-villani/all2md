@@ -86,6 +86,7 @@ def _check_pymupdf_version() -> None:
 
     """
     import fitz
+
     min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
     if fitz.pymupdf_version_tuple < min_version:
         raise DependencyError(
@@ -295,11 +296,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
 
         if gap_width >= column_gap_threshold:
             # Record the gap
-            whitespace_gaps.append({
-                'start': current_right,
-                'end': next_left,
-                'width': gap_width
-            })
+            whitespace_gaps.append({"start": current_right, "end": next_left, "width": gap_width})
 
     # Find consistent gaps that span multiple blocks (likely column separators)
     if whitespace_gaps:
@@ -307,7 +304,7 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
         gap_frequency: dict[float, int] = {}
         for gap in whitespace_gaps:
             # Round to nearest 5 points to group similar positions
-            gap_pos = round((gap['start'] + gap['end']) / 2 / 5) * 5
+            gap_pos = round((gap["start"] + gap["end"]) / 2 / 5) * 5
             gap_frequency[gap_pos] = gap_frequency.get(gap_pos, 0) + 1
 
         # Find positions with highest frequency (likely column boundaries)
@@ -472,8 +469,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
 
 
 def resolve_links(
-        links: list, span: dict, md_options: MarkdownOptions | None = None,
-        overlap_threshold: float | None = None
+    links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None
 ) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
@@ -508,6 +504,7 @@ def resolve_links(
         return None
 
     import fitz
+
     bbox = fitz.Rect(span["bbox"])  # span bbox
     span_text = span["text"]
 
@@ -591,8 +588,11 @@ def resolve_links(
 
 
 def extract_page_images(
-        page: "fitz.Page", page_num: int, options: PdfOptions | None = None, base_filename: str = "document",
-        attachment_sequencer: Callable | None = None
+    page: "fitz.Page",
+    page_num: int,
+    options: PdfOptions | None = None,
+    base_filename: str = "document",
+    attachment_sequencer: Callable | None = None,
 ) -> tuple[list[dict], dict[str, str]]:
     """Extract images from a PDF page with their positions.
 
@@ -644,6 +644,7 @@ def extract_page_images(
         return [], collected_footnotes
 
     import fitz
+
     images = []
     image_list = page.get_images()
 
@@ -684,16 +685,17 @@ def extract_page_images(
                     base_stem=base_filename,
                     format_type="pdf",
                     page_num=page_num + 1,  # Convert to 1-based
-                    extension=img_extension
+                    extension=img_extension,
                 )
             else:
                 from all2md.utils.attachments import generate_attachment_filename
+
                 img_filename = generate_attachment_filename(
                     base_stem=base_filename,
                     format_type="pdf",
                     page_num=page_num + 1,  # Convert to 1-based
                     sequence_num=img_idx + 1,
-                    extension=img_extension
+                    extension=img_extension,
                 )
 
             result = process_attachment(
@@ -757,6 +759,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
     ]
 
     import fitz
+
     # Search below image
     search_below = fitz.Rect(image_bbox.x0 - 20, image_bbox.y1, image_bbox.x1 + 20, image_bbox.y1 + 50)
 
@@ -780,7 +783,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
 
 
 def detect_tables_by_ruling_lines(
-        page: "fitz.Page", threshold: float = 0.5
+    page: "fitz.Page", threshold: float = 0.5
 ) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
@@ -874,10 +877,8 @@ def detect_tables_by_ruling_lines(
     table_lines = []
     for table_rect in table_rects:
         # Find h_lines and v_lines that are part of this table
-        table_h_lines = [line for line in h_lines
-                         if line[1] >= table_rect.y0 and line[1] <= table_rect.y1]
-        table_v_lines = [line for line in v_lines
-                         if line[0] >= table_rect.x0 and line[0] <= table_rect.x1]
+        table_h_lines = [line for line in h_lines if line[1] >= table_rect.y0 and line[1] <= table_rect.y1]
+        table_v_lines = [line for line in v_lines if line[0] >= table_rect.x0 and line[0] <= table_rect.x1]
         table_lines.append((table_h_lines, table_v_lines))
 
     return table_rects, table_lines
@@ -917,11 +918,11 @@ class IdentifyHeaders:
     """
 
     def __init__(
-            self,
-            doc: Any,  # PyMuPDF Document object
-            pages: list[int] | range | None = None,
-            body_limit: float | None = None,
-            options: PdfOptions | None = None,
+        self,
+        doc: Any,  # PyMuPDF Document object
+        pages: list[int] | range | None = None,
+        body_limit: float | None = None,
+        options: PdfOptions | None = None,
     ) -> None:
         """Initialize header identification by analyzing font sizes.
 
@@ -965,6 +966,7 @@ class IdentifyHeaders:
         fontweight_sizes: dict[int, int] = {}  # Track bold font sizes
         allcaps_sizes: dict[int, int] = {}  # Track all-caps text sizes
         import fitz
+
         for pno in pages_to_use:
             page = doc[pno]
             blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
@@ -1123,7 +1125,7 @@ class IdentifyHeaders:
                 return 0
 
             # Skip if text looks like a paragraph (ends with typical sentence punctuation and is long)
-            if len(text) > 50 and text.endswith(('.', '!', '?')):
+            if len(text) > 50 and text.endswith((".", "!", "?")):
                 return 0
 
         return level
@@ -1175,11 +1177,7 @@ class PdfToAstConverter(BaseParser):
 
     """
 
-    def __init__(
-            self,
-            options: PdfOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: PdfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the PDF parser with options and progress callback."""
         options = options or PdfOptions()
         super().__init__(options, progress_callback)
@@ -1205,6 +1203,7 @@ class PdfToAstConverter(BaseParser):
 
         """
         import fitz
+
         _check_pymupdf_version()
 
         # Validate and convert input
@@ -1221,7 +1220,7 @@ class PdfToAstConverter(BaseParser):
                 # Handle different file-like object types
             elif input_type == "object":
                 if isinstance(doc_input, fitz.Document) or (
-                        hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
+                    hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
                 ):
                     doc = doc_input
                 else:
@@ -1238,7 +1237,7 @@ class PdfToAstConverter(BaseParser):
             raise MalformedFileError(
                 f"Failed to open PDF document: {e!r}",
                 file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
-                original_error=e
+                original_error=e,
             ) from e
 
         # Handle password-protected PDFs using PyMuPDF's authentication API
@@ -1254,7 +1253,7 @@ class PdfToAstConverter(BaseParser):
                             "Failed to authenticate PDF with provided password. "
                             "Please check the password is correct."
                         ),
-                        filename=filename
+                        filename=filename,
                     )
                 # auth_result > 0 indicates successful authentication
                 # (1=no passwords, 2=user password, 4=owner password, 6=both equal)
@@ -1262,10 +1261,9 @@ class PdfToAstConverter(BaseParser):
                 # Document is encrypted but no password provided
                 raise PasswordProtectedError(
                     message=(
-                        "PDF document is password-protected. "
-                        "Please provide a password using the 'password' option."
+                        "PDF document is password-protected. " "Please provide a password using the 'password' option."
                     ),
-                    filename=filename
+                    filename=filename,
                 )
 
         # Validate page range
@@ -1284,9 +1282,9 @@ class PdfToAstConverter(BaseParser):
             # For non-file inputs, use a default name
             base_filename = "document"
 
-        self._hdr_identifier = IdentifyHeaders(doc,
-                                               pages=pages_to_use if isinstance(pages_to_use, list) else None,
-                                               options=self.options)
+        self._hdr_identifier = IdentifyHeaders(
+            doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=self.options
+        )
 
         # Auto-detect header/footer zones if requested
         if self.options.auto_trim_headers_footers:
@@ -1294,9 +1292,7 @@ class PdfToAstConverter(BaseParser):
 
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
-    def _auto_detect_header_footer_zones(
-            self, doc: "fitz.Document", pages_to_use: range | list[int]
-    ) -> None:
+    def _auto_detect_header_footer_zones(self, doc: "fitz.Document", pages_to_use: range | list[int]) -> None:
         """Automatically detect and set header/footer zones by analyzing repeating text patterns.
 
         This method analyzes text blocks across multiple pages to identify repeating
@@ -1414,17 +1410,11 @@ class PdfToAstConverter(BaseParser):
         # Add small margin (5 points) to ensure we capture the full header/footer
         if max_header_y > 0:
             # Update the options object (create new frozen instance)
-            self.options = self.options.create_updated(
-                header_height=int(max_header_y + 5),
-                trim_headers_footers=True
-            )
+            self.options = self.options.create_updated(header_height=int(max_header_y + 5), trim_headers_footers=True)
 
         if max_footer_y < page_height:
             footer_height_value = int(page_height - max_footer_y + 5)
-            self.options = self.options.create_updated(
-                footer_height=footer_height_value,
-                trim_headers_footers=True
-            )
+            self.options = self.options.create_updated(footer_height=footer_height_value, trim_headers_footers=True)
 
     def extract_metadata(self, document: "fitz.Document") -> DocumentMetadata:
         """Extract metadata from PDF document.
@@ -1455,7 +1445,7 @@ class PdfToAstConverter(BaseParser):
 
         """
         # PyMuPDF provides metadata as a dictionary
-        pdf_meta = document.metadata if hasattr(document, 'metadata') else {}
+        pdf_meta = document.metadata if hasattr(document, "metadata") else {}
 
         if not pdf_meta:
             return DocumentMetadata()
@@ -1472,15 +1462,17 @@ class PdfToAstConverter(BaseParser):
 
         # Custom field mapping for PDF dates
         pdf_mapping = PDF_FIELD_MAPPING.copy()
-        pdf_mapping.update({
-            'creation_date': ['creationDate', 'CreationDate'],
-            'modification_date': ['modDate', 'ModDate'],
-        })
+        pdf_mapping.update(
+            {
+                "creation_date": ["creationDate", "CreationDate"],
+                "modification_date": ["modDate", "ModDate"],
+            }
+        )
 
         # Custom handlers for special fields
         custom_handlers = {
-            'creation_date': handle_pdf_dates,
-            'modification_date': handle_pdf_dates,
+            "creation_date": handle_pdf_dates,
+            "modification_date": handle_pdf_dates,
         }
 
         # Use the utility function for standard extraction
@@ -1502,7 +1494,7 @@ class PdfToAstConverter(BaseParser):
                 processed_keys.add(field_names)  # type: ignore[unreachable]
 
         # Skip internal PDF fields
-        internal_fields = {'format', 'trapped', 'encryption'}
+        internal_fields = {"format", "trapped", "encryption"}
 
         for key, value in pdf_meta.items():
             if key not in processed_keys and key not in internal_fields:
@@ -1533,14 +1525,14 @@ class PdfToAstConverter(BaseParser):
         Returns original string if format is unrecognized.
 
         """
-        if not date_str or not date_str.startswith('D:'):
+        if not date_str or not date_str.startswith("D:"):
             return date_str
 
         try:
             # Remove D: prefix and parse
             clean_date = date_str[2:]
-            if 'Z' in clean_date:
-                clean_date = clean_date.replace('Z', '+0000')
+            if "Z" in clean_date:
+                clean_date = clean_date.replace("Z", "+0000")
             # Basic parsing - format is YYYYMMDDHHmmSS
             if len(clean_date) >= 8:
                 year = int(clean_date[0:4])
@@ -1580,7 +1572,7 @@ class PdfToAstConverter(BaseParser):
             "started",
             f"Converting PDF with {total_pages} page{'s' if total_pages != 1 else ''}",
             current=0,
-            total=total_pages
+            total=total_pages,
         )
 
         attachment_sequencer = create_attachment_sequencer()
@@ -1607,7 +1599,7 @@ class PdfToAstConverter(BaseParser):
                     current=idx + 1,
                     total=total_pages,
                     item_type="page",
-                    page=pno + 1
+                    page=pno + 1,
                 )
             except Exception as e:
                 # Emit error event but continue processing
@@ -1618,7 +1610,7 @@ class PdfToAstConverter(BaseParser):
                     total=total_pages,
                     error=str(e),
                     stage="page_processing",
-                    page=pno + 1
+                    page=pno + 1,
                 )
                 # Re-raise to maintain existing error handling
                 raise
@@ -1629,9 +1621,7 @@ class PdfToAstConverter(BaseParser):
         # Append footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         # Emit finished event
@@ -1639,19 +1629,19 @@ class PdfToAstConverter(BaseParser):
             "finished",
             f"PDF conversion completed ({total_pages} page{'s' if total_pages != 1 else ''})",
             current=total_pages,
-            total=total_pages
+            total=total_pages,
         )
 
         return Document(children=children, metadata=metadata.to_dict())
 
     def _process_page_to_ast(
-            self,
-            page: "fitz.Page",
-            page_num: int,
-            base_filename: str,
-            attachment_sequencer: Callable[[str, str], tuple[str, int]],
-            total_pages: int = 0
-            ) -> list[Node]:
+        self,
+        page: "fitz.Page",
+        page_num: int,
+        base_filename: str,
+        attachment_sequencer: Callable[[str, str], tuple[str, int]],
+        total_pages: int = 0,
+    ) -> list[Node]:
         """Process a PDF page to AST nodes.
 
         Parameters
@@ -1731,7 +1721,7 @@ class PdfToAstConverter(BaseParser):
                 total=total_pages,
                 detected_type="table",
                 table_count=total_table_count,
-                page=page_num + 1
+                page=page_num + 1,
             )
 
         # 2. NEW APPROACH: Process entire page with column-aware table placement
@@ -1782,9 +1772,7 @@ class PdfToAstConverter(BaseParser):
         # Apply column detection to text blocks (excluding table content) if enabled
         if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
             columns = detect_columns(
-                text_blocks,
-                self.options.column_gap_threshold,
-                use_clustering=self.options.use_column_clustering
+                text_blocks, self.options.column_gap_threshold, use_clustering=self.options.use_column_clustering
             )
         else:
             # No column detection - treat as single column
@@ -1859,9 +1847,7 @@ class PdfToAstConverter(BaseParser):
 
         return nodes
 
-    def _process_text_region_to_ast(
-            self, page: "fitz.Page", clip: "fitz.Rect", page_num: int
-    ) -> list[Node]:
+    def _process_text_region_to_ast(self, page: "fitz.Page", clip: "fitz.Rect", page_num: int) -> list[Node]:
         """Process a text region to AST nodes.
 
         Parameters
@@ -1922,17 +1908,13 @@ class PdfToAstConverter(BaseParser):
             elif self.options.column_detection_mode == "force_multi":
                 # Force multi-column detection
                 columns: list[list[dict]] = detect_columns(
-                    blocks,
-                    self.options.column_gap_threshold,
-                    use_clustering=self.options.use_column_clustering
+                    blocks, self.options.column_gap_threshold, use_clustering=self.options.use_column_clustering
                 )
                 # Process blocks in proper reading order: top-to-bottom, left-to-right
                 blocks_to_process = self._merge_columns_for_reading_order(columns)
             else:  # "auto" mode (default)
                 columns = detect_columns(
-                    blocks,
-                    self.options.column_gap_threshold,
-                    use_clustering=self.options.use_column_clustering
+                    blocks, self.options.column_gap_threshold, use_clustering=self.options.use_column_clustering
                 )
                 # Process blocks in proper reading order: top-to-bottom, left-to-right
                 # Merge columns with position-based sorting instead of column-by-column
@@ -1989,10 +1971,7 @@ class PdfToAstConverter(BaseParser):
                 if in_code_block:
                     code_content = "\n".join(code_block_lines)
                     nodes.append(
-                        CodeBlock(
-                            content=code_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1)
-                        )
+                        CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
                     )
                     in_code_block = False
                     code_block_lines = []
@@ -2012,7 +1991,7 @@ class PdfToAstConverter(BaseParser):
                             Heading(
                                 level=header_level,
                                 content=inline_content,
-                                source_location=SourceLocation(format="pdf", page=page_num + 1)
+                                source_location=SourceLocation(format="pdf", page=page_num + 1),
                             )
                         )
                 else:
@@ -2021,8 +2000,7 @@ class PdfToAstConverter(BaseParser):
                     if inline_content:
                         nodes.append(
                             AstParagraph(
-                                content=inline_content,
-                                source_location=SourceLocation(format="pdf", page=page_num + 1)
+                                content=inline_content, source_location=SourceLocation(format="pdf", page=page_num + 1)
                             )
                         )
 
@@ -2030,17 +2008,12 @@ class PdfToAstConverter(BaseParser):
         if in_code_block and code_block_lines:
             code_content = "\n".join(code_block_lines)
             nodes.append(
-                CodeBlock(
-                    content=code_content,
-                    source_location=SourceLocation(format="pdf", page=page_num + 1)
-                )
+                CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
             )
 
         return nodes
 
-    def _process_text_spans_to_inline(
-            self, spans: list[dict], links: list[dict], page_num: int
-    ) -> list[Node]:
+    def _process_text_spans_to_inline(self, spans: list[dict], links: list[dict], page_num: int) -> list[Node]:
         """Process text spans to inline AST nodes.
 
         Parameters
@@ -2067,7 +2040,7 @@ class PdfToAstConverter(BaseParser):
                 continue
 
             # Check for list bullets before treating as monospace
-            is_list_bullet = span_text in ['-', 'o', '•', '◦', '▪'] and len(span_text) == 1
+            is_list_bullet = span_text in ["-", "o", "•", "◦", "▪"] and len(span_text) == 1
 
             # Decode font properties
             mono = span["flags"] & 8
@@ -2109,9 +2082,7 @@ class PdfToAstConverter(BaseParser):
 
         return result
 
-    def _process_single_block_to_ast(
-            self, block: dict, links: list[dict], page_num: int
-    ) -> list[Node]:
+    def _process_single_block_to_ast(self, block: dict, links: list[dict], page_num: int) -> list[Node]:
         """Process a single text block to AST nodes.
 
         Parameters
@@ -2153,7 +2124,7 @@ class PdfToAstConverter(BaseParser):
                             source_loc = SourceLocation(
                                 format="pdf",
                                 page=page_num + 1,
-                                metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
+                                metadata={"bbox": paragraph_bbox} if paragraph_bbox else {},
                             )
                             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                             paragraph_content = []
@@ -2183,9 +2154,7 @@ class PdfToAstConverter(BaseParser):
                 # Flush accumulated paragraph before starting code block
                 if paragraph_content:
                     source_loc = SourceLocation(
-                        format="pdf",
-                        page=page_num + 1,
-                        metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
+                        format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                     )
                     nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
@@ -2203,10 +2172,7 @@ class PdfToAstConverter(BaseParser):
             if in_code_block:
                 code_content = "\n".join(code_block_lines)
                 nodes.append(
-                    CodeBlock(
-                        content=code_content,
-                        source_location=SourceLocation(format="pdf", page=page_num + 1)
-                    )
+                    CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
                 )
                 in_code_block = False
                 code_block_lines = []
@@ -2222,9 +2188,7 @@ class PdfToAstConverter(BaseParser):
                 # Flush accumulated paragraph before adding heading
                 if paragraph_content:
                     source_loc = SourceLocation(
-                        format="pdf",
-                        page=page_num + 1,
-                        metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
+                        format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                     )
                     nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
@@ -2237,7 +2201,7 @@ class PdfToAstConverter(BaseParser):
                         Heading(
                             level=header_level,
                             content=inline_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1)
+                            source_location=SourceLocation(format="pdf", page=page_num + 1),
                         )
                     )
             else:
@@ -2246,9 +2210,7 @@ class PdfToAstConverter(BaseParser):
                 if vertical_gap > 5 and paragraph_content:
                     # Flush previous paragraph
                     source_loc = SourceLocation(
-                        format="pdf",
-                        page=page_num + 1,
-                        metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
+                        format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
                     )
                     nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
@@ -2271,15 +2233,13 @@ class PdfToAstConverter(BaseParser):
                             min(paragraph_bbox[0], line_bbox[0]),  # x0
                             min(paragraph_bbox[1], line_bbox[1]),  # y0
                             max(paragraph_bbox[2], line_bbox[2]),  # x1
-                            max(paragraph_bbox[3], line_bbox[3])  # y1
+                            max(paragraph_bbox[3], line_bbox[3]),  # y1
                         )
 
         # Flush any remaining paragraph content
         if paragraph_content:
             source_loc = SourceLocation(
-                format="pdf",
-                page=page_num + 1,
-                metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
+                format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
             )
             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
 
@@ -2287,10 +2247,7 @@ class PdfToAstConverter(BaseParser):
         if in_code_block and code_block_lines:
             code_content = "\n".join(code_block_lines)
             nodes.append(
-                CodeBlock(
-                    content=code_content,
-                    source_location=SourceLocation(format="pdf", page=page_num + 1)
-                )
+                CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
             )
 
         return nodes
@@ -2320,6 +2277,7 @@ class PdfToAstConverter(BaseParser):
             return None
 
         import fitz
+
         bbox = fitz.Rect(span["bbox"])
 
         # Use threshold from options
@@ -2388,9 +2346,7 @@ class PdfToAstConverter(BaseParser):
                 data_rows.append(TableRow(cells=row_cells))
 
             return AstTable(
-                header=header_row,
-                rows=data_rows,
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
+                header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
             )
 
         except (AttributeError, Exception) as e:
@@ -2421,7 +2377,7 @@ class PdfToAstConverter(BaseParser):
                 return None
 
             # Parse the markdown table to extract structure
-            lines = table_md.strip().split('\n')
+            lines = table_md.strip().split("\n")
             if len(lines) < 2:  # Need at least header and separator
                 return None
 
@@ -2448,9 +2404,7 @@ class PdfToAstConverter(BaseParser):
                 data_rows.append(TableRow(cells=cells))
 
             return AstTable(
-                header=header_row,
-                rows=data_rows,
-                source_location=SourceLocation(format="pdf", page=page_num + 1)
+                header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
             )
 
         except Exception as e:
@@ -2458,7 +2412,7 @@ class PdfToAstConverter(BaseParser):
             return None
 
     def _extract_table_from_ruling_rect(
-            self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
+        self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
     ) -> AstTable | None:
         """Extract table content from a bounding box using ruling lines.
 
@@ -2504,12 +2458,10 @@ class PdfToAstConverter(BaseParser):
         rows: list[TableRow] = []
 
         # Extract y-coordinates for rows (between consecutive h_lines)
-        row_y_coords = [(h_lines_sorted[i][1], h_lines_sorted[i + 1][1])
-                        for i in range(len(h_lines_sorted) - 1)]
+        row_y_coords = [(h_lines_sorted[i][1], h_lines_sorted[i + 1][1]) for i in range(len(h_lines_sorted) - 1)]
 
         # Extract x-coordinates for columns (between consecutive v_lines)
-        col_x_coords = [(v_lines_sorted[i][0], v_lines_sorted[i + 1][0])
-                        for i in range(len(v_lines_sorted) - 1)]
+        col_x_coords = [(v_lines_sorted[i][0], v_lines_sorted[i + 1][0]) for i in range(len(v_lines_sorted) - 1)]
 
         import fitz
 
@@ -2530,7 +2482,7 @@ class PdfToAstConverter(BaseParser):
                 cells.append(TableCell(content=[Text(content=cell_text)]))
 
             # First row is typically the header
-            is_header = (row_idx == 0)
+            is_header = row_idx == 0
             rows.append(TableRow(cells=cells, is_header=is_header))
 
         if not rows:
@@ -2541,9 +2493,7 @@ class PdfToAstConverter(BaseParser):
         data_rows = rows[1:] if len(rows) > 1 else []
 
         return AstTable(
-            header=header_row,
-            rows=data_rows,
-            source_location=SourceLocation(format="pdf", page=page_num + 1)
+            header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
         )
 
     def _parse_markdown_table_row(self, row_line: str) -> list[str]:
@@ -2562,12 +2512,12 @@ class PdfToAstConverter(BaseParser):
         """
         # Remove leading/trailing pipes and split
         row_line = row_line.strip()
-        if row_line.startswith('|'):
+        if row_line.startswith("|"):
             row_line = row_line[1:]
-        if row_line.endswith('|'):
+        if row_line.endswith("|"):
             row_line = row_line[:-1]
 
-        cells = [cell.strip() for cell in row_line.split('|')]
+        cells = [cell.strip() for cell in row_line.split("|")]
         return cells
 
     def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
@@ -2599,10 +2549,7 @@ class PdfToAstConverter(BaseParser):
                 img_node.source_location = SourceLocation(format="pdf", page=page_num + 1)
 
                 # Wrap in paragraph
-                return AstParagraph(
-                    content=[img_node],
-                    source_location=SourceLocation(format="pdf", page=page_num + 1)
-                )
+                return AstParagraph(content=[img_node], source_location=SourceLocation(format="pdf", page=page_num + 1))
 
             return None
 
@@ -2743,10 +2690,10 @@ class PdfToAstConverter(BaseParser):
                 for node in nodes:
                     if isinstance(node, Text):
                         text_parts.append(node.content)
-                    elif hasattr(node, 'content') and isinstance(node.content, list):
+                    elif hasattr(node, "content") and isinstance(node.content, list):
                         # Inline formatting nodes (Strong, Emphasis, etc.)
                         text_parts.append(extract_text(node.content))
-                return ''.join(text_parts)
+                return "".join(text_parts)
 
             full_text = extract_text(paragraph.content)
             if not full_text:
@@ -2758,12 +2705,12 @@ class PdfToAstConverter(BaseParser):
                 return False
 
             # Check for common list markers (after optional spaces for nesting)
-            if stripped_text[0] in ('-', '*', '+', 'o', '•', '◦', '▪', '▫'):
+            if stripped_text[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
                 return True
 
             # Check for numbered lists (1., 2., etc.) after optional spaces
             # Match patterns like "1. ", "2) ", "10. ", etc.
-            if re.match(r'^\d+[\.\)]\s', stripped_text):
+            if re.match(r"^\d+[\.\)]\s", stripped_text):
                 return True
 
             return False
@@ -2802,9 +2749,9 @@ class PdfToAstConverter(BaseParser):
                             for i, item in enumerate(node.content):
                                 if isinstance(item, Text):
                                     node.content[i] = Text(
-                                        content=' ' * indent_spaces + item.content,
+                                        content=" " * indent_spaces + item.content,
                                         metadata=item.metadata,
-                                        source_location=item.source_location
+                                        source_location=item.source_location,
                                     )
                                     break
 
@@ -2837,12 +2784,7 @@ class PdfToAstConverter(BaseParser):
                 else:
                     # Gap is too large or list item boundary - flush accumulated paragraphs
                     if accumulated_content:
-                        merged.append(
-                            AstParagraph(
-                                content=accumulated_content,
-                                source_location=last_source_location
-                            )
-                        )
+                        merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
                     # Start new accumulation with current paragraph
                     accumulated_content = list(node.content)
                     last_source_location = node.source_location
@@ -2857,12 +2799,7 @@ class PdfToAstConverter(BaseParser):
             else:
                 # Non-paragraph node: flush accumulated paragraphs
                 if accumulated_content:
-                    merged.append(
-                        AstParagraph(
-                            content=accumulated_content,
-                            source_location=last_source_location
-                        )
-                    )
+                    merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
                     accumulated_content = []
                     last_source_location = None
                     last_bbox_bottom = None
@@ -2873,12 +2810,7 @@ class PdfToAstConverter(BaseParser):
 
         # Flush any remaining accumulated content
         if accumulated_content:
-            merged.append(
-                AstParagraph(
-                    content=accumulated_content,
-                    source_location=last_source_location
-                )
-            )
+            merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
 
         return merged
 
@@ -2897,12 +2829,9 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
     renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
     optional_packages=[],
-    import_error_message=(
-        "PDF conversion requires 'PyMuPDF'. "
-        "Install with: pip install pymupdf"
-    ),
+    import_error_message=("PDF conversion requires 'PyMuPDF'. " "Install with: pip install pymupdf"),
     parser_options_class=PdfOptions,
     renderer_options_class="all2md.options.pdf.PdfRendererOptions",
     description="Convert PDF documents to/from AST with table detection",
-    priority=10
+    priority=10,
 )

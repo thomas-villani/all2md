@@ -199,7 +199,7 @@ def _get_merged_cell_spans(sheet: Any) -> dict[str, tuple[int, int]]:
 
 
 def _extract_sheet_images(
-        sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any
+    sheet: Any, base_filename: str, attachment_sequencer: Any, options: Any
 ) -> tuple[list[Image], dict[str, str]]:
     """Extract images from an XLSX sheet and convert to Image AST nodes.
 
@@ -228,7 +228,7 @@ def _extract_sheet_images(
         # a public API for reading existing images from worksheets. This is the
         # standard approach per openpyxl documentation and community practice.
         # Compatible with openpyxl>=3.1.5. May need updates if openpyxl changes internals.
-        if not hasattr(sheet, '_images') or not sheet._images:
+        if not hasattr(sheet, "_images") or not sheet._images:
             return images, collected_footnotes
 
         for img in sheet._images:
@@ -236,16 +236,16 @@ def _extract_sheet_images(
                 # Get image data using private API methods (no public alternative exists)
                 # Primary method: img._data() - documented approach for openpyxl>=3.1
                 image_bytes = None
-                if hasattr(img, '_data') and callable(img._data):
+                if hasattr(img, "_data") and callable(img._data):
                     try:
                         image_bytes = img._data()
                     except Exception as e:
                         logger.debug(f"Failed to call img._data(): {e!r}")
 
                 # Fallback method: access via relationships
-                if not image_bytes and hasattr(img, 'ref'):
+                if not image_bytes and hasattr(img, "ref"):
                     image_part = img.ref
-                    if hasattr(image_part, 'blob'):
+                    if hasattr(image_part, "blob"):
                         image_bytes = image_part.blob
 
                 if not image_bytes:
@@ -254,27 +254,24 @@ def _extract_sheet_images(
 
                 # Determine file extension
                 extension = "png"  # default
-                if hasattr(img, 'format'):
+                if hasattr(img, "format"):
                     extension = img.format.lower()
-                elif hasattr(img, 'ref') and hasattr(img.ref, 'content_type'):
+                elif hasattr(img, "ref") and hasattr(img.ref, "content_type"):
                     content_type = img.ref.content_type.lower()
-                    if 'jpeg' in content_type or 'jpg' in content_type:
+                    if "jpeg" in content_type or "jpg" in content_type:
                         extension = "jpg"
-                    elif 'png' in content_type:
+                    elif "png" in content_type:
                         extension = "png"
-                    elif 'gif' in content_type:
+                    elif "gif" in content_type:
                         extension = "gif"
 
                 # Generate filename
                 image_filename, _ = attachment_sequencer(
-                    base_stem=base_filename,
-                    format_type="general",
-                    extension=extension,
-                    attachment_type="img"
+                    base_stem=base_filename, format_type="general", extension=extension, attachment_type="img"
                 )
 
                 # Get alt text
-                alt_text = getattr(img, 'name', '') or getattr(img, 'title', '') or "image"
+                alt_text = getattr(img, "name", "") or getattr(img, "title", "") or "image"
 
                 # Process attachment
                 result = process_attachment(
@@ -336,9 +333,9 @@ def _extract_sheet_charts(sheet: Any, base_filename: str, options: Any) -> list[
         # standard approach per openpyxl documentation and community practice.
         # Compatible with openpyxl>=3.1.5. May need updates if openpyxl changes internals.
         charts = []
-        if hasattr(sheet, '_charts') and sheet._charts:
+        if hasattr(sheet, "_charts") and sheet._charts:
             charts = sheet._charts
-        elif hasattr(sheet, 'charts') and sheet.charts:
+        elif hasattr(sheet, "charts") and sheet.charts:
             charts = sheet.charts
 
         if not charts:
@@ -383,30 +380,30 @@ def _chart_to_table_ast(chart: Any) -> Table | None:
         series_data: list[tuple[str, list[Any]]] = []
         categories: list[str] = []
 
-        if hasattr(chart, 'series') and chart.series:
+        if hasattr(chart, "series") and chart.series:
             for series in chart.series:
-                series_name = getattr(series, 'title', '') or f"Series {len(series_data) + 1}"
-                if hasattr(series_name, 'v'):
+                series_name = getattr(series, "title", "") or f"Series {len(series_data) + 1}"
+                if hasattr(series_name, "v"):
                     series_name = str(series_name.v)
 
                 # Extract values
                 values = []
-                if hasattr(series, 'values') and series.values:
+                if hasattr(series, "values") and series.values:
                     values_ref = series.values
-                    if hasattr(values_ref, 'numRef') and values_ref.numRef:
+                    if hasattr(values_ref, "numRef") and values_ref.numRef:
                         num_cache = values_ref.numRef.numCache
-                        if num_cache and hasattr(num_cache, 'pt'):
-                            values = [pt.v for pt in num_cache.pt if hasattr(pt, 'v')]
+                        if num_cache and hasattr(num_cache, "pt"):
+                            values = [pt.v for pt in num_cache.pt if hasattr(pt, "v")]
 
                 series_data.append((str(series_name), values))
 
                 # Extract categories from first series
-                if not categories and hasattr(series, 'cat') and series.cat:
+                if not categories and hasattr(series, "cat") and series.cat:
                     cat_ref = series.cat
-                    if hasattr(cat_ref, 'strRef') and cat_ref.strRef:
+                    if hasattr(cat_ref, "strRef") and cat_ref.strRef:
                         str_cache = cat_ref.strRef.strCache
-                        if str_cache and hasattr(str_cache, 'pt'):
-                            categories = [str(pt.v) for pt in str_cache.pt if hasattr(pt, 'v')]
+                        if str_cache and hasattr(str_cache, "pt"):
+                            categories = [str(pt.v) for pt in str_cache.pt if hasattr(pt, "v")]
 
         if not series_data:
             return None
@@ -471,7 +468,7 @@ class XlsxToAstConverter(BaseParser):
         import openpyxl
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix='.xlsx')
+        self._validate_zip_input(input_data, suffix=".xlsx")
 
         # Load workbook
         try:
@@ -480,10 +477,7 @@ class XlsxToAstConverter(BaseParser):
             )
             wb = openpyxl.load_workbook(doc_input, data_only=self.options.render_formulas)
         except Exception as e:
-            raise MalformedFileError(
-                f"Failed to parse XLSX file: {e!r}",
-                original_error=e
-            ) from e
+            raise MalformedFileError(f"Failed to parse XLSX file: {e!r}", original_error=e) from e
 
         return self.xlsx_to_ast(wb)
 
@@ -509,8 +503,8 @@ class XlsxToAstConverter(BaseParser):
         # Determine base filename for attachments
         base_filename = "spreadsheet"
         try:
-            if hasattr(workbook, 'properties') and workbook.properties and workbook.properties.title:
-                base_filename = workbook.properties.title.replace(' ', '_')
+            if hasattr(workbook, "properties") and workbook.properties and workbook.properties.title:
+                base_filename = workbook.properties.title.replace(" ", "_")
         except Exception:
             pass
 
@@ -559,8 +553,12 @@ class XlsxToAstConverter(BaseParser):
                 for cell in row:
                     coord = getattr(cell, "coordinate", None)
                     # Only apply merged cell logic if mode is "flatten"
-                    if (self.options.merged_cell_mode == "flatten" and
-                            coord and coord in merged_map and merged_map[coord] != coord):
+                    if (
+                        self.options.merged_cell_mode == "flatten"
+                        and coord
+                        and coord in merged_map
+                        and merged_map[coord] != coord
+                    ):
                         out.append("")
                     else:
                         out.append(_format_link_or_text(cell, cell.value, self.options.preserve_newlines_in_cells))
@@ -603,9 +601,7 @@ class XlsxToAstConverter(BaseParser):
             truncated_rows = self.options.max_rows is not None and sheet.max_row > self.options.max_rows
             truncated_cols = self.options.max_cols is not None and sheet.max_column > self.options.max_cols
             if truncated_rows or truncated_cols:
-                children.append(
-                    Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
-                )
+                children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))
 
             # Extract images from sheet
             sheet_images, sheet_footnotes = _extract_sheet_images(
@@ -621,9 +617,7 @@ class XlsxToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         return Document(children=children, metadata=metadata.to_dict())
@@ -655,7 +649,7 @@ class XlsxToAstConverter(BaseParser):
                 if props.subject:
                     metadata.subject = props.subject
                 if props.keywords:
-                    metadata.keywords = props.keywords.split(',') if isinstance(props.keywords, str) else []
+                    metadata.keywords = props.keywords.split(",") if isinstance(props.keywords, str) else []
                 if props.created:
                     metadata.creation_date = str(props.created)
         except Exception:
@@ -663,8 +657,8 @@ class XlsxToAstConverter(BaseParser):
 
         # Add custom metadata
         try:
-            metadata.custom['sheet_count'] = len(document.sheetnames)
-            metadata.custom['sheet_names'] = document.sheetnames
+            metadata.custom["sheet_count"] = len(document.sheetnames)
+            metadata.custom["sheet_names"] = document.sheetnames
         except Exception:
             pass
 
@@ -687,5 +681,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=XlsxOptions,
     renderer_options_class=None,
     description="Convert Excel XLSX files to Markdown tables",
-    priority=6
+    priority=6,
 )

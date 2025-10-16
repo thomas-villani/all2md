@@ -34,16 +34,12 @@ class RtfRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Base font family for the entire RTF document",
             "choices": ["roman", "swiss"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     bold_headings: bool = field(
         default=True,
-        metadata={
-            "help": "Render heading content in bold",
-            "cli_name": "no-bold-headings",
-            "importance": "core"
-        }
+        metadata={"help": "Render heading content in bold", "cli_name": "no-bold-headings", "importance": "core"},
     )
 
 

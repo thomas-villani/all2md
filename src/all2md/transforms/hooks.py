@@ -79,80 +79,80 @@ logger = logging.getLogger(__name__)
 # Format: list of (node_class, type_string) tuples
 # Order matters: more specific types should be checked before more general ones
 _NODE_TYPE_MAP: list[tuple[type[Node], str]] = [
-    (Document, 'document'),
-    (Heading, 'heading'),
-    (Paragraph, 'paragraph'),
-    (CodeBlock, 'code_block'),
-    (BlockQuote, 'block_quote'),
-    (List, 'list'),
-    (ListItem, 'list_item'),
-    (Table, 'table'),
-    (TableRow, 'table_row'),
-    (TableCell, 'table_cell'),
-    (ThematicBreak, 'thematic_break'),
-    (HTMLBlock, 'html_block'),
-    (Text, 'text'),
-    (Emphasis, 'emphasis'),
-    (Strong, 'strong'),
-    (Code, 'code'),
-    (Link, 'link'),
-    (Image, 'image'),
-    (LineBreak, 'line_break'),
-    (Strikethrough, 'strikethrough'),
-    (Underline, 'underline'),
-    (Superscript, 'superscript'),
-    (Subscript, 'subscript'),
-    (HTMLInline, 'html_inline'),
-    (FootnoteReference, 'footnote_reference'),
-    (FootnoteDefinition, 'footnote_definition'),
-    (MathInline, 'math_inline'),
-    (MathBlock, 'math_block'),
-    (DefinitionList, 'definition_list'),
-    (DefinitionTerm, 'definition_term'),
-    (DefinitionDescription, 'definition_description'),
+    (Document, "document"),
+    (Heading, "heading"),
+    (Paragraph, "paragraph"),
+    (CodeBlock, "code_block"),
+    (BlockQuote, "block_quote"),
+    (List, "list"),
+    (ListItem, "list_item"),
+    (Table, "table"),
+    (TableRow, "table_row"),
+    (TableCell, "table_cell"),
+    (ThematicBreak, "thematic_break"),
+    (HTMLBlock, "html_block"),
+    (Text, "text"),
+    (Emphasis, "emphasis"),
+    (Strong, "strong"),
+    (Code, "code"),
+    (Link, "link"),
+    (Image, "image"),
+    (LineBreak, "line_break"),
+    (Strikethrough, "strikethrough"),
+    (Underline, "underline"),
+    (Superscript, "superscript"),
+    (Subscript, "subscript"),
+    (HTMLInline, "html_inline"),
+    (FootnoteReference, "footnote_reference"),
+    (FootnoteDefinition, "footnote_definition"),
+    (MathInline, "math_inline"),
+    (MathBlock, "math_block"),
+    (DefinitionList, "definition_list"),
+    (DefinitionTerm, "definition_term"),
+    (DefinitionDescription, "definition_description"),
 ]
 
 # Type aliases
 HookPoint = Literal[
-    'post_ast',
-    'pre_transform',
-    'post_transform',
-    'pre_render',
-    'post_render',
+    "post_ast",
+    "pre_transform",
+    "post_transform",
+    "pre_render",
+    "post_render",
 ]
 
 NodeType = Literal[
-    'document',
-    'heading',
-    'paragraph',
-    'code_block',
-    'block_quote',
-    'list',
-    'list_item',
-    'table',
-    'table_row',
-    'table_cell',
-    'thematic_break',
-    'html_block',
-    'text',
-    'emphasis',
-    'strong',
-    'code',
-    'link',
-    'image',
-    'line_break',
-    'strikethrough',
-    'underline',
-    'superscript',
-    'subscript',
-    'html_inline',
-    'footnote_reference',
-    'footnote_definition',
-    'math_inline',
-    'math_block',
-    'definition_list',
-    'definition_term',
-    'definition_description',
+    "document",
+    "heading",
+    "paragraph",
+    "code_block",
+    "block_quote",
+    "list",
+    "list_item",
+    "table",
+    "table_row",
+    "table_cell",
+    "thematic_break",
+    "html_block",
+    "text",
+    "emphasis",
+    "strong",
+    "code",
+    "link",
+    "image",
+    "line_break",
+    "strikethrough",
+    "underline",
+    "superscript",
+    "subscript",
+    "html_inline",
+    "footnote_reference",
+    "footnote_definition",
+    "math_inline",
+    "math_block",
+    "definition_list",
+    "definition_term",
+    "definition_description",
 ]
 
 HookTarget = Union[HookPoint, NodeType]
@@ -160,7 +160,7 @@ HookTarget = Union[HookPoint, NodeType]
 # Callable type for hooks
 # Pipeline hooks: (Document, HookContext) -> Document
 # Node hooks: (Node, HookContext) -> Node | None
-HookCallable = Callable[[Any, 'HookContext'], Any]
+HookCallable = Callable[[Any, "HookContext"], Any]
 
 
 @dataclass
@@ -310,12 +310,7 @@ class HookManager:
         self._hooks: dict[HookTarget, list[tuple[int, HookCallable]]] = {}
         self.strict = strict
 
-    def register_hook(
-            self,
-            target: HookTarget,
-            hook: HookCallable,
-            priority: int = 100
-    ) -> None:
+    def register_hook(self, target: HookTarget, hook: HookCallable, priority: int = 100) -> None:
         """Register a hook for a target.
 
         Parameters
@@ -377,12 +372,7 @@ class HookManager:
 
         return removed
 
-    def execute_hooks(
-            self,
-            target: HookTarget,
-            obj: Any,
-            context: HookContext
-    ) -> Any:
+    def execute_hooks(self, target: HookTarget, obj: Any, context: HookContext) -> Any:
         """Execute all hooks for a target.
 
         Hooks are executed in priority order. Each hook receives the result
@@ -441,10 +431,7 @@ class HookManager:
                     return None
 
             except Exception as e:
-                logger.error(
-                    f"Hook failed at '{target}' with priority {priority}: {e}",
-                    exc_info=True
-                )
+                logger.error(f"Hook failed at '{target}' with priority {priority}: {e}", exc_info=True)
 
                 # In strict mode, re-raise the exception to abort the pipeline
                 if self.strict:

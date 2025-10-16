@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 def validate_local_file_access(
-        file_url: str,
-        allow_local_files: bool = False,
-        local_file_allowlist: list[str] | None = None,
-        local_file_denylist: list[str] | None = None,
-        allow_cwd_files: bool = True
+    file_url: str,
+    allow_local_files: bool = False,
+    local_file_allowlist: list[str] | None = None,
+    local_file_denylist: list[str] | None = None,
+    allow_cwd_files: bool = True,
 ) -> bool:
     """Validate if access to a local file URL is allowed based on security settings.
 
@@ -97,13 +97,13 @@ def validate_local_file_access(
 
         # Check if it's a Windows absolute path (starts with drive letter)
         # Pattern: C:\ or C:/ or just C:
-        if len(path_part) >= 2 and path_part[1] == ':':
+        if len(path_part) >= 2 and path_part[1] == ":":
             # Windows absolute path: file://C:\path or file://C:/path
             # Normalize backslashes to forward slashes for Path
-            normalized_path = path_part.replace('\\', '/')
+            normalized_path = path_part.replace("\\", "/")
             file_path = Path(normalized_path)
         # Check if it looks like a UNC path (has at least one slash/backslash after server name)
-        elif '/' in path_part or '\\' in path_part:
+        elif "/" in path_part or "\\" in path_part:
             # Likely UNC path: file://server/share/file -> \\server\share\file
             file_path = Path(f"\\\\{path_part.replace('/', chr(92))}")
         else:
@@ -116,7 +116,7 @@ def validate_local_file_access(
 
         # Handle Windows drive letters: file:///C:/path
         # urlparse may give us "/C:/path", we need "C:/path"
-        if len(path_str) >= 3 and path_str[0] == '/' and path_str[2] == ':':
+        if len(path_str) >= 3 and path_str[0] == "/" and path_str[2] == ":":
             # Remove leading slash for Windows drive letter
             path_str = path_str[1:]
 
@@ -163,10 +163,10 @@ def validate_local_file_access(
 
 
 def validate_zip_archive(
-        file_path: Union[str, Path],
-        max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
-        max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,  # 1GB
-        max_entries: int = DEFAULT_MAX_ZIP_ENTRIES
+    file_path: Union[str, Path],
+    max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
+    max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,  # 1GB
+    max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
 ) -> None:
     """Validate a ZIP archive for security threats before processing.
 
@@ -202,14 +202,12 @@ def validate_zip_archive(
 
     """
     try:
-        with zipfile.ZipFile(file_path, 'r') as zf:
+        with zipfile.ZipFile(file_path, "r") as zf:
             entries = zf.infolist()
 
             # Check number of entries
             if len(entries) > max_entries:
-                raise ZipFileSecurityError(
-                    f"ZIP archive contains too many entries: {len(entries)} > {max_entries}"
-                )
+                raise ZipFileSecurityError(f"ZIP archive contains too many entries: {len(entries)} > {max_entries}")
 
             total_uncompressed = 0
             total_compressed = 0
@@ -218,19 +216,15 @@ def validate_zip_archive(
                 # Check for path traversal attempts
                 name = entry.filename
                 # Normalize backslashes to handle Windows paths
-                name_norm = name.replace('\\', '/')
+                name_norm = name.replace("\\", "/")
 
                 # Check for Windows absolute paths (drive letters)
-                if ':' in name_norm and len(name_norm) >= 2 and name_norm[1] == ':':
-                    raise ZipFileSecurityError(
-                        f"ZIP archive contains Windows absolute path: {entry.filename}"
-                    )
+                if ":" in name_norm and len(name_norm) >= 2 and name_norm[1] == ":":
+                    raise ZipFileSecurityError(f"ZIP archive contains Windows absolute path: {entry.filename}")
 
                 p = PurePosixPath(name_norm)
-                if any(part == '..' for part in p.parts) or name_norm.startswith('/'):
-                    raise ZipFileSecurityError(
-                        f"ZIP archive contains suspicious path: {entry.filename}"
-                    )
+                if any(part == ".." for part in p.parts) or name_norm.startswith("/"):
+                    raise ZipFileSecurityError(f"ZIP archive contains suspicious path: {entry.filename}")
 
                 # Accumulate sizes for compression ratio calculation
                 total_uncompressed += entry.file_size
@@ -307,38 +301,30 @@ def validate_safe_extraction_path(output_dir: Union[str, Path], zip_entry_name: 
 
     # Normalize to POSIX path (ZIP archives always use forward slashes)
     # Replace backslashes with forward slashes to handle malformed entries
-    normalized_name = zip_entry_name.replace('\\', '/')
+    normalized_name = zip_entry_name.replace("\\", "/")
 
     # Check for Windows absolute paths (drive letters like C:, D:, etc.)
     # These are not caught by PurePosixPath.is_absolute()
-    if ':' in normalized_name:
+    if ":" in normalized_name:
         # Check if it looks like a drive letter (single letter followed by colon)
-        if len(normalized_name) >= 2 and normalized_name[1] == ':':
-            raise ZipFileSecurityError(
-                f"Unsafe Windows absolute path in ZIP entry: {zip_entry_name}"
-            )
+        if len(normalized_name) >= 2 and normalized_name[1] == ":":
+            raise ZipFileSecurityError(f"Unsafe Windows absolute path in ZIP entry: {zip_entry_name}")
 
     # Use PurePosixPath to parse the normalized path
     try:
         rel_path = PurePosixPath(normalized_name)
     except Exception as e:
-        raise ZipFileSecurityError(
-            f"Invalid path in ZIP entry: {zip_entry_name}"
-        ) from e
+        raise ZipFileSecurityError(f"Invalid path in ZIP entry: {zip_entry_name}") from e
 
     # Reject absolute paths (starting with /)
     if rel_path.is_absolute():
-        raise ZipFileSecurityError(
-            f"Unsafe absolute path in ZIP entry: {zip_entry_name}"
-        )
+        raise ZipFileSecurityError(f"Unsafe absolute path in ZIP entry: {zip_entry_name}")
 
     # Reject paths containing parent directory traversal or current directory
     # Check each component for dangerous patterns
     for part in rel_path.parts:
-        if part in ('.', '..'):
-            raise ZipFileSecurityError(
-                f"Unsafe path component in ZIP entry: {zip_entry_name} (contains '{part}')"
-            )
+        if part in (".", ".."):
+            raise ZipFileSecurityError(f"Unsafe path component in ZIP entry: {zip_entry_name} (contains '{part}')")
 
     # Convert output_dir to Path and resolve it
     output_dir_path = Path(output_dir).resolve()
@@ -352,9 +338,7 @@ def validate_safe_extraction_path(output_dir: Union[str, Path], zip_entry_name: 
     try:
         target_resolved = target_path.resolve()
     except Exception as e:
-        raise ZipFileSecurityError(
-            f"Cannot resolve path for ZIP entry: {zip_entry_name}"
-        ) from e
+        raise ZipFileSecurityError(f"Cannot resolve path for ZIP entry: {zip_entry_name}") from e
 
     # Ensure the resolved target is within the output directory
     # Use string comparison with os.sep to ensure proper prefix matching
@@ -366,9 +350,7 @@ def validate_safe_extraction_path(output_dir: Union[str, Path], zip_entry_name: 
     # - /tmp/output vs /tmp/output-sibling
     # So we ensure the prefix is followed by a separator or is exactly the same
     if not (target_str.startswith(output_dir_str + os.sep) or target_str == output_dir_str):
-        raise ZipFileSecurityError(
-            f"Path escapes output directory: {zip_entry_name} -> {target_str}"
-        )
+        raise ZipFileSecurityError(f"Path escapes output directory: {zip_entry_name} -> {target_str}")
 
     return target_resolved
 
@@ -615,9 +597,15 @@ def is_url_scheme_dangerous(url: str) -> bool:
         if scheme == "data":
             # data: URLs can be safe (like data:image/png) or dangerous (like data:text/html)
             # Check if it's a dangerous data URL type
-            if any(danger in url_lower for danger in ("data:text/html", "data:text/javascript",
-                                                       "data:application/javascript",
-                                                       "data:application/x-javascript")):
+            if any(
+                danger in url_lower
+                for danger in (
+                    "data:text/html",
+                    "data:text/javascript",
+                    "data:application/javascript",
+                    "data:application/x-javascript",
+                )
+            ):
                 return True
 
     except ValueError:
@@ -661,6 +649,4 @@ def validate_url_scheme_safe(url: str, context: str = "URL") -> None:
         # Extract the scheme for error message
         url_lower = url.lower()
         scheme = url_lower.split(":", 1)[0] if ":" in url_lower else "unknown"
-        raise ValueError(
-            f"{context} URL uses dangerous scheme '{scheme}': {url[:50]}"
-        )
+        raise ValueError(f"{context} URL uses dangerous scheme '{scheme}': {url[:50]}")

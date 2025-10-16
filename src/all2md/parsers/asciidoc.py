@@ -54,6 +54,7 @@ from all2md.utils.parser_helpers import parse_delimited_block
 
 logger = logging.getLogger(__name__)
 
+
 class TokenType(Enum):
     """Token types for AsciiDoc lexer."""
 
@@ -114,7 +115,7 @@ class Token:
     def __post_init__(self) -> None:
         """Initialize metadata if not provided."""
         if self.metadata is None:
-            object.__setattr__(self, 'metadata', {})
+            object.__setattr__(self, "metadata", {})
 
 
 class AsciiDocLexer:
@@ -137,14 +138,14 @@ class AsciiDocLexer:
         self.tokens: list[Token] = []
 
         # Patterns for matching
-        self.heading_pattern = re.compile(r'^(={1,6})\s+(.+?)(?:\s+\1)?$')
-        self.ul_pattern = re.compile(r'^(\*{1,5})\s+(.*)$')
-        self.ol_pattern = re.compile(r'^(\.{1,5})\s+(.*)$')
-        self.desc_pattern = re.compile(r'^(.+?)::(?:\s+(.*))?$')
-        self.checklist_pattern = re.compile(r'^(\*+)\s+\[([ x*])\]\s+(.*)$')
-        self.attribute_pattern = re.compile(r'^:([^:]+):\s*(.*)$')
-        self.block_attr_pattern = re.compile(r'^\[([^\]]+)\]$')
-        self.anchor_pattern = re.compile(r'^\[\[([^\]]+)\]\]$')
+        self.heading_pattern = re.compile(r"^(={1,6})\s+(.+?)(?:\s+\1)?$")
+        self.ul_pattern = re.compile(r"^(\*{1,5})\s+(.*)$")
+        self.ol_pattern = re.compile(r"^(\.{1,5})\s+(.*)$")
+        self.desc_pattern = re.compile(r"^(.+?)::(?:\s+(.*))?$")
+        self.checklist_pattern = re.compile(r"^(\*+)\s+\[([ x*])\]\s+(.*)$")
+        self.attribute_pattern = re.compile(r"^:([^:]+):\s*(.*)$")
+        self.block_attr_pattern = re.compile(r"^\[([^\]]+)\]$")
+        self.anchor_pattern = re.compile(r"^\[\[([^\]]+)\]\]$")
 
     def tokenize(self) -> list[Token]:
         """Tokenize the content into a list of tokens.
@@ -162,12 +163,7 @@ class AsciiDocLexer:
             self.current_line += 1
 
         # Add EOF token
-        self.tokens.append(Token(
-            type=TokenType.EOF,
-            content='',
-            line_num=self.current_line,
-            indent=0
-        ))
+        self.tokens.append(Token(type=TokenType.EOF, content="", line_num=self.current_line, indent=0))
 
         return self.tokens
 
@@ -193,35 +189,30 @@ class AsciiDocLexer:
 
         # Blank line
         if not stripped:
-            return Token(TokenType.BLANK_LINE, '', line_num, indent)
+            return Token(TokenType.BLANK_LINE, "", line_num, indent)
 
         # Comment
-        if stripped.startswith('//'):
+        if stripped.startswith("//"):
             return Token(TokenType.COMMENT, stripped[2:].strip(), line_num, indent)
 
         # Table delimiter special case: |===
-        if stripped.startswith('|') and len(stripped) >= 4:
-            if all(c == '=' for c in stripped[1:]):
+        if stripped.startswith("|") and len(stripped) >= 4:
+            if all(c == "=" for c in stripped[1:]):
                 return Token(TokenType.TABLE_DELIMITER, stripped, line_num, indent)
 
         # Block delimiters (must be at least 4 characters and all same char)
         if len(stripped) >= 4 and all(c == stripped[0] for c in stripped):
             delimiter_char = stripped[0]
             delimiter_map = {
-                '-': TokenType.CODE_BLOCK_DELIMITER,
-                '_': TokenType.QUOTE_BLOCK_DELIMITER,
-                '.': TokenType.LITERAL_BLOCK_DELIMITER,
-                '*': TokenType.SIDEBAR_BLOCK_DELIMITER,
-                '=': TokenType.EXAMPLE_BLOCK_DELIMITER,
+                "-": TokenType.CODE_BLOCK_DELIMITER,
+                "_": TokenType.QUOTE_BLOCK_DELIMITER,
+                ".": TokenType.LITERAL_BLOCK_DELIMITER,
+                "*": TokenType.SIDEBAR_BLOCK_DELIMITER,
+                "=": TokenType.EXAMPLE_BLOCK_DELIMITER,
             }
 
             if delimiter_char in delimiter_map:
-                return Token(
-                    delimiter_map[delimiter_char],
-                    stripped,
-                    line_num,
-                    indent
-                )
+                return Token(delimiter_map[delimiter_char], stripped, line_num, indent)
 
         # Thematic break (triple apostrophes, hyphens, or asterisks)
         if stripped in ("'''", "---", "***"):
@@ -232,97 +223,51 @@ class AsciiDocLexer:
         if heading_match:
             level = len(heading_match.group(1))
             content = heading_match.group(2)
-            return Token(
-                TokenType.HEADING,
-                content,
-                line_num,
-                indent,
-                {'level': level}
-            )
+            return Token(TokenType.HEADING, content, line_num, indent, {"level": level})
 
         # Anchor
         anchor_match = self.anchor_pattern.match(stripped)
         if anchor_match:
-            return Token(
-                TokenType.ANCHOR,
-                anchor_match.group(1),
-                line_num,
-                indent
-            )
+            return Token(TokenType.ANCHOR, anchor_match.group(1), line_num, indent)
 
         # Block attribute
         block_attr_match = self.block_attr_pattern.match(stripped)
         if block_attr_match:
-            return Token(
-                TokenType.BLOCK_ATTRIBUTE,
-                block_attr_match.group(1),
-                line_num,
-                indent
-            )
+            return Token(TokenType.BLOCK_ATTRIBUTE, block_attr_match.group(1), line_num, indent)
 
         # Document attribute
         attr_match = self.attribute_pattern.match(stripped)
         if attr_match:
-            return Token(
-                TokenType.ATTRIBUTE,
-                attr_match.group(1),
-                line_num,
-                indent,
-                {'value': attr_match.group(2)}
-            )
+            return Token(TokenType.ATTRIBUTE, attr_match.group(1), line_num, indent, {"value": attr_match.group(2)})
 
         # Checklist item
         checklist_match = self.checklist_pattern.match(stripped)
         if checklist_match:
             level = len(checklist_match.group(1))
-            checked = checklist_match.group(2) in ('x', '*')
+            checked = checklist_match.group(2) in ("x", "*")
             content = checklist_match.group(3)
-            return Token(
-                TokenType.CHECKLIST_ITEM,
-                content,
-                line_num,
-                indent,
-                {'level': level, 'checked': checked}
-            )
+            return Token(TokenType.CHECKLIST_ITEM, content, line_num, indent, {"level": level, "checked": checked})
 
         # Unordered list
         ul_match = self.ul_pattern.match(stripped)
         if ul_match:
             level = len(ul_match.group(1))
             content = ul_match.group(2)
-            return Token(
-                TokenType.UNORDERED_LIST,
-                content,
-                line_num,
-                indent,
-                {'level': level}
-            )
+            return Token(TokenType.UNORDERED_LIST, content, line_num, indent, {"level": level})
 
         # Ordered list
         ol_match = self.ol_pattern.match(stripped)
         if ol_match:
             level = len(ol_match.group(1))
             content = ol_match.group(2)
-            return Token(
-                TokenType.ORDERED_LIST,
-                content,
-                line_num,
-                indent,
-                {'level': level}
-            )
+            return Token(TokenType.ORDERED_LIST, content, line_num, indent, {"level": level})
 
         # Description list
         desc_match = self.desc_pattern.match(stripped)
         if desc_match:
             term = desc_match.group(1)
-            description = desc_match.group(2) or ''
-            return Token(
-                TokenType.DESCRIPTION_TERM,
-                term,
-                line_num,
-                indent,
-                {'description': description}
-            )
+            description = desc_match.group(2) or ""
+            return Token(TokenType.DESCRIPTION_TERM, term, line_num, indent, {"description": description})
 
         # Default: text line
         return Token(TokenType.TEXT_LINE, stripped, line_num, indent)
@@ -402,11 +347,7 @@ class AsciiDocParser(BaseParser):
 
     """
 
-    def __init__(
-            self,
-            options: AsciiDocOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: AsciiDocOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the AsciiDoc parser."""
         options = options or AsciiDocOptions()
         super().__init__(options, progress_callback)
@@ -435,34 +376,34 @@ class AsciiDocParser(BaseParser):
         self.italic_unconstrained_pattern: Optional[re.Pattern[str]]
 
         if self.options.support_unconstrained_formatting:
-            self.bold_unconstrained_pattern = re.compile(r'\*\*([^\*]+?)\*\*')
-            self.italic_unconstrained_pattern = re.compile(r'__([^_]+?)__')
+            self.bold_unconstrained_pattern = re.compile(r"\*\*([^\*]+?)\*\*")
+            self.italic_unconstrained_pattern = re.compile(r"__([^_]+?)__")
         else:
             self.bold_unconstrained_pattern = None
             self.italic_unconstrained_pattern = None
 
         # Constrained formatting (single delimiters with word boundaries)
         # Modified to not match if preceded/followed by same character
-        self.bold_pattern = re.compile(r'(?<!\*)\*([^\*\s][^\*]*?)\*(?!\*)')
-        self.italic_pattern = re.compile(r'(?<!_)_([^_\s][^_]*?)_(?!_)')
-        self.mono_pattern = re.compile(r'`([^`]+?)`')
-        self.subscript_pattern = re.compile(r'~([^~]+?)~')
-        self.superscript_pattern = re.compile(r'\^([^\^]+?)\^')
+        self.bold_pattern = re.compile(r"(?<!\*)\*([^\*\s][^\*]*?)\*(?!\*)")
+        self.italic_pattern = re.compile(r"(?<!_)_([^_\s][^_]*?)_(?!_)")
+        self.mono_pattern = re.compile(r"`([^`]+?)`")
+        self.subscript_pattern = re.compile(r"~([^~]+?)~")
+        self.superscript_pattern = re.compile(r"\^([^\^]+?)\^")
 
         # Links and images
-        self.link_pattern = re.compile(r'link:([^\[]+)\[([^\]]*)\]')
-        self.auto_link_pattern = re.compile(r'(https?://[^\s\[\]]+)')
-        self.image_block_pattern = re.compile(r'image::([^\[]+)\[([^\]]*)\]')
-        self.image_inline_pattern = re.compile(r'image:([^\[]+)\[([^\]]*)\]')
+        self.link_pattern = re.compile(r"link:([^\[]+)\[([^\]]*)\]")
+        self.auto_link_pattern = re.compile(r"(https?://[^\s\[\]]+)")
+        self.image_block_pattern = re.compile(r"image::([^\[]+)\[([^\]]*)\]")
+        self.image_inline_pattern = re.compile(r"image:([^\[]+)\[([^\]]*)\]")
 
         # Cross-references
-        self.xref_pattern = re.compile(r'<<([^,\>]+)(?:,([^\>]+))?>>')
+        self.xref_pattern = re.compile(r"<<([^,\>]+)(?:,([^\>]+))?>>")
 
         # Attribute references (will check for escaping separately)
-        self.attr_ref_pattern = re.compile(r'\{([^\}]+)\}')
+        self.attr_ref_pattern = re.compile(r"\{([^\}]+)\}")
 
         # Passthrough
-        self.passthrough_pattern = re.compile(r'(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])')
+        self.passthrough_pattern = re.compile(r"(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])")
 
         # Combined pattern for efficient scanning (finds ANY special construct)
         self._compile_combined_inline_pattern()
@@ -477,27 +418,29 @@ class AsciiDocParser(BaseParser):
 
         # Add unconstrained patterns first (higher priority)
         if self.options.support_unconstrained_formatting:
-            patterns.append(r'\*\*([^\*]+?)\*\*')  # Unconstrained bold
-            patterns.append(r'__([^_]+?)__')  # Unconstrained italic
+            patterns.append(r"\*\*([^\*]+?)\*\*")  # Unconstrained bold
+            patterns.append(r"__([^_]+?)__")  # Unconstrained italic
 
         # Standard patterns
-        patterns.extend([
-            r'(?<!\*)\*([^\*\s][^\*]*?)\*(?!\*)',  # Constrained bold
-            r'(?<!_)_([^_\s][^_]*?)_(?!_)',  # Constrained italic
-            r'`([^`]+?)`',  # Monospace
-            r'~([^~]+?)~',  # Subscript
-            r'\^([^\^]+?)\^',  # Superscript
-            r'link:([^\[]+)\[([^\]]*)\]',  # Explicit link
-            r'(https?://[^\s\[\]]+)',  # Auto-link
-            r'image::([^\[]+)\[([^\]]*)\]',  # Block image
-            r'image:([^\[]+)\[([^\]]*)\]',  # Inline image
-            r'<<([^,\>]+)(?:,([^\>]+))?>>',  # Cross-reference
-            r'\{([^\}]+)\}',  # Attribute reference
-            r'(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])',  # Passthrough
-        ])
+        patterns.extend(
+            [
+                r"(?<!\*)\*([^\*\s][^\*]*?)\*(?!\*)",  # Constrained bold
+                r"(?<!_)_([^_\s][^_]*?)_(?!_)",  # Constrained italic
+                r"`([^`]+?)`",  # Monospace
+                r"~([^~]+?)~",  # Subscript
+                r"\^([^\^]+?)\^",  # Superscript
+                r"link:([^\[]+)\[([^\]]*)\]",  # Explicit link
+                r"(https?://[^\s\[\]]+)",  # Auto-link
+                r"image::([^\[]+)\[([^\]]*)\]",  # Block image
+                r"image:([^\[]+)\[([^\]]*)\]",  # Inline image
+                r"<<([^,\>]+)(?:,([^\>]+))?>>",  # Cross-reference
+                r"\{([^\}]+)\}",  # Attribute reference
+                r"(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])",  # Passthrough
+            ]
+        )
 
         # Combine all patterns with alternation
-        combined = '|'.join(f'({p})' for p in patterns)
+        combined = "|".join(f"({p})" for p in patterns)
         self.combined_inline_pattern = re.compile(combined)
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -654,37 +597,37 @@ class AsciiDocParser(BaseParser):
         attr_content = attr_content.strip()
 
         # Check for anchor ID (#id)
-        if attr_content.startswith('#'):
-            self.pending_block_attrs['id'] = attr_content[1:]
+        if attr_content.startswith("#"):
+            self.pending_block_attrs["id"] = attr_content[1:]
             return
 
         # Check for role (.role)
-        if attr_content.startswith('.'):
-            self.pending_block_attrs['role'] = attr_content[1:]
+        if attr_content.startswith("."):
+            self.pending_block_attrs["role"] = attr_content[1:]
             return
 
         # Parse positional and named attributes
         # Simple parser: split by comma, handle key=value pairs
-        parts = [p.strip() for p in attr_content.split(',')]
+        parts = [p.strip() for p in attr_content.split(",")]
 
         for i, part in enumerate(parts):
-            if '=' in part:
+            if "=" in part:
                 # Named attribute: key="value" or key=value
-                key, value = part.split('=', 1)
+                key, value = part.split("=", 1)
                 key = key.strip()
-                value = value.strip().strip('"\'')
+                value = value.strip().strip("\"'")
                 self.pending_block_attrs[key] = value
             elif i == 0:
                 # First positional: often block type (e.g., "source")
-                self.pending_block_attrs['type'] = part
-            elif i == 1 and parts[0] in ('source', 'listing'):
+                self.pending_block_attrs["type"] = part
+            elif i == 1 and parts[0] in ("source", "listing"):
                 # Second positional after "source": language
-                self.pending_block_attrs['language'] = part
+                self.pending_block_attrs["language"] = part
             else:
                 # Other positional attributes
-                if 'positional' not in self.pending_block_attrs:
-                    self.pending_block_attrs['positional'] = []
-                self.pending_block_attrs['positional'].append(part)
+                if "positional" not in self.pending_block_attrs:
+                    self.pending_block_attrs["positional"] = []
+                self.pending_block_attrs["positional"].append(part)
 
     def _consume_pending_attrs(self) -> dict[str, Any]:
         """Consume and clear pending block attributes.
@@ -745,7 +688,7 @@ class AsciiDocParser(BaseParser):
 
             if token.type == TokenType.ATTRIBUTE:
                 attr_name = token.content
-                attr_value = token.metadata.get('value', '') if token.metadata else ''
+                attr_value = token.metadata.get("value", "") if token.metadata else ""
                 self.attributes[attr_name] = attr_value
 
             self._advance()
@@ -812,7 +755,7 @@ class AsciiDocParser(BaseParser):
 
         # Anchor (preceding next block)
         if token.type == TokenType.ANCHOR:
-            self.pending_block_attrs['id'] = token.content
+            self.pending_block_attrs["id"] = token.content
             self._advance()
             return None
 
@@ -837,13 +780,13 @@ class AsciiDocParser(BaseParser):
         attrs = self._consume_pending_attrs()
 
         token = self._advance()
-        level = token.metadata.get('level', 1) if token.metadata else 1
+        level = token.metadata.get("level", 1) if token.metadata else 1
         content = self._parse_inline(token.content)
 
         # Apply anchor ID if present
         metadata = {}
-        if 'id' in attrs:
-            metadata['id'] = attrs['id']
+        if "id" in attrs:
+            metadata["id"] = attrs["id"]
 
         if metadata:
             return Heading(level=level, content=content, metadata=metadata)
@@ -881,7 +824,7 @@ class AsciiDocParser(BaseParser):
 
             for i, line in enumerate(lines):
                 # Check for hard line break marker (trailing space + plus)
-                has_hard_break = line.endswith(' +')
+                has_hard_break = line.endswith(" +")
 
                 # Strip the hard break marker if present
                 if has_hard_break:
@@ -900,21 +843,21 @@ class AsciiDocParser(BaseParser):
                     if content and not isinstance(content[-1], LineBreak):
                         # Merge space into previous text node if possible
                         if content and isinstance(content[-1], Text):
-                            content[-1] = Text(content=content[-1].content + ' ')
+                            content[-1] = Text(content=content[-1].content + " ")
                         else:
-                            content.append(Text(content=' '))
+                            content.append(Text(content=" "))
 
         else:
             # Original behavior: join all lines with spaces
-            text = ' '.join(lines)
+            text = " ".join(lines)
             content = self._parse_inline(text)
 
         # Apply metadata if present
         metadata = {}
-        if 'id' in attrs:
-            metadata['id'] = attrs['id']
-        if 'role' in attrs:
-            metadata['role'] = attrs['role']
+        if "id" in attrs:
+            metadata["id"] = attrs["id"]
+        if "role" in attrs:
+            metadata["role"] = attrs["role"]
 
         if metadata:
             return Paragraph(content=content, metadata=metadata)
@@ -939,7 +882,7 @@ class AsciiDocParser(BaseParser):
         counter = 0
 
         # Find all escaped characters: \* \_ \{ etc.
-        escaped_chars_pattern = re.compile(r'\\([\*_`~\^\{\}\[\]\\])')
+        escaped_chars_pattern = re.compile(r"\\([\*_`~\^\{\}\[\]\\])")
 
         def replace_escape(match: re.Match[str]) -> str:
             nonlocal counter
@@ -1043,7 +986,7 @@ class AsciiDocParser(BaseParser):
 
             if match:
                 url = match.group(1)
-                alt_text = match.group(2) if len(match.groups()) >= 2 else ''
+                alt_text = match.group(2) if len(match.groups()) >= 2 else ""
                 # Restore escapes in URL and alt text
                 url = self._postprocess_escapes(url, escape_map)
                 alt_text = self._postprocess_escapes(alt_text, escape_map)
@@ -1237,14 +1180,14 @@ class AsciiDocParser(BaseParser):
                 break
 
             # Extract level and ordered flag
-            level = token.metadata.get('level', 1) if token.metadata else 1
+            level = token.metadata.get("level", 1) if token.metadata else 1
             ordered = token.type == TokenType.ORDERED_LIST
 
             # Get task status for checklist items
-            task_status: Literal['checked', 'unchecked'] | None = None
+            task_status: Literal["checked", "unchecked"] | None = None
             if token.type == TokenType.CHECKLIST_ITEM:
-                is_checked = token.metadata.get('checked') if token.metadata else False
-                task_status = 'checked' if is_checked else 'unchecked'
+                is_checked = token.metadata.get("checked") if token.metadata else False
+                task_status = "checked" if is_checked else "unchecked"
 
             # Parse the list item content
             content_text = token.content
@@ -1255,12 +1198,7 @@ class AsciiDocParser(BaseParser):
             item_content: list[Node] = [Paragraph(content=content_nodes)]
 
             # Add to builder with proper level
-            list_builder.add_item(
-                level=level,
-                ordered=ordered,
-                content=item_content,
-                task_status=task_status
-            )
+            list_builder.add_item(level=level, ordered=ordered, content=item_content, task_status=task_status)
 
             # Skip blank line after item if present
             if self._current_token().type == TokenType.BLANK_LINE:
@@ -1295,7 +1233,7 @@ class AsciiDocParser(BaseParser):
 
             # Parse description(s)
             descriptions: list[DefinitionDescription] = []
-            description_text = (token.metadata.get('description', '') if token.metadata else '').strip()
+            description_text = (token.metadata.get("description", "") if token.metadata else "").strip()
 
             if description_text:
                 desc_content = self._parse_inline(description_text)
@@ -1325,7 +1263,7 @@ class AsciiDocParser(BaseParser):
         self._advance()
 
         # Extract language from block attributes if present
-        language: Optional[str] = attrs.get('language')
+        language: Optional[str] = attrs.get("language")
 
         # Collect content until closing delimiter
         lines, _closed = parse_delimited_block(
@@ -1334,15 +1272,15 @@ class AsciiDocParser(BaseParser):
             opening_delimiter_type=TokenType.CODE_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.CODE_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
-            collect_mode="lines"
+            collect_mode="lines",
         )
 
-        content = '\n'.join(lines)
+        content = "\n".join(lines)
 
         # Apply metadata if present
         metadata = {}
-        if 'id' in attrs:
-            metadata['id'] = attrs['id']
+        if "id" in attrs:
+            metadata["id"] = attrs["id"]
 
         if metadata:
             return CodeBlock(content=content, language=language, metadata=metadata)
@@ -1369,7 +1307,7 @@ class AsciiDocParser(BaseParser):
             closing_delimiter_type=TokenType.QUOTE_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
             collect_mode="blocks",
-            parse_block_fn=self._parse_block
+            parse_block_fn=self._parse_block,
         )
 
         return BlockQuote(children=cast(list[Node], children))
@@ -1398,15 +1336,15 @@ class AsciiDocParser(BaseParser):
             opening_delimiter_type=TokenType.LITERAL_BLOCK_DELIMITER,
             closing_delimiter_type=TokenType.LITERAL_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
-            collect_mode="lines"
+            collect_mode="lines",
         )
 
-        content = '\n'.join(lines)
+        content = "\n".join(lines)
 
         # Apply metadata if present
         metadata = {}
-        if 'id' in attrs:
-            metadata['id'] = attrs['id']
+        if "id" in attrs:
+            metadata["id"] = attrs["id"]
 
         if metadata:
             return CodeBlock(content=content, language=None, metadata=metadata)
@@ -1438,13 +1376,13 @@ class AsciiDocParser(BaseParser):
             closing_delimiter_type=TokenType.SIDEBAR_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
             collect_mode="blocks",
-            parse_block_fn=self._parse_block
+            parse_block_fn=self._parse_block,
         )
 
         # Apply metadata with sidebar role
-        metadata = {'role': 'sidebar'}
-        if 'id' in attrs:
-            metadata['id'] = attrs['id']
+        metadata = {"role": "sidebar"}
+        if "id" in attrs:
+            metadata["id"] = attrs["id"]
 
         return BlockQuote(children=cast(list[Node], children), metadata=metadata)
 
@@ -1473,13 +1411,13 @@ class AsciiDocParser(BaseParser):
             closing_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
             eof_type=TokenType.EOF,
             collect_mode="blocks",
-            parse_block_fn=self._parse_block
+            parse_block_fn=self._parse_block,
         )
 
         # Apply metadata with example role
-        metadata = {'role': 'example'}
-        if 'id' in attrs:
-            metadata['id'] = attrs['id']
+        metadata = {"role": "example"}
+        if "id" in attrs:
+            metadata["id"] = attrs["id"]
 
         return BlockQuote(children=cast(list[Node], children), metadata=metadata)
 
@@ -1507,8 +1445,8 @@ class AsciiDocParser(BaseParser):
 
         # Check block attributes for header options
         if header_mode == "attribute-based":
-            options_str = attrs.get('options', '')
-            if 'noheader' in options_str or options_str == 'noheader':
+            options_str = attrs.get("options", "")
+            if "noheader" in options_str or options_str == "noheader":
                 has_header = False
         elif header_mode == "first-row":
             has_header = True
@@ -1522,7 +1460,7 @@ class AsciiDocParser(BaseParser):
 
             token = self._current_token()
 
-            if token.type == TokenType.TEXT_LINE and '|' in token.content:
+            if token.type == TokenType.TEXT_LINE and "|" in token.content:
                 row = self._parse_table_row(token.content)
 
                 # First row handling based on header detection
@@ -1563,15 +1501,15 @@ class AsciiDocParser(BaseParser):
         escaped_pipe_placeholder = "\x00PIPE\x00"
 
         # Replace escaped pipes with placeholder
-        line = line.replace(r'\|', escaped_pipe_placeholder)
+        line = line.replace(r"\|", escaped_pipe_placeholder)
 
         # Split by unescaped pipes using regex
-        parts = re.split(r'(?<!\\)\|', line)
+        parts = re.split(r"(?<!\\)\|", line)
 
         # Remove leading empty part caused by starting | delimiter
         # AsciiDoc rows always start with |, which creates a leading empty string
         # For example: |cell1|cell2| produces ['', 'cell1', 'cell2', '']
-        if parts and parts[0].strip() == '':
+        if parts and parts[0].strip() == "":
             parts = parts[1:]
 
         # Keep trailing empty parts as they represent intentional empty cells
@@ -1581,7 +1519,7 @@ class AsciiDocParser(BaseParser):
 
         for part in parts:
             # Restore escaped pipes
-            part = part.replace(escaped_pipe_placeholder, '|')
+            part = part.replace(escaped_pipe_placeholder, "|")
             # Strip whitespace but preserve empty cells
             content = self._parse_inline(part.strip())
             cells.append(TableCell(content=content))
@@ -1605,23 +1543,23 @@ class AsciiDocParser(BaseParser):
         metadata = DocumentMetadata()
 
         # Extract standard fields
-        if 'title' in self.attributes:
-            metadata.title = self.attributes['title']
-        if 'author' in self.attributes:
-            metadata.author = self.attributes['author']
-        if 'description' in self.attributes:
-            metadata.subject = self.attributes['description']  # subject maps to description in to_dict()
-        if 'keywords' in self.attributes:
+        if "title" in self.attributes:
+            metadata.title = self.attributes["title"]
+        if "author" in self.attributes:
+            metadata.author = self.attributes["author"]
+        if "description" in self.attributes:
+            metadata.subject = self.attributes["description"]  # subject maps to description in to_dict()
+        if "keywords" in self.attributes:
             # Parse keywords (comma or space separated)
-            keywords_str = self.attributes['keywords']
+            keywords_str = self.attributes["keywords"]
             if isinstance(keywords_str, str):
-                metadata.keywords = [k.strip() for k in keywords_str.replace(',', ' ').split() if k.strip()]
-        if 'lang' in self.attributes or 'language' in self.attributes:
-            metadata.language = self.attributes.get('lang') or self.attributes.get('language')
+                metadata.keywords = [k.strip() for k in keywords_str.replace(",", " ").split() if k.strip()]
+        if "lang" in self.attributes or "language" in self.attributes:
+            metadata.language = self.attributes.get("lang") or self.attributes.get("language")
 
         # Store all other AsciiDoc attributes in custom field
         for key, value in self.attributes.items():
-            if key not in ('title', 'author', 'description', 'keywords', 'lang', 'language'):
+            if key not in ("title", "author", "description", "keywords", "lang", "language"):
                 metadata.custom[key] = value
 
         return metadata
@@ -1643,5 +1581,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=AsciiDocOptions,
     renderer_options_class="all2md.options.asciidoc.AsciiDocRendererOptions",
     description="Parse and render AsciiDoc format",
-    priority=10
+    priority=10,
 )

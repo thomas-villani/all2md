@@ -19,10 +19,10 @@ from all2md.ast import Table, TableCell, TableRow, Text
 
 
 def build_chart_table(
-        categories: list[str],
-        series_data: list[tuple[str, list[Any]]],
-        category_header: str = "Category",
-        alignments: list[str] | None = None
+    categories: list[str],
+    series_data: list[tuple[str, list[Any]]],
+    category_header: str = "Category",
+    alignments: list[str] | None = None,
 ) -> Table | None:
     """Convert chart series data to AST Table node.
 
@@ -130,12 +130,14 @@ def build_chart_table(
         from typing import cast
 
         from all2md.ast import Alignment
+
         alignments_list: list[Alignment | None] = [cast(Alignment | None, "left")]
         alignments_list.extend([cast(Alignment | None, "center")] * len(series_data))
     else:
         from typing import cast
 
         from all2md.ast import Alignment
+
         alignments_list = [cast(Alignment | None, a) for a in alignments]
 
     return Table(header=header_row, rows=data_rows, alignments=alignments_list)

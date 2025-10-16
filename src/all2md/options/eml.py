@@ -80,72 +80,47 @@ class EmlOptions(BaseParserOptions):
         metadata={
             "help": "Include email headers (From, To, Subject, Date) in output",
             "cli_name": "no-include-headers",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     preserve_thread_structure: bool = field(
         default=True,
         metadata={
             "help": "Maintain email thread/reply chain structure",
             "cli_name": "no-preserve-thread-structure",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     date_format_mode: DateFormatMode = field(
         default=DEFAULT_DATE_FORMAT_MODE,
-        metadata={
-            "help": "Date formatting mode: iso8601, locale, or strftime",
-            "importance": "core"
-        }
+        metadata={"help": "Date formatting mode: iso8601, locale, or strftime", "importance": "core"},
     )
     date_strftime_pattern: str = field(
         default=DEFAULT_DATE_STRFTIME_PATTERN,
-        metadata={
-            "help": "Custom strftime pattern for date formatting",
-            "importance": "advanced"
-        }
+        metadata={"help": "Custom strftime pattern for date formatting", "importance": "advanced"},
     )
     convert_html_to_markdown: bool = field(
         default=DEFAULT_CONVERT_HTML_TO_MARKDOWN,
-        metadata={
-            "help": "Convert HTML content to Markdown",
-            "importance": "core"
-        }
+        metadata={"help": "Convert HTML content to Markdown", "importance": "core"},
     )
     clean_quotes: bool = field(
-        default=DEFAULT_CLEAN_QUOTES,
-        metadata={
-            "help": "Clean and normalize quoted content",
-            "importance": "core"
-        }
+        default=DEFAULT_CLEAN_QUOTES, metadata={"help": "Clean and normalize quoted content", "importance": "core"}
     )
     detect_reply_separators: bool = field(
         default=DEFAULT_DETECT_REPLY_SEPARATORS,
-        metadata={
-            "help": "Detect common reply separators",
-            "importance": "core"
-        }
+        metadata={"help": "Detect common reply separators", "importance": "core"},
     )
     normalize_headers: bool = field(
         default=DEFAULT_NORMALIZE_HEADERS,
-        metadata={
-            "help": "Normalize header casing and whitespace",
-            "importance": "advanced"
-        }
+        metadata={"help": "Normalize header casing and whitespace", "importance": "advanced"},
     )
     preserve_raw_headers: bool = field(
         default=DEFAULT_PRESERVE_RAW_HEADERS,
-        metadata={
-            "help": "Preserve both raw and decoded header values",
-            "importance": "advanced"
-        }
+        metadata={"help": "Preserve both raw and decoded header values", "importance": "advanced"},
     )
     clean_wrapped_urls: bool = field(
         default=DEFAULT_CLEAN_WRAPPED_URLS,
-        metadata={
-            "help": "Clean URL defense/safety wrappers from links",
-            "importance": "security"
-        }
+        metadata={"help": "Clean URL defense/safety wrappers from links", "importance": "security"},
     )
     url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
 
@@ -154,8 +129,8 @@ class EmlOptions(BaseParserOptions):
         default_factory=NetworkFetchOptions,
         metadata={
             "help": "Network security settings for HTML part conversion",
-            "cli_flatten": True  # Nested, handled separately
-        }
+            "cli_flatten": True,  # Nested, handled separately
+        },
     )
 
     # Advanced EML options
@@ -164,47 +139,39 @@ class EmlOptions(BaseParserOptions):
         metadata={
             "help": "Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)",
             "choices": ["asc", "desc"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     subject_as_h1: bool = field(
         default=True,
-        metadata={
-            "help": "Include subject line as H1 heading",
-            "cli_name": "no-subject-as-h1",
-            "importance": "core"
-        }
+        metadata={"help": "Include subject line as H1 heading", "cli_name": "no-subject-as-h1", "importance": "core"},
     )
     include_attach_section_heading: bool = field(
         default=True,
         metadata={
             "help": "Include heading before attachments section",
             "cli_name": "no-include-attach-section-heading",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     attach_section_title: str = field(
-        default="Attachments",
-        metadata={
-            "help": "Title for attachments section heading",
-            "importance": "advanced"
-        }
+        default="Attachments", metadata={"help": "Title for attachments section heading", "importance": "advanced"}
     )
     include_html_parts: bool = field(
         default=True,
         metadata={
             "help": "Include HTML content parts from emails",
             "cli_name": "no-include-html-parts",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     include_plain_parts: bool = field(
         default=True,
         metadata={
             "help": "Include plain text content parts from emails",
             "cli_name": "no-include-plain-parts",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     def __post_init__(self) -> None:

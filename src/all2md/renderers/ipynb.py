@@ -152,10 +152,10 @@ class IpynbRenderer(BaseRenderer):
         return self.options.default_language
 
     def _ensure_language_metadata(
-            self,
-            document: Document,
-            metadata: Dict[str, Any],
-            language: str,
+        self,
+        document: Document,
+        metadata: Dict[str, Any],
+        language: str,
     ) -> None:
         lang_info = metadata.get("language_info")
         if not isinstance(lang_info, dict):
@@ -173,10 +173,10 @@ class IpynbRenderer(BaseRenderer):
         metadata["language_info"] = lang_info
 
     def _ensure_kernel_metadata(
-            self,
-            document: Document,
-            metadata: Dict[str, Any],
-            language: str,
+        self,
+        document: Document,
+        metadata: Dict[str, Any],
+        language: str,
     ) -> None:
         kernelspec = metadata.get("kernelspec")
         if not isinstance(kernelspec, dict):

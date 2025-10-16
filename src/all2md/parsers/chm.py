@@ -85,16 +85,16 @@ class ChmParser(BaseParser):
         chm_path = None
 
         try:
-            if hasattr(input_data, 'read') and hasattr(input_data, 'seek'):
+            if hasattr(input_data, "read") and hasattr(input_data, "seek"):
                 # File-like object - write to temp file
                 input_data.seek(0)
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.chm')
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".chm")
                 temp_file.write(input_data.read())
                 temp_file.close()
                 chm_path = temp_file.name
             elif isinstance(input_data, bytes):
                 # Raw bytes - write to temp file
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.chm')
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".chm")
                 temp_file.write(input_data)
                 temp_file.close()
                 chm_path = temp_file.name
@@ -152,12 +152,7 @@ class ChmParser(BaseParser):
 
         """
         # Emit started event
-        self._emit_progress(
-            "started",
-            "Converting CHM document",
-            current=0,
-            total=1
-        )
+        self._emit_progress("started", "Converting CHM document", current=0, total=1)
 
         children: list[Node] = []
 
@@ -178,12 +173,7 @@ class ChmParser(BaseParser):
         for idx, page_path in enumerate(pages, 1):
             try:
                 # Emit progress for each page
-                self._emit_progress(
-                    "page_done",
-                    f"Processing page {idx}/{total_pages}",
-                    current=idx,
-                    total=total_pages
-                )
+                self._emit_progress("page_done", f"Processing page {idx}/{total_pages}", current=idx, total=total_pages)
 
                 # Extract HTML content from page
                 html_content = self._get_page_content(chm_file, page_path)
@@ -203,12 +193,7 @@ class ChmParser(BaseParser):
                 # Continue with next page
 
         # Emit finished event
-        self._emit_progress(
-            "finished",
-            "CHM conversion completed",
-            current=total_pages,
-            total=total_pages
-        )
+        self._emit_progress("finished", "CHM conversion completed", current=total_pages, total=total_pages)
 
         return Document(children=children)
 
@@ -244,7 +229,7 @@ class ChmParser(BaseParser):
                     """Collect HTML files from CHM."""
                     path = ui.path
                     # Check if it's an HTML file
-                    if path and (path.endswith('.html') or path.endswith('.htm')):
+                    if path and (path.endswith(".html") or path.endswith(".htm")):
                         context.append(path)
                     return 1  # Continue enumeration
 
@@ -254,7 +239,7 @@ class ChmParser(BaseParser):
                 logger.warning(f"Failed to enumerate CHM contents: {e}")
 
         # If still no pages, try to get home page at least
-        if not pages and hasattr(chm_file, 'home') and chm_file.home:
+        if not pages and hasattr(chm_file, "home") and chm_file.home:
             pages.append(chm_file.home)
 
         return pages
@@ -272,11 +257,11 @@ class ChmParser(BaseParser):
         """
         try:
             # Check if node has a Local property (page path)
-            if hasattr(node, 'Local') and node.Local:
+            if hasattr(node, "Local") and node.Local:
                 pages.append(node.Local)
 
             # Recursively process children
-            if hasattr(node, 'children'):
+            if hasattr(node, "children"):
                 for child in node.children:
                     self._collect_topics_recursive(child, pages)
         except Exception as e:
@@ -315,7 +300,7 @@ class ChmParser(BaseParser):
             content_bytes = result[1]
 
             # Try to decode with common encodings
-            for encoding in ['utf-8', 'windows-1252', 'iso-8859-1']:
+            for encoding in ["utf-8", "windows-1252", "iso-8859-1"]:
                 try:
                     return content_bytes.decode(encoding)
                 except (UnicodeDecodeError, AttributeError):
@@ -323,7 +308,7 @@ class ChmParser(BaseParser):
 
             # Fallback: decode with errors='ignore'
             logger.warning(f"Unable to decode page {page_path} with common encodings, using fallback")
-            return content_bytes.decode('utf-8', errors='ignore')
+            return content_bytes.decode("utf-8", errors="ignore")
 
         except Exception as e:
             logger.warning(f"Error retrieving page content for {page_path}: {e}")
@@ -376,13 +361,13 @@ class ChmParser(BaseParser):
         """
         try:
             # Add this node's title if it has one
-            if hasattr(node, 'title') and node.title:
+            if hasattr(node, "title") and node.title:
                 # Cap level at 6 (max heading level)
                 actual_level = min(level, 6)
                 nodes.append(Heading(level=actual_level, content=[Text(content=node.title)]))
 
             # Recursively process children
-            if hasattr(node, 'children'):
+            if hasattr(node, "children"):
                 for child in node.children:
                     self._build_toc_recursive(child, nodes, level + 1)
         except Exception as e:
@@ -411,19 +396,20 @@ class ChmParser(BaseParser):
 
         try:
             # Try to get title from CHM metadata
-            if hasattr(document, 'title') and document.title:
+            if hasattr(document, "title") and document.title:
                 metadata.title = document.title
 
             # If no title, try to extract from home page
-            if not metadata.title and hasattr(document, 'home') and document.home:
+            if not metadata.title and hasattr(document, "home") and document.home:
                 try:
                     home_content = self._get_page_content(document, document.home)
                     if home_content:
                         # Parse home page to extract title
                         from bs4 import BeautifulSoup
                         from bs4.element import Tag
-                        soup = BeautifulSoup(home_content, 'html.parser')
-                        title_tag = soup.find('title')
+
+                        soup = BeautifulSoup(home_content, "html.parser")
+                        title_tag = soup.find("title")
                         if isinstance(title_tag, Tag) and title_tag.string:
                             metadata.title = title_tag.string.strip()
                 except Exception as e:

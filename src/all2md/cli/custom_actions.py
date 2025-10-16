@@ -24,17 +24,17 @@ class TrackingStoreAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            nargs: Optional[Union[int, str]] = None,
-            const: Optional[Any] = None,
-            default: Optional[Any] = None,
-            type: Optional[Callable[[str], Any]] = None,
-            choices: Optional[Sequence[Any]] = None,
-            required: bool = False,
-            help: Optional[str] = None,
-            metavar: Optional[Union[str, tuple[str, ...]]] = None
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[Any] = None,
+        type: Optional[Callable[[str], Any]] = None,
+        choices: Optional[Sequence[Any]] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None,
     ) -> None:
         """Initialize the tracking store action.
 
@@ -85,15 +85,15 @@ class TrackingStoreAction(argparse.Action):
             choices=choices,
             required=required,
             help=help,
-            metavar=metavar
+            metavar=metavar,
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Store the value and mark it as explicitly provided.
 
@@ -113,7 +113,7 @@ class TrackingStoreAction(argparse.Action):
         setattr(namespace, self.dest, values)
 
         # Track that this argument was explicitly provided
-        if not hasattr(namespace, '_provided_args'):
+        if not hasattr(namespace, "_provided_args"):
             namespace._provided_args = set()
         namespace._provided_args.add(self.dest)
 
@@ -125,12 +125,12 @@ class TrackingStoreTrueAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            default: bool = False,
-            required: bool = False,
-            help: Optional[str] = None
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        default: bool = False,
+        required: bool = False,
+        help: Optional[str] = None,
     ) -> None:
         """Initialize the tracking store_true action.
 
@@ -153,24 +153,18 @@ class TrackingStoreTrueAction(argparse.Action):
         env_value = os.environ.get(env_key)
         if env_value is not None:
             # Convert env var to boolean
-            default = env_value.lower() in ('true', '1', 'yes', 'on')
+            default = env_value.lower() in ("true", "1", "yes", "on")
 
         super().__init__(
-            option_strings=option_strings,
-            dest=dest,
-            nargs=0,
-            const=True,
-            default=default,
-            required=required,
-            help=help
+            option_strings=option_strings, dest=dest, nargs=0, const=True, default=default, required=required, help=help
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Store True and mark as explicitly provided.
 
@@ -189,7 +183,7 @@ class TrackingStoreTrueAction(argparse.Action):
         setattr(namespace, self.dest, True)
 
         # Track that this argument was explicitly provided
-        if not hasattr(namespace, '_provided_args'):
+        if not hasattr(namespace, "_provided_args"):
             namespace._provided_args = set()
         namespace._provided_args.add(self.dest)
 
@@ -201,12 +195,12 @@ class TrackingStoreFalseAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            default: bool = True,
-            required: bool = False,
-            help: Optional[str] = None
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        default: bool = True,
+        required: bool = False,
+        help: Optional[str] = None,
     ) -> None:
         """Initialize the tracking store_false action.
 
@@ -230,7 +224,7 @@ class TrackingStoreFalseAction(argparse.Action):
         if env_value is not None:
             # Convert env var to boolean
             # For store_false action, we keep the same logic as store_true
-            default = env_value.lower() in ('true', '1', 'yes', 'on')
+            default = env_value.lower() in ("true", "1", "yes", "on")
 
         super().__init__(
             option_strings=option_strings,
@@ -239,15 +233,15 @@ class TrackingStoreFalseAction(argparse.Action):
             const=False,
             default=default,
             required=required,
-            help=help
+            help=help,
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Store False and mark as explicitly provided.
 
@@ -266,7 +260,7 @@ class TrackingStoreFalseAction(argparse.Action):
         setattr(namespace, self.dest, False)
 
         # Track that this argument was explicitly provided
-        if not hasattr(namespace, '_provided_args'):
+        if not hasattr(namespace, "_provided_args"):
             namespace._provided_args = set()
         namespace._provided_args.add(self.dest)
 
@@ -279,17 +273,17 @@ class TrackingAppendAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            nargs: Optional[Union[int, str]] = None,
-            const: Optional[Any] = None,
-            default: Optional[list] = None,
-            type: Optional[Callable[[str], Any]] = None,
-            choices: Optional[Sequence[Any]] = None,
-            required: bool = False,
-            help: Optional[str] = None,
-            metavar: Optional[Union[str, tuple[str, ...]]] = None
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[list] = None,
+        type: Optional[Callable[[str], Any]] = None,
+        choices: Optional[Sequence[Any]] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None,
     ) -> None:
         """Initialize the tracking append action.
 
@@ -322,7 +316,7 @@ class TrackingAppendAction(argparse.Action):
         env_value = os.environ.get(env_key)
         if env_value is not None:
             # Split on commas for append actions
-            default = [item.strip() for item in env_value.split(',')]
+            default = [item.strip() for item in env_value.split(",")]
             # Apply type conversion if specified (matching CLI behavior)
             if type is not None:
                 try:
@@ -341,15 +335,15 @@ class TrackingAppendAction(argparse.Action):
             choices=choices,
             required=required,
             help=help,
-            metavar=metavar
+            metavar=metavar,
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Append the value and mark as explicitly provided.
 
@@ -401,7 +395,7 @@ class TrackingAppendAction(argparse.Action):
         setattr(namespace, self.dest, items)
 
         # Track that this argument was explicitly provided
-        if not hasattr(namespace, '_provided_args'):
+        if not hasattr(namespace, "_provided_args"):
             namespace._provided_args = set()
         namespace._provided_args.add(self.dest)
 
@@ -410,15 +404,15 @@ class TrackingPositiveIntAction(argparse.Action):
     """Action that validates positive integers with tracking and environment variable support."""
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            nargs: Optional[Union[int, str]] = None,
-            const: Optional[Any] = None,
-            default: Optional[int] = None,
-            required: bool = False,
-            help: Optional[str] = None,
-            metavar: Optional[Union[str, tuple[str, ...]]] = None
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[int] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None,
     ) -> None:
         """Initialize the tracking positive int action.
 
@@ -463,15 +457,15 @@ class TrackingPositiveIntAction(argparse.Action):
             default=default,
             required=required,
             help=help,
-            metavar=metavar
+            metavar=metavar,
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Validate and convert to positive integer.
 
@@ -490,7 +484,7 @@ class TrackingPositiveIntAction(argparse.Action):
         # Handle nargs='?' case where values can be None (use const)
         if values is None:
             setattr(namespace, self.dest, self.const)
-            if not hasattr(namespace, '_provided_args'):
+            if not hasattr(namespace, "_provided_args"):
                 namespace._provided_args = set()
             namespace._provided_args.add(self.dest)
             return
@@ -503,7 +497,7 @@ class TrackingPositiveIntAction(argparse.Action):
             setattr(namespace, self.dest, ivalue)
 
             # Track that this argument was explicitly provided
-            if not hasattr(namespace, '_provided_args'):
+            if not hasattr(namespace, "_provided_args"):
                 namespace._provided_args = set()
             namespace._provided_args.add(self.dest)
         except ValueError:
@@ -517,10 +511,7 @@ class DynamicVersionAction(argparse._VersionAction):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            version_callback: Optional[Callable[[], str]] = None,
-            **kwargs: Any
+        self, option_strings: Sequence[str], version_callback: Optional[Callable[[], str]] = None, **kwargs: Any
     ) -> None:
         """Initialize with a callback to get version dynamically.
 
@@ -538,22 +529,22 @@ class DynamicVersionAction(argparse._VersionAction):
         self.version_callback = version_callback
 
         # Set default parameters for _VersionAction
-        if 'version' not in kwargs:
-            kwargs['version'] = "placeholder"
-        if 'dest' not in kwargs:
-            kwargs['dest'] = argparse.SUPPRESS
-        if 'default' not in kwargs:
-            kwargs['default'] = argparse.SUPPRESS
+        if "version" not in kwargs:
+            kwargs["version"] = "placeholder"
+        if "dest" not in kwargs:
+            kwargs["dest"] = argparse.SUPPRESS
+        if "default" not in kwargs:
+            kwargs["default"] = argparse.SUPPRESS
 
         # Call parent constructor
         super().__init__(option_strings, **kwargs)
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Display version and exit."""
         version = self.version
@@ -586,7 +577,7 @@ def parse_dot_notation(dot_string: str, value: Any) -> dict:
     {'markdown': {'emphasis_symbol': '_'}}
 
     """
-    parts = dot_string.split('.')
+    parts = dot_string.split(".")
     result: dict[str, Any] = {}
     current = result
 

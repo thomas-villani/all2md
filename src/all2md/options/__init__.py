@@ -116,5 +116,5 @@ __all__ = [
     "UNSET",
     "XlsxOptions",
     "ZipOptions",
-    "create_updated_options"
+    "create_updated_options",
 ]

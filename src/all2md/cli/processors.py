@@ -43,13 +43,13 @@ class TransformSpec(TypedDict):
 
 def _final_option_segment(remainder: str) -> str:
     """Return the terminal segment of a dot-delimited option path."""
-    return remainder.split('.')[-1]
+    return remainder.split(".")[-1]
 
 
 def _filter_options_for_formats(
-        options: Dict[str, Any],
-        parser_format: str | None,
-        renderer_format: str | None,
+    options: Dict[str, Any],
+    parser_format: str | None,
+    renderer_format: str | None,
 ) -> Dict[str, Any]:
     """Project a namespaced options dict onto parser/renderer kwargs.
 
@@ -73,11 +73,11 @@ def _filter_options_for_formats(
     renderer_fallback: Dict[str, Any] = {}
 
     for key, value in options.items():
-        if '.' not in key:
+        if "." not in key:
             filtered[key] = value
             continue
 
-        prefix, remainder = key.split('.', 1)
+        prefix, remainder = key.split(".", 1)
         terminal = _final_option_segment(remainder)
 
         if parser_format and prefix == parser_format:
@@ -134,32 +134,34 @@ def _detect_format_for_path(input_path: Path | None) -> str | None:
 
 
 def prepare_options_for_execution(
-        options: Dict[str, Any],
-        input_path: Path | None,
-        parser_hint: str,
-        renderer_hint: str | None = None,
+    options: Dict[str, Any],
+    input_path: Path | None,
+    parser_hint: str,
+    renderer_hint: str | None = None,
 ) -> Dict[str, Any]:
     """Prepare CLI options for API consumption based on detected formats."""
     parser_format: str | None
-    if parser_hint != 'auto':
+    if parser_hint != "auto":
         parser_format = parser_hint
     else:
         parser_format = _detect_format_for_path(input_path)
 
     renderer_format: str | None
-    if renderer_hint and renderer_hint != 'auto':
+    if renderer_hint and renderer_hint != "auto":
         renderer_format = renderer_hint
     else:
         renderer_format = None
 
     return _filter_options_for_formats(options, parser_format, renderer_format)
+
+
 def _process_items_with_progress(
-        items: List[Any],
-        process_fn: Any,
-        args: argparse.Namespace,
-        description: str,
-        log_success_msg: Optional[Any] = None,
-        log_error_msg: Optional[Any] = None
+    items: List[Any],
+    process_fn: Any,
+    args: argparse.Namespace,
+    description: str,
+    log_success_msg: Optional[Any] = None,
+    log_error_msg: Optional[Any] = None,
 ) -> Tuple[int, List[Any], List[Tuple[Any, str]]]:
     """Process items with unified progress tracking.
 
@@ -215,14 +217,14 @@ def _process_items_with_progress(
     from all2md.cli.progress import ProgressContext
 
     # Determine if progress should be shown
-    show_progress = getattr(args, 'progress', False) or getattr(args, 'rich', False) or len(items) > 1
+    show_progress = getattr(args, "progress", False) or getattr(args, "rich", False) or len(items) > 1
 
     successes: List[Any] = []
     failures: List[Tuple[Any, str]] = []
     max_exit_code = EXIT_SUCCESS
 
     # Use unified progress context
-    use_rich = getattr(args, 'rich', False)
+    use_rich = getattr(args, "rich", False)
     with ProgressContext(use_rich, show_progress, len(items), description) as progress:
         for item in items:
             # Process item (should return exit code)
@@ -232,7 +234,7 @@ def _process_items_with_progress(
                 successes.append(item)
                 if log_success_msg:
                     msg = log_success_msg(item)
-                    progress.log(msg, level='success')
+                    progress.log(msg, level="success")
             else:
                 # Item failed - error message should have been set by process_fn
                 # For now, we track it generically
@@ -241,10 +243,10 @@ def _process_items_with_progress(
 
                 if log_error_msg:
                     msg = log_error_msg(item, "Processing failed")
-                    progress.log(msg, level='error')
+                    progress.log(msg, level="error")
 
                 # Check if we should continue or break
-                if not getattr(args, 'skip_errors', False):
+                if not getattr(args, "skip_errors", False):
                     break
 
             progress.update()
@@ -263,6 +265,7 @@ def _check_rich_available() -> bool:
     """
     try:
         import rich  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -295,16 +298,13 @@ def _should_use_rich_output(args: argparse.Namespace) -> bool:
     # Check if Rich is available
     if not _check_rich_available():
         raise DependencyError(
-            converter_name='rich-output',
-            missing_packages=[('rich', '')],
-            message=(
-                "Rich output requires the optional 'rich' dependency. "
-                "Install with: pip install all2md[rich]"
-            ),
+            converter_name="rich-output",
+            missing_packages=[("rich", "")],
+            message=("Rich output requires the optional 'rich' dependency. " "Install with: pip install all2md[rich]"),
         )
 
     # Force rich output regardless of TTY if explicitly requested
-    if hasattr(args, 'force_rich') and args.force_rich:
+    if hasattr(args, "force_rich") and args.force_rich:
         return True
 
     # Only use rich output if stdout is a TTY (not piped/redirected)
@@ -338,17 +338,17 @@ def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
     """
     kwargs = {}
 
-    if hasattr(args, 'rich_code_theme') and args.rich_code_theme:
-        kwargs['code_theme'] = args.rich_code_theme
+    if hasattr(args, "rich_code_theme") and args.rich_code_theme:
+        kwargs["code_theme"] = args.rich_code_theme
 
-    if hasattr(args, 'rich_inline_code_theme') and args.rich_inline_code_theme:
-        kwargs['inline_code_theme'] = args.rich_inline_code_theme
+    if hasattr(args, "rich_inline_code_theme") and args.rich_inline_code_theme:
+        kwargs["inline_code_theme"] = args.rich_inline_code_theme
 
-    if hasattr(args, 'rich_hyperlinks'):
-        kwargs['hyperlinks'] = args.rich_hyperlinks
+    if hasattr(args, "rich_hyperlinks"):
+        kwargs["hyperlinks"] = args.rich_hyperlinks
 
-    if hasattr(args, 'rich_justify') and args.rich_justify:
-        kwargs['justify'] = args.rich_justify
+    if hasattr(args, "rich_justify") and args.rich_justify:
+        kwargs["justify"] = args.rich_justify
 
     return kwargs
 
@@ -378,22 +378,19 @@ def _page_content(content: str, is_rich: bool = False) -> bool:
         system = platform.system()
         is_windows_or_wsl = False
 
-        if system == 'Windows':
+        if system == "Windows":
             is_windows_or_wsl = True
-        elif system == 'Linux':
+        elif system == "Linux":
             # Check if running under WSL
             try:
-                with open('/proc/version', 'r') as f:
-                    if 'microsoft' in f.read().lower():
+                with open("/proc/version", "r") as f:
+                    if "microsoft" in f.read().lower():
                         is_windows_or_wsl = True
             except Exception:
                 pass
 
         if is_windows_or_wsl:
-            print(
-                "Warning: --pager with --rich is not well supported on Windows/WSL.",
-                file=sys.stderr
-            )
+            print("Warning: --pager with --rich is not well supported on Windows/WSL.", file=sys.stderr)
             print("The content will be displayed without paging.", file=sys.stderr)
             return False
 
@@ -424,10 +421,10 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         If transform is unknown or required parameters are missing
 
     """
-    if not hasattr(parsed_args, 'transform_specs'):
+    if not hasattr(parsed_args, "transform_specs"):
         parsed_args.transform_specs = []
 
-    if not hasattr(parsed_args, 'transforms') or not parsed_args.transforms:
+    if not hasattr(parsed_args, "transforms") or not parsed_args.transforms:
         parsed_args.transform_specs = []
         return None
 
@@ -476,7 +473,7 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
                 )
 
         # Record serializable transform spec for reuse (e.g., across processes)
-        transform_specs.append({'name': transform_name, 'params': dict(params)})
+        transform_specs.append({"name": transform_name, "params": dict(params)})
 
         # Create transform instance
         try:
@@ -512,8 +509,8 @@ def _instantiate_transforms_from_specs(transform_specs: list[TransformSpec]) -> 
 
     instances: list[Any] = []
     for spec in transform_specs:
-        name = spec['name']
-        params = spec.get('params', {})
+        name = spec["name"]
+        params = spec.get("params", {})
         instances.append(transform_registry.get_transform(name, **params))
 
     return instances
@@ -558,49 +555,49 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
         preset_used = "strict-html-sanitize"
         # Strict HTML sanitization preset - use format-qualified keys
         # HTML options
-        options['html.strip_dangerous_elements'] = True
-        options['html.network.allow_remote_fetch'] = False
-        options['html.local_files.allow_local_files'] = False
-        options['html.local_files.allow_cwd_files'] = False
+        options["html.strip_dangerous_elements"] = True
+        options["html.network.allow_remote_fetch"] = False
+        options["html.local_files.allow_local_files"] = False
+        options["html.local_files.allow_cwd_files"] = False
         # MHTML options (shares local file access settings)
-        options['mhtml.local_files.allow_local_files'] = False
-        options['mhtml.local_files.allow_cwd_files'] = False
+        options["mhtml.local_files.allow_local_files"] = False
+        options["mhtml.local_files.allow_cwd_files"] = False
         # EML options (for HTML content in emails)
-        options['eml.html_network.allow_remote_fetch'] = False
+        options["eml.html_network.allow_remote_fetch"] = False
 
     if parsed_args.safe_mode:
         preset_used = "safe-mode"
         # Balanced security for untrusted input
         # HTML options
-        options['html.strip_dangerous_elements'] = True
-        options['html.network.allow_remote_fetch'] = True
-        options['html.network.require_https'] = True
-        options['html.local_files.allow_local_files'] = False
-        options['html.local_files.allow_cwd_files'] = False
+        options["html.strip_dangerous_elements"] = True
+        options["html.network.allow_remote_fetch"] = True
+        options["html.network.require_https"] = True
+        options["html.local_files.allow_local_files"] = False
+        options["html.local_files.allow_cwd_files"] = False
         # MHTML options
-        options['mhtml.local_files.allow_local_files'] = False
-        options['mhtml.local_files.allow_cwd_files'] = False
+        options["mhtml.local_files.allow_local_files"] = False
+        options["mhtml.local_files.allow_cwd_files"] = False
         # EML options
-        options['eml.html_network.allow_remote_fetch'] = True
-        options['eml.html_network.require_https'] = True
+        options["eml.html_network.allow_remote_fetch"] = True
+        options["eml.html_network.require_https"] = True
 
     if parsed_args.paranoid_mode:
         preset_used = "paranoid-mode"
         # Maximum security - most restrictive settings
         # HTML options
-        options['html.strip_dangerous_elements'] = True
-        options['html.network.allow_remote_fetch'] = False  # Block all remote fetches
-        options['html.max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB
-        options['html.local_files.allow_local_files'] = False
-        options['html.local_files.allow_cwd_files'] = False
+        options["html.strip_dangerous_elements"] = True
+        options["html.network.allow_remote_fetch"] = False  # Block all remote fetches
+        options["html.max_asset_size_bytes"] = 5 * 1024 * 1024  # 5MB
+        options["html.local_files.allow_local_files"] = False
+        options["html.local_files.allow_cwd_files"] = False
         # MHTML options
-        options['mhtml.local_files.allow_local_files'] = False
-        options['mhtml.local_files.allow_cwd_files'] = False
+        options["mhtml.local_files.allow_local_files"] = False
+        options["mhtml.local_files.allow_cwd_files"] = False
         # EML options
-        options['eml.html_network.allow_remote_fetch'] = False  # Block all remote fetches
-        options['eml.max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB
+        options["eml.html_network.allow_remote_fetch"] = False  # Block all remote fetches
+        options["eml.max_asset_size_bytes"] = 5 * 1024 * 1024  # 5MB
         # Base options (no format prefix - applies to all formats)
-        options['max_asset_size_bytes'] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
+        options["max_asset_size_bytes"] = 5 * 1024 * 1024  # 5MB (reduced from default 20MB)
 
     # Show warning if preset is used
     if preset_used:
@@ -610,7 +607,9 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
     return options
 
 
-def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
+def setup_and_validate_options(
+    parsed_args: argparse.Namespace,
+) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
     """Set up conversion options and build transforms.
 
     Parameters
@@ -634,25 +633,22 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
 
     # Load configuration from file (with auto-discovery if not explicitly specified)
     config_from_file = {}
-    env_config_path = os.environ.get('ALL2MD_CONFIG')
+    env_config_path = os.environ.get("ALL2MD_CONFIG")
 
     # Priority order:
     # 1. Explicit --config flag
     # 2. ALL2MD_CONFIG environment variable
     # 3. Auto-discovered config (.all2md.toml or .all2md.json in cwd or home)
-    explicit_config_path = getattr(parsed_args, 'config', None)
+    explicit_config_path = getattr(parsed_args, "config", None)
 
     try:
-        config_from_file = load_config_with_priority(
-            explicit_path=explicit_config_path,
-            env_var_path=env_config_path
-        )
+        config_from_file = load_config_with_priority(explicit_path=explicit_config_path, env_var_path=env_config_path)
     except argparse.ArgumentTypeError as e:
         print(f"Error loading configuration file: {e}", file=sys.stderr)
         raise
 
     # Apply preset if specified (preset is applied to config, then CLI args override)
-    if hasattr(parsed_args, 'preset') and parsed_args.preset:
+    if hasattr(parsed_args, "preset") and parsed_args.preset:
         try:
             config_from_file = apply_preset(parsed_args.preset, config_from_file)
         except ValueError as e:
@@ -674,20 +670,17 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
 
 
 def validate_arguments(
-        parsed_args: argparse.Namespace,
-        files: Optional[List[Path]] = None,
-        *,
-        logger: Optional[logging.Logger] = None,
+    parsed_args: argparse.Namespace,
+    files: Optional[List[Path]] = None,
+    *,
+    logger: Optional[logging.Logger] = None,
 ) -> bool:
     """Backward-compatible shim for CLI argument validation."""
     return _validate_arguments(parsed_args, files, logger=logger)
 
 
 def process_stdin(
-        parsed_args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    parsed_args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
     """Process input from stdin.
 
@@ -726,14 +719,11 @@ def process_stdin(
             options,
             None,
             format_arg,
-            'markdown',
+            "markdown",
         )
 
         markdown_content = to_markdown(
-            input_source,
-            source_format=cast(DocumentFormat, format_arg),
-            transforms=transforms,
-            **effective_options
+            input_source, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **effective_options
         )
 
         if parsed_args.out:
@@ -754,6 +744,7 @@ def process_stdin(
                     if use_rich_output:
                         from rich.console import Console
                         from rich.markdown import Markdown
+
                         console = Console()
                         # Get Rich markdown kwargs from CLI args
                         rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
@@ -799,11 +790,11 @@ def process_stdin(
 
 
 def process_multi_file(
-        files: List[Path],
-        parsed_args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    files: List[Path],
+    parsed_args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process multiple files with appropriate output handling.
 
@@ -853,27 +844,28 @@ def process_multi_file(
 
         # Determine output path and target format
         output_path: Optional[Path] = None
-        target_format = 'markdown'  # default
+        target_format = "markdown"  # default
 
         if parsed_args.out:
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Auto-detect target format from output filename if --output-type not explicitly provided
-            provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
-            if 'output_type' not in provided_args:
+            provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
+            if "output_type" not in provided_args:
                 from all2md.converter_registry import registry
+
                 detected = registry.detect_format(output_path)
-                target_format = detected if detected != 'txt' else 'markdown'
+                target_format = detected if detected != "txt" else "markdown"
             else:
                 target_format = parsed_args.output_type
         elif parsed_args.output_dir:
-            target_format = getattr(parsed_args, 'output_type', 'markdown')
+            target_format = getattr(parsed_args, "output_type", "markdown")
             output_path = generate_output_path(
                 file, Path(parsed_args.output_dir), False, None, target_format=target_format
             )
         else:
-            target_format = 'markdown'  # stdout, always markdown
+            target_format = "markdown"  # stdout, always markdown
 
         # Handle pager for stdout output
         if output_path is None and parsed_args.pager:
@@ -882,21 +874,19 @@ def process_multi_file(
                     options,
                     file,
                     format_arg,
-                    'markdown',
+                    "markdown",
                 )
 
                 # Convert the document
                 markdown_content = to_markdown(
-                    file,
-                    source_format=cast(DocumentFormat, format_arg),
-                    transforms=transforms,
-                    **effective_options
+                    file, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **effective_options
                 )
 
                 # Display with pager
                 if should_use_rich:
                     from rich.console import Console
                     from rich.markdown import Markdown
+
                     console = Console()
                     # Get Rich markdown kwargs from CLI args
                     rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
@@ -927,7 +917,7 @@ def process_multi_file(
                     print(f"Error: {e}", file=sys.stderr)
                 return exit_code
 
-        transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(parsed_args, 'transform_specs', None))
+        transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(parsed_args, "transform_specs", None))
         exit_code, file_str, error = convert_single_file(
             file,
             output_path,
@@ -952,7 +942,7 @@ def process_multi_file(
         return _create_output_package(parsed_args, files, options, format_arg, transforms)
 
     # Check for merge-from-list mode (takes precedence over collate)
-    if hasattr(parsed_args, 'merge_from_list') and parsed_args.merge_from_list:
+    if hasattr(parsed_args, "merge_from_list") and parsed_args.merge_from_list:
         return process_merge_from_list(parsed_args, options, format_arg, transforms)
 
     # Otherwise, process files normally to disk
@@ -967,11 +957,11 @@ def process_multi_file(
 
 
 def _create_output_package(
-        parsed_args: argparse.Namespace,
-        input_files: List[Path],
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    parsed_args: argparse.Namespace,
+    input_files: List[Path],
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Create output package (zip) after successful conversion.
 
@@ -1007,12 +997,12 @@ def _create_output_package(
 
     try:
         # Determine target format
-        target_format = getattr(parsed_args, 'output_type', 'markdown')
+        target_format = getattr(parsed_args, "output_type", "markdown")
 
         # Determine zip path
-        if parsed_args.zip == 'auto':
+        if parsed_args.zip == "auto":
             # Use output_dir name if available, otherwise use generic name
-            if hasattr(parsed_args, 'output_dir') and parsed_args.output_dir:
+            if hasattr(parsed_args, "output_dir") and parsed_args.output_dir:
                 output_dir_name = Path(parsed_args.output_dir).name
                 zip_path = Path(f"{output_dir_name}.zip")
             else:
@@ -1028,7 +1018,7 @@ def _create_output_package(
             target_format=target_format,
             options=options,
             transforms=transforms,
-            source_format=format_arg
+            source_format=format_arg,
         )
 
         print(f"Created package: {created_zip}", file=sys.stderr)
@@ -1063,12 +1053,13 @@ def load_options_from_json(json_file_path: str) -> dict:
         if not json_path.exists():
             raise argparse.ArgumentTypeError(f"Options JSON file does not exist: {json_file_path}")
 
-        with open(json_path, 'r', encoding='utf-8') as f:
+        with open(json_path, "r", encoding="utf-8") as f:
             options = json.load(f)
 
         if not isinstance(options, dict):
             raise argparse.ArgumentTypeError(
-                f"Options JSON file must contain a JSON object, got {type(options).__name__}")
+                f"Options JSON file must contain a JSON object, got {type(options).__name__}"
+            )
 
         return options
 
@@ -1079,10 +1070,7 @@ def load_options_from_json(json_file_path: str) -> dict:
 
 
 # TODO: what is this for? Is it needed?
-def merge_exclusion_patterns_from_json(
-        parsed_args: argparse.Namespace,
-        json_options: dict
-) -> Optional[List[str]]:
+def merge_exclusion_patterns_from_json(parsed_args: argparse.Namespace, json_options: dict) -> Optional[List[str]]:
     """Merge exclusion patterns from JSON options if not specified via CLI.
 
     Parameters
@@ -1098,12 +1086,12 @@ def merge_exclusion_patterns_from_json(
         Updated exclusion patterns or None if no changes
 
     """
-    if 'exclude' in json_options and parsed_args.exclude is None:
-        return json_options['exclude']
+    if "exclude" in json_options and parsed_args.exclude is None:
+        return json_options["exclude"]
     return None
 
 
-def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple[Path, Optional[str]]]:
+def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple[Path, Optional[str]]]:
     r"""Parse merge list file and return file paths with optional section titles.
 
     Parameters
@@ -1157,7 +1145,7 @@ def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple
     """
     try:
         # Check if reading from stdin
-        if list_path == '-' or str(list_path) == '-':
+        if list_path == "-" or str(list_path) == "-":
             # Read from stdin
             lines = sys.stdin.readlines()
             # Resolve paths relative to current working directory
@@ -1168,7 +1156,7 @@ def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple
             if not list_path.exists():
                 raise argparse.ArgumentTypeError(f"Merge list file does not exist: {list_path}")
 
-            with open(list_path, 'r', encoding='utf-8') as f:
+            with open(list_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
             # Resolve paths relative to list file directory
@@ -1182,7 +1170,7 @@ def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple
             line = line.strip()
 
             # Skip comments and blank lines
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Split by separator
@@ -1193,7 +1181,7 @@ def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple
             section_title = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
 
             # Skip if second part is a comment
-            if section_title and section_title.startswith('#'):
+            if section_title and section_title.startswith("#"):
                 section_title = None
 
             # Resolve file path (relative to list file directory)
@@ -1207,14 +1195,13 @@ def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple
             # Validate file exists
             if not file_path.exists():
                 raise argparse.ArgumentTypeError(
-                    f"File not found in merge list (line {line_num}): {file_path_str}\n"
-                    f"Resolved path: {file_path}"
+                    f"File not found in merge list (line {line_num}): {file_path_str}\n" f"Resolved path: {file_path}"
                 )
 
             entries.append((file_path, section_title))
 
         if not entries:
-            source_desc = "stdin" if (list_path == '-' or str(list_path) == '-') else str(list_path)
+            source_desc = "stdin" if (list_path == "-" or str(list_path) == "-") else str(list_path)
             raise argparse.ArgumentTypeError(f"Merge list is empty or contains no valid entries: {source_desc}")
 
         return entries
@@ -1222,15 +1209,12 @@ def parse_merge_list(list_path: Path | str, separator: str = '\t') -> List[Tuple
     except argparse.ArgumentTypeError:
         raise
     except Exception as e:
-        source_desc = "stdin" if (list_path == '-' or str(list_path) == '-') else str(list_path)
+        source_desc = "stdin" if (list_path == "-" or str(list_path) == "-") else str(list_path)
         raise argparse.ArgumentTypeError(f"Error reading merge list from {source_desc}: {e}") from e
 
 
 def process_merge_from_list(
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
     """Process files from a list file and merge them into a single document.
 
@@ -1258,7 +1242,7 @@ def process_merge_from_list(
     # Parse the list file (or stdin if '-')
     try:
         list_path_arg = args.merge_from_list
-        separator = args.list_separator if hasattr(args, 'list_separator') else '\t'
+        separator = args.list_separator if hasattr(args, "list_separator") else "\t"
 
         # Pass as string to preserve '-' for stdin detection
         entries = parse_merge_list(list_path_arg, separator=separator)
@@ -1299,10 +1283,7 @@ def process_merge_from_list(
             # Add section title if provided and not disabled
             if section_title and not args.no_section_titles:
                 # Insert section heading at the beginning
-                section_heading = Heading(
-                    level=1,
-                    content=[Text(content=section_title)]
-                )
+                section_heading = Heading(level=1, content=[Text(content=section_title)])
                 merged_children.append(section_heading)
 
             # Add all children from this document
@@ -1332,10 +1313,10 @@ def process_merge_from_list(
             exit_code = process_entry(file_path, section_title)
 
             if exit_code == EXIT_SUCCESS:
-                progress.log(f"[OK] Processed {file_path}", level='success')
+                progress.log(f"[OK] Processed {file_path}", level="success")
             else:
                 error_msg = failed[-1][1] if failed else "Unknown error"
-                progress.log(f"[ERROR] {file_path}: {error_msg}", level='error')
+                progress.log(f"[ERROR] {file_path}: {error_msg}", level="error")
                 if not args.skip_errors:
                     break
 
@@ -1359,9 +1340,9 @@ def process_merge_from_list(
 
         # Then generate TOC
         toc_transform = GenerateTocTransform(
-            title=args.toc_title if hasattr(args, 'toc_title') else "Table of Contents",
-            max_depth=args.toc_depth if hasattr(args, 'toc_depth') else 3,
-            position=args.toc_position if hasattr(args, 'toc_position') else "top"
+            title=args.toc_title if hasattr(args, "toc_title") else "Table of Contents",
+            max_depth=args.toc_depth if hasattr(args, "toc_depth") else 3,
+            position=args.toc_position if hasattr(args, "toc_position") else "top",
         )
         transformed = toc_transform.transform(merged_doc)
         assert isinstance(transformed, Document), "Transform should return Document"
@@ -1387,7 +1368,7 @@ def process_merge_from_list(
 
         # Write output
         if output_path:
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(markdown_content)
             if not args.quiet:
                 print(f"Successfully merged {len(entries)} files to {output_path}")
@@ -1408,11 +1389,7 @@ def process_merge_from_list(
         return get_exit_code_for_exception(e)
 
 
-def process_detect_only(
-        files: List[Path],
-        args: argparse.Namespace,
-        format_arg: str
-) -> int:
+def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg: str) -> int:
     """Process files in detect-only mode - show format detection without conversion plan.
 
     Parameters
@@ -1460,6 +1437,7 @@ def process_detect_only(
             else:
                 # Check MIME type
                 import mimetypes
+
                 mime_type, _ = mimetypes.guess_type(str(file))
                 if mime_type and metadata and mime_type in metadata.mime_types:
                     detection_method = "MIME type"
@@ -1485,30 +1463,33 @@ def process_detect_only(
                         any_issues = True
                         if installed_version:
                             dependency_status.append(
-                                (install_name, 'version mismatch', installed_version, version_spec)
+                                (install_name, "version mismatch", installed_version, version_spec)
                             )
                         else:
-                            dependency_status.append((install_name, 'missing', None, version_spec))
+                            dependency_status.append((install_name, "missing", None, version_spec))
                     else:
-                        dependency_status.append((install_name, 'ok', installed_version, version_spec))
+                        dependency_status.append((install_name, "ok", installed_version, version_spec))
                 else:
                     from all2md.dependencies import check_package_installed
+
                     # Use import_name for import checking
                     if not check_package_installed(import_name):
                         converter_available = False
                         any_issues = True
-                        dependency_status.append((install_name, 'missing', None, None))
+                        dependency_status.append((install_name, "missing", None, None))
                     else:
-                        dependency_status.append((install_name, 'ok', None, None))
+                        dependency_status.append((install_name, "ok", None, None))
 
-        detection_results.append({
-            'file': file,
-            'format': detected_format,
-            'method': detection_method,
-            'available': converter_available,
-            'deps': dependency_status,
-            'metadata': converter_metadata,
-        })
+        detection_results.append(
+            {
+                "file": file,
+                "format": detected_format,
+                "method": detection_method,
+                "available": converter_available,
+                "deps": dependency_status,
+                "metadata": converter_metadata,
+            }
+        )
 
     # Display results
     if args.rich:
@@ -1526,17 +1507,12 @@ def process_detect_only(
             table.add_column("Converter Status", style="white")
 
             for result in detection_results:
-                if result['available']:
+                if result["available"]:
                     status = "[green][OK] Available[/green]"
                 else:
                     status = "[red][X] Unavailable[/red]"
 
-                table.add_row(
-                    str(result['file']),
-                    result['format'].upper(),
-                    result['method'],
-                    status
-                )
+                table.add_row(str(result["file"]), result["format"].upper(), result["method"], status)
 
             console.print(table)
 
@@ -1544,18 +1520,18 @@ def process_detect_only(
             if any_issues:
                 console.print("\n[bold yellow]Dependency Issues:[/bold yellow]")
                 for result in detection_results:
-                    if not result['available']:
+                    if not result["available"]:
                         console.print(f"\n[cyan]{result['file']}[/cyan] ({result['format'].upper()}):")
-                        for pkg_name, status, installed, required in result['deps']:
-                            if status == 'missing':
+                        for pkg_name, status, installed, required in result["deps"]:
+                            if status == "missing":
                                 console.print(f"  [red][X] {pkg_name} - Not installed[/red]")
-                            elif status == 'version mismatch':
+                            elif status == "version mismatch":
                                 msg = f"  [yellow][!] {pkg_name} - Version mismatch"
                                 msg += f" (requires {required}, installed: {installed})[/yellow]"
                                 console.print(msg)
 
-                        if result['metadata']:
-                            install_cmd = result['metadata'].get_install_command()
+                        if result["metadata"]:
+                            install_cmd = result["metadata"].get_install_command()
                             console.print(f"  [dim]Install: {install_cmd}[/dim]")
 
         except ImportError:
@@ -1565,24 +1541,24 @@ def process_detect_only(
     if not args.rich:
         # Plain text output
         for i, result in enumerate(detection_results, 1):
-            status = "[OK]" if result['available'] else "[X]"
+            status = "[OK]" if result["available"] else "[X]"
             print(f"{i:3d}. {status} {result['file']}")
             print(f"     Format: {result['format'].upper()}")
             print(f"     Detection: {result['method']}")
 
-            if result['deps']:
+            if result["deps"]:
                 print("     Dependencies:")
-                for pkg_name, status_str, installed, required in result['deps']:
-                    if status_str == 'ok':
+                for pkg_name, status_str, installed, required in result["deps"]:
+                    if status_str == "ok":
                         version_info = f" ({installed})" if installed else ""
                         print(f"       [OK] {pkg_name}{version_info}")
-                    elif status_str == 'missing':
+                    elif status_str == "missing":
                         print(f"       [MISSING] {pkg_name}")
-                    elif status_str == 'version mismatch':
+                    elif status_str == "version mismatch":
                         print(f"       [MISMATCH] {pkg_name} (requires {required}, installed: {installed})")
 
-                if not result['available'] and result['metadata']:
-                    install_cmd = result['metadata'].get_install_command()
+                if not result["available"] and result["metadata"]:
+                    install_cmd = result["metadata"].get_install_command()
                     print(f"     Install: {install_cmd}")
             else:
                 print("     Dependencies: None required")
@@ -1591,7 +1567,7 @@ def process_detect_only(
 
     print(f"\nTotal files analyzed: {len(detection_results)}")
     if any_issues:
-        unavailable_count = sum(1 for r in detection_results if not r['available'])
+        unavailable_count = sum(1 for r in detection_results if not r["available"])
         print(f"Files with unavailable parsers: {unavailable_count}")
         return EXIT_DEPENDENCY_ERROR
     else:
@@ -1599,11 +1575,7 @@ def process_detect_only(
         return 0
 
 
-def process_dry_run(
-        files: List[Path],
-        args: argparse.Namespace,
-        format_arg: str
-) -> int:
+def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str) -> int:
     """Process files in dry run mode - show what would be done without doing it.
 
     Parameters
@@ -1667,10 +1639,7 @@ def process_dry_run(
         dependency_issues = []
         if converter_metadata:
             # Use context-aware checking to get accurate dependency requirements for this file
-            required_packages = converter_metadata.get_required_packages_for_content(
-                content=None,
-                input_data=str(file)
-            )
+            required_packages = converter_metadata.get_required_packages_for_content(content=None, input_data=str(file))
 
             if required_packages:
                 for pkg_name, _import_name, version_spec in required_packages:
@@ -1684,18 +1653,21 @@ def process_dry_run(
                                 dependency_issues.append(f"{pkg_name} (missing)")
                     else:
                         from all2md.dependencies import check_package_installed
+
                         if not check_package_installed(pkg_name):
                             converter_available = False
                             dependency_issues.append(f"{pkg_name} (missing)")
 
-        file_info_list.append({
-            'file': file,
-            'detected_format': detected_format,
-            'detection_method': detection_method,
-            'converter_available': converter_available,
-            'dependency_issues': dependency_issues,
-            'converter_metadata': converter_metadata,
-        })
+        file_info_list.append(
+            {
+                "file": file,
+                "detected_format": detected_format,
+                "detection_method": detection_method,
+                "converter_available": converter_available,
+                "dependency_issues": dependency_issues,
+                "converter_metadata": converter_metadata,
+            }
+        )
 
     if args.rich:
         try:
@@ -1711,7 +1683,7 @@ def process_dry_run(
             table.add_column("Status", style="white")
 
             for info in file_info_list:
-                file = info['file']
+                file = info["file"]
 
                 if args.collate:
                     # For collation, all files go to one output
@@ -1724,33 +1696,27 @@ def process_dry_run(
                     if len(file_info_list) == 1 and args.out and not args.output_dir:
                         output_path = Path(args.out)
                     else:
-                        target_format = getattr(args, 'output_type', 'markdown')
+                        target_format = getattr(args, "output_type", "markdown")
                         output_path = generate_output_path(
                             file,
                             Path(args.output_dir) if args.output_dir else None,
                             args.preserve_structure,
                             base_input_dir,
                             dry_run=True,
-                            target_format=target_format
+                            target_format=target_format,
                         )
                     output_str = str(output_path)
 
                 # Format status with color coding
-                if info['converter_available']:
+                if info["converter_available"]:
                     status = "[green][OK] Ready[/green]"
                 else:
-                    issues = ", ".join(info['dependency_issues'][:2])
-                    if len(info['dependency_issues']) > 2:
+                    issues = ", ".join(info["dependency_issues"][:2])
+                    if len(info["dependency_issues"]) > 2:
                         issues += "..."
                     status = f"[red][X] {issues}[/red]"
 
-                table.add_row(
-                    str(file),
-                    output_str,
-                    info['detected_format'].upper(),
-                    info['detection_method'],
-                    status
-                )
+                table.add_row(str(file), output_str, info["detected_format"].upper(), info["detection_method"], status)
 
             console.print(table)
 
@@ -1761,7 +1727,7 @@ def process_dry_run(
     if not args.rich:
         # Simple text output
         for i, info in enumerate(file_info_list, 1):
-            file = info['file']
+            file = info["file"]
 
             if args.collate:
                 if args.out:
@@ -1772,26 +1738,26 @@ def process_dry_run(
                 if len(file_info_list) == 1 and args.out and not args.output_dir:
                     output_path = Path(args.out)
                 else:
-                    target_format = getattr(args, 'output_type', 'markdown')
+                    target_format = getattr(args, "output_type", "markdown")
                     output_path = generate_output_path(
                         file,
                         Path(args.output_dir) if args.output_dir else None,
                         args.preserve_structure,
                         base_input_dir,
                         dry_run=True,
-                        target_format=target_format
+                        target_format=target_format,
                     )
                 output_str = f" -> {output_path}"
 
             # Format detection and status
-            status = "[OK]" if info['converter_available'] else "[X]"
+            status = "[OK]" if info["converter_available"] else "[X]"
             format_str = f"[{info['detected_format'].upper()}, {info['detection_method']}]"
 
             print(f"{i:3d}. {status} {file}{output_str}")
             print(f"     Format: {format_str}")
 
-            if not info['converter_available']:
-                issues_str = ", ".join(info['dependency_issues'])
+            if not info["converter_available"]:
+                issues_str = ", ".join(info["dependency_issues"])
                 print(f"     Issues: {issues_str}")
 
             print()  # Blank line between files
@@ -1803,9 +1769,9 @@ def process_dry_run(
     if args.recursive:
         print("  Recursive directory processing: enabled")
     # Check if parallel was explicitly provided
-    parallel_provided = hasattr(args, '_provided_args') and 'parallel' in args._provided_args
+    parallel_provided = hasattr(args, "_provided_args") and "parallel" in args._provided_args
     if parallel_provided and args.parallel is None:
-        worker_count = os.cpu_count() or 'auto'
+        worker_count = os.cpu_count() or "auto"
         print(f"  Parallel processing: {worker_count} workers (auto-detected)")
     elif isinstance(args.parallel, int) and args.parallel != 1:
         print(f"  Parallel processing: {args.parallel} workers")
@@ -1822,11 +1788,11 @@ def process_dry_run(
 
 
 def convert_single_file_for_collation(
-        input_path: Path,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-        file_separator: str = "\n\n---\n\n"
+    input_path: Path,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
+    file_separator: str = "\n\n---\n\n",
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown for collation.
 
@@ -1854,15 +1820,12 @@ def convert_single_file_for_collation(
             options,
             input_path,
             format_arg,
-            'markdown',
+            "markdown",
         )
 
         # Convert the document
         markdown_content = to_markdown(
-            input_path,
-            source_format=cast(DocumentFormat, format_arg),
-            transforms=transforms,
-            **effective_options
+            input_path, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **effective_options
         )
 
         # Add file header and separator
@@ -1882,11 +1845,11 @@ def convert_single_file_for_collation(
 
 
 def process_files_collated(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    files: List[Path],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process files and collate them into a single output.
 
@@ -1953,10 +1916,10 @@ def process_files_collated(
             exit_code = process_file(file)
 
             if exit_code == EXIT_SUCCESS:
-                progress.log(f"[OK] Processed {file}", level='success')
+                progress.log(f"[OK] Processed {file}", level="success")
             else:
                 error_msg = failed[-1][1] if failed else "Unknown error"
-                progress.log(f"[ERROR] {file}: {error_msg}", level='error')
+                progress.log(f"[ERROR] {file}: {error_msg}", level="error")
                 if not args.skip_errors:
                     break
 
@@ -1975,24 +1938,22 @@ def process_files_collated(
     # Summary using unified renderer
     if not args.no_summary:
         from all2md.cli.progress import SummaryRenderer
+
         renderer = SummaryRenderer(use_rich=args.rich)
         renderer.render_conversion_summary(
-            successful=len(collated_content),
-            failed=len(failed),
-            total=len(files),
-            title="Collation Summary"
+            successful=len(collated_content), failed=len(failed), total=len(files), title="Collation Summary"
         )
 
     return max_exit_code
 
 
 def generate_output_path(
-        input_file: Path,
-        output_dir: Optional[Path] = None,
-        preserve_structure: bool = False,
-        base_input_dir: Optional[Path] = None,
-        dry_run: bool = False,
-        target_format: str = "markdown"
+    input_file: Path,
+    output_dir: Optional[Path] = None,
+    preserve_structure: bool = False,
+    base_input_dir: Optional[Path] = None,
+    dry_run: bool = False,
+    target_format: str = "markdown",
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -2045,14 +2006,14 @@ def generate_output_path(
 
 
 def convert_single_file(
-        input_path: Path,
-        output_path: Optional[Path],
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-        show_progress: bool = False,
-        target_format: str = 'markdown',
-        transform_specs: Optional[list[TransformSpec]] = None
+    input_path: Path,
+    output_path: Optional[Path],
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
+    show_progress: bool = False,
+    target_format: str = "markdown",
+    transform_specs: Optional[list[TransformSpec]] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2088,13 +2049,13 @@ def convert_single_file(
             local_transforms = _instantiate_transforms_from_specs(transform_specs)
 
         renderer_hint = target_format
-        if renderer_hint == 'auto' and output_path:
+        if renderer_hint == "auto" and output_path:
             try:
                 detected_target = registry.detect_format(output_path)
-                if detected_target and detected_target != 'txt':
+                if detected_target and detected_target != "txt":
                     renderer_hint = detected_target
             except Exception:  # pragma: no cover - best effort
-                renderer_hint = 'auto'
+                renderer_hint = "auto"
 
         effective_options = prepare_options_for_execution(
             options,
@@ -2112,7 +2073,7 @@ def convert_single_file(
                 source_format=cast(DocumentFormat, format_arg),
                 target_format=cast(DocumentFormat, target_format),
                 transforms=local_transforms,
-                **effective_options
+                **effective_options,
             )
             return EXIT_SUCCESS, str(input_path), None
         else:
@@ -2121,14 +2082,14 @@ def convert_single_file(
                 input_path,
                 output=None,
                 source_format=cast(DocumentFormat, format_arg),
-                target_format='markdown',
+                target_format="markdown",
                 transforms=local_transforms,
-                **effective_options
+                **effective_options,
             )
             # convert() returns str for markdown, bytes for binary formats
             if isinstance(result, bytes):
                 # This shouldn't happen for markdown, but handle it just in case
-                print(result.decode('utf-8', errors='replace'))
+                print(result.decode("utf-8", errors="replace"))
             else:
                 print(result)
             return EXIT_SUCCESS, str(input_path), None
@@ -2144,11 +2105,11 @@ def convert_single_file(
 
 
 def process_files_unified(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    files: List[Path],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process files with unified progress tracking (rich/tqdm/plain).
 
@@ -2200,8 +2161,10 @@ def process_files_unified(
         if should_use_rich:
             # Import rich components
             from rich.markdown import Markdown
+
             try:
                 from rich.console import Console
+
                 console = Console()
 
                 # Show progress during conversion
@@ -2212,13 +2175,10 @@ def process_files_unified(
                             options,
                             file,
                             format_arg,
-                            'markdown',
+                            "markdown",
                         )
                         markdown_content = to_markdown(
-                            file,
-                            source_format=cast(Any, format_arg),
-                            transforms=transforms,
-                            **effective_options
+                            file, source_format=cast(Any, format_arg), transforms=transforms, **effective_options
                         )
                         progress.update()
                     except Exception as e:
@@ -2228,7 +2188,7 @@ def process_files_unified(
                             error = f"Missing dependency: {e}"
                         elif not isinstance(e, All2MdError):
                             error = f"Unexpected error: {e}"
-                        progress.log(f"[ERROR] {file}: {error}", level='error')
+                        progress.log(f"[ERROR] {file}: {error}", level="error")
                         return exit_code
 
                 # After progress completes, print the rich-formatted output
@@ -2246,13 +2206,10 @@ def process_files_unified(
                 options,
                 file,
                 format_arg,
-                'markdown',
+                "markdown",
             )
             markdown_content = to_markdown(
-                file,
-                source_format=cast(Any, format_arg),
-                transforms=transforms,
-                **effective_options
+                file, source_format=cast(Any, format_arg), transforms=transforms, **effective_options
             )
             print(markdown_content)
             return EXIT_SUCCESS
@@ -2270,13 +2227,12 @@ def process_files_unified(
     show_progress = args.progress or (should_use_rich and args.rich) or len(files) > 1
     use_rich = should_use_rich
 
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     # Check if parallel processing is enabled
     use_parallel = (
-        (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
-        (isinstance(args.parallel, int) and args.parallel != 1)
-    )
+        hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
+    ) or (isinstance(args.parallel, int) and args.parallel != 1)
 
     if use_parallel:
         # Parallel processing with progress
@@ -2288,13 +2244,13 @@ def process_files_unified(
 
                 # Submit files to executor
                 for file in files:
-                    target_format = getattr(args, 'output_type', 'markdown')
+                    target_format = getattr(args, "output_type", "markdown")
                     output_path = generate_output_path(
                         file,
                         Path(args.output_dir) if args.output_dir else None,
                         args.preserve_structure,
                         base_input_dir,
-                        target_format=target_format
+                        target_format=target_format,
                     )
                     future = executor.submit(
                         convert_single_file,
@@ -2317,12 +2273,12 @@ def process_files_unified(
                     if result_exit_code == EXIT_SUCCESS:
                         results.append((file, output_path))
                         if output_path:
-                            progress.log(f"[OK] {file} -> {output_path}", level='success')
+                            progress.log(f"[OK] {file} -> {output_path}", level="success")
                         else:
-                            progress.log(f"[OK] Converted {file}", level='success')
+                            progress.log(f"[OK] Converted {file}", level="success")
                     else:
                         failed.append((file, result_error))
-                        progress.log(f"[ERROR] {file}: {result_error}", level='error')
+                        progress.log(f"[ERROR] {file}: {result_error}", level="error")
                         max_exit_code = max(max_exit_code, result_exit_code)
                         if not args.skip_errors:
                             break
@@ -2334,13 +2290,13 @@ def process_files_unified(
             for file in files:
                 progress.set_postfix(f"Processing {file.name}")
 
-                target_format = getattr(args, 'output_type', 'markdown')
+                target_format = getattr(args, "output_type", "markdown")
                 output_path = generate_output_path(
                     file,
                     Path(args.output_dir) if args.output_dir else None,
                     args.preserve_structure,
                     base_input_dir,
-                    target_format=target_format
+                    target_format=target_format,
                 )
 
                 result_exit_code, result_file_str, result_error = convert_single_file(
@@ -2357,12 +2313,12 @@ def process_files_unified(
                 if result_exit_code == EXIT_SUCCESS:
                     results.append((file, output_path))
                     if output_path:
-                        progress.log(f"[OK] {file} -> {output_path}", level='success')
+                        progress.log(f"[OK] {file} -> {output_path}", level="success")
                     else:
-                        progress.log(f"[OK] Converted {file}", level='success')
+                        progress.log(f"[OK] Converted {file}", level="success")
                 else:
                     failed.append((file, result_error))
-                    progress.log(f"[ERROR] {file}: {result_error}", level='error')
+                    progress.log(f"[ERROR] {file}: {result_error}", level="error")
                     max_exit_code = max(max_exit_code, result_exit_code)
                     if not args.skip_errors:
                         break
@@ -2372,11 +2328,7 @@ def process_files_unified(
     # Show summary for multi-file processing
     if not args.no_summary and len(files) > 1:
         renderer = SummaryRenderer(use_rich=use_rich)
-        renderer.render_conversion_summary(
-            successful=len(results),
-            failed=len(failed),
-            total=len(files)
-        )
+        renderer.render_conversion_summary(successful=len(results), failed=len(failed), total=len(files))
 
     return max_exit_code
 
@@ -2385,11 +2337,11 @@ def process_files_unified(
 # This function is deprecated and no longer called. It has been replaced by
 # process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_with_rich_output(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    files: List[Path],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process files with rich terminal output.
 
@@ -2441,11 +2393,11 @@ def process_with_rich_output(
 
         # Show progress bar during conversion
         with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
         ) as progress:
             task_id = progress.add_task(f"[cyan]Converting {file.name}...", total=1)
 
@@ -2455,13 +2407,9 @@ def process_with_rich_output(
                     options,
                     file,
                     format_arg,
-                    'markdown',
+                    "markdown",
                 )
-                markdown_content = to_markdown(
-                    file,
-                    source_format=cast(Any, format_arg),
-                    **effective_options
-                )
+                markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **effective_options)
                 progress.update(task_id, advance=1)
             except Exception as e:
                 exit_code = get_exit_code_for_exception(e)
@@ -2482,37 +2430,36 @@ def process_with_rich_output(
 
         if markdown_content:
             from rich.markdown import Markdown
+
             rich_kwargs = _get_rich_markdown_kwargs(args)
             console.print(Markdown(markdown_content, **rich_kwargs))
             return EXIT_SUCCESS
 
     # Show header for multi-file processing
-    console.print(Panel.fit(
-        Text("all2md Document Converter", style="bold cyan"),
-        subtitle=f"Processing {len(files)} file(s)"
-    ))
+    console.print(
+        Panel.fit(Text("all2md Document Converter", style="bold cyan"), subtitle=f"Processing {len(files)} file(s)")
+    )
 
     results: list[tuple[Path, Path | None]] = []
     failed: list[tuple[Path, str | None]] = []
     max_exit_code = EXIT_SUCCESS
 
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
     ) as progress:
 
         # Check if parallel processing is enabled
         # parallel can be: 1 (default, sequential), None (--parallel without value,
         # auto CPU count), or N (explicit worker count)
         use_parallel = (
-                (hasattr(args, '_provided_args') and 'parallel' in args._provided_args and args.parallel is None) or
-                (isinstance(args.parallel, int) and args.parallel != 1)
-        )
+            hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
+        ) or (isinstance(args.parallel, int) and args.parallel != 1)
 
         if use_parallel:
             # Parallel processing
@@ -2526,13 +2473,13 @@ def process_with_rich_output(
 
                 # Submit files to executor for parallel processing
                 for file in files:
-                    target_format = getattr(args, 'output_type', 'markdown')
+                    target_format = getattr(args, "output_type", "markdown")
                     output_path = generate_output_path(
                         file,
                         Path(args.output_dir) if args.output_dir else None,
                         args.preserve_structure,
                         base_input_dir,
-                        target_format=target_format
+                        target_format=target_format,
                     )
                     future = executor.submit(
                         convert_single_file,
@@ -2570,13 +2517,13 @@ def process_with_rich_output(
             task_id = progress.add_task("[cyan]Converting files...", total=len(files))
 
             for file in files:
-                target_format = getattr(args, 'output_type', 'markdown')
+                target_format = getattr(args, "output_type", "markdown")
                 output_path = generate_output_path(
                     file,
                     Path(args.output_dir) if args.output_dir else None,
                     args.preserve_structure,
                     base_input_dir,
-                    target_format=target_format
+                    target_format=target_format,
                 )
 
                 result_exit_code, result_file_str, result_error = convert_single_file(
@@ -2625,11 +2572,11 @@ def process_with_rich_output(
 # This function is deprecated and no longer called. It has been replaced by
 # process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_with_progress_bar(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    files: List[Path],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process files with tqdm progress bar.
 
@@ -2668,19 +2615,19 @@ def process_with_progress_bar(
     max_exit_code = EXIT_SUCCESS
 
     # Process files with progress bar
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     with tqdm(files, desc="Converting files", unit="file") as pbar:
         for file in pbar:
             pbar.set_postfix_str(f"Processing {file.name}")
 
-            target_format = getattr(args, 'output_type', 'markdown')
+            target_format = getattr(args, "output_type", "markdown")
             output_path = generate_output_path(
                 file,
                 Path(args.output_dir) if args.output_dir else None,
                 args.preserve_structure,
                 base_input_dir,
-                target_format=target_format
+                target_format=target_format,
             )
 
             exit_code, file_str, error = convert_single_file(
@@ -2714,11 +2661,11 @@ def process_with_progress_bar(
 # This function is deprecated and no longer called. It has been replaced by
 # process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_files_simple(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None
+    files: List[Path],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process files without progress indicators.
 
@@ -2749,16 +2696,16 @@ def process_files_simple(
     failed = []
     max_exit_code = EXIT_SUCCESS
 
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, 'transform_specs', None))
+    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     for file in files:
-        target_format = getattr(args, 'output_type', 'markdown')
+        target_format = getattr(args, "output_type", "markdown")
         output_path = generate_output_path(
             file,
             Path(args.output_dir) if args.output_dir else None,
             args.preserve_structure,
             base_input_dir,
-            target_format=target_format
+            target_format=target_format,
         )
 
         exit_code, file_str, error = convert_single_file(

@@ -37,29 +37,17 @@ class OdtOptions(BaseParserOptions):
         metadata={
             "help": "Preserve table formatting in Markdown",
             "cli_name": "no-preserve-tables",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     preserve_comments: bool = field(
-        default=False,
-        metadata={
-            "help": "Include document comments in output",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Include document comments in output", "importance": "advanced"}
     )
     include_footnotes: bool = field(
         default=True,
-        metadata={
-            "help": "Include footnotes in output",
-            "cli_name": "no-include-footnotes",
-            "importance": "core"
-        }
+        metadata={"help": "Include footnotes in output", "cli_name": "no-include-footnotes", "importance": "core"},
     )
     include_endnotes: bool = field(
         default=True,
-        metadata={
-            "help": "Include endnotes in output",
-            "cli_name": "no-include-endnotes",
-            "importance": "core"
-        }
+        metadata={"help": "Include endnotes in output", "cli_name": "no-include-endnotes", "importance": "core"},
     )

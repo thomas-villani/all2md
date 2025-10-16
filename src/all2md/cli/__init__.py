@@ -115,7 +115,7 @@ def main(args: list[str] | None = None) -> int:
 
     # Check for ALL2MD_CONFIG environment variable if --config not provided
     if not parsed_args.config:
-        env_config = os.environ.get('ALL2MD_CONFIG')
+        env_config = os.environ.get("ALL2MD_CONFIG")
         if env_config:
             parsed_args.config = env_config
 
@@ -150,14 +150,10 @@ def main(args: list[str] | None = None) -> int:
         log_level = getattr(logging, parsed_args.log_level.upper())
 
     # Configure logging with file handler if --log-file is specified
-    _configure_logging(
-        log_level,
-        log_file=parsed_args.log_file,
-        trace_mode=parsed_args.trace
-    )
+    _configure_logging(log_level, log_file=parsed_args.log_file, trace_mode=parsed_args.trace)
 
     # Handle stdin input
-    if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
+    if len(parsed_args.input) == 1 and parsed_args.input[0] == "-":
         # Set up options and validate
         try:
             options, format_arg, transforms = setup_and_validate_options(parsed_args)
@@ -172,11 +168,7 @@ def main(args: list[str] | None = None) -> int:
         return process_stdin(parsed_args, options, format_arg, transforms)
 
     # Multi-file/directory processing
-    files = collect_input_files(
-        parsed_args.input,
-        parsed_args.recursive,
-        exclude_patterns=parsed_args.exclude
-    )
+    files = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
 
     if not files:
         if parsed_args.exclude:
@@ -189,6 +181,7 @@ def main(args: list[str] | None = None) -> int:
     if parsed_args.config:
         try:
             from all2md.cli.config import load_config_file
+
             config_options = load_config_file(parsed_args.config)
             updated_patterns = merge_exclusion_patterns_from_json(parsed_args, config_options)
 
@@ -196,9 +189,7 @@ def main(args: list[str] | None = None) -> int:
                 parsed_args.exclude = updated_patterns
                 # Re-collect files with updated exclusion patterns
                 files = collect_input_files(
-                    parsed_args.input,
-                    parsed_args.recursive,
-                    exclude_patterns=parsed_args.exclude
+                    parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude
                 )
 
                 if not files:
@@ -244,7 +235,7 @@ def main(args: list[str] | None = None) -> int:
             debounce=parsed_args.watch_debounce,
             preserve_structure=parsed_args.preserve_structure,
             recursive=parsed_args.recursive,
-            exclude_patterns=parsed_args.exclude
+            exclude_patterns=parsed_args.exclude,
         )
 
     # Delegate to multi-file processor

@@ -155,11 +155,7 @@ class DocxToAstConverter(BaseParser):
 
     """
 
-    def __init__(
-            self,
-            options: DocxOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: DocxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the DOCX parser with options and progress callback."""
         options = options or DocxOptions()
         super().__init__(options, progress_callback)
@@ -204,12 +200,12 @@ class DocxToAstConverter(BaseParser):
         # Extract base filename from input_data if it's a Path/str
         if isinstance(input_data, (str, Path)):
             base_filename = Path(input_data).stem
-        elif not hasattr(input_data, 'read'):
+        elif not hasattr(input_data, "read"):
             # For non-file inputs that aren't file-like, keep existing base_filename
             pass
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix='.docx')
+        self._validate_zip_input(input_data, suffix=".docx")
 
         # Load the document with error handling
         try:
@@ -223,7 +219,7 @@ class DocxToAstConverter(BaseParser):
             raise MalformedFileError(
                 f"Failed to open DOCX document: {str(e)}",
                 file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
-                original_error=e
+                original_error=e,
             ) from e
 
         return self.convert_to_ast(doc, base_filename)
@@ -249,7 +245,7 @@ class DocxToAstConverter(BaseParser):
         properties such as last_modified_by, revision, version, and comments.
 
         """
-        if not hasattr(document, 'core_properties'):
+        if not hasattr(document, "core_properties"):
             return DocumentMetadata()
 
         props = document.core_properties
@@ -258,7 +254,7 @@ class DocxToAstConverter(BaseParser):
         metadata = map_properties_to_metadata(props, OFFICE_FIELD_MAPPING)
 
         # Add DOCX-specific custom metadata
-        custom_properties = ['last_modified_by', 'revision', 'version', 'comments']
+        custom_properties = ["last_modified_by", "revision", "version", "comments"]
         for prop_name in custom_properties:
             if hasattr(props, prop_name):
                 value = getattr(props, prop_name)
@@ -290,12 +286,7 @@ class DocxToAstConverter(BaseParser):
         self._attachment_footnotes = {}  # Reset attachment footnote collection
 
         # Emit started event
-        self._emit_progress(
-            "started",
-            "Converting DOCX document",
-            current=0,
-            total=0
-        )
+        self._emit_progress("started", "Converting DOCX document", current=0, total=0)
 
         children: list[Node] = []
 
@@ -307,10 +298,10 @@ class DocxToAstConverter(BaseParser):
             self._comments_map = self._load_comments(doc)
 
         for block in _iter_block_items(
-                doc,
-                options=self.options,
-                base_filename=base_filename,
-                attachment_sequencer=create_attachment_sequencer(),
+            doc,
+            options=self.options,
+            base_filename=base_filename,
+            attachment_sequencer=create_attachment_sequencer(),
         ):
             if isinstance(block, ImageData):
                 # Collect footnote info if present
@@ -374,18 +365,11 @@ class DocxToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         # Emit finished event
-        self._emit_progress(
-            "finished",
-            "DOCX conversion completed",
-            current=1,
-            total=1
-        )
+        self._emit_progress("finished", "DOCX conversion completed", current=1, total=1)
 
         # Extract and attach metadata if requested
         metadata_dict = {}
@@ -399,7 +383,7 @@ class DocxToAstConverter(BaseParser):
         return document
 
     def _process_paragraph_to_ast(
-            self, paragraph: "Paragraph", doc: "docx.document.Document"
+        self, paragraph: "Paragraph", doc: "docx.document.Document"
     ) -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
 
@@ -456,10 +440,7 @@ class DocxToAstConverter(BaseParser):
         content = self._process_paragraph_runs_to_inline(paragraph)
         if content:
             # Skip paragraphs that only contain whitespace
-            has_non_whitespace = any(
-                not isinstance(node, Text) or node.content.strip()
-                for node in content
-            )
+            has_non_whitespace = any(not isinstance(node, Text) or node.content.strip() for node in content)
             if has_non_whitespace:
                 if math_blocks:
                     return [AstParagraph(content=content), *math_blocks]
@@ -472,9 +453,7 @@ class DocxToAstConverter(BaseParser):
 
         return None
 
-    def _process_list_item_paragraph(
-            self, paragraph: "Paragraph", list_type: str, level: int
-    ) -> Node | None:
+    def _process_list_item_paragraph(self, paragraph: "Paragraph", list_type: str, level: int) -> Node | None:
         """Process a paragraph that is part of a list.
 
         This method accumulates list items and handles nesting properly.
@@ -689,10 +668,10 @@ class DocxToAstConverter(BaseParser):
         return nodes
 
     def _build_formatted_inline_node(
-            self,
-            text: str,
-            format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
-            url: str | None,
+        self,
+        text: str,
+        format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
+        url: str | None,
     ) -> Node:
         inline_node: Node = Text(content=text)
 
@@ -744,9 +723,9 @@ class DocxToAstConverter(BaseParser):
         from docx.text.hyperlink import Hyperlink
 
         if (
-                not self.options.include_comments
-                or self.options.comments_position != "inline"
-                or self.options.comment_mode == "ignore"
+            not self.options.include_comments
+            or self.options.comments_position != "inline"
+            or self.options.comment_mode == "ignore"
         ):
             return []
 
@@ -802,11 +781,11 @@ class DocxToAstConverter(BaseParser):
         return [Text(content=inline_text)]
 
     def _format_comment_header(
-            self,
-            comment: CommentData,
-            *,
-            include_id: bool,
-            include_prefix: bool,
+        self,
+        comment: CommentData,
+        *,
+        include_id: bool,
+        include_prefix: bool,
     ) -> str:
         segments: list[str] = []
 
@@ -844,6 +823,7 @@ class DocxToAstConverter(BaseParser):
 
         """
         from docx.text.hyperlink import Hyperlink
+
         if isinstance(run, Hyperlink):
             return run.address, run
         return None, run
@@ -865,6 +845,7 @@ class DocxToAstConverter(BaseParser):
 
         """
         from docx.text.hyperlink import Hyperlink
+
         # Handle Hyperlink object
         if isinstance(run, Hyperlink):
             if run.runs:
@@ -998,10 +979,10 @@ class DocxToAstConverter(BaseParser):
             logger.debug(f"Could not process endnotes: {exc}")
 
     def _get_note_part(
-            self,
-            doc: "docx.document.Document",
-            relationship_type: str,
-            attr_name: str | None,
+        self,
+        doc: "docx.document.Document",
+        relationship_type: str,
+        attr_name: str | None,
     ) -> Any | None:
         """Return a related note part if available."""
         if attr_name:
@@ -1152,7 +1133,7 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
     """
     numbering_defs: dict[str, dict[str, str]] = {}
 
-    if not hasattr(doc, '_part') or not hasattr(doc._part, 'numbering_part'):
+    if not hasattr(doc, "_part") or not hasattr(doc._part, "numbering_part"):
         return numbering_defs
 
     numbering_part = doc._part.numbering_part
@@ -1165,40 +1146,47 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
         # First, collect abstract numbering definitions
         abstract_nums = {}
         for elem in numbering_xml.iter():
-            if elem.tag.endswith('abstractNum'):
+            if elem.tag.endswith("abstractNum"):
                 abstract_num_id = elem.get(
-                    '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId')
+                    "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId"
+                )
                 if abstract_num_id:
                     levels = {}
                     for level_elem in elem.iter():
-                        if level_elem.tag.endswith('lvl'):
+                        if level_elem.tag.endswith("lvl"):
                             level_id = level_elem.get(
-                                '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl')
+                                "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl"
+                            )
                             if level_id is not None:
                                 for child in level_elem.iter():
-                                    if child.tag.endswith('numFmt'):
+                                    if child.tag.endswith("numFmt"):
                                         fmt_val = child.get(
-                                            '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                                            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
+                                        )
                                         if fmt_val:
                                             # Map Word numbering formats to our types
-                                            if fmt_val in ('bullet', 'none'):
-                                                levels[level_id] = 'bullet'
+                                            if fmt_val in ("bullet", "none"):
+                                                levels[level_id] = "bullet"
                                             elif fmt_val in (
-                                                    'decimal', 'lowerLetter', 'upperLetter', 'lowerRoman', 'upperRoman'
+                                                "decimal",
+                                                "lowerLetter",
+                                                "upperLetter",
+                                                "lowerRoman",
+                                                "upperRoman",
                                             ):
-                                                levels[level_id] = 'number'
+                                                levels[level_id] = "number"
                                             break
                     if levels:
                         abstract_nums[abstract_num_id] = levels
 
         # Then, map number IDs to abstract numbers
         for elem in numbering_xml.iter():
-            if elem.tag.endswith('num'):
-                num_id = elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId')
+            if elem.tag.endswith("num"):
+                num_id = elem.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId")
                 if num_id:
                     for child in elem.iter():
-                        if child.tag.endswith('abstractNumId'):
-                            abs_id = child.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                        if child.tag.endswith("abstractNumId"):
+                            abs_id = child.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
                             if abs_id in abstract_nums:
                                 numbering_defs[num_id] = abstract_nums[abs_id]
                             break
@@ -1210,7 +1198,7 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
 
 
 def _detect_list_level(
-        paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None
+    paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None
 ) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
@@ -1244,8 +1232,8 @@ def _detect_list_level(
                             if level_key in numbering_defs[num_id]:
                                 return numbering_defs[num_id][level_key], level
                             # If specific level not found, use level 0 as fallback
-                            elif '0' in numbering_defs[num_id]:
-                                return numbering_defs[num_id]['0'], level
+                            elif "0" in numbering_defs[num_id]:
+                                return numbering_defs[num_id]["0"], level
 
                     # Fallback: detect type from paragraph text pattern
                     text = paragraph.text.strip()
@@ -1417,7 +1405,7 @@ def _omml_to_latex(element: Any) -> str:
 
 
 def _iter_block_items(
-        parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer: Any = None
+    parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer: Any = None
 ) -> Any:
     """Generate a sequence of Paragraph and Table elements in order, handling images."""
     import docx.document
@@ -1438,8 +1426,8 @@ def _iter_block_items(
 
             for run in paragraph.runs:
                 for pic in run._element.findall(
-                        ".//pic:pic",
-                        {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
+                    ".//pic:pic",
+                    {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
                 ):
                     has_image = True
 
@@ -1448,7 +1436,7 @@ def _iter_block_items(
 
                     if options.include_image_captions:
                         if (t := run._element.xpath(".//wp:docPr/@descr")) or (
-                                t := run._element.xpath(".//wp:docPr/@title")
+                            t := run._element.xpath(".//wp:docPr/@title")
                         ):
                             title = t[0]
 
@@ -1470,17 +1458,16 @@ def _iter_block_items(
                     # Use sequencer if available, otherwise fall back to manual counting
                     if attachment_sequencer:
                         image_filename, _ = attachment_sequencer(
-                            base_stem=base_filename,
-                            format_type="general",
-                            extension=extension
+                            base_stem=base_filename, format_type="general", extension=extension
                         )
                     else:
                         from all2md.utils.attachments import generate_attachment_filename
+
                         image_filename = generate_attachment_filename(
                             base_stem=base_filename,
                             format_type="general",
                             sequence_num=len(img_data) + 1,
-                            extension=extension
+                            extension=extension,
                         )
                     result = process_attachment(
                         attachment_data=raw_image_data,
@@ -1494,13 +1481,15 @@ def _iter_block_items(
                     )
 
                     if result.get("markdown"):
-                        img_data.append(ImageData(
-                            url=result.get("url", ""),
-                            alt_text=title or "image",
-                            title=title,
-                            footnote_label=result.get("footnote_label"),
-                            footnote_content=result.get("footnote_content")
-                        ))
+                        img_data.append(
+                            ImageData(
+                                url=result.get("url", ""),
+                                alt_text=title or "image",
+                                title=title,
+                                footnote_label=result.get("footnote_label"),
+                                footnote_content=result.get("footnote_content"),
+                            )
+                        )
 
             if has_image and img_data:
                 # Yield ImageData objects directly
@@ -1524,12 +1513,9 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("python-docx", "docx", "")],
     renderer_required_packages=[("python-docx", "docx", ">=1.2.0")],
     optional_packages=[],
-    import_error_message=(
-        "DOCX conversion requires 'python-docx'. "
-        "Install with: pip install python-docx"
-    ),
+    import_error_message=("DOCX conversion requires 'python-docx'. " "Install with: pip install python-docx"),
     parser_options_class=DocxOptions,
     renderer_options_class="all2md.options.docx.DocxRendererOptions",
     description="Convert Microsoft Word DOCX documents to/from AST",
-    priority=8
+    priority=8,
 )

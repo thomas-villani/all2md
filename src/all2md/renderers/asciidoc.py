@@ -115,8 +115,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         document.accept(self)
 
-        result = ''.join(self._output)
-        return result.rstrip() + '\n'
+        result = "".join(self._output)
+        return result.rstrip() + "\n"
 
     def visit_document(self, node: Document) -> None:
         """Render a Document node.
@@ -136,13 +136,13 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             metadata_block = self._prepare_metadata(node.metadata)
             if metadata_block:
                 self._render_attributes(metadata_block)
-                self._output.append('\n')
+                self._output.append("\n")
 
         for i, child in enumerate(node.children):
             child.accept(self)
             # Add blank line between blocks
             if i < len(node.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
     def _collect_footnote_definitions(self, node: Node) -> None:
         """Recursively collect all footnote definitions from the document.
@@ -154,19 +154,15 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         if isinstance(node, FootnoteDefinition):
-            self._footnote_collector.register_definition(
-                node.identifier,
-                node.content,
-                note_type="footnote"
-            )
+            self._footnote_collector.register_definition(node.identifier, node.content, note_type="footnote")
 
         # Recursively search children
-        if hasattr(node, 'children'):
+        if hasattr(node, "children"):
             for child in node.children:
                 self._collect_footnote_definitions(child)
 
         # Search content for inline nodes
-        if hasattr(node, 'content') and isinstance(node.content, list):
+        if hasattr(node, "content") and isinstance(node.content, list):
             for item in node.content:
                 if isinstance(item, Node):
                     self._collect_footnote_definitions(item)
@@ -183,37 +179,44 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Define standard fields that shouldn't be rendered as AsciiDoc attributes
         # These are conversion metadata, not document attributes
         skip_fields = {
-            'creation_date', 'modification_date', 'creator', 'producer',
-            'source_path', 'page_count', 'word_count',
-            'sha256', 'extraction_date', 'category'
+            "creation_date",
+            "modification_date",
+            "creator",
+            "producer",
+            "source_path",
+            "page_count",
+            "word_count",
+            "sha256",
+            "extraction_date",
+            "category",
         }
 
         # Render in order: title, author, description, then others
-        if 'title' in metadata and metadata['title']:
-            escaped_title = escape_asciidoc_attribute(str(metadata['title']))
+        if "title" in metadata and metadata["title"]:
+            escaped_title = escape_asciidoc_attribute(str(metadata["title"]))
             self._output.append(f":title: {escaped_title}\n")
-        if 'author' in metadata and metadata['author']:
-            escaped_author = escape_asciidoc_attribute(str(metadata['author']))
+        if "author" in metadata and metadata["author"]:
+            escaped_author = escape_asciidoc_attribute(str(metadata["author"]))
             self._output.append(f":author: {escaped_author}\n")
-        if 'description' in metadata and metadata['description']:
-            escaped_desc = escape_asciidoc_attribute(str(metadata['description']))
+        if "description" in metadata and metadata["description"]:
+            escaped_desc = escape_asciidoc_attribute(str(metadata["description"]))
             self._output.append(f":description: {escaped_desc}\n")
-        if 'keywords' in metadata and metadata['keywords']:
+        if "keywords" in metadata and metadata["keywords"]:
             # Render keywords as comma-separated string
-            if isinstance(metadata['keywords'], list):
-                keywords_str = ', '.join(str(k) for k in metadata['keywords'])
+            if isinstance(metadata["keywords"], list):
+                keywords_str = ", ".join(str(k) for k in metadata["keywords"])
                 escaped_keywords = escape_asciidoc_attribute(keywords_str)
                 self._output.append(f":keywords: {escaped_keywords}\n")
             else:
-                escaped_keywords = escape_asciidoc_attribute(str(metadata['keywords']))
+                escaped_keywords = escape_asciidoc_attribute(str(metadata["keywords"]))
                 self._output.append(f":keywords: {escaped_keywords}\n")
-        if 'language' in metadata and metadata['language']:
-            escaped_lang = escape_asciidoc_attribute(str(metadata['language']))
+        if "language" in metadata and metadata["language"]:
+            escaped_lang = escape_asciidoc_attribute(str(metadata["language"]))
             self._output.append(f":lang: {escaped_lang}\n")
 
         # Render all other fields (custom attributes)
         for key, value in metadata.items():
-            if key not in ('title', 'author', 'description', 'keywords', 'language') and key not in skip_fields:
+            if key not in ("title", "author", "description", "keywords", "language") and key not in skip_fields:
                 if value:
                     escaped_value = escape_asciidoc_attribute(str(value))
                     self._output.append(f":{key}: {escaped_value}\n")
@@ -235,7 +238,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # AsciiDoc levels: = is document title (level 0), == is section level 1, === is section level 2, etc.
         # Map AST heading levels to AsciiDoc: level 1 -> ==, level 2 -> ===, etc.
-        prefix = '=' * (node.level + 1)
+        prefix = "=" * (node.level + 1)
         self._output.append(f"{prefix} {content}")
 
     def visit_paragraph(self, node: Paragraph) -> None:
@@ -265,8 +268,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output.append("----\n")
         self._output.append(node.content)
-        if not node.content.endswith('\n'):
-            self._output.append('\n')
+        if not node.content.endswith("\n"):
+            self._output.append("\n")
         self._output.append("----")
 
     def visit_block_quote(self, node: BlockQuote) -> None:
@@ -283,10 +286,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
-        if not self._output[-1].endswith('\n'):
-            self._output.append('\n')
+        if not self._output[-1].endswith("\n"):
+            self._output.append("\n")
         self._output.append("____")
 
     def _is_block_element(self, node: Node) -> bool:
@@ -341,18 +344,18 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             elif isinstance(node, CodeBlock):
                 # Represent code block as inline code
                 # Remove newlines and represent compactly
-                code_text = node.content.replace('\n', ' ').strip()
+                code_text = node.content.replace("\n", " ").strip()
                 result_parts.append(f"+{code_text}+")
             elif isinstance(node, Text):
                 # Direct text node
                 result_parts.append(escape_asciidoc(node.content))
-            elif hasattr(node, 'content') and isinstance(node.content, list):
+            elif hasattr(node, "content") and isinstance(node.content, list):
                 # Recursively flatten nodes with content lists
                 text = self._flatten_blocks_to_inline(node.content)
                 result_parts.append(text)
             # Skip other block types that can't be meaningfully represented inline
 
-        return ' '.join(result_parts).strip()
+        return " ".join(result_parts).strip()
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -371,7 +374,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, item in enumerate(node.items):
             item.accept(self)
             if i < len(node.items) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
         self._list_level -= 1
         self._list_ordered_stack.pop()
@@ -394,12 +397,12 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # AsciiDoc uses * for unordered, . for ordered
         # Multiple chars for nesting: **, ***, etc. or .., ..., etc.
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
-        marker_char = '.' if is_ordered else '*'
+        marker_char = "." if is_ordered else "*"
         marker = marker_char * self._list_level
 
         # Handle task lists
         if node.task_status:
-            checkbox = '[x]' if node.task_status == 'checked' else '[ ]'
+            checkbox = "[x]" if node.task_status == "checked" else "[ ]"
             marker = f"{marker} {checkbox}"
 
         self._output.append(f"{marker} ")
@@ -413,16 +416,16 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     self._output.append(content)
                 else:
                     # First child is a block element - needs continuation
-                    self._output.append('\n+\n')
+                    self._output.append("\n+\n")
                     child.accept(self)
             else:
                 # Subsequent children need continuation marker if they're blocks
                 if self._is_block_element(child):
-                    self._output.append('\n+\n')
+                    self._output.append("\n+\n")
                     child.accept(self)
                 else:
                     # Non-block subsequent children (e.g., additional Paragraphs)
-                    self._output.append('\n+\n')
+                    self._output.append("\n+\n")
                     child.accept(self)
 
     def visit_table(self, node: Table) -> None:
@@ -442,35 +445,30 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if node.alignments:
             # Map alignment values to AsciiDoc column specs
             # 'left' -> '<', 'center' -> '^', 'right' -> '>', None -> no spec (defaults to left)
-            alignment_map = {
-                'left': '<',
-                'center': '^',
-                'right': '>',
-                None: ''
-            }
-            col_specs = [alignment_map.get(align, '') for align in node.alignments]
+            alignment_map = {"left": "<", "center": "^", "right": ">", None: ""}
+            col_specs = [alignment_map.get(align, "") for align in node.alignments]
             # Only add [cols=...] if we have at least one alignment specified
             if any(spec for spec in col_specs):
-                cols_attr = ','.join(col_specs if col_specs else [''] * len(node.alignments))
-                self._output.append(f"[cols=\"{cols_attr}\"]\n")
+                cols_attr = ",".join(col_specs if col_specs else [""] * len(node.alignments))
+                self._output.append(f'[cols="{cols_attr}"]\n')
 
         self._output.append("|===\n")
 
         # Render header
         if node.header:
-            self._output.append('|')
+            self._output.append("|")
             for cell in node.header.cells:
                 content = self._render_inline_content(cell.content)
                 self._output.append(f"{content} |")
-            self._output.append('\n')
+            self._output.append("\n")
 
         # Render rows
         for row in node.rows:
-            self._output.append('|')
+            self._output.append("|")
             for cell in row.cells:
                 content = self._render_inline_content(cell.content)
                 self._output.append(f"{content} |")
-            self._output.append('\n')
+            self._output.append("\n")
 
         self._output.append("|===")
 
@@ -571,9 +569,9 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content = node.content
 
         # If content contains +, escape it by doubling
-        if '+' in content:
+        if "+" in content:
             # Double all + characters to escape them
-            content = content.replace('+', '++')
+            content = content.replace("+", "++")
 
         # Use + delimiter (AsciiDoc standard for monospaced inline)
         self._output.append(f"+{content}+")
@@ -622,10 +620,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if node.soft:
             # Soft breaks render as space in AsciiDoc
-            self._output.append(' ')
+            self._output.append(" ")
         else:
             # Hard break with explicit line break
-            self._output.append(' +\n')
+            self._output.append(" +\n")
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -690,7 +688,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         for i, (term, descriptions) in enumerate(node.items):
             if i > 0:
-                self._output.append('\n')
+                self._output.append("\n")
 
             # Render term
             term_content = self._render_inline_content(term.content)
@@ -698,7 +696,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             # Render descriptions
             for desc in descriptions:
-                self._output.append('\n')
+                self._output.append("\n")
                 for child in desc.content:
                     child.accept(self)
 
@@ -750,10 +748,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Register the reference and get canonical identifier
-        canonical_id = self._footnote_collector.register_reference(
-            node.identifier,
-            note_type="footnote"
-        )
+        canonical_id = self._footnote_collector.register_reference(node.identifier, note_type="footnote")
 
         # Check if this is the first occurrence
         if canonical_id not in self._footnotes_emitted:
@@ -820,8 +815,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append("[stem]\n")
         self._output.append("++++\n")
         self._output.append(content)
-        if not content.endswith('\n'):
-            self._output.append('\n')
+        if not content.endswith("\n"):
+            self._output.append("\n")
         self._output.append("++++")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:

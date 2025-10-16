@@ -53,32 +53,32 @@ def _is_private_or_reserved_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address
     if isinstance(ip, ipaddress.IPv4Address):
         # IPv4 restricted ranges
         return (
-                ip.is_private or  # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-                ip.is_loopback or  # 127.0.0.0/8
-                ip.is_link_local or  # 169.254.0.0/16
-                ip.is_reserved or  # Various reserved ranges
-                ip.is_multicast or  # 224.0.0.0/4
-                ip in ipaddress.IPv4Network('0.0.0.0/8') or  # "This" network
-                ip in ipaddress.IPv4Network('100.64.0.0/10') or  # RFC6598 Carrier NAT
-                ip in ipaddress.IPv4Network('192.0.0.0/24') or  # RFC6890 Special use
-                ip in ipaddress.IPv4Network('192.0.2.0/24') or  # RFC5737 Test-Net-1
-                ip in ipaddress.IPv4Network('198.18.0.0/15') or  # RFC2544 Benchmarking
-                ip in ipaddress.IPv4Network('198.51.100.0/24') or  # RFC5737 Test-Net-2
-                ip in ipaddress.IPv4Network('203.0.113.0/24') or  # RFC5737 Test-Net-3
-                ip in ipaddress.IPv4Network('240.0.0.0/4')  # RFC1112 Reserved
+            ip.is_private  # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+            or ip.is_loopback  # 127.0.0.0/8
+            or ip.is_link_local  # 169.254.0.0/16
+            or ip.is_reserved  # Various reserved ranges
+            or ip.is_multicast  # 224.0.0.0/4
+            or ip in ipaddress.IPv4Network("0.0.0.0/8")  # "This" network
+            or ip in ipaddress.IPv4Network("100.64.0.0/10")  # RFC6598 Carrier NAT
+            or ip in ipaddress.IPv4Network("192.0.0.0/24")  # RFC6890 Special use
+            or ip in ipaddress.IPv4Network("192.0.2.0/24")  # RFC5737 Test-Net-1
+            or ip in ipaddress.IPv4Network("198.18.0.0/15")  # RFC2544 Benchmarking
+            or ip in ipaddress.IPv4Network("198.51.100.0/24")  # RFC5737 Test-Net-2
+            or ip in ipaddress.IPv4Network("203.0.113.0/24")  # RFC5737 Test-Net-3
+            or ip in ipaddress.IPv4Network("240.0.0.0/4")  # RFC1112 Reserved
         )
     else:  # IPv6
         # IPv6 restricted ranges
         return (
-                ip.is_private or  # fc00::/7 (ULA)
-                ip.is_loopback or  # ::1/128
-                ip.is_link_local or  # fe80::/10
-                ip.is_reserved or  # Various reserved ranges
-                ip.is_multicast or  # ff00::/8
-                ip in ipaddress.IPv6Network('::ffff:0:0/96') or  # IPv4-mapped IPv6
-                ip in ipaddress.IPv6Network('2001:db8::/32') or  # RFC3849 Documentation
-                ip in ipaddress.IPv6Network('2001::/32') or  # RFC4380 Teredo
-                ip in ipaddress.IPv6Network('2002::/16')  # RFC3056 6to4
+            ip.is_private  # fc00::/7 (ULA)
+            or ip.is_loopback  # ::1/128
+            or ip.is_link_local  # fe80::/10
+            or ip.is_reserved  # Various reserved ranges
+            or ip.is_multicast  # ff00::/8
+            or ip in ipaddress.IPv6Network("::ffff:0:0/96")  # IPv4-mapped IPv6
+            or ip in ipaddress.IPv6Network("2001:db8::/32")  # RFC3849 Documentation
+            or ip in ipaddress.IPv6Network("2001::/32")  # RFC4380 Teredo
+            or ip in ipaddress.IPv6Network("2002::/16")  # RFC3056 6to4
         )
 
 
@@ -199,7 +199,7 @@ def _parse_content_type(content_type: str) -> str:
     try:
         # Use email.message.Message to parse the content-type header
         msg = Message()
-        msg['content-type'] = content_type
+        msg["content-type"] = content_type
         # get_content_type() returns the main type, ignoring parameters
         return msg.get_content_type().lower()
     except Exception:
@@ -259,10 +259,7 @@ class RateLimiter:
                 now = time.time()
                 # Refill tokens based on elapsed time
                 elapsed = now - self.last_update
-                self.tokens = min(
-                    self.max_requests_per_second,
-                    self.tokens + elapsed * self.max_requests_per_second
-                )
+                self.tokens = min(self.max_requests_per_second, self.tokens + elapsed * self.max_requests_per_second)
                 self.last_update = now
 
                 if self.tokens >= 1.0:
@@ -299,11 +296,7 @@ class RateLimiter:
         return False
 
 
-def validate_url_security(
-        url: str,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True
-) -> None:
+def validate_url_security(url: str, allowed_hosts: list[str] | None = None, require_https: bool = True) -> None:
     """Validate URL for security before making HTTP requests.
 
     Performs comprehensive security validation including DNS resolution,
@@ -334,10 +327,10 @@ def validate_url_security(
         raise NetworkSecurityError(f"Invalid URL format: {url}") from e
 
     # Validate scheme
-    if parsed.scheme not in ('http', 'https'):
+    if parsed.scheme not in ("http", "https"):
         raise NetworkSecurityError(f"Unsupported URL scheme: {parsed.scheme}")
 
-    if require_https and parsed.scheme != 'https':
+    if require_https and parsed.scheme != "https":
         raise NetworkSecurityError(f"HTTPS required but got: {parsed.scheme}")
 
     # Validate hostname exists
@@ -353,7 +346,7 @@ def validate_url_security(
 
     # Normalize hostname (handle IDN/punycode)
     try:
-        normalized_hostname = hostname.encode('idna').decode('ascii').lower()
+        normalized_hostname = hostname.encode("idna").decode("ascii").lower()
     except Exception:
         # If IDN encoding fails, use original hostname
         normalized_hostname = hostname.lower()
@@ -375,10 +368,7 @@ def validate_url_security(
 
 
 def create_secure_http_client(
-        timeout: float = 10.0,
-        max_redirects: int = 5,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True
+    timeout: float = 10.0, max_redirects: int = 5, allowed_hosts: list[str] | None = None, require_https: bool = True
 ) -> Any:
     """Create httpx client with security constraints.
 
@@ -412,11 +402,7 @@ def create_secure_http_client(
         """Event hook to validate URLs before each request."""
         # Validate URL security
         try:
-            validate_url_security(
-                str(request.url),
-                allowed_hosts=allowed_hosts,
-                require_https=require_https
-            )
+            validate_url_security(str(request.url), allowed_hosts=allowed_hosts, require_https=require_https)
         except NetworkSecurityError:
             # Re-raise to abort the request
             raise
@@ -429,17 +415,13 @@ def create_secure_http_client(
         """
         # Validate response history length
         if len(response.history) > max_redirects:
-            raise NetworkSecurityError(
-                f"Too many redirects: {len(response.history)} > {max_redirects}"
-            )
+            raise NetworkSecurityError(f"Too many redirects: {len(response.history)} > {max_redirects}")
 
         # Validate each URL in the redirect history
         for redirect_response in response.history:
             try:
                 validate_url_security(
-                    str(redirect_response.url),
-                    allowed_hosts=allowed_hosts,
-                    require_https=require_https
+                    str(redirect_response.url), allowed_hosts=allowed_hosts, require_https=require_https
                 )
             except NetworkSecurityError:
                 # Re-raise to indicate security violation
@@ -449,27 +431,22 @@ def create_secure_http_client(
     client = httpx.Client(
         timeout=timeout,
         follow_redirects=True,
-        event_hooks={
-            'request': [validate_request_url],
-            'response': [validate_response_redirects]
-        },
-        headers={
-            'User-Agent': 'all2md-image-fetcher/1.0'
-        }
+        event_hooks={"request": [validate_request_url], "response": [validate_response_redirects]},
+        headers={"User-Agent": "all2md-image-fetcher/1.0"},
     )
 
     return client
 
 
 def fetch_content_securely(
-        url: str,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True,
-        max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
-        timeout: float = 10.0,
-        expected_content_types: list[str] | None = None,
-        require_head_success: bool = True,
-        rate_limiter: RateLimiter | None = None
+    url: str,
+    allowed_hosts: list[str] | None = None,
+    require_https: bool = True,
+    max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
+    timeout: float = 10.0,
+    expected_content_types: list[str] | None = None,
+    require_head_success: bool = True,
+    rate_limiter: RateLimiter | None = None,
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -506,7 +483,8 @@ def fetch_content_securely(
     # Check global network disable first
     if is_network_disabled():
         raise NetworkSecurityError(
-            "Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable")
+            "Network access is globally disabled via ALL2MD_DISABLE_NETWORK environment variable"
+        )
 
     # Initial URL validation
     validate_url_security(url, allowed_hosts=allowed_hosts, require_https=require_https)
@@ -518,9 +496,7 @@ def fetch_content_securely(
 
     try:
         with create_secure_http_client(
-                timeout=timeout,
-                allowed_hosts=allowed_hosts,
-                require_https=require_https
+            timeout=timeout, allowed_hosts=allowed_hosts, require_https=require_https
         ) as client:
             # Use HEAD request first to check content-length header
             try:
@@ -528,7 +504,7 @@ def fetch_content_securely(
                 head_response.raise_for_status()
 
                 # Check content-length header if present
-                content_length_header = head_response.headers.get('content-length')
+                content_length_header = head_response.headers.get("content-length")
                 if content_length_header:
                     try:
                         declared_size = int(content_length_header)
@@ -540,7 +516,7 @@ def fetch_content_securely(
                         pass  # Invalid content-length header, will check during streaming
 
                 # Check content type from HEAD response
-                content_type_raw = head_response.headers.get('content-type', '')
+                content_type_raw = head_response.headers.get("content-type", "")
                 content_type = _parse_content_type(content_type_raw)
                 if expected_content_types and not any(content_type.startswith(ct) for ct in expected_content_types):
                     raise NetworkSecurityError(
@@ -549,16 +525,17 @@ def fetch_content_securely(
             except Exception as head_error:
                 # HEAD request failed, continue with GET but be more cautious
                 if require_head_success:
-                    raise NetworkSecurityError(f"HEAD request required but failed: {head_error!r}",
-                                               original_error=head_error) from head_error
+                    raise NetworkSecurityError(
+                        f"HEAD request required but failed: {head_error!r}", original_error=head_error
+                    ) from head_error
                 logger.debug(f"HEAD request failed for {url}: {head_error}")
 
             # Stream the actual content with size validation
-            with client.stream('GET', url) as response:
+            with client.stream("GET", url) as response:
                 response.raise_for_status()
 
                 # Final content type check from GET response
-                content_type_raw = response.headers.get('content-type', '')
+                content_type_raw = response.headers.get("content-type", "")
                 content_type = _parse_content_type(content_type_raw)
                 if expected_content_types and not any(content_type.startswith(ct) for ct in expected_content_types):
                     raise NetworkSecurityError(
@@ -580,7 +557,7 @@ def fetch_content_securely(
                 if total_size == 0:
                     raise NetworkSecurityError("Empty response received")
 
-                content = b''.join(content_chunks)
+                content = b"".join(content_chunks)
                 logger.debug(f"Successfully fetched {total_size} bytes from {url}")
                 return content
 
@@ -588,7 +565,7 @@ def fetch_content_securely(
         if isinstance(e, NetworkSecurityError):
             raise
         # Check if it's an httpx error
-        if hasattr(e, '__module__') and e.__module__ and 'httpx' in e.__module__:
+        if hasattr(e, "__module__") and e.__module__ and "httpx" in e.__module__:
             raise NetworkSecurityError(f"HTTP request failed for {url}: {e}") from e
         raise NetworkSecurityError(f"Unexpected error fetching {url}: {e}") from e
     finally:
@@ -598,13 +575,13 @@ def fetch_content_securely(
 
 
 def fetch_image_securely(
-        url: str,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True,
-        max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
-        timeout: float = 30.0,
-        require_head_success: bool = True,
-        rate_limiter: RateLimiter | None = None
+    url: str,
+    allowed_hosts: list[str] | None = None,
+    require_https: bool = True,
+    max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
+    timeout: float = 30.0,
+    require_head_success: bool = True,
+    rate_limiter: RateLimiter | None = None,
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 
@@ -646,7 +623,7 @@ def fetch_image_securely(
         timeout=timeout,
         require_head_success=require_head_success,
         expected_content_types=["image/"],
-        rate_limiter=rate_limiter
+        rate_limiter=rate_limiter,
     )
 
 
@@ -659,4 +636,4 @@ def is_network_disabled() -> bool:
         True if network access should be disabled, False otherwise
 
     """
-    return os.getenv('ALL2MD_DISABLE_NETWORK', '').lower() in ('true', '1', 'yes', 'on')
+    return os.getenv("ALL2MD_DISABLE_NETWORK", "").lower() in ("true", "1", "yes", "on")

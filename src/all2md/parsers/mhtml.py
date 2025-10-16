@@ -73,7 +73,7 @@ class MhtmlToAstConverter(BaseParser):
             )
 
             if input_type == "path":
-                with open(doc_input, 'rb') as f:
+                with open(doc_input, "rb") as f:
                     msg = email.message_from_binary_file(f, policy=policy.default)
             elif input_type == "bytes":
                 msg = email.message_from_bytes(doc_input, policy=policy.default)
@@ -82,19 +82,14 @@ class MhtmlToAstConverter(BaseParser):
 
         except Exception as e:
             raise ParsingError(
-                f"Failed to parse MHTML file: {e}",
-                parsing_stage="mhtml_parsing",
-                original_error=e
+                f"Failed to parse MHTML file: {e}", parsing_stage="mhtml_parsing", original_error=e
             ) from e
 
         # Extract HTML content
         html_content = self._extract_html_from_mhtml(msg)
 
         if not html_content:
-            raise ParsingError(
-                "No HTML content found in MHTML file",
-                parsing_stage="content_extraction"
-            )
+            raise ParsingError("No HTML content found in MHTML file", parsing_stage="content_extraction")
 
         # Convert HTML to AST
         doc = self._html_parser.convert_to_ast(html_content)
@@ -124,16 +119,16 @@ class MhtmlToAstConverter(BaseParser):
         if msg.is_multipart():
             for part in msg.walk():
                 content_type = part.get_content_type()
-                if content_type == 'text/html':
+                if content_type == "text/html":
                     payload = part.get_payload(decode=True)
                     if payload and isinstance(payload, bytes):
-                        html_content = payload.decode('utf-8', errors='ignore')
+                        html_content = payload.decode("utf-8", errors="ignore")
                         break
         else:
-            if msg.get_content_type() == 'text/html':
+            if msg.get_content_type() == "text/html":
                 payload = msg.get_payload(decode=True)
                 if payload and isinstance(payload, bytes):
-                    html_content = payload.decode('utf-8', errors='ignore')
+                    html_content = payload.decode("utf-8", errors="ignore")
 
         return html_content
 
@@ -156,28 +151,28 @@ class MhtmlToAstConverter(BaseParser):
         metadata = DocumentMetadata()
 
         # Extract metadata from email headers
-        subject = document.get('Subject')
+        subject = document.get("Subject")
         if subject:
             metadata.title = str(subject).strip()
 
-        from_header = document.get('From')
+        from_header = document.get("From")
         if from_header:
             metadata.author = str(from_header).strip()
 
-        date_header = document.get('Date')
+        date_header = document.get("Date")
         if date_header:
             metadata.creation_date = str(date_header).strip()
 
         # Extract additional headers
-        to_header = document.get('To')
+        to_header = document.get("To")
         if to_header:
-            metadata.custom['to'] = str(to_header).strip()
+            metadata.custom["to"] = str(to_header).strip()
 
-        message_id = document.get('Message-ID')
+        message_id = document.get("Message-ID")
         if message_id:
-            metadata.custom['message_id'] = str(message_id).strip()
+            metadata.custom["message_id"] = str(message_id).strip()
 
-        x_mailer = document.get('X-Mailer')
+        x_mailer = document.get("X-Mailer")
         if x_mailer:
             metadata.creator = str(x_mailer).strip()
 
@@ -187,19 +182,19 @@ class MhtmlToAstConverter(BaseParser):
                 from bs4 import BeautifulSoup
                 from bs4.element import Tag
 
-                soup = BeautifulSoup(html_content, 'html.parser')
+                soup = BeautifulSoup(html_content, "html.parser")
 
                 # Get title from HTML if not already set
                 if not metadata.title:
-                    title_tag = soup.find('title')
+                    title_tag = soup.find("title")
                     if isinstance(title_tag, Tag) and title_tag.string:
                         metadata.title = str(title_tag.string).strip()
 
                 # Extract meta keywords
-                meta_keywords = soup.find('meta', attrs={'name': 'keywords'})
-                if isinstance(meta_keywords, Tag) and meta_keywords.get('content'):
-                    keywords_str = str(meta_keywords.get('content'))
-                    metadata.keywords = [k.strip() for k in keywords_str.split(',')]
+                meta_keywords = soup.find("meta", attrs={"name": "keywords"})
+                if isinstance(meta_keywords, Tag) and meta_keywords.get("content"):
+                    keywords_str = str(meta_keywords.get("content"))
+                    metadata.keywords = [k.strip() for k in keywords_str.split(",")]
 
             except ImportError:
                 pass  # BeautifulSoup not available
@@ -222,5 +217,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=MhtmlOptions,
     renderer_options_class=None,
     description="Convert MHTML web archives to Markdown",
-    priority=5
+    priority=5,
 )

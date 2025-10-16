@@ -16,8 +16,7 @@ from typing import IO, Union, cast
 
 
 def write_content(
-    content: Union[str, bytes],
-    output: Union[str, Path, IO[bytes], IO[str], None]
+    content: Union[str, bytes], output: Union[str, Path, IO[bytes], IO[str], None]
 ) -> Union[StringIO, BytesIO, None]:
     """Write content to output destination or return as file-like object.
 
@@ -85,7 +84,7 @@ def write_content(
     if isinstance(output, (str, Path)):
         output_path = Path(output)
         if isinstance(content, str):
-            output_path.write_text(content, encoding='utf-8')
+            output_path.write_text(content, encoding="utf-8")
         elif isinstance(content, bytes):
             output_path.write_bytes(content)
         else:
@@ -93,13 +92,13 @@ def write_content(
         return None
 
     # If output is a file-like object, write to it
-    if hasattr(output, 'write'):
+    if hasattr(output, "write"):
         # Detect if binary or text mode
-        mode = getattr(output, 'mode', '')
+        mode = getattr(output, "mode", "")
 
         # Determine if binary mode (has 'b' in mode string, or is BytesIO)
         is_binary_mode = False
-        if isinstance(mode, str) and 'b' in mode:
+        if isinstance(mode, str) and "b" in mode:
             is_binary_mode = True
         elif isinstance(output, BytesIO):
             is_binary_mode = True
@@ -110,7 +109,7 @@ def write_content(
             # Binary mode - write bytes
             binary_output = cast(IO[bytes], output)
             if isinstance(content, str):
-                binary_output.write(content.encode('utf-8'))
+                binary_output.write(content.encode("utf-8"))
             elif isinstance(content, bytes):
                 binary_output.write(content)
             else:
@@ -119,7 +118,7 @@ def write_content(
             # Text mode - write str
             text_output = cast(IO[str], output)
             if isinstance(content, bytes):
-                text_output.write(content.decode('utf-8'))
+                text_output.write(content.decode("utf-8"))
             elif isinstance(content, str):
                 text_output.write(content)
             else:
@@ -130,4 +129,4 @@ def write_content(
     raise TypeError(f"Unsupported output type: {type(output)}")
 
 
-__all__ = ['write_content']
+__all__ = ["write_content"]

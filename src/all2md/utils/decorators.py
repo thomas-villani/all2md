@@ -18,10 +18,7 @@ from all2md.dependencies import check_version_requirement
 from all2md.exceptions import DependencyError
 
 
-def requires_dependencies(
-        converter_name: str,
-        packages: List[Tuple[str, str, str]]
-) -> Callable:
+def requires_dependencies(converter_name: str, packages: List[Tuple[str, str, str]]) -> Callable:
     """Check required dependencies and versions before method execution.
 
     This decorator eliminates repeated try/except ImportError blocks across
@@ -108,9 +105,7 @@ def requires_dependencies(
 
                     # If version spec is provided, validate the version
                     if version_spec:
-                        meets_requirement, installed_version = check_version_requirement(
-                            install_name, version_spec
-                        )
+                        meets_requirement, installed_version = check_version_requirement(install_name, version_spec)
                         if not meets_requirement:
                             # Package is installed but version doesn't match
                             version_str = installed_version or "unknown"
@@ -129,7 +124,7 @@ def requires_dependencies(
                     converter_name=converter_name,
                     missing_packages=missing,
                     version_mismatches=version_mismatches,
-                    original_import_error=original_error
+                    original_import_error=original_error,
                 ) from original_error
 
             # All dependencies present with correct versions, execute the method

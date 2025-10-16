@@ -13,7 +13,7 @@ from typing import Any, Callable, Generator, Optional, TypeVar
 logger = logging.getLogger(__name__)
 
 # Type variable for generic function decoration
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class TimingContext:
@@ -37,10 +37,7 @@ class TimingContext:
     """
 
     def __init__(
-            self,
-            operation_name: str,
-            logger_instance: Optional[logging.Logger] = None,
-            log_level: int = logging.DEBUG
+        self, operation_name: str, logger_instance: Optional[logging.Logger] = None, log_level: int = logging.DEBUG
     ) -> None:
         """Initialize the timing context for an operation."""
         self.operation_name = operation_name
@@ -49,7 +46,7 @@ class TimingContext:
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
 
-    def __enter__(self) -> 'TimingContext':
+    def __enter__(self) -> "TimingContext":
         """Enter the timing context and start the timer."""
         self.start_time = time.perf_counter()
         self.logger.log(self.log_level, f"Starting: {self.operation_name}")
@@ -61,15 +58,9 @@ class TimingContext:
         elapsed = self.elapsed
 
         if exc_type is None:
-            self.logger.log(
-                self.log_level,
-                f"{self.operation_name} completed in {elapsed:.2f}s"
-            )
+            self.logger.log(self.log_level, f"{self.operation_name} completed in {elapsed:.2f}s")
         else:
-            self.logger.log(
-                self.log_level,
-                f"{self.operation_name} failed after {elapsed:.2f}s"
-            )
+            self.logger.log(self.log_level, f"{self.operation_name} failed after {elapsed:.2f}s")
 
     @property
     def elapsed(self) -> float:
@@ -88,9 +79,9 @@ class TimingContext:
 
 
 def instrument_timing(
-        operation_name: Optional[str] = None,
-        logger_instance: Optional[logging.Logger] = None,
-        log_level: int = logging.DEBUG
+    operation_name: Optional[str] = None,
+    logger_instance: Optional[logging.Logger] = None,
+    log_level: int = logging.DEBUG,
 ) -> Callable[[F], F]:
     """Automatically time and log function execution.
 
@@ -131,7 +122,7 @@ def instrument_timing(
 
 @contextmanager
 def timing(
-        operation_name: str, logger_instance: Optional[logging.Logger] = None
+    operation_name: str, logger_instance: Optional[logging.Logger] = None
 ) -> Generator[TimingContext, None, None]:
     """Context manager for timing operations.
 
@@ -276,21 +267,15 @@ class OperationTimer:
 
         """
         if operation_name not in self.operations:
-            return {
-                'total': 0.0,
-                'count': 0,
-                'mean': 0.0,
-                'min': 0.0,
-                'max': 0.0
-            }
+            return {"total": 0.0, "count": 0, "mean": 0.0, "min": 0.0, "max": 0.0}
 
         durations = self.operations[operation_name]
         return {
-            'total': sum(durations),
-            'count': len(durations),
-            'mean': sum(durations) / len(durations),
-            'min': min(durations),
-            'max': max(durations)
+            "total": sum(durations),
+            "count": len(durations),
+            "mean": sum(durations) / len(durations),
+            "min": min(durations),
+            "max": max(durations),
         }
 
     def report(self, logger_instance: Optional[logging.Logger] = None) -> str:

@@ -29,11 +29,7 @@ def configure_logging(
         The configured root logger instance.
 
     """
-    resolved_level = (
-        log_level
-        if isinstance(log_level, int)
-        else getattr(logging, str(log_level).upper(), logging.INFO)
-    )
+    resolved_level = log_level if isinstance(log_level, int) else getattr(logging, str(log_level).upper(), logging.INFO)
 
     root_logger = logging.getLogger()
     root_logger.setLevel(resolved_level)

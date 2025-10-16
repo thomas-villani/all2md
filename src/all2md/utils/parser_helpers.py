@@ -31,10 +31,7 @@ if TYPE_CHECKING:
     from all2md.ast import Node
 
 
-def validate_zip_input(
-        input_data: Union[str, Path, IO[bytes], bytes],
-        suffix: str = '.zip'
-) -> None:
+def validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
     """Validate a zip archive across different input types.
 
     This function handles zip validation for Path, bytes, and IO[bytes] inputs
@@ -89,9 +86,9 @@ def validate_zip_input(
             except OSError:
                 pass
 
-    elif hasattr(input_data, 'read'):
+    elif hasattr(input_data, "read"):
         # File-like inputs - read, validate, reset position
-        original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+        original_position = input_data.tell() if hasattr(input_data, "tell") else 0
         input_data.seek(0)
         data = input_data.read()
         input_data.seek(original_position)
@@ -110,8 +107,7 @@ def validate_zip_input(
 
 @contextmanager
 def validated_zip_input(
-        input_data: Union[str, Path, IO[bytes], bytes],
-        suffix: str = '.zip'
+    input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip"
 ) -> Generator[Union[str, Path, IO[bytes], bytes], None, None]:
     """Context manager for validated zip input with automatic cleanup.
 
@@ -175,9 +171,9 @@ def validated_zip_input(
             validate_zip_archive(temp_path)
             yield temp_path
 
-        elif hasattr(input_data, 'read'):
+        elif hasattr(input_data, "read"):
             # File-like inputs - read, create temp file, validate, yield path
-            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+            original_position = input_data.tell() if hasattr(input_data, "tell") else 0
             input_data.seek(0)
             data = input_data.read()
             input_data.seek(original_position)
@@ -202,9 +198,7 @@ def validated_zip_input(
 
 
 def append_attachment_footnotes(
-        children: list[Node],
-        attachment_footnotes: dict[str, str],
-        section_title: str = "Attachments"
+    children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
 ) -> None:
     """Append attachment footnote definitions to document children.
 
@@ -245,23 +239,17 @@ def append_attachment_footnotes(
     from all2md.ast import FootnoteDefinition, Heading, Paragraph, Text
 
     # Add section heading
-    children.append(
-        Heading(level=2, content=[Text(content=section_title)])
-    )
+    children.append(Heading(level=2, content=[Text(content=section_title)]))
 
     # Add footnote definitions sorted by label
     for label in sorted(attachment_footnotes.keys()):
         content_text = attachment_footnotes[label]
-        definition = FootnoteDefinition(
-            identifier=label,
-            content=[Paragraph(content=[Text(content=content_text)])]
-        )
+        definition = FootnoteDefinition(identifier=label, content=[Paragraph(content=[Text(content=content_text)])])
         children.append(definition)
 
 
 def attachment_result_to_image_node(
-        attachment_result: dict[str, Any],
-        fallback_alt_text: str = "image"
+    attachment_result: dict[str, Any], fallback_alt_text: str = "image"
 ) -> "Node | None":
     """Convert process_attachment result dict to Image AST node.
 
@@ -318,7 +306,8 @@ def attachment_result_to_image_node(
     # Extract alt text from markdown using simple regex
     # Pattern: ![alt_text](url) or ![alt_text] or ![alt_text][^footnote]
     import re
-    match = re.match(r'^!\[([^]]*)]', markdown)
+
+    match = re.match(r"^!\[([^]]*)]", markdown)
     if match:
         alt_text = match.group(1) or fallback_alt_text
     else:
@@ -330,10 +319,10 @@ def attachment_result_to_image_node(
 
 
 def group_and_format_runs(
-        runs: Iterable[Any],
-        text_extractor: Callable[[Any], str],
-        format_extractor: Callable[[Any], tuple[bool, ...]],
-        format_builders: tuple[Callable[[list["Node"]], "Node"], ...] | None = None
+    runs: Iterable[Any],
+    text_extractor: Callable[[Any], str],
+    format_extractor: Callable[[Any], tuple[bool, ...]],
+    format_builders: tuple[Callable[[list["Node"]], "Node"], ...] | None = None,
 ) -> list["Node"]:
     """Group text runs by formatting and build formatted AST nodes.
 
@@ -465,13 +454,13 @@ def group_and_format_runs(
 
 
 def parse_delimited_block(
-        current_token_fn: Callable[[], Any],
-        advance_fn: Callable[[], Any],
-        opening_delimiter_type: Any,
-        closing_delimiter_type: Any,
-        eof_type: Any,
-        collect_mode: str = "lines",
-        parse_block_fn: Callable[[], Any] | None = None
+    current_token_fn: Callable[[], Any],
+    advance_fn: Callable[[], Any],
+    opening_delimiter_type: Any,
+    closing_delimiter_type: Any,
+    eof_type: Any,
+    collect_mode: str = "lines",
+    parse_block_fn: Callable[[], Any] | None = None,
 ) -> tuple[list[str] | list[Any], bool]:
     r"""Parse a delimited block with opening and closing delimiters.
 
@@ -574,14 +563,14 @@ def parse_delimited_block(
         if collect_mode == "lines":
             # Collect lines
             token = advance_fn()
-            if hasattr(token, 'type'):
+            if hasattr(token, "type"):
                 # AsciiDoc-style token with type attribute
-                if hasattr(token, 'content'):
+                if hasattr(token, "content"):
                     # TEXT_LINE token
                     collected.append(token.content)
                 else:
                     # BLANK_LINE or other
-                    collected.append('')
+                    collected.append("")
         else:
             # Parse and collect blocks
             if parse_block_fn:

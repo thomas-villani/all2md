@@ -144,7 +144,7 @@ class RemoveNodesTransform(NodeTransformer):
         from all2md.transforms.hooks import _NODE_TYPE_MAP
 
         # Validate that 'document' is not in node_types
-        if 'document' in node_types:
+        if "document" in node_types:
             raise ValueError(
                 "Cannot remove 'document' node type - this would break the pipeline. "
                 "Consider using specific child node types instead (e.g., 'heading', 'paragraph')."
@@ -160,7 +160,7 @@ class RemoveNodesTransform(NodeTransformer):
                 # Find close matches using difflib
                 suggestions = difflib.get_close_matches(node_type, known_types, n=3, cutoff=0.6)
                 if suggestions:
-                    suggestion_str = ', '.join(f"'{s}'" for s in suggestions)
+                    suggestion_str = ", ".join(f"'{s}'" for s in suggestions)
                     invalid_types.append(f"'{node_type}' (did you mean {suggestion_str}?)")
                 else:
                     invalid_types.append(f"'{node_type}'")
@@ -255,7 +255,7 @@ class HeadingOffsetTransform(NodeTransformer):
             level=new_level,
             content=self._transform_children(node.content),
             metadata=node.metadata.copy(),
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
@@ -351,7 +351,7 @@ class LinkRewriterTransform(NodeTransformer):
             content=self._transform_children(node.content),
             title=node.title,
             metadata=node.metadata.copy(),
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
@@ -407,11 +407,7 @@ class TextReplacerTransform(NodeTransformer):
         """
         new_content = node.content.replace(self.find, self.replace)
 
-        return Text(
-            content=new_content,
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
-        )
+        return Text(content=new_content, metadata=node.metadata.copy(), source_location=node.source_location)
 
 
 class AddHeadingIdsTransform(NodeTransformer):
@@ -487,13 +483,13 @@ class AddHeadingIdsTransform(NodeTransformer):
 
         # Add to metadata
         new_metadata = node.metadata.copy()
-        new_metadata['id'] = final_id
+        new_metadata["id"] = final_id
 
         return Heading(
             level=node.level,
             content=self._transform_children(node.content),
             metadata=new_metadata,
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
@@ -706,10 +702,7 @@ class AddConversionTimestampTransform(NodeTransformer):
     """
 
     def __init__(
-            self,
-            field_name: str = "conversion_timestamp",
-            timestamp_format: str = "iso",
-            timespec: str = "seconds"
+        self, field_name: str = "conversion_timestamp", timestamp_format: str = "iso", timespec: str = "seconds"
     ):
         """Initialize with field name, format, and time precision.
 
@@ -759,7 +752,7 @@ class AddConversionTimestampTransform(NodeTransformer):
         return Document(
             children=self._transform_children(node.children),
             metadata=new_metadata,
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
@@ -855,7 +848,7 @@ class CalculateWordCountTransform(NodeTransformer):
         return Document(
             children=self._transform_children(node.children),
             metadata=new_metadata,
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
@@ -904,10 +897,10 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
     """
 
     def __init__(
-            self,
-            section_title: str | None = "Attachments",
-            add_definitions_for_images: bool = True,
-            add_definitions_for_links: bool = True
+        self,
+        section_title: str | None = "Attachments",
+        add_definitions_for_images: bool = True,
+        add_definitions_for_links: bool = True,
     ):
         """Initialize transform with options.
 
@@ -958,23 +951,19 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
 
         # Add section heading if specified
         if self.section_title:
-            new_children.append(Heading(
-                level=2,
-                content=[Text(content=self.section_title)]
-            ))
+            new_children.append(Heading(level=2, content=[Text(content=self.section_title)]))
 
         # Add footnote definitions
         for label, source_info in sorted(self._footnote_refs.items()):
             definition = FootnoteDefinition(
-                identifier=label,
-                content=[Paragraph(content=[Text(content=f"Source: {source_info}")])]
+                identifier=label, content=[Paragraph(content=[Text(content=f"Source: {source_info}")])]
             )
             new_children.append(definition)
 
         return Document(
             children=self._transform_children(new_children),
             metadata=node.metadata,
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
     def _collect_footnote_refs(self, node: Node) -> None:
@@ -989,7 +978,7 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         # Check if this is an Image or Link with empty URL (footnote mode)
         if self.add_definitions_for_images and isinstance(node, Image) and not node.url:
             # Extract footnote label from alt_text, metadata, or fallback
-            source_text = node.alt_text or node.metadata.get('original_filename') or "attachment"
+            source_text = node.alt_text or node.metadata.get("original_filename") or "attachment"
             base_label = sanitize_footnote_label(source_text)
             # Use helper to add label with automatic duplicate handling
             self._add_footnote_label(base_label, source_text)
@@ -997,18 +986,18 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         if self.add_definitions_for_links and isinstance(node, Link) and not node.url:
             # Extract label from link content or metadata
             link_text = self._get_link_text(node)
-            source_text = link_text or node.metadata.get('original_filename') or "attachment"
+            source_text = link_text or node.metadata.get("original_filename") or "attachment"
             base_label = sanitize_footnote_label(source_text)
             # Use helper to add label with automatic duplicate handling
             self._add_footnote_label(base_label, source_text)
 
         # Recurse into children
-        if hasattr(node, 'children') and isinstance(node.children, list):
+        if hasattr(node, "children") and isinstance(node.children, list):
             for child in node.children:
                 self._collect_footnote_refs(child)
 
         # Recurse into content
-        if hasattr(node, 'content') and isinstance(node.content, list):
+        if hasattr(node, "content") and isinstance(node.content, list):
             for child in node.content:
                 self._collect_footnote_refs(child)
 
@@ -1123,13 +1112,13 @@ class GenerateTocTransform(NodeTransformer):
     """
 
     def __init__(
-            self,
-            title: str = "Table of Contents",
-            max_depth: int = 3,
-            position: str = "top",
-            add_links: bool = True,
-            separator: str = "-",
-            set_ids_if_missing: bool = False
+        self,
+        title: str = "Table of Contents",
+        max_depth: int = 3,
+        position: str = "top",
+        add_links: bool = True,
+        separator: str = "-",
+        set_ids_if_missing: bool = False,
     ):
         """Initialize with TOC generation options.
 
@@ -1199,6 +1188,7 @@ class GenerateTocTransform(NodeTransformer):
         if self.set_ids_if_missing and self._heading_id_map:
             # Create a new document with updated headings
             from typing import cast
+
             node = cast(Document, self._inject_heading_ids(node))
 
         # Generate TOC structure
@@ -1214,7 +1204,7 @@ class GenerateTocTransform(NodeTransformer):
         return Document(
             children=self._transform_children(new_children),
             metadata=node.metadata,
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
     def _collect_headings(self, node: Node) -> None:
@@ -1232,7 +1222,7 @@ class GenerateTocTransform(NodeTransformer):
             text = extract_text(node.content, joiner="")
 
             # Get or generate heading ID
-            heading_id = node.metadata.get('id')
+            heading_id = node.metadata.get("id")
             if not heading_id and self.add_links:
                 heading_id = self._generate_id(text)
                 # Track heading index and generated ID for potential injection
@@ -1243,12 +1233,12 @@ class GenerateTocTransform(NodeTransformer):
             self._headings.append((node.level, text, heading_id))
 
         # Recurse into children
-        if hasattr(node, 'children') and isinstance(node.children, list):
+        if hasattr(node, "children") and isinstance(node.children, list):
             for child in node.children:
                 self._collect_headings(child)
 
         # Recurse into content
-        if hasattr(node, 'content') and isinstance(node.content, list):
+        if hasattr(node, "content") and isinstance(node.content, list):
             for child in node.content:
                 self._collect_headings(child)
 
@@ -1292,7 +1282,7 @@ class GenerateTocTransform(NodeTransformer):
 
         """
         # Track current heading index during traversal
-        if not hasattr(self, '_current_heading_idx'):
+        if not hasattr(self, "_current_heading_idx"):
             self._current_heading_idx = 0
 
         # If this is a heading within our depth range, inject ID if needed
@@ -1303,18 +1293,18 @@ class GenerateTocTransform(NodeTransformer):
             # If this heading needs an ID injected
             if current_idx in self._heading_id_map:
                 new_metadata = node.metadata.copy()
-                new_metadata['id'] = self._heading_id_map[current_idx]
+                new_metadata["id"] = self._heading_id_map[current_idx]
                 return Heading(
                     level=node.level,
                     content=node.content,  # Don't recurse into content for headings
                     metadata=new_metadata,
-                    source_location=node.source_location
+                    source_location=node.source_location,
                 )
             else:
                 return node
 
         # Recurse into children
-        if hasattr(node, 'children') and isinstance(node.children, list):
+        if hasattr(node, "children") and isinstance(node.children, list):
             new_children = []
             for child in node.children:
                 updated_child = self._inject_heading_ids(child)
@@ -1322,17 +1312,14 @@ class GenerateTocTransform(NodeTransformer):
 
             # Rebuild node with updated children
             if isinstance(node, Document):
-                return Document(
-                    children=new_children,
-                    metadata=node.metadata,
-                    source_location=node.source_location
-                )
+                return Document(children=new_children, metadata=node.metadata, source_location=node.source_location)
             elif isinstance(node, Paragraph):
                 return node  # Paragraphs can't have Heading children
             else:
                 # For other node types, try to update children if they have that attribute
-                if hasattr(node, 'children'):
+                if hasattr(node, "children"):
                     from all2md.ast.nodes import replace_node_children
+
                     return replace_node_children(node, new_children)
 
         return node
@@ -1357,10 +1344,7 @@ class GenerateTocTransform(NodeTransformer):
 
         # Add title heading
         if self.title:
-            toc_nodes.append(Heading(
-                level=2,
-                content=[Text(content=self.title)]
-            ))
+            toc_nodes.append(Heading(level=2, content=[Text(content=self.title)]))
 
         # Build nested list structure
         if self._headings:
@@ -1411,10 +1395,7 @@ class GenerateTocTransform(NodeTransformer):
                 para_content: list[Node] = []
                 if self.add_links and heading_id:
                     # Create link to heading
-                    para_content.append(Link(
-                        url=f"#{heading_id}",
-                        content=[Text(content=text)]
-                    ))
+                    para_content.append(Link(url=f"#{heading_id}", content=[Text(content=text)]))
                 else:
                     para_content.append(Text(content=text))
 
@@ -1433,11 +1414,7 @@ class GenerateTocTransform(NodeTransformer):
                 # Skip deeper nested items (they'll be handled recursively)
                 idx += 1
 
-        result_list = None if not items else ListNode(
-            ordered=False,
-            items=items,
-            tight=False
-        )
+        result_list = None if not items else ListNode(ordered=False, items=items, tight=False)
         return (result_list, idx)
 
 

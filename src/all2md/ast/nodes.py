@@ -37,13 +37,13 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 MathNotation = Literal["latex", "mathml", "html"]
-Alignment = Literal['left', 'center', 'right']
+Alignment = Literal["left", "center", "right"]
 
 
 def _normalize_math_representations(
-        content: str,
-        notation: MathNotation,
-        representations: dict[MathNotation, str],
+    content: str,
+    notation: MathNotation,
+    representations: dict[MathNotation, str],
 ) -> None:
     if notation not in {"latex", "mathml", "html"}:
         raise ValueError(f"Unsupported math notation: {notation}")
@@ -52,10 +52,10 @@ def _normalize_math_representations(
 
 
 def _select_math_representation(
-        content: str,
-        notation: MathNotation,
-        representations: dict[MathNotation, str],
-        preferred: MathNotation,
+    content: str,
+    notation: MathNotation,
+    representations: dict[MathNotation, str],
+    preferred: MathNotation,
 ) -> tuple[str, MathNotation]:
     if preferred in representations:
         return representations[preferred], preferred
@@ -293,7 +293,7 @@ class CodeBlock(Node):
 
     content: str
     language: Optional[str] = None
-    fence_char: str = '`'
+    fence_char: str = "`"
     fence_length: int = 3
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
@@ -421,7 +421,7 @@ class ListItem(Node):
     """
 
     children: list[Node] = field(default_factory=list)
-    task_status: Optional[Literal['checked', 'unchecked']] = None
+    task_status: Optional[Literal["checked", "unchecked"]] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
 
@@ -890,7 +890,7 @@ class Image(Node):
     """
 
     url: str
-    alt_text: str = ''
+    alt_text: str = ""
     title: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
@@ -1521,9 +1521,23 @@ def get_node_children(node: Node) -> list[Node]:
         return list(node.children)
 
     # Inline nodes with 'content' attribute (containing inline nodes)
-    if isinstance(node, (Heading, Paragraph, Emphasis, Strong, Strikethrough,
-                         Underline, Superscript, Subscript, Link, TableCell,
-                         DefinitionTerm, DefinitionDescription)):
+    if isinstance(
+        node,
+        (
+            Heading,
+            Paragraph,
+            Emphasis,
+            Strong,
+            Strikethrough,
+            Underline,
+            Superscript,
+            Subscript,
+            Link,
+            TableCell,
+            DefinitionTerm,
+            DefinitionDescription,
+        ),
+    ):
         return list(node.content)
 
     # List has items
@@ -1617,9 +1631,23 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
         return replace(node, children=new_children)
 
     # Inline nodes with 'content' attribute
-    if isinstance(node, (Heading, Paragraph, Emphasis, Strong, Strikethrough,
-                         Underline, Superscript, Subscript, Link, TableCell,
-                         DefinitionTerm, DefinitionDescription)):
+    if isinstance(
+        node,
+        (
+            Heading,
+            Paragraph,
+            Emphasis,
+            Strong,
+            Strikethrough,
+            Underline,
+            Superscript,
+            Subscript,
+            Link,
+            TableCell,
+            DefinitionTerm,
+            DefinitionDescription,
+        ),
+    ):
         return replace(node, content=new_children)
 
     # List has items

@@ -112,7 +112,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         document.accept(self)
 
-        result = ''.join(self._output)
+        result = "".join(self._output)
         return self._cleanup_output(result)
 
     def _cleanup_output(self, text: str) -> str:
@@ -130,7 +130,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Remove excessive blank lines
-        text = re.sub(r'\n{4,}', '\n\n\n', text)
+        text = re.sub(r"\n{4,}", "\n\n\n", text)
         text = text.rstrip()
         return text
 
@@ -151,7 +151,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
     def _render_file_properties(self, metadata: dict) -> None:
         """Render metadata as Org file-level properties.
@@ -166,38 +166,38 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return
 
         # Org file-level properties
-        if metadata.get('title'):
+        if metadata.get("title"):
             self._output.append(f"#+TITLE: {metadata['title']}\n")
-        if metadata.get('author'):
+        if metadata.get("author"):
             self._output.append(f"#+AUTHOR: {metadata['author']}\n")
-        if metadata.get('source'):
+        if metadata.get("source"):
             self._output.append(f"#+SOURCE: {metadata['source']}\n")
-        if metadata.get('creation_date'):
+        if metadata.get("creation_date"):
             self._output.append(f"#+DATE: {metadata['creation_date']}\n")
-        if metadata.get('modification_date'):
+        if metadata.get("modification_date"):
             self._output.append(f"#+UPDATED: {metadata['modification_date']}\n")
-        if metadata.get('accessed_date'):
+        if metadata.get("accessed_date"):
             self._output.append(f"#+ACCESS_DATE: {metadata['accessed_date']}\n")
-        if metadata.get('description'):
+        if metadata.get("description"):
             self._output.append(f"#+DESCRIPTION: {metadata['description']}\n")
-        if metadata.get('keywords'):
-            if isinstance(metadata['keywords'], list):
-                keywords = ', '.join(str(k) for k in metadata['keywords'])
+        if metadata.get("keywords"):
+            if isinstance(metadata["keywords"], list):
+                keywords = ", ".join(str(k) for k in metadata["keywords"])
             else:
-                keywords = str(metadata['keywords'])
+                keywords = str(metadata["keywords"])
             self._output.append(f"#+KEYWORDS: {keywords}\n")
-        if metadata.get('language'):
+        if metadata.get("language"):
             self._output.append(f"#+LANGUAGE: {metadata['language']}\n")
-        if metadata.get('category'):
+        if metadata.get("category"):
             self._output.append(f"#+CATEGORY: {metadata['category']}\n")
 
         # Add other custom properties
-        if 'custom' in metadata and isinstance(metadata['custom'], dict):
-            for key, value in metadata['custom'].items():
+        if "custom" in metadata and isinstance(metadata["custom"], dict):
+            for key, value in metadata["custom"].items():
                 self._output.append(f"#+{key.upper()}: {value}\n")
 
         if metadata:
-            self._output.append('\n')
+            self._output.append("\n")
 
     def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
@@ -209,12 +209,12 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Generate stars based on level
-        stars = '*' * node.level
+        stars = "*" * node.level
 
         # Extract TODO state, priority, and tags from metadata
-        todo_state = node.metadata.get('org_todo_state', '') if node.metadata else ''
-        priority = node.metadata.get('org_priority', '') if node.metadata else ''
-        tags = node.metadata.get('org_tags', []) if node.metadata else []
+        todo_state = node.metadata.get("org_todo_state", "") if node.metadata else ""
+        priority = node.metadata.get("org_priority", "") if node.metadata else ""
+        tags = node.metadata.get("org_tags", []) if node.metadata else []
 
         # Render heading line
         parts = [stars]
@@ -223,7 +223,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             parts.append(todo_state)
 
         if priority:
-            parts.append(f'[#{priority}]')
+            parts.append(f"[#{priority}]")
 
         # Render heading content
         content = self._render_inline_content(node.content)
@@ -231,19 +231,19 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Render tags
         if tags and self.options.preserve_tags:
-            tags_str = ':' + ':'.join(tags) + ':'
+            tags_str = ":" + ":".join(tags) + ":"
             parts.append(tags_str)
 
-        self._output.append(' '.join(parts))
+        self._output.append(" ".join(parts))
 
         # Render properties drawer if present and enabled
         if self.options.preserve_properties and node.metadata:
-            properties = node.metadata.get('org_properties', {})
+            properties = node.metadata.get("org_properties", {})
             if properties:
-                self._output.append('\n:PROPERTIES:\n')
+                self._output.append("\n:PROPERTIES:\n")
                 for key, value in properties.items():
-                    self._output.append(f':{key}: {value}\n')
-                self._output.append(':END:')
+                    self._output.append(f":{key}: {value}\n")
+                self._output.append(":END:")
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.
@@ -267,12 +267,12 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Render as #+BEGIN_SRC / #+END_SRC block
-        lang = node.language if node.language else ''
-        self._output.append(f"#+BEGIN_SRC {lang}\n".rstrip() + '\n')
+        lang = node.language if node.language else ""
+        self._output.append(f"#+BEGIN_SRC {lang}\n".rstrip() + "\n")
         self._output.append(node.content)
-        if not node.content.endswith('\n'):
-            self._output.append('\n')
-        self._output.append('#+END_SRC')
+        if not node.content.endswith("\n"):
+            self._output.append("\n")
+        self._output.append("#+END_SRC")
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
@@ -289,14 +289,14 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for child in node.children:
             child.accept(self)
 
-        quoted = ''.join(self._output)
-        lines = quoted.split('\n')
+        quoted = "".join(self._output)
+        lines = quoted.split("\n")
 
         # Prefix each line with : for Org quote format
-        quoted_lines = [': ' + line for line in lines]
+        quoted_lines = [": " + line for line in lines]
 
         self._output = saved_output
-        self._output.append('\n'.join(quoted_lines))
+        self._output.append("\n".join(quoted_lines))
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -321,18 +321,18 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 marker = "- "
 
             # Add indentation for nested lists
-            indent = '  ' * (self._list_depth - 1)
+            indent = "  " * (self._list_depth - 1)
             self._output.append(f"{indent}{marker}")
 
             # Render item content
             saved_output = self._output
             self._output = []
             item.accept(self)
-            item_content = ''.join(self._output)
+            item_content = "".join(self._output)
             self._output = saved_output
 
             # Add item content (first line inline with marker, rest indented)
-            lines = item_content.split('\n')
+            lines = item_content.split("\n")
             if lines:
                 self._output.append(lines[0])
                 for line in lines[1:]:
@@ -340,7 +340,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                         self._output.append(f"\n{indent}  {line}")
 
             if i < len(node.items) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
         self._list_depth -= 1
         self._in_list = was_in_list
@@ -357,7 +357,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
@@ -403,16 +403,16 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 if j < num_cols:
                     padded = cell_content.ljust(col_widths[j])
                     row_parts.append(padded)
-            self._output.append('| ' + ' | '.join(row_parts) + ' |')
+            self._output.append("| " + " | ".join(row_parts) + " |")
 
             if i < len(rendered_rows) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
             # Add separator after header
             if i == 0 and node.header:
-                self._output.append('\n|')
+                self._output.append("\n|")
                 for width in col_widths:
-                    self._output.append('-' * (width + 2) + '|')
+                    self._output.append("-" * (width + 2) + "|")
 
     def visit_table_row(self, node: TableRow) -> None:
         """Render a TableRow node.
@@ -445,7 +445,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Thematic break to render
 
         """
-        self._output.append('-----')
+        self._output.append("-----")
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -528,7 +528,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Org image syntax: [[file:path]]
         if node.url:
             # Add file: prefix if not present
-            url = node.url if node.url.startswith('file:') else f'file:{node.url}'
+            url = node.url if node.url.startswith("file:") else f"file:{node.url}"
             if node.alt_text and node.alt_text != node.url:
                 self._output.append(f"[[{url}][{node.alt_text}]]")
             else:
@@ -544,10 +544,10 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append('\n')
+            self._output.append("\n")
         else:
             # Hard line break - use \\ in Org
-            self._output.append(' \\\\\n')
+            self._output.append(" \\\\\n")
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.
@@ -605,11 +605,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def visit_html_block(self, node: HTMLBlock) -> None:
         """Render HTML block (wrap in export block)."""
-        self._output.append('#+BEGIN_EXPORT html\n')
+        self._output.append("#+BEGIN_EXPORT html\n")
         self._output.append(node.content)
-        if not node.content.endswith('\n'):
-            self._output.append('\n')
-        self._output.append('#+END_EXPORT')
+        if not node.content.endswith("\n"):
+            self._output.append("\n")
+        self._output.append("#+END_EXPORT")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render footnote reference."""
@@ -620,11 +620,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append(f"[fn:{node.identifier}] ")
         for i, child in enumerate(node.content):
             if i > 0:
-                self._output.append('\n')
+                self._output.append("\n")
             saved_output = self._output
             self._output = []
             child.accept(self)
-            child_content = ''.join(self._output)
+            child_content = "".join(self._output)
             self._output = saved_output
             self._output.append(child_content)
 
@@ -642,8 +642,8 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Org uses $$...$$ or \[...\] for block math
         self._output.append("$$\n")
         self._output.append(content)
-        if not content.endswith('\n'):
-            self._output.append('\n')
+        if not content.endswith("\n"):
+            self._output.append("\n")
         self._output.append("$$")
 
     def visit_definition_list(self, node: DefinitionList) -> None:
@@ -663,19 +663,19 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # Render descriptions
             for j, desc in enumerate(descriptions):
                 if j > 0:
-                    self._output.append('\n  ')
+                    self._output.append("\n  ")
                 saved_output = self._output
                 self._output = []
 
                 for child in desc.content:
                     child.accept(self)
 
-                desc_content = ''.join(self._output)
+                desc_content = "".join(self._output)
                 self._output = saved_output
                 self._output.append(desc_content)
 
             if i < len(node.items) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node.

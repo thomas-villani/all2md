@@ -85,16 +85,16 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     # LaTeX special characters that need escaping
     SPECIAL_CHARS = {
-        '\\': r'\textbackslash{}',
-        '{': r'\{',
-        '}': r'\}',
-        '$': r'\$',
-        '%': r'\%',
-        '&': r'\&',
-        '#': r'\#',
-        '_': r'\_',
-        '~': r'\textasciitilde{}',
-        '^': r'\textasciicircum{}',
+        "\\": r"\textbackslash{}",
+        "{": r"\{",
+        "}": r"\}",
+        "$": r"\$",
+        "%": r"\%",
+        "&": r"\&",
+        "#": r"\#",
+        "_": r"\_",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
     }
 
     def __init__(self, options: LatexRendererOptions | None = None):
@@ -133,19 +133,19 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("\\begin{document}\n\n")
 
             # Render title if present in metadata
-            if metadata_block.get('title'):
+            if metadata_block.get("title"):
                 self._output.append("\\maketitle\n\n")
 
         for i, child in enumerate(document.children):
             child.accept(self)
             # Add spacing between blocks
             if i < len(document.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
         if self.options.include_preamble:
             self._output.append("\n\n\\end{document}\n")
 
-        return ''.join(self._output)
+        return "".join(self._output)
 
     def _render_preamble(self, metadata: Dict[str, Any]) -> None:
         """Render LaTeX document preamble.
@@ -162,21 +162,21 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for package in self.options.packages:
             self._output.append(f"\\usepackage{{{package}}}\n")
 
-        self._output.append('\n')
+        self._output.append("\n")
 
         # Add metadata commands
-        if metadata.get('title'):
+        if metadata.get("title"):
             self._output.append(f"\\title{{{self._escape(metadata['title'])}}}\n")
-        if metadata.get('author'):
+        if metadata.get("author"):
             self._output.append(f"\\author{{{self._escape(metadata['author'])}}}\n")
 
-        date_value = metadata.get('creation_date') or metadata.get('date')
+        date_value = metadata.get("creation_date") or metadata.get("date")
         if date_value:
             self._output.append(f"\\date{{{self._escape(str(date_value))}}}\n")
         else:
             self._output.append("\\date{\\today}\n")
 
-        self._output.append('\n')
+        self._output.append("\n")
 
     def _escape(self, text: str) -> str:
         """Escape special LaTeX characters.
@@ -227,15 +227,15 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         # Map heading levels to LaTeX commands
         commands = {
-            1: 'section',
-            2: 'subsection',
-            3: 'subsubsection',
-            4: 'paragraph',
-            5: 'subparagraph',
-            6: 'subparagraph',  # LaTeX doesn't have level 6
+            1: "section",
+            2: "subsection",
+            3: "subsubsection",
+            4: "paragraph",
+            5: "subparagraph",
+            6: "subparagraph",  # LaTeX doesn't have level 6
         }
 
-        command = commands.get(node.level, 'section')
+        command = commands.get(node.level, "section")
         content = self._render_inline_content(node.content)
         self._output.append(f"\\{command}{{{content}}}")
 
@@ -263,8 +263,8 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Use verbatim environment for code blocks
         self._output.append("\\begin{verbatim}\n")
         self._output.append(node.content)
-        if not node.content.endswith('\n'):
-            self._output.append('\n')
+        if not node.content.endswith("\n"):
+            self._output.append("\n")
         self._output.append("\\end{verbatim}")
 
     def visit_block_quote(self, node: BlockQuote) -> None:
@@ -281,7 +281,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
         self._output.append("\n\\end{quote}")
 
@@ -294,14 +294,14 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             List to render
 
         """
-        env_name = 'enumerate' if node.ordered else 'itemize'
+        env_name = "enumerate" if node.ordered else "itemize"
 
         self._output.append(f"\\begin{{{env_name}}}\n")
 
         for item in node.items:
             self._output.append("\\item ")
             item.accept(self)
-            self._output.append('\n')
+            self._output.append("\n")
 
         self._output.append(f"\\end{{{env_name}}}")
 
@@ -322,7 +322,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(content)
             else:
                 # Subsequent children get new paragraphs
-                self._output.append('\n\n')
+                self._output.append("\n\n")
                 child.accept(self)
 
     def visit_table(self, node: Table) -> None:
@@ -344,7 +344,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             col_count = len(node.rows[0].cells)
 
         # Generate column specification (all left-aligned for simplicity)
-        col_spec = '|' + 'l|' * col_count
+        col_spec = "|" + "l|" * col_count
 
         self._output.append(f"\\begin{{tabular}}{{{col_spec}}}\n")
         self._output.append("\\hline\n")
@@ -498,7 +498,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if node.height:
             options.append(f"height={node.height}pt")
 
-        opt_str = ','.join(options)
+        opt_str = ",".join(options)
         if opt_str:
             self._output.append(f"\\includegraphics[{opt_str}]{{{node.url}}}")
         else:
@@ -515,9 +515,9 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if node.soft:
             # Soft breaks render as space in LaTeX
-            self._output.append(' ')
+            self._output.append(" ")
         else:
-            self._output.append('\\\\')
+            self._output.append("\\\\")
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -643,8 +643,8 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Render as display math using equation environment
         self._output.append("\\begin{equation}\n")
         self._output.append(content)
-        if not content.endswith('\n'):
-            self._output.append('\n')
+        if not content.endswith("\n"):
+            self._output.append("\n")
         self._output.append("\\end{equation}")
 
     def visit_definition_list(self, node: DefinitionList) -> None:
@@ -667,9 +667,9 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 for child in desc.content:
                     child.accept(self)
                     if i < len(descriptions) - 1:
-                        self._output.append('\n')
+                        self._output.append("\n")
 
-            self._output.append('\n')
+            self._output.append("\n")
 
         self._output.append("\\end{description}")
 

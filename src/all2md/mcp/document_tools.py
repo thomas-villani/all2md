@@ -35,10 +35,7 @@ from all2md.mcp.security import MCPSecurityError, validate_read_path
 logger = logging.getLogger(__name__)
 
 
-def edit_document_impl(
-        input_data: EditDocumentSimpleInput,
-        config: MCPConfig
-) -> EditDocumentSimpleOutput:
+def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -> EditDocumentSimpleOutput:
     """Implement edit_document tool (simplified LLM-friendly interface).
 
     This function provides a streamlined interface for document manipulation
@@ -61,14 +58,18 @@ def edit_document_impl(
     try:
         # Validate action
         valid_actions = {
-            "list-sections", "extract", "add:before", "add:after",
-            "remove", "replace", "insert:start", "insert:end", "insert:after_heading"
+            "list-sections",
+            "extract",
+            "add:before",
+            "add:after",
+            "remove",
+            "replace",
+            "insert:start",
+            "insert:end",
+            "insert:after_heading",
         }
         if input_data.action not in valid_actions:
-            return EditDocumentSimpleOutput(
-                success=False,
-                message=f"[ERROR] Invalid action: {input_data.action!r}"
-            )
+            return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Invalid action: {input_data.action!r}")
 
         # Parse target (heading text or index notation like "#3")
         target: str | int | None = None
@@ -82,7 +83,7 @@ def edit_document_impl(
                     return EditDocumentSimpleOutput(
                         success=False,
                         message=f"[ERROR] Invalid target index format: {input_data.target!r}. "
-                                "Expected format like '#0', '#1', '#2'."
+                        "Expected format like '#0', '#1', '#2'.",
                     )
             else:
                 target = target_str
@@ -92,28 +93,28 @@ def edit_document_impl(
             return EditDocumentSimpleOutput(
                 success=False,
                 message=f"[ERROR] The '{input_data.action}' action requires a target "
-                        "(heading text or index like '#0')."
+                "(heading text or index like '#0').",
             )
 
         # Validate content is provided when needed
         content_required_actions = {
-            "add:before", "add:after", "replace",
-            "insert:start", "insert:end", "insert:after_heading"
+            "add:before",
+            "add:after",
+            "replace",
+            "insert:start",
+            "insert:end",
+            "insert:after_heading",
         }
         if input_data.action in content_required_actions and not input_data.content:
             return EditDocumentSimpleOutput(
-                success=False,
-                message=f"[ERROR] The '{input_data.action}' action requires content parameter."
+                success=False, message=f"[ERROR] The '{input_data.action}' action requires content parameter."
             )
 
         # Validate and load document
         try:
             validated_path = validate_read_path(input_data.doc, config.read_allowlist)
         except MCPSecurityError as e:
-            return EditDocumentSimpleOutput(
-                success=False,
-                message=f"[ERROR] Read access denied: {e}"
-            )
+            return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Read access denied: {e}")
 
         logger.info(f"Loading document from: {validated_path}")
         doc = to_ast(validated_path, source_format="markdown", flavor="gfm")
@@ -139,11 +140,7 @@ def edit_document_impl(
             else:
                 content = "No sections found in document."
 
-            return EditDocumentSimpleOutput(
-                success=True,
-                message=f"Found {len(sections)} section(s).",
-                content=content
-            )
+            return EditDocumentSimpleOutput(success=True, message=f"Found {len(sections)} section(s).", content=content)
 
         elif input_data.action == "extract":
             # Extract a specific section
@@ -157,9 +154,7 @@ def edit_document_impl(
 
             target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
             return EditDocumentSimpleOutput(
-                success=True,
-                message=f"Successfully extracted {target_desc}.",
-                content=result_md
+                success=True, message=f"Successfully extracted {target_desc}.", content=result_md
             )
 
         elif input_data.action in ("add:before", "add:after"):
@@ -187,9 +182,7 @@ def edit_document_impl(
 
             target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
             return EditDocumentSimpleOutput(
-                success=True,
-                message=f"Successfully added content {position_desc} {target_desc}.",
-                content=result_md
+                success=True, message=f"Successfully added content {position_desc} {target_desc}.", content=result_md
             )
 
         elif input_data.action == "remove":
@@ -204,9 +197,7 @@ def edit_document_impl(
 
             target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
             return EditDocumentSimpleOutput(
-                success=True,
-                message=f"Successfully removed {target_desc}.",
-                content=result_md
+                success=True, message=f"Successfully removed {target_desc}.", content=result_md
             )
 
         elif input_data.action == "replace":
@@ -228,9 +219,7 @@ def edit_document_impl(
 
             target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
             return EditDocumentSimpleOutput(
-                success=True,
-                message=f"Successfully replaced {target_desc}.",
-                content=result_md
+                success=True, message=f"Successfully replaced {target_desc}.", content=result_md
             )
 
         elif input_data.action in ("insert:start", "insert:end", "insert:after_heading"):
@@ -244,19 +233,11 @@ def edit_document_impl(
                 raise TypeError(f"Expected Document, got {type(content_doc)}")
 
             # Map action to position
-            position_map = {
-                "insert:start": "start",
-                "insert:end": "end",
-                "insert:after_heading": "after_heading"
-            }
+            position_map = {"insert:start": "start", "insert:end": "end", "insert:after_heading": "after_heading"}
             position = position_map[input_data.action]
 
             modified_doc = insert_into_section(
-                doc,
-                target,
-                content_doc.children,
-                position=position,  # type: ignore[arg-type]
-                case_sensitive=False
+                doc, target, content_doc.children, position=position, case_sensitive=False  # type: ignore[arg-type]
             )
 
             # Serialize to markdown
@@ -266,52 +247,32 @@ def edit_document_impl(
 
             target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
             return EditDocumentSimpleOutput(
-                success=True,
-                message=f"Successfully inserted content into {target_desc}.",
-                content=result_md
+                success=True, message=f"Successfully inserted content into {target_desc}.", content=result_md
             )
 
         else:
             # Should never reach here due to validation above
-            return EditDocumentSimpleOutput(
-                success=False,
-                message=f"[ERROR] Unhandled action: {input_data.action}"
-            )
+            return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Unhandled action: {input_data.action}")
 
     except ValueError as e:
         # Handle validation errors from AST functions
         error_msg = str(e)
         if "not found" in error_msg.lower():
-            return EditDocumentSimpleOutput(
-                success=False,
-                message=f"[ERROR] Target not found: {error_msg}"
-            )
-        return EditDocumentSimpleOutput(
-            success=False,
-            message=f"[ERROR] Invalid input: {error_msg}"
-        )
+            return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Target not found: {error_msg}")
+        return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Invalid input: {error_msg}")
 
     except All2MdError as e:
         # Handle document processing errors
-        return EditDocumentSimpleOutput(
-            success=False,
-            message=f"[ERROR] Document processing failed: {e}"
-        )
+        return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Document processing failed: {e}")
 
     except MCPSecurityError as e:
         # Handle security violations
-        return EditDocumentSimpleOutput(
-            success=False,
-            message=f"[ERROR] Security violation: {e}"
-        )
+        return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Security violation: {e}")
 
     except Exception as e:
         # Catch-all for unexpected errors
         logger.error(f"Unexpected error in edit_document: {e}", exc_info=True)
-        return EditDocumentSimpleOutput(
-            success=False,
-            message=f"[ERROR] Unexpected error: {e}"
-        )
+        return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Unexpected error: {e}")
 
 
 __all__ = [

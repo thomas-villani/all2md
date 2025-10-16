@@ -76,25 +76,25 @@ class EpubToAstConverter(BaseParser):
         temp_file = None
         if isinstance(input_data, (str, Path)):
             # Path inputs - validate directly
-            self._validate_zip_input(input_data, suffix='.epub')
+            self._validate_zip_input(input_data, suffix=".epub")
             epub_path = str(input_data)
         elif isinstance(input_data, bytes):
             # Bytes inputs - create temp file and validate
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".epub")
             temp_file.write(input_data)
             temp_file.close()
-            self._validate_zip_input(temp_file.name, suffix='.epub')
+            self._validate_zip_input(temp_file.name, suffix=".epub")
             epub_path = temp_file.name
-        elif hasattr(input_data, 'read'):
+        elif hasattr(input_data, "read"):
             # File-like inputs - read and create temp file
-            original_position = input_data.tell() if hasattr(input_data, 'tell') else 0
+            original_position = input_data.tell() if hasattr(input_data, "tell") else 0
             input_data.seek(0)
             data = input_data.read()
             input_data.seek(original_position)
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".epub")
             temp_file.write(data)
             temp_file.close()
-            self._validate_zip_input(temp_file.name, suffix='.epub')
+            self._validate_zip_input(temp_file.name, suffix=".epub")
             epub_path = temp_file.name
         else:
             # Fallback - should not reach here with proper type hints
@@ -146,12 +146,7 @@ class EpubToAstConverter(BaseParser):
 
         """
         # Emit started event
-        self._emit_progress(
-            "started",
-            "Converting EPUB document",
-            current=0,
-            total=1
-        )
+        self._emit_progress("started", "Converting EPUB document", current=0, total=1)
         from ebooklib import ITEM_DOCUMENT
 
         children: list[Node] = []
@@ -166,7 +161,7 @@ class EpubToAstConverter(BaseParser):
         # Process spine items (chapters in reading order)
         for item in book.get_items_of_type(ITEM_DOCUMENT):  # 9 = ITEM_DOCUMENT
             if item.get_type() == ITEM_DOCUMENT:  # Document type
-                html_content = item.get_content().decode('utf-8', errors='ignore')
+                html_content = item.get_content().decode("utf-8", errors="ignore")
                 chapter_doc = self.html_parser.convert_to_ast(html_content)
                 if chapter_doc.children:
                     children.extend(chapter_doc.children)
@@ -174,12 +169,7 @@ class EpubToAstConverter(BaseParser):
                     children.append(ThematicBreak())
 
         # Emit finished event
-        self._emit_progress(
-            "finished",
-            "EPUB conversion completed",
-            current=1,
-            total=1
-        )
+        self._emit_progress("finished", "EPUB conversion completed", current=1, total=1)
 
         return Document(children=children)
 
@@ -208,7 +198,7 @@ class EpubToAstConverter(BaseParser):
 
         # Process TOC items
         for item in toc:
-            if hasattr(item, 'title'):
+            if hasattr(item, "title"):
                 nodes.append(Heading(level=2, content=[Text(content=item.title)]))
 
         return nodes
@@ -230,34 +220,34 @@ class EpubToAstConverter(BaseParser):
         metadata = DocumentMetadata()
 
         # Extract metadata from EPUB
-        if hasattr(document, 'get_metadata'):
+        if hasattr(document, "get_metadata"):
             # Title
-            title_meta = document.get_metadata('DC', 'title')
+            title_meta = document.get_metadata("DC", "title")
             if title_meta and title_meta[0]:
                 metadata.title = str(title_meta[0][0])
 
             # Author/Creator
-            creator_meta = document.get_metadata('DC', 'creator')
+            creator_meta = document.get_metadata("DC", "creator")
             if creator_meta and creator_meta[0]:
                 metadata.author = str(creator_meta[0][0])
 
             # Subject/Description
-            subject_meta = document.get_metadata('DC', 'subject')
+            subject_meta = document.get_metadata("DC", "subject")
             if subject_meta and subject_meta[0]:
                 metadata.subject = str(subject_meta[0][0])
 
             # Language
-            language_meta = document.get_metadata('DC', 'language')
+            language_meta = document.get_metadata("DC", "language")
             if language_meta and language_meta[0]:
                 metadata.language = str(language_meta[0][0])
 
             # Publisher
-            publisher_meta = document.get_metadata('DC', 'publisher')
+            publisher_meta = document.get_metadata("DC", "publisher")
             if publisher_meta and publisher_meta[0]:
-                metadata.custom['publisher'] = str(publisher_meta[0][0])
+                metadata.custom["publisher"] = str(publisher_meta[0][0])
 
             # Date
-            date_meta = document.get_metadata('DC', 'date')
+            date_meta = document.get_metadata("DC", "date")
             if date_meta and date_meta[0]:
                 metadata.creation_date = str(date_meta[0][0])
 
@@ -278,11 +268,8 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("ebooklib", "ebooklib", "")],
     renderer_required_packages=[("ebooklib", "ebooklib", ">=0.17")],
     optional_packages=[],
-    import_error_message=(
-        "ePub conversion requires 'ebooklib'. "
-        "Install with: pip install ebooklib"
-    ),
+    import_error_message=("ePub conversion requires 'ebooklib'. " "Install with: pip install ebooklib"),
     parser_options_class=EpubOptions,
     renderer_options_class="all2md.options.epub.EpubRendererOptions",
-    priority=8
+    priority=8,
 )

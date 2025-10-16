@@ -133,11 +133,7 @@ class Section:
         return extract_text(self.heading)
 
 
-def get_all_sections(
-        doc: Document,
-        min_level: int = 1,
-        max_level: int = 6
-) -> list[Section]:
+def get_all_sections(doc: Document, min_level: int = 1, max_level: int = 6) -> list[Section]:
     """Extract all sections from a document.
 
     Parameters
@@ -192,11 +188,7 @@ def get_all_sections(
 
                 # Start new section
                 current_section = Section(
-                    heading=node,
-                    content=[],
-                    level=node.level,
-                    start_index=idx,
-                    end_index=idx + 1
+                    heading=node, content=[], level=node.level, start_index=idx, end_index=idx + 1
                 )
                 current_content = []
             elif current_section is not None:
@@ -230,10 +222,7 @@ def get_all_sections(
 
 
 def find_section_by_heading(
-        doc: Document,
-        heading_text: str,
-        level: int | None = None,
-        case_sensitive: bool = False
+    doc: Document, heading_text: str, level: int | None = None, case_sensitive: bool = False
 ) -> Section | None:
     """Find the first section with a matching heading text.
 
@@ -285,10 +274,7 @@ def find_section_by_heading(
     return None
 
 
-def find_sections(
-        doc: Document,
-        predicate: Callable[[Section], bool]
-) -> list[Section]:
+def find_sections(doc: Document, predicate: Callable[[Section], bool]) -> list[Section]:
     """Find all sections matching a predicate function.
 
     Parameters
@@ -325,10 +311,7 @@ def find_sections(
     return [section for section in all_sections if predicate(section)]
 
 
-def get_section_by_index(
-        doc: Document,
-        section_index: int
-) -> Section | None:
+def get_section_by_index(doc: Document, section_index: int) -> Section | None:
     """Get a section by its index in the document.
 
     Parameters
@@ -357,11 +340,7 @@ def get_section_by_index(
         return None
 
 
-def _resolve_target(
-        doc: Document,
-        target: str | int,
-        case_sensitive: bool = False
-) -> Section | None:
+def _resolve_target(doc: Document, target: str | int, case_sensitive: bool = False) -> Section | None:
     """Resolve a target (heading text or index) to a Section.
 
     Parameters
@@ -386,10 +365,7 @@ def _resolve_target(
 
 
 def add_section_after(
-        doc: Document,
-        target: str | int,
-        new_section: Section | Document,
-        case_sensitive: bool = False
+    doc: Document, target: str | int, new_section: Section | Document, case_sensitive: bool = False
 ) -> Document:
     """Add a new section after the specified target section.
 
@@ -436,24 +412,13 @@ def add_section_after(
 
     # Insert after target section
     insert_pos = target_section.end_index
-    new_children = (
-            doc.children[:insert_pos] +
-            new_nodes +
-            doc.children[insert_pos:]
-    )
+    new_children = doc.children[:insert_pos] + new_nodes + doc.children[insert_pos:]
 
-    return Document(
-        children=new_children,
-        metadata=doc.metadata.copy(),
-        source_location=doc.source_location
-    )
+    return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
 def add_section_before(
-        doc: Document,
-        target: str | int,
-        new_section: Section | Document,
-        case_sensitive: bool = False
+    doc: Document, target: str | int, new_section: Section | Document, case_sensitive: bool = False
 ) -> Document:
     """Add a new section before the specified target section.
 
@@ -500,24 +465,12 @@ def add_section_before(
 
     # Insert before target section
     insert_pos = target_section.start_index
-    new_children = (
-            doc.children[:insert_pos] +
-            new_nodes +
-            doc.children[insert_pos:]
-    )
+    new_children = doc.children[:insert_pos] + new_nodes + doc.children[insert_pos:]
 
-    return Document(
-        children=new_children,
-        metadata=doc.metadata.copy(),
-        source_location=doc.source_location
-    )
+    return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
-def remove_section(
-        doc: Document,
-        target: str | int,
-        case_sensitive: bool = False
-) -> Document:
+def remove_section(doc: Document, target: str | int, case_sensitive: bool = False) -> Document:
     """Remove a section from the document.
 
     Parameters
@@ -550,23 +503,13 @@ def remove_section(
         raise ValueError(f"Target section not found: {target}")
 
     # Remove section (heading + content)
-    new_children = (
-            doc.children[:target_section.start_index] +
-            doc.children[target_section.end_index:]
-    )
+    new_children = doc.children[: target_section.start_index] + doc.children[target_section.end_index :]
 
-    return Document(
-        children=new_children,
-        metadata=doc.metadata.copy(),
-        source_location=doc.source_location
-    )
+    return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
 def replace_section(
-        doc: Document,
-        target: str | int,
-        new_content: Section | Document | list[Node],
-        case_sensitive: bool = False
+    doc: Document, target: str | int, new_content: Section | Document | list[Node], case_sensitive: bool = False
 ) -> Document:
     """Replace a section with new content.
 
@@ -622,25 +565,17 @@ def replace_section(
         new_nodes = new_content
 
     # Replace section
-    new_children = (
-            doc.children[:target_section.start_index] +
-            new_nodes +
-            doc.children[target_section.end_index:]
-    )
+    new_children = doc.children[: target_section.start_index] + new_nodes + doc.children[target_section.end_index :]
 
-    return Document(
-        children=new_children,
-        metadata=doc.metadata.copy(),
-        source_location=doc.source_location
-    )
+    return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
 def insert_into_section(
-        doc: Document,
-        target: str | int,
-        content: Node | list[Node],
-        position: Literal["start", "end", "after_heading"] = "end",
-        case_sensitive: bool = False
+    doc: Document,
+    target: str | int,
+    content: Node | list[Node],
+    position: Literal["start", "end", "after_heading"] = "end",
+    case_sensitive: bool = False,
 ) -> Document:
     """Insert content into an existing section.
 
@@ -697,23 +632,12 @@ def insert_into_section(
         raise ValueError(f"Invalid position: {position}")
 
     # Insert content
-    new_children = (
-            doc.children[:insert_pos] +
-            new_nodes +
-            doc.children[insert_pos:]
-    )
+    new_children = doc.children[:insert_pos] + new_nodes + doc.children[insert_pos:]
 
-    return Document(
-        children=new_children,
-        metadata=doc.metadata.copy(),
-        source_location=doc.source_location
-    )
+    return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
-def split_by_sections(
-        doc: Document,
-        include_preamble: bool = True
-) -> list[Document]:
+def split_by_sections(doc: Document, include_preamble: bool = True) -> list[Document]:
     """Split a document into separate documents by sections.
 
     Parameters
@@ -743,11 +667,9 @@ def split_by_sections(
     if include_preamble:
         preamble = get_preamble(doc)
         if preamble:
-            documents.append(Document(
-                children=preamble,
-                metadata=doc.metadata.copy(),
-                source_location=doc.source_location
-            ))
+            documents.append(
+                Document(children=preamble, metadata=doc.metadata.copy(), source_location=doc.source_location)
+            )
 
     # Convert each section to a document
     for section in sections:
@@ -756,11 +678,7 @@ def split_by_sections(
     return documents
 
 
-def extract_section(
-        doc: Document,
-        target: str | int,
-        case_sensitive: bool = False
-) -> Document:
+def extract_section(doc: Document, target: str | int, case_sensitive: bool = False) -> Document:
     """Extract a single section as a standalone document.
 
     Parameters
@@ -796,9 +714,7 @@ def extract_section(
 
 
 def generate_toc(
-        doc: Document,
-        max_level: int = 3,
-        style: Literal["markdown", "list", "nested"] = "markdown"
+    doc: Document, max_level: int = 3, style: Literal["markdown", "list", "nested"] = "markdown"
 ) -> str | List:
     """Generate a table of contents from document headings.
 
@@ -891,32 +807,29 @@ def _slugify(text: str, seen_slugs: set[str] | None = None) -> str:
 
     """
     # Normalize Unicode: decompose accented characters
-    normalized = unicodedata.normalize('NFD', text)
+    normalized = unicodedata.normalize("NFD", text)
 
     # Remove combining characters (accents)
-    normalized = ''.join(
-        char for char in normalized
-        if unicodedata.category(char) != 'Mn'
-    )
+    normalized = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
 
     # Convert to lowercase
     slug = normalized.lower()
 
     # Replace spaces and underscores with hyphens
-    slug = re.sub(r'[\s_]+', '-', slug)
+    slug = re.sub(r"[\s_]+", "-", slug)
 
     # Remove all non-alphanumeric characters except hyphens
-    slug = re.sub(r'[^a-z0-9\-]', '', slug)
+    slug = re.sub(r"[^a-z0-9\-]", "", slug)
 
     # Collapse multiple consecutive hyphens
-    slug = re.sub(r'-+', '-', slug)
+    slug = re.sub(r"-+", "-", slug)
 
     # Strip leading and trailing hyphens
-    slug = slug.strip('-')
+    slug = slug.strip("-")
 
     # If empty after processing, use a default
     if not slug:
-        slug = 'section'
+        slug = "section"
 
     # Handle collisions if seen_slugs is provided
     if seen_slugs is not None:
@@ -1001,11 +914,7 @@ def _generate_toc_list(sections: list[Section], flat: bool) -> List:
         items = []
         for section in sections:
             heading_text = section.get_heading_text()
-            item = ListItem(children=[
-                Paragraph(content=[
-                    Text(content=heading_text)
-                ])
-            ])
+            item = ListItem(children=[Paragraph(content=[Text(content=heading_text)])])
             items.append(item)
 
         return List(ordered=False, items=items)
@@ -1057,9 +966,7 @@ def _generate_toc_list(sections: list[Section], flat: bool) -> List:
                 current_list = intermediate_list
 
             # Create the list item for this section
-            item = ListItem(children=[
-                Paragraph(content=[Text(content=heading_text)])
-            ])
+            item = ListItem(children=[Paragraph(content=[Text(content=heading_text)])])
 
             if level == current_level:
                 # Same level: add as sibling to current list
@@ -1142,11 +1049,7 @@ def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:
         slug = _slugify(heading_text, seen_slugs)
 
         # Create link node
-        link = Link(
-            url=f"#{slug}",
-            content=[Text(content=heading_text)],
-            title=None
-        )
+        link = Link(url=f"#{slug}", content=[Text(content=heading_text)], title=None)
 
         # Create list item
         list_item = ListItem(children=[Paragraph(content=[link])])
@@ -1159,10 +1062,10 @@ def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:
 
 
 def insert_toc(
-        doc: Document,
-        position: Literal["start", "after_first_heading"] = "start",
-        max_level: int = 3,
-        style: Literal["markdown", "list", "nested"] = "markdown"
+    doc: Document,
+    position: Literal["start", "after_first_heading"] = "start",
+    max_level: int = 3,
+    style: Literal["markdown", "list", "nested"] = "markdown",
 ) -> Document:
     """Insert a table of contents into the document.
 
@@ -1214,17 +1117,9 @@ def insert_toc(
         raise ValueError(f"Invalid position: {position}")
 
     # Insert TOC
-    new_children = (
-            doc.children[:insert_pos] +
-            toc_nodes +
-            doc.children[insert_pos:]
-    )
+    new_children = doc.children[:insert_pos] + toc_nodes + doc.children[insert_pos:]
 
-    return Document(
-        children=new_children,
-        metadata=doc.metadata.copy(),
-        source_location=doc.source_location
-    )
+    return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
 def get_preamble(doc: Document) -> list[Node]:
@@ -1256,10 +1151,7 @@ def get_preamble(doc: Document) -> list[Node]:
     return preamble
 
 
-def count_sections(
-        doc: Document,
-        level: int | None = None
-) -> int:
+def count_sections(doc: Document, level: int | None = None) -> int:
     """Count the number of sections in a document.
 
     Parameters
@@ -1289,10 +1181,7 @@ def count_sections(
 
 
 def find_heading(
-        doc: Document,
-        text: str,
-        level: int | None = None,
-        case_sensitive: bool = False
+    doc: Document, text: str, level: int | None = None, case_sensitive: bool = False
 ) -> tuple[int, Heading] | None:
     """Find a heading node in the document.
 

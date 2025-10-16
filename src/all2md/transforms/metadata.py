@@ -198,8 +198,8 @@ class ParameterSpec:
             return self.cli_flag
 
         # Auto-generate: convert snake_case to kebab-case
-        flag_name = param_name.replace('_', '-')
-        return f'--{flag_name}'
+        flag_name = param_name.replace("_", "-")
+        return f"--{flag_name}"
 
     def should_expose(self, default: Optional[bool] = None) -> bool:
         """Determine whether this parameter should surface in the CLI."""
@@ -241,9 +241,9 @@ class ParameterSpec:
 
         """
         # Normalize names: convert hyphens to underscores
-        transform_part = transform_name.replace('-', '_')
-        param_part = param_name.replace('-', '_')
-        return f'{transform_part}_{param_part}'
+        transform_part = transform_name.replace("-", "_")
+        param_part = param_name.replace("-", "_")
+        return f"{transform_part}_{param_part}"
 
     def get_argparse_kwargs(self, param_name: str, transform_name: str) -> dict:
         """Generate argparse kwargs for this parameter.
@@ -292,41 +292,41 @@ class ParameterSpec:
         )
 
         kwargs: dict = {
-            'help': self.help or f'{param_name} parameter for {transform_name}',
-            'dest': self.get_dest_name(param_name, transform_name),
+            "help": self.help or f"{param_name} parameter for {transform_name}",
+            "dest": self.get_dest_name(param_name, transform_name),
         }
 
         # Set type and action based on parameter type
         if self.type is bool:
             # Boolean parameters use store_true/store_false actions
             if self.default is False:
-                kwargs['action'] = TrackingStoreTrueAction
+                kwargs["action"] = TrackingStoreTrueAction
             else:
-                kwargs['action'] = TrackingStoreFalseAction
+                kwargs["action"] = TrackingStoreFalseAction
         elif self.type is int:
-            kwargs['action'] = TrackingStoreAction
-            kwargs['type'] = int
+            kwargs["action"] = TrackingStoreAction
+            kwargs["type"] = int
         elif self.type is str:
-            kwargs['action'] = TrackingStoreAction
-            kwargs['type'] = str
+            kwargs["action"] = TrackingStoreAction
+            kwargs["type"] = str
         elif self.type is list:
-            kwargs['action'] = TrackingAppendAction
-            kwargs['nargs'] = '+'
+            kwargs["action"] = TrackingAppendAction
+            kwargs["nargs"] = "+"
             if self.default is not None:
-                kwargs['default'] = self.default
+                kwargs["default"] = self.default
         else:
             # Default to tracking store action for other types
-            kwargs['action'] = TrackingStoreAction
+            kwargs["action"] = TrackingStoreAction
 
         # Add choices if specified
         if self.choices:
-            kwargs['choices'] = self.choices
+            kwargs["choices"] = self.choices
 
         # Add default if not a boolean action and default is set
-        is_bool_action = kwargs.get('action') in (TrackingStoreTrueAction, TrackingStoreFalseAction)
+        is_bool_action = kwargs.get("action") in (TrackingStoreTrueAction, TrackingStoreFalseAction)
         if not is_bool_action and self.default is not None:
-            if 'default' not in kwargs:  # Don't override if already set (e.g., list)
-                kwargs['default'] = self.default
+            if "default" not in kwargs:  # Don't override if already set (e.g., list)
+                kwargs["default"] = self.default
 
         return kwargs
 
@@ -374,7 +374,7 @@ class ParameterSpec:
         value = getattr(namespace, dest)
 
         # Check if explicitly provided by user (via tracking actions)
-        provided_args: set[str] = getattr(namespace, '_provided_args', set())
+        provided_args: set[str] = getattr(namespace, "_provided_args", set())
         was_provided = dest in provided_args
 
         # Only return non-None values that were explicitly provided or differ from default
@@ -465,8 +465,7 @@ class TransformMetadata:
         # Validate transformer_class
         if not issubclass(self.transformer_class, NodeTransformer):
             raise ValueError(
-                f"transformer_class must inherit from NodeTransformer, "
-                f"got {self.transformer_class.__name__}"
+                f"transformer_class must inherit from NodeTransformer, " f"got {self.transformer_class.__name__}"
             )
 
         # Validate priority
@@ -505,6 +504,7 @@ class TransformMetadata:
 
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         # Validate and filter parameters

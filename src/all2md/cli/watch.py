@@ -24,6 +24,7 @@ except ImportError:
 
         pass
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,16 +55,16 @@ class ConversionEventHandler(FileSystemEventHandler):
     """
 
     def __init__(
-            self,
-            paths_to_watch: List[Path],
-            output_dir: Path,
-            options: Dict[str, Any],
-            format_arg: DocumentFormat,
-            transforms: Optional[list] = None,
-            debounce_seconds: float = 1.0,
-            preserve_structure: bool = False,
-            recursive: bool = False,
-            exclude_patterns: Optional[List[str]] = None
+        self,
+        paths_to_watch: List[Path],
+        output_dir: Path,
+        options: Dict[str, Any],
+        format_arg: DocumentFormat,
+        transforms: Optional[list] = None,
+        debounce_seconds: float = 1.0,
+        preserve_structure: bool = False,
+        recursive: bool = False,
+        exclude_patterns: Optional[List[str]] = None,
     ) -> None:
         """Initialize the conversion event handler with watch settings."""
         self.paths_to_watch = paths_to_watch
@@ -91,6 +92,7 @@ class ConversionEventHandler(FileSystemEventHandler):
             if self.base_dir is None:
                 # All paths are files, use their common parent
                 import os
+
                 self.base_dir = Path(os.path.commonpath([p.parent for p in paths_to_watch]))
 
     def should_process(self, file_path: str) -> bool:
@@ -124,6 +126,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         # Check exclude patterns
         if self.exclude_patterns:
             import fnmatch
+
             for pattern in self.exclude_patterns:
                 if fnmatch.fnmatch(str(path), pattern) or fnmatch.fnmatch(path.name, pattern):
                     logger.debug(f"Skipping {file_path}: matches exclude pattern {pattern}")
@@ -159,27 +162,19 @@ class ConversionEventHandler(FileSystemEventHandler):
             self._processing.add(file_path)
 
             # Determine output path
-            output_path = generate_output_path(
-                path,
-                self.output_dir,
-                self.preserve_structure,
-                self.base_dir
-            )
+            output_path = generate_output_path(path, self.output_dir, self.preserve_structure, self.base_dir)
 
             # Convert
             logger.info(f"Converting {file_path}...")
             start_time = time.time()
 
             markdown_content = to_markdown(
-                path,
-                source_format=self.format_arg,
-                transforms=self.transforms,
-                **self.options
+                path, source_format=self.format_arg, transforms=self.transforms, **self.options
             )
 
             # Write output
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(markdown_content, encoding='utf-8')
+            output_path.write_text(markdown_content, encoding="utf-8")
 
             elapsed = time.time() - start_time
             logger.info(f"Converted {file_path} -> {output_path} ({elapsed:.2f}s)")
@@ -243,15 +238,15 @@ class ConversionEventHandler(FileSystemEventHandler):
 
 
 def run_watch_mode(
-        paths: List[Path],
-        output_dir: Path,
-        options: Dict[str, Any],
-        format_arg: DocumentFormat,
-        transforms: Optional[list] = None,
-        debounce: float = 1.0,
-        preserve_structure: bool = False,
-        recursive: bool = False,
-        exclude_patterns: Optional[List[str]] = None
+    paths: List[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
+    format_arg: DocumentFormat,
+    transforms: Optional[list] = None,
+    debounce: float = 1.0,
+    preserve_structure: bool = False,
+    recursive: bool = False,
+    exclude_patterns: Optional[List[str]] = None,
 ) -> int:
     """Run watch mode to monitor and convert files on change.
 
@@ -301,7 +296,7 @@ def run_watch_mode(
         debounce_seconds=debounce,
         preserve_structure=preserve_structure,
         recursive=recursive,
-        exclude_patterns=exclude_patterns
+        exclude_patterns=exclude_patterns,
     )
 
     # Set up observer

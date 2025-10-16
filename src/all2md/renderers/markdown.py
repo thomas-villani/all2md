@@ -166,14 +166,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         document.accept(self)
 
         # Append link references if using reference style with end_of_document placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "end_of_document"
-                and self._link_references):
-            self._output.append('\n\n')
+        if (
+            self.options.link_style == "reference"
+            and self.options.reference_link_placement == "end_of_document"
+            and self._link_references
+        ):
+            self._output.append("\n\n")
             for url, ref_id in sorted(self._link_references.items(), key=lambda x: x[1]):
-                self._output.append(f'[{ref_id}]: {url}\n')
+                self._output.append(f"[{ref_id}]: {url}\n")
 
-        result = ''.join(self._output)
+        result = "".join(self._output)
 
         return self._cleanup_output(result)
 
@@ -192,7 +194,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         if self.options.collapse_blank_lines:
-            text = re.sub(r'\n{3,}', '\n\n', text)
+            text = re.sub(r"\n{3,}", "\n\n", text)
         text = text.rstrip()
         return text
 
@@ -233,32 +235,32 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return text
 
         # Characters that always need escaping in inline content
-        always_escape = r'\`*{}[]'
+        always_escape = r"\`*{}[]"
 
-        escaped = ''
+        escaped = ""
         for i, char in enumerate(text):
             if char in always_escape:
                 # Always escape these special characters
-                escaped += '\\' + char
-            elif char == '#':
+                escaped += "\\" + char
+            elif char == "#":
                 # Only escape # at the start of text (where it could start a heading)
                 # In inline contexts, # is safe and doesn't need escaping
                 if i == 0:
-                    escaped += '\\' + char
+                    escaped += "\\" + char
                 else:
                     escaped += char
-            elif char == '_':
+            elif char == "_":
                 # Smart underscore escaping: don't escape if in middle of word
                 # Check if surrounded by alphanumeric characters (word context)
-                prev_alnum = i > 0 and text[i-1].isalnum()
-                next_alnum = i < len(text) - 1 and text[i+1].isalnum()
+                prev_alnum = i > 0 and text[i - 1].isalnum()
+                next_alnum = i < len(text) - 1 and text[i + 1].isalnum()
 
                 if prev_alnum and next_alnum:
                     # In middle of word (e.g., snake_case) - safe, no escaping needed
                     escaped += char
                 else:
                     # At word boundary - could trigger emphasis, needs escaping
-                    escaped += '\\' + char
+                    escaped += "\\" + char
             else:
                 escaped += char
 
@@ -300,7 +302,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Main URL character class: all except whitespace and angle brackets
         # We'll handle parentheses and trailing punctuation specially
-        url_pattern = r'(https?://[^\s<>]+|ftps?://[^\s<>]+)'
+        url_pattern = r"(https?://[^\s<>]+|ftps?://[^\s<>]+)"
 
         def replace_url(match: re.Match[str]) -> str:
             url = match.group(1)
@@ -310,31 +312,31 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # (i.e., not in query params or fragments)
 
             # Check if URL has query string or fragment
-            has_query = '?' in url
-            has_fragment = '#' in url
+            has_query = "?" in url
+            has_fragment = "#" in url
 
             # If no query/fragment, aggressively strip trailing punctuation
             if not has_query and not has_fragment:
-                while url and url[-1] in '.,;:!?':
+                while url and url[-1] in ".,;:!?":
                     url = url[:-1]
             else:
                 # With query/fragment, only strip obvious sentence-ending punctuation
                 # but preserve URL-valid characters like '&', '=', etc.
-                while url and url[-1] in ',;:':
+                while url and url[-1] in ",;:":
                     url = url[:-1]
 
             # Handle unbalanced parentheses:
             # If URL ends with ')' but doesn't have balanced parens, strip it
             # This handles "(see http://example.com)" correctly
-            if url.endswith(')'):
-                open_count = url.count('(')
-                close_count = url.count(')')
+            if url.endswith(")"):
+                open_count = url.count("(")
+                close_count = url.count(")")
                 # Remove extra closing parens
-                while close_count > open_count and url.endswith(')'):
+                while close_count > open_count and url.endswith(")"):
                     url = url[:-1]
                     close_count -= 1
 
-            return f'<{url}>'
+            return f"<{url}>"
 
         return re.sub(url_pattern, replace_url, text)
 
@@ -378,9 +380,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not self._block_link_references:
             return
 
-        self._output.append('\n\n')
+        self._output.append("\n\n")
         for url, ref_id in sorted(self._block_link_references.items(), key=lambda x: x[1]):
-            self._output.append(f'[{ref_id}]: {url}\n')
+            self._output.append(f"[{ref_id}]: {url}\n")
 
         # Clear block references after emitting
         self._block_link_references.clear()
@@ -397,8 +399,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # For lists, use accumulated marker widths for indentation
         # This ensures proper alignment in nested lists
         if self._marker_width_stack:
-            return ' ' * sum(self._marker_width_stack)
-        return ' ' * (self._indent_level * self.options.list_indent_width)
+            return " " * sum(self._marker_width_stack)
+        return " " * (self._indent_level * self.options.list_indent_width)
 
     def _get_bullet_symbol(self, depth: int) -> str:
         """Get the bullet symbol for a given nesting depth.
@@ -434,7 +436,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
     def _render_frontmatter(self, metadata: dict | None) -> None:
         """Render metadata as frontmatter in the configured format.
@@ -484,14 +486,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         value_str = str(value)
 
         # If the value contains special characters, quote it
-        if any(char in value_str for char in [':', '#', '[', ']', '{', '}', ',', '&', '*', '!', '|', '>', '@', '`']):
+        if any(char in value_str for char in [":", "#", "[", "]", "{", "}", ",", "&", "*", "!", "|", ">", "@", "`"]):
             # Escape any quotes in the value
             value_str = value_str.replace('"', '\\"')
             return f'"{value_str}"'
 
         # If it starts with a special character or looks like a number/boolean, quote it
         if value_str and (
-                value_str[0] in ['-', '?', ':'] or value_str.lower() in ['true', 'false', 'yes', 'no', 'null']
+            value_str[0] in ["-", "?", ":"] or value_str.lower() in ["true", "false", "yes", "no", "null"]
         ):
             return f'"{value_str}"'
 
@@ -513,17 +515,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Use setext style if hash headings are disabled or prefer_setext is set for h1/h2
         if (not self.options.use_hash_headings or self.options.prefer_setext_headings) and adjusted_level <= 2:
-            underline_char = '=' if adjusted_level == 1 else '-'
+            underline_char = "=" if adjusted_level == 1 else "-"
             underline = underline_char * len(content)
             self._output.append(f"{content}\n{underline}")
         else:
             # Use hash style for h3-h6 or when use_hash_headings is True
-            prefix = '#' * adjusted_level
+            prefix = "#" * adjusted_level
             self._output.append(f"{prefix} {content}")
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def visit_paragraph(self, node: Paragraph) -> None:
@@ -540,8 +541,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append(f"{indent}{content}")
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def visit_code_block(self, node: CodeBlock) -> None:
@@ -573,17 +573,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             fence_length = max(fence_length, max_consecutive + 1)
 
         fence = fence_char * fence_length
-        lang = node.language or ''
+        lang = node.language or ""
 
         self._output.append(f"{fence}{lang}\n")
         self._output.append(node.content)
-        if not node.content.endswith('\n'):
-            self._output.append('\n')
+        if not node.content.endswith("\n"):
+            self._output.append("\n")
         self._output.append(fence)
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def visit_block_quote(self, node: BlockQuote) -> None:
@@ -601,16 +600,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for child in node.children:
             child.accept(self)
 
-        quoted = ''.join(self._output)
-        lines = quoted.split('\n')
-        quoted_lines = ['> ' + line for line in lines]
+        quoted = "".join(self._output)
+        lines = quoted.split("\n")
+        quoted_lines = ["> " + line for line in lines]
 
         self._output = saved_output
-        self._output.append('\n'.join(quoted_lines))
+        self._output.append("\n".join(quoted_lines))
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def visit_list(self, node: List) -> None:
@@ -644,9 +642,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             if i < len(node.items) - 1:
                 if node.tight:
-                    self._output.append('\n')
+                    self._output.append("\n")
                 else:
-                    self._output.append('\n\n')
+                    self._output.append("\n\n")
 
         self._in_list = was_in_list
 
@@ -664,10 +662,10 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         indent = self._current_indent()
-        marker = self._list_marker_stack[-1] if self._list_marker_stack else '* '
+        marker = self._list_marker_stack[-1] if self._list_marker_stack else "* "
 
         if node.task_status and self._flavor.supports_task_lists():
-            checkbox = '[x]' if node.task_status == 'checked' else '[ ]'
+            checkbox = "[x]" if node.task_status == "checked" else "[ ]"
             marker = f"{marker}{checkbox} "
 
         self._output.append(f"{indent}{marker}")
@@ -695,7 +693,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._marker_width_stack = saved_stack
                 self._indent_level = saved_indent_level
 
-                child_content = ''.join(self._output)
+                child_content = "".join(self._output)
                 self._output = saved_output
                 self._output.append(child_content)
             else:
@@ -707,7 +705,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 # Subsequent children are indented
                 # Both nested lists and other blocks (paragraphs, code blocks, etc.)
                 # will use _current_indent() which now includes the marker width
-                self._output.append('\n')
+                self._output.append("\n")
                 child.accept(self)
 
         # Pop marker width from stack if we pushed it
@@ -757,7 +755,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             for cell in row.cells:
                 content = self._render_inline_content(cell.content)
                 if self.options.table_pipe_escape:
-                    content = content.replace('|', '\\|')
+                    content = content.replace("|", "\\|")
                 cells.append(content)
             rendered_rows.append(cells)
 
@@ -771,65 +769,64 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             for i, row_cells in enumerate(rendered_rows):
                 if i > 0:
-                    self._output.append('\n')
+                    self._output.append("\n")
                 padded_cells: list[str] = []
                 for j, cell_content in enumerate(row_cells):
                     if j < num_cols:
                         padded = cell_content.ljust(col_widths[j])
                         padded_cells.append(padded)
-                self._output.append('| ' + ' | '.join(padded_cells) + ' |')
+                self._output.append("| " + " | ".join(padded_cells) + " |")
 
                 if i == 0 and node.header:
-                    self._output.append('\n')
+                    self._output.append("\n")
                     alignments = []
                     for j, alignment in enumerate(node.alignments if node.alignments else []):
                         if j >= num_cols:
                             break
-                        if alignment == 'center':
-                            alignments.append(':' + '-' * max(3, col_widths[j]) + ':')
-                        elif alignment == 'right':
-                            alignments.append('-' * max(3, col_widths[j]) + ':')
-                        elif alignment == 'left':
-                            alignments.append(':' + '-' * max(3, col_widths[j]))
+                        if alignment == "center":
+                            alignments.append(":" + "-" * max(3, col_widths[j]) + ":")
+                        elif alignment == "right":
+                            alignments.append("-" * max(3, col_widths[j]) + ":")
+                        elif alignment == "left":
+                            alignments.append(":" + "-" * max(3, col_widths[j]))
                         else:
-                            alignments.append('-' * max(3, col_widths[j]))
+                            alignments.append("-" * max(3, col_widths[j]))
                     # Fill remaining columns with default alignment
                     while len(alignments) < num_cols:
-                        alignments.append('-' * max(3, col_widths[len(alignments)]))
+                        alignments.append("-" * max(3, col_widths[len(alignments)]))
                     # Alignment row without spaces (for backward compatibility)
-                    self._output.append('|' + '|'.join(alignments) + '|')
+                    self._output.append("|" + "|".join(alignments) + "|")
         else:
             # Minimal spacing - no padding
             for i, row_cells in enumerate(rendered_rows):
                 if i > 0:
-                    self._output.append('\n')
-                self._output.append('| ' + ' | '.join(row_cells) + ' |')
+                    self._output.append("\n")
+                self._output.append("| " + " | ".join(row_cells) + " |")
 
                 if i == 0 and node.header:
-                    self._output.append('\n')
+                    self._output.append("\n")
                     alignments = []
                     for _j, alignment in enumerate(node.alignments if node.alignments else []):
                         # Use exactly 3 dashes for alignment (markdown minimum)
-                        if alignment == 'center':
-                            alignments.append(':---:')
-                        elif alignment == 'right':
-                            alignments.append('---:')
-                        elif alignment == 'left':
-                            alignments.append(':---')
+                        if alignment == "center":
+                            alignments.append(":---:")
+                        elif alignment == "right":
+                            alignments.append("---:")
+                        elif alignment == "left":
+                            alignments.append(":---")
                         else:
                             # Default to left alignment
-                            alignments.append('---')
+                            alignments.append("---")
 
                     # Fill remaining columns with default alignment
                     while len(alignments) < num_cols:
-                        alignments.append('---')
+                        alignments.append("---")
 
                     # Alignment row without spaces (for backward compatibility)
-                    self._output.append('|' + '|'.join(alignments) + '|')
+                    self._output.append("|" + "|".join(alignments) + "|")
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def _render_table_as_html(self, node: Table) -> None:
@@ -841,25 +838,25 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Table to render as HTML
 
         """
-        self._output.append('<table>\n')
+        self._output.append("<table>\n")
         if node.header:
-            self._output.append('  <thead>\n    <tr>')
+            self._output.append("  <thead>\n    <tr>")
             for cell in node.header.cells:
                 content = self._render_inline_content(cell.content)
-                self._output.append(f'<th>{content}</th>')
-            self._output.append('</tr>\n  </thead>\n')
+                self._output.append(f"<th>{content}</th>")
+            self._output.append("</tr>\n  </thead>\n")
 
         if node.rows:
-            self._output.append('  <tbody>\n')
+            self._output.append("  <tbody>\n")
             for row in node.rows:
-                self._output.append('    <tr>')
+                self._output.append("    <tr>")
                 for cell in row.cells:
                     content = self._render_inline_content(cell.content)
-                    self._output.append(f'<td>{content}</td>')
-                self._output.append('</tr>\n')
-            self._output.append('  </tbody>\n')
+                    self._output.append(f"<td>{content}</td>")
+                self._output.append("</tr>\n")
+            self._output.append("  </tbody>\n")
 
-        self._output.append('</table>')
+        self._output.append("</table>")
 
     def _render_table_as_ascii(self, node: Table) -> None:
         """Render a table as ASCII art when markdown tables are not supported.
@@ -895,27 +892,27 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     col_widths[i] = max(col_widths[i], len(cell_content))
 
         # Build separator line
-        separator = '+' + '+'.join(['-' * (width + 2) for width in col_widths]) + '+'
+        separator = "+" + "+".join(["-" * (width + 2) for width in col_widths]) + "+"
 
         # Render table
-        self._output.append(separator + '\n')
+        self._output.append(separator + "\n")
         for i, row_cells in enumerate(rendered_rows):
             # Render row
             row_parts = []
             for j, cell_content in enumerate(row_cells):
                 if j < num_cols:
                     padded = cell_content.ljust(col_widths[j])
-                    row_parts.append(f' {padded} ')
-            self._output.append('|' + '|'.join(row_parts) + '|\n')
+                    row_parts.append(f" {padded} ")
+            self._output.append("|" + "|".join(row_parts) + "|\n")
 
             # Add separator after header or after each row
             if i == 0 and node.header:
                 # Double separator after header
-                header_sep = '+' + '+'.join(['=' * (width + 2) for width in col_widths]) + '+'
-                self._output.append(header_sep + '\n')
+                header_sep = "+" + "+".join(["=" * (width + 2) for width in col_widths]) + "+"
+                self._output.append(header_sep + "\n")
             elif i < len(rendered_rows) - 1:
                 # Single separator between rows
-                self._output.append(separator + '\n')
+                self._output.append(separator + "\n")
 
         # Final separator
         self._output.append(separator)
@@ -951,11 +948,10 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Thematic break to render
 
         """
-        self._output.append('---')
+        self._output.append("---")
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def visit_html_block(self, node: HTMLBlock) -> None:
@@ -972,8 +968,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append(processed_html)
 
         # Emit block references if using after_block placement
-        if (self.options.link_style == "reference"
-                and self.options.reference_link_placement == "after_block"):
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
     def visit_text(self, node: Text) -> None:
@@ -1027,9 +1022,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Code to render
 
         """
-        backticks = '`'
-        if '`' in node.content:
-            backticks = '``'
+        backticks = "`"
+        if "`" in node.content:
+            backticks = "``"
         self._output.append(f"{backticks}{node.content}{backticks}")
 
     def visit_link(self, node: Link) -> None:
@@ -1055,13 +1050,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             if self.options.reference_link_placement == "after_block":
                 self._block_link_references[node.url] = ref_id
 
-            self._output.append(f'[{content}][{ref_id}]')
+            self._output.append(f"[{content}][{ref_id}]")
         else:
             # Inline-style links: [text](url)
             if node.title:
                 self._output.append(f'[{content}]({node.url} "{node.title}")')
             else:
-                self._output.append(f'[{content}]({node.url})')
+                self._output.append(f"[{content}]({node.url})")
 
     def visit_image(self, node: Image) -> None:
         """Render an Image node.
@@ -1072,14 +1067,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Image to render
 
         """
-        alt = node.alt_text.replace('[', '\\[').replace(']', '\\]')
+        alt = node.alt_text.replace("[", "\\[").replace("]", "\\]")
         if not node.url:
             # Alt-text only (no URL)
-            self._output.append(f'![{alt}]()')
+            self._output.append(f"![{alt}]()")
         elif node.title:
             self._output.append(f'![{alt}]({node.url} "{node.title}")')
         else:
-            self._output.append(f'![{alt}]({node.url})')
+            self._output.append(f"![{alt}]({node.url})")
 
     def visit_line_break(self, node: LineBreak) -> None:
         """Render a LineBreak node.
@@ -1091,9 +1086,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append('\n')
+            self._output.append("\n")
         else:
-            self._output.append('  \n')
+            self._output.append("  \n")
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.
@@ -1252,13 +1247,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 saved_output = self._output
                 self._output = []
                 child.accept(self)
-                child_content = ''.join(self._output)
+                child_content = "".join(self._output)
                 self._output = saved_output
                 if i == 0:
                     self._output.append(child_content)
                 else:
-                    indent_lines = child_content.split('\n')
-                    self._output.append('\n    ' + '\n    '.join(indent_lines))
+                    indent_lines = child_content.split("\n")
+                    self._output.append("\n    " + "\n    ".join(indent_lines))
         else:
             mode = self.options.unsupported_inline_mode
             if mode == "drop":
@@ -1267,7 +1262,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(f'<div id="fn-{node.identifier}">')
                 for child in node.content:
                     child.accept(self)
-                self._output.append('</div>')
+                self._output.append("</div>")
             else:
                 self._output.append(f"[^{node.identifier}]: ")
                 for child in node.content:
@@ -1290,43 +1285,43 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     term_content = self._render_inline_content(term.content)
                     self._output.append(term_content)
                     for desc in descriptions:
-                        self._output.append('\n')
+                        self._output.append("\n")
                         for child in desc.content:
                             child.accept(self)
                 return
             elif mode == "html":
-                self._output.append('<dl>\n')
+                self._output.append("<dl>\n")
                 for term, descriptions in node.items:
-                    self._output.append('  <dt>')
+                    self._output.append("  <dt>")
                     term_content = self._render_inline_content(term.content)
                     self._output.append(term_content)
-                    self._output.append('</dt>\n')
+                    self._output.append("</dt>\n")
                     for desc in descriptions:
-                        self._output.append('  <dd>')
+                        self._output.append("  <dd>")
                         for child in desc.content:
                             child.accept(self)
-                        self._output.append('</dd>\n')
-                self._output.append('</dl>')
+                        self._output.append("</dd>\n")
+                self._output.append("</dl>")
                 return
             # else: mode == "force", continue with markdown rendering below
         for i, (term, descriptions) in enumerate(node.items):
             if i > 0:
-                self._output.append('\n')
+                self._output.append("\n")
             term_content = self._render_inline_content(term.content)
             self._output.append(term_content)
             for desc in descriptions:
-                self._output.append('\n: ')
+                self._output.append("\n: ")
                 for j, child in enumerate(desc.content):
                     if j > 0:
-                        self._output.append('\n    ')
+                        self._output.append("\n    ")
                     saved_output = self._output
                     self._output = []
                     child.accept(self)
-                    child_content = ''.join(self._output)
+                    child_content = "".join(self._output)
                     self._output = saved_output
                     if j > 0:
-                        indent_lines = child_content.split('\n')
-                        self._output.append('\n    '.join(indent_lines))
+                        indent_lines = child_content.split("\n")
+                        self._output.append("\n    ".join(indent_lines))
                     else:
                         self._output.append(child_content)
 
@@ -1367,8 +1362,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if self._flavor.supports_math() and notation == "latex":
             self._output.append("$$\n")
             self._output.append(content)
-            if not content.endswith('\n'):
-                self._output.append('\n')
+            if not content.endswith("\n"):
+                self._output.append("\n")
             self._output.append("$$")
             return
 
@@ -1388,8 +1383,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Mode is force; fall back to latex block fencing
         self._output.append("$$\n")
         self._output.append(content)
-        if not content.endswith('\n'):
-            self._output.append('\n')
+        if not content.endswith("\n"):
+            self._output.append("\n")
         self._output.append("$$")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:

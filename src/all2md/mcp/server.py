@@ -40,10 +40,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_server(
-        config: MCPConfig,
-        read_impl: Callable[[ReadDocumentAsMarkdownInput, MCPConfig], list[Any]],
-        save_impl: Callable[[SaveDocumentFromMarkdownInput, MCPConfig], SaveDocumentFromMarkdownOutput],
-        edit_doc_impl: Callable[[EditDocumentSimpleInput, MCPConfig], EditDocumentSimpleOutput]
+    config: MCPConfig,
+    read_impl: Callable[[ReadDocumentAsMarkdownInput, MCPConfig], list[Any]],
+    save_impl: Callable[[SaveDocumentFromMarkdownInput, MCPConfig], SaveDocumentFromMarkdownOutput],
+    edit_doc_impl: Callable[[EditDocumentSimpleInput, MCPConfig], EditDocumentSimpleOutput],
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
@@ -75,29 +75,30 @@ def create_server(
 
     # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:
+
         @mcp.tool(name="read_document_as_markdown")
         def read_document_as_markdown(
-                source: Annotated[
-                    str,
-                    "Unified source parameter. Auto-detected as: file path (if exists in read allowlist), "
-                    "data URI (data:...), base64 string, or plain text content. REQUIRED."
-                ],
-                section: Annotated[
-                    str | None,
-                    "Optional section name to extract (case-insensitive heading match). "
-                    "If provided, only that section is returned."
-                ] = None,
-                format_hint: Annotated[
-                    str | None,
-                    "Optional format hint for ambiguous cases (e.g., extensionless files). "
-                    "Options: auto (default), pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, "
-                    "xlsx, csv, rst, markdown, txt."
-                ] = None,
-                pdf_pages: Annotated[
-                    str | None,
-                    "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' "
-                    "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end)."
-                ] = None
+            source: Annotated[
+                str,
+                "Unified source parameter. Auto-detected as: file path (if exists in read allowlist), "
+                "data URI (data:...), base64 string, or plain text content. REQUIRED.",
+            ],
+            section: Annotated[
+                str | None,
+                "Optional section name to extract (case-insensitive heading match). "
+                "If provided, only that section is returned.",
+            ] = None,
+            format_hint: Annotated[
+                str | None,
+                "Optional format hint for ambiguous cases (e.g., extensionless files). "
+                "Options: auto (default), pdf, docx, pptx, html, eml, epub, ipynb, odt, odp, ods, "
+                "xlsx, csv, rst, markdown, txt.",
+            ] = None,
+            pdf_pages: Annotated[
+                str | None,
+                "Page specification for PDF sources only. Examples: '1-3' (pages 1-3), '1,3,5' "
+                "(specific pages), '1-3,5,10-' (ranges and individual pages), '1-' (from page 1 to end).",
+            ] = None,
         ) -> list:
             """Read a document and convert it to Markdown format (simplified API).
 
@@ -125,10 +126,7 @@ def create_server(
             """
             # Cast to proper Literal types (FastMCP validates these at the boundary)
             input_obj = ReadDocumentAsMarkdownInput(
-                source=source,
-                section=section,
-                format_hint=cast(SourceFormat | None, format_hint),
-                pdf_pages=pdf_pages
+                source=source, section=section, format_hint=cast(SourceFormat | None, format_hint), pdf_pages=pdf_pages
             )
 
             # Return list directly - FastMCP converts to content blocks
@@ -138,20 +136,14 @@ def create_server(
 
     # Conditionally register save_document_from_markdown tool
     if config.enable_from_md:
+
         @mcp.tool(name="save_document_from_markdown")
         def save_document_from_markdown(
-                format: Annotated[
-                    str,
-                    "Target output format. Options: html, pdf, docx, pptx, rst, epub, markdown. REQUIRED."
-                ],
-                source: Annotated[
-                    str,
-                    "Markdown content as a string to convert. REQUIRED."
-                ],
-                filename: Annotated[
-                    str,
-                    "Output file path. Must be within write allowlist. REQUIRED."
-                ]
+            format: Annotated[
+                str, "Target output format. Options: html, pdf, docx, pptx, rst, epub, markdown. REQUIRED."
+            ],
+            source: Annotated[str, "Markdown content as a string to convert. REQUIRED."],
+            filename: Annotated[str, "Output file path. Must be within write allowlist. REQUIRED."],
         ) -> dict:
             """Save Markdown content to another format (simplified API).
 
@@ -170,44 +162,37 @@ def create_server(
             """
             # Cast to proper Literal types (FastMCP validates these at the boundary)
             input_obj = SaveDocumentFromMarkdownInput(
-                format=cast(TargetFormat, format),
-                source=source,
-                filename=filename
+                format=cast(TargetFormat, format), source=source, filename=filename
             )
 
             result = save_impl(input_obj, config)
 
-            return {
-                "output_path": result.output_path,
-                "warnings": result.warnings
-            }
+            return {"output_path": result.output_path, "warnings": result.warnings}
 
         logger.info("Registered tool: save_document_from_markdown")
 
     # Conditionally register edit_document tool
     if config.enable_doc_edit:
+
         @mcp.tool(name="edit_document")
         def edit_document(
-                action: Annotated[
-                    str,
-                    "Action to perform: list-sections, extract, add:before, add:after, remove, replace, "
-                    "insert:start, insert:end, insert:after_heading. REQUIRED."
-                ],
-                doc: Annotated[
-                    str,
-                    "File path to the document (must be within read allowlist). REQUIRED."
-                ],
-                target: Annotated[
-                    str | None,
-                    "Section to target. Either heading text (case-insensitive) like 'Introduction', or "
-                    "index notation like '#0', '#1', '#2' (zero-based). Required for all actions except "
-                    "list-sections."
-                ] = None,
-                content: Annotated[
-                    str | None,
-                    "Markdown content to add/replace/insert. Required for add:before, add:after, replace, "
-                    "insert:start, insert:end, and insert:after_heading actions."
-                ] = None
+            action: Annotated[
+                str,
+                "Action to perform: list-sections, extract, add:before, add:after, remove, replace, "
+                "insert:start, insert:end, insert:after_heading. REQUIRED.",
+            ],
+            doc: Annotated[str, "File path to the document (must be within read allowlist). REQUIRED."],
+            target: Annotated[
+                str | None,
+                "Section to target. Either heading text (case-insensitive) like 'Introduction', or "
+                "index notation like '#0', '#1', '#2' (zero-based). Required for all actions except "
+                "list-sections.",
+            ] = None,
+            content: Annotated[
+                str | None,
+                "Markdown content to add/replace/insert. Required for add:before, add:after, replace, "
+                "insert:start, insert:end, and insert:after_heading actions.",
+            ] = None,
         ) -> dict:
             """Edit markdown documents by manipulating their structure.
 
@@ -238,19 +223,12 @@ def create_server(
             """
             # Cast to proper Literal type (FastMCP validates at the boundary)
             input_obj = EditDocumentSimpleInput(
-                action=cast(EditDocumentAction, action),
-                doc=doc,
-                target=target,
-                content=content
+                action=cast(EditDocumentAction, action), doc=doc, target=target, content=content
             )
 
             result = edit_doc_impl(input_obj, config)
 
-            return {
-                "success": result.success,
-                "message": result.message,
-                "content": result.content
-            }
+            return {"success": result.success, "message": result.message, "content": result.content}
 
         logger.info("Registered tool: edit_document")
 
@@ -303,7 +281,7 @@ def main() -> int:
 
         # Set network disable env var if configured (MUST be done before importing all2md)
         if config.disable_network:
-            os.environ['ALL2MD_DISABLE_NETWORK'] = 'true'
+            os.environ["ALL2MD_DISABLE_NETWORK"] = "true"
             logger.info("Network access disabled")
         else:
             logger.warning("Network access enabled - ensure this is intentional!")

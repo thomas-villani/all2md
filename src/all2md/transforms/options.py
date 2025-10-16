@@ -38,7 +38,7 @@ class RemoveNodesOptions:
 
     """
 
-    node_types: list[str] = field(default_factory=lambda: ['image'])
+    node_types: list[str] = field(default_factory=lambda: ["image"])
 
 
 @dataclass

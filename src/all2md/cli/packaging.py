@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def create_package_from_conversions(
-        input_files: List[Path],
-        zip_path: Path,
-        target_format: str = "markdown",
-        options: Optional[Dict[str, Any]] = None,
-        transforms: Optional[list] = None,
-        source_format: str = "auto"
+    input_files: List[Path],
+    zip_path: Path,
+    target_format: str = "markdown",
+    options: Optional[Dict[str, Any]] = None,
+    transforms: Optional[list] = None,
+    source_format: str = "auto",
 ) -> Path:
     """Create zip package by converting files directly to memory without disk I/O.
 
@@ -72,14 +72,14 @@ def create_package_from_conversions(
     # Prepare options with base64 embedding for attachments
     conversion_options = options.copy() if options else {}
     # Force base64 embedding to keep everything in memory
-    if 'attachment_mode' not in conversion_options:
-        conversion_options['attachment_mode'] = 'base64'
+    if "attachment_mode" not in conversion_options:
+        conversion_options["attachment_mode"] = "base64"
 
     total_size = 0
     file_count = 0
 
     # Create zip and process files incrementally
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         for input_file in input_files:
             try:
                 # Generate output name
@@ -93,7 +93,7 @@ def create_package_from_conversions(
                     source_format=cast(Any, source_format),
                     target_format=cast(Any, target_format),
                     transforms=transforms,
-                    **conversion_options
+                    **conversion_options,
                 )
 
                 # Write buffer contents to zip
@@ -119,7 +119,7 @@ def create_package_from_conversions(
 
     # Format sizes for display
     def format_size(size_bytes: int | float) -> str:
-        for unit in ['B', 'KB', 'MB', 'GB']:
+        for unit in ["B", "KB", "MB", "GB"]:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0

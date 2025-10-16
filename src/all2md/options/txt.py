@@ -52,49 +52,30 @@ class PlainTextOptions(BaseRendererOptions):
 
     max_line_width: int | None = field(
         default=80,
-        metadata={
-            "help": "Maximum line width for wrapping (None = no wrapping)",
-            "type": int,
-            "importance": "core"
-        }
+        metadata={"help": "Maximum line width for wrapping (None = no wrapping)", "type": int, "importance": "core"},
     )
     table_cell_separator: str = field(
-        default=" | ",
-        metadata={
-            "help": "Separator between table cells",
-            "type": str,
-            "importance": "advanced"
-        }
+        default=" | ", metadata={"help": "Separator between table cells", "type": str, "importance": "advanced"}
     )
     include_table_headers: bool = field(
         default=True,
         metadata={
             "help": "Include table headers in output",
             "cli_name": "no-include-table-headers",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     paragraph_separator: str = field(
-        default="\n\n",
-        metadata={
-            "help": "Separator between paragraphs",
-            "type": str,
-            "importance": "advanced"
-        }
+        default="\n\n", metadata={"help": "Separator between paragraphs", "type": str, "importance": "advanced"}
     )
     list_item_prefix: str = field(
-        default="- ",
-        metadata={
-            "help": "Prefix for list items",
-            "type": str,
-            "importance": "advanced"
-        }
+        default="- ", metadata={"help": "Prefix for list items", "type": str, "importance": "advanced"}
     )
     preserve_code_blocks: bool = field(
         default=True,
         metadata={
             "help": "Preserve code block formatting",
             "cli_name": "no-preserve-code-blocks",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )

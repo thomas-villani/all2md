@@ -62,7 +62,7 @@ def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseR
 
 
 def _collect_nested_dataclass_kwargs(
-        options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
+    options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
 ) -> dict:
     """Collect kwargs that belong to nested dataclass fields.
 
@@ -109,9 +109,9 @@ def _collect_nested_dataclass_kwargs(
         field_type = type_hints.get(field.name, field.type)
 
         # Handle Optional and Union types
-        if hasattr(field_type, '__origin__'):
+        if hasattr(field_type, "__origin__"):
             # For Optional[SomeType], get the actual type
-            if hasattr(field_type, '__args__'):
+            if hasattr(field_type, "__args__"):
                 for arg in field_type.__args__:
                     if arg is not type(None) and is_dataclass(arg):
                         nested_fields[field.name] = arg
@@ -140,7 +140,7 @@ def _collect_nested_dataclass_kwargs(
         if kwarg_name not in all_nested_field_names:
             remaining_kwargs[kwarg_name] = kwarg_value
 
-    return {'nested': nested_kwargs, 'remaining': remaining_kwargs}
+    return {"nested": nested_kwargs, "remaining": remaining_kwargs}
 
 
 def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) -> BaseParserOptions | None:
@@ -165,8 +165,8 @@ def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) ->
 
     # Collect nested dataclass kwargs
     nested_info = _collect_nested_dataclass_kwargs(options_class, kwargs)
-    nested_dataclass_kwargs = nested_info['nested']
-    flat_kwargs = nested_info['remaining']
+    nested_dataclass_kwargs = nested_info["nested"]
+    flat_kwargs = nested_info["remaining"]
 
     try:
         type_hints = get_type_hints(options_class)
@@ -184,8 +184,8 @@ def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) ->
 
         if field_type:
             nested_class = None
-            if hasattr(field_type, '__origin__'):
-                if hasattr(field_type, '__args__'):
+            if hasattr(field_type, "__origin__"):
+                if hasattr(field_type, "__args__"):
                     for arg in field_type.__args__:
                         if arg is not type(None) and is_dataclass(arg):
                             nested_class = arg
@@ -235,9 +235,7 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) 
 
 
 def _split_kwargs_for_parser_and_renderer(
-        parser_format: DocumentFormat,
-        renderer_format: DocumentFormat,
-        kwargs: dict
+    parser_format: DocumentFormat, renderer_format: DocumentFormat, kwargs: dict
 ) -> tuple[dict, dict]:
     """Split kwargs between parser and renderer based on their field names.
 
@@ -269,7 +267,7 @@ def _split_kwargs_for_parser_and_renderer(
         parser_fields = {f.name for f in fields(parser_class)}
         # Also include nested dataclass fields
         nested_info = _collect_nested_dataclass_kwargs(parser_class, kwargs)
-        for _nested_field_name, nested_dataclass in nested_info['nested'].items():
+        for _nested_field_name, nested_dataclass in nested_info["nested"].items():
             for k in nested_dataclass.keys():
                 parser_fields.add(k)
 
@@ -293,16 +291,16 @@ def _split_kwargs_for_parser_and_renderer(
 
 
 def to_markdown(
-        source: Union[str, Path, IO[bytes], bytes],
-        *,
-        parser_options: Optional[BaseParserOptions] = None,
-        renderer_options: Optional[MarkdownOptions] = None,
-        source_format: DocumentFormat = "auto",
-        flavor: Optional[str] = None,
-        transforms: Optional[list] = None,
-        hooks: Optional[dict] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-        **kwargs: Any
+    source: Union[str, Path, IO[bytes], bytes],
+    *,
+    parser_options: Optional[BaseParserOptions] = None,
+    renderer_options: Optional[MarkdownOptions] = None,
+    source_format: DocumentFormat = "auto",
+    flavor: Optional[str] = None,
+    transforms: Optional[list] = None,
+    hooks: Optional[dict] = None,
+    progress_callback: Optional[ProgressCallback] = None,
+    **kwargs: Any,
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
 
@@ -404,9 +402,7 @@ def to_markdown(
         actual_format = detected  # type: ignore[assignment]
 
     # Split kwargs between parser and renderer
-    parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
-        actual_format, "markdown", kwargs
-    )
+    parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(actual_format, "markdown", kwargs)
 
     # Prepare parser options
     final_parser_options: BaseParserOptions | None
@@ -419,7 +415,7 @@ def to_markdown(
 
     # Prepare renderer options (handle flavor shorthand)
     if flavor:
-        renderer_kwargs['flavor'] = flavor
+        renderer_kwargs["flavor"] = flavor
 
     final_renderer_options: MarkdownOptions
     if renderer_kwargs and renderer_options:
@@ -470,7 +466,7 @@ def to_markdown(
             plain_text: str
             if isinstance(source, (str, Path)):
                 try:
-                    with open(source, 'r', encoding='utf-8', errors='replace') as f:
+                    with open(source, "r", encoding="utf-8", errors="replace") as f:
                         plain_text = f.read()
                 except Exception as exc:
                     raise ParsingError(f"Could not read file as UTF-8: {source}") from exc
@@ -501,7 +497,7 @@ def to_markdown(
             hooks=hooks or {},
             renderer="markdown",
             options=final_renderer_options,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
         )
         render_time = time.perf_counter() - start_time
         logger.debug(f"Rendering (markdown) completed in {render_time:.2f}s")
@@ -515,7 +511,7 @@ def to_markdown(
             hooks=hooks or {},
             renderer="markdown",
             options=final_renderer_options,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
         )
         # Markdown renderer always returns str
         assert isinstance(render_result, str), "Markdown renderer should return str"
@@ -525,12 +521,12 @@ def to_markdown(
 
 
 def to_ast(
-        source: Union[str, Path, IO[bytes], bytes],
-        *,
-        parser_options: Optional[BaseParserOptions] = None,
-        source_format: DocumentFormat = "auto",
-        progress_callback: Optional[ProgressCallback] = None,
-        **kwargs: Any
+    source: Union[str, Path, IO[bytes], bytes],
+    *,
+    parser_options: Optional[BaseParserOptions] = None,
+    source_format: DocumentFormat = "auto",
+    progress_callback: Optional[ProgressCallback] = None,
+    **kwargs: Any,
 ) -> "Document":
     """Convert document to AST (Abstract Syntax Tree) format.
 
@@ -632,15 +628,15 @@ def to_ast(
 
 
 def from_ast(
-        ast_doc: Document,
-        target_format: DocumentFormat,
-        output: Union[str, Path, IO[bytes], IO[str], None] = None,
-        *,
-        renderer_options: Optional[BaseRendererOptions] = None,
-        transforms: Optional[list] = None,
-        hooks: Optional[dict] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-        **kwargs: Any
+    ast_doc: Document,
+    target_format: DocumentFormat,
+    output: Union[str, Path, IO[bytes], IO[str], None] = None,
+    *,
+    renderer_options: Optional[BaseRendererOptions] = None,
+    transforms: Optional[list] = None,
+    hooks: Optional[dict] = None,
+    progress_callback: Optional[ProgressCallback] = None,
+    **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Render AST document to a target format.
 
@@ -724,11 +720,12 @@ def from_ast(
         hooks=hooks or {},
         renderer=target_format,
         options=final_renderer_options,
-        progress_callback=progress_callback
+        progress_callback=progress_callback,
     )
 
     # Handle output using centralized I/O utility
     from all2md.utils.io_utils import write_content
+
     result = write_content(content, output)
 
     # Auto-unwrap file-like objects for better UX
@@ -738,16 +735,16 @@ def from_ast(
 
 
 def from_markdown(
-        source: Union[str, Path, IO[bytes], IO[str]],
-        target_format: DocumentFormat,
-        output: Union[str, Path, IO[bytes], IO[str], None] = None,
-        *,
-        parser_options: Optional[MarkdownParserOptions] = None,
-        renderer_options: Optional[BaseRendererOptions] = None,
-        transforms: Optional[list] = None,
-        hooks: Optional[dict] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-        **kwargs: Any
+    source: Union[str, Path, IO[bytes], IO[str]],
+    target_format: DocumentFormat,
+    output: Union[str, Path, IO[bytes], IO[str], None] = None,
+    *,
+    parser_options: Optional[MarkdownParserOptions] = None,
+    renderer_options: Optional[BaseRendererOptions] = None,
+    transforms: Optional[list] = None,
+    hooks: Optional[dict] = None,
+    progress_callback: Optional[ProgressCallback] = None,
+    **kwargs: Any,
 ) -> Union[None, str, bytes]:
     r"""Convert Markdown content to another format.
 
@@ -832,19 +829,19 @@ def from_markdown(
 
 
 def convert(
-        source: Union[str, Path, IO[bytes], IO[str], bytes],
-        output: Union[str, Path, IO[bytes], IO[str], None] = None,
-        *,
-        parser_options: Optional[BaseParserOptions] = None,
-        renderer_options: Optional[BaseRendererOptions] = None,
-        source_format: DocumentFormat = "auto",
-        target_format: DocumentFormat = "auto",
-        transforms: Optional[list] = None,
-        hooks: Optional[dict] = None,
-        renderer: Optional[Union[str, type, object]] = None,
-        flavor: Optional[str] = None,
-        progress_callback: Optional[ProgressCallback] = None,
-        **kwargs: Any
+    source: Union[str, Path, IO[bytes], IO[str], bytes],
+    output: Union[str, Path, IO[bytes], IO[str], None] = None,
+    *,
+    parser_options: Optional[BaseParserOptions] = None,
+    renderer_options: Optional[BaseRendererOptions] = None,
+    source_format: DocumentFormat = "auto",
+    target_format: DocumentFormat = "auto",
+    transforms: Optional[list] = None,
+    hooks: Optional[dict] = None,
+    renderer: Optional[Union[str, type, object]] = None,
+    flavor: Optional[str] = None,
+    progress_callback: Optional[ProgressCallback] = None,
+    **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Convert between document formats.
 
@@ -951,8 +948,9 @@ def convert(
     if parser_kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**parser_kwargs)
     elif parser_kwargs:
-        final_parser_options = _create_parser_options_from_kwargs(cast(DocumentFormat, actual_source_format),
-                                                                  **parser_kwargs)
+        final_parser_options = _create_parser_options_from_kwargs(
+            cast(DocumentFormat, actual_source_format), **parser_kwargs
+        )
     else:
         final_parser_options = parser_options
 
@@ -965,14 +963,15 @@ def convert(
 
     # Prepare renderer options
     if flavor:
-        renderer_kwargs['flavor'] = flavor
+        renderer_kwargs["flavor"] = flavor
 
     final_renderer_options: Optional[BaseRendererOptions]
     if renderer_kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
-        final_renderer_options = _create_renderer_options_from_kwargs(cast(DocumentFormat, actual_target_format),
-                                                                      **renderer_kwargs)
+        final_renderer_options = _create_renderer_options_from_kwargs(
+            cast(DocumentFormat, actual_target_format), **renderer_kwargs
+        )
     else:
         final_renderer_options = renderer_options
 
@@ -990,6 +989,7 @@ def convert(
 
     # Handle output using centralized I/O utility
     from all2md.utils.io_utils import write_content
+
     result = write_content(rendered, output)
 
     # Auto-unwrap file-like objects for better UX

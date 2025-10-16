@@ -39,10 +39,7 @@ class MCPSecurityError(All2MdError):
         self.path = path
 
 
-def validate_read_path(
-        path: str | Path,
-        read_allowlist_dirs: list[str | Path] | None
-) -> Path:
+def validate_read_path(path: str | Path, read_allowlist_dirs: list[str | Path] | None) -> Path:
     """Validate a path is allowed for reading.
 
     Parameters
@@ -75,16 +72,12 @@ def validate_read_path(
         resolved_path = path_obj.resolve(strict=True)
     except (OSError, RuntimeError) as e:
         raise MCPSecurityError(
-            f"Read access denied: path does not exist or cannot be resolved: {path}",
-            path=str(path)
+            f"Read access denied: path does not exist or cannot be resolved: {path}", path=str(path)
         ) from e
 
     # Ensure it's a file
     if not resolved_path.is_file():
-        raise MCPSecurityError(
-            f"Read access denied: path is not a file: {path}",
-            path=str(path)
-        )
+        raise MCPSecurityError(f"Read access denied: path is not a file: {path}", path=str(path))
 
     # Check if path is in allowlist (if allowlist is provided)
     if read_allowlist_dirs is not None:
@@ -108,19 +101,13 @@ def validate_read_path(
                 continue
 
         if not in_allowlist:
-            raise MCPSecurityError(
-                f"Read access denied: path not in allowlist: {path}",
-                path=str(path)
-            )
+            raise MCPSecurityError(f"Read access denied: path not in allowlist: {path}", path=str(path))
 
     logger.debug(f"Read path validated: {resolved_path}")
     return resolved_path
 
 
-def validate_write_path(
-        path: str | Path,
-        write_allowlist_dirs: list[str | Path] | None
-) -> Path:
+def validate_write_path(path: str | Path, write_allowlist_dirs: list[str | Path] | None) -> Path:
     """Validate a path is allowed for writing.
 
     Uses security checks consistent with validate_local_file_access to ensure
@@ -152,11 +139,8 @@ def validate_write_path(
     path_obj = Path(path)
 
     # Check for path traversal (always, regardless of allowlist)
-    if '..' in path_obj.parts:
-        raise MCPSecurityError(
-            f"Path contains parent directory references (..): {path}",
-            path=str(path)
-        )
+    if ".." in path_obj.parts:
+        raise MCPSecurityError(f"Path contains parent directory references (..): {path}", path=str(path))
 
     # Get absolute path
     abs_path = path_obj.absolute()
@@ -164,19 +148,13 @@ def validate_write_path(
 
     # Verify parent exists
     if not parent.exists():
-        raise MCPSecurityError(
-            f"Write access denied: parent directory does not exist: {parent}",
-            path=str(path)
-        )
+        raise MCPSecurityError(f"Write access denied: parent directory does not exist: {parent}", path=str(path))
 
     # Resolve parent (following symlinks)
     try:
         resolved_parent = parent.resolve(strict=True)
     except (OSError, RuntimeError) as e:
-        raise MCPSecurityError(
-            f"Write access denied: cannot resolve parent directory: {parent}",
-            path=str(path)
-        ) from e
+        raise MCPSecurityError(f"Write access denied: cannot resolve parent directory: {parent}", path=str(path)) from e
 
     # Build final path with resolved parent
     final_path = resolved_parent / abs_path.name
@@ -187,8 +165,7 @@ def validate_write_path(
             final_path = final_path.resolve(strict=True)
         except (OSError, RuntimeError) as e:
             raise MCPSecurityError(
-                f"Write access denied: cannot resolve existing file: {final_path}",
-                path=str(path)
+                f"Write access denied: cannot resolve existing file: {final_path}", path=str(path)
             ) from e
 
     # If no allowlist, allow write after security checks
@@ -220,18 +197,13 @@ def validate_write_path(
             continue
 
     if not in_allowlist:
-        raise MCPSecurityError(
-            f"Write access denied: path not in allowlist: {path}",
-            path=str(path)
-        )
+        raise MCPSecurityError(f"Write access denied: path not in allowlist: {path}", path=str(path))
 
     logger.debug(f"Write path validated: {final_path}")
     return final_path
 
 
-def prepare_allowlist_dirs(
-        paths: list[str | Path] | None
-) -> list[Path] | None:
+def prepare_allowlist_dirs(paths: list[str | Path] | None) -> list[Path] | None:
     """Validate allowlist directory paths.
 
     Ensures all paths exist and are directories. Resolves paths to canonical
@@ -268,17 +240,11 @@ def prepare_allowlist_dirs(
             # Convert to Path if string, or use as-is if already Path
             path = Path(path_item).resolve(strict=True)
             if not path.is_dir():
-                raise MCPSecurityError(
-                    f"Allowlist path is not a directory: {path_item}",
-                    path=str(path_item)
-                )
+                raise MCPSecurityError(f"Allowlist path is not a directory: {path_item}", path=str(path_item))
             # Store as resolved Path object to avoid re-resolving in validation
             validated_paths.append(path)
             logger.debug(f"Added to allowlist: {path}")
         except (OSError, RuntimeError) as e:
-            raise MCPSecurityError(
-                f"Invalid allowlist path: {path_item} ({e})",
-                path=str(path_item)
-            ) from e
+            raise MCPSecurityError(f"Invalid allowlist path: {path_item} ({e})", path=str(path_item)) from e
 
     return validated_paths

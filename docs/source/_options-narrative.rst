@@ -43,8 +43,7 @@ CLI flag mapping follows the field path. For example ``HtmlOptions.network.requi
 Options Map
 -----------
 
-The table below shows where to look for the most commonly tuned converters. See :doc:`options` for the full,
-auto-generated reference including every field and default.
+The table below shows where to look for the most commonly tuned converters.
 
 .. list-table::
    :header-rows: 1

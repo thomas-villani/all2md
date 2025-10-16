@@ -199,15 +199,12 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 self._flowables.append(self._Spacer(1, 0.2 * self._inch))
 
                 # Sort footnotes by their assigned numbers
-                sorted_footnotes = sorted(
-                    self._footnote_id_to_number.items(),
-                    key=lambda x: x[1]
-                )
+                sorted_footnotes = sorted(self._footnote_id_to_number.items(), key=lambda x: x[1])
                 for identifier, num in sorted_footnotes:
                     text = self._footnote_definitions.get(identifier, "")
                     if text:
                         footnote_para = self._Paragraph(
-                            f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles['Normal']
+                            f'<font size="8"><sup>{num}</sup> {text}</font>', self._styles["Normal"]
                         )
                         self._flowables.append(footnote_para)
                         self._flowables.append(self._Spacer(1, 0.1 * self._inch))
@@ -245,11 +242,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 buffer.seek(0)
                 output.write(buffer.read())
         except Exception as e:
-            raise RenderingError(
-                f"Failed to render PDF: {e!r}",
-                rendering_stage="rendering",
-                original_error=e
-            ) from e
+            raise RenderingError(f"Failed to render PDF: {e!r}", rendering_stage="rendering", original_error=e) from e
         finally:
             # Clean up temp files
             self._cleanup_temp_files()
@@ -300,9 +293,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         """
         size_map = {
-            'letter': self._LETTER,
-            'a4': self._A4,
-            'legal': self._LEGAL,
+            "letter": self._LETTER,
+            "a4": self._A4,
+            "legal": self._LEGAL,
         }
         return size_map.get(self.options.page_size, self._LETTER)
 
@@ -321,11 +314,11 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         """
         font_bold_map = {
-            'Times-Roman': 'Times-Bold',
-            'Helvetica': 'Helvetica-Bold',
-            'Courier': 'Courier-Bold',
+            "Times-Roman": "Times-Bold",
+            "Helvetica": "Helvetica-Bold",
+            "Courier": "Courier-Bold",
         }
-        return font_bold_map.get(base_font, base_font + '-Bold')
+        return font_bold_map.get(base_font, base_font + "-Bold")
 
     def _create_styles(self) -> StyleSheet1:
         """Create paragraph styles for the document.
@@ -339,15 +332,15 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         styles = self._getSampleStyleSheet()
 
         # Modify default styles
-        styles['Normal'].fontName = self.options.font_name
-        styles['Normal'].fontSize = self.options.font_size
-        styles['Normal'].leading = self.options.font_size * self.options.line_spacing
+        styles["Normal"].fontName = self.options.font_name
+        styles["Normal"].fontSize = self.options.font_size
+        styles["Normal"].leading = self.options.font_size * self.options.line_spacing
 
         # Create/modify heading styles
         heading_fonts = self.options.heading_fonts or {}
 
         for level in range(1, 7):
-            style_name = f'Heading{level}'
+            style_name = f"Heading{level}"
             if level in heading_fonts:
                 font_name, font_size = heading_fonts[level]
             else:
@@ -366,42 +359,48 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 style.spaceBefore = 12
             else:
                 # Create new style
-                styles.add(self._ParagraphStyle(
-                    name=style_name,
-                    parent=styles['Normal'],
-                    fontName=font_name,
-                    fontSize=font_size,
-                    leading=font_size * 1.2,
-                    spaceAfter=12,
-                    spaceBefore=12,
-                ))
+                styles.add(
+                    self._ParagraphStyle(
+                        name=style_name,
+                        parent=styles["Normal"],
+                        fontName=font_name,
+                        fontSize=font_size,
+                        leading=font_size * 1.2,
+                        spaceAfter=12,
+                        spaceBefore=12,
+                    )
+                )
 
         # Create/modify code style
-        if 'Code' not in styles:
-            styles.add(self._ParagraphStyle(
-                name='Code',
-                parent=styles['Normal'],
-                fontName=self.options.code_font,
-                fontSize=self.options.font_size - 1,
-                backColor=self._colors.HexColor('#F5F5F5'),
-                leftIndent=10,
-                rightIndent=10,
-                spaceBefore=6,
-                spaceAfter=6,
-            ))
+        if "Code" not in styles:
+            styles.add(
+                self._ParagraphStyle(
+                    name="Code",
+                    parent=styles["Normal"],
+                    fontName=self.options.code_font,
+                    fontSize=self.options.font_size - 1,
+                    backColor=self._colors.HexColor("#F5F5F5"),
+                    leftIndent=10,
+                    rightIndent=10,
+                    spaceBefore=6,
+                    spaceAfter=6,
+                )
+            )
 
         # Create/modify blockquote style
-        if 'BlockQuote' not in styles:
-            styles.add(self._ParagraphStyle(
-                name='BlockQuote',
-                parent=styles['Normal'],
-                leftIndent=20,
-                rightIndent=20,
-                textColor=self._colors.HexColor('#666666'),
-                borderColor=self._colors.HexColor('#CCCCCC'),
-                borderWidth=1,
-                borderPadding=10,
-            ))
+        if "BlockQuote" not in styles:
+            styles.add(
+                self._ParagraphStyle(
+                    name="BlockQuote",
+                    parent=styles["Normal"],
+                    leftIndent=20,
+                    rightIndent=20,
+                    textColor=self._colors.HexColor("#666666"),
+                    borderColor=self._colors.HexColor("#CCCCCC"),
+                    borderWidth=1,
+                    borderPadding=10,
+                )
+            )
 
         return styles
 
@@ -423,53 +422,53 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         for node in nodes:
             if isinstance(node, Text):
                 # Escape special characters
-                text = node.content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                text = node.content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 parts.append(text)
             elif isinstance(node, Strong):
                 inner = self._process_inline_content(node.content)
-                parts.append(f'<b>{inner}</b>')
+                parts.append(f"<b>{inner}</b>")
             elif isinstance(node, Emphasis):
                 inner = self._process_inline_content(node.content)
-                parts.append(f'<i>{inner}</i>')
+                parts.append(f"<i>{inner}</i>")
             elif isinstance(node, Code):
-                escaped = node.content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                escaped = node.content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 parts.append(f'<font name="{self.options.code_font}" backColor="#F0F0F0">{escaped}</font>')
             elif isinstance(node, Strikethrough):
                 inner = self._process_inline_content(node.content)
-                parts.append(f'<strike>{inner}</strike>')
+                parts.append(f"<strike>{inner}</strike>")
             elif isinstance(node, Underline):
                 inner = self._process_inline_content(node.content)
-                parts.append(f'<u>{inner}</u>')
+                parts.append(f"<u>{inner}</u>")
             elif isinstance(node, Superscript):
                 inner = self._process_inline_content(node.content)
-                parts.append(f'<super>{inner}</super>')
+                parts.append(f"<super>{inner}</super>")
             elif isinstance(node, Subscript):
                 inner = self._process_inline_content(node.content)
-                parts.append(f'<sub>{inner}</sub>')
+                parts.append(f"<sub>{inner}</sub>")
             elif isinstance(node, Link):
                 inner = self._process_inline_content(node.content)
                 parts.append(f'<link href="{node.url}">{inner}</link>')
             elif isinstance(node, LineBreak):
-                parts.append('<br/>')
+                parts.append("<br/>")
             elif isinstance(node, FootnoteReference):
                 # Get or assign a stable number for this footnote identifier
                 if node.identifier not in self._footnote_id_to_number:
                     self._footnote_counter += 1
                     self._footnote_id_to_number[node.identifier] = self._footnote_counter
                 footnote_number = self._footnote_id_to_number[node.identifier]
-                parts.append(f'<super>{footnote_number}</super>')
+                parts.append(f"<super>{footnote_number}</super>")
             elif isinstance(node, MathInline):
                 # Render math as plain text (proper rendering would require additional libraries)
                 content, notation = node.get_preferred_representation("latex")
                 if notation == "latex":
-                    parts.append(f'${content}$')
+                    parts.append(f"${content}$")
                 else:
                     parts.append(content)
             else:
                 # For other inline nodes, try to extract text
                 pass
 
-        return ''.join(parts)
+        return "".join(parts)
 
     def visit_document(self, node: Document) -> None:
         """Render a Document node.
@@ -481,9 +480,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         """
         # Add title from metadata if present
-        if node.metadata and 'title' in node.metadata:
-            title_text = str(node.metadata['title'])
-            title_para = self._Paragraph(title_text, self._styles['Heading1'])
+        if node.metadata and "title" in node.metadata:
+            title_text = str(node.metadata["title"])
+            title_para = self._Paragraph(title_text, self._styles["Heading1"])
             self._flowables.append(title_para)
             self._flowables.append(self._Spacer(1, 0.3 * self._inch))
 
@@ -501,7 +500,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         """
         level = min(6, max(1, node.level))
-        style_name = f'Heading{level}'
+        style_name = f"Heading{level}"
 
         text = self._process_inline_content(node.content)
         para = self._Paragraph(text, self._styles[style_name])
@@ -517,7 +516,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         """
         text = self._process_inline_content(node.content)
-        para = self._Paragraph(text, self._styles['Normal'])
+        para = self._Paragraph(text, self._styles["Normal"])
         self._flowables.append(para)
         self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
@@ -533,7 +532,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         # Use Preformatted for code blocks
         pre = self._Preformatted(
             node.content,
-            self._styles['Code'],
+            self._styles["Code"],
             maxLineLength=80,
         )
         self._flowables.append(pre)
@@ -560,7 +559,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         for flowable in self._flowables:
             if isinstance(flowable, self._Paragraph):
                 # Re-create with BlockQuote style
-                quoted_para = self._Paragraph(flowable.text, self._styles['BlockQuote'])
+                quoted_para = self._Paragraph(flowable.text, self._styles["BlockQuote"])
                 saved_flowables.append(quoted_para)
             else:
                 saved_flowables.append(flowable)
@@ -590,7 +589,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             # Create list item from flowables
             if self._flowables:
                 # Pass all flowables to preserve multi-paragraph and nested content
-                items.append(self._ListItem(self._flowables, bulletType='bullet' if not node.ordered else '1'))
+                items.append(self._ListItem(self._flowables, bulletType="bullet" if not node.ordered else "1"))
 
             self._flowables = saved_flowables
 
@@ -598,7 +597,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         if items:
             list_flowable = self._ListFlowable(
                 items,  # type: ignore[arg-type]
-                bulletType='bullet' if not node.ordered else '1',
+                bulletType="bullet" if not node.ordered else "1",
                 start=node.start if node.ordered else None,
             )
             self._flowables.append(list_flowable)
@@ -633,7 +632,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             header_row = []
             for cell in node.header.cells:
                 text = self._process_inline_content(cell.content)
-                header_row.append(self._Paragraph(text, self._styles['Normal']))
+                header_row.append(self._Paragraph(text, self._styles["Normal"]))
             data.append(header_row)
 
         # Add body rows
@@ -641,7 +640,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             row_data = []
             for cell in row.cells:
                 text = self._process_inline_content(cell.content)
-                row_data.append(self._Paragraph(text, self._styles['Normal']))
+                row_data.append(self._Paragraph(text, self._styles["Normal"]))
             data.append(row_data)
 
         if not data:
@@ -652,15 +651,15 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         # Apply table style
         style_commands = [
-            ('BACKGROUND', (0, 0), (-1, 0), self._colors.grey) if node.header else None,
-            ('TEXTCOLOR', (0, 0), (-1, 0), self._colors.whitesmoke) if node.header else None,
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), self._get_bold_font(self.options.font_name)) if node.header else None,
-            ('FONTSIZE', (0, 0), (-1, 0), self.options.font_size) if node.header else None,
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12) if node.header else None,
-            ('BACKGROUND', (0, 1), (-1, -1), self._colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, self._colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ("BACKGROUND", (0, 0), (-1, 0), self._colors.grey) if node.header else None,
+            ("TEXTCOLOR", (0, 0), (-1, 0), self._colors.whitesmoke) if node.header else None,
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("FONTNAME", (0, 0), (-1, 0), self._get_bold_font(self.options.font_name)) if node.header else None,
+            ("FONTSIZE", (0, 0), (-1, 0), self.options.font_size) if node.header else None,
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 12) if node.header else None,
+            ("BACKGROUND", (0, 1), (-1, -1), self._colors.beige),
+            ("GRID", (0, 0), (-1, -1), 1, self._colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]
 
         # Filter out None commands
@@ -705,8 +704,11 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         """
         hr = self._HRFlowable(
-            width="100%", thickness=1, color=self._colors.grey,
-            spaceAfter=0.2 * self._inch, spaceBefore=0.2 * self._inch
+            width="100%",
+            thickness=1,
+            color=self._colors.grey,
+            spaceAfter=0.2 * self._inch,
+            spaceBefore=0.2 * self._inch,
         )
         self._flowables.append(hr)
 
@@ -796,10 +798,10 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Handle different image sources
-            if node.url.startswith('data:'):
+            if node.url.startswith("data:"):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(node.url)
-            elif urlparse(node.url).scheme in ('http', 'https'):
+            elif urlparse(node.url).scheme in ("http", "https"):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(node.url)
             else:
@@ -808,19 +810,19 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
             if image_file:
                 # Add image
-                img = self._Image(image_file, width=4 * self._inch, height=None, kind='proportional')
+                img = self._Image(image_file, width=4 * self._inch, height=None, kind="proportional")
                 self._flowables.append(img)
 
                 # Add caption if alt text exists
                 if node.alt_text:
                     caption_style = self._ParagraphStyle(
-                        'ImageCaption',
-                        parent=self._styles['Normal'],
+                        "ImageCaption",
+                        parent=self._styles["Normal"],
                         alignment=self._TA_CENTER,  # type: ignore[arg-type]
                         fontSize=self.options.font_size - 1,
                         textColor=self._colors.grey,
                     )
-                    caption = self._Paragraph(f'<i>{node.alt_text}</i>', caption_style)
+                    caption = self._Paragraph(f"<i>{node.alt_text}</i>", caption_style)
                     self._flowables.append(caption)
 
                 self._flowables.append(self._Spacer(1, 0.2 * self._inch))
@@ -829,9 +831,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to add image to PDF: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to add image to PDF: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to add image to PDF: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
@@ -886,21 +886,21 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 require_https=self.options.network.require_https,
                 max_size_bytes=self.options.max_asset_size_bytes,
                 timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success
+                require_head_success=self.options.network.require_head_success,
             )
 
             # Determine file extension from URL or content type
             parsed = urlparse(url)
             path_lower = parsed.path.lower()
 
-            if path_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
-                ext = path_lower.split('.')[-1]
+            if path_lower.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg")):
+                ext = path_lower.split(".")[-1]
             else:
                 # Default to png
-                ext = 'png'
+                ext = "png"
 
             # Write to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}') as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as f:
                 f.write(image_data)
                 temp_path = f.name
 
@@ -912,9 +912,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to fetch remote image {url}: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to fetch remote image {url}: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to fetch remote image {url}: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
             return None
 
@@ -1039,7 +1037,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                         if isinstance(item_child, ASTParagraph):
                             list_text.append(self._process_inline_content(item_child.content))
                 if list_text:
-                    text_parts.append(' '.join(list_text))
+                    text_parts.append(" ".join(list_text))
             elif isinstance(child, Text):
                 # Handle bare Text nodes (for backward compatibility with tests)
                 text_parts.append(child.content)
@@ -1049,7 +1047,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             # Add more block types as needed
 
         # Join all parts with spaces
-        text = ' '.join(text_parts)
+        text = " ".join(text_parts)
         self._footnote_definitions[node.identifier] = text
 
     def visit_definition_list(self, node: DefinitionList) -> None:
@@ -1064,7 +1062,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         for term, descriptions in node.items:
             # Render term in bold
             term_text = self._process_inline_content(term.content)
-            term_para = self._Paragraph(f'<b>{term_text}</b>', self._styles['Normal'])
+            term_para = self._Paragraph(f"<b>{term_text}</b>", self._styles["Normal"])
             self._flowables.append(term_para)
 
             # Render descriptions with indentation
@@ -1081,8 +1079,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                     if isinstance(flowable, self._Paragraph):
                         # Create indented style
                         indent_style = self._ParagraphStyle(
-                            'DefinitionDesc',
-                            parent=self._styles['Normal'],
+                            "DefinitionDesc",
+                            parent=self._styles["Normal"],
                             leftIndent=20,
                         )
                         indented_para = self._Paragraph(flowable.text, indent_style)
@@ -1129,13 +1127,13 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         """
         content, notation = node.get_preferred_representation("latex")
         if notation == "latex":
-            text = f'$$\n{content}\n$$'
+            text = f"$$\n{content}\n$$"
         else:
             text = content
 
         pre = self._Preformatted(
             text,
-            self._styles['Code'],
+            self._styles["Code"],
             maxLineLength=80,
         )
         self._flowables.append(pre)

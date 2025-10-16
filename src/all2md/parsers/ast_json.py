@@ -51,11 +51,11 @@ def _is_ast_json_content(content: bytes) -> bool:
 
     try:
         # Decode sample to text for fast string searches
-        text = sample.decode('utf-8', errors='ignore')
+        text = sample.decode("utf-8", errors="ignore")
 
         # Fast preliminary check: look for key AST JSON indicators
         # before attempting JSON parsing
-        if 'node_type' not in text:
+        if "node_type" not in text:
             return False
 
         # If we have node_type, try parsing the sample as JSON
@@ -65,13 +65,13 @@ def _is_ast_json_content(content: bytes) -> bool:
         # Check for AST JSON markers
         if isinstance(data, dict):
             # Must have node_type field (all AST nodes have this)
-            if 'node_type' not in data:
+            if "node_type" not in data:
                 return False
             # Should have schema_version at root level
-            if 'schema_version' in data:
+            if "schema_version" in data:
                 return True
             # Or it might be a Document node (root AST node)
-            if data.get('node_type') == 'Document':
+            if data.get("node_type") == "Document":
                 return True
 
         return False
@@ -112,9 +112,7 @@ class AstJsonParser(BaseParser):
     """
 
     def __init__(
-            self,
-            options: AstJsonParserOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
+        self, options: AstJsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the AST JSON parser."""
         super().__init__(options or AstJsonParserOptions(), progress_callback)
@@ -162,23 +160,18 @@ class AstJsonParser(BaseParser):
                 doc = json_to_ast(json_str)
             except json.JSONDecodeError as e:
                 raise ParsingError(
-                    f"Invalid JSON in AST file: {e}",
-                    parsing_stage="json_parsing",
-                    original_error=e
+                    f"Invalid JSON in AST file: {e}", parsing_stage="json_parsing", original_error=e
                 ) from e
             except ValueError as e:
                 # This could be from schema version validation or unknown node types
                 raise ParsingError(
-                    f"Invalid AST structure: {e}",
-                    parsing_stage="ast_deserialization",
-                    original_error=e
+                    f"Invalid AST structure: {e}", parsing_stage="ast_deserialization", original_error=e
                 ) from e
 
             # Validate it's a Document node
             if not isinstance(doc, Document):
                 raise ParsingError(
-                    f"AST root must be a Document node, got {type(doc).__name__}",
-                    parsing_stage="ast_validation"
+                    f"AST root must be a Document node, got {type(doc).__name__}", parsing_stage="ast_validation"
                 )
 
             self._emit_progress("finished", "AST JSON parsing complete", current=1, total=1)
@@ -190,9 +183,7 @@ class AstJsonParser(BaseParser):
         except Exception as e:
             # Wrap unexpected errors
             raise ParsingError(
-                f"Failed to parse AST JSON: {e}",
-                parsing_stage="ast_json_parsing",
-                original_error=e
+                f"Failed to parse AST JSON: {e}", parsing_stage="ast_json_parsing", original_error=e
             ) from e
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
@@ -220,7 +211,7 @@ class AstJsonParser(BaseParser):
                 creation_date=document.metadata.get("creation_date"),
                 modification_date=document.metadata.get("modification_date"),
                 language=document.metadata.get("language"),
-                custom=document.metadata.get("custom", {})
+                custom=document.metadata.get("custom", {}),
             )
 
         return DocumentMetadata()
@@ -243,5 +234,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=AstJsonParserOptions,
     renderer_options_class="all2md.options.ast_json.AstJsonRendererOptions",
     description="Parse and render documents in JSON-serialized AST format for programmatic access.",
-    priority=5  # Higher priority to check AST format before generic text
+    priority=5,  # Higher priority to check AST format before generic text
 )

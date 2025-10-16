@@ -74,17 +74,14 @@ def sanitize_footnote_label(attachment_name: str) -> str:
     label = Path(safe_name).stem
 
     # Ensure we have something meaningful
-    if not label or label == '.':
+    if not label or label == ".":
         label = "attachment"
 
     return label
 
 
 def sanitize_attachment_filename(
-        filename: str,
-        max_length: int = 255,
-        preserve_case: bool = False,
-        allow_unicode: bool = False
+    filename: str, max_length: int = 255, preserve_case: bool = False, allow_unicode: bool = False
 ) -> str:
     """Sanitize an attachment filename for secure file system storage.
 
@@ -141,10 +138,10 @@ def sanitize_attachment_filename(
 
     # Security check: detect potentially malicious patterns
     malicious_patterns = [
-        r'\.\.[\\/]',  # Directory traversal
-        r'^[\\/]',  # Absolute paths
-        r'[\x00-\x1f\x7f]',  # Control characters
-        r'^\s*$',  # Only whitespace
+        r"\.\.[\\/]",  # Directory traversal
+        r"^[\\/]",  # Absolute paths
+        r"[\x00-\x1f\x7f]",  # Control characters
+        r"^\s*$",  # Only whitespace
     ]
 
     for pattern in malicious_patterns:
@@ -158,7 +155,7 @@ def sanitize_attachment_filename(
 
     # Normalize Unicode to prevent visually confusable names
     # NFKC removes compatibility characters and combines decomposed characters
-    normalized = unicodedata.normalize('NFKC', filename)
+    normalized = unicodedata.normalize("NFKC", filename)
 
     # Convert to lowercase for case normalization (unless preserve_case is True)
     if not preserve_case:
@@ -166,7 +163,7 @@ def sanitize_attachment_filename(
 
     # Handle directory traversal attempts and path separators FIRST
     # Split by path separators and take only the last part (filename)
-    path_parts = re.split(r'[/\\]', normalized)
+    path_parts = re.split(r"[/\\]", normalized)
     safe_chars = path_parts[-1] if path_parts else "attachment"
 
     # Remove or replace dangerous characters
@@ -174,22 +171,22 @@ def sanitize_attachment_filename(
     if allow_unicode:
         # \w includes Unicode word characters (letters, digits, underscore)
         # This allows Chinese, Arabic, Cyrillic, etc.
-        safe_chars = re.sub(r'[^\w.\-\s]', '', safe_chars, flags=re.UNICODE)
+        safe_chars = re.sub(r"[^\w.\-\s]", "", safe_chars, flags=re.UNICODE)
     else:
         # Only allow ASCII alphanumeric characters for maximum compatibility
-        safe_chars = re.sub(r'[^a-zA-Z0-9_.\-\s]', '', safe_chars)
+        safe_chars = re.sub(r"[^a-zA-Z0-9_.\-\s]", "", safe_chars)
 
     # Replace multiple spaces/dots with single versions
-    safe_chars = re.sub(r'\s+', '_', safe_chars)
-    safe_chars = re.sub(r'\.+', '.', safe_chars)
+    safe_chars = re.sub(r"\s+", "_", safe_chars)
+    safe_chars = re.sub(r"\.+", ".", safe_chars)
 
     # Before stripping, detect if we only have a leading dot followed by alphanumeric
     # This helps detect cases like "文件.txt" -> ".txt" -> "txt" (just extension)
     # Pattern: starts with dot, followed by 2-5 alphanumeric chars (typical extension)
-    is_likely_extension_only = bool(re.match(r'^\.[a-zA-Z0-9]{2,5}$', safe_chars))
+    is_likely_extension_only = bool(re.match(r"^\.[a-zA-Z0-9]{2,5}$", safe_chars))
 
     # Remove leading/trailing dots and spaces (Windows restrictions)
-    safe_chars = safe_chars.strip('. ')
+    safe_chars = safe_chars.strip(". ")
 
     # Check if we're left with only an extension (no base name)
     # This can happen when Unicode-only filenames have their Unicode chars removed
@@ -200,38 +197,57 @@ def sanitize_attachment_filename(
         safe_chars = f"attachment.{safe_chars}"
 
     # Additional security: remove any remaining path-like constructs
-    safe_chars = re.sub(r'\.\.+', '.', safe_chars)
+    safe_chars = re.sub(r"\.\.+", ".", safe_chars)
 
     # Remove Windows reserved names (case-insensitive check)
     windows_reserved = {
-        'con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5',
-        'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4',
-        'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        "com1",
+        "com2",
+        "com3",
+        "com4",
+        "com5",
+        "com6",
+        "com7",
+        "com8",
+        "com9",
+        "lpt1",
+        "lpt2",
+        "lpt3",
+        "lpt4",
+        "lpt5",
+        "lpt6",
+        "lpt7",
+        "lpt8",
+        "lpt9",
     }
 
-    name_parts = safe_chars.split('.')
+    name_parts = safe_chars.split(".")
     base_name_lower = name_parts[0].lower()
     if base_name_lower in windows_reserved:
         # Preserve case of the original if preserve_case=True
         name_parts[0] = f"file_{name_parts[0]}"
-        safe_chars = '.'.join(name_parts)
+        safe_chars = ".".join(name_parts)
 
     # Security check: ensure the filename isn't just dots
-    if re.match(r'^\.*$', safe_chars):
+    if re.match(r"^\.*$", safe_chars):
         safe_chars = "attachment"
 
     # Ensure we have something meaningful
-    if not safe_chars or safe_chars == '.':
+    if not safe_chars or safe_chars == ".":
         safe_chars = "attachment"
 
     # Security: prevent filenames that are all underscores (edge case)
-    if re.match(r'^_+$', safe_chars):
+    if re.match(r"^_+$", safe_chars):
         safe_chars = "attachment"
 
     # Truncate if too long, preserving extension
     if len(safe_chars) > max_length:
-        if '.' in safe_chars:
-            name, ext = safe_chars.rsplit('.', 1)
+        if "." in safe_chars:
+            name, ext = safe_chars.rsplit(".", 1)
             max_name_length = max_length - len(ext) - 1  # -1 for the dot
             if max_name_length > 0:
                 safe_chars = f"{name[:max_name_length]}.{ext}"
@@ -324,14 +340,14 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
 
 
 def process_attachment(
-        attachment_data: bytes | None,
-        attachment_name: str,
-        alt_text: str = "",
-        attachment_mode: AttachmentMode = "alt_text",
-        attachment_output_dir: str | None = None,
-        attachment_base_url: str | None = None,
-        is_image: bool = True,
-        alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
+    attachment_data: bytes | None,
+    attachment_name: str,
+    alt_text: str = "",
+    attachment_mode: AttachmentMode = "alt_text",
+    attachment_output_dir: str | None = None,
+    attachment_base_url: str | None = None,
+    is_image: bool = True,
+    alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
 ) -> dict[str, Any]:
     """Process an attachment according to the specified mode.
 
@@ -375,9 +391,8 @@ def process_attachment(
 
     # Helper function to create result dict
     def _make_result(
-            markdown: str, url: str = "", footnote_label: str | None = None,
-            footnote_content: str | None = None
-            ) -> dict[str, Any]:
+        markdown: str, url: str = "", footnote_label: str | None = None, footnote_content: str | None = None
+    ) -> dict[str, Any]:
         return {
             "markdown": markdown,
             "url": url,
@@ -387,10 +402,7 @@ def process_attachment(
 
     # Helper function to build attachment markdown (centralized logic)
     def _build_attachment_markdown(
-            is_image: bool,
-            alt_text_mode: AltTextMode,
-            text_content: str,
-            attachment_name: str
+        is_image: bool, alt_text_mode: AltTextMode, text_content: str, attachment_name: str
     ) -> tuple[str, str | None, str | None]:
         """Build attachment markdown based on mode.
 
@@ -452,8 +464,7 @@ def process_attachment(
         )
         # For strict_markdown mode, set url to "#"
         url = "#" if alt_text_mode == "strict_markdown" else ""
-        return _make_result(markdown, url=url, footnote_label=footnote_label,
-                            footnote_content=footnote_content)
+        return _make_result(markdown, url=url, footnote_label=footnote_label, footnote_content=footnote_content)
 
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")
@@ -531,7 +542,7 @@ def process_attachment(
 
         # URL-encode the filename to handle special characters (spaces, &, #, etc.)
         # Use safe='' to encode all special characters
-        encoded_filename = url_quote(final_filename, safe='')
+        encoded_filename = url_quote(final_filename, safe="")
 
         if attachment_base_url:
             # When using base URL, construct URL with encoded filename
@@ -583,12 +594,12 @@ def extract_pptx_image_data(shape: Any) -> bytes | None:
         return image_bytes
     except AttributeError as e:
         # Shape might not have image property or image might not have blob
-        shape_id = getattr(shape, 'shape_id', 'unknown')
+        shape_id = getattr(shape, "shape_id", "unknown")
         logger.debug(f"Failed to extract image from PPTX shape {shape_id}: {e}")
         return None
     except Exception as e:
         # Catch other unexpected errors
-        shape_id = getattr(shape, 'shape_id', 'unknown')
+        shape_id = getattr(shape, "shape_id", "unknown")
         logger.warning(f"Unexpected error extracting image from PPTX shape {shape_id}: {type(e).__name__}: {e}")
         return None
 
@@ -620,31 +631,31 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, s
         extension = "png"  # default fallback
 
         # Try to get extension from content type
-        if hasattr(image_part, 'content_type') and image_part.content_type:
+        if hasattr(image_part, "content_type") and image_part.content_type:
             content_type = image_part.content_type.lower()
-            if 'jpeg' in content_type or 'jpg' in content_type:
+            if "jpeg" in content_type or "jpg" in content_type:
                 extension = "jpg"
-            elif 'gif' in content_type:
+            elif "gif" in content_type:
                 extension = "gif"
-            elif 'png' in content_type:
+            elif "png" in content_type:
                 extension = "png"
-            elif 'bmp' in content_type:
+            elif "bmp" in content_type:
                 extension = "bmp"
-            elif 'tiff' in content_type:
+            elif "tiff" in content_type:
                 extension = "tiff"
 
         # Try to get extension from part name if content type didn't work
-        elif hasattr(image_part, 'partname') and image_part.partname:
+        elif hasattr(image_part, "partname") and image_part.partname:
             part_name = str(image_part.partname).lower()
-            if '.jpg' in part_name or '.jpeg' in part_name:
+            if ".jpg" in part_name or ".jpeg" in part_name:
                 extension = "jpg"
-            elif '.gif' in part_name:
+            elif ".gif" in part_name:
                 extension = "gif"
-            elif '.png' in part_name:
+            elif ".png" in part_name:
                 extension = "png"
-            elif '.bmp' in part_name:
+            elif ".bmp" in part_name:
                 extension = "bmp"
-            elif '.tiff' in part_name or '.tif' in part_name:
+            elif ".tiff" in part_name or ".tif" in part_name:
                 extension = "tiff"
 
         return image_bytes, extension
@@ -663,13 +674,13 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, s
 
 
 def generate_attachment_filename(
-        base_stem: str,
-        attachment_type: str = "img",
-        format_type: str = "general",
-        page_num: int | None = None,
-        slide_num: int | None = None,
-        sequence_num: int = 1,
-        extension: str = "png"
+    base_stem: str,
+    attachment_type: str = "img",
+    format_type: str = "general",
+    page_num: int | None = None,
+    slide_num: int | None = None,
+    sequence_num: int = 1,
+    extension: str = "png",
 ) -> str:
     """Generate standardized attachment filenames across all parsers.
 
@@ -755,10 +766,10 @@ class AttachmentSequencer(Protocol):
     """
 
     def __call__(
-            self,
-            base_stem: str,
-            format_type: str = "general",
-            **kwargs: Any,
+        self,
+        base_stem: str,
+        format_type: str = "general",
+        **kwargs: Any,
     ) -> tuple[str, int]:
         """Generate unique sequential filename for attachment."""
         ...
@@ -817,10 +828,7 @@ def create_attachment_sequencer() -> AttachmentSequencer:
 
         # Generate filename
         filename = generate_attachment_filename(
-            base_stem=base_stem,
-            format_type=format_type,
-            sequence_num=sequence_num,
-            **kwargs
+            base_stem=base_stem, format_type=format_type, sequence_num=sequence_num, **kwargs
         )
 
         # Ensure uniqueness (failsafe)
@@ -828,10 +836,7 @@ def create_attachment_sequencer() -> AttachmentSequencer:
             sequence_num += 1
             sequence_counters[key] = sequence_num
             filename = generate_attachment_filename(
-                base_stem=base_stem,
-                format_type=format_type,
-                sequence_num=sequence_num,
-                **kwargs
+                base_stem=base_stem, format_type=format_type, sequence_num=sequence_num, **kwargs
             )
 
         used_filenames.add(filename)

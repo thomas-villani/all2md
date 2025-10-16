@@ -62,9 +62,7 @@ class BaseRenderer(ABC):
 
         """
         self.options = options
-        self.metadata_policy: MetadataRenderPolicy = (
-            options.metadata_policy if options else MetadataRenderPolicy()
-        )
+        self.metadata_policy: MetadataRenderPolicy = options.metadata_policy if options else MetadataRenderPolicy()
 
     @abstractmethod
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -114,9 +112,7 @@ class BaseRenderer(ABC):
             If the renderer does not support string output
 
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support rendering to a string."
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} does not support rendering to a string.")
 
     def render_to_bytes(self, doc: Document) -> bytes:
         """Render the AST to bytes (if applicable).
@@ -168,16 +164,10 @@ class BaseRenderer(ABC):
             self.render(doc, buffer)
             return buffer.getvalue()
         except (NotImplementedError, AttributeError, TypeError):
-            raise NotImplementedError(
-                f"{self.__class__.__name__} does not support rendering to bytes."
-            ) from None
+            raise NotImplementedError(f"{self.__class__.__name__} does not support rendering to bytes.") from None
 
-    def _prepare_metadata(
-            self,
-            metadata: Union[Mapping[str, Any], "DocumentMetadata", None]
-    ) -> Dict[str, Any]:
+    def _prepare_metadata(self, metadata: Union[Mapping[str, Any], "DocumentMetadata", None]) -> Dict[str, Any]:
         """Normalize and filter metadata according to the renderer policy."""
-
         return prepare_metadata_for_render(metadata, self.metadata_policy)
 
     @staticmethod
@@ -220,7 +210,7 @@ class BaseRenderer(ABC):
             Path(output).write_text(text, encoding="utf-8")
         else:
             # Write to file-like object (binary mode)
-            output.write(text.encode('utf-8'))
+            output.write(text.encode("utf-8"))
 
 
 class InlineContentMixin:
@@ -283,6 +273,6 @@ class InlineContentMixin:
             node.accept(self)
 
         # Capture result and restore output state
-        result = ''.join(self._output)
+        result = "".join(self._output)
         self._output = saved_output
         return result

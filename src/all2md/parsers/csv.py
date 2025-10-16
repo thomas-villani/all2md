@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 def _make_csv_dialect(
-        delimiter: str | None = None,
-        quotechar: str | None = None,
-        escapechar: str | None = None,
-        doublequote: bool | None = None
+    delimiter: str | None = None,
+    quotechar: str | None = None,
+    escapechar: str | None = None,
+    doublequote: bool | None = None,
 ) -> type[csv.Dialect]:
     r"""Create a CSV dialect class with custom parameters.
 
@@ -59,15 +59,15 @@ def _make_csv_dialect(
     """
     attrs: dict[str, Any] = {}
     if delimiter is not None:
-        attrs['delimiter'] = delimiter
+        attrs["delimiter"] = delimiter
     if quotechar is not None:
-        attrs['quotechar'] = quotechar
+        attrs["quotechar"] = quotechar
     if escapechar is not None:
-        attrs['escapechar'] = escapechar
+        attrs["escapechar"] = escapechar
     if doublequote is not None:
-        attrs['doublequote'] = doublequote
+        attrs["doublequote"] = doublequote
 
-    return type('CustomDialect', (csv.excel,), attrs)
+    return type("CustomDialect", (csv.excel,), attrs)
 
 
 class CsvToAstConverter(BaseParser):
@@ -135,20 +135,20 @@ class CsvToAstConverter(BaseParser):
         # Check file extension for TSV
         if isinstance(input_data, (str, Path)):
             path = Path(input_data)
-            if path.suffix.lower() == '.tsv':
-                return '\t'
-        elif hasattr(input_data, 'name'):
-            filename = getattr(input_data, 'name', '')
-            if filename and Path(filename).suffix.lower() == '.tsv':
-                return '\t'
+            if path.suffix.lower() == ".tsv":
+                return "\t"
+        elif hasattr(input_data, "name"):
+            filename = getattr(input_data, "name", "")
+            if filename and Path(filename).suffix.lower() == ".tsv":
+                return "\t"
 
         # Default to comma
-        return ','
+        return ","
 
     def csv_to_ast(
-            self,
-            input_data: Union[str, Path, IO[bytes], IO[str], bytes],
-            delimiter: str | None = None,
+        self,
+        input_data: Union[str, Path, IO[bytes], IO[str], bytes],
+        delimiter: str | None = None,
     ) -> Document:
         r"""Convert CSV/TSV to AST Document.
 
@@ -186,13 +186,17 @@ class CsvToAstConverter(BaseParser):
         dialect_obj: type[csv.Dialect]
 
         # If any custom dialect options are set, create custom dialect
-        if (self.options.delimiter or self.options.quote_char or
-                self.options.escape_char or self.options.double_quote is not None):
+        if (
+            self.options.delimiter
+            or self.options.quote_char
+            or self.options.escape_char
+            or self.options.double_quote is not None
+        ):
             dialect_obj = _make_csv_dialect(
                 delimiter=self.options.delimiter or delimiter,
                 quotechar=self.options.quote_char,
                 escapechar=self.options.escape_char,
-                doublequote=self.options.double_quote
+                doublequote=self.options.double_quote,
             )
         elif self.options.detect_csv_dialect:
             try:
@@ -284,9 +288,7 @@ class CsvToAstConverter(BaseParser):
         children: list[Node] = [table]
 
         if truncated:
-            children.append(
-                Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
-            )
+            children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))
 
         return Document(children=children, metadata=metadata.to_dict())
 
@@ -370,12 +372,12 @@ def _detect_csv_tsv_content(content: bytes) -> bool:
 
     """
     try:
-        content_str = content.decode('utf-8', errors='ignore')
-        non_empty_lines = [line.strip() for line in content_str.split('\n') if line.strip()]
+        content_str = content.decode("utf-8", errors="ignore")
+        non_empty_lines = [line.strip() for line in content_str.split("\n") if line.strip()]
 
         if len(non_empty_lines) >= 2:
-            comma_count = sum(line.count(',') for line in non_empty_lines)
-            tab_count = sum(line.count('\t') for line in non_empty_lines)
+            comma_count = sum(line.count(",") for line in non_empty_lines)
+            tab_count = sum(line.count("\t") for line in non_empty_lines)
 
             if comma_count >= len(non_empty_lines):
                 logger.debug(f"CSV pattern detected: {comma_count} commas in {len(non_empty_lines)} lines")
@@ -393,11 +395,7 @@ def _detect_csv_tsv_content(content: bytes) -> bool:
 CONVERTER_METADATA = ConverterMetadata(
     format_name="csv",
     extensions=[".csv", ".tsv"],
-    mime_types=[
-        "text/csv",
-        "application/csv",
-        "text/tab-separated-values"
-    ],
+    mime_types=["text/csv", "application/csv", "text/tab-separated-values"],
     magic_bytes=[],
     content_detector=_detect_csv_tsv_content,
     parser_class=CsvToAstConverter,
@@ -408,5 +406,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=CsvOptions,
     renderer_options_class=None,
     description="Convert CSV and TSV files to Markdown tables",
-    priority=6
+    priority=6,
 )

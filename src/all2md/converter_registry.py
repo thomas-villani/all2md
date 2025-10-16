@@ -44,11 +44,7 @@ def _check_package_installed(import_name: str) -> bool:
         return False
 
 
-def _load_class(
-        class_spec: Union[str, type, None],
-        default_module_path: str,
-        class_type_name: str
-) -> Optional[type]:
+def _load_class(class_spec: Union[str, type, None], default_module_path: str, class_type_name: str) -> Optional[type]:
     """Load parsers, renderers, and options classes from various specifications.
 
     Parameters
@@ -78,9 +74,9 @@ def _load_class(
     elif isinstance(class_spec, str):
         # String specification
         # Check if it contains a dot (fully qualified)
-        if '.' in class_spec:
+        if "." in class_spec:
             # Parse module and class name
-            module_path, class_name = class_spec.rsplit('.', 1)
+            module_path, class_name = class_spec.rsplit(".", 1)
             try:
                 module = importlib.import_module(module_path)
                 return getattr(module, class_name)
@@ -94,8 +90,7 @@ def _load_class(
                 return getattr(module, class_spec, None)
             except (ImportError, AttributeError) as e:
                 logger.warning(
-                    f"{class_type_name.capitalize()} class '{class_spec}' "
-                    f"not found in {default_module_path}: {e}"
+                    f"{class_type_name.capitalize()} class '{class_spec}' " f"not found in {default_module_path}: {e}"
                 )
                 return None
 
@@ -227,9 +222,7 @@ class ConverterRegistry:
             self._converters[metadata.format_name] = []
             logger.debug(f"Registered converter: {metadata.format_name} (priority={metadata.priority})")
         else:
-            logger.debug(
-                f"Adding additional converter for '{metadata.format_name}' (priority={metadata.priority})"
-            )
+            logger.debug(f"Adding additional converter for '{metadata.format_name}' (priority={metadata.priority})")
 
         # Add to list and sort by priority (highest first)
         self._converters[metadata.format_name].append(metadata)
@@ -281,10 +274,7 @@ class ConverterRegistry:
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
-            raise FormatError(
-                format_type=format_name,
-                supported_formats=available
-            )
+            raise FormatError(format_type=format_name, supported_formats=available)
 
         # Get from highest priority converter that has parser options
         for metadata in self._converters[format_name]:
@@ -321,10 +311,7 @@ class ConverterRegistry:
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
-            raise FormatError(
-                format_type=format_name,
-                supported_formats=available
-            )
+            raise FormatError(format_type=format_name, supported_formats=available)
 
         # Get from highest priority converter that has renderer options
         for metadata in self._converters[format_name]:
@@ -365,10 +352,7 @@ class ConverterRegistry:
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
-            raise FormatError(
-                format_type=format_name,
-                supported_formats=available
-            )
+            raise FormatError(format_type=format_name, supported_formats=available)
 
         # Try each converter in priority order (already sorted)
         for metadata in self._converters[format_name]:
@@ -419,10 +403,7 @@ class ConverterRegistry:
         """
         if format_name not in self._converters:
             available = list(self._converters.keys())
-            raise FormatError(
-                format_type=format_name,
-                supported_formats=available
-            )
+            raise FormatError(format_type=format_name, supported_formats=available)
 
         # Try each converter in priority order (already sorted)
         for metadata in self._converters[format_name]:
@@ -445,11 +426,7 @@ class ConverterRegistry:
             f"Tried {len(self._converters[format_name])} converter(s)."
         )
 
-    def detect_format(
-            self,
-            input_data: Union[str, Path, IO[bytes], bytes],
-            hint: Optional[str] = None
-    ) -> str:
+    def detect_format(self, input_data: Union[str, Path, IO[bytes], bytes], hint: Optional[str] = None) -> str:
         """Detect format from input data.
 
         Uses multiple strategies:
@@ -485,9 +462,9 @@ class ConverterRegistry:
                 return format_name
 
         # For file-like objects, try to get filename
-        elif hasattr(input_data, 'name'):
-            file_obj_name: str | None = getattr(input_data, 'name', None)
-            if file_obj_name and file_obj_name != 'unknown':
+        elif hasattr(input_data, "name"):
+            file_obj_name: str | None = getattr(input_data, "name", None)
+            if file_obj_name and file_obj_name != "unknown":
                 format_name = self._detect_by_filename(file_obj_name)
                 if format_name:
                     logger.debug(f"Format detected from file object name: {format_name}")
@@ -500,7 +477,7 @@ class ConverterRegistry:
         elif isinstance(input_data, (str, Path)):
             # Read first 1KB for detection
             try:
-                with open(input_data, 'rb') as f:
+                with open(input_data, "rb") as f:
                     content = f.read(1024)
             except Exception:
                 pass
@@ -516,7 +493,7 @@ class ConverterRegistry:
 
         # Normalize content to bytes if it's a string (from text streams)
         if isinstance(content, str):
-            content = content.encode('utf-8', errors='ignore')
+            content = content.encode("utf-8", errors="ignore")
 
         if content:
             format_name = self._detect_by_content(content)
@@ -548,11 +525,7 @@ class ConverterRegistry:
             for format_name, metadata_list in self._converters.items()
             for metadata in metadata_list
         ]
-        sorted_converters = sorted(
-            all_converters,
-            key=lambda x: x[1].priority,
-            reverse=True
-        )
+        sorted_converters = sorted(all_converters, key=lambda x: x[1].priority, reverse=True)
 
         # Check extensions
         for format_name, metadata in sorted_converters:
@@ -588,11 +561,7 @@ class ConverterRegistry:
             for format_name, metadata_list in self._converters.items()
             for metadata in metadata_list
         ]
-        sorted_converters = sorted(
-            all_converters,
-            key=lambda x: x[1].priority,
-            reverse=True
-        )
+        sorted_converters = sorted(all_converters, key=lambda x: x[1].priority, reverse=True)
 
         # Check magic bytes first
         for format_name, metadata in sorted_converters:
@@ -654,23 +623,23 @@ class ConverterRegistry:
             Preferred extension beginning with a leading dot.
 
         """
-        if format_name in ('auto', 'markdown'):
-            return '.md'
+        if format_name in ("auto", "markdown"):
+            return ".md"
 
         metadata_list = self.get_format_info(format_name)
         if metadata_list:
             metadata = metadata_list[0]
             if metadata.extensions:
                 extension = metadata.extensions[0]
-                return extension if extension.startswith('.') else f'.{extension}'
+                return extension if extension.startswith(".") else f".{extension}"
 
-        return f'.{format_name}' if not format_name.startswith('.') else format_name
+        return f".{format_name}" if not format_name.startswith(".") else format_name
 
     def check_dependencies(
-            self,
-            format_name: Optional[str] = None,
-            input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
-            operation: str = "both"
+        self,
+        format_name: Optional[str] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        operation: str = "both",
     ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 
@@ -691,10 +660,7 @@ class ConverterRegistry:
         """
         missing = {}
 
-        formats_to_check = (
-            [format_name] if format_name
-            else self._converters.keys()
-        )
+        formats_to_check = [format_name] if format_name else self._converters.keys()
 
         # Get content for context-aware dependency checking
         content: bytes | str | None = None
@@ -703,7 +669,7 @@ class ConverterRegistry:
                 content = input_data
             elif isinstance(input_data, (str, Path)):
                 try:
-                    with open(input_data, 'rb') as f:
+                    with open(input_data, "rb") as f:
                         content = f.read(1024)  # Read first 1KB for analysis
                 except Exception:
                     pass
@@ -718,7 +684,7 @@ class ConverterRegistry:
 
         # Normalize content to bytes if it's a string (from text streams)
         if isinstance(content, str):
-            content = content.encode('utf-8', errors='ignore')
+            content = content.encode("utf-8", errors="ignore")
 
         for fmt in formats_to_check:
             if fmt not in self._converters:
@@ -877,10 +843,7 @@ class ConverterRegistry:
 
                 except Exception as e:
                     dist_name = entry_point.dist.name if entry_point.dist else "unknown"
-                    logger.warning(
-                        f"Failed to load plugin '{entry_point.name}' from "
-                        f"'{dist_name}': {e}"
-                    )
+                    logger.warning(f"Failed to load plugin '{entry_point.name}' from " f"'{dist_name}': {e}")
 
         except Exception as e:
             logger.debug(f"No plugins found or error discovering plugins: {e}")

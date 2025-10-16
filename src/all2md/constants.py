@@ -64,7 +64,7 @@ DEFAULT_BOILERPLATE_PATTERNS = [
     r"^Internal Use Only$",
     r"^\[DRAFT\]$",
     r"^Copyright \d{4}",
-    r"^Printed on \d{4}-\d{2}-\d{2}$"
+    r"^Printed on \d{4}-\d{2}-\d{2}$",
 ]
 
 # =============================================================================
@@ -260,15 +260,15 @@ MAX_TEXT_LENGTH_FOR_REGEX = 10000  # Maximum text length for regex matching
 # Dangerous regex patterns that can cause catastrophic backtracking (ReDoS)
 # These patterns are checked against user-supplied regex patterns
 DANGEROUS_REGEX_PATTERNS = [
-    r'\([^)]*[*+][^)]*\)[*+]',  # Nested quantifiers like (a+)+ or (a*)*
-    r'\([^)]*[*+][^)]*\)\{[0-9,]+\}',  # Quantified groups with inner quantifiers like (a+){2,}
-    r'\(\?[^)]*[*+][^)]*\)[*+]',  # Non-capturing groups with nested quantifiers like (?:a+)+
-    r'\(\?[=!][^)]*\)[*+]',  # Lookahead/lookbehind with quantifiers like (?=.*)+
-    r'\(\?[=!][^)]*[*+][^)]*\)',  # Lookahead/lookbehind containing quantifiers like (?=.*a)
-    r'\([^)]*\|[^)]*\)[*+]{1,2}',  # Alternations in quantified groups like (a|ab)*
-    r'\(\([^)]*[*+]',  # Multiple nested groups with quantifiers like ((a+)
-    r'\.\*[*+]',  # Greedy wildcard with quantifier like .*+
-    r'\.\+\*',  # .+* pattern (greedy followed by star)
+    r"\([^)]*[*+][^)]*\)[*+]",  # Nested quantifiers like (a+)+ or (a*)*
+    r"\([^)]*[*+][^)]*\)\{[0-9,]+\}",  # Quantified groups with inner quantifiers like (a+){2,}
+    r"\(\?[^)]*[*+][^)]*\)[*+]",  # Non-capturing groups with nested quantifiers like (?:a+)+
+    r"\(\?[=!][^)]*\)[*+]",  # Lookahead/lookbehind with quantifiers like (?=.*)+
+    r"\(\?[=!][^)]*[*+][^)]*\)",  # Lookahead/lookbehind containing quantifiers like (?=.*a)
+    r"\([^)]*\|[^)]*\)[*+]{1,2}",  # Alternations in quantified groups like (a|ab)*
+    r"\(\([^)]*[*+]",  # Multiple nested groups with quantifiers like ((a+)
+    r"\.\*[*+]",  # Greedy wildcard with quantifier like .*+
+    r"\.\+\*",  # .+* pattern (greedy followed by star)
 ]
 
 # =============================================================================

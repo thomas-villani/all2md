@@ -180,7 +180,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
 
 
 def validate_and_convert_input(
-        input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
+    input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
 ) -> tuple[Any, str]:
     """Validate input and convert to appropriate format for processing.
 
@@ -231,9 +231,7 @@ def validate_and_convert_input(
     if is_path_like(input_data):
         path_str = str(input_data)
         if not os.path.exists(path_str):
-            raise All2MdFileNotFoundError(
-                file_path=path_str
-            )
+            raise All2MdFileNotFoundError(file_path=path_str)
 
         if not os.path.isfile(path_str):
             raise ValidationError(
@@ -487,7 +485,7 @@ def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
     pages = set()
 
     # Split by comma to handle multiple ranges
-    parts = page_spec.split(',')
+    parts = page_spec.split(",")
 
     for part in parts:
         part = part.strip()
@@ -495,8 +493,8 @@ def parse_page_ranges(page_spec: str, total_pages: int) -> list[int]:
             continue
 
         # Handle range (e.g., "1-3" or "10-")
-        if '-' in part:
-            range_parts = part.split('-', 1)
+        if "-" in part:
+            range_parts = part.split("-", 1)
             start_str = range_parts[0].strip()
             end_str = range_parts[1].strip()
 

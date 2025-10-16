@@ -684,18 +684,46 @@ class ValidationVisitor(NodeVisitor):
     """
 
     # Node type classification for containment validation
-    INLINE_NODES = frozenset({
-        Text, Emphasis, Strong, Code, Link, Image, LineBreak,
-        Strikethrough, Underline, Superscript, Subscript,
-        HTMLInline, MathInline, FootnoteReference
-    })
+    INLINE_NODES = frozenset(
+        {
+            Text,
+            Emphasis,
+            Strong,
+            Code,
+            Link,
+            Image,
+            LineBreak,
+            Strikethrough,
+            Underline,
+            Superscript,
+            Subscript,
+            HTMLInline,
+            MathInline,
+            FootnoteReference,
+        }
+    )
 
-    BLOCK_NODES = frozenset({
-        Document, Heading, Paragraph, CodeBlock, BlockQuote,
-        List, ListItem, Table, TableRow, TableCell, ThematicBreak,
-        HTMLBlock, FootnoteDefinition, DefinitionList,
-        DefinitionTerm, DefinitionDescription, MathBlock
-    })
+    BLOCK_NODES = frozenset(
+        {
+            Document,
+            Heading,
+            Paragraph,
+            CodeBlock,
+            BlockQuote,
+            List,
+            ListItem,
+            Table,
+            TableRow,
+            TableCell,
+            ThematicBreak,
+            HTMLBlock,
+            FootnoteDefinition,
+            DefinitionList,
+            DefinitionTerm,
+            DefinitionDescription,
+            MathBlock,
+        }
+    )
 
     def __init__(self, strict: bool = True, allow_raw_html: bool = False):
         """Initialize the validator with strictness and HTML policy.
@@ -741,9 +769,7 @@ class ValidationVisitor(NodeVisitor):
 
         for i, child in enumerate(children):
             if type(child) not in self.INLINE_NODES:
-                self._add_error(
-                    f"{context} can only contain inline nodes, but child {i} is {type(child).__name__}"
-                )
+                self._add_error(f"{context} can only contain inline nodes, but child {i} is {type(child).__name__}")
 
     def _validate_children_are_blocks(self, children: list[Node], context: str) -> None:
         """Validate that all children are block nodes.
@@ -761,9 +787,7 @@ class ValidationVisitor(NodeVisitor):
 
         for i, child in enumerate(children):
             if type(child) not in self.BLOCK_NODES:
-                self._add_error(
-                    f"{context} can only contain block nodes, but child {i} is {type(child).__name__}"
-                )
+                self._add_error(f"{context} can only contain block nodes, but child {i} is {type(child).__name__}")
 
     def _validate_url_scheme(self, url: str, context: str, allow_data_uri: bool = False) -> None:
         """Validate URL scheme for security.
@@ -796,17 +820,13 @@ class ValidationVisitor(NodeVisitor):
                 return
             else:
                 # data: URI but not image/* - reject it
-                self._add_error(
-                    f"{context} data URI must have image/* MIME type, got: {url[:50]}"
-                )
+                self._add_error(f"{context} data URI must have image/* MIME type, got: {url[:50]}")
                 return
 
         # Check for dangerous schemes
         for dangerous_scheme in DANGEROUS_SCHEMES:
             if url_lower.startswith(dangerous_scheme.lower()):
-                self._add_error(
-                    f"{context} URL uses dangerous scheme '{dangerous_scheme}': {url[:50]}"
-                )
+                self._add_error(f"{context} URL uses dangerous scheme '{dangerous_scheme}': {url[:50]}")
                 return
 
         # Check if URL has a scheme
@@ -816,9 +836,7 @@ class ValidationVisitor(NodeVisitor):
 
             # Check if scheme is in safe list
             if scheme not in SAFE_LINK_SCHEMES:
-                self._add_error(
-                    f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}"
-                )
+                self._add_error(f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}")
                 return
         else:
             # Check for scheme-like patterns without ://
@@ -828,9 +846,7 @@ class ValidationVisitor(NodeVisitor):
                 # Check if this looks like a dangerous scheme
                 for dangerous_scheme in DANGEROUS_SCHEMES:
                     if dangerous_scheme.lower().startswith(potential_scheme + ":"):
-                        self._add_error(
-                            f"{context} URL uses dangerous scheme '{potential_scheme}': {url[:50]}"
-                        )
+                        self._add_error(f"{context} URL uses dangerous scheme '{potential_scheme}': {url[:50]}")
                         return
 
     def visit_document(self, node: Document) -> None:
@@ -861,7 +877,7 @@ class ValidationVisitor(NodeVisitor):
             self._add_error(f"CodeBlock fence_length must be >= 1, got {node.fence_length}")
 
         # Validate fence_char is ` or ~
-        if node.fence_char not in {'`', '~'}:
+        if node.fence_char not in {"`", "~"}:
             self._add_error(f"CodeBlock fence_char must be '`' or '~', got '{node.fence_char}'")
 
     def visit_block_quote(self, node: BlockQuote) -> None:
@@ -903,16 +919,12 @@ class ValidationVisitor(NodeVisitor):
         if expected_cols is not None:
             for i, row in enumerate(node.rows):
                 if len(row.cells) != expected_cols:
-                    self._add_error(
-                        f"Table row {i} has {len(row.cells)} cells, expected {expected_cols}"
-                    )
+                    self._add_error(f"Table row {i} has {len(row.cells)} cells, expected {expected_cols}")
 
         # Validate alignments length matches column count
         if node.alignments and expected_cols is not None:
             if len(node.alignments) != expected_cols:
-                self._add_error(
-                    f"Table has {len(node.alignments)} alignments but {expected_cols} columns"
-                )
+                self._add_error(f"Table has {len(node.alignments)} alignments but {expected_cols} columns")
 
         # Visit all rows to validate cells
         for row in node.rows:

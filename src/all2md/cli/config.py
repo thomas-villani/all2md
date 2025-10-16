@@ -99,15 +99,11 @@ def load_config_file(config_path: Path | str) -> Dict[str, Any]:
         elif ext == ".json":
             return _load_json_config(config_path)
         else:
-            raise argparse.ArgumentTypeError(
-                f"Unsupported config file format: {ext}. Use .json or .toml"
-            )
+            raise argparse.ArgumentTypeError(f"Unsupported config file format: {ext}. Use .json or .toml")
     except argparse.ArgumentTypeError:
         raise
     except Exception as e:
-        raise argparse.ArgumentTypeError(
-            f"Error reading config file {config_path}: {e}"
-        ) from e
+        raise argparse.ArgumentTypeError(f"Error reading config file {config_path}: {e}") from e
 
 
 def _load_toml_config(config_path: Path) -> Dict[str, Any]:
@@ -141,13 +137,9 @@ def _load_toml_config(config_path: Path) -> Dict[str, Any]:
         return config
 
     except tomllib.TOMLDecodeError as e:
-        raise argparse.ArgumentTypeError(
-            f"Invalid TOML in config file {config_path}: {e}"
-        ) from e
+        raise argparse.ArgumentTypeError(f"Invalid TOML in config file {config_path}: {e}") from e
     except Exception as e:
-        raise argparse.ArgumentTypeError(
-            f"Error reading TOML config {config_path}: {e}"
-        ) from e
+        raise argparse.ArgumentTypeError(f"Error reading TOML config {config_path}: {e}") from e
 
 
 def _load_json_config(config_path: Path) -> Dict[str, Any]:
@@ -174,20 +166,14 @@ def _load_json_config(config_path: Path) -> Dict[str, Any]:
             config = json.load(f)
 
         if not isinstance(config, dict):
-            raise argparse.ArgumentTypeError(
-                f"JSON config file must contain an object, got {type(config).__name__}"
-            )
+            raise argparse.ArgumentTypeError(f"JSON config file must contain an object, got {type(config).__name__}")
 
         return config
 
     except json.JSONDecodeError as e:
-        raise argparse.ArgumentTypeError(
-            f"Invalid JSON in config file {config_path}: {e}"
-        ) from e
+        raise argparse.ArgumentTypeError(f"Invalid JSON in config file {config_path}: {e}") from e
     except Exception as e:
-        raise argparse.ArgumentTypeError(
-            f"Error reading JSON config {config_path}: {e}"
-        ) from e
+        raise argparse.ArgumentTypeError(f"Error reading JSON config {config_path}: {e}") from e
 
 
 def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -231,8 +217,7 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
 
 
 def load_config_with_priority(
-        explicit_path: Optional[str] = None,
-        env_var_path: Optional[str] = None
+    explicit_path: Optional[str] = None, env_var_path: Optional[str] = None
 ) -> Dict[str, Any]:
     """Load configuration with proper priority handling.
 

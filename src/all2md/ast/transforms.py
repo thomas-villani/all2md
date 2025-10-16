@@ -106,9 +106,7 @@ def _validate_url_scheme(url: str, context: str = "URL") -> None:
     if is_url_scheme_dangerous(url):
         # Extract scheme for error message
         scheme = url_lower.split(":", 1)[0] if ":" in url_lower else "unknown"
-        raise ValueError(
-            f"{context} URL uses dangerous scheme '{scheme}': {url[:50]}"
-        )
+        raise ValueError(f"{context} URL uses dangerous scheme '{scheme}': {url[:50]}")
 
     # Check if URL has a scheme with ://
     if "://" in url:
@@ -117,9 +115,7 @@ def _validate_url_scheme(url: str, context: str = "URL") -> None:
 
         # Check if scheme is in safe list (strict allowlist validation)
         if scheme not in SAFE_LINK_SCHEMES:
-            raise ValueError(
-                f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}"
-            )
+            raise ValueError(f"{context} URL has unrecognized scheme '{scheme}': {url[:50]}")
     else:
         # Check for scheme-like patterns without ://
         # This catches things like "javascript:alert(1)" which don't have ://
@@ -128,9 +124,7 @@ def _validate_url_scheme(url: str, context: str = "URL") -> None:
             # If it looks like a scheme but isn't dangerous, check if it's recognized
             # (already checked for dangerous schemes above)
             if potential_scheme not in SAFE_LINK_SCHEMES:
-                raise ValueError(
-                    f"{context} URL uses unrecognized scheme '{potential_scheme}': {url[:50]}"
-                )
+                raise ValueError(f"{context} URL uses unrecognized scheme '{potential_scheme}': {url[:50]}")
 
 
 class NodeTransformer(NodeVisitor):
@@ -217,6 +211,7 @@ class NodeTransformer(NodeVisitor):
         if not children:
             # Leaf node - return a copy
             from dataclasses import replace
+
             return replace(node)  # type: ignore[type-var]
 
         # Transform children and rebuild node
@@ -299,9 +294,7 @@ class NodeTransformer(NodeVisitor):
 
     def visit_html_block(self, node: HTMLBlock) -> HTMLBlock:
         """Transform an HTMLBlock node."""
-        return HTMLBlock(
-            content=node.content, metadata=node.metadata.copy(), source_location=node.source_location
-        )
+        return HTMLBlock(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
 
     def visit_text(self, node: Text) -> Text:
         """Transform a Text node."""
@@ -363,16 +356,12 @@ class NodeTransformer(NodeVisitor):
 
     def visit_html_inline(self, node: HTMLInline) -> HTMLInline:
         """Transform an HTMLInline node."""
-        return HTMLInline(
-            content=node.content, metadata=node.metadata.copy(), source_location=node.source_location
-        )
+        return HTMLInline(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
 
     def visit_footnote_reference(self, node: "FootnoteReference") -> "FootnoteReference":
         """Transform a FootnoteReference node."""
         return FootnoteReference(
-            identifier=node.identifier,
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
+            identifier=node.identifier, metadata=node.metadata.copy(), source_location=node.source_location
         )
 
     def visit_math_inline(self, node: "MathInline") -> "MathInline":
@@ -382,7 +371,7 @@ class NodeTransformer(NodeVisitor):
             notation=node.notation,
             representations=node.representations.copy(),
             metadata=node.metadata.copy(),
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
     def visit_footnote_definition(self, node: "FootnoteDefinition") -> "FootnoteDefinition":
@@ -401,9 +390,7 @@ class NodeTransformer(NodeVisitor):
                 continue
             transformed_items.append((t_term, t_descs))
         return DefinitionList(
-            items=transformed_items,  # type: ignore
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
+            items=transformed_items, metadata=node.metadata.copy(), source_location=node.source_location  # type: ignore
         )
 
     def visit_definition_term(self, node: "DefinitionTerm") -> "DefinitionTerm":
@@ -421,7 +408,7 @@ class NodeTransformer(NodeVisitor):
             notation=node.notation,
             representations=node.representations.copy(),
             metadata=node.metadata.copy(),
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
@@ -852,8 +839,7 @@ def merge_lists_merger(existing: dict[str, Any], new: dict[str, Any]) -> dict[st
 
 
 def merge_documents(
-    docs: list[Document],
-    metadata_merger: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+    docs: list[Document], metadata_merger: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
 ) -> Document:
     """Merge multiple documents into a single document.
 
@@ -1107,8 +1093,7 @@ class TextReplacer(NodeTransformer):
                 self._compiled_pattern = re.compile(pattern)
             except re.error as e:
                 raise ValueError(
-                    f"Invalid regular expression pattern: {pattern!r}. "
-                    f"Regex compilation error: {e}"
+                    f"Invalid regular expression pattern: {pattern!r}. " f"Regex compilation error: {e}"
                 ) from e
 
     def visit_text(self, node: Text) -> Text:
@@ -1119,9 +1104,7 @@ class TextReplacer(NodeTransformer):
         else:
             new_content = node.content.replace(self.pattern, self.replacement)
 
-        return Text(
-            content=new_content, metadata=node.metadata.copy(), source_location=node.source_location
-        )
+        return Text(content=new_content, metadata=node.metadata.copy(), source_location=node.source_location)
 
 
 __all__ = [

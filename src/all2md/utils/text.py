@@ -92,23 +92,19 @@ def slugify(text: str, separator: str = "-") -> str:
     text = text.lower()
 
     # Remove non-alphanumeric characters (except spaces, hyphens, underscores)
-    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r"[^\w\s-]", "", text)
 
     # Replace whitespace and underscores with separator
-    text = re.sub(r'[\s_]+', separator, text)
+    text = re.sub(r"[\s_]+", separator, text)
 
     # Remove leading/trailing separators
     text = text.strip(separator)
 
     # Return fallback if empty
-    return text or 'heading'
+    return text or "heading"
 
 
-def make_unique_slug(
-        slug: str,
-        seen_slugs: dict[str, int],
-        separator: str = "-"
-) -> str:
+def make_unique_slug(slug: str, seen_slugs: dict[str, int], separator: str = "-") -> str:
     """Generate unique slug with duplicate handling.
 
     This function ensures slug uniqueness by appending a numeric suffix

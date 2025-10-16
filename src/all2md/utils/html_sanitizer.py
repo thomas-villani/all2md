@@ -64,7 +64,7 @@ def _is_style_safe(style_value: str) -> bool:
     style_lower = style_value.lower()
 
     # Check for IE-specific expression() function
-    if 'expression(' in style_lower or 'expression (' in style_lower:
+    if "expression(" in style_lower or "expression (" in style_lower:
         return False
 
     # Check for url() with dangerous schemes
@@ -111,7 +111,7 @@ def _sanitize_srcset(srcset_value: str) -> str | None:
         return None
 
     # Split by comma to get individual srcset entries
-    entries = srcset_value.split(',')
+    entries = srcset_value.split(",")
     safe_entries = []
 
     for entry in entries:
@@ -126,7 +126,7 @@ def _sanitize_srcset(srcset_value: str) -> str | None:
             continue
 
         url = parts[0]
-        descriptor = parts[1] if len(parts) > 1 else ''
+        descriptor = parts[1] if len(parts) > 1 else ""
 
         # Check if URL is safe
         if is_url_safe(url):
@@ -140,13 +140,10 @@ def _sanitize_srcset(srcset_value: str) -> str | None:
     if not safe_entries:
         return None
 
-    return ', '.join(safe_entries)
+    return ", ".join(safe_entries)
 
 
-def sanitize_html_content(
-        content: str,
-        mode: HtmlPassthroughMode = "escape"
-) -> str:
+def sanitize_html_content(content: str, mode: HtmlPassthroughMode = "escape") -> str:
     """Sanitize HTML content string according to the specified mode.
 
     This function is designed for use in renderers when processing HTMLBlock
@@ -223,33 +220,87 @@ def _sanitize_html_string(content: str) -> str:
 
         # Define allowed tags (basic safe HTML)
         allowed_tags = [
-            'a', 'abbr', 'acronym', 'b', 'blockquote', 'br', 'code',
-            'div', 'em', 'i', 'li', 'ol', 'p', 'pre', 'span', 'strong',
-            'sub', 'sup', 'u', 'ul', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-            'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption',
-            'dl', 'dt', 'dd', 'hr', 'img'
+            "a",
+            "abbr",
+            "acronym",
+            "b",
+            "blockquote",
+            "br",
+            "code",
+            "div",
+            "em",
+            "i",
+            "li",
+            "ol",
+            "p",
+            "pre",
+            "span",
+            "strong",
+            "sub",
+            "sup",
+            "u",
+            "ul",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "caption",
+            "dl",
+            "dt",
+            "dd",
+            "hr",
+            "img",
         ]
 
         # Define allowed attributes per tag
         allowed_attributes = {
-            'a': ['href', 'title', 'rel'],
-            'img': ['src', 'srcset', 'alt', 'title', 'width', 'height'],
-            'abbr': ['title'],
-            'acronym': ['title'],
-            '*': ['class', 'id', 'style']  # Allow class, id, and style on all elements
+            "a": ["href", "title", "rel"],
+            "img": ["src", "srcset", "alt", "title", "width", "height"],
+            "abbr": ["title"],
+            "acronym": ["title"],
+            "*": ["class", "id", "style"],  # Allow class, id, and style on all elements
         }
 
         # Define allowed protocols for URLs
-        allowed_protocols = ['http', 'https', 'mailto', 'ftp']
+        allowed_protocols = ["http", "https", "mailto", "ftp"]
 
         # Define CSS sanitizer with common safe properties
         css_sanitizer = CSSSanitizer(
             allowed_css_properties=[
-                'color', 'background-color', 'font-size', 'font-family', 'font-weight',
-                'text-align', 'text-decoration', 'margin', 'padding', 'border',
-                'width', 'height', 'display', 'float', 'position', 'top', 'bottom',
-                'left', 'right', 'z-index', 'line-height', 'letter-spacing',
-                'background', 'border-radius', 'box-shadow', 'opacity'
+                "color",
+                "background-color",
+                "font-size",
+                "font-family",
+                "font-weight",
+                "text-align",
+                "text-decoration",
+                "margin",
+                "padding",
+                "border",
+                "width",
+                "height",
+                "display",
+                "float",
+                "position",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "z-index",
+                "line-height",
+                "letter-spacing",
+                "background",
+                "border-radius",
+                "box-shadow",
+                "opacity",
             ]
         )
 
@@ -258,17 +309,17 @@ def _sanitize_html_string(content: str) -> str:
             """Filter function to sanitize srcset attributes."""
             # Check if attribute is in the allowed list for this tag
             tag_attrs = allowed_attributes.get(tag, [])
-            global_attrs = allowed_attributes.get('*', [])
+            global_attrs = allowed_attributes.get("*", [])
 
             if name not in tag_attrs and name not in global_attrs:
                 return False
 
             # Additional checks for style attribute
-            if name == 'style':
+            if name == "style":
                 return _is_style_safe(value)
 
             # Additional checks for srcset attribute
-            if name == 'srcset':
+            if name == "srcset":
                 # Sanitize srcset and update value
                 # Note: bleach doesn't allow modifying values in filter, so we'll handle this differently
                 return _sanitize_srcset(value) is not None
@@ -281,22 +332,23 @@ def _sanitize_html_string(content: str) -> str:
             attributes=filter_attributes,
             protocols=allowed_protocols,
             css_sanitizer=css_sanitizer,
-            strip=True
+            strip=True,
         )
 
         # Post-process to sanitize srcset values (bleach doesn't allow modifying attribute values)
         # We need to parse the HTML again and fix srcset attributes
         try:
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(cleaned, 'html.parser')
 
-            for img in soup.find_all('img'):
-                if 'srcset' in img.attrs:
-                    sanitized = _sanitize_srcset(img['srcset'])
+            soup = BeautifulSoup(cleaned, "html.parser")
+
+            for img in soup.find_all("img"):
+                if "srcset" in img.attrs:
+                    sanitized = _sanitize_srcset(img["srcset"])
                     if sanitized:
-                        img['srcset'] = sanitized
+                        img["srcset"] = sanitized
                     else:
-                        del img['srcset']
+                        del img["srcset"]
 
             return str(soup)
         except ImportError:
@@ -327,7 +379,7 @@ def _basic_sanitize_html_string(content: str) -> str:
     try:
         from bs4 import BeautifulSoup
 
-        soup = BeautifulSoup(content, 'html.parser')
+        soup = BeautifulSoup(content, "html.parser")
 
         # Remove dangerous elements entirely
         for element in DANGEROUS_HTML_ELEMENTS:
@@ -336,7 +388,7 @@ def _basic_sanitize_html_string(content: str) -> str:
 
         # Remove dangerous attributes from all remaining elements
         for element in soup.find_all():
-            if hasattr(element, 'attrs'):
+            if hasattr(element, "attrs"):
                 # Remove dangerous attributes
                 attrs_to_remove = []
                 attrs_to_update = {}  # For attributes we want to sanitize rather than remove
@@ -346,13 +398,13 @@ def _basic_sanitize_html_string(content: str) -> str:
                         attrs_to_remove.append(attr_name)
 
                     # Check URL attributes for dangerous schemes
-                    elif attr_name.lower() in ('href', 'src', 'action', 'formaction'):
+                    elif attr_name.lower() in ("href", "src", "action", "formaction"):
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str) and not is_url_safe(attr_value):
                             attrs_to_remove.append(attr_name)
 
                     # Check and sanitize srcset attribute
-                    elif attr_name.lower() == 'srcset':
+                    elif attr_name.lower() == "srcset":
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str):
                             sanitized_srcset = _sanitize_srcset(attr_value)
@@ -364,7 +416,7 @@ def _basic_sanitize_html_string(content: str) -> str:
                                 attrs_to_update[attr_name] = sanitized_srcset
 
                     # Enhanced style attribute checking
-                    elif attr_name.lower() == 'style':
+                    elif attr_name.lower() == "style":
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str):
                             # Use the comprehensive style safety check
@@ -372,7 +424,7 @@ def _basic_sanitize_html_string(content: str) -> str:
                                 attrs_to_remove.append(attr_name)
 
                     # Check other style-related attributes (background, expression) for dangerous content
-                    elif attr_name.lower() in ('background', 'expression'):
+                    elif attr_name.lower() in ("background", "expression"):
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str):
                             attr_value_lower = attr_value.lower()
@@ -391,8 +443,10 @@ def _basic_sanitize_html_string(content: str) -> str:
         return str(soup)
 
     except ImportError:
-        logger.warning("`bleach` and `beautifulsoup` were not detected for HTML sanitization. "
-                       "Falling back to stripping all HTML tags")
+        logger.warning(
+            "`bleach` and `beautifulsoup` were not detected for HTML sanitization. "
+            "Falling back to stripping all HTML tags"
+        )
         # If BeautifulSoup is not available, fall back to basic text stripping
         # This is a last resort and should rarely happen since bs4 is a core dependency
         return strip_html_tags(content)
@@ -423,7 +477,7 @@ def strip_html_tags(content: str) -> str:
 
     """
     # Remove all HTML tags
-    text = re.sub(r'<[^>]+>', '', content)
+    text = re.sub(r"<[^>]+>", "", content)
     # Decode HTML entities
     text = html.unescape(text)
     return text
@@ -465,7 +519,7 @@ def is_element_safe(element: Any) -> bool:
         return False
 
     # Check for dangerous attributes
-    if hasattr(element, 'attrs') and element.attrs:
+    if hasattr(element, "attrs") and element.attrs:
         for attr_name, attr_value in element.attrs.items():
             if attr_name in DANGEROUS_HTML_ATTRIBUTES:
                 return False

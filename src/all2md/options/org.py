@@ -64,32 +64,28 @@ class OrgParserOptions(BaseParserOptions):
         metadata={
             "help": "Parse Org drawers (e.g., :PROPERTIES:, :LOGBOOK:)",
             "cli_name": "no-parse-drawers",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_properties: bool = field(
         default=DEFAULT_ORG_PARSE_PROPERTIES,
         metadata={
             "help": "Parse Org properties within drawers",
             "cli_name": "no-parse-properties",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_tags: bool = field(
         default=DEFAULT_ORG_PARSE_TAGS,
         metadata={
             "help": "Parse heading tags (e.g., :work:urgent:)",
             "cli_name": "no-parse-tags",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     todo_keywords: list[str] = field(
         default_factory=lambda: list(DEFAULT_ORG_TODO_KEYWORDS),
-        metadata={
-            "help": "List of TODO keywords to recognize",
-            "cli_name": "todo-keywords",
-            "importance": "core"
-        }
+        metadata={"help": "List of TODO keywords to recognize", "cli_name": "todo-keywords", "importance": "core"},
     )
 
 
@@ -140,41 +136,33 @@ class OrgRendererOptions(BaseRendererOptions):
 
     heading_style: OrgHeadingStyle = field(
         default=DEFAULT_ORG_HEADING_STYLE,
-        metadata={
-            "help": "Style for rendering headings",
-            "choices": ["stars"],
-            "importance": "advanced"
-        }
+        metadata={"help": "Style for rendering headings", "choices": ["stars"], "importance": "advanced"},
     )
     preserve_drawers: bool = field(
         default=DEFAULT_ORG_PRESERVE_DRAWERS,
         metadata={
             "help": "Preserve drawer content in rendered output",
             "cli_name": "no-preserve-drawers",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     preserve_properties: bool = field(
         default=DEFAULT_ORG_PRESERVE_PROPERTIES,
         metadata={
             "help": "Preserve properties in rendered output",
             "cli_name": "no-preserve-properties",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     preserve_tags: bool = field(
         default=DEFAULT_ORG_PRESERVE_TAGS,
         metadata={
             "help": "Preserve heading tags in rendered output",
             "cli_name": "no-preserve-tags",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     todo_keywords: list[str] = field(
         default_factory=lambda: list(DEFAULT_ORG_TODO_KEYWORDS),
-        metadata={
-            "help": "List of TODO keywords",
-            "cli_name": "todo-keywords",
-            "importance": "core"
-        }
+        metadata={"help": "List of TODO keywords", "cli_name": "todo-keywords", "importance": "core"},
     )

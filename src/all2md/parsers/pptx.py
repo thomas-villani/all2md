@@ -76,11 +76,7 @@ class PptxToAstConverter(BaseParser):
 
     """
 
-    def __init__(
-            self,
-            options: PptxOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: PptxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the PPTX parser with options and progress callback."""
         options = options or PptxOptions()
         super().__init__(options, progress_callback)
@@ -128,7 +124,7 @@ class PptxToAstConverter(BaseParser):
 
             # Validate ZIP archive security for all input types
             if not isinstance(doc_input, PresentationType):
-                self._validate_zip_input(input_data, suffix='.pptx')
+                self._validate_zip_input(input_data, suffix=".pptx")
 
             # Open presentation based on input type
             if input_type == "object" and isinstance(doc_input, PresentationType):
@@ -140,10 +136,7 @@ class PptxToAstConverter(BaseParser):
             raise
 
         except Exception as e:
-            raise MalformedFileError(
-                f"Failed to open PPTX presentation: {e!r}",
-                original_error=e
-            ) from e
+            raise MalformedFileError(f"Failed to open PPTX presentation: {e!r}", original_error=e) from e
 
         # Extract base filename for standardized attachment naming
         if input_type == "path" and isinstance(doc_input, (str, Path)):
@@ -184,7 +177,7 @@ class PptxToAstConverter(BaseParser):
             "started",
             f"Converting PPTX with {total_slides} slide{'s' if total_slides != 1 else ''}",
             current=0,
-            total=total_slides
+            total=total_slides,
         )
 
         if self.options.slides:
@@ -211,9 +204,7 @@ class PptxToAstConverter(BaseParser):
         # Append footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         # Emit finished event
@@ -221,7 +212,7 @@ class PptxToAstConverter(BaseParser):
             "finished",
             f"PPTX conversion completed ({len(slide_indices)} slide{'s' if len(slide_indices) != 1 else ''})",
             current=len(slide_indices),
-            total=len(slide_indices)
+            total=len(slide_indices),
         )
 
         return Document(children=children, metadata=metadata.to_dict())
@@ -293,6 +284,7 @@ class PptxToAstConverter(BaseParser):
             return self._process_image_to_ast(shape)
 
         from pptx.shapes.graphfrm import GraphicFrame
+
         if isinstance(shape, GraphicFrame) and hasattr(shape, "has_chart") and shape.has_chart:
             return self._process_chart_to_ast(shape.chart)
 
@@ -375,28 +367,28 @@ class PptxToAstConverter(BaseParser):
                 x_values: list[float] = []
                 y_values: list[float] = []
 
-                if hasattr(series, '_element'):
+                if hasattr(series, "_element"):
                     element = series._element
-                    ns = {'c': 'http://schemas.openxmlformats.org/drawingml/2006/chart'}
+                    ns = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
 
-                    x_val_ref = element.find('.//c:xVal', ns)
+                    x_val_ref = element.find(".//c:xVal", ns)
                     if x_val_ref is not None:
-                        num_cache = x_val_ref.find('.//c:numCache', ns)
+                        num_cache = x_val_ref.find(".//c:numCache", ns)
                         if num_cache is not None:
-                            for pt in num_cache.findall('.//c:pt', ns):
-                                v_element = pt.find('c:v', ns)
+                            for pt in num_cache.findall(".//c:pt", ns):
+                                v_element = pt.find("c:v", ns)
                                 if v_element is not None and v_element.text:
                                     try:
                                         x_values.append(float(v_element.text))
                                     except ValueError:
                                         continue
 
-                    y_val_ref = element.find('.//c:yVal', ns)
+                    y_val_ref = element.find(".//c:yVal", ns)
                     if y_val_ref is not None:
-                        num_cache = y_val_ref.find('.//c:numCache', ns)
+                        num_cache = y_val_ref.find(".//c:numCache", ns)
                         if num_cache is not None:
-                            for pt in num_cache.findall('.//c:pt', ns):
-                                v_element = pt.find('c:v', ns)
+                            for pt in num_cache.findall(".//c:pt", ns):
+                                v_element = pt.find("c:v", ns)
                                 if v_element is not None and v_element.text:
                                     try:
                                         y_values.append(float(v_element.text))
@@ -405,7 +397,7 @@ class PptxToAstConverter(BaseParser):
 
                 if x_values and y_values and len(x_values) == len(y_values):
                     data.append((series.name or "Series", x_values, y_values))
-                elif hasattr(series, 'values') and series.values:
+                elif hasattr(series, "values") and series.values:
                     y_values = [float(v) for v in series.values if v is not None]
                     if y_values:
                         x_values = list(range(len(y_values)))
@@ -426,7 +418,7 @@ class PptxToAstConverter(BaseParser):
     def _extract_standard_chart_data(self, chart: Any) -> tuple[list[str], list[tuple[str, list[Any]]]]:
         categories: list[str] = []
         try:
-            if hasattr(chart, 'plots') and chart.plots:
+            if hasattr(chart, "plots") and chart.plots:
                 categories = [
                     cat.label if hasattr(cat, "label") else str(cat)
                     for cat in chart.plots[0].categories
@@ -438,7 +430,7 @@ class PptxToAstConverter(BaseParser):
         series_rows: list[tuple[str, list[Any]]] = []
         for series in chart.series:
             try:
-                if hasattr(series, 'values') and series.values:
+                if hasattr(series, "values") and series.values:
                     values = list(series.values)
                     series_name = series.name or "Series"
                     series_rows.append((series_name, values))
@@ -457,8 +449,8 @@ class PptxToAstConverter(BaseParser):
         return self._standard_data_to_table(categories, series_rows)
 
     def _scatter_data_to_table(
-            self,
-            series_data: list[tuple[str, list[float], list[float]]],
+        self,
+        series_data: list[tuple[str, list[float], list[float]]],
     ) -> AstTable | None:
         if not series_data:
             return None
@@ -487,9 +479,9 @@ class PptxToAstConverter(BaseParser):
         return AstTable(header=header_row, rows=all_rows)
 
     def _standard_data_to_table(
-            self,
-            categories: list[str],
-            series_rows: list[tuple[str, list[Any]]],
+        self,
+        categories: list[str],
+        series_rows: list[tuple[str, list[Any]]],
     ) -> AstTable | None:
         if not series_rows:
             return None
@@ -497,16 +489,12 @@ class PptxToAstConverter(BaseParser):
         # Use the build_chart_table helper to create consistent table structure
         # Note: build_chart_table expects categories as row labels and series as columns
         # For PPTX charts, we transpose the data to match this expected structure
-        return build_chart_table(
-            categories=categories,
-            series_data=series_rows,
-            category_header="Category"
-        )
+        return build_chart_table(categories=categories, series_data=series_rows, category_header="Category")
 
     def _scatter_chart_to_mermaid(
-            self,
-            chart: Any,
-            series_data: list[tuple[str, list[float], list[float]]],
+        self,
+        chart: Any,
+        series_data: list[tuple[str, list[float], list[float]]],
     ) -> str | None:
         if not series_data:
             return None
@@ -527,15 +515,13 @@ class PptxToAstConverter(BaseParser):
                 pairs.append(f"({self._format_axis_value(x_num)}, {self._format_axis_value(y_num)})")
 
             if pairs:
-                series_lines.append(
-                    f'  scatter "{self._escape_mermaid_text(series_name)}" [{", ".join(pairs)}]'
-                )
+                series_lines.append(f'  scatter "{self._escape_mermaid_text(series_name)}" [{", ".join(pairs)}]')
 
         if not series_lines:
             return None
 
-        x_axis_label = self._get_axis_title(getattr(chart, 'category_axis', None)) or "X"
-        y_axis_label = self._get_axis_title(getattr(chart, 'value_axis', None)) or "Y"
+        x_axis_label = self._get_axis_title(getattr(chart, "category_axis", None)) or "X"
+        y_axis_label = self._get_axis_title(getattr(chart, "value_axis", None)) or "Y"
 
         x_min = min(x_all) if x_all else None
         x_max = max(x_all) if x_all else None
@@ -552,22 +538,22 @@ class PptxToAstConverter(BaseParser):
 
         lines.append(
             f'  x-axis "{self._escape_mermaid_text(x_axis_label)}" '
-            f'{self._format_axis_value(x_min)} --> {self._format_axis_value(x_max)}'
+            f"{self._format_axis_value(x_min)} --> {self._format_axis_value(x_max)}"
         )
         lines.append(
             f'  y-axis "{self._escape_mermaid_text(y_axis_label)}" '
-            f'{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}'
+            f"{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}"
         )
         lines.extend(series_lines)
 
         return "\n".join(lines)
 
     def _standard_chart_to_mermaid(
-            self,
-            chart: Any,
-            chart_type: Any,
-            categories: list[str],
-            series_rows: list[tuple[str, list[Any]]],
+        self,
+        chart: Any,
+        chart_type: Any,
+        categories: list[str],
+        series_rows: list[tuple[str, list[Any]]],
     ) -> str | None:
         if not series_rows:
             return None
@@ -592,7 +578,7 @@ class PptxToAstConverter(BaseParser):
                 if numeric is not None:
                     numeric_values.append(numeric)
 
-        y_axis_label = self._get_axis_title(getattr(chart, 'value_axis', None)) or "Value"
+        y_axis_label = self._get_axis_title(getattr(chart, "value_axis", None)) or "Value"
         y_min = min(numeric_values) if numeric_values else None
         y_max = max(numeric_values) if numeric_values else None
 
@@ -607,7 +593,7 @@ class PptxToAstConverter(BaseParser):
         if y_min is not None and y_max is not None and y_min != y_max:
             lines.append(
                 f'  y-axis "{self._escape_mermaid_text(y_axis_label)}" '
-                f'{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}'
+                f"{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}"
             )
 
         for series_name, values in series_rows:
@@ -616,10 +602,7 @@ class PptxToAstConverter(BaseParser):
             # Pad values to match axis length
             if len(formatted_values) < max_cols:
                 formatted_values.extend(["null"] * (max_cols - len(formatted_values)))
-            lines.append(
-                f'  {mermaid_series_type} "{series_label}" '
-                f"[{', '.join(formatted_values)}]"
-            )
+            lines.append(f'  {mermaid_series_type} "{series_label}" ' f"[{', '.join(formatted_values)}]")
 
         return "\n".join(lines)
 
@@ -664,7 +647,7 @@ class PptxToAstConverter(BaseParser):
     @staticmethod
     def _get_chart_title(chart: Any) -> str | None:
         try:
-            if hasattr(chart, 'has_title') and chart.has_title and chart.chart_title:
+            if hasattr(chart, "has_title") and chart.has_title and chart.chart_title:
                 text_frame = chart.chart_title.text_frame
                 if text_frame and text_frame.text:
                     return text_frame.text.strip()
@@ -677,7 +660,7 @@ class PptxToAstConverter(BaseParser):
         if axis is None:
             return None
         try:
-            if getattr(axis, 'has_title', False) and axis.axis_title:
+            if getattr(axis, "has_title", False) and axis.axis_title:
                 text_frame = axis.axis_title.text_frame
                 if text_frame and text_frame.text:
                     return text_frame.text.strip()
@@ -799,6 +782,7 @@ class PptxToAstConverter(BaseParser):
             List of inline AST nodes
 
         """
+
         def text_extractor(run: Any) -> str:
             # Add space after text to preserve word boundaries
             # The helper strips and joins without separator, so we add space explicitly
@@ -807,8 +791,8 @@ class PptxToAstConverter(BaseParser):
             if not stripped:
                 return ""
             # Add space suffix if original text had trailing whitespace
-            if text != stripped and text.endswith((' ', '\t', '\n')):
-                return stripped + ' '
+            if text != stripped and text.endswith((" ", "\t", "\n")):
+                return stripped + " "
             return stripped
 
         def format_extractor(run: Any) -> tuple[bool, bool, bool]:
@@ -829,16 +813,16 @@ class PptxToAstConverter(BaseParser):
         # Loop processes: index 2 (first), index 1, index 0 (last)
         # Application: underline (innermost), bold (middle), italic (outermost)
         format_builders = (
-            lambda nodes: Emphasis(content=nodes),    # Index 0 - italic (applied last = outermost)
-            lambda nodes: Strong(content=nodes),      # Index 1 - bold (applied middle)
-            lambda nodes: Underline(content=nodes),   # Index 2 - underline (applied first = innermost)
+            lambda nodes: Emphasis(content=nodes),  # Index 0 - italic (applied last = outermost)
+            lambda nodes: Strong(content=nodes),  # Index 1 - bold (applied middle)
+            lambda nodes: Underline(content=nodes),  # Index 2 - underline (applied first = innermost)
         )
 
         return group_and_format_runs(
             runs=paragraph.runs,
             text_extractor=text_extractor,
             format_extractor=format_extractor,
-            format_builders=format_builders
+            format_builders=format_builders,
         )
 
     def _process_table_to_ast(self, table: Any) -> AstTable | None:
@@ -937,9 +921,7 @@ class PptxToAstConverter(BaseParser):
 
             # Use sequencer for sequential attachment names
             image_filename, _ = self._attachment_sequencer(
-                base_stem=self._base_filename,
-                format_type="general",
-                extension=extension
+                base_stem=self._base_filename, format_type="general", extension=extension
             )
 
             # Process attachment - returns dict with URL, markdown, and footnote info
@@ -982,7 +964,7 @@ class PptxToAstConverter(BaseParser):
             Extracted metadata
 
         """
-        if not hasattr(document, 'core_properties'):
+        if not hasattr(document, "core_properties"):
             metadata = DocumentMetadata()
         else:
             props = document.core_properties
@@ -990,7 +972,7 @@ class PptxToAstConverter(BaseParser):
             metadata = map_properties_to_metadata(props, OFFICE_FIELD_MAPPING)
 
             # Add PPTX-specific custom metadata
-            custom_properties = ['last_modified_by', 'revision', 'comments']
+            custom_properties = ["last_modified_by", "revision", "comments"]
             for prop_name in custom_properties:
                 if hasattr(props, prop_name):
                     value = getattr(props, prop_name)
@@ -999,7 +981,7 @@ class PptxToAstConverter(BaseParser):
 
         # Add slide count as custom metadata
         try:
-            metadata.custom['slide_count'] = len(document.slides)
+            metadata.custom["slide_count"] = len(document.slides)
         except Exception:
             pass
 
@@ -1022,7 +1004,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=PptxOptions,
     renderer_options_class="all2md.options.pptx.PptxRendererOptions",
     description="Convert PowerPoint presentations to/from Markdown",
-    priority=7
+    priority=7,
 )
 
 
@@ -1042,7 +1024,7 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
     """
     try:
         # Access paragraph properties XML element
-        if not hasattr(paragraph, '_p') or paragraph._p is None:
+        if not hasattr(paragraph, "_p") or paragraph._p is None:
             return None, None
 
         pPr = paragraph._p.pPr
@@ -1050,19 +1032,19 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
             return None, None
 
         # Check for bullet character element
-        bu_char = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buChar')
+        bu_char = pPr.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}buChar")
         if bu_char is not None:
-            char = bu_char.get('char', '•')
+            char = bu_char.get("char", "•")
             return "bullet", char
 
         # Check for auto numbering element
-        bu_auto_num = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buAutoNum')
+        bu_auto_num = pPr.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}buAutoNum")
         if bu_auto_num is not None:
-            num_type = bu_auto_num.get('type', 'arabicPeriod')
+            num_type = bu_auto_num.get("type", "arabicPeriod")
             return "number", num_type
 
         # Check for bullet font (indicates some form of bullet formatting)
-        bu_font = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buFont')
+        bu_font = pPr.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}buFont")
         if bu_font is not None:
             return "bullet", "default"
 
@@ -1073,11 +1055,7 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
     return None, None
 
 
-def _detect_list_item(
-        paragraph: Any,
-        slide_context: dict | None = None,
-        strict_mode: bool = False
-) -> tuple[bool, str]:
+def _detect_list_item(paragraph: Any, slide_context: dict | None = None, strict_mode: bool = False) -> tuple[bool, str]:
     """Detect if a paragraph is a list item and determine the list type.
 
     Uses XML-based detection first, then falls back to heuristics unless strict_mode is enabled.
@@ -1108,37 +1086,38 @@ def _detect_list_item(
         return False, "bullet"
 
     # Fall back to level-based detection
-    if not hasattr(paragraph, 'level') or paragraph.level is None:
+    if not hasattr(paragraph, "level") or paragraph.level is None:
         return False, "bullet"
 
     level = paragraph.level
     if level > 0:
         # Use slide context to help determine list type for indented items
-        if slide_context and slide_context.get('has_numbered_list', False):
+        if slide_context and slide_context.get("has_numbered_list", False):
             return True, "number"
         return True, "bullet"
 
     # For level 0, use heuristics as last resort
-    text = paragraph.text.strip() if hasattr(paragraph, 'text') else ""
+    text = paragraph.text.strip() if hasattr(paragraph, "text") else ""
     if not text:
         return False, "bullet"
 
     # Check for explicit numbered list patterns in text
-    if re.match(r'^\d+[\.\)]\s', text):
+    if re.match(r"^\d+[\.\)]\s", text):
         return True, "number"
 
     # Check if this looks like a numbered list item based on context
-    if (slide_context and slide_context.get('has_numbered_list', False) and
-            ('item' in text.lower() or 'first' in text.lower() or
-             'second' in text.lower() or 'third' in text.lower())):
+    if (
+        slide_context
+        and slide_context.get("has_numbered_list", False)
+        and ("item" in text.lower() or "first" in text.lower() or "second" in text.lower() or "third" in text.lower())
+    ):
         return True, "number"
 
     # Use heuristics for bullet lists - shorter text that doesn't look like a title/header
     words = text.split()
-    if len(words) <= 8 and not text.endswith(('.', '!', '?', ':')):
+    if len(words) <= 8 and not text.endswith((".", "!", "?", ":")):
         # Additional checks to avoid false positives
-        if not (text.lower().startswith(('slide', 'title', 'chapter')) or
-                len(words) <= 3 and text.istitle()):
+        if not (text.lower().startswith(("slide", "title", "chapter")) or len(words) <= 3 and text.istitle()):
             return True, "bullet"
 
     return False, "bullet"
@@ -1158,29 +1137,27 @@ def _analyze_slide_context(frame: Any) -> dict:
         Context information about the slide
 
     """
-    context = {
-        'has_numbered_list': False,
-        'paragraph_count': 0,
-        'max_level': 0
-    }
+    context = {"has_numbered_list": False, "paragraph_count": 0, "max_level": 0}
 
     for paragraph in frame.paragraphs:
         if not paragraph.text.strip():
             continue
 
-        context['paragraph_count'] += 1
+        context["paragraph_count"] += 1
 
         # Track maximum indentation level
-        level = getattr(paragraph, 'level', 0) or 0
-        context['max_level'] = max(context['max_level'], level)
+        level = getattr(paragraph, "level", 0) or 0
+        context["max_level"] = max(context["max_level"], level)
 
         # Check if any paragraph looks like a numbered list
         text = paragraph.text.strip()
-        if (re.match(r'^\d+[\.\)]\s', text) or
-                'numbered' in text.lower() or
-                'first item' in text.lower() or
-                'second item' in text.lower() or
-                'third item' in text.lower()):
-            context['has_numbered_list'] = True
+        if (
+            re.match(r"^\d+[\.\)]\s", text)
+            or "numbered" in text.lower()
+            or "first item" in text.lower()
+            or "second item" in text.lower()
+            or "third item" in text.lower()
+        ):
+            context["has_numbered_list"] = True
 
     return context

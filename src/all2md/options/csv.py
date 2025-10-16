@@ -63,75 +63,47 @@ class CsvOptions(BaseParserOptions):
         metadata={
             "help": "Enable csv.Sniffer-based dialect detection (ignored if delimiter is set)",
             "cli_name": "no-detect-csv-dialect",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     dialect_sample_size: int = field(
         default=4096,
-        metadata={
-            "help": "Number of bytes to sample for dialect detection",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Number of bytes to sample for dialect detection", "type": int, "importance": "advanced"},
     )
     delimiter: str | None = field(
-        default=None,
-        metadata={
-            "help": "Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|')",
-            "importance": "core"
-        }
+        default=None, metadata={"help": "Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|')", "importance": "core"}
     )
     quote_char: str | None = field(
-        default=None,
-        metadata={
-            "help": "Override quote character (e.g., '\"', \"'\")",
-            "importance": "advanced"
-        }
+        default=None, metadata={"help": "Override quote character (e.g., '\"', \"'\")", "importance": "advanced"}
     )
     escape_char: str | None = field(
-        default=None,
-        metadata={
-            "help": "Override escape character (e.g., '\\\\')",
-            "importance": "advanced"
-        }
+        default=None, metadata={"help": "Override escape character (e.g., '\\\\')", "importance": "advanced"}
     )
     double_quote: bool | None = field(
         default=None,
         metadata={
             "help": "Enable/disable double quoting (two quote chars = one literal quote)",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     has_header: bool = field(
         default=True,
         metadata={
             "help": "Whether first row contains column headers",
             "cli_name": "no-has-header",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     max_rows: int | None = field(
         default=None,
-        metadata={
-            "help": "Maximum rows per table (None = unlimited)",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Maximum rows per table (None = unlimited)", "type": int, "importance": "advanced"},
     )
     max_cols: int | None = field(
         default=None,
-        metadata={
-            "help": "Maximum columns per table (None = unlimited)",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Maximum columns per table (None = unlimited)", "type": int, "importance": "advanced"},
     )
     truncation_indicator: str = field(
-        default="...",
-        metadata={
-            "help": "Note appended when rows/columns are truncated",
-            "importance": "advanced"
-        }
+        default="...", metadata={"help": "Note appended when rows/columns are truncated", "importance": "advanced"}
     )
 
     header_case: HeaderCaseOption = field(
@@ -139,21 +111,13 @@ class CsvOptions(BaseParserOptions):
         metadata={
             "help": "Transform header case: preserve, title, upper, or lower",
             "choices": ["preserve", "title", "upper", "lower"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     skip_empty_rows: bool = field(
         default=True,
-        metadata={
-            "help": "Skip completely empty rows",
-            "cli_name": "no-skip-empty-rows",
-            "importance": "core"
-        }
+        metadata={"help": "Skip completely empty rows", "cli_name": "no-skip-empty-rows", "importance": "core"},
     )
     strip_whitespace: bool = field(
-        default=False,
-        metadata={
-            "help": "Strip leading/trailing whitespace from all cells",
-            "importance": "core"
-        }
+        default=False, metadata={"help": "Strip leading/trailing whitespace from all cells", "importance": "core"}
     )

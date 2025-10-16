@@ -19,11 +19,11 @@ def escape_html(text: str, *, enabled: bool = True) -> str:
 
 
 def render_math_html(
-        content: str,
-        notation: MathNotation,
-        *,
-        inline: bool,
-        escape_enabled: bool = True,
+    content: str,
+    notation: MathNotation,
+    *,
+    inline: bool,
+    escape_enabled: bool = True,
 ) -> str:
     """Render math content as HTML wrapper with notation metadata.
 
@@ -63,6 +63,7 @@ def render_math_html(
         if escape_enabled:
             # Import at runtime to avoid circular dependency
             from all2md.utils.html_sanitizer import sanitize_html_content
+
             # Sanitize MathML to remove dangerous elements/attributes
             inner = sanitize_html_content(content, mode="sanitize")
             # If content doesn't look like MathML after sanitization, wrap it

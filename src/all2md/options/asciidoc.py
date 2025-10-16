@@ -44,74 +44,66 @@ class AsciiDocOptions(BaseParserOptions):
 
     parse_attributes: bool = field(
         default=True,
-        metadata={
-            "help": "Parse document attributes",
-            "cli_name": "no-parse-attributes",
-            "importance": "core"
-        }
+        metadata={"help": "Parse document attributes", "cli_name": "no-parse-attributes", "importance": "core"},
     )
     parse_admonitions: bool = field(
         default=True,
         metadata={
             "help": "Parse admonition blocks ([NOTE], [IMPORTANT], etc.)",
             "cli_name": "no-parse-admonitions",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_includes: bool = field(
         default=False,
         metadata={
             "help": "Process include directives (SECURITY: disabled by default)",
             "cli_name": "parse-includes",
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     strict_mode: bool = field(
-        default=False,
-        metadata={
-            "help": "Raise errors on invalid AsciiDoc syntax",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Raise errors on invalid AsciiDoc syntax", "importance": "advanced"}
     )
     resolve_attribute_refs: bool = field(
         default=True,
         metadata={
             "help": "Resolve attribute references ({name}) in text",
             "cli_name": "no-resolve-attributes",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     attribute_missing_policy: Literal["keep", "blank", "warn"] = field(
         default="keep",
         metadata={
             "help": "Policy for undefined attribute references: keep literal, use blank, or warn",
             "choices": ["keep", "blank", "warn"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     support_unconstrained_formatting: bool = field(
         default=True,
         metadata={
             "help": "Support unconstrained formatting (e.g., **b**old for mid-word)",
             "cli_name": "no-unconstrained-formatting",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     table_header_detection: Literal["first-row", "attribute-based", "auto"] = field(
         default="attribute-based",
         metadata={
             "help": "How to detect table headers: always first-row, use block attributes, or auto-detect",
             "choices": ["first-row", "attribute-based", "auto"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     honor_hard_breaks: bool = field(
         default=True,
         metadata={
             "help": "Honor explicit line breaks (trailing space + plus)",
             "cli_name": "no-honor-hard-breaks",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
 
 
@@ -142,42 +134,28 @@ class AsciiDocRendererOptions(BaseRendererOptions):
 
     """
 
-    list_indent: int = field(
-        default=2,
-        metadata={
-            "help": "Spaces for nested list indentation",
-            "type": int
-        }
-    )
+    list_indent: int = field(default=2, metadata={"help": "Spaces for nested list indentation", "type": int})
     use_attributes: bool = field(
         default=True,
         metadata={
             "help": "Include document attributes in output",
             "cli_name": "no-use-attributes",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     preserve_comments: bool = field(
         default=False,
-        metadata={
-            "help": "Include comments in rendered output",
-            "cli_name": "preserve-comments",
-            "importance": "core"
-        }
+        metadata={"help": "Include comments in rendered output", "cli_name": "preserve-comments", "importance": "core"},
     )
     line_length: int = field(
         default=0,
-        metadata={
-            "help": "Target line length for wrapping (0 = no wrapping)",
-            "type": int,
-            "importance": "core"
-        }
+        metadata={"help": "Target line length for wrapping (0 = no wrapping)", "type": int, "importance": "core"},
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
         default=DEFAULT_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": HTML_PASSTHROUGH_MODES,
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )

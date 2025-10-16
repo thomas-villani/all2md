@@ -28,17 +28,27 @@ from typing import Literal
 
 # Type aliases for better readability
 SourceFormat = Literal[
-    "auto", "pdf", "docx", "pptx", "html", "eml", "epub", "ipynb",
-    "odt", "odp", "ods", "xlsx", "csv", "rst", "markdown", "txt"
+    "auto",
+    "pdf",
+    "docx",
+    "pptx",
+    "html",
+    "eml",
+    "epub",
+    "ipynb",
+    "odt",
+    "odp",
+    "ods",
+    "xlsx",
+    "csv",
+    "rst",
+    "markdown",
+    "txt",
 ]
 
-TargetFormat = Literal[
-    "html", "pdf", "docx", "pptx", "rst", "epub", "markdown"
-]
+TargetFormat = Literal["html", "pdf", "docx", "pptx", "rst", "epub", "markdown"]
 
-MarkdownFlavor = Literal[
-    "gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"
-]
+MarkdownFlavor = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
 
 
 @dataclass
@@ -120,7 +130,7 @@ EditDocumentAction = Literal[
     "replace",
     "insert:start",
     "insert:end",
-    "insert:after_heading"
+    "insert:after_heading",
 ]
 
 

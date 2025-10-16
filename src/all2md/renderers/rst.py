@@ -115,7 +115,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         document.accept(self)
 
-        result = ''.join(self._output)
+        result = "".join(self._output)
         return self._cleanup_output(result)
 
     def _cleanup_output(self, text: str) -> str:
@@ -133,7 +133,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Remove excessive blank lines
-        text = re.sub(r'\n{4,}', '\n\n\n', text)
+        text = re.sub(r"\n{4,}", "\n\n\n", text)
         text = text.rstrip()
         return text
 
@@ -156,7 +156,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Map level to character from options
         chars = self.options.heading_chars
         char_index = min(level - 1, len(chars) - 1)
-        char = chars[char_index] if char_index >= 0 else '='
+        char = chars[char_index] if char_index >= 0 else "="
 
         # Underline should be at least as long as text
         return char * len(text)
@@ -178,7 +178,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n\n')
+                self._output.append("\n\n")
 
     def _render_docinfo(self, metadata: dict) -> None:
         """Render metadata as RST docinfo block.
@@ -194,40 +194,40 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         docinfo_fields = []
 
-        if metadata.get('title'):
+        if metadata.get("title"):
             docinfo_fields.append(f":Title: {metadata['title']}")
-        if metadata.get('author'):
+        if metadata.get("author"):
             docinfo_fields.append(f":Author: {metadata['author']}")
-        if metadata.get('source'):
+        if metadata.get("source"):
             docinfo_fields.append(f":Source: {metadata['source']}")
-        if metadata.get('creation_date'):
+        if metadata.get("creation_date"):
             docinfo_fields.append(f":Date: {metadata['creation_date']}")
-        if metadata.get('modification_date'):
+        if metadata.get("modification_date"):
             docinfo_fields.append(f":Updated: {metadata['modification_date']}")
-        if metadata.get('accessed_date'):
+        if metadata.get("accessed_date"):
             docinfo_fields.append(f":Accessed: {metadata['accessed_date']}")
-        if metadata.get('description'):
+        if metadata.get("description"):
             docinfo_fields.append(f":Summary: {metadata['description']}")
-        if metadata.get('keywords'):
-            keywords = metadata['keywords']
+        if metadata.get("keywords"):
+            keywords = metadata["keywords"]
             if isinstance(keywords, list):
-                keywords_str = ', '.join(str(k) for k in keywords)
+                keywords_str = ", ".join(str(k) for k in keywords)
             else:
                 keywords_str = str(keywords)
             docinfo_fields.append(f":Keywords: {keywords_str}")
-        if metadata.get('language'):
+        if metadata.get("language"):
             docinfo_fields.append(f":Language: {metadata['language']}")
-        if metadata.get('category'):
+        if metadata.get("category"):
             docinfo_fields.append(f":Category: {metadata['category']}")
 
-        if 'custom' in metadata and isinstance(metadata['custom'], dict):
-            for key, value in metadata['custom'].items():
+        if "custom" in metadata and isinstance(metadata["custom"], dict):
+            for key, value in metadata["custom"].items():
                 docinfo_fields.append(f":{key.title()}: {value}")
 
         if docinfo_fields:
             for field in docinfo_fields:
-                self._output.append(field + '\n')
-            self._output.append('\n')
+                self._output.append(field + "\n")
+            self._output.append("\n")
 
     def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
@@ -272,13 +272,13 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(".. code-block::\n\n")
 
             # Indent code content
-            lines = node.content.split('\n')
+            lines = node.content.split("\n")
             for line in lines:
                 self._output.append(f"   {line}\n")
         else:
             # Use :: literal block
             self._output.append("::\n\n")
-            lines = node.content.split('\n')
+            lines = node.content.split("\n")
             for line in lines:
                 self._output.append(f"   {line}\n")
 
@@ -297,14 +297,14 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for child in node.children:
             child.accept(self)
 
-        quoted = ''.join(self._output)
-        lines = quoted.split('\n')
+        quoted = "".join(self._output)
+        lines = quoted.split("\n")
 
         # Indent all lines
-        quoted_lines = ['   ' + line for line in lines]
+        quoted_lines = ["   " + line for line in lines]
 
         self._output = saved_output
-        self._output.append('\n'.join(quoted_lines))
+        self._output.append("\n".join(quoted_lines))
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -329,18 +329,18 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 marker = "* "
 
             # Add indentation for nested lists
-            indent = '   ' * (self._list_depth - 1)
+            indent = "   " * (self._list_depth - 1)
             self._output.append(f"{indent}{marker}")
 
             # Render item content
             saved_output = self._output
             self._output = []
             item.accept(self)
-            item_content = ''.join(self._output)
+            item_content = "".join(self._output)
             self._output = saved_output
 
             # Add item content (first line inline with marker, rest indented)
-            lines = item_content.split('\n')
+            lines = item_content.split("\n")
             if lines:
                 self._output.append(lines[0])
                 for line in lines[1:]:
@@ -348,7 +348,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                         self._output.append(f"\n{indent}   {line}")
 
             if i < len(node.items) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
         self._list_depth -= 1
         self._in_list = was_in_list
@@ -365,7 +365,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
@@ -424,10 +424,10 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     col_widths[i] = max(col_widths[i], len(cell_content))
 
         # Build separator line
-        separator = '+' + '+'.join(['-' * (width + 2) for width in col_widths]) + '+'
+        separator = "+" + "+".join(["-" * (width + 2) for width in col_widths]) + "+"
 
         # Render table
-        self._output.append(separator + '\n')
+        self._output.append(separator + "\n")
 
         for i, row_cells in enumerate(rendered_rows):
             # Render row
@@ -435,20 +435,20 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             for j, cell_content in enumerate(row_cells):
                 if j < num_cols:
                     padded = cell_content.ljust(col_widths[j])
-                    row_parts.append(f' {padded} ')
-            self._output.append('|' + '|'.join(row_parts) + '|\n')
+                    row_parts.append(f" {padded} ")
+            self._output.append("|" + "|".join(row_parts) + "|\n")
 
             # Add separator after header or after last row
             if i == 0 and node.header:
                 # Double separator after header
-                header_sep = '+' + '+'.join(['=' * (width + 2) for width in col_widths]) + '+'
-                self._output.append(header_sep + '\n')
+                header_sep = "+" + "+".join(["=" * (width + 2) for width in col_widths]) + "+"
+                self._output.append(header_sep + "\n")
             elif i == len(rendered_rows) - 1:
                 # Separator at end
                 self._output.append(separator)
             else:
                 # Separator between rows
-                self._output.append(separator + '\n')
+                self._output.append(separator + "\n")
 
     def _render_simple_table(self, node: Table) -> None:
         """Render a table as RST simple table.
@@ -493,10 +493,10 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     col_widths[i] = max(col_widths[i], len(cell_content))
 
         # Build separator line
-        separator = '  '.join(['=' * width for width in col_widths])
+        separator = "  ".join(["=" * width for width in col_widths])
 
         # Render table
-        self._output.append(separator + '\n')
+        self._output.append(separator + "\n")
 
         for i, row_cells in enumerate(rendered_rows):
             # Render row
@@ -505,11 +505,11 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 if j < num_cols:
                     padded = cell_content.ljust(col_widths[j])
                     row_parts.append(padded)
-            self._output.append('  '.join(row_parts) + '\n')
+            self._output.append("  ".join(row_parts) + "\n")
 
             # Add separator after header
             if i == 0 and node.header:
-                self._output.append(separator + '\n')
+                self._output.append(separator + "\n")
 
         # Final separator
         self._output.append(separator)
@@ -545,7 +545,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Thematic break to render
 
         """
-        self._output.append('----')
+        self._output.append("----")
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -651,15 +651,15 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if node.soft:
             # Soft breaks render as space in RST
-            self._output.append(' ')
+            self._output.append(" ")
         else:
             # Hard line break rendering depends on configured mode
             if self.options.hard_line_break_mode == "line_block":
                 # Standard RST line block syntax
-                self._output.append('\n| ')
+                self._output.append("\n| ")
             else:  # "raw"
                 # Plain newline (simpler but less faithful)
-                self._output.append('\n')
+                self._output.append("\n")
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.
@@ -673,7 +673,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, (term, descriptions) in enumerate(node.items):
             # Render term
             term_content = self._render_inline_content(term.content)
-            self._output.append(term_content + '\n')
+            self._output.append(term_content + "\n")
 
             # Render descriptions
             for desc in descriptions:
@@ -683,17 +683,17 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 for child in desc.content:
                     child.accept(self)
 
-                desc_content = ''.join(self._output)
+                desc_content = "".join(self._output)
                 self._output = saved_output
 
                 # Indent description
-                lines = desc_content.split('\n')
+                lines = desc_content.split("\n")
                 for line in lines:
                     if line.strip():
                         self._output.append(f"   {line}\n")
 
             if i < len(node.items) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node.
@@ -812,7 +812,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             saved_output = self._output
             self._output = []
             child.accept(self)
-            child_content = ''.join(self._output)
+            child_content = "".join(self._output)
             self._output = saved_output
             self._output.append(child_content)
 
@@ -829,7 +829,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content, notation = node.get_preferred_representation(preferred)
         # RST uses .. math:: directive for block math
         self._output.append(".. math::\n\n")
-        lines = content.split('\n')
+        lines = content.split("\n")
         for line in lines:
             self._output.append(f"   {line}\n")
 

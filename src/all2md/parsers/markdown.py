@@ -82,9 +82,7 @@ class MarkdownToAstConverter(BaseParser):
     """
 
     def __init__(
-            self,
-            options: MarkdownParserOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
+        self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the Markdown parser with options and progress callback."""
         options = options or MarkdownParserOptions()
@@ -122,21 +120,18 @@ class MarkdownToAstConverter(BaseParser):
         # Configure mistune plugins based on options
         plugins = []
         if self.options.parse_strikethrough:
-            plugins.append('strikethrough')
+            plugins.append("strikethrough")
         if self.options.parse_tables:
-            plugins.append('table')
+            plugins.append("table")
         if self.options.parse_footnotes:
-            plugins.append('footnotes')
+            plugins.append("footnotes")
         if self.options.parse_task_lists:
-            plugins.append('task_lists')
+            plugins.append("task_lists")
         if self.options.parse_math:
-            plugins.append('math')
+            plugins.append("math")
 
         # Create markdown parser with plugins
-        markdown = mistune.create_markdown(
-            plugins=plugins,
-            renderer=None  # We'll process tokens ourselves
-        )
+        markdown = mistune.create_markdown(plugins=plugins, renderer=None)  # We'll process tokens ourselves
 
         # Parse to tokens
         tokens, state = markdown.parse(markdown_content)
@@ -151,10 +146,7 @@ class MarkdownToAstConverter(BaseParser):
         # Add footnote definitions at end if present
         if self._footnote_definitions:
             for identifier, content in self._footnote_definitions.items():
-                children.append(FootnoteDefinition(
-                    identifier=identifier,
-                    content=content
-                ))
+                children.append(FootnoteDefinition(identifier=identifier, content=content))
 
         # Extract and attach metadata
         metadata = self.extract_metadata(markdown_content)
@@ -233,31 +225,31 @@ class MarkdownToAstConverter(BaseParser):
             Resulting AST node(s)
 
         """
-        token_type = token.get('type', '')
+        token_type = token.get("type", "")
 
         # Block-level tokens
-        if token_type == 'heading':
+        if token_type == "heading":
             return self._process_heading(token)
-        elif token_type == 'paragraph':
+        elif token_type == "paragraph":
             return self._process_paragraph(token)
-        elif token_type == 'block_code':
+        elif token_type == "block_code":
             return self._process_code_block(token)
-        elif token_type == 'block_quote':
+        elif token_type == "block_quote":
             return self._process_block_quote(token)
-        elif token_type == 'list':
+        elif token_type == "list":
             return self._process_list(token)
-        elif token_type == 'table':
+        elif token_type == "table":
             return self._process_table(token)
-        elif token_type == 'thematic_break':
+        elif token_type == "thematic_break":
             return ThematicBreak()
-        elif token_type == 'block_html':
+        elif token_type == "block_html":
             return self._process_html_block(token)
-        elif token_type == 'block_math':
+        elif token_type == "block_math":
             return self._process_math_block(token)
-        elif token_type == 'footnote_def':
+        elif token_type == "footnote_def":
             self._process_footnote_def(token)
             return None
-        elif token_type == 'def_list':
+        elif token_type == "def_list":
             return self._process_definition_list(token)
 
         # If we get here, it might be inline content or unknown
@@ -278,14 +270,14 @@ class MarkdownToAstConverter(BaseParser):
 
         """
         # Safely extract level with fallback to 1 if attrs or level missing
-        attrs = token.get('attrs', {})
-        level = attrs.get('level', 1) if isinstance(attrs, dict) else 1
+        attrs = token.get("attrs", {})
+        level = attrs.get("level", 1) if isinstance(attrs, dict) else 1
 
         # Ensure level is valid (1-6)
         if not isinstance(level, int) or level < 1 or level > 6:
             level = 1
 
-        children = token.get('children', [])
+        children = token.get("children", [])
         content = self._process_inline_tokens(children) if isinstance(children, list) else []
 
         return Heading(level=level, content=content)
@@ -304,7 +296,7 @@ class MarkdownToAstConverter(BaseParser):
             Paragraph AST node
 
         """
-        children = token.get('children', [])
+        children = token.get("children", [])
         content = self._process_inline_tokens(children)
 
         return Paragraph(content=content)
@@ -323,9 +315,9 @@ class MarkdownToAstConverter(BaseParser):
             Code block AST node
 
         """
-        code_content = token.get('raw', '')
-        attrs = token.get('attrs', {})
-        info_string = attrs.get('info', None)
+        code_content = token.get("raw", "")
+        attrs = token.get("attrs", {})
+        info_string = attrs.get("info", None)
 
         # Initialize metadata for code block
         metadata: dict[str, Any] = {}
@@ -335,7 +327,7 @@ class MarkdownToAstConverter(BaseParser):
         if info_string:
             info_string = info_string.strip()
             # Preserve full info string for renderers that support metadata
-            metadata['info_string'] = info_string
+            metadata["info_string"] = info_string
 
             # Extract language (first word) and additional attributes
             parts = info_string.split(maxsplit=1)
@@ -345,13 +337,9 @@ class MarkdownToAstConverter(BaseParser):
 
                 # Preserve additional metadata if present
                 if len(parts) > 1:
-                    metadata['info_attrs'] = parts[1]
+                    metadata["info_attrs"] = parts[1]
 
-        return CodeBlock(
-            content=code_content,
-            language=language if language else None,
-            metadata=metadata
-        )
+        return CodeBlock(content=code_content, language=language if language else None, metadata=metadata)
 
     def _process_block_quote(self, token: dict[str, Any]) -> BlockQuote:
         """Process block quote token.
@@ -367,7 +355,7 @@ class MarkdownToAstConverter(BaseParser):
             Block quote AST node
 
         """
-        children = token.get('children', [])
+        children = token.get("children", [])
         content = self._process_tokens(children)
 
         return BlockQuote(children=content)
@@ -386,28 +374,23 @@ class MarkdownToAstConverter(BaseParser):
             List AST node
 
         """
-        attrs = token.get('attrs', {})
+        attrs = token.get("attrs", {})
         # Guard against attrs not being a dict
         if not isinstance(attrs, dict):
             attrs = {}
 
-        ordered = attrs.get('ordered', False)
-        start = attrs.get('start', 1)
-        tight = attrs.get('tight', True)
+        ordered = attrs.get("ordered", False)
+        start = attrs.get("start", 1)
+        tight = attrs.get("tight", True)
 
-        children = token.get('children', [])
+        children = token.get("children", [])
         # Guard against children not being a list
         if not isinstance(children, list):
             children = []
 
         items = [self._process_list_item(child) for child in children if isinstance(child, dict)]
 
-        return List(
-            ordered=ordered,
-            items=items,
-            start=start,
-            tight=tight
-        )
+        return List(ordered=ordered, items=items, start=start, tight=tight)
 
     def _process_list_item(self, token: dict[str, Any]) -> ListItem:
         """Process list item token.
@@ -423,14 +406,14 @@ class MarkdownToAstConverter(BaseParser):
             List item AST node
 
         """
-        children = token.get('children', [])
+        children = token.get("children", [])
         content = self._process_tokens(children)
 
         # Check for task list checkbox
-        task_status: Literal['checked', 'unchecked'] | None = None
-        attrs = token.get('attrs', {})
-        if 'checked' in attrs:
-            task_status = 'checked' if attrs['checked'] else 'unchecked'
+        task_status: Literal["checked", "unchecked"] | None = None
+        attrs = token.get("attrs", {})
+        if "checked" in attrs:
+            task_status = "checked" if attrs["checked"] else "unchecked"
 
         return ListItem(children=content, task_status=task_status)
 
@@ -448,28 +431,28 @@ class MarkdownToAstConverter(BaseParser):
             Table AST node
 
         """
-        children = token.get('children', [])
+        children = token.get("children", [])
 
         header = None
         rows = []
         alignments = []
 
         for _i, row_token in enumerate(children):
-            row_type = row_token.get('type', '')
-            if row_type == 'table_head':
+            row_type = row_token.get("type", "")
+            if row_type == "table_head":
                 # Process header row - cells are direct children of table_head
-                head_children = row_token.get('children', [])
+                head_children = row_token.get("children", [])
                 if head_children:
                     # Process cells directly (no intermediate table_row)
                     cells = []
                     alignments_list = []
                     for cell_token in head_children:
-                        if cell_token.get('type') == 'table_cell':
-                            cell_children = cell_token.get('children', [])
+                        if cell_token.get("type") == "table_cell":
+                            cell_children = cell_token.get("children", [])
                             content = self._process_inline_tokens(cell_children)
 
                             # Get alignment if specified
-                            align = cell_token.get('attrs', {}).get('align', None)
+                            align = cell_token.get("attrs", {}).get("align", None)
                             alignments_list.append(align)
 
                             cells.append(TableCell(content=content, alignment=align))
@@ -477,9 +460,9 @@ class MarkdownToAstConverter(BaseParser):
                     header = TableRow(cells=cells, is_header=True)
                     alignments = alignments_list
 
-            elif row_type == 'table_body':
+            elif row_type == "table_body":
                 # Process body rows
-                body_children = row_token.get('children', [])
+                body_children = row_token.get("children", [])
                 for body_row_token in body_children:
                     cells = self._process_table_row_cells(body_row_token)
                     rows.append(TableRow(cells=cells, is_header=False))
@@ -500,16 +483,16 @@ class MarkdownToAstConverter(BaseParser):
             Table cell nodes
 
         """
-        cells_tokens = row_token.get('children', [])
+        cells_tokens = row_token.get("children", [])
         cells = []
 
         for cell_token in cells_tokens:
-            cell_children = cell_token.get('children', [])
+            cell_children = cell_token.get("children", [])
             content = self._process_inline_tokens(cell_children)
 
             # Get alignment if specified
-            attrs = cell_token.get('attrs', {})
-            alignment = attrs.get('align', None)
+            attrs = cell_token.get("attrs", {})
+            alignment = attrs.get("align", None)
 
             cells.append(TableCell(content=content, alignment=alignment))
 
@@ -532,7 +515,7 @@ class MarkdownToAstConverter(BaseParser):
         if not self.options.preserve_html:
             return None
 
-        content = token.get('raw', '')
+        content = token.get("raw", "")
         return HTMLBlock(content=content)
 
     def _process_math_block(self, token: dict[str, Any]) -> MathBlock:
@@ -549,7 +532,7 @@ class MarkdownToAstConverter(BaseParser):
             Math block AST node
 
         """
-        content = token.get('raw', '')
+        content = token.get("raw", "")
         return MathBlock(content=content)
 
     def _process_footnote_def(self, token: dict[str, Any]) -> None:
@@ -567,9 +550,9 @@ class MarkdownToAstConverter(BaseParser):
         None
 
         """
-        attrs = token.get('attrs', {})
-        identifier = attrs.get('label', '')
-        children = token.get('children', [])
+        attrs = token.get("attrs", {})
+        identifier = attrs.get("label", "")
+        children = token.get("children", [])
         content = self._process_tokens(children)
 
         self._footnote_definitions[identifier] = content
@@ -589,32 +572,30 @@ class MarkdownToAstConverter(BaseParser):
             Definition list AST node
 
         """
-        children = token.get('children', [])
+        children = token.get("children", [])
         items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
 
         current_term: DefinitionTerm | None = None
         current_descriptions: list[DefinitionDescription] = []
 
         for child in children:
-            child_type = child.get('type', '')
-            if child_type == 'def_list_head':
+            child_type = child.get("type", "")
+            if child_type == "def_list_head":
                 # Save previous term/descriptions if any
                 if current_term is not None:
                     items.append((current_term, current_descriptions))
 
                 # Start new term
-                term_children = child.get('children', [])
+                term_children = child.get("children", [])
                 term_content = self._process_inline_tokens(term_children)
                 current_term = DefinitionTerm(content=term_content)
                 current_descriptions = []
 
-            elif child_type == 'def_list_content':
+            elif child_type == "def_list_content":
                 # Add description
-                desc_children = child.get('children', [])
+                desc_children = child.get("children", [])
                 desc_content = self._process_tokens(desc_children)
-                current_descriptions.append(
-                    DefinitionDescription(content=desc_content)
-                )
+                current_descriptions.append(DefinitionDescription(content=desc_content))
 
         # Add last term/descriptions
         if current_term is not None:
@@ -662,83 +643,83 @@ class MarkdownToAstConverter(BaseParser):
             Inline AST node(s)
 
         """
-        token_type = token.get('type', '')
+        token_type = token.get("type", "")
 
-        if token_type == 'text':
-            content = token.get('raw', '')
+        if token_type == "text":
+            content = token.get("raw", "")
             return Text(content=content)
 
-        elif token_type == 'strong':
-            children = token.get('children', [])
+        elif token_type == "strong":
+            children = token.get("children", [])
             content = self._process_inline_tokens(children)
             return Strong(content=content)
 
-        elif token_type == 'emphasis':
-            children = token.get('children', [])
+        elif token_type == "emphasis":
+            children = token.get("children", [])
             content = self._process_inline_tokens(children)
             return Emphasis(content=content)
 
-        elif token_type == 'codespan':
-            content = token.get('raw', '')
+        elif token_type == "codespan":
+            content = token.get("raw", "")
             return Code(content=content)
 
-        elif token_type == 'link':
-            attrs = token.get('attrs', {})
+        elif token_type == "link":
+            attrs = token.get("attrs", {})
             if not isinstance(attrs, dict):
                 attrs = {}
-            url = attrs.get('url', '')
-            title = attrs.get('title', None)
-            children = token.get('children', [])
+            url = attrs.get("url", "")
+            title = attrs.get("title", None)
+            children = token.get("children", [])
             if not isinstance(children, list):
                 children = []
             content = self._process_inline_tokens(children)
             return Link(url=url, content=content, title=title)
 
-        elif token_type == 'image':
-            attrs = token.get('attrs', {})
+        elif token_type == "image":
+            attrs = token.get("attrs", {})
             if not isinstance(attrs, dict):
                 attrs = {}
-            url = attrs.get('url', '')
-            title = attrs.get('title', None)
+            url = attrs.get("url", "")
+            title = attrs.get("title", None)
             # Alt text is in children, not attrs
-            children = token.get('children', [])
-            alt_text = ''
+            children = token.get("children", [])
+            alt_text = ""
             if isinstance(children, list) and children:
                 # Extract text from children
                 alt_parts = []
                 for child in children:
-                    if isinstance(child, dict) and child.get('type') == 'text':
-                        alt_parts.append(child.get('raw', ''))
-                alt_text = ''.join(alt_parts)
+                    if isinstance(child, dict) and child.get("type") == "text":
+                        alt_parts.append(child.get("raw", ""))
+                alt_text = "".join(alt_parts)
             return Image(url=url, alt_text=alt_text, title=title)
 
-        elif token_type == 'linebreak':
-            attrs = token.get('attrs', {})
+        elif token_type == "linebreak":
+            attrs = token.get("attrs", {})
             if not isinstance(attrs, dict):
                 attrs = {}
-            soft = attrs.get('soft', False)
+            soft = attrs.get("soft", False)
             return LineBreak(soft=soft)
 
-        elif token_type == 'strikethrough':
-            children = token.get('children', [])
+        elif token_type == "strikethrough":
+            children = token.get("children", [])
             content = self._process_inline_tokens(children)
             return Strikethrough(content=content)
 
-        elif token_type == 'inline_html':
+        elif token_type == "inline_html":
             if not self.options.preserve_html:
                 return None
-            content = token.get('raw', '')
+            content = token.get("raw", "")
             return HTMLInline(content=content)
 
-        elif token_type == 'inline_math':
-            content = token.get('raw', '')
+        elif token_type == "inline_math":
+            content = token.get("raw", "")
             return MathInline(content=content)
 
-        elif token_type == 'footnote_ref':
-            attrs = token.get('attrs', {})
+        elif token_type == "footnote_ref":
+            attrs = token.get("attrs", {})
             if not isinstance(attrs, dict):
                 attrs = {}
-            identifier = attrs.get('label', '')
+            identifier = attrs.get("label", "")
             return FootnoteReference(identifier=identifier)
 
         return None
@@ -766,10 +747,7 @@ class MarkdownToAstConverter(BaseParser):
         return DocumentMetadata()
 
 
-def markdown_to_ast(
-        markdown_content: str,
-        options: MarkdownParserOptions | None = None
-) -> Document:
+def markdown_to_ast(markdown_content: str, options: MarkdownParserOptions | None = None) -> Document:
     r"""Convert Markdown string to AST.
 
     This is a convenience function that creates a converter and parses
@@ -815,5 +793,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=MarkdownParserOptions,
     renderer_options_class="all2md.options.markdown.MarkdownOptions",
     description="Parse Markdown to AST and render AST to Markdown",
-    priority=10
+    priority=10,
 )

@@ -178,9 +178,7 @@ def get_preset_config(preset_name: str) -> Dict[str, Any]:
     """
     if preset_name not in PRESETS:
         available = ", ".join(get_preset_names())
-        raise ValueError(
-            f"Unknown preset: {preset_name}. Available presets: {available}"
-        )
+        raise ValueError(f"Unknown preset: {preset_name}. Available presets: {available}")
 
     return PRESETS[preset_name]["config"].copy()
 
@@ -212,9 +210,7 @@ def get_preset_description(preset_name: str) -> str:
     """
     if preset_name not in PRESETS:
         available = ", ".join(get_preset_names())
-        raise ValueError(
-            f"Unknown preset: {preset_name}. Available presets: {available}"
-        )
+        raise ValueError(f"Unknown preset: {preset_name}. Available presets: {available}")
 
     return PRESETS[preset_name]["description"]
 

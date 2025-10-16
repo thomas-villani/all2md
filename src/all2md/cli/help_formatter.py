@@ -5,6 +5,7 @@ DynamicCLIBuilder configuration and renders tiered help output
 (quick/full/section specific) with importance filtering. Rich output is
 supported when the ``rich`` package is available and requested.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -106,6 +107,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("check-deps", "Check optional dependencies for converters"),
 )
 
+
 def _determine_section_key(title: str) -> str:
     """Normalize a group title to a lookup key."""
     normalized = title.strip().lower()
@@ -118,17 +120,17 @@ def _classify_section_title(title: str) -> str:
     """Return category for a section title (parser, renderer, or global)."""
     lowered = title.lower()
 
-    if 'renderer' in lowered:
-        return 'renderer'
+    if "renderer" in lowered:
+        return "renderer"
 
-    if 'markdown' in lowered and 'option' in lowered:
-        return 'renderer'
+    if "markdown" in lowered and "option" in lowered:
+        return "renderer"
 
     first_token = title.split()[0]
     if first_token.isupper():
-        return 'parser'
+        return "parser"
 
-    return 'global'
+    return "global"
 
 
 def _lookup_importance(builder: DynamicCLIBuilder, dest: str) -> OptionImportance:
@@ -146,13 +148,13 @@ def _format_default(value: Any) -> Optional[str]:
     if value is None:
         return None
     if value is UNSET:
-        return 'unset'
+        return "unset"
     if isinstance(value, str):
         return repr(value)
     if isinstance(value, (list, tuple, set)):
         return repr(value)
     if callable(value):
-        return getattr(value, '__name__', str(value))
+        return getattr(value, "__name__", str(value))
     return repr(value) if isinstance(value, (dict,)) else str(value)
 
 
@@ -247,11 +249,11 @@ class HelpRenderer:
     """Render help output from a catalog using quick/full/section filters."""
 
     WRAP_WIDTH = 100
-    CATEGORY_ORDER = ('global', 'parser', 'renderer')
+    CATEGORY_ORDER = ("global", "parser", "renderer")
     CATEGORY_LABELS = {
-        'global': 'Global options',
-        'parser': 'Parser options',
-        'renderer': 'Renderer options',
+        "global": "Global options",
+        "parser": "Parser options",
+        "renderer": "Renderer options",
     }
 
     def __init__(self, catalog: HelpCatalog, *, use_rich: bool = False) -> None:
@@ -387,7 +389,7 @@ class HelpRenderer:
 
         for section in sections:
             if core_only:
-                core_options = [opt for opt in section.options if opt.importance == 'core']
+                core_options = [opt for opt in section.options if opt.importance == "core"]
                 # non_core_options = [opt for opt in section.options if opt.importance != 'core']
 
                 if core_options:
@@ -523,8 +525,8 @@ class HelpRenderer:
         if not line:
             return Text("")
 
-        indent_len = len(line) - len(line.lstrip(' '))
-        indent = ' ' * indent_len
+        indent_len = len(line) - len(line.lstrip(" "))
+        indent = " " * indent_len
         stripped = line.strip()
 
         text = Text(indent)
@@ -532,30 +534,30 @@ class HelpRenderer:
         if not stripped:
             return text
 
-        if stripped.startswith('usage:'):
-            text.append('usage:', style='bold yellow')
-            text.append(stripped[len('usage:'):], style='white')
+        if stripped.startswith("usage:"):
+            text.append("usage:", style="bold yellow")
+            text.append(stripped[len("usage:") :], style="white")
             return text
 
-        if stripped.lower().startswith('subcommands'):
-            text.append(stripped, style='bold violet')
+        if stripped.lower().startswith("subcommands"):
+            text.append(stripped, style="bold violet")
             return text
 
-        if stripped.endswith(':') and not stripped.startswith('--'):
-            text.append(stripped, style='bold bright_white')
+        if stripped.endswith(":") and not stripped.startswith("--"):
+            text.append(stripped, style="bold bright_white")
             return text
 
-        if stripped.startswith('('):
-            text.append(stripped, style='italic dim')
+        if stripped.startswith("("):
+            text.append(stripped, style="italic dim")
             return text
 
-        if stripped.startswith('--') or (stripped.startswith('-') and not stripped.startswith('--')):
-            parts = stripped.split(' ', 1)
+        if stripped.startswith("--") or (stripped.startswith("-") and not stripped.startswith("--")):
+            parts = stripped.split(" ", 1)
             flag_part = parts[0]
-            remainder = parts[1] if len(parts) > 1 else ''
-            text.append(flag_part, style='bold cyan')
+            remainder = parts[1] if len(parts) > 1 else ""
+            text.append(flag_part, style="bold cyan")
             if remainder:
-                remainder_text = Text(' ' + remainder)
+                remainder_text = Text(" " + remainder)
                 self._highlight_metadata(remainder_text)
                 text += remainder_text
             return text
@@ -566,14 +568,15 @@ class HelpRenderer:
         return text
 
     def _highlight_metadata(self, text: "Text") -> None:
-        text.highlight_regex(r'default: [^);]+', style='green')
-        text.highlight_regex(r'choices?: [^);]+', style='magenta')
-        text.highlight_regex(r'\[[^\]]+\]', style='dim')
+        text.highlight_regex(r"default: [^);]+", style="green")
+        text.highlight_regex(r"choices?: [^);]+", style="magenta")
+        text.highlight_regex(r"\[[^\]]+\]", style="dim")
 
 
 def _rich_available() -> bool:
     try:  # pragma: no cover - runtime check
         import rich  # noqa: F401
+
         return True
     except ImportError:  # pragma: no cover - runtime check
         return False
@@ -623,11 +626,11 @@ def _should_enable_rich(*, use_rich: Optional[bool], stream: Optional[Any]) -> b
     if not _rich_available():
         return False
 
-    if os.environ.get('NO_COLOR'):
+    if os.environ.get("NO_COLOR"):
         return False
 
-    term = os.environ.get('TERM', '')
-    if term.lower() == 'dumb':
+    term = os.environ.get("TERM", "")
+    if term.lower() == "dumb":
         return False
 
     # Explicit request overrides TTY checks when color is otherwise permitted.
@@ -635,7 +638,7 @@ def _should_enable_rich(*, use_rich: Optional[bool], stream: Optional[Any]) -> b
         return True
 
     target = stream or sys.stdout
-    isatty = getattr(target, 'isatty', None)
+    isatty = getattr(target, "isatty", None)
     if callable(isatty):
         try:
             if isatty():

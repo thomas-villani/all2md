@@ -108,15 +108,12 @@ class OdtToAstConverter(BaseParser):
         from odf import opendocument
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix='.odt')
+        self._validate_zip_input(input_data, suffix=".odt")
 
         try:
             doc = opendocument.load(input_data)
         except Exception as e:
-            raise MalformedFileError(
-                f"Failed to open ODT document: {e!r}",
-                original_error=e
-            ) from e
+            raise MalformedFileError(f"Failed to open ODT document: {e!r}", original_error=e) from e
 
         return self.convert_to_ast(doc)
 
@@ -132,7 +129,7 @@ class OdtToAstConverter(BaseParser):
         children: list[Node] = []
 
         # For ODT, content is in doc.text
-        content_root = getattr(doc, 'text', None)
+        content_root = getattr(doc, "text", None)
 
         # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
@@ -155,9 +152,7 @@ class OdtToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         return Document(children=children, metadata=metadata.to_dict())
@@ -309,6 +304,7 @@ class OdtToAstConverter(BaseParser):
             if len(math_blocks) == 1:
                 return math_blocks[0]
             from typing import cast
+
             return cast(list[Node], math_blocks)
 
         return None
@@ -459,10 +455,7 @@ class OdtToAstConverter(BaseParser):
         # Process header (first row)
         header_cells = rows_elements[0].getElementsByType(table.TableCell)
         header_row = TableRow(
-            cells=[
-                TableCell(content=self._process_text_runs(cell, doc), alignment="center")
-                for cell in header_cells
-            ],
+            cells=[TableCell(content=self._process_text_runs(cell, doc), alignment="center") for cell in header_cells],
             is_header=True,
         )
 
@@ -473,8 +466,7 @@ class OdtToAstConverter(BaseParser):
             data_rows.append(
                 TableRow(
                     cells=[
-                        TableCell(content=self._process_text_runs(cell, doc), alignment="left")
-                        for cell in data_cells
+                        TableCell(content=self._process_text_runs(cell, doc), alignment="left") for cell in data_cells
                     ],
                     is_header=False,
                 )
@@ -557,11 +549,11 @@ class OdtToAstConverter(BaseParser):
         metadata = DocumentMetadata()
 
         # Access document metadata
-        if hasattr(document, 'meta'):
+        if hasattr(document, "meta"):
             meta = document.meta
 
             # Extract Dublin Core metadata
-            if hasattr(meta, 'getElementsByType'):
+            if hasattr(meta, "getElementsByType"):
                 from odf.dc import Creator, Description, Language, Subject, Title
                 from odf.meta import CreationDate, Generator, InitialCreator, Keyword
 
@@ -599,7 +591,8 @@ class OdtToAstConverter(BaseParser):
                         if kw_text:
                             # Split by common delimiters
                             import re
-                            parts = [k.strip() for k in re.split('[,;]', kw_text) if k.strip()]
+
+                            parts = [k.strip() for k in re.split("[,;]", kw_text) if k.strip()]
                             keyword_list.extend(parts)
                     if keyword_list:
                         metadata.keywords = keyword_list
@@ -620,24 +613,26 @@ class OdtToAstConverter(BaseParser):
                     metadata.language = str(languages[0]).strip()
 
         # Document type and statistics
-        metadata.custom['document_type'] = 'text'
+        metadata.custom["document_type"] = "text"
 
         # Count paragraphs for text documents
-        if hasattr(document, 'body'):
+        if hasattr(document, "body"):
             try:
                 from odf.text import P
+
                 paragraphs = document.body.getElementsByType(P)
                 if paragraphs:
-                    metadata.custom['paragraph_count'] = len(paragraphs)
+                    metadata.custom["paragraph_count"] = len(paragraphs)
             except Exception:
                 pass
 
             # Count tables
             try:
                 from odf.table import Table
+
                 tables = document.body.getElementsByType(Table)
                 if tables:
-                    metadata.custom['table_count'] = len(tables)
+                    metadata.custom["table_count"] = len(tables)
             except Exception:
                 pass
 
@@ -660,5 +655,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=OdtOptions,
     renderer_options_class=None,
     description="Convert OpenDocument Text files to Markdown",
-    priority=5
+    priority=5,
 )

@@ -97,11 +97,11 @@ class ValidationError(All2MdError):
     """
 
     def __init__(
-            self,
-            message: str,
-            parameter_name: str | None = None,
-            parameter_value: Any = None,
-            original_error: Exception | None = None
+        self,
+        message: str,
+        parameter_name: str | None = None,
+        parameter_value: Any = None,
+        original_error: Exception | None = None,
     ):
         """Initialize the validation error with parameter details."""
         super().__init__(message, original_error=original_error)
@@ -123,18 +123,10 @@ class PageRangeError(ValidationError):
 
     """
 
-    def __init__(
-            self,
-            message: str,
-            parameter_value: Any = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, message: str, parameter_value: Any = None, original_error: Exception | None = None):
         """Initialize the page range error."""
         super().__init__(
-            message,
-            parameter_name="pages",
-            parameter_value=parameter_value,
-            original_error=original_error
+            message, parameter_name="pages", parameter_value=parameter_value, original_error=original_error
         )
 
 
@@ -163,12 +155,7 @@ class FileError(All2MdError):
 
     """
 
-    def __init__(
-            self,
-            message: str,
-            file_path: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, message: str, file_path: str | None = None, original_error: Exception | None = None):
         """Initialize the file error with path and message."""
         super().__init__(message, original_error=original_error)
         self.file_path = file_path
@@ -188,12 +175,7 @@ class FileNotFoundError(FileError):
 
     """
 
-    def __init__(
-            self,
-            file_path: str,
-            message: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, file_path: str, message: str | None = None, original_error: Exception | None = None):
         """Initialize the file not found error."""
         if message is None:
             message = f"File not found: {file_path}"
@@ -216,12 +198,7 @@ class FileAccessError(FileError):
 
     """
 
-    def __init__(
-            self,
-            file_path: str,
-            message: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, file_path: str, message: str | None = None, original_error: Exception | None = None):
         """Initialize the file access error."""
         if message is None:
             message = f"Cannot access file: {file_path}"
@@ -242,12 +219,7 @@ class MalformedFileError(FileError):
 
     """
 
-    def __init__(
-            self,
-            message: str,
-            file_path: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, message: str, file_path: str | None = None, original_error: Exception | None = None):
         """Initialize the malformed file error."""
         super().__init__(message, file_path=file_path, original_error=original_error)
 
@@ -279,9 +251,11 @@ class FormatError(All2MdError):
     """
 
     def __init__(
-            self, message: str | None = None, format_type: str | None = None,
-            supported_formats: list[str] | None = None,
-            original_error: Exception | None = None
+        self,
+        message: str | None = None,
+        format_type: str | None = None,
+        supported_formats: list[str] | None = None,
+        original_error: Exception | None = None,
     ):
         """Initialize the format error."""
         if message is None:
@@ -325,12 +299,7 @@ class ParsingError(All2MdError):
 
     """
 
-    def __init__(
-            self,
-            message: str,
-            parsing_stage: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, message: str, parsing_stage: str | None = None, original_error: Exception | None = None):
         """Initialize the parsing error."""
         super().__init__(message, original_error)
         self.parsing_stage = parsing_stage
@@ -360,10 +329,7 @@ class PasswordProtectedError(ParsingError):
     """
 
     def __init__(
-            self,
-            message: str | None = None,
-            filename: str | None = None,
-            original_error: Exception | None = None
+        self, message: str | None = None, filename: str | None = None, original_error: Exception | None = None
     ):
         """Initialize the password protected error."""
         if message is None:
@@ -401,12 +367,7 @@ class RenderingError(All2MdError):
 
     """
 
-    def __init__(
-            self,
-            message: str,
-            rendering_stage: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, message: str, rendering_stage: str | None = None, original_error: Exception | None = None):
         """Initialize the rendering error."""
         super().__init__(message, original_error)
         self.rendering_stage = rendering_stage
@@ -431,12 +392,7 @@ class OutputWriteError(RenderingError):
 
     """
 
-    def __init__(
-            self,
-            file_path: str,
-            message: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, file_path: str, message: str | None = None, original_error: Exception | None = None):
         """Initialize the output write error."""
         if message is None:
             message = f"Failed to write output file: {file_path}"
@@ -466,12 +422,7 @@ class TransformError(All2MdError):
 
     """
 
-    def __init__(
-            self,
-            message: str,
-            transform_name: str | None = None,
-            original_error: Exception | None = None
-    ):
+    def __init__(self, message: str, transform_name: str | None = None, original_error: Exception | None = None):
         """Initialize the transform error."""
         super().__init__(message, original_error)
         self.transform_name = transform_name
@@ -567,13 +518,13 @@ class DependencyError(All2MdError):
     """
 
     def __init__(
-            self,
-            converter_name: str,
-            missing_packages: list[tuple[str, str]],
-            version_mismatches: list[tuple[str, str, str]] | None = None,
-            install_command: str = "",
-            message: str | None = None,
-            original_import_error: ImportError | None = None
+        self,
+        converter_name: str,
+        missing_packages: list[tuple[str, str]],
+        version_mismatches: list[tuple[str, str, str]] | None = None,
+        install_command: str = "",
+        message: str | None = None,
+        original_import_error: ImportError | None = None,
     ):
         """Initialize the dependency error with package details."""
         version_mismatches = version_mismatches or []
@@ -583,25 +534,16 @@ class DependencyError(All2MdError):
 
             # Add missing packages section
             if missing_packages:
-                pkg_list = ", ".join(
-                    f"'{name}{spec}'" if spec else f"'{name}'"
-                    for name, spec in missing_packages
-                )
-                message_parts.append(
-                    f"{converter_name.upper()} format requires the following packages: {pkg_list}"
-                )
+                pkg_list = ", ".join(f"'{name}{spec}'" if spec else f"'{name}'" for name, spec in missing_packages)
+                message_parts.append(f"{converter_name.upper()} format requires the following packages: {pkg_list}")
 
             # Add version mismatch section
             if version_mismatches:
                 mismatch_details = []
                 for name, required, installed in version_mismatches:
-                    mismatch_details.append(
-                        f"'{name}' (requires {required}, but {installed} is installed)"
-                    )
+                    mismatch_details.append(f"'{name}' (requires {required}, but {installed} is installed)")
                 mismatch_str = ", ".join(mismatch_details)
-                message_parts.append(
-                    f"{converter_name.upper()} format has version mismatches: {mismatch_str}"
-                )
+                message_parts.append(f"{converter_name.upper()} format has version mismatches: {mismatch_str}")
 
             message = "\n".join(message_parts)
 
@@ -612,10 +554,7 @@ class DependencyError(All2MdError):
                 # Generate install command for all problematic packages
                 all_packages = missing_packages + [(name, req) for name, req, _ in version_mismatches]
                 if all_packages:
-                    packages_str = " ".join(
-                        f'"{name}{spec}"' if spec else name
-                        for name, spec in all_packages
-                    )
+                    packages_str = " ".join(f'"{name}{spec}"' if spec else name for name, spec in all_packages)
                     message += f"\nInstall with: pip install --upgrade {packages_str}"
 
         super().__init__(message)

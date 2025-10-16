@@ -50,45 +50,34 @@ class IpynbOptions(BaseParserOptions):
         metadata={
             "help": "Include cell input (source code) in output",
             "cli_name": "no-include-inputs",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     include_outputs: bool = field(
         default=True,
         metadata={
             "help": "Include cell outputs in the markdown",
             "cli_name": "no-include-outputs",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     show_execution_count: bool = field(
-        default=False,
-        metadata={
-            "help": "Show execution counts for code cells",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Show execution counts for code cells", "importance": "advanced"}
     )
     output_types: tuple[str, ...] | None = field(
         default=("stream", "execute_result", "display_data"),
         metadata={
             "help": "Types of outputs to include (stream, execute_result, display_data, error)",
             "action": "append",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     image_format: str = field(
         default="png",
-        metadata={
-            "help": "Preferred image format for notebook outputs (png, jpeg)",
-            "importance": "advanced"
-        }
+        metadata={"help": "Preferred image format for notebook outputs (png, jpeg)", "importance": "advanced"},
     )
     image_quality: int = field(
-        default=85,
-        metadata={
-            "help": "JPEG quality setting (1-100) for image conversion",
-            "importance": "advanced"
-        }
+        default=85, metadata={"help": "JPEG quality setting (1-100) for image conversion", "importance": "advanced"}
     )
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
@@ -104,9 +93,7 @@ class IpynbOptions(BaseParserOptions):
         """
         # Validate image quality (1-100)
         if not 1 <= self.image_quality <= 100:
-            raise ValueError(
-                f"image_quality must be in range [1, 100], got {self.image_quality}"
-            )
+            raise ValueError(f"image_quality must be in range [1, 100], got {self.image_quality}")
 
 
 @dataclass(frozen=True)
@@ -160,82 +147,82 @@ class IpynbRendererOptions(BaseRendererOptions):
             "help": "Major notebook format version (auto = preserve from source)",
             "importance": "advanced",
             "choices": ["auto", 4, 5],
-        }
+        },
     )
     nbformat_minor: int | Literal["auto"] = field(
         default="auto",
         metadata={
             "help": "Minor notebook format revision (auto = preserve from source)",
             "importance": "advanced",
-        }
+        },
     )
     default_language: str = field(
         default="python",
         metadata={
             "help": "Fallback programming language for language_info",
             "importance": "core",
-        }
+        },
     )
     default_kernel_name: str = field(
         default="python3",
         metadata={
             "help": "Fallback kernelspec name when inference fails",
             "importance": "core",
-        }
+        },
     )
     default_kernel_display_name: str = field(
         default="Python 3",
         metadata={
             "help": "Fallback kernelspec display name when inference fails",
             "importance": "core",
-        }
+        },
     )
     infer_language_from_document: bool = field(
         default=True,
         metadata={
             "help": "Infer language from Document metadata before using defaults",
             "importance": "advanced",
-        }
+        },
     )
     infer_kernel_from_document: bool = field(
         default=True,
         metadata={
             "help": "Infer kernelspec information from Document metadata when present",
             "importance": "advanced",
-        }
+        },
     )
     include_trusted_metadata: bool = field(
         default=False,
         metadata={
             "help": "Preserve cell.metadata.trusted values in output notebook",
             "importance": "advanced",
-        }
+        },
     )
     include_ui_metadata: bool = field(
         default=False,
         metadata={
             "help": "Preserve UI metadata like collapsed/scrolled/widget state",
             "importance": "advanced",
-        }
+        },
     )
     preserve_unknown_metadata: bool = field(
         default=True,
         metadata={
             "help": "Retain unrecognized metadata keys instead of dropping them",
             "importance": "advanced",
-        }
+        },
     )
     inline_attachments: bool = field(
         default=True,
         metadata={
             "help": "Embed attachments directly inside notebook cells",
             "importance": "core",
-        }
+        },
     )
     markdown_options: MarkdownOptions | None = field(
         default=None,
         metadata={
             "help": "Override markdown renderer configuration for markdown cells",
             "importance": "advanced",
-        }
+        },
     )

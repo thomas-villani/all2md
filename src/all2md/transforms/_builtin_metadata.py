@@ -38,7 +38,7 @@ REMOVE_IMAGES_METADATA = TransformMetadata(
     priority=100,
     tags=["images", "cleanup"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # RemoveNodesTransform metadata
@@ -47,18 +47,18 @@ REMOVE_NODES_METADATA = TransformMetadata(
     description="Remove nodes of specified types from the AST",
     transformer_class=RemoveNodesTransform,
     parameters={
-        'node_types': ParameterSpec(
+        "node_types": ParameterSpec(
             type=list,
             element_type=str,
-            default=['image'],
+            default=["image"],
             help="List of node types to remove (e.g., 'image', 'table', 'code_block')",
-            cli_flag='--node-types'
+            cli_flag="--node-types",
         )
     },
     priority=100,
     tags=["cleanup"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # HeadingOffsetTransform metadata
@@ -67,17 +67,14 @@ HEADING_OFFSET_METADATA = TransformMetadata(
     description="Shift heading levels by a specified offset",
     transformer_class=HeadingOffsetTransform,
     parameters={
-        'offset': ParameterSpec(
-            type=int,
-            default=1,
-            help="Number of levels to shift (positive or negative)",
-            cli_flag='--heading-offset'
+        "offset": ParameterSpec(
+            type=int, default=1, help="Number of levels to shift (positive or negative)", cli_flag="--heading-offset"
         )
     },
     priority=100,
     tags=["headings", "structure"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # LinkRewriterTransform metadata
@@ -86,23 +83,17 @@ LINK_REWRITER_METADATA = TransformMetadata(
     description="Rewrite link URLs using regex pattern matching",
     transformer_class=LinkRewriterTransform,
     parameters={
-        'pattern': ParameterSpec(
-            type=str,
-            required=True,
-            help="Regex pattern to match in URLs",
-            cli_flag='--link-pattern'
+        "pattern": ParameterSpec(
+            type=str, required=True, help="Regex pattern to match in URLs", cli_flag="--link-pattern"
         ),
-        'replacement': ParameterSpec(
-            type=str,
-            required=True,
-            help="Replacement string for matched pattern",
-            cli_flag='--link-replacement'
-        )
+        "replacement": ParameterSpec(
+            type=str, required=True, help="Replacement string for matched pattern", cli_flag="--link-replacement"
+        ),
     },
     priority=200,
     tags=["links", "rewrite"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # TextReplacerTransform metadata
@@ -111,23 +102,13 @@ TEXT_REPLACER_METADATA = TransformMetadata(
     description="Find and replace text in Text nodes",
     transformer_class=TextReplacerTransform,
     parameters={
-        'find': ParameterSpec(
-            type=str,
-            required=True,
-            help="Text to find",
-            cli_flag='--find-text'
-        ),
-        'replace': ParameterSpec(
-            type=str,
-            required=True,
-            help="Replacement text",
-            cli_flag='--replace-text'
-        )
+        "find": ParameterSpec(type=str, required=True, help="Text to find", cli_flag="--find-text"),
+        "replace": ParameterSpec(type=str, required=True, help="Replacement text", cli_flag="--replace-text"),
     },
     priority=200,
     tags=["text", "replace"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # AddHeadingIdsTransform metadata
@@ -136,23 +117,20 @@ ADD_HEADING_IDS_METADATA = TransformMetadata(
     description="Generate and add unique IDs to heading nodes for anchors",
     transformer_class=AddHeadingIdsTransform,
     parameters={
-        'id_prefix': ParameterSpec(
-            type=str,
-            default="",
-            help="Prefix to add to all generated IDs",
-            cli_flag='--heading-id-prefix'
+        "id_prefix": ParameterSpec(
+            type=str, default="", help="Prefix to add to all generated IDs", cli_flag="--heading-id-prefix"
         ),
-        'separator': ParameterSpec(
+        "separator": ParameterSpec(
             type=str,
             default="-",
             help="Separator for multi-word slugs and duplicate handling",
-            cli_flag='--heading-id-separator'
-        )
+            cli_flag="--heading-id-separator",
+        ),
     },
     priority=150,
     tags=["headings", "anchors", "ids"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # RemoveBoilerplateTextTransform metadata
@@ -161,18 +139,18 @@ REMOVE_BOILERPLATE_METADATA = TransformMetadata(
     description="Remove paragraphs matching common boilerplate patterns",
     transformer_class=RemoveBoilerplateTextTransform,
     parameters={
-        'patterns': ParameterSpec(
+        "patterns": ParameterSpec(
             type=list,
             element_type=str,
             default=DEFAULT_BOILERPLATE_PATTERNS,
             help="List of regex patterns to match for removal",
-            cli_flag='--boilerplate-patterns'
+            cli_flag="--boilerplate-patterns",
         )
     },
     priority=100,
     tags=["cleanup", "text"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # AddConversionTimestampTransform metadata
@@ -181,19 +159,19 @@ ADD_TIMESTAMP_METADATA = TransformMetadata(
     description="Add conversion timestamp to document metadata",
     transformer_class=AddConversionTimestampTransform,
     parameters={
-        'field_name': ParameterSpec(
+        "field_name": ParameterSpec(
             type=str,
             default="conversion_timestamp",
             help="Metadata field name for the timestamp",
-            cli_flag='--timestamp-field'
+            cli_flag="--timestamp-field",
         ),
-        'timestamp_format': ParameterSpec(
+        "timestamp_format": ParameterSpec(
             type=str,
             default="iso",
             help="Timestamp format: 'iso' for ISO 8601, 'unix' for Unix timestamp, or any strftime format string",
-            cli_flag='--timestamp-format'
+            cli_flag="--timestamp-format",
         ),
-        'timespec': ParameterSpec(
+        "timespec": ParameterSpec(
             type=str,
             default="seconds",
             choices=["auto", "hours", "minutes", "seconds", "milliseconds", "microseconds"],
@@ -202,13 +180,13 @@ ADD_TIMESTAMP_METADATA = TransformMetadata(
                 "(auto, hours, minutes, seconds, milliseconds, microseconds). "
                 "Only applies when format='iso'"
             ),
-            cli_flag='--timestamp-timespec'
-        )
+            cli_flag="--timestamp-timespec",
+        ),
     },
     priority=300,
     tags=["metadata", "timestamp"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # CalculateWordCountTransform metadata
@@ -217,23 +195,20 @@ WORD_COUNT_METADATA = TransformMetadata(
     description="Calculate word and character counts and add to metadata",
     transformer_class=CalculateWordCountTransform,
     parameters={
-        'word_field': ParameterSpec(
-            type=str,
-            default="word_count",
-            help="Metadata field name for word count",
-            cli_flag='--word-count-field'
+        "word_field": ParameterSpec(
+            type=str, default="word_count", help="Metadata field name for word count", cli_flag="--word-count-field"
         ),
-        'char_field': ParameterSpec(
+        "char_field": ParameterSpec(
             type=str,
             default="char_count",
             help="Metadata field name for character count",
-            cli_flag='--char-count-field'
-        )
+            cli_flag="--char-count-field",
+        ),
     },
     priority=300,
     tags=["metadata", "statistics"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # AddAttachmentFootnotesTransform metadata
@@ -242,29 +217,29 @@ ADD_ATTACHMENT_FOOTNOTES_METADATA = TransformMetadata(
     description="Add footnote definitions for attachment references",
     transformer_class=AddAttachmentFootnotesTransform,
     parameters={
-        'section_title': ParameterSpec(
+        "section_title": ParameterSpec(
             type=str,
             default="Attachments",
             help="Title for the footnote section heading (use empty string to skip heading)",
-            cli_flag='--attachment-section-title'
+            cli_flag="--attachment-section-title",
         ),
-        'add_definitions_for_images': ParameterSpec(
+        "add_definitions_for_images": ParameterSpec(
             type=bool,
             default=True,
             help="Add definitions for image footnote references",
-            cli_flag='--add-image-footnotes'
+            cli_flag="--add-image-footnotes",
         ),
-        'add_definitions_for_links': ParameterSpec(
+        "add_definitions_for_links": ParameterSpec(
             type=bool,
             default=True,
             help="Add definitions for link footnote references",
-            cli_flag='--add-link-footnotes'
-        )
+            cli_flag="--add-link-footnotes",
+        ),
     },
     priority=400,
     tags=["attachments", "footnotes", "cleanup"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 # GenerateTocTransform metadata
@@ -273,41 +248,32 @@ GENERATE_TOC_METADATA = TransformMetadata(
     description="Generate table of contents from document headings",
     transformer_class=GenerateTocTransform,
     parameters={
-        'title': ParameterSpec(
-            type=str,
-            default="Table of Contents",
-            help="Title for the TOC section",
-            cli_flag='--toc-title'
+        "title": ParameterSpec(
+            type=str, default="Table of Contents", help="Title for the TOC section", cli_flag="--toc-title"
         ),
-        'max_depth': ParameterSpec(
-            type=int,
-            default=3,
-            help="Maximum heading level to include (1-6)",
-            cli_flag='--toc-max-depth'
+        "max_depth": ParameterSpec(
+            type=int, default=3, help="Maximum heading level to include (1-6)", cli_flag="--toc-max-depth"
         ),
-        'position': ParameterSpec(
-            type=str,
-            default="top",
-            help="Position to insert the TOC ('top' or 'bottom')",
-            cli_flag='--toc-position'
+        "position": ParameterSpec(
+            type=str, default="top", help="Position to insert the TOC ('top' or 'bottom')", cli_flag="--toc-position"
         ),
-        'add_links': ParameterSpec(
+        "add_links": ParameterSpec(
             type=bool,
             default=True,
             help="Whether to create links to headings (requires heading IDs)",
-            cli_flag='--toc-add-links'
+            cli_flag="--toc-add-links",
         ),
-        'separator': ParameterSpec(
+        "separator": ParameterSpec(
             type=str,
             default="-",
             help="Separator for generating heading IDs when not present",
-            cli_flag='--toc-separator'
-        )
+            cli_flag="--toc-separator",
+        ),
     },
     priority=250,
     tags=["toc", "headings", "navigation"],
     version="1.0.0",
-    author="all2md"
+    author="all2md",
 )
 
 __all__ = [

@@ -173,9 +173,7 @@ class SourceCodeToAstConverter(BaseParser):
 
         # Create CodeBlock node
         code_block = CodeBlock(
-            language=detected_lang,
-            content=content,
-            metadata={"filename": filename} if filename else {}
+            language=detected_lang, content=content, metadata={"filename": filename} if filename else {}
         )
 
         # Extract and attach metadata

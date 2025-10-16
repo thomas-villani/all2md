@@ -110,7 +110,7 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
 
     for field in fields(instance):
         metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
-        if metadata.get('exclude_from_cli', False):
+        if metadata.get("exclude_from_cli", False):
             continue
 
         serialized = _serialize_config_value(getattr(instance, field.name))
@@ -134,12 +134,12 @@ def _build_default_config_data() -> Dict[str, Any]:
     options_map = builder.get_options_class_map()
     config: Dict[str, Any] = {}
 
-    base_defaults = _collect_defaults_from_options_class(options_map.get('base'))
+    base_defaults = _collect_defaults_from_options_class(options_map.get("base"))
     config.update(base_defaults)
 
     ordered_keys = sorted(options_map.keys())
     for key in ordered_keys:
-        if key == 'base':
+        if key == "base":
             continue
 
         defaults = _collect_defaults_from_options_class(options_map.get(key))
@@ -151,24 +151,24 @@ def _build_default_config_data() -> Dict[str, Any]:
 
 def _format_toml_value(value: Any) -> str:
     if isinstance(value, bool):
-        return 'true' if value else 'false'
+        return "true" if value else "false"
     if isinstance(value, (int, float)):
         return str(value)
     if value is None:
-        return 'null'
+        return "null"
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
     if isinstance(value, list):
-        items = ', '.join(_format_toml_value(item) for item in value)
-        return f'[{items}]'
+        items = ", ".join(_format_toml_value(item) for item in value)
+        return f"[{items}]"
     if isinstance(value, dict):
         # Should not hit here; dicts are handled at section level
-        return '{}'
+        return "{}"
     return f'"{value}"'
 
 
 def _emit_toml_section(name: str, data: Dict[str, Any]) -> List[str]:
-    lines: List[str] = [f'[{name}]']
+    lines: List[str] = [f"[{name}]"]
 
     scalar_keys = [k for k, v in data.items() if not isinstance(v, dict)]
     for key in sorted(scalar_keys):
@@ -185,9 +185,9 @@ def _emit_toml_section(name: str, data: Dict[str, Any]) -> List[str]:
 
 def _format_config_as_toml(config: Dict[str, Any]) -> str:
     lines = [
-        '# all2md configuration file',
-        '# Generated from current converter defaults',
-        '# Edit values as needed and remove sections you do not use.',
+        "# all2md configuration file",
+        "# Generated from current converter defaults",
+        "# Edit values as needed and remove sections you do not use.",
     ]
 
     scalar_keys = [k for k, v in config.items() if not isinstance(v, dict)]
@@ -200,6 +200,7 @@ def _format_config_as_toml(config: Dict[str, Any]) -> str:
         lines.extend(_emit_toml_section(key, config[key]))
 
     return "\n".join(lines)
+
 
 def _get_version() -> str:
     """Get the version of all2md package."""
@@ -268,26 +269,26 @@ def _get_about_info() -> str:
                         installed_version = get_package_version(install_name)
                         if version_spec:
                             meets_req, _ = check_version_requirement(install_name, version_spec)
-                            status = 'installed' if meets_req else 'version_mismatch'
+                            status = "installed" if meets_req else "version_mismatch"
                         else:
                             meets_req = installed_version is not None
-                            status = 'installed' if meets_req else 'not_installed'
+                            status = "installed" if meets_req else "not_installed"
 
                         all_deps[install_name] = {
-                            'version': installed_version,
-                            'required': version_spec,
-                            'status': status
+                            "version": installed_version,
+                            "required": version_spec,
+                            "status": status,
                         }
 
     # Build dependency report
     dep_lines = []
     for pkg_name, dep_info in sorted(all_deps.items()):
-        if dep_info['status'] == 'installed':
+        if dep_info["status"] == "installed":
             check = "✓"
             version_info = f"{dep_info['version']}"
-            if dep_info['required']:
+            if dep_info["required"]:
                 version_info += f" (required: {dep_info['required']})"
-        elif dep_info['status'] == 'version_mismatch':
+        elif dep_info["status"] == "version_mismatch":
             check = "✗"
             version_info = f"{dep_info['version']} (required: {dep_info['required']})"
         else:
@@ -339,11 +340,7 @@ License: MIT License
 Author: Thomas Villani <thomas.villani@gmail.com>"""
 
 
-def _configure_logging(
-        log_level: int,
-        log_file: Optional[str] = None,
-        trace_mode: bool = False
-) -> None:
+def _configure_logging(log_level: int, log_file: Optional[str] = None, trace_mode: bool = False) -> None:
     """Backward-compatible wrapper around shared logging configuration."""
     configure_root_logging(log_level, log_file=log_file, trace_mode=trace_mode)
 
@@ -366,12 +363,20 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     """
     # Exclude special arguments that shouldn't be saved
     exclude_args = {
-        'input', 'out', 'save_config', 'about', 'version', 'dry_run', 'format', '_env_checked', '_provided_args'
+        "input",
+        "out",
+        "save_config",
+        "about",
+        "version",
+        "dry_run",
+        "format",
+        "_env_checked",
+        "_provided_args",
     }
     # Note: 'exclude' is intentionally NOT excluded so it can be saved in config
 
     # Get set of explicitly provided arguments from tracking actions
-    provided_args: set[str] = getattr(args, '_provided_args', set())
+    provided_args: set[str] = getattr(args, "_provided_args", set())
 
     # Convert namespace to dict and filter
     args_dict = vars(args)
@@ -389,7 +394,7 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
                 continue
             # Skip sentinel values that aren't JSON serializable
             # Check for dataclasses._MISSING_TYPE
-            if hasattr(value, '__class__') and value.__class__.__name__ == '_MISSING_TYPE':
+            if hasattr(value, "__class__") and value.__class__.__name__ == "_MISSING_TYPE":
                 continue
             # Check for plain object() sentinels (used for UNSET in MarkdownOptions)
             if type(value) is object:
@@ -405,17 +410,17 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     config_path_obj = Path(config_path)
     config_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(config_path_obj, 'w', encoding='utf-8') as f:
+    with open(config_path_obj, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
     print(f"Configuration saved to {config_path}")
 
 
 def collect_input_files(
-        input_paths: List[str],
-        recursive: bool = False,
-        extensions: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None
+    input_paths: List[str],
+    recursive: bool = False,
+    extensions: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
 ) -> List[Path]:
     """Collect all input files from provided paths.
 
@@ -453,7 +458,7 @@ def collect_input_files(
         input_path = Path(input_path_str)
 
         # Handle glob patterns
-        if '*' in input_path_str:
+        if "*" in input_path_str:
             for matched in Path.cwd().glob(input_path_str):
                 if matched.is_file() and extension_allowed(matched):
                     files.append(matched)
@@ -463,7 +468,7 @@ def collect_input_files(
                 files.append(input_path)
         elif input_path.is_dir():
             # Directory - collect files
-            iterator = input_path.rglob('*') if recursive else input_path.iterdir()
+            iterator = input_path.rglob("*") if recursive else input_path.iterdir()
             for child in iterator:
                 if not child.is_file():
                     continue
@@ -482,8 +487,7 @@ def collect_input_files(
             exclude_file = False
             for pattern in exclude_patterns:
                 # Check against filename and absolute path
-                if (fnmatch.fnmatch(str(file), pattern) or
-                        fnmatch.fnmatch(file.name, pattern)):
+                if fnmatch.fnmatch(str(file), pattern) or fnmatch.fnmatch(file.name, pattern):
                     exclude_file = True
                     break
 
@@ -513,25 +517,11 @@ def _create_list_formats_parser() -> argparse.ArgumentParser:
 
     """
     parser = argparse.ArgumentParser(
-        prog='all2md list-formats',
-        description='Show information about available document parsers.',
-        add_help=True
+        prog="all2md list-formats", description="Show information about available document parsers.", add_help=True
     )
-    parser.add_argument(
-        'format',
-        nargs='?',
-        help='Show details for specific format only'
-    )
-    parser.add_argument(
-        '--available-only',
-        action='store_true',
-        help='Show only formats with satisfied dependencies'
-    )
-    parser.add_argument(
-        '--rich',
-        action='store_true',
-        help='Use rich terminal output with formatting'
-    )
+    parser.add_argument("format", nargs="?", help="Show details for specific format only")
+    parser.add_argument("--available-only", action="store_true", help="Show only formats with satisfied dependencies")
+    parser.add_argument("--rich", action="store_true", help="Use rich terminal output with formatting")
     return parser
 
 
@@ -545,20 +535,10 @@ def _create_list_transforms_parser() -> argparse.ArgumentParser:
 
     """
     parser = argparse.ArgumentParser(
-        prog='all2md list-transforms',
-        description='Show available AST transforms.',
-        add_help=True
+        prog="all2md list-transforms", description="Show available AST transforms.", add_help=True
     )
-    parser.add_argument(
-        'transform',
-        nargs='?',
-        help='Show details for specific transform'
-    )
-    parser.add_argument(
-        '--rich',
-        action='store_true',
-        help='Use rich terminal output'
-    )
+    parser.add_argument("transform", nargs="?", help="Show details for specific transform")
+    parser.add_argument("--rich", action="store_true", help="Use rich terminal output")
     return parser
 
 
@@ -624,30 +604,32 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
                 if not meets_req:
                     all_available = False
                     if installed_version:
-                        dep_status.append((install_name, version_spec, 'mismatch', installed_version))
+                        dep_status.append((install_name, version_spec, "mismatch", installed_version))
                     else:
-                        dep_status.append((install_name, version_spec, 'missing', None))
+                        dep_status.append((install_name, version_spec, "missing", None))
                 else:
-                    dep_status.append((install_name, version_spec, 'ok', installed_version))
+                    dep_status.append((install_name, version_spec, "ok", installed_version))
             else:
                 # Use install_name for version lookup (consistent with version checking)
                 installed_version = get_package_version(install_name)
                 if installed_version:
-                    dep_status.append((install_name, version_spec, 'ok', installed_version))
+                    dep_status.append((install_name, version_spec, "ok", installed_version))
                 else:
                     all_available = False
-                    dep_status.append((install_name, version_spec, 'missing', None))
+                    dep_status.append((install_name, version_spec, "missing", None))
 
         # Skip if filtering for available only
         if available_only and not all_available:
             continue
 
-        format_info_list.append({
-            'name': format_name,
-            'metadata': metadata,
-            'all_available': all_available,
-            'dep_status': dep_status,
-        })
+        format_info_list.append(
+            {
+                "name": format_name,
+                "metadata": metadata,
+                "all_available": all_available,
+                "dep_status": dep_status,
+            }
+        )
 
     # Display results
     if use_rich:
@@ -662,7 +644,7 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
                 # Detailed view for specific format
                 info = format_info_list[0] if format_info_list else None
                 if info:
-                    fmt_metadata: ConverterMetadata | None = info['metadata']
+                    fmt_metadata: ConverterMetadata | None = info["metadata"]
                     assert fmt_metadata is not None  # Already filtered in list construction
 
                     # Create main panel
@@ -677,31 +659,26 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
                     console.print(Panel("\n".join(content), title=f"{info['name'].upper()} Format Details"))
 
                     # Dependencies table
-                    if info['dep_status']:
+                    if info["dep_status"]:
                         dep_table = Table(title="Dependencies")
                         dep_table.add_column("Package", style="cyan")
                         dep_table.add_column("Required", style="yellow")
                         dep_table.add_column("Status", style="magenta")
                         dep_table.add_column("Installed", style="green")
 
-                        for pkg_name, version_spec, status, installed_version in info['dep_status']:
+                        for pkg_name, version_spec, status, installed_version in info["dep_status"]:
                             status_icon = {
-                                'ok': '[green][OK] Available[/green]',
-                                'missing': '[red][X] Missing[/red]',
-                                'mismatch': '[yellow][!] Version Mismatch[/yellow]'
+                                "ok": "[green][OK] Available[/green]",
+                                "missing": "[red][X] Missing[/red]",
+                                "mismatch": "[yellow][!] Version Mismatch[/yellow]",
                             }[status]
 
-                            dep_table.add_row(
-                                pkg_name,
-                                version_spec or 'any',
-                                status_icon,
-                                installed_version or 'N/A'
-                            )
+                            dep_table.add_row(pkg_name, version_spec or "any", status_icon, installed_version or "N/A")
 
                         console.print(dep_table)
 
                         # Show install command if needed
-                        if not info['all_available']:
+                        if not info["all_available"]:
                             install_cmd = fmt_metadata.get_install_command()
                             console.print(f"\n[yellow]Install with:[/yellow] {install_cmd}")
                     else:
@@ -717,10 +694,10 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
                 table.add_column("Dependencies", style="white")
 
                 for info in format_info_list:
-                    metadata = info['metadata']
+                    metadata = info["metadata"]
 
                     # Status indicator
-                    if info['all_available']:
+                    if info["all_available"]:
                         status = "[green][OK] Available[/green]"
                     else:
                         status = "[red][X] Unavailable[/red]"
@@ -743,20 +720,14 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
                         capabilities = "None"
 
                     # Dependencies summary
-                    if info['dep_status']:
-                        ok_count = sum(1 for _, _, s, _ in info['dep_status'] if s == 'ok')
-                        total_count = len(info['dep_status'])
+                    if info["dep_status"]:
+                        ok_count = sum(1 for _, _, s, _ in info["dep_status"] if s == "ok")
+                        total_count = len(info["dep_status"])
                         dep_str = f"{ok_count}/{total_count}"
                     else:
                         dep_str = "none"
 
-                    table.add_row(
-                        info['name'].upper(),
-                        ext_str,
-                        capabilities,
-                        status,
-                        dep_str
-                    )
+                    table.add_row(info["name"].upper(), ext_str, capabilities, status, dep_str)
 
                 console.print(table)
                 console.print("\n[dim]Use 'all2md list-formats <format>' for detailed information[/dim]")
@@ -770,7 +741,7 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
         if specific_format:
             info = format_info_list[0] if format_info_list else None
             if info:
-                metadata_obj: ConverterMetadata | None = info['metadata']
+                metadata_obj: ConverterMetadata | None = info["metadata"]
                 assert metadata_obj is not None  # Already filtered in list construction
                 print(f"\n{info['name'].upper()} Format")
                 print("=" * 60)
@@ -780,21 +751,17 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
                 print(f"Converter: {metadata_obj.get_converter_display_string()}")
                 print(f"Priority: {metadata_obj.priority}")
 
-                if info['dep_status']:
+                if info["dep_status"]:
                     print("\nDependencies:")
-                    for pkg_name, version_spec, status, installed_version in info['dep_status']:
-                        status_str = {
-                            'ok': '[OK]',
-                            'missing': '[MISSING]',
-                            'mismatch': '[VERSION MISMATCH]'
-                        }[status]
+                    for pkg_name, version_spec, status, installed_version in info["dep_status"]:
+                        status_str = {"ok": "[OK]", "missing": "[MISSING]", "mismatch": "[VERSION MISMATCH]"}[status]
 
                         version_str = f" {version_spec}" if version_spec else ""
                         installed_str = f" (installed: {installed_version})" if installed_version else ""
 
                         print(f"  {status_str} {pkg_name}{version_str}{installed_str}")
 
-                    if not info['all_available']:
+                    if not info["all_available"]:
                         install_cmd = metadata_obj.get_install_command()
                         print(f"\nInstall with: {install_cmd}")
                 else:
@@ -803,9 +770,9 @@ def handle_list_formats_command(args: list[str] | None = None) -> int:
             print("\nAll2MD Supported Formats")
             print("=" * 60)
             for info in format_info_list:
-                format_meta: ConverterMetadata | None = info['metadata']
+                format_meta: ConverterMetadata | None = info["metadata"]
                 assert format_meta is not None  # Already filtered in list construction
-                status = "[OK]" if info['all_available'] else "[X]"
+                status = "[OK]" if info["all_available"] else "[X]"
                 ext_str = ", ".join(format_meta.extensions[:4])
                 if len(format_meta.extensions) > 4:
                     ext_str += f" +{len(format_meta.extensions) - 4}"
@@ -901,14 +868,14 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
                     table.add_column("Description", style="white")
 
                     for name, spec in metadata.parameters.items():
-                        type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
-                        flag: str = spec.get_cli_flag(name) if spec.should_expose() else 'N/A'
+                        type_str = spec.type.__name__ if hasattr(spec.type, "__name__") else str(spec.type)
+                        flag: str = spec.get_cli_flag(name) if spec.should_expose() else "N/A"
                         table.add_row(
                             name,
                             type_str,
-                            str(spec.default) if spec.default is not None else 'None',
+                            str(spec.default) if spec.default is not None else "None",
                             flag,
-                            spec.help or ''
+                            spec.help or "",
                         )
 
                     console.print(table)
@@ -922,9 +889,7 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
                 for name in transforms:
                     metadata = transform_registry.get_metadata(name)
                     table.add_row(
-                        metadata.name,
-                        metadata.description,
-                        ', '.join(metadata.tags) if metadata.tags else ''
+                        metadata.name, metadata.description, ", ".join(metadata.tags) if metadata.tags else ""
                     )
 
                 console.print(table)
@@ -947,7 +912,7 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
             if metadata.parameters:
                 print("\nParameters:")
                 for name, spec in metadata.parameters.items():
-                    type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
+                    type_str = spec.type.__name__ if hasattr(spec.type, "__name__") else str(spec.type)
                     default_str = f"(default: {spec.default})" if spec.default is not None else ""
                     cli_flag: str | None = spec.get_cli_flag(name) if spec.should_expose() else None
                     print(f"  {name} ({type_str}) {default_str}")
@@ -973,25 +938,25 @@ def handle_help_command(args: list[str] | None = None) -> int | None:
     if not args:
         args = sys.argv[1:]
 
-    if not args or args[0] != 'help':
+    if not args or args[0] != "help":
         return None
 
     help_args = args[1:]
 
     parser = argparse.ArgumentParser(
-        prog='all2md help',
-        description='Show all2md CLI help sections (quick, full, or format-specific).',
+        prog="all2md help",
+        description="Show all2md CLI help sections (quick, full, or format-specific).",
     )
     parser.add_argument(
-        'section',
-        nargs='?',
-        default='quick',
-        help='Help selector (quick, full, pdf, docx, html, etc.). Default: quick.',
+        "section",
+        nargs="?",
+        default="quick",
+        help="Help selector (quick, full, pdf, docx, html, etc.). Default: quick.",
     )
     parser.add_argument(
-        '--rich',
-        action='store_true',
-        help='Render help with rich formatting when the rich package is installed.',
+        "--rich",
+        action="store_true",
+        help="Render help with rich formatting when the rich package is installed.",
     )
 
     parsed = parser.parse_args(help_args)
@@ -1011,24 +976,24 @@ def handle_convert_command(args: list[str] | None = None) -> int | None:
     if not args:
         args = sys.argv[1:]
 
-    if not args or args[0] != 'convert':
+    if not args or args[0] != "convert":
         return None
 
     convert_args = args[1:]
     parser = create_parser()
     parsed_args = parser.parse_args(convert_args)
 
-    provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
+    provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
 
-    if 'output_type' not in provided_args:
-        parsed_args.output_type = 'auto'
+    if "output_type" not in provided_args:
+        parsed_args.output_type = "auto"
 
     if not parsed_args.out and not parsed_args.output_dir and len(parsed_args.input) == 2:
         parsed_args.out = parsed_args.input[-1]
         parsed_args.input = parsed_args.input[:1]
 
     if not parsed_args.config:
-        env_config = os.environ.get('ALL2MD_CONFIG')
+        env_config = os.environ.get("ALL2MD_CONFIG")
         if env_config:
             parsed_args.config = env_config
 
@@ -1049,7 +1014,6 @@ def handle_convert_command(args: list[str] | None = None) -> int | None:
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
-
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 
     # Set up logging level
@@ -1061,23 +1025,15 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
         log_level = getattr(logging, parsed_args.log_level.upper())
 
     # Configure logging with file handler if --log-file is specified
-    _configure_logging(
-        log_level,
-        log_file=parsed_args.log_file,
-        trace_mode=parsed_args.trace
-    )
+    _configure_logging(log_level, log_file=parsed_args.log_file, trace_mode=parsed_args.trace)
 
     if not validate_arguments(parsed_args, logger=logger):
         return EXIT_VALIDATION_ERROR
 
-    if len(parsed_args.input) == 1 and parsed_args.input[0] == '-':
+    if len(parsed_args.input) == 1 and parsed_args.input[0] == "-":
         return process_stdin(parsed_args, options, format_arg, transforms)
 
-    files = collect_input_files(
-        parsed_args.input,
-        parsed_args.recursive,
-        exclude_patterns=parsed_args.exclude
-    )
+    files = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
 
     if not files:
         print("Error: No valid input files found", file=sys.stderr)
@@ -1098,13 +1054,13 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
         print("Error: --out can only be used with a single input file", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
-    if parsed_args.output_dir and parsed_args.output_type == 'auto':
+    if parsed_args.output_dir and parsed_args.output_type == "auto":
         print("Error: --output-dir requires --output-type to determine file extensions", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
     # TODO: Why only supported with markdown? Should be easy to implement with other formats as well.
     if parsed_args.collate:
-        if parsed_args.output_type not in ('auto', 'markdown'):
+        if parsed_args.output_type not in ("auto", "markdown"):
             print("Error: --collate is only supported for markdown output", file=sys.stderr)
             return EXIT_VALIDATION_ERROR
         return process_files_collated(files, parsed_args, options, format_arg, transforms)
@@ -1120,6 +1076,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     if use_progress:
         try:
             from tqdm import tqdm
+
             progress_iterator = tqdm(files, desc="Converting files", unit="file")
             progress_context = progress_iterator
         except ImportError:
@@ -1159,15 +1116,15 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
             renderer_hint = target_format
 
             if output_path is None:
-                target_format = 'markdown'
-                renderer_hint = 'markdown'
-            elif renderer_hint == 'auto' and output_path:
+                target_format = "markdown"
+                renderer_hint = "markdown"
+            elif renderer_hint == "auto" and output_path:
                 try:
                     detected_target = registry.detect_format(output_path)
-                    if detected_target and detected_target != 'txt':
+                    if detected_target and detected_target != "txt":
                         renderer_hint = detected_target
                 except Exception:
-                    renderer_hint = 'auto'
+                    renderer_hint = "auto"
 
             effective_options = prepare_options_for_execution(
                 options,
@@ -1187,7 +1144,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                 )
 
                 if isinstance(rendered, bytes):
-                    rendered_text = rendered.decode('utf-8', errors='replace')
+                    rendered_text = rendered.decode("utf-8", errors="replace")
                 else:
                     rendered_text = rendered or ""
 
@@ -1203,6 +1160,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                         if use_rich_output:
                             from rich.console import Console
                             from rich.markdown import Markdown
+
                             console = Console()
                             # Get Rich markdown kwargs from CLI args
                             rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
@@ -1220,6 +1178,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 
                         # Import the helper function
                         from all2md.cli.processors import _page_content
+
                         # Try to page the content using available pager
                         if not _page_content(content_to_page, is_rich=is_rich):
                             # If paging fails, just print the content
@@ -1291,19 +1250,19 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
 def handle_config_generate_command(args: list[str] | None = None) -> int:
     """Handle ``config generate`` to create default configuration files."""
     parser = argparse.ArgumentParser(
-        prog='all2md config generate',
-        description='Generate a default configuration file with all available options.',
+        prog="all2md config generate",
+        description="Generate a default configuration file with all available options.",
     )
     parser.add_argument(
-        '--format',
-        choices=('toml', 'json'),
-        default='toml',
-        help='Output format for the generated configuration (default: toml).',
+        "--format",
+        choices=("toml", "json"),
+        default="toml",
+        help="Output format for the generated configuration (default: toml).",
     )
     parser.add_argument(
-        '--out',
-        dest='out',
-        help='Write configuration to the given path instead of stdout.',
+        "--out",
+        dest="out",
+        help="Write configuration to the given path instead of stdout.",
     )
 
     try:
@@ -1313,7 +1272,7 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
 
     config_data = _build_default_config_data()
 
-    if parsed_args.format == 'toml':
+    if parsed_args.format == "toml":
         output_text = _format_config_as_toml(config_data)
     else:
         output_text = json.dumps(config_data, indent=2, ensure_ascii=False, sort_keys=True)
@@ -1322,7 +1281,7 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
         try:
             output_path = Path(parsed_args.out)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(output_text, encoding='utf-8')
+            output_path.write_text(output_text, encoding="utf-8")
             print(f"Configuration written to {parsed_args.out}")
         except Exception as exc:
             print(f"Error writing configuration file: {exc}", file=sys.stderr)
@@ -1338,21 +1297,21 @@ def handle_config_show_command(args: list[str] | None = None) -> int:
     from all2md.cli.config import get_config_search_paths, load_config_with_priority
 
     parser = argparse.ArgumentParser(
-        prog='all2md config show',
-        description='Display the effective configuration that all2md will use.',
+        prog="all2md config show",
+        description="Display the effective configuration that all2md will use.",
     )
     parser.add_argument(
-        '--format',
-        choices=('toml', 'json'),
-        default='toml',
-        help='Output format for the configuration (default: toml).',
+        "--format",
+        choices=("toml", "json"),
+        default="toml",
+        help="Output format for the configuration (default: toml).",
     )
     parser.add_argument(
-        '--no-source',
-        dest='show_source',
-        action='store_false',
+        "--no-source",
+        dest="show_source",
+        action="store_false",
         default=True,
-        help='Hide configuration source information.',
+        help="Hide configuration source information.",
     )
 
     try:
@@ -1360,38 +1319,38 @@ def handle_config_show_command(args: list[str] | None = None) -> int:
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 0
 
-    env_config_path = os.environ.get('ALL2MD_CONFIG')
+    env_config_path = os.environ.get("ALL2MD_CONFIG")
     config = load_config_with_priority(
         explicit_path=None,
         env_var_path=env_config_path,
     )
 
     if parsed_args.show_source:
-        print('Configuration Sources (in priority order):')
-        print('-' * 60)
+        print("Configuration Sources (in priority order):")
+        print("-" * 60)
 
         if env_config_path:
             exists = Path(env_config_path).exists()
-            status = 'FOUND' if exists else 'NOT FOUND'
+            status = "FOUND" if exists else "NOT FOUND"
             print(f"1. ALL2MD_CONFIG env var: {env_config_path} [{status}]")
         else:
-            print('1. ALL2MD_CONFIG env var: (not set)')
+            print("1. ALL2MD_CONFIG env var: (not set)")
 
         for index, path in enumerate(get_config_search_paths(), start=2):
-            status = 'FOUND' if path.exists() else '-'
+            status = "FOUND" if path.exists() else "-"
             print(f"{index}. {path} [{status}]")
 
         print()
 
     if not config:
-        print('No configuration found. Using defaults.')
-        print('\nTo create a config file, run: all2md config generate --out .all2md.toml')
+        print("No configuration found. Using defaults.")
+        print("\nTo create a config file, run: all2md config generate --out .all2md.toml")
         return 0
 
-    print('Effective Configuration:')
-    print('=' * 60)
+    print("Effective Configuration:")
+    print("=" * 60)
 
-    if parsed_args.format == 'toml':
+    if parsed_args.format == "toml":
         import tomli_w
 
         output_text = tomli_w.dumps(config)
@@ -1423,8 +1382,9 @@ def handle_config_validate_command(args: list[str] | None = None) -> int:
 
     if args:
         for arg in args:
-            if arg in ('--help', '-h'):
-                print("""Usage: all2md config validate <config-file>
+            if arg in ("--help", "-h"):
+                print(
+                    """Usage: all2md config validate <config-file>
 
 Validate a configuration file for syntax errors.
 
@@ -1437,9 +1397,10 @@ Options:
 Examples:
   all2md config validate .all2md.toml
   all2md config validate ~/.all2md.json
-""")
+"""
+                )
                 return 0
-            elif not arg.startswith('-'):
+            elif not arg.startswith("-"):
                 config_file = arg
                 break
 
@@ -1480,12 +1441,13 @@ def handle_config_command(args: list[str] | None = None) -> int | None:
     if not args:
         args = sys.argv[1:]
 
-    if not args or args[0] != 'config':
+    if not args or args[0] != "config":
         return None
 
     # Get subcommand
     if len(args) < 2:
-        print("""Usage: all2md config <subcommand> [OPTIONS]
+        print(
+            """Usage: all2md config <subcommand> [OPTIONS]
 
 Configuration management commands.
 
@@ -1500,17 +1462,19 @@ Examples:
   all2md config generate --out .all2md.toml
   all2md config show
   all2md config validate .all2md.toml
-""", file=sys.stderr)
+""",
+            file=sys.stderr,
+        )
         return 1
 
     subcommand = args[1]
     subcommand_args = args[2:]
 
-    if subcommand == 'generate':
+    if subcommand == "generate":
         return handle_config_generate_command(subcommand_args)
-    elif subcommand == 'show':
+    elif subcommand == "show":
         return handle_config_show_command(subcommand_args)
-    elif subcommand == 'validate':
+    elif subcommand == "validate":
         return handle_config_validate_command(subcommand_args)
     else:
         print(f"Error: Unknown config subcommand '{subcommand}'", file=sys.stderr)
@@ -1539,32 +1503,33 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
         return None
 
     # Check for config command
-    if args[0] == 'config':
+    if args[0] == "config":
         return handle_config_command(args)
 
     # Check for list-formats command
-    if args[0] in ('list-formats', 'formats'):
+    if args[0] in ("list-formats", "formats"):
         return handle_list_formats_command(args[1:])
 
     # Check for list-transforms command
-    if args[0] in ('list-transforms', 'transforms'):
+    if args[0] in ("list-transforms", "transforms"):
         return handle_list_transforms_command(args[1:])
 
     # Check for dependency management commands
-    if args[0] == 'check-deps':
+    if args[0] == "check-deps":
         from all2md.dependencies import main as deps_main
+
         # Convert to standard deps CLI format
-        deps_args = ['check']
+        deps_args = ["check"]
 
         # Check for help flags first
-        if len(args) > 1 and args[1] in ('--help', '-h'):
-            deps_args.append('--help')
-        elif len(args) > 1 and args[1] not in ('--help', '-h'):
+        if len(args) > 1 and args[1] in ("--help", "-h"):
+            deps_args.append("--help")
+        elif len(args) > 1 and args[1] not in ("--help", "-h"):
             # Only add format if it's not a help flag
-            deps_args.extend(['--format', args[1]])
+            deps_args.extend(["--format", args[1]])
             # Check for help flags after format
-            if len(args) > 2 and args[2] in ('--help', '-h'):
-                deps_args.append('--help')
+            if len(args) > 2 and args[2] in ("--help", "-h"):
+                deps_args.append("--help")
 
         return deps_main(deps_args)
 

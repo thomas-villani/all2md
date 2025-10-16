@@ -33,6 +33,6 @@ class OdsSpreadsheetOptions(SpreadsheetParserOptions):
         metadata={
             "help": "Whether the first row contains column headers",
             "cli_name": "no-has-header",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )

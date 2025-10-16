@@ -94,7 +94,7 @@ class AstJsonRenderer(BaseRenderer):
             versioned_dict,
             indent=self.options.indent,
             ensure_ascii=self.options.ensure_ascii,
-            sort_keys=self.options.sort_keys
+            sort_keys=self.options.sort_keys,
         )
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:

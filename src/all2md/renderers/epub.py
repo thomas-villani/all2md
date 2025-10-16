@@ -74,10 +74,7 @@ class EpubRenderer(BaseRenderer):
         self.options: EpubRendererOptions = options
 
         # Create HTML renderer for chapter content
-        html_options = HtmlRendererOptions(
-            standalone=False,  # Generate fragments, not full HTML
-            css_style="embedded"
-        )
+        html_options = HtmlRendererOptions(standalone=False, css_style="embedded")  # Generate fragments, not full HTML
         self.html_renderer = HtmlRenderer(html_options)
 
     @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
@@ -142,7 +139,7 @@ class EpubRenderer(BaseRenderer):
 
         # Create EPUB chapters
         epub_chapters = []
-        spine_items = ['nav']
+        spine_items = ["nav"]
 
         for idx, (heading, content_nodes) in enumerate(chapters_data, start=1):
             chapter_title = self._get_chapter_title(heading, idx)
@@ -155,11 +152,7 @@ class EpubRenderer(BaseRenderer):
             chapter_html = self.html_renderer.render_to_string(chapter_doc)
 
             # Create EPUB chapter
-            epub_chapter = epub.EpubHtml(
-                title=chapter_title,
-                file_name=chapter_filename,
-                lang=self.options.language
-            )
+            epub_chapter = epub.EpubHtml(title=chapter_title, file_name=chapter_filename, lang=self.options.language)
             epub_chapter.content = chapter_html
 
             # Add chapter to book
@@ -190,9 +183,7 @@ class EpubRenderer(BaseRenderer):
                 output.write(buffer.read())
         except Exception as e:
             raise RenderingError(
-                f"Failed to write EPUB file: {e!r}",
-                rendering_stage="rendering",
-                original_error=e
+                f"Failed to write EPUB file: {e!r}", rendering_stage="rendering", original_error=e
             ) from e
 
     @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
@@ -222,16 +213,16 @@ class EpubRenderer(BaseRenderer):
         """
         # Set title
         title = self.options.title
-        if not title and doc.metadata and 'title' in doc.metadata:
-            title = str(doc.metadata['title'])
+        if not title and doc.metadata and "title" in doc.metadata:
+            title = str(doc.metadata["title"])
         if not title:
             title = "Untitled"
         book.set_title(title)
 
         # Set author
         author = self.options.author
-        if not author and doc.metadata and 'author' in doc.metadata:
-            author = str(doc.metadata['author'])
+        if not author and doc.metadata and "author" in doc.metadata:
+            author = str(doc.metadata["author"])
         if author:
             book.add_author(author)
 
@@ -246,17 +237,14 @@ class EpubRenderer(BaseRenderer):
 
         # Add other metadata from document
         if doc.metadata:
-            if 'subject' in doc.metadata:
-                book.add_metadata('DC', 'subject', str(doc.metadata['subject']))
-            if 'date' in doc.metadata:
-                book.add_metadata('DC', 'date', str(doc.metadata['date']))
-            if 'description' in doc.metadata:
-                book.add_metadata('DC', 'description', str(doc.metadata['description']))
+            if "subject" in doc.metadata:
+                book.add_metadata("DC", "subject", str(doc.metadata["subject"]))
+            if "date" in doc.metadata:
+                book.add_metadata("DC", "date", str(doc.metadata["date"]))
+            if "description" in doc.metadata:
+                book.add_metadata("DC", "description", str(doc.metadata["description"]))
 
-    def _split_into_chapters(
-            self,
-            doc: Document
-    ) -> list[tuple[Heading | None, list[Node]]]:
+    def _split_into_chapters(self, doc: Document) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into chapters based on configured strategy.
 
         Parameters
@@ -279,17 +267,11 @@ class EpubRenderer(BaseRenderer):
 
         elif split_mode == "heading":
             # Split on heading level
-            return split_ast_by_heading(
-                doc,
-                heading_level=self.options.chapter_split_heading_level
-            )
+            return split_ast_by_heading(doc, heading_level=self.options.chapter_split_heading_level)
 
         else:  # "auto"
             # Auto-detect best strategy
-            return auto_split_ast(
-                doc,
-                heading_level=self.options.chapter_split_heading_level
-            )
+            return auto_split_ast(doc, heading_level=self.options.chapter_split_heading_level)
 
     def _get_chapter_title(self, heading: Heading | None, chapter_num: int) -> str:
         """Get chapter title from heading or generate one.
@@ -339,6 +321,7 @@ class EpubRenderer(BaseRenderer):
 
         # Recursively search children
         from all2md.ast.nodes import get_node_children
+
         for child in get_node_children(node):
             self._collect_images(child, images)
 
@@ -364,12 +347,7 @@ class EpubRenderer(BaseRenderer):
             return (image_data, image_format)
         return None
 
-    def _add_image_to_epub(
-            self,
-            book: Any,
-            image_node: Image,
-            index: int
-    ) -> str | None:
+    def _add_image_to_epub(self, book: Any, image_node: Image, index: int) -> str | None:
         """Add an image to the EPUB and return the internal path.
 
         Parameters
@@ -395,7 +373,7 @@ class EpubRenderer(BaseRenderer):
                 return None
 
             # Handle data URIs
-            if image_url.startswith('data:'):
+            if image_url.startswith("data:"):
                 decoded = self._decode_data_uri(image_url)
                 if not decoded:
                     return None
@@ -414,7 +392,7 @@ class EpubRenderer(BaseRenderer):
                 return internal_path
 
             # Handle local file paths
-            elif not image_url.startswith(('http://', 'https://')):
+            elif not image_url.startswith(("http://", "https://")):
                 # Try to read local file
                 image_path = Path(image_url)
                 if image_path.exists() and image_path.is_file():
@@ -422,13 +400,14 @@ class EpubRenderer(BaseRenderer):
 
                     # Detect format from file content (more reliable than extension)
                     from all2md.utils.images import detect_image_format_from_bytes
+
                     detected_format = detect_image_format_from_bytes(image_data[:32])
 
                     # Fall back to extension if content detection fails
                     if detected_format:
                         image_format = detected_format
                     else:
-                        image_format = image_path.suffix.lstrip('.')
+                        image_format = image_path.suffix.lstrip(".")
                         if not image_format:
                             logger.debug("Could not detect format from content or extension")
                             return None
@@ -456,9 +435,7 @@ class EpubRenderer(BaseRenderer):
             logger.warning(f"Failed to add image to EPUB: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to add image to EPUB: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to add image to EPUB: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
             return None
 
@@ -480,6 +457,7 @@ class EpubRenderer(BaseRenderer):
 
         # Recursively update children
         from all2md.ast.nodes import get_node_children
+
         for child in get_node_children(node):
             self._rewrite_image_urls(child, url_mapping)
 
@@ -502,7 +480,7 @@ class EpubRenderer(BaseRenderer):
 
             # Read cover image
             cover_data = cover_path.read_bytes()
-            cover_format = cover_path.suffix.lstrip('.')
+            cover_format = cover_path.suffix.lstrip(".")
 
             # Set cover image
             book.set_cover(f"cover.{cover_format}", cover_data)
@@ -512,7 +490,5 @@ class EpubRenderer(BaseRenderer):
             logger.warning(f"Failed to add cover image: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to add cover image: {e!r}",
-                    rendering_stage="cover_image",
-                    original_error=e
+                    f"Failed to add cover image: {e!r}", rendering_stage="cover_image", original_error=e
                 ) from e

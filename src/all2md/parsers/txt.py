@@ -97,7 +97,7 @@ class PlainTextToAstConverter(BaseParser):
         """
         # Split content into paragraphs (double newline separated)
         # This preserves some structure while keeping it simple
-        paragraphs = content.split('\n\n')
+        paragraphs = content.split("\n\n")
 
         children: list[Node] = []
         for para_text in paragraphs:
@@ -108,11 +108,9 @@ class PlainTextToAstConverter(BaseParser):
 
             # Preserve single newlines within paragraphs as spaces
             # (standard text rendering behavior)
-            normalized_text = ' '.join(stripped.split('\n'))
+            normalized_text = " ".join(stripped.split("\n"))
 
-            children.append(
-                Paragraph(content=[Text(content=normalized_text)])
-            )
+            children.append(Paragraph(content=[Text(content=normalized_text)]))
 
         # If no paragraphs found, create one empty paragraph
         if not children:
@@ -153,5 +151,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=BaseParserOptions,
     renderer_options_class="all2md.options.PlainTextOptions",
     description="Parse and render plain text files.",
-    priority=1
+    priority=1,
 )

@@ -173,9 +173,7 @@ class IpynbToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         # Extract and attach metadata
@@ -214,9 +212,7 @@ class IpynbToAstConverter(BaseParser):
         base_info: dict[str, Any] = {
             "cell_type": cell_type,
             "cell_index": cell_index,
-            "cell_id": cell.get("id")
-                       or cell_metadata.get("id")
-                       or f"cell-{cell_index + 1}",
+            "cell_id": cell.get("id") or cell_metadata.get("id") or f"cell-{cell_index + 1}",
             "cell_metadata": deepcopy(cell_metadata),
             "source": source,
         }
@@ -313,11 +309,11 @@ class IpynbToAstConverter(BaseParser):
         return str(source)
 
     def _process_output(
-            self,
-            output: dict[str, Any],
-            cell_index: int,
-            output_index: int,
-            cell_info: dict[str, Any],
+        self,
+        output: dict[str, Any],
+        cell_index: int,
+        output_index: int,
+        cell_info: dict[str, Any],
     ) -> Node | None:
         """Process a cell output to AST node.
 
@@ -435,12 +431,12 @@ class IpynbToAstConverter(BaseParser):
         return placeholder
 
     def _attach_ipynb_metadata(
-            self,
-            node: Node,
-            base_info: dict[str, Any],
-            *,
-            role: str,
-            **extra: Any,
+        self,
+        node: Node,
+        base_info: dict[str, Any],
+        *,
+        role: str,
+        **extra: Any,
     ) -> None:
         """Attach Jupyter-specific metadata to a node for renderer reconstruction."""
         node_metadata = dict(getattr(node, "metadata", {}) or {})
@@ -480,7 +476,7 @@ class IpynbToAstConverter(BaseParser):
                 parse_tables=True,
                 parse_footnotes=True,
                 parse_math=True,
-                preserve_html=False  # Important: don't preserve HTML for security
+                preserve_html=False,  # Important: don't preserve HTML for security
             )
             doc = markdown_to_ast(source, options=options)
 
@@ -519,80 +515,80 @@ class IpynbToAstConverter(BaseParser):
         metadata = DocumentMetadata()
 
         # Extract notebook metadata
-        nb_metadata = document.get('metadata', {})
+        nb_metadata = document.get("metadata", {})
 
         # Common notebook metadata fields
-        if 'title' in nb_metadata:
-            metadata.title = nb_metadata['title']
+        if "title" in nb_metadata:
+            metadata.title = nb_metadata["title"]
 
         # Kernel information
-        kernel_info = nb_metadata.get('kernelspec', {})
+        kernel_info = nb_metadata.get("kernelspec", {})
         if kernel_info:
-            language = kernel_info.get('language', '')
+            language = kernel_info.get("language", "")
             if language:
                 metadata.language = language
-            kernel_name = kernel_info.get('display_name', kernel_info.get('name', ''))
+            kernel_name = kernel_info.get("display_name", kernel_info.get("name", ""))
             if kernel_name:
-                metadata.custom['kernel'] = kernel_name
+                metadata.custom["kernel"] = kernel_name
 
         # Language info
-        lang_info = nb_metadata.get('language_info', {})
+        lang_info = nb_metadata.get("language_info", {})
         if lang_info:
             if not metadata.language:
-                metadata.language = lang_info.get('name', '')
-            version = lang_info.get('version', '')
+                metadata.language = lang_info.get("name", "")
+            version = lang_info.get("version", "")
             if version:
-                metadata.custom['language_version'] = version
+                metadata.custom["language_version"] = version
 
         # Authors (if present in metadata)
-        authors = nb_metadata.get('authors', [])
+        authors = nb_metadata.get("authors", [])
         if authors:
             if isinstance(authors, list) and authors:
                 # Take first author as primary
                 first_author = authors[0]
                 if isinstance(first_author, dict):
-                    metadata.author = first_author.get('name', '')
+                    metadata.author = first_author.get("name", "")
                 else:
                     metadata.author = str(first_author)
                 # Store all authors in custom
                 if len(authors) > 1:
-                    metadata.custom['authors'] = authors
+                    metadata.custom["authors"] = authors
             elif isinstance(authors, str):
                 metadata.author = authors
 
         # Creation/modification dates
-        if 'created' in nb_metadata:
-            metadata.creation_date = nb_metadata['created']
-        if 'modified' in nb_metadata:
-            metadata.modification_date = nb_metadata['modified']
+        if "created" in nb_metadata:
+            metadata.creation_date = nb_metadata["created"]
+        if "modified" in nb_metadata:
+            metadata.modification_date = nb_metadata["modified"]
 
         # Notebook format version
-        nbformat = document.get('nbformat', '')
-        nbformat_minor = document.get('nbformat_minor', '')
+        nbformat = document.get("nbformat", "")
+        nbformat_minor = document.get("nbformat_minor", "")
         if nbformat:
-            metadata.custom['notebook_format'] = f"{nbformat}.{nbformat_minor}" if nbformat_minor else str(nbformat)
+            metadata.custom["notebook_format"] = f"{nbformat}.{nbformat_minor}" if nbformat_minor else str(nbformat)
 
         # Cell count
-        cells = document.get('cells', [])
+        cells = document.get("cells", [])
         if cells:
-            metadata.custom['cell_count'] = len(cells)
+            metadata.custom["cell_count"] = len(cells)
             # Count by cell type
-            code_cells = sum(1 for cell in cells if cell.get('cell_type') == 'code')
-            markdown_cells = sum(1 for cell in cells if cell.get('cell_type') == 'markdown')
+            code_cells = sum(1 for cell in cells if cell.get("cell_type") == "code")
+            markdown_cells = sum(1 for cell in cells if cell.get("cell_type") == "markdown")
             if code_cells:
-                metadata.custom['code_cells'] = code_cells
+                metadata.custom["code_cells"] = code_cells
             if markdown_cells:
-                metadata.custom['markdown_cells'] = markdown_cells
+                metadata.custom["markdown_cells"] = markdown_cells
 
         # Custom notebook metadata (Jupyter extensions often add metadata)
         for key, value in nb_metadata.items():
-            if key not in ['kernelspec', 'language_info', 'authors', 'title', 'created', 'modified']:
+            if key not in ["kernelspec", "language_info", "authors", "title", "created", "modified"]:
                 # Only include simple types in custom metadata
                 if isinstance(value, (str, int, float, bool)):
-                    metadata.custom[f'notebook_{key}'] = value
-                elif isinstance(value, (list, dict)) and key in ['tags', 'keywords']:
+                    metadata.custom[f"notebook_{key}"] = value
+                elif isinstance(value, (list, dict)) and key in ["tags", "keywords"]:
                     # Special handling for tags/keywords
-                    if key == 'tags' or key == 'keywords':
+                    if key == "tags" or key == "keywords":
                         if isinstance(value, list):
                             metadata.keywords = value
                         else:
@@ -601,13 +597,13 @@ class IpynbToAstConverter(BaseParser):
         # If no title, try to extract from first markdown cell
         if not metadata.title and cells:
             for cell in cells:
-                if cell.get('cell_type') == 'markdown':
+                if cell.get("cell_type") == "markdown":
                     source = self._get_source(cell)
-                    lines = source.strip().split('\n')
+                    lines = source.strip().split("\n")
                     for line in lines:
-                        if line.strip().startswith('#'):
+                        if line.strip().startswith("#"):
                             # Found a header, use as title
-                            metadata.title = line.lstrip('#').strip()
+                            metadata.title = line.lstrip("#").strip()
                             break
                     if metadata.title:
                         break
@@ -631,5 +627,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=IpynbOptions,
     renderer_options_class=IpynbRendererOptions,
     description="Convert Jupyter Notebooks between AST and .ipynb",
-    priority=7
+    priority=7,
 )

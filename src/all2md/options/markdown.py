@@ -148,226 +148,199 @@ class MarkdownOptions(BaseRendererOptions):
         metadata={
             "help": "Escape special Markdown characters (e.g. asterisks) in text content",
             "cli_name": "no-escape-special",  # Since default=True, use --no-* flag
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     emphasis_symbol: EmphasisSymbol = field(
         default=DEFAULT_EMPHASIS_SYMBOL,  # type: ignore[arg-type]
-        metadata={
-            "help": "Symbol to use for emphasis/italic formatting",
-            "choices": ["*", "_"],
-            "importance": "core"
-        }
+        metadata={"help": "Symbol to use for emphasis/italic formatting", "choices": ["*", "_"], "importance": "core"},
     )
     bullet_symbols: str = field(
         default=DEFAULT_BULLET_SYMBOLS,
-        metadata={
-            "help": "Characters to cycle through for nested bullet lists",
-            "importance": "advanced"
-        }
+        metadata={"help": "Characters to cycle through for nested bullet lists", "importance": "advanced"},
     )
     list_indent_width: int = field(
         default=DEFAULT_LIST_INDENT_WIDTH,
         metadata={
             "help": "Number of spaces to use for each level of list indentation",
             "type": int,
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     underline_mode: UnderlineMode = field(
         default="html",
         metadata={
             "help": "How to handle underlined text",
             "choices": ["html", "markdown", "ignore"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     superscript_mode: SuperscriptMode = field(
         default="html",
         metadata={
             "help": "How to handle superscript text",
             "choices": ["html", "markdown", "ignore"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     subscript_mode: SubscriptMode = field(
         default="html",
         metadata={
             "help": "How to handle subscript text",
             "choices": ["html", "markdown", "ignore"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     use_hash_headings: bool = field(
         default=DEFAULT_USE_HASH_HEADINGS,
         metadata={
             "help": "Use # syntax for headings instead of underline style",
             "cli_name": "no-use-hash-headings",  # default=True, use --no-*
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     flavor: FlavorType = field(
         default=DEFAULT_FLAVOR,
         metadata={
             "help": "Markdown flavor/dialect to use for output",
             "choices": ["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     strict_flavor_validation: bool = field(
         default=False,
         metadata={
             "help": "Raise errors on flavor-incompatible options instead of just warnings. "
-                    "When True, validate_flavor_compatibility warnings become ValueError exceptions.",
-            "importance": "advanced"
-        }
+            "When True, validate_flavor_compatibility warnings become ValueError exceptions.",
+            "importance": "advanced",
+        },
     )
     unsupported_table_mode: UnsupportedTableMode | object = field(
         default=UNSET,
         metadata={
             "help": "How to handle tables when flavor doesn't support them: "
-                    "drop (skip entirely), ascii (render as ASCII art), "
-                    "force (render as pipe tables anyway), html (render as HTML table)",
+            "drop (skip entirely), ascii (render as ASCII art), "
+            "force (render as pipe tables anyway), html (render as HTML table)",
             "choices": ["drop", "ascii", "force", "html"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     unsupported_inline_mode: UnsupportedInlineMode | object = field(
         default=UNSET,
         metadata={
             "help": "How to handle inline elements unsupported by flavor: "
-                    "plain (render content without formatting), "
-                    "force (use markdown syntax anyway), html (use HTML tags)",
+            "plain (render content without formatting), "
+            "force (use markdown syntax anyway), html (use HTML tags)",
             "choices": ["plain", "force", "html"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     pad_table_cells: bool = field(
         default=False,
-        metadata={
-            "help": "Pad table cells with spaces for visual alignment in source",
-            "importance": "advanced"
-        }
+        metadata={"help": "Pad table cells with spaces for visual alignment in source", "importance": "advanced"},
     )
     prefer_setext_headings: bool = field(
         default=False,
-        metadata={
-            "help": "Prefer setext-style headings (underlines) for h1 and h2",
-            "importance": "advanced"
-        }
+        metadata={"help": "Prefer setext-style headings (underlines) for h1 and h2", "importance": "advanced"},
     )
     max_line_width: int | None = field(
         default=None,
-        metadata={
-            "help": "Maximum line width for wrapping (None for no limit)",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Maximum line width for wrapping (None for no limit)", "type": int, "importance": "advanced"},
     )
     table_alignment_default: str = field(
         default="left",
         metadata={
             "help": "Default alignment for table columns without explicit alignment",
             "choices": ["left", "center", "right"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     heading_level_offset: int = field(
         default=DEFAULT_HEADING_LEVEL_OFFSET,
         metadata={
             "help": "Shift all heading levels by this amount (useful when collating docs)",
             "type": int,
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     code_fence_char: CodeFenceChar = field(
         default=DEFAULT_CODE_FENCE_CHAR,
         metadata={
             "help": "Character to use for code fences (backtick or tilde)",
             "choices": ["`", "~"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     code_fence_min: int = field(
         default=DEFAULT_CODE_FENCE_MIN,
-        metadata={
-            "help": "Minimum length for code fences (typically 3)",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Minimum length for code fences (typically 3)", "type": int, "importance": "advanced"},
     )
     collapse_blank_lines: bool = field(
         default=DEFAULT_COLLAPSE_BLANK_LINES,
         metadata={
             "help": "Collapse multiple blank lines into at most 2 (normalize whitespace)",
             "cli_name": "no-collapse-blank-lines",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     link_style: LinkStyleType = field(
         default=DEFAULT_LINK_STYLE,
         metadata={
             "help": "Link style: inline [text](url) or reference [text][ref]",
             "choices": ["inline", "reference"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     reference_link_placement: ReferenceLinkPlacement = field(
         default=DEFAULT_REFERENCE_LINK_PLACEMENT,
         metadata={
             "help": "Where to place reference link definitions: end_of_document or after_block",
             "choices": ["end_of_document", "after_block"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     autolink_bare_urls: bool = field(
         default=DEFAULT_AUTOLINK_BARE_URLS,
-        metadata={
-            "help": "Convert bare URLs in text to Markdown autolinks (<http://...>)",
-            "importance": "core"
-        }
+        metadata={"help": "Convert bare URLs in text to Markdown autolinks (<http://...>)", "importance": "core"},
     )
     table_pipe_escape: bool = field(
         default=DEFAULT_TABLE_PIPE_ESCAPE,
         metadata={
             "help": "Escape pipe characters in table cells",
             "cli_name": "no-table-pipe-escape",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     math_mode: MathMode = field(
         default=DEFAULT_MATH_MODE,
         metadata={
             "help": "Preferred math representation: latex, mathml, or html",
             "choices": ["latex", "mathml", "html"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     metadata_frontmatter: bool = field(
         default=DEFAULT_INCLUDE_METADATA_FRONTMATTER,
-        metadata={
-            "help": "Render document metadata as YAML frontmatter",
-            "importance": "core"
-        }
+        metadata={"help": "Render document metadata as YAML frontmatter", "importance": "core"},
     )
     metadata_format: MetadataFormatType = field(
         default=DEFAULT_METADATA_FORMAT,
         metadata={
             "help": "Format for metadata frontmatter: yaml, toml, or json",
             "choices": ["yaml", "toml", "json"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     html_sanitization: HtmlPassthroughMode = field(
         default=DEFAULT_MARKDOWN_HTML_SANITIZATION,
         metadata={
             "help": "How to handle raw HTML content in markdown: "
-                    "pass-through (allow HTML as-is), escape (show as text), "
-                    "drop (remove entirely), sanitize (remove dangerous elements). "
-                    "Default is 'escape' for security. Does not affect code blocks.",
+            "pass-through (allow HTML as-is), escape (show as text), "
+            "drop (remove entirely), sanitize (remove dangerous elements). "
+            "Default is 'escape' for security. Does not affect code blocks.",
             "choices": ["pass-through", "escape", "drop", "sanitize"],
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
 
     def __post_init__(self) -> None:
@@ -389,19 +362,16 @@ class MarkdownOptions(BaseRendererOptions):
 
         # Apply flavor defaults for any fields that are still unset
         if self.unsupported_table_mode is UNSET:
-            object.__setattr__(self, 'unsupported_table_mode',
-                               flavor_defaults['unsupported_table_mode'])
+            object.__setattr__(self, "unsupported_table_mode", flavor_defaults["unsupported_table_mode"])
         if self.unsupported_inline_mode is UNSET:
-            object.__setattr__(self, 'unsupported_inline_mode',
-                               flavor_defaults['unsupported_inline_mode'])
+            object.__setattr__(self, "unsupported_inline_mode", flavor_defaults["unsupported_inline_mode"])
 
         # If strict validation is enabled, check flavor compatibility
         if self.strict_flavor_validation:
             warnings = validate_flavor_compatibility(self.flavor, self)
             if warnings:
                 raise ValueError(
-                    f"Flavor '{self.flavor}' validation errors:\n"
-                    + "\n".join(f"  - {w}" for w in warnings)
+                    f"Flavor '{self.flavor}' validation errors:\n" + "\n".join(f"  - {w}" for w in warnings)
                 )
 
 
@@ -442,71 +412,64 @@ class MarkdownParserOptions(BaseParserOptions):
         metadata={
             "help": "Markdown flavor to parse (determines enabled extensions)",
             "choices": ["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_tables: bool = field(
         default=True,
-        metadata={
-            "help": "Parse table syntax (GFM pipe tables)",
-            "cli_name": "no-parse-tables",
-            "importance": "core"
-        }
+        metadata={"help": "Parse table syntax (GFM pipe tables)", "cli_name": "no-parse-tables", "importance": "core"},
     )
     parse_footnotes: bool = field(
         default=True,
         metadata={
             "help": "Parse footnote references and definitions",
             "cli_name": "no-parse-footnotes",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_math: bool = field(
         default=True,
         metadata={
             "help": "Parse inline and block math ($...$ and $$...$$)",
             "cli_name": "no-parse-math",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_task_lists: bool = field(
         default=True,
         metadata={
             "help": "Parse task list checkboxes (- [ ] and - [x])",
             "cli_name": "no-parse-task-lists",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_definition_lists: bool = field(
         default=True,
         metadata={
             "help": "Parse definition lists (term : definition)",
             "cli_name": "no-parse-definition-lists",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     parse_strikethrough: bool = field(
         default=True,
         metadata={
             "help": "Parse strikethrough syntax (~~text~~)",
             "cli_name": "no-parse-strikethrough",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     strict_parsing: bool = field(
         default=False,
-        metadata={
-            "help": "Raise errors on invalid markdown syntax (vs. graceful recovery)",
-            "importance": "advanced"
-        }
+        metadata={"help": "Raise errors on invalid markdown syntax (vs. graceful recovery)", "importance": "advanced"},
     )
     preserve_html: bool = field(
         default=True,
         metadata={
             "help": "Preserve raw HTML in AST (HTMLBlock/HTMLInline nodes)",
             "cli_name": "no-preserve-html",
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
 
 
@@ -605,8 +568,8 @@ def get_flavor_defaults(flavor: FlavorType) -> dict[str, Any]:
 
 
 def validate_flavor_compatibility(
-        flavor: FlavorType,
-        options: MarkdownOptions,
+    flavor: FlavorType,
+    options: MarkdownOptions,
 ) -> list[str]:
     """Validate option compatibility with markdown flavor and return warnings.
 

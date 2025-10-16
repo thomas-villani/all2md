@@ -121,7 +121,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Render content
         document.accept(self)
 
-        content = ''.join(self._output)
+        content = "".join(self._output)
 
         # Apply template if template_mode is set
         if self.options.template_mode is not None:
@@ -164,39 +164,40 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         # Extract title from metadata or first heading
-        title = doc.metadata.get('title', 'Document') if doc.metadata else 'Document'
+        title = doc.metadata.get("title", "Document") if doc.metadata else "Document"
 
         # Get language from metadata or options
-        language = doc.metadata.get('language', self.options.language) if doc.metadata else self.options.language
+        language = doc.metadata.get("language", self.options.language) if doc.metadata else self.options.language
 
         # Build HTML document
-        parts = ['<!DOCTYPE html>', f'<html lang="{escape_html(language, enabled=self.options.escape_html)}">',
-                 '<head>']
+        parts = [
+            "<!DOCTYPE html>",
+            f'<html lang="{escape_html(language, enabled=self.options.escape_html)}">',
+            "<head>",
+        ]
         parts.append('<meta charset="UTF-8">')
         parts.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
 
         # Add Content-Security-Policy meta tag if enabled
         if self.options.csp_enabled:
             csp_policy = self.options.csp_policy or (
-                "default-src 'self'; "
-                "script-src 'self'; "
-                "style-src 'self' 'unsafe-inline';"
+                "default-src 'self'; " "script-src 'self'; " "style-src 'self' 'unsafe-inline';"
             )
             escaped_csp = escape_html(csp_policy, enabled=self.options.escape_html)
             parts.append(f'<meta http-equiv="Content-Security-Policy" content="{escaped_csp}">')
 
-        parts.append(f'<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>')
+        parts.append(f"<title>{escape_html(str(title), enabled=self.options.escape_html)}</title>")
 
         # Add CSS
-        if self.options.css_style == 'embedded':
-            parts.append('<style>')
+        if self.options.css_style == "embedded":
+            parts.append("<style>")
             parts.append(self._generate_default_css())
-            parts.append('</style>')
-        elif self.options.css_style == 'external' and self.options.css_file:
+            parts.append("</style>")
+        elif self.options.css_style == "external" and self.options.css_file:
             parts.append(f'<link rel="stylesheet" href="{self.options.css_file}">')
 
         # Add math renderer scripts (with security check)
-        if self.options.math_renderer != 'none':
+        if self.options.math_renderer != "none":
             if not self.options.allow_remote_scripts:
                 logger.warning(
                     f"Math renderer '{self.options.math_renderer}' requires remote CDN scripts, "
@@ -205,49 +206,52 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 )
             else:
                 # Load remote scripts only if explicitly allowed
-                if self.options.math_renderer == 'mathjax':
+                if self.options.math_renderer == "mathjax":
                     parts.append('<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>')
-                elif self.options.math_renderer == 'katex':
-                    parts.append('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">')
+                elif self.options.math_renderer == "katex":
+                    parts.append(
+                        '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">'
+                    )
                     parts.append('<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>')
                     parts.append(
-                        '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>')
+                        '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>'
+                    )
 
-        parts.append('</head>')
-        parts.append('<body>')
+        parts.append("</head>")
+        parts.append("<body>")
 
         # Add TOC if requested
         if self.options.include_toc and self._headings:
             parts.append('<nav id="table-of-contents">')
-            parts.append('<h2>Table of Contents</h2>')
+            parts.append("<h2>Table of Contents</h2>")
             parts.append(self._generate_toc())
-            parts.append('</nav>')
+            parts.append("</nav>")
 
-        parts.append('<main>')
+        parts.append("<main>")
         parts.append(content)
-        parts.append('</main>')
+        parts.append("</main>")
 
         # Add footnotes section if any
         if self._footnote_definitions:
             parts.append('<section id="footnotes">')
-            parts.append('<h2>Footnotes</h2>')
-            parts.append('<ol>')
+            parts.append("<h2>Footnotes</h2>")
+            parts.append("<ol>")
             for footnote in self._footnote_definitions:
                 parts.append(f'<li id="fn-{footnote.identifier}">')
                 for child in footnote.content:
                     saved_output = self._output
                     self._output = []
                     child.accept(self)
-                    parts.append(''.join(self._output))
+                    parts.append("".join(self._output))
                     self._output = saved_output
                 parts.append(f' <a href="#fnref-{footnote.identifier}">↩</a></li>')
-            parts.append('</ol>')
-            parts.append('</section>')
+            parts.append("</ol>")
+            parts.append("</section>")
 
-        parts.append('</body>')
-        parts.append('</html>')
+        parts.append("</body>")
+        parts.append("</html>")
 
-        return '\n'.join(parts)
+        return "\n".join(parts)
 
     def _generate_default_css(self) -> str:
         """Generate default CSS styles.
@@ -384,17 +388,17 @@ hr {
 
         """
         if not self._headings:
-            return ''
+            return ""
 
-        parts = ['<ul>']
+        parts = ["<ul>"]
         for level, heading_id, text in self._headings:
-            indent = '  ' * (level - 1)
+            indent = "  " * (level - 1)
             parts.append(
                 f'{indent}<li><a href="#{heading_id}">{escape_html(text, enabled=self.options.escape_html)}</a></li>'
             )
-        parts.append('</ul>')
+        parts.append("</ul>")
 
-        return '\n'.join(parts)
+        return "\n".join(parts)
 
     def _apply_template(self, document: Document, content: str) -> str:
         """Apply template based on template_mode.
@@ -424,15 +428,16 @@ hr {
 
         # Validate template file exists
         from pathlib import Path
+
         template_path = Path(self.options.template_file)
         if not template_path.exists():
             raise FileNotFoundError(f"Template file not found: {self.options.template_file}")
 
-        if self.options.template_mode == 'replace':
+        if self.options.template_mode == "replace":
             return self._apply_replace_template(document, content)
-        elif self.options.template_mode == 'inject':
+        elif self.options.template_mode == "inject":
             return self._apply_inject_template(document, content)
-        elif self.options.template_mode == 'jinja':
+        elif self.options.template_mode == "jinja":
             return self._apply_jinja_template(document, content)
         else:
             raise ValueError(f"Invalid template_mode: {self.options.template_mode}")
@@ -458,17 +463,18 @@ hr {
         # Read template file (already validated in _apply_template)
         assert self.options.template_file is not None  # for type checker
         template_path = Path(self.options.template_file)
-        template = template_path.read_text(encoding='utf-8')
+        template = template_path.read_text(encoding="utf-8")
 
         # Build replacement map
         replacements = {
             self.options.content_placeholder: content,
-            '{TITLE}': escape_html(str(document.metadata.get('title', 'Document')), enabled=self.options.escape_html),
-            '{AUTHOR}': escape_html(str(document.metadata.get('author', '')), enabled=self.options.escape_html),
-            '{DATE}': escape_html(str(document.metadata.get('date', '')), enabled=self.options.escape_html),
-            '{DESCRIPTION}': escape_html(str(document.metadata.get('description', '')),
-                                         enabled=self.options.escape_html),
-            '{TOC}': self._generate_toc() if self.options.include_toc else '',
+            "{TITLE}": escape_html(str(document.metadata.get("title", "Document")), enabled=self.options.escape_html),
+            "{AUTHOR}": escape_html(str(document.metadata.get("author", "")), enabled=self.options.escape_html),
+            "{DATE}": escape_html(str(document.metadata.get("date", "")), enabled=self.options.escape_html),
+            "{DESCRIPTION}": escape_html(
+                str(document.metadata.get("description", "")), enabled=self.options.escape_html
+            ),
+            "{TOC}": self._generate_toc() if self.options.include_toc else "",
         }
 
         # Replace all placeholders
@@ -505,8 +511,7 @@ hr {
             from bs4 import BeautifulSoup
         except ImportError as e:
             raise ImportError(
-                "BeautifulSoup4 is required for inject template mode. "
-                "Install with: pip install beautifulsoup4"
+                "BeautifulSoup4 is required for inject template mode. " "Install with: pip install beautifulsoup4"
             ) from e
 
         from pathlib import Path
@@ -514,10 +519,10 @@ hr {
         # Read template file (already validated in _apply_template)
         assert self.options.template_file is not None  # for type checker
         template_path = Path(self.options.template_file)
-        template_html = template_path.read_text(encoding='utf-8')
+        template_html = template_path.read_text(encoding="utf-8")
 
         # Parse with BeautifulSoup
-        soup = BeautifulSoup(template_html, 'html.parser')
+        soup = BeautifulSoup(template_html, "html.parser")
 
         # Find target element
         target = soup.select_one(self.options.template_selector)
@@ -527,17 +532,17 @@ hr {
             )
 
         # Create content soup
-        content_soup = BeautifulSoup(content, 'html.parser')
+        content_soup = BeautifulSoup(content, "html.parser")
 
         # Inject content based on injection_mode
-        if self.options.injection_mode == 'replace':
+        if self.options.injection_mode == "replace":
             target.clear()
             for child in content_soup.children:
                 target.append(child)
-        elif self.options.injection_mode == 'append':
+        elif self.options.injection_mode == "append":
             for child in content_soup.children:
                 target.append(child)
-        elif self.options.injection_mode == 'prepend':
+        elif self.options.injection_mode == "prepend":
             for child in reversed(list(content_soup.children)):
                 target.insert(0, child)
 
@@ -567,10 +572,7 @@ hr {
         try:
             from jinja2 import Environment, FileSystemLoader, select_autoescape
         except ImportError as e:
-            raise ImportError(
-                "Jinja2 is required for jinja template mode. "
-                "Install with: pip install jinja2"
-            ) from e
+            raise ImportError("Jinja2 is required for jinja template mode. " "Install with: pip install jinja2") from e
 
         from pathlib import Path
 
@@ -583,10 +585,7 @@ hr {
         template_name = template_path.name
 
         # Enable autoescape for security
-        env = Environment(
-            loader=FileSystemLoader(str(template_dir)),
-            autoescape=select_autoescape(['html', 'xml'])
-        )
+        env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=select_autoescape(["html", "xml"]))
         template = env.get_template(template_name)
 
         # Build context
@@ -597,19 +596,13 @@ hr {
             from jinja2 import Markup  # type: ignore[attr-defined,no-redef]  # Jinja2 2.x fallback
 
         context = {
-            'content': Markup(content),  # Already rendered HTML from our renderer
-            'title': document.metadata.get('title', 'Document'),
-            'metadata': document.metadata,
-            'headings': [
-                {'level': level, 'id': hid, 'text': text}
-                for level, hid, text in self._headings
-            ],
-            'toc_html': Markup(self._generate_toc()) if self._headings else '',  # Also safe HTML
-            'footnotes': [
-                {'identifier': fn.identifier}
-                for fn in self._footnote_definitions
-            ],
-            'ast_json': ast_to_json(document),
+            "content": Markup(content),  # Already rendered HTML from our renderer
+            "title": document.metadata.get("title", "Document"),
+            "metadata": document.metadata,
+            "headings": [{"level": level, "id": hid, "text": text} for level, hid, text in self._headings],
+            "toc_html": Markup(self._generate_toc()) if self._headings else "",  # Also safe HTML
+            "footnotes": [{"identifier": fn.identifier} for fn in self._footnote_definitions],
+            "ast_json": ast_to_json(document),
         }
 
         # Render template
@@ -630,19 +623,19 @@ hr {
 
         """
         if not self.options.css_class_map:
-            return ''
+            return ""
 
         classes = self.options.css_class_map.get(node_type)
         if not classes:
-            return ''
+            return ""
 
         # Handle both string and list of strings
         if isinstance(classes, str):
             class_str = classes
         else:
-            class_str = ' '.join(classes)
+            class_str = " ".join(classes)
 
-        return f' class="{class_str}"' if class_str else ''
+        return f' class="{class_str}"' if class_str else ""
 
     def visit_document(self, node: Document) -> None:
         """Render a Document node.
@@ -669,7 +662,7 @@ hr {
         content = self._render_inline_content(node.content)
 
         # Generate heading ID for TOC
-        heading_id = f'heading-{self._heading_id_counter}'
+        heading_id = f"heading-{self._heading_id_counter}"
         self._heading_id_counter += 1
 
         # Store for TOC (extract plain text to avoid HTML tags in TOC entries)
@@ -677,7 +670,7 @@ hr {
         self._headings.append((level, heading_id, plain_text_content))
 
         # Add custom CSS class if configured
-        css_class = self._get_custom_css_class('Heading')
+        css_class = self._get_custom_css_class("Heading")
         self._output.append(f'<h{level} id="{heading_id}"{css_class}>{content}</h{level}>\n')
 
     def visit_paragraph(self, node: Paragraph) -> None:
@@ -690,8 +683,8 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        css_class = self._get_custom_css_class('Paragraph')
-        self._output.append(f'<p{css_class}>{content}</p>\n')
+        css_class = self._get_custom_css_class("Paragraph")
+        self._output.append(f"<p{css_class}>{content}</p>\n")
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Render a CodeBlock node.
@@ -705,21 +698,21 @@ hr {
         # Build class attribute
         classes = []
         if self.options.syntax_highlighting and node.language:
-            classes.append(f'language-{node.language}')
+            classes.append(f"language-{node.language}")
 
         # Add custom CSS class if configured
-        custom_class = self.options.css_class_map.get('CodeBlock') if self.options.css_class_map else None
+        custom_class = self.options.css_class_map.get("CodeBlock") if self.options.css_class_map else None
         if custom_class:
             if isinstance(custom_class, str):
                 classes.append(custom_class)
             else:
                 classes.extend(custom_class)
 
-        class_attr = f' class="{" ".join(classes)}"' if classes else ''
+        class_attr = f' class="{" ".join(classes)}"' if classes else ""
 
         escaped_content = escape_html(node.content, enabled=self.options.escape_html)
-        pre_class = self._get_custom_css_class('CodeBlock_pre')
-        self._output.append(f'<pre{pre_class}><code{class_attr}>{escaped_content}</code></pre>\n')
+        pre_class = self._get_custom_css_class("CodeBlock_pre")
+        self._output.append(f"<pre{pre_class}><code{class_attr}>{escaped_content}</code></pre>\n")
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
@@ -730,13 +723,13 @@ hr {
             Block quote to render
 
         """
-        css_class = self._get_custom_css_class('BlockQuote')
-        self._output.append(f'<blockquote{css_class}>\n')
+        css_class = self._get_custom_css_class("BlockQuote")
+        self._output.append(f"<blockquote{css_class}>\n")
 
         for child in node.children:
             child.accept(self)
 
-        self._output.append('</blockquote>\n')
+        self._output.append("</blockquote>\n")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -747,16 +740,16 @@ hr {
             List to render
 
         """
-        tag = 'ol' if node.ordered else 'ul'
-        start_attr = f' start="{node.start}"' if node.ordered and node.start != 1 else ''
-        css_class = self._get_custom_css_class('List')
+        tag = "ol" if node.ordered else "ul"
+        start_attr = f' start="{node.start}"' if node.ordered and node.start != 1 else ""
+        css_class = self._get_custom_css_class("List")
 
-        self._output.append(f'<{tag}{start_attr}{css_class}>\n')
+        self._output.append(f"<{tag}{start_attr}{css_class}>\n")
 
         for item in node.items:
             item.accept(self)
 
-        self._output.append(f'</{tag}>\n')
+        self._output.append(f"</{tag}>\n")
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
@@ -767,18 +760,18 @@ hr {
             List item to render
 
         """
-        css_class = self._get_custom_css_class('ListItem')
-        self._output.append(f'<li{css_class}>')
+        css_class = self._get_custom_css_class("ListItem")
+        self._output.append(f"<li{css_class}>")
 
         # Handle task lists
         if node.task_status:
-            checked = ' checked' if node.task_status == 'checked' else ''
+            checked = " checked" if node.task_status == "checked" else ""
             self._output.append(f'<input type="checkbox"{checked} disabled> ')
 
         for child in node.children:
             child.accept(self)
 
-        self._output.append('</li>\n')
+        self._output.append("</li>\n")
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
@@ -789,40 +782,40 @@ hr {
             Table to render
 
         """
-        css_class = self._get_custom_css_class('Table')
-        self._output.append(f'<table{css_class}>\n')
+        css_class = self._get_custom_css_class("Table")
+        self._output.append(f"<table{css_class}>\n")
 
         # Render caption if present
         if node.caption:
             caption = escape_html(node.caption, enabled=self.options.escape_html)
-            self._output.append(f'<caption>{caption}</caption>\n')
+            self._output.append(f"<caption>{caption}</caption>\n")
 
         # Render header
         if node.header:
-            self._output.append('<thead>\n<tr>')
+            self._output.append("<thead>\n<tr>")
             for i, cell in enumerate(node.header.cells):
-                align = ''
+                align = ""
                 if node.alignments and i < len(node.alignments) and node.alignments[i]:
                     align = f' style="text-align: {node.alignments[i]}"'
                 content = self._render_inline_content(cell.content)
-                self._output.append(f'<th{align}>{content}</th>')
-            self._output.append('</tr>\n</thead>\n')
+                self._output.append(f"<th{align}>{content}</th>")
+            self._output.append("</tr>\n</thead>\n")
 
         # Render body
         if node.rows:
-            self._output.append('<tbody>\n')
+            self._output.append("<tbody>\n")
             for row in node.rows:
-                self._output.append('<tr>')
+                self._output.append("<tr>")
                 for i, cell in enumerate(row.cells):
-                    align = ''
+                    align = ""
                     if node.alignments and i < len(node.alignments) and node.alignments[i]:
                         align = f' style="text-align: {node.alignments[i]}"'
                     content = self._render_inline_content(cell.content)
-                    self._output.append(f'<td{align}>{content}</td>')
-                self._output.append('</tr>\n')
-            self._output.append('</tbody>\n')
+                    self._output.append(f"<td{align}>{content}</td>")
+                self._output.append("</tr>\n")
+            self._output.append("</tbody>\n")
 
-        self._output.append('</table>\n')
+        self._output.append("</table>\n")
 
     def visit_table_row(self, node: TableRow) -> None:
         """Render a TableRow node.
@@ -855,8 +848,8 @@ hr {
             Thematic break to render
 
         """
-        css_class = self._get_custom_css_class('ThematicBreak')
-        self._output.append(f'<hr{css_class}>\n')
+        css_class = self._get_custom_css_class("ThematicBreak")
+        self._output.append(f"<hr{css_class}>\n")
 
     def visit_html_block(self, node: HTMLBlock) -> None:
         """Render an HTMLBlock node.
@@ -870,8 +863,8 @@ hr {
         sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
         if sanitized:
             self._output.append(sanitized)
-            if not sanitized.endswith('\n'):
-                self._output.append('\n')
+            if not sanitized.endswith("\n"):
+                self._output.append("\n")
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -894,7 +887,7 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<em>{content}</em>')
+        self._output.append(f"<em>{content}</em>")
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -906,7 +899,7 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<strong>{content}</strong>')
+        self._output.append(f"<strong>{content}</strong>")
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -918,7 +911,7 @@ hr {
 
         """
         escaped = escape_html(node.content, enabled=self.options.escape_html)
-        self._output.append(f'<code>{escaped}</code>')
+        self._output.append(f"<code>{escaped}</code>")
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.
@@ -930,11 +923,8 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        title_attr = (
-            f' title="{escape_html(node.title, enabled=self.options.escape_html)}"'
-            if node.title else ''
-        )
-        css_class = self._get_custom_css_class('Link')
+        title_attr = f' title="{escape_html(node.title, enabled=self.options.escape_html)}"' if node.title else ""
+        css_class = self._get_custom_css_class("Link")
         href = escape_html(node.url, enabled=self.options.escape_html)
         self._output.append(f'<a href="{href}"{title_attr}{css_class}>{content}</a>')
 
@@ -948,13 +938,10 @@ hr {
 
         """
         alt = escape_html(node.alt_text, enabled=self.options.escape_html)
-        title_attr = (
-            f' title="{escape_html(node.title, enabled=self.options.escape_html)}"'
-            if node.title else ''
-        )
-        width_attr = f' width="{node.width}"' if node.width else ''
-        height_attr = f' height="{node.height}"' if node.height else ''
-        css_class = self._get_custom_css_class('Image')
+        title_attr = f' title="{escape_html(node.title, enabled=self.options.escape_html)}"' if node.title else ""
+        width_attr = f' width="{node.width}"' if node.width else ""
+        height_attr = f' height="{node.height}"' if node.height else ""
+        css_class = self._get_custom_css_class("Image")
         src = escape_html(node.url, enabled=self.options.escape_html)
         self._output.append(f'<img src="{src}" alt="{alt}"{title_attr}{width_attr}{height_attr}{css_class}>')
 
@@ -969,9 +956,9 @@ hr {
         """
         if node.soft:
             # Soft breaks render as space in HTML (whitespace is collapsed)
-            self._output.append(' ')
+            self._output.append(" ")
         else:
-            self._output.append('<br>\n')
+            self._output.append("<br>\n")
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.
@@ -983,7 +970,7 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<del>{content}</del>')
+        self._output.append(f"<del>{content}</del>")
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.
@@ -995,7 +982,7 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<u>{content}</u>')
+        self._output.append(f"<u>{content}</u>")
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -1007,7 +994,7 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<sup>{content}</sup>')
+        self._output.append(f"<sup>{content}</sup>")
 
     def visit_subscript(self, node: Subscript) -> None:
         """Render a Subscript node.
@@ -1019,7 +1006,7 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f'<sub>{content}</sub>')
+        self._output.append(f"<sub>{content}</sub>")
 
     def visit_html_inline(self, node: HTMLInline) -> None:
         """Render an HTMLInline node.
@@ -1045,7 +1032,7 @@ hr {
         """
         self._output.append(f'<sup id="fnref-{node.identifier}">')
         self._output.append(f'<a href="#fn-{node.identifier}">[{node.identifier}]</a>')
-        self._output.append('</sup>')
+        self._output.append("</sup>")
 
     def visit_math_inline(self, node: MathInline) -> None:
         """Render a MathInline node.
@@ -1056,7 +1043,7 @@ hr {
             Inline math to render
 
         """
-        preferred: MathNotation = 'latex' if self.options.math_renderer != 'none' else 'mathml'
+        preferred: MathNotation = "latex" if self.options.math_renderer != "none" else "mathml"
         content, notation = node.get_preferred_representation(preferred)
         markup = render_math_html(
             content,
@@ -1087,22 +1074,22 @@ hr {
             Definition list to render
 
         """
-        css_class = self._get_custom_css_class('DefinitionList')
-        self._output.append(f'<dl{css_class}>\n')
+        css_class = self._get_custom_css_class("DefinitionList")
+        self._output.append(f"<dl{css_class}>\n")
 
         for term, descriptions in node.items:
             term_content = self._render_inline_content(term.content)
-            dt_class = self._get_custom_css_class('DefinitionTerm')
-            self._output.append(f'<dt{dt_class}>{term_content}</dt>\n')
+            dt_class = self._get_custom_css_class("DefinitionTerm")
+            self._output.append(f"<dt{dt_class}>{term_content}</dt>\n")
 
             for desc in descriptions:
-                dd_class = self._get_custom_css_class('DefinitionDescription')
-                self._output.append(f'<dd{dd_class}>')
+                dd_class = self._get_custom_css_class("DefinitionDescription")
+                self._output.append(f"<dd{dd_class}>")
                 for child in desc.content:
                     child.accept(self)
-                self._output.append('</dd>\n')
+                self._output.append("</dd>\n")
 
-        self._output.append('</dl>\n')
+        self._output.append("</dl>\n")
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node.
@@ -1135,7 +1122,7 @@ hr {
             Math block to render
 
         """
-        preferred: MathNotation = 'latex' if self.options.math_renderer != 'none' else 'mathml'
+        preferred: MathNotation = "latex" if self.options.math_renderer != "none" else "mathml"
         content, notation = node.get_preferred_representation(preferred)
         markup = render_math_html(
             content,
@@ -1143,6 +1130,6 @@ hr {
             inline=False,
             escape_enabled=self.options.escape_html,
         )
-        if not markup.endswith('\n'):
-            markup += '\n'
+        if not markup.endswith("\n"):
+            markup += "\n"
         self._output.append(markup)

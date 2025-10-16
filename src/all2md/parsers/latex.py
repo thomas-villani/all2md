@@ -119,11 +119,7 @@ class LatexParser(BaseParser):
 
     """
 
-    def __init__(
-            self,
-            options: LatexOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: LatexOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the LaTeX parser."""
         options = options or LatexOptions()
         super().__init__(options, progress_callback)
@@ -174,8 +170,7 @@ class LatexParser(BaseParser):
             from pylatexenc.latexwalker import LatexWalker
         except ImportError as e:
             raise ParsingError(
-                "LaTeX parsing requires the 'pylatexenc' package. "
-                "Install it with: pip install pylatexenc"
+                "LaTeX parsing requires the 'pylatexenc' package. " "Install it with: pip install pylatexenc"
             ) from e
 
         # Parse LaTeX using pylatexenc
@@ -259,27 +254,27 @@ class LatexParser(BaseParser):
         metadata: dict[str, Any] = {}
 
         # Extract title
-        title_match = re.search(r'\\title\{([^}]+)\}', content)
+        title_match = re.search(r"\\title\{([^}]+)\}", content)
         if title_match:
-            metadata['title'] = title_match.group(1).strip()
+            metadata["title"] = title_match.group(1).strip()
             # Strip the command from content
-            content = content.replace(title_match.group(0), '')
+            content = content.replace(title_match.group(0), "")
 
         # Extract author
-        author_match = re.search(r'\\author\{([^}]+)\}', content)
+        author_match = re.search(r"\\author\{([^}]+)\}", content)
         if author_match:
-            metadata['author'] = author_match.group(1).strip()
+            metadata["author"] = author_match.group(1).strip()
             # Strip the command from content
-            content = content.replace(author_match.group(0), '')
+            content = content.replace(author_match.group(0), "")
 
         # Extract date
-        date_match = re.search(r'\\date\{([^}]+)\}', content)
+        date_match = re.search(r"\\date\{([^}]+)\}", content)
         if date_match:
             date_str = date_match.group(1).strip()
-            if date_str and date_str != r'\today':
-                metadata['date'] = date_str
+            if date_str and date_str != r"\today":
+                metadata["date"] = date_str
             # Strip the command from content
-            content = content.replace(date_match.group(0), '')
+            content = content.replace(date_match.group(0), "")
 
         return content, metadata
 
@@ -367,33 +362,33 @@ class LatexParser(BaseParser):
         macro_name = node.macroname
 
         # Sectioning commands
-        if macro_name in ('section', 'subsection', 'subsubsection', 'paragraph', 'subparagraph'):
+        if macro_name in ("section", "subsection", "subsubsection", "paragraph", "subparagraph"):
             return self._convert_section(node)
 
         # Text formatting
-        elif macro_name in ('textbf', 'textit', 'texttt', 'emph', 'underline', 'textsuperscript', 'textsubscript'):
+        elif macro_name in ("textbf", "textit", "texttt", "emph", "underline", "textsuperscript", "textsubscript"):
             return self._convert_formatting(node)
 
         # Line break
-        elif macro_name in ('\\', 'newline', 'linebreak'):
+        elif macro_name in ("\\", "newline", "linebreak"):
             return LineBreak(soft=False)
 
         # Horizontal rule
-        elif macro_name == 'hrule':
+        elif macro_name == "hrule":
             return ThematicBreak()
 
         # Title, author, date (metadata - skip in body)
-        elif macro_name in ('title', 'author', 'date', 'maketitle'):
+        elif macro_name in ("title", "author", "date", "maketitle"):
             return None
 
         # Itemize/enumerate handled in environment
         # Unknown macro
         else:
             # Try to extract argument text
-            if node.nodeargd and hasattr(node.nodeargd, 'argnlist'):
+            if node.nodeargd and hasattr(node.nodeargd, "argnlist"):
                 arg_nodes = []
                 for arg in node.nodeargd.argnlist:
-                    if arg and hasattr(arg, 'nodelist'):
+                    if arg and hasattr(arg, "nodelist"):
                         for child in arg.nodelist:
                             converted = self._convert_node(child)
                             if converted:
@@ -406,7 +401,7 @@ class LatexParser(BaseParser):
 
             # If no argument nodes extracted and we're in strict mode,
             # preserve the original LaTeX as text for debugging
-            if self.options.strict_mode and hasattr(node, 'latex_verbatim'):
+            if self.options.strict_mode and hasattr(node, "latex_verbatim"):
                 try:
                     original_latex = node.latex_verbatim()
                     return Text(content=f"[Unsupported LaTeX: {original_latex}]")
@@ -431,11 +426,11 @@ class LatexParser(BaseParser):
         """
         # Map LaTeX sections to heading levels
         level_map = {
-            'section': 1,
-            'subsection': 2,
-            'subsubsection': 3,
-            'paragraph': 4,
-            'subparagraph': 5,
+            "section": 1,
+            "subsection": 2,
+            "subsubsection": 3,
+            "paragraph": 4,
+            "subparagraph": 5,
         }
         level = level_map.get(node.macroname, 1)
 
@@ -445,11 +440,11 @@ class LatexParser(BaseParser):
         # Try different ways to access the argument
         if node.nodeargd:
             # Try accessing via argnlist
-            if hasattr(node.nodeargd, 'argnlist') and node.nodeargd.argnlist:
+            if hasattr(node.nodeargd, "argnlist") and node.nodeargd.argnlist:
                 first_arg = node.nodeargd.argnlist[0]
                 if first_arg:
                     # Try nodelist
-                    if hasattr(first_arg, 'nodelist') and first_arg.nodelist:
+                    if hasattr(first_arg, "nodelist") and first_arg.nodelist:
                         for child in first_arg.nodelist:
                             converted = self._convert_node(child)
                             if converted:
@@ -459,16 +454,16 @@ class LatexParser(BaseParser):
                                     content_nodes.append(converted)
 
                     # Try latex_verbatim
-                    if not content_nodes and hasattr(first_arg, 'latex_verbatim'):
+                    if not content_nodes and hasattr(first_arg, "latex_verbatim"):
                         text = first_arg.latex_verbatim().strip()
                         if text:
                             content_nodes.append(Text(content=text))
 
             # Try accessing via argspec attribute
-            elif hasattr(node.nodeargd, 'argspec') and hasattr(node.nodeargd, 'arguments_spec_list'):
+            elif hasattr(node.nodeargd, "argspec") and hasattr(node.nodeargd, "arguments_spec_list"):
                 # This is for newer versions of pylatexenc
                 for arg_spec in node.nodeargd.arguments_spec_list:
-                    if hasattr(arg_spec, 'nodelist') and arg_spec.nodelist:
+                    if hasattr(arg_spec, "nodelist") and arg_spec.nodelist:
                         for child in arg_spec.nodelist:
                             converted = self._convert_node(child)
                             if converted:
@@ -482,10 +477,10 @@ class LatexParser(BaseParser):
         if not content_nodes:
             try:
                 # Get the LaTeX source and extract text between braces
-                if hasattr(node, 'latex_verbatim'):
+                if hasattr(node, "latex_verbatim"):
                     latex_str = node.latex_verbatim()
                     # Extract text between first { and }
-                    match = re.search(r'\{([^}]+)\}', latex_str)
+                    match = re.search(r"\{([^}]+)\}", latex_str)
                     if match:
                         text = match.group(1).strip()
                         if text:
@@ -514,10 +509,10 @@ class LatexParser(BaseParser):
         # Extract content from first argument
         content_nodes: list[Node] = []
         if node.nodeargd:
-            if hasattr(node.nodeargd, 'argnlist') and node.nodeargd.argnlist:
+            if hasattr(node.nodeargd, "argnlist") and node.nodeargd.argnlist:
                 first_arg = node.nodeargd.argnlist[0]
                 if first_arg:
-                    if hasattr(first_arg, 'nodelist') and first_arg.nodelist:
+                    if hasattr(first_arg, "nodelist") and first_arg.nodelist:
                         for child in first_arg.nodelist:
                             converted = self._convert_node(child)
                             if converted:
@@ -527,7 +522,7 @@ class LatexParser(BaseParser):
                                     content_nodes.append(converted)
 
                     # Try latex_verbatim if nodelist didn't work
-                    if not content_nodes and hasattr(first_arg, 'latex_verbatim'):
+                    if not content_nodes and hasattr(first_arg, "latex_verbatim"):
                         text = first_arg.latex_verbatim().strip()
                         if text:
                             content_nodes.append(Text(content=text))
@@ -535,10 +530,10 @@ class LatexParser(BaseParser):
         # Fallback: try to get text from the whole node
         if not content_nodes:
             try:
-                if hasattr(node, 'latex_verbatim'):
+                if hasattr(node, "latex_verbatim"):
                     latex_str = node.latex_verbatim()
                     # Extract text between first { and }
-                    match = re.search(r'\{([^}]+)\}', latex_str)
+                    match = re.search(r"\{([^}]+)\}", latex_str)
                     if match:
                         text = match.group(1).strip()
                         if text:
@@ -547,21 +542,21 @@ class LatexParser(BaseParser):
                 pass
 
         # Map to appropriate node type
-        if macro_name == 'textbf':
+        if macro_name == "textbf":
             return Strong(content=content_nodes)
-        elif macro_name in ('textit', 'emph'):
+        elif macro_name in ("textit", "emph"):
             return Emphasis(content=content_nodes)
-        elif macro_name == 'texttt':
+        elif macro_name == "texttt":
             # Convert to inline code
             text_content = self._extract_text(content_nodes)
             if not text_content:
                 text_content = ""
             return Code(content=text_content)
-        elif macro_name == 'underline':
+        elif macro_name == "underline":
             return Underline(content=content_nodes)
-        elif macro_name == 'textsuperscript':
+        elif macro_name == "textsuperscript":
             return Superscript(content=content_nodes)
-        elif macro_name == 'textsubscript':
+        elif macro_name == "textsubscript":
             return Subscript(content=content_nodes)
         else:
             return content_nodes
@@ -583,34 +578,34 @@ class LatexParser(BaseParser):
         env_name = node.environmentname
 
         # Math environments
-        if env_name in ('equation', 'align', 'displaymath', 'eqnarray'):
+        if env_name in ("equation", "align", "displaymath", "eqnarray"):
             return self._convert_math_environment(node)
 
         # Lists
-        elif env_name == 'itemize':
+        elif env_name == "itemize":
             return self._convert_itemize(node)
-        elif env_name == 'enumerate':
+        elif env_name == "enumerate":
             return self._convert_enumerate(node)
 
         # Quote environments
-        elif env_name in ('quote', 'quotation'):
+        elif env_name in ("quote", "quotation"):
             return self._convert_quote(node)
 
         # Verbatim (code block)
-        elif env_name == 'verbatim':
+        elif env_name == "verbatim":
             return self._convert_verbatim(node)
 
         # Table
-        elif env_name == 'tabular':
+        elif env_name == "tabular":
             return self._convert_tabular(node)
 
         # Figure (contains image)
-        elif env_name == 'figure':
+        elif env_name == "figure":
             return self._convert_figure(node)
 
         # Unknown environment - extract content
         else:
-            if hasattr(node, 'nodelist'):
+            if hasattr(node, "nodelist"):
                 children = []
                 for child in node.nodelist:
                     converted = self._convert_node(child)
@@ -622,7 +617,7 @@ class LatexParser(BaseParser):
 
                 # If strict mode and no children extracted, add placeholder
                 if not children and self.options.strict_mode:
-                    env_name = getattr(node, 'environmentname', 'unknown')
+                    env_name = getattr(node, "environmentname", "unknown")
                     children = [Text(content=f"[Unsupported environment: {env_name}]")]
 
                 return children
@@ -643,7 +638,7 @@ class LatexParser(BaseParser):
 
         """
         # Extract raw LaTeX content
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             content = self._extract_raw_latex(node.nodelist)
         else:
             content = ""
@@ -665,13 +660,13 @@ class LatexParser(BaseParser):
 
         """
         # Extract math content
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             content = self._extract_raw_latex(node.nodelist)
         else:
-            content = node.latex_verbatim() if hasattr(node, 'latex_verbatim') else ""
+            content = node.latex_verbatim() if hasattr(node, "latex_verbatim") else ""
 
         # Determine if inline or display mode
-        if hasattr(node, 'displaytype') and node.displaytype == 'display':
+        if hasattr(node, "displaytype") and node.displaytype == "display":
             return MathBlock(content=content, notation="latex")
         else:
             return MathInline(content=content, notation="latex")
@@ -691,14 +686,14 @@ class LatexParser(BaseParser):
 
         """
         items = []
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             for child in node.nodelist:
-                if hasattr(child, 'macroname') and child.macroname == 'item':
+                if hasattr(child, "macroname") and child.macroname == "item":
                     item_nodes = []
                     # Get content after \item
-                    if hasattr(child, 'nodeargd') and hasattr(child.nodeargd, 'argnlist'):
+                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
                         for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, 'nodelist'):
+                            if arg and hasattr(arg, "nodelist"):
                                 for item_child in arg.nodelist:
                                     converted = self._convert_node(item_child)
                                     if converted:
@@ -709,9 +704,7 @@ class LatexParser(BaseParser):
 
                     # Wrap in paragraph if not empty
                     if item_nodes:
-                        all_inline = all(
-                            isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes
-                        )
+                        all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
                         content = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
                         para = Paragraph(content=content)
                         items.append(ListItem(children=[para]))
@@ -733,14 +726,14 @@ class LatexParser(BaseParser):
 
         """
         items = []
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             for child in node.nodelist:
-                if hasattr(child, 'macroname') and child.macroname == 'item':
+                if hasattr(child, "macroname") and child.macroname == "item":
                     item_nodes = []
                     # Get content after \item
-                    if hasattr(child, 'nodeargd') and hasattr(child.nodeargd, 'argnlist'):
+                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
                         for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, 'nodelist'):
+                            if arg and hasattr(arg, "nodelist"):
                                 for item_child in arg.nodelist:
                                     converted = self._convert_node(item_child)
                                     if converted:
@@ -751,9 +744,7 @@ class LatexParser(BaseParser):
 
                     # Wrap in paragraph
                     if item_nodes:
-                        all_inline = all(
-                            isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes
-                        )
+                        all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
                         content = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
                         para = Paragraph(content=content)
                         items.append(ListItem(children=[para]))
@@ -775,7 +766,7 @@ class LatexParser(BaseParser):
 
         """
         children = []
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             for child in node.nodelist:
                 converted = self._convert_node(child)
                 if converted:
@@ -806,20 +797,20 @@ class LatexParser(BaseParser):
         content = ""
 
         # Try to get raw content directly
-        if hasattr(node, 'latex_verbatim'):
+        if hasattr(node, "latex_verbatim"):
             try:
                 full_text = node.latex_verbatim()
                 # Extract content between \begin{verbatim} and \end{verbatim}
-                match = re.search(r'\\begin\{verbatim\}(.*?)\\end\{verbatim\}', full_text, re.DOTALL)
+                match = re.search(r"\\begin\{verbatim\}(.*?)\\end\{verbatim\}", full_text, re.DOTALL)
                 if match:
                     content = match.group(1)
                     # Remove leading/trailing newlines but preserve internal formatting
-                    content = content.strip('\n')
+                    content = content.strip("\n")
             except Exception:
                 pass
 
         # Fallback to nodelist
-        if not content and hasattr(node, 'nodelist'):
+        if not content and hasattr(node, "nodelist"):
             content = self._extract_raw_latex(node.nodelist)
 
         return CodeBlock(content=content)
@@ -839,7 +830,7 @@ class LatexParser(BaseParser):
 
         """
         # Extract raw LaTeX content from tabular environment
-        if not hasattr(node, 'nodelist') or not node.nodelist:
+        if not hasattr(node, "nodelist") or not node.nodelist:
             return None
 
         # Get the raw LaTeX content
@@ -850,7 +841,7 @@ class LatexParser(BaseParser):
         try:
             # Split by row delimiter (\\)
             # Note: This is a simplified parser for basic tables
-            rows_raw = re.split(r'\\\\', raw_content)
+            rows_raw = re.split(r"\\\\", raw_content)
 
             # Filter out empty rows
             rows_raw = [row.strip() for row in rows_raw if row.strip()]
@@ -863,7 +854,7 @@ class LatexParser(BaseParser):
             table_rows = []
             for row_text in rows_raw:
                 # Split by column delimiter (&)
-                cells_raw = row_text.split('&')
+                cells_raw = row_text.split("&")
                 cells = []
 
                 for cell_text in cells_raw:
@@ -910,13 +901,13 @@ class LatexParser(BaseParser):
 
         """
         # Look for \includegraphics command
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             for child in node.nodelist:
-                if hasattr(child, 'macroname') and child.macroname == 'includegraphics':
+                if hasattr(child, "macroname") and child.macroname == "includegraphics":
                     # Extract image path from argument
-                    if hasattr(child, 'nodeargd') and hasattr(child.nodeargd, 'argnlist'):
+                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
                         for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, 'nodelist'):
+                            if arg and hasattr(arg, "nodelist"):
                                 path = self._extract_text(self._convert_group_node(arg))
                                 if path:
                                     return Image(url=path, alt_text="")
@@ -938,7 +929,7 @@ class LatexParser(BaseParser):
 
         """
         children = []
-        if hasattr(node, 'nodelist'):
+        if hasattr(node, "nodelist"):
             for child in node.nodelist:
                 converted = self._convert_node(child)
                 if converted:
@@ -992,9 +983,9 @@ class LatexParser(BaseParser):
         """
         parts = []
         for node in nodelist:
-            if hasattr(node, 'latex_verbatim'):
+            if hasattr(node, "latex_verbatim"):
                 parts.append(node.latex_verbatim())
-            elif hasattr(node, 'chars'):
+            elif hasattr(node, "chars"):
                 parts.append(node.chars)
         return "".join(parts)
 
@@ -1050,13 +1041,13 @@ class LatexParser(BaseParser):
         metadata = DocumentMetadata()
 
         # Use metadata extracted from preamble
-        if 'title' in self.document_metadata:
-            metadata.title = self.document_metadata['title']
-        if 'author' in self.document_metadata:
-            metadata.author = self.document_metadata['author']
-        if 'date' in self.document_metadata:
+        if "title" in self.document_metadata:
+            metadata.title = self.document_metadata["title"]
+        if "author" in self.document_metadata:
+            metadata.author = self.document_metadata["author"]
+        if "date" in self.document_metadata:
             # Store in custom field as LaTeX date is freeform
-            metadata.custom['date'] = self.document_metadata['date']
+            metadata.custom["date"] = self.document_metadata["date"]
 
         return metadata
 
@@ -1077,5 +1068,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=LatexOptions,
     renderer_options_class="all2md.options.latex.LatexRendererOptions",
     description="Parse and render LaTeX format",
-    priority=10
+    priority=10,
 )

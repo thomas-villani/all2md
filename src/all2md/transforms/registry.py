@@ -132,9 +132,7 @@ class TransformRegistry:
 
         """
         if metadata.name in self._transforms:
-            logger.warning(
-                f"Transform '{metadata.name}' already registered, overwriting"
-            )
+            logger.warning(f"Transform '{metadata.name}' already registered, overwriting")
 
         self._transforms[metadata.name] = metadata
         logger.debug(f"Registered transform: {metadata.name}")
@@ -294,12 +292,12 @@ class TransformRegistry:
             entry_points = importlib.metadata.entry_points()
 
             # Handle different Python versions (3.10+ vs 3.9)
-            if hasattr(entry_points, 'select'):
+            if hasattr(entry_points, "select"):
                 # Python 3.10+
-                transform_eps = entry_points.select(group='all2md.transforms')
+                transform_eps = entry_points.select(group="all2md.transforms")
             else:
                 # Python 3.9 fallback
-                transform_eps = entry_points.get('all2md.transforms', [])  # type: ignore[attr-defined]
+                transform_eps = entry_points.get("all2md.transforms", [])  # type: ignore[attr-defined]
 
             for ep in transform_eps:
                 try:
@@ -308,9 +306,7 @@ class TransformRegistry:
 
                     # Validate it's TransformMetadata
                     if not isinstance(metadata, TransformMetadata):
-                        logger.warning(
-                            f"Entry point '{ep.name}' did not return TransformMetadata, skipping"
-                        )
+                        logger.warning(f"Entry point '{ep.name}' did not return TransformMetadata, skipping")
                         continue
 
                     # Register the transform
@@ -403,11 +399,8 @@ class TransformRegistry:
 
         # Initialize min-heap with zero-indegree nodes (sorted by priority)
         import heapq
-        heap: list[tuple[int, str]] = [
-            (priorities.get(name, 100), name)
-            for name, deg in indegree.items()
-            if deg == 0
-        ]
+
+        heap: list[tuple[int, str]] = [(priorities.get(name, 100), name) for name, deg in indegree.items() if deg == 0]
         heapq.heapify(heap)
 
         sorted_names: list[str] = []
@@ -425,9 +418,7 @@ class TransformRegistry:
         if len(sorted_names) != len(graph):
             # Find a node that's still in the graph (part of a cycle)
             remaining = set(graph.keys()) - set(sorted_names)
-            raise ValueError(
-                f"Circular dependency detected involving: {', '.join(sorted(remaining))}"
-            )
+            raise ValueError(f"Circular dependency detected involving: {', '.join(sorted(remaining))}")
 
         return sorted_names
 

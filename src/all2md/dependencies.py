@@ -48,21 +48,20 @@ def get_package_version(package_name: str) -> Optional[str]:
     # Prefer importlib.metadata (modern approach, Python 3.8+)
     try:
         from importlib import metadata
+
         return metadata.version(package_name)
     except Exception:
         # Fallback to pkg_resources for older environments
         # Note: pkg_resources is deprecated but kept for compatibility
         try:
             import pkg_resources
+
             return pkg_resources.get_distribution(package_name).version
         except Exception:
             return None
 
 
-def check_version_requirement(
-        package_name: str,
-        version_spec: str
-) -> Tuple[bool, Optional[str]]:
+def check_version_requirement(package_name: str, version_spec: str) -> Tuple[bool, Optional[str]]:
     """Check if installed package meets version requirement.
 
     Parameters
@@ -183,10 +182,7 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
     return missing
 
 
-def get_missing_dependencies_for_file(
-        format_name: str,
-        input_file: Optional[str] = None
-) -> List[Tuple[str, str]]:
+def get_missing_dependencies_for_file(format_name: str, input_file: Optional[str] = None) -> List[Tuple[str, str]]:
     """Get list of missing dependencies for a specific format and file.
 
     This function uses context-aware dependency checking to accurately determine
@@ -217,10 +213,7 @@ def get_missing_dependencies_for_file(
 
     # Use context-aware dependency checking if file is provided
     if input_file:
-        required_packages = metadata.get_required_packages_for_content(
-            content=None,
-            input_data=input_file
-        )
+        required_packages = metadata.get_required_packages_for_content(content=None, input_data=input_file)
     else:
         required_packages = metadata.required_packages
 
@@ -360,23 +353,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     """
     import argparse
 
-    parser = argparse.ArgumentParser(
-        prog="all2md-deps",
-        description="Check and manage all2md dependencies"
-    )
+    parser = argparse.ArgumentParser(prog="all2md-deps", description="Check and manage all2md dependencies")
 
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # check command
-    check_parser = subparsers.add_parser('check', help='Check dependency status')
-    check_parser.add_argument(
-        '--format',
-        help='Check dependencies for specific format only'
-    )
+    check_parser = subparsers.add_parser("check", help="Check dependency status")
+    check_parser.add_argument("--format", help="Check dependencies for specific format only")
 
     args = parser.parse_args(argv)
 
-    if args.command == 'check':
+    if args.command == "check":
         if args.format:
             # Check specific format
             missing = get_missing_dependencies(args.format)

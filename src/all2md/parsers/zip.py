@@ -84,12 +84,7 @@ class ZipToAstConverter(BaseParser):
 
         """
         # Emit started event
-        self._emit_progress(
-            "started",
-            "Extracting ZIP archive",
-            current=0,
-            total=1
-        )
+        self._emit_progress("started", "Extracting ZIP archive", current=0, total=1)
 
         # Handle different input types
         zip_bytes = None
@@ -101,7 +96,7 @@ class ZipToAstConverter(BaseParser):
             zip_path = str(input_data)
             # Validate ZIP archive security
             validate_zip_archive(zip_path)
-        elif hasattr(input_data, 'read'):
+        elif hasattr(input_data, "read"):
             input_data.seek(0)
             zip_bytes = input_data.read()
         else:
@@ -111,7 +106,8 @@ class ZipToAstConverter(BaseParser):
         if zip_bytes:
             # Write to temporary location for validation
             import tempfile
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
                 tmp.write(zip_bytes)
                 tmp_path = tmp.name
             try:
@@ -125,18 +121,16 @@ class ZipToAstConverter(BaseParser):
         # Open the ZIP file
         try:
             if zip_bytes:
-                zf = zipfile.ZipFile(io.BytesIO(zip_bytes), 'r')
+                zf = zipfile.ZipFile(io.BytesIO(zip_bytes), "r")
             else:
                 # zip_path must be set if zip_bytes is None
                 assert zip_path is not None
-                zf = zipfile.ZipFile(zip_path, 'r')
+                zf = zipfile.ZipFile(zip_path, "r")
         except zipfile.BadZipFile as e:
             raise MalformedFileError(f"Invalid ZIP archive: {e}") from e
         except Exception as e:
             raise ParsingError(
-                f"Failed to open ZIP archive: {e}",
-                parsing_stage="archive_opening",
-                original_error=e
+                f"Failed to open ZIP archive: {e}", parsing_stage="archive_opening", original_error=e
             ) from e
 
         try:
@@ -148,12 +142,7 @@ class ZipToAstConverter(BaseParser):
             doc.metadata = metadata.to_dict()
 
             # Emit finished event
-            self._emit_progress(
-                "finished",
-                "ZIP archive extraction completed",
-                current=1,
-                total=1
-            )
+            self._emit_progress("finished", "ZIP archive extraction completed", current=1, total=1)
 
             return doc
         finally:
@@ -184,9 +173,7 @@ class ZipToAstConverter(BaseParser):
 
         if not file_list:
             logger.warning("No files to process in ZIP archive")
-            children.append(
-                Paragraph(content=[Text(content="(Empty archive or no matching files)")])
-            )
+            children.append(Paragraph(content=[Text(content="(Empty archive or no matching files)")]))
             return Document(children=children)
 
         total_files = len(file_list)
@@ -200,7 +187,7 @@ class ZipToAstConverter(BaseParser):
                     f"Processing {file_path}",
                     current=processed_count,
                     total=total_files,
-                    file_path=file_path
+                    file_path=file_path,
                 )
 
                 # Extract file content
@@ -219,9 +206,7 @@ class ZipToAstConverter(BaseParser):
                     # Add section heading if configured
                     if self.options.create_section_headings:
                         display_path = self._get_display_path(file_path)
-                        children.append(
-                            Heading(level=2, content=[Text(content=display_path)])
-                        )
+                        children.append(Heading(level=2, content=[Text(content=display_path)]))
 
                     # Add the file's content
                     children.extend(file_ast.children)
@@ -229,12 +214,8 @@ class ZipToAstConverter(BaseParser):
                     # Add a note that the file couldn't be parsed
                     display_path = self._get_display_path(file_path)
                     if self.options.create_section_headings:
-                        children.append(
-                            Heading(level=2, content=[Text(content=display_path)])
-                        )
-                    children.append(
-                        Paragraph(content=[Text(content="(Could not parse this file)")])
-                    )
+                        children.append(Heading(level=2, content=[Text(content=display_path)]))
+                    children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
 
                 processed_count += 1
 
@@ -243,21 +224,13 @@ class ZipToAstConverter(BaseParser):
                 if not self.options.skip_empty_files:
                     display_path = self._get_display_path(file_path)
                     if self.options.create_section_headings:
-                        children.append(
-                            Heading(level=2, content=[Text(content=display_path)])
-                        )
-                    children.append(
-                        Paragraph(content=[
-                            Text(content=f"(Error processing file: {str(e)})")
-                        ])
-                    )
+                        children.append(Heading(level=2, content=[Text(content=display_path)]))
+                    children.append(Paragraph(content=[Text(content=f"(Error processing file: {str(e)})")]))
                 processed_count += 1
                 continue
 
         # Add resource manifest if requested and resources were extracted
-        if (self.options.include_resource_manifest and
-                self.options.extract_resource_files and
-                self._extracted_resources):
+        if self.options.include_resource_manifest and self.options.extract_resource_files and self._extracted_resources:
             self._add_resource_manifest(children)
 
         return Document(children=children)
@@ -378,9 +351,7 @@ class ZipToAstConverter(BaseParser):
 
             # Convert using the detected format
             doc = to_ast(
-                file_obj,
-                source_format=detected_format,  # type: ignore[arg-type]
-                progress=self.progress_callback
+                file_obj, source_format=detected_format, progress=self.progress_callback  # type: ignore[arg-type]
             )
 
             return doc
@@ -412,14 +383,11 @@ class ZipToAstConverter(BaseParser):
         file_count = len([f for f in zf.infolist() if not f.is_dir()])
 
         # Try to get a reasonable title from the filename if available
-        if hasattr(zf, 'filename') and zf.filename:
+        if hasattr(zf, "filename") and zf.filename:
             metadata.title = Path(zf.filename).stem
 
         # Add archive statistics to custom metadata
-        metadata.custom = {
-            "file_count": file_count,
-            "format": "zip"
-        }
+        metadata.custom = {"file_count": file_count, "format": "zip"}
 
         return metadata
 
@@ -457,12 +425,14 @@ class ZipToAstConverter(BaseParser):
             output_file.write_bytes(file_data)
 
             # Track for manifest
-            self._extracted_resources.append({
-                "filename": Path(file_path).name,
-                "path": file_path,
-                "size": len(file_data),
-                "output_path": str(output_file)
-            })
+            self._extracted_resources.append(
+                {
+                    "filename": Path(file_path).name,
+                    "path": file_path,
+                    "size": len(file_data),
+                    "output_path": str(output_file),
+                }
+            )
 
             logger.debug(f"Extracted resource: {file_path} -> {output_file}")
 
@@ -525,5 +495,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=ZipOptions,
     renderer_options_class=None,
     description="Extract and convert files from ZIP archives",
-    priority=3  # Lower than specific formats to avoid conflicts with DOCX/EPUB
+    priority=3,  # Lower than specific formats to avoid conflicts with DOCX/EPUB
 )

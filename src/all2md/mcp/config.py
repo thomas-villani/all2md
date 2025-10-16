@@ -87,13 +87,9 @@ class MCPConfig(CloneFrozenMixin):
 
         """
         # Validate flavor
-        allowed_flavors = ('gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus')
+        allowed_flavors = ("gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus")
         if self.flavor not in allowed_flavors:
-            raise ValueError(
-                f"Invalid flavor: {self.flavor}. "
-                f"Must be one of: {', '.join(allowed_flavors)}"
-            )
-
+            raise ValueError(f"Invalid flavor: {self.flavor}. " f"Must be one of: {', '.join(allowed_flavors)}")
 
         # At least one tool must be enabled
         if not self.enable_to_md and not self.enable_from_md and not self.enable_doc_edit:
@@ -117,7 +113,7 @@ def _parse_semicolon_list(value: str | None) -> list[str] | None:
     if not value:
         return None
 
-    parts = [p.strip() for p in value.split(';') if p.strip()]
+    parts = [p.strip() for p in value.split(";") if p.strip()]
     return parts if parts else None
 
 
@@ -139,9 +135,7 @@ def _str_to_bool(value: str | None, default: bool = False) -> bool:
     """
     if value is None:
         return default
-    return value.lower() in ('true', '1', 'yes', 't', 'on')
-
-
+    return value.lower() in ("true", "1", "yes", "t", "on")
 
 
 def _validate_log_level(value: str | None, default: str = "INFO") -> str:
@@ -172,13 +166,10 @@ def _validate_log_level(value: str | None, default: str = "INFO") -> str:
     normalized = value.upper().strip()
 
     # Valid log levels
-    valid_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+    valid_levels = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
     if normalized not in valid_levels:
-        raise ValueError(
-            f"Invalid log level: {value!r}. "
-            f"Must be one of: {', '.join(valid_levels)}"
-        )
+        raise ValueError(f"Invalid log level: {value!r}. " f"Must be one of: {', '.join(valid_levels)}")
 
     return normalized
 
@@ -211,13 +202,10 @@ def _validate_flavor(value: str | None, default: str = "gfm") -> str:
     normalized = value.lower().strip()
 
     # Valid flavors
-    valid_flavors = ('gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus')
+    valid_flavors = ("gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus")
 
     if normalized not in valid_flavors:
-        raise ValueError(
-            f"Invalid markdown flavor: {value!r}. "
-            f"Must be one of: {', '.join(valid_flavors)}"
-        )
+        raise ValueError(f"Invalid markdown flavor: {value!r}. " f"Must be one of: {', '.join(valid_flavors)}")
 
     return normalized
 
@@ -232,8 +220,8 @@ def load_config_from_env() -> MCPConfig:
 
     """
     # Get allowlists from env, defaulting to CWD if not specified
-    read_allowlist_strs = _parse_semicolon_list(os.getenv('ALL2MD_MCP_ALLOWED_READ_DIRS'))
-    write_allowlist_strs = _parse_semicolon_list(os.getenv('ALL2MD_MCP_ALLOWED_WRITE_DIRS'))
+    read_allowlist_strs = _parse_semicolon_list(os.getenv("ALL2MD_MCP_ALLOWED_READ_DIRS"))
+    write_allowlist_strs = _parse_semicolon_list(os.getenv("ALL2MD_MCP_ALLOWED_WRITE_DIRS"))
 
     # Default to CWD if no allowlists specified
     cwd = os.getcwd()
@@ -243,17 +231,17 @@ def load_config_from_env() -> MCPConfig:
         write_allowlist_strs = [cwd]
 
     return MCPConfig(
-        enable_to_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_TO_MD'), default=True),
-        enable_from_md=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_FROM_MD'), default=False),  # Disabled by default
-        enable_doc_edit=_str_to_bool(os.getenv('ALL2MD_MCP_ENABLE_DOC_EDIT'), default=False),  # Disabled by default
+        enable_to_md=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_TO_MD"), default=True),
+        enable_from_md=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_FROM_MD"), default=False),  # Disabled by default
+        enable_doc_edit=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_DOC_EDIT"), default=False),  # Disabled by default
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         read_allowlist=cast(list[str | Path], read_allowlist_strs),
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         write_allowlist=cast(list[str | Path], write_allowlist_strs),
-        include_images=_str_to_bool(os.getenv('ALL2MD_MCP_INCLUDE_IMAGES'), default=False),
-        flavor=_validate_flavor(os.getenv('ALL2MD_MCP_FLAVOR'), default='gfm'),
-        disable_network=_str_to_bool(os.getenv('ALL2MD_DISABLE_NETWORK'), default=True),
-        log_level=_validate_log_level(os.getenv('ALL2MD_MCP_LOG_LEVEL'), default='INFO'),
+        include_images=_str_to_bool(os.getenv("ALL2MD_MCP_INCLUDE_IMAGES"), default=False),
+        flavor=_validate_flavor(os.getenv("ALL2MD_MCP_FLAVOR"), default="gfm"),
+        disable_network=_str_to_bool(os.getenv("ALL2MD_DISABLE_NETWORK"), default=True),
+        log_level=_validate_log_level(os.getenv("ALL2MD_MCP_LOG_LEVEL"), default="INFO"),
     )
 
 
@@ -267,8 +255,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
 
     """
     parser = argparse.ArgumentParser(
-        prog='all2md-mcp',
-        description='MCP server for all2md document conversion library',
+        prog="all2md-mcp",
+        description="MCP server for all2md document conversion library",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Environment Variables:
@@ -298,134 +286,110 @@ Examples:
 
   # Enable writing/rendering (disabled by default)
   all2md-mcp --temp --enable-from-md
-        """
+        """,
     )
 
     # Version flag
     try:
         version_string = f'all2md-mcp {version("all2md")}'
     except Exception:
-        version_string = 'all2md-mcp (version unknown)'
+        version_string = "all2md-mcp (version unknown)"
 
-    parser.add_argument(
-        '--version',
-        action='version',
-        version=version_string
-    )
+    parser.add_argument("--version", action="version", version=version_string)
 
     # Workspace setup
     parser.add_argument(
-        '--temp',
-        action='store_true',
-        help='Create temporary workspace directory for LLM (sets read/write allowlists to temp dir)'
+        "--temp",
+        action="store_true",
+        help="Create temporary workspace directory for LLM (sets read/write allowlists to temp dir)",
     )
 
     # Tool toggles
     to_md_group = parser.add_mutually_exclusive_group()
     to_md_group.add_argument(
-        '--enable-to-md',
-        action='store_true',
-        dest='enable_to_md',
-        help='Enable convert_to_markdown tool (default: true unless --no-to-md)'
+        "--enable-to-md",
+        action="store_true",
+        dest="enable_to_md",
+        help="Enable convert_to_markdown tool (default: true unless --no-to-md)",
     )
     to_md_group.add_argument(
-        '--no-to-md',
-        action='store_false',
-        dest='enable_to_md',
-        help='Disable convert_to_markdown tool'
+        "--no-to-md", action="store_false", dest="enable_to_md", help="Disable convert_to_markdown tool"
     )
     parser.set_defaults(enable_to_md=None)  # None = use env default
 
     from_md_group = parser.add_mutually_exclusive_group()
     from_md_group.add_argument(
-        '--enable-from-md',
-        action='store_true',
-        dest='enable_from_md',
-        help='Enable render_from_markdown tool (default: true unless --no-from-md)'
+        "--enable-from-md",
+        action="store_true",
+        dest="enable_from_md",
+        help="Enable render_from_markdown tool (default: true unless --no-from-md)",
     )
     from_md_group.add_argument(
-        '--no-from-md',
-        action='store_false',
-        dest='enable_from_md',
-        help='Disable render_from_markdown tool'
+        "--no-from-md", action="store_false", dest="enable_from_md", help="Disable render_from_markdown tool"
     )
     parser.set_defaults(enable_from_md=None)  # None = use env default
 
     doc_edit_group = parser.add_mutually_exclusive_group()
     doc_edit_group.add_argument(
-        '--enable-doc-edit',
-        action='store_true',
-        dest='enable_doc_edit',
-        help='Enable edit_document tool for document manipulation (default: false for security)'
+        "--enable-doc-edit",
+        action="store_true",
+        dest="enable_doc_edit",
+        help="Enable edit_document tool for document manipulation (default: false for security)",
     )
     doc_edit_group.add_argument(
-        '--no-doc-edit',
-        action='store_false',
-        dest='enable_doc_edit',
-        help='Disable edit_document tool'
+        "--no-doc-edit", action="store_false", dest="enable_doc_edit", help="Disable edit_document tool"
     )
     parser.set_defaults(enable_doc_edit=None)  # None = use env default
 
     # Path allowlists
     parser.add_argument(
-        '--read-dirs',
-        type=str,
-        metavar='PATHS',
-        help='Semicolon-separated list of allowed read directories'
+        "--read-dirs", type=str, metavar="PATHS", help="Semicolon-separated list of allowed read directories"
     )
 
     parser.add_argument(
-        '--write-dirs',
-        type=str,
-        metavar='PATHS',
-        help='Semicolon-separated list of allowed write directories'
+        "--write-dirs", type=str, metavar="PATHS", help="Semicolon-separated list of allowed write directories"
     )
 
     # Image inclusion settings (server-level only, not per-call)
     include_images_group = parser.add_mutually_exclusive_group()
     include_images_group.add_argument(
-        '--include-images',
-        action='store_true',
-        dest='include_images',
-        help='Include images in output for vLLM visibility (default: true)'
+        "--include-images",
+        action="store_true",
+        dest="include_images",
+        help="Include images in output for vLLM visibility (default: true)",
     )
     include_images_group.add_argument(
-        '--no-include-images',
-        action='store_false',
-        dest='include_images',
-        help='Do not include images, use alt text only'
+        "--no-include-images",
+        action="store_false",
+        dest="include_images",
+        help="Do not include images, use alt text only",
     )
     parser.set_defaults(include_images=None)  # None = use env default
 
     # Markdown flavor
     parser.add_argument(
-        '--flavor',
+        "--flavor",
         type=str,
-        choices=['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus'],
-        help='Markdown flavor/dialect to use (default: gfm)'
+        choices=["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"],
+        help="Markdown flavor/dialect to use (default: gfm)",
     )
 
     # Network control
     network_group = parser.add_mutually_exclusive_group()
     network_group.add_argument(
-        '--allow-network',
-        action='store_false',
-        dest='disable_network',
-        help='Allow network access (default: network disabled)'
+        "--allow-network",
+        action="store_false",
+        dest="disable_network",
+        help="Allow network access (default: network disabled)",
     )
     network_group.add_argument(
-        '--disable-network',
-        action='store_true',
-        dest='disable_network',
-        help='Disable network access (default: true)'
+        "--disable-network", action="store_true", dest="disable_network", help="Disable network access (default: true)"
     )
     parser.set_defaults(disable_network=None)  # None = use env default
 
     # Logging
     parser.add_argument(
-        '--log-level',
-        type=str,
-        help='Logging level: DEBUG, INFO, WARNING, ERROR (case-insensitive, default: INFO)'
+        "--log-level", type=str, help="Logging level: DEBUG, INFO, WARNING, ERROR (case-insensitive, default: INFO)"
     )
 
     return parser
@@ -451,7 +415,7 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     updated_kwargs: dict[str, object] = {}
 
     # Handle --temp flag first (creates temporary workspace)
-    if hasattr(args, 'temp') and args.temp:
+    if hasattr(args, "temp") and args.temp:
         # Create temporary directory for workspace
         temp_dir = tempfile.mkdtemp(prefix="all2md-mcp-workspace-")
         logger.info(f"Created temporary workspace: {temp_dir}")
@@ -478,7 +442,7 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     if args.include_images is not None:
         updated_kwargs.update(include_images=args.include_images)
 
-    if hasattr(args, 'flavor') and args.flavor is not None:
+    if hasattr(args, "flavor") and args.flavor is not None:
         updated_kwargs.update(flavor=_validate_flavor(args.flavor))
 
     if args.disable_network is not None:

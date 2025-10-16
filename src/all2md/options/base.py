@@ -3,6 +3,7 @@
 This module defines the foundation classes for all format-specific options
 used throughout the all2md conversion pipeline.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
@@ -21,6 +22,7 @@ from all2md.constants import (
 from all2md.utils.metadata import MetadataRenderPolicy
 
 UNSET = object()
+
 
 @dataclass(frozen=True)
 class CloneFrozenMixin:
@@ -73,23 +75,23 @@ class BaseRendererOptions(CloneFrozenMixin):
         default=False,
         metadata={
             "help": "Raise RenderingError on resource failures (images, etc.) instead of logging warnings",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     max_asset_size_bytes: int = field(
         default=DEFAULT_MAX_ASSET_SIZE_BYTES,
         metadata={
             "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
             "type": int,
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
     metadata_policy: MetadataRenderPolicy = field(
         default_factory=MetadataRenderPolicy,
         metadata={
             "help": "Metadata rendering policy controlling which fields appear in output",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
 
     def __post_init__(self) -> None:
@@ -103,9 +105,7 @@ class BaseRendererOptions(CloneFrozenMixin):
         """
         # Validate positive asset size limit
         if self.max_asset_size_bytes <= 0:
-            raise ValueError(
-                f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}"
-            )
+            raise ValueError(f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}")
 
 
 @dataclass(frozen=True)
@@ -135,45 +135,36 @@ class BaseParserOptions(CloneFrozenMixin):
         metadata={
             "help": "How to handle attachments/images",
             "choices": ["skip", "alt_text", "download", "base64"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     alt_text_mode: AltTextMode = field(
         default=DEFAULT_ALT_TEXT_MODE,
         metadata={
             "help": "How to render alt-text content when using alt_text attachment mode",
             "choices": ["default", "plain_filename", "strict_markdown", "footnote"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     attachment_output_dir: str | None = field(
         default=DEFAULT_ATTACHMENT_OUTPUT_DIR,
-        metadata={
-            "help": "Directory to save attachments when using download mode",
-            "importance": "advanced"
-        }
+        metadata={"help": "Directory to save attachments when using download mode", "importance": "advanced"},
     )
     attachment_base_url: str | None = field(
         default=DEFAULT_ATTACHMENT_BASE_URL,
-        metadata={
-            "help": "Base URL for resolving attachment references",
-            "importance": "advanced"
-        }
+        metadata={"help": "Base URL for resolving attachment references", "importance": "advanced"},
     )
     extract_metadata: bool = field(
         default=DEFAULT_EXTRACT_METADATA,
-        metadata={
-            "help": "Extract document metadata as YAML front matter",
-            "importance": "core"
-        }
+        metadata={"help": "Extract document metadata as YAML front matter", "importance": "core"},
     )
     max_asset_size_bytes: int = field(
         default=DEFAULT_MAX_ASSET_SIZE_BYTES,
         metadata={
             "help": "Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)",
             "type": int,
-            "importance": "security"
-        }
+            "importance": "security",
+        },
     )
 
     # Advanced attachment handling options
@@ -181,32 +172,26 @@ class BaseParserOptions(CloneFrozenMixin):
         default="{stem}_{type}{seq}.{ext}",
         metadata={
             "help": "Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}",
-            "importance": "advanced"
-
-        }
+            "importance": "advanced",
+        },
     )
     attachment_overwrite: Literal["unique", "overwrite", "skip"] = field(
         default="unique",
         metadata={
             "help": "File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'",
             "choices": ["unique", "overwrite", "skip"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     attachment_deduplicate_by_hash: bool = field(
-        default=False,
-        metadata={
-            "help": "Avoid saving duplicate attachments by content hash",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Avoid saving duplicate attachments by content hash", "importance": "advanced"}
     )
     attachments_footnotes_section: str | None = field(
         default="Attachments",
         metadata={
             "help": "Section title for footnote-style attachment references (None to disable)",
-            "importance": "advanced"
-
-        }
+            "importance": "advanced",
+        },
     )
 
     def __post_init__(self) -> None:
@@ -220,6 +205,4 @@ class BaseParserOptions(CloneFrozenMixin):
         """
         # Validate positive asset size limit
         if self.max_asset_size_bytes <= 0:
-            raise ValueError(
-                f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}"
-            )
+            raise ValueError(f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}")

@@ -18,118 +18,116 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
 
-
 MetadataVisibility = Literal["core", "standard", "extended", "all"]
 
 # Standard property mappings for different document formats
 PDF_FIELD_MAPPING = {
-    'title': ['title', 'Title'],
-    'author': ['author', 'Author'],
-    'subject': ['subject', 'Subject'],
-    'creator': ['creator', 'Creator'],
-    'producer': ['producer', 'Producer'],
-    'keywords': ['keywords', 'Keywords'],
+    "title": ["title", "Title"],
+    "author": ["author", "Author"],
+    "subject": ["subject", "Subject"],
+    "creator": ["creator", "Creator"],
+    "producer": ["producer", "Producer"],
+    "keywords": ["keywords", "Keywords"],
 }
 
 OFFICE_FIELD_MAPPING = {
-    'title': 'title',
-    'author': 'author',
-    'subject': 'subject',
-    'category': 'category',
-    'language': 'language',
-    'keywords': 'keywords',
-    'creation_date': 'created',
-    'modification_date': 'modified',
+    "title": "title",
+    "author": "author",
+    "subject": "subject",
+    "category": "category",
+    "language": "language",
+    "keywords": "keywords",
+    "creation_date": "created",
+    "modification_date": "modified",
 }
 
 SPREADSHEET_FIELD_MAPPING: Mapping[str, Union[str, List[str]]] = {
-    'title': 'title',
-    'author': 'creator',
-    'subject': ['subject', 'description'],
-    'language': 'language',
-    'category': 'category',
-    'keywords': 'keywords',
-    'creation_date': 'created',
-    'modification_date': 'modified',
+    "title": "title",
+    "author": "creator",
+    "subject": ["subject", "description"],
+    "language": "language",
+    "category": "category",
+    "keywords": "keywords",
+    "creation_date": "created",
+    "modification_date": "modified",
 }
 
 
 CORE_METADATA_FIELDS: tuple[str, ...] = (
-    'title',
-    'author',
-    'source',
-    'creation_date',
-    'modification_date',
-    'accessed_date',
+    "title",
+    "author",
+    "source",
+    "creation_date",
+    "modification_date",
+    "accessed_date",
 )
 
 DESCRIPTIVE_METADATA_FIELDS: tuple[str, ...] = (
-    'description',
-    'keywords',
-    'language',
-    'category',
+    "description",
+    "keywords",
+    "language",
+    "category",
 )
 
 TECHNICAL_METADATA_FIELDS: tuple[str, ...] = (
-    'creator',
-    'producer',
-    'page_count',
-    'word_count',
+    "creator",
+    "producer",
+    "page_count",
+    "word_count",
 )
 
 INTERNAL_METADATA_FIELDS: tuple[str, ...] = (
-    'source_path',
-    'sha256',
-    'extraction_date',
+    "source_path",
+    "sha256",
+    "extraction_date",
 )
 
 FIELD_NORMALIZATION_ALIASES: Mapping[str, str] = {
-    'url': 'source',
-    'source_url': 'source',
-    'link': 'source',
-    'website': 'source',
-    'publication': 'source',
-    'accessed': 'accessed_date',
-    'accessed_on': 'accessed_date',
-    'date_accessed': 'accessed_date',
-    'date_published': 'creation_date',
-    'published_date': 'creation_date',
-    'created_at': 'creation_date',
-    'modified_at': 'modification_date',
+    "url": "source",
+    "source_url": "source",
+    "link": "source",
+    "website": "source",
+    "publication": "source",
+    "accessed": "accessed_date",
+    "accessed_on": "accessed_date",
+    "date_accessed": "accessed_date",
+    "date_published": "creation_date",
+    "published_date": "creation_date",
+    "created_at": "creation_date",
+    "modified_at": "modification_date",
 }
 
 
 FIELD_VISIBILITY_MAP: Mapping[MetadataVisibility, tuple[str, ...]] = {
-    'core': CORE_METADATA_FIELDS,
-    'standard': CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS,
-    'extended': CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS + TECHNICAL_METADATA_FIELDS,
-    'all': CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS + TECHNICAL_METADATA_FIELDS + INTERNAL_METADATA_FIELDS,
+    "core": CORE_METADATA_FIELDS,
+    "standard": CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS,
+    "extended": CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS + TECHNICAL_METADATA_FIELDS,
+    "all": CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS + TECHNICAL_METADATA_FIELDS + INTERNAL_METADATA_FIELDS,
 }
 
 FIELD_OUTPUT_ORDER: tuple[str, ...] = (
-    'title',
-    'author',
-    'source',
-    'creation_date',
-    'modification_date',
-    'accessed_date',
-    'description',
-    'keywords',
-    'language',
-    'category',
-    'creator',
-    'producer',
-    'page_count',
-    'word_count',
-    'source_path',
-    'sha256',
-    'extraction_date',
+    "title",
+    "author",
+    "source",
+    "creation_date",
+    "modification_date",
+    "accessed_date",
+    "description",
+    "keywords",
+    "language",
+    "category",
+    "creator",
+    "producer",
+    "page_count",
+    "word_count",
+    "source_path",
+    "sha256",
+    "extraction_date",
 )
 
 
 def _normalize_field_name(field: str) -> str:
     """Return canonical field name for metadata filtering."""
-
     return FIELD_NORMALIZATION_ALIASES.get(field, field)
 
 
@@ -138,7 +136,7 @@ ALL_KNOWN_FIELDS: tuple[str, ...] = (
     + DESCRIPTIVE_METADATA_FIELDS
     + TECHNICAL_METADATA_FIELDS
     + INTERNAL_METADATA_FIELDS
-    + ('accessed_date', 'source')
+    + ("accessed_date", "source")
 )
 
 
@@ -146,7 +144,7 @@ ALL_KNOWN_FIELDS: tuple[str, ...] = (
 class MetadataRenderPolicy:
     """Configuration describing how document metadata should be rendered."""
 
-    visibility: MetadataVisibility = 'extended'
+    visibility: MetadataVisibility = "extended"
     include_fields: Tuple[str, ...] = field(default_factory=tuple)
     exclude_fields: Tuple[str, ...] = field(default_factory=tuple)
     include_custom_fields: bool = True
@@ -158,7 +156,6 @@ DEFAULT_METADATA_RENDER_POLICY = MetadataRenderPolicy()
 
 def _value_is_meaningful(value: Any) -> bool:
     """Return True if the metadata value should be rendered."""
-
     if value is None:
         return False
     if isinstance(value, str):
@@ -170,7 +167,6 @@ def _value_is_meaningful(value: Any) -> bool:
 
 def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any], set[str]]:
     """Normalize metadata keys and collect custom fields."""
-
     normalized: Dict[str, Any] = {}
     custom_fields: set[str] = set()
 
@@ -180,12 +176,12 @@ def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any
 
         canonical = _normalize_field_name(key)
 
-        if canonical == 'url':
-            canonical = 'source'
-        elif canonical == 'extraction_date':
-            normalized['extraction_date'] = value
-            if 'accessed_date' not in normalized:
-                normalized['accessed_date'] = value
+        if canonical == "url":
+            canonical = "source"
+        elif canonical == "extraction_date":
+            normalized["extraction_date"] = value
+            if "accessed_date" not in normalized:
+                normalized["accessed_date"] = value
             continue
 
         normalized[canonical] = value
@@ -194,27 +190,25 @@ def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any
             custom_fields.add(canonical)
 
     # Ensure source/accessed aliases are populated when only alternate keys exist
-    if 'source' not in normalized:
-        for alias in ('url', 'source_url', 'link', 'website', 'publication'):
+    if "source" not in normalized:
+        for alias in ("url", "source_url", "link", "website", "publication"):
             if alias in metadata and _value_is_meaningful(metadata[alias]):
-                normalized['source'] = metadata[alias]
+                normalized["source"] = metadata[alias]
                 break
 
-    if 'accessed_date' not in normalized:
-        for alias in ('accessed_date', 'accessed', 'accessed_on', 'date_accessed', 'extraction_date'):
+    if "accessed_date" not in normalized:
+        for alias in ("accessed_date", "accessed", "accessed_on", "date_accessed", "extraction_date"):
             if alias in metadata and _value_is_meaningful(metadata[alias]):
-                normalized['accessed_date'] = metadata[alias]
+                normalized["accessed_date"] = metadata[alias]
                 break
 
     return normalized, custom_fields
 
 
 def prepare_metadata_for_render(
-        metadata: Union["DocumentMetadata", Mapping[str, Any], None],
-        policy: MetadataRenderPolicy | None = None
+    metadata: Union["DocumentMetadata", Mapping[str, Any], None], policy: MetadataRenderPolicy | None = None
 ) -> Dict[str, Any]:
     """Return metadata filtered for rendering according to the policy."""
-
     if not metadata:
         return {}
 
@@ -227,7 +221,7 @@ def prepare_metadata_for_render(
 
     normalized, custom_fields = _normalize_metadata_dict(metadata_dict)
 
-    visibility_fields = set(FIELD_VISIBILITY_MAP.get(policy.visibility, FIELD_VISIBILITY_MAP['extended']))
+    visibility_fields = set(FIELD_VISIBILITY_MAP.get(policy.visibility, FIELD_VISIBILITY_MAP["extended"]))
     include_fields = {_normalize_field_name(name) for name in policy.include_fields}
     exclude_fields = {_normalize_field_name(name) for name in policy.exclude_fields}
 
@@ -274,7 +268,6 @@ def prepare_metadata_for_render(
         add_field(field)
 
     return dict(output)
-
 
 
 @dataclass
@@ -351,45 +344,45 @@ class DocumentMetadata:
 
         # Standard fields
         if self.title:
-            result['title'] = self.title
+            result["title"] = self.title
         if self.author:
-            result['author'] = self.author
+            result["author"] = self.author
         if self.subject:
-            result['description'] = self.subject
+            result["description"] = self.subject
         if self.keywords:
-            result['keywords'] = self.keywords
+            result["keywords"] = self.keywords
         if self.creation_date:
             if isinstance(self.creation_date, datetime):
-                result['creation_date'] = self.creation_date.strftime('%Y-%m-%d')
+                result["creation_date"] = self.creation_date.strftime("%Y-%m-%d")
             else:
-                result['creation_date'] = str(self.creation_date)
+                result["creation_date"] = str(self.creation_date)
         if self.modification_date:
             if isinstance(self.modification_date, datetime):
-                result['modification_date'] = self.modification_date.strftime('%Y-%m-%d')
+                result["modification_date"] = self.modification_date.strftime("%Y-%m-%d")
             else:
-                result['modification_date'] = str(self.modification_date)
+                result["modification_date"] = str(self.modification_date)
         if self.creator:
-            result['creator'] = self.creator
+            result["creator"] = self.creator
         if self.producer:
-            result['producer'] = self.producer
+            result["producer"] = self.producer
         if self.category:
-            result['category'] = self.category
+            result["category"] = self.category
         if self.language:
-            result['language'] = self.language
+            result["language"] = self.language
 
         # New fields
         if self.url:
-            result['url'] = self.url
+            result["url"] = self.url
         if self.source_path:
-            result['source_path'] = self.source_path
+            result["source_path"] = self.source_path
         if self.page_count is not None:
-            result['page_count'] = self.page_count
+            result["page_count"] = self.page_count
         if self.word_count is not None:
-            result['word_count'] = self.word_count
+            result["word_count"] = self.word_count
         if self.sha256:
-            result['sha256'] = self.sha256
+            result["sha256"] = self.sha256
         if self.extraction_date:
-            result['extraction_date'] = self.extraction_date
+            result["extraction_date"] = self.extraction_date
 
         # Add custom fields
         for key, value in self.custom.items():
@@ -414,22 +407,24 @@ def format_yaml_value(value: Any) -> str:
 
     """
     if value is None:
-        return 'null'
+        return "null"
     elif isinstance(value, bool):
-        return 'true' if value else 'false'
+        return "true" if value else "false"
     elif isinstance(value, (int, float)):
         return str(value)
     elif isinstance(value, (list, tuple)):
         if not value:
-            return '[]'
+            return "[]"
         # Check if we need to quote items
         items = []
         for item in value:
             if isinstance(item, str):
                 # Quote if contains special YAML chars
-                if any(c in str(item) for c in
-                       [':', '#', '"', "'", '|', '>', '\n', '[', ']', '{', '}', ',', '&', '*', '!', '%', '@', '`']):
-                    escaped = str(item).replace('\\', '\\\\').replace('"', '\\"')
+                if any(
+                    c in str(item)
+                    for c in [":", "#", '"', "'", "|", ">", "\n", "[", "]", "{", "}", ",", "&", "*", "!", "%", "@", "`"]
+                ):
+                    escaped = str(item).replace("\\", "\\\\").replace('"', '\\"')
                     items.append(f'"{escaped}"')
                 else:
                     items.append(str(item))
@@ -439,30 +434,30 @@ def format_yaml_value(value: Any) -> str:
     elif isinstance(value, dict):
         # For nested dicts, we'll use a simple inline format
         if not value:
-            return '{}'
+            return "{}"
         items = []
         for k, v in value.items():
             formatted_value = format_yaml_value(v)
-            items.append(f'{k}: {formatted_value}')
+            items.append(f"{k}: {formatted_value}")
         return f"{{{', '.join(items)}}}"
     elif isinstance(value, str):
         # Check if string needs quoting
         needs_quote = (
-                ':' in value or
-                '#' in value or
-                '"' in value or
-                "'" in value or
-                '\n' in value or
-                value.startswith((' ', '\t')) or
-                value.endswith((' ', '\t')) or
-                value in ['true', 'false', 'null', 'yes', 'no', 'on', 'off'] or
-                value.startswith(('|', '>', '-', '*', '&', '!', '%', '@', '`')) or
-                (value and value[0].isdigit() and '.' in value)  # Might be confused with number
+            ":" in value
+            or "#" in value
+            or '"' in value
+            or "'" in value
+            or "\n" in value
+            or value.startswith((" ", "\t"))
+            or value.endswith((" ", "\t"))
+            or value in ["true", "false", "null", "yes", "no", "on", "off"]
+            or value.startswith(("|", ">", "-", "*", "&", "!", "%", "@", "`"))
+            or (value and value[0].isdigit() and "." in value)  # Might be confused with number
         )
 
         if needs_quote:
             # Escape backslashes and quotes
-            escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
             return f'"{escaped}"'
         return value
     else:
@@ -471,8 +466,7 @@ def format_yaml_value(value: Any) -> str:
 
 
 def format_yaml_frontmatter(
-        metadata: Union[DocumentMetadata, Dict[str, Any]],
-        policy: MetadataRenderPolicy | None = None
+    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as YAML front matter.
 
@@ -524,21 +518,20 @@ def format_yaml_frontmatter(
         formatted_value = format_yaml_value(value)
 
         # Handle multiline strings specially
-        if isinstance(value, str) and '\n' in value:
+        if isinstance(value, str) and "\n" in value:
             # Use literal block scalar for multiline strings
-            lines.append(f'{key}: |')
-            for line in value.split('\n'):
-                lines.append(f'  {line}')
+            lines.append(f"{key}: |")
+            for line in value.split("\n"):
+                lines.append(f"  {line}")
         else:
-            lines.append(f'{key}: {formatted_value}')
+            lines.append(f"{key}: {formatted_value}")
 
     lines.append("---")
-    return '\n'.join(lines) + '\n\n'
+    return "\n".join(lines) + "\n\n"
 
 
 def format_toml_frontmatter(
-        metadata: Union[DocumentMetadata, Dict[str, Any]],
-        policy: MetadataRenderPolicy | None = None
+    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as TOML front matter.
 
@@ -591,14 +584,14 @@ def format_toml_frontmatter(
             formatted_value = str(value)
         elif isinstance(value, str):
             # Escape quotes and backslashes
-            escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
             formatted_value = f'"{escaped}"'
         elif isinstance(value, list):
             # Format as TOML array
             items = []
             for item in value:
                 if isinstance(item, str):
-                    escaped = item.replace('\\', '\\\\').replace('"', '\\"')
+                    escaped = item.replace("\\", "\\\\").replace('"', '\\"')
                     items.append(f'"{escaped}"')
                 else:
                     items.append(str(item))
@@ -609,15 +602,14 @@ def format_toml_frontmatter(
         else:
             formatted_value = f'"{str(value)}"'
 
-        lines.append(f'{key} = {formatted_value}')
+        lines.append(f"{key} = {formatted_value}")
 
     lines.append("+++")
-    return '\n'.join(lines) + '\n\n'
+    return "\n".join(lines) + "\n\n"
 
 
 def format_json_frontmatter(
-        metadata: Union[DocumentMetadata, Dict[str, Any]],
-        policy: MetadataRenderPolicy | None = None
+    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     r"""Format metadata as JSON front matter.
 
@@ -662,7 +654,7 @@ def format_json_frontmatter(
     # Format as JSON with indentation
     json_content = json.dumps(data, indent=2, ensure_ascii=False)
 
-    return f'```json\n{json_content}\n```\n\n'
+    return f"```json\n{json_content}\n```\n\n"
 
 
 def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[str] = None) -> Optional[str]:
@@ -721,14 +713,13 @@ def extract_keywords_from_string(keywords_str: str) -> List[str]:
         return []
 
     import re
-    keywords = [k.strip() for k in re.split('[,;]', keywords_str) if k.strip()]
+
+    keywords = [k.strip() for k in re.split("[,;]", keywords_str) if k.strip()]
     return keywords
 
 
 def map_properties_to_metadata(
-        props_obj: Any,
-        field_mapping: Mapping[str, Union[str, List[str]]],
-        custom_handlers: Optional[Dict[str, Any]] = None
+    props_obj: Any, field_mapping: Mapping[str, Union[str, List[str]]], custom_handlers: Optional[Dict[str, Any]] = None
 ) -> DocumentMetadata:
     """Map properties from a document object to DocumentMetadata using field mappings.
 
@@ -794,7 +785,7 @@ def map_properties_to_metadata(
             value = safe_extract_property(props_obj, prop_names)
 
         # Special handling for keywords field
-        if metadata_field == 'keywords' and value:
+        if metadata_field == "keywords" and value:
             if isinstance(value, str):
                 value = extract_keywords_from_string(value)
             elif not isinstance(value, list):
@@ -806,7 +797,7 @@ def map_properties_to_metadata(
 
 
 def extract_dict_metadata(
-        metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
+    metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
 ) -> DocumentMetadata:
     """Extract metadata from a dictionary (useful for PDF and similar formats).
 
@@ -837,10 +828,10 @@ def extract_dict_metadata(
 
 
 def prepend_metadata_if_enabled(
-        content: str,
-        metadata: Optional[DocumentMetadata],
-        extract_metadata: bool,
-        policy: MetadataRenderPolicy | None = None
+    content: str,
+    metadata: Optional[DocumentMetadata],
+    extract_metadata: bool,
+    policy: MetadataRenderPolicy | None = None,
 ) -> str:
     """Prepend metadata to content if extraction is enabled.
 
@@ -869,10 +860,7 @@ def prepend_metadata_if_enabled(
 
 
 def enrich_metadata_with_conversion_info(
-        metadata: DocumentMetadata,
-        input_data: Any,
-        content: str = "",
-        page_count: Optional[int] = None
+    metadata: DocumentMetadata, input_data: Any, content: str = "", page_count: Optional[int] = None
 ) -> DocumentMetadata:
     """Enrich metadata with conversion-specific information.
 
@@ -898,7 +886,8 @@ def enrich_metadata_with_conversion_info(
     """
     # Set extraction date
     from datetime import datetime as dt
-    metadata.extraction_date = dt.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    metadata.extraction_date = dt.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Try to extract source_path from input
     if isinstance(input_data, (str, Path)):
@@ -914,7 +903,7 @@ def enrich_metadata_with_conversion_info(
             # Hash file content if it's a path using chunked reading
             try:
                 hash_obj = hashlib.sha256()
-                with open(str(input_data), 'rb') as f:
+                with open(str(input_data), "rb") as f:
                     while True:
                         chunk = f.read(chunk_size)
                         if not chunk:
@@ -923,11 +912,11 @@ def enrich_metadata_with_conversion_info(
                 metadata.sha256 = hash_obj.hexdigest()
             except Exception:
                 pass  # Skip if file can't be read
-        elif hasattr(input_data, 'read'):
+        elif hasattr(input_data, "read"):
             # For file-like objects, use chunked reading
             try:
                 # Save position if seekable
-                current_pos = input_data.tell() if hasattr(input_data, 'tell') else None
+                current_pos = input_data.tell() if hasattr(input_data, "tell") else None
 
                 # Hash in chunks
                 hash_obj = hashlib.sha256()
@@ -939,7 +928,7 @@ def enrich_metadata_with_conversion_info(
                 metadata.sha256 = hash_obj.hexdigest()
 
                 # Try to restore position if seekable
-                if current_pos is not None and hasattr(input_data, 'seek'):
+                if current_pos is not None and hasattr(input_data, "seek"):
                     try:
                         input_data.seek(current_pos)
                     except Exception:

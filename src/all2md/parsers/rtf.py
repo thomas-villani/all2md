@@ -58,11 +58,7 @@ class RtfToAstConverter(BaseParser):
     """
 
     @requires_dependencies("rtf", [("pyth3", "pyth", "")])
-    def __init__(
-            self,
-            options: RtfOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: RtfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the RTF parser with options and progress callback."""
         options = options or RtfOptions()
         super().__init__(options, progress_callback)
@@ -111,9 +107,7 @@ class RtfToAstConverter(BaseParser):
 
         doc = None
         try:
-            doc_input, input_type = validate_and_convert_input(
-                input_data, supported_types=["path-like", "file-like"]
-            )
+            doc_input, input_type = validate_and_convert_input(input_data, supported_types=["path-like", "file-like"])
             if input_type == "path":
                 with open(doc_input, "rb") as f:
                     doc = Rtf15Reader.read(f)
@@ -121,13 +115,16 @@ class RtfToAstConverter(BaseParser):
             elif input_type in ("file", "bytes"):
                 doc = Rtf15Reader.read(doc_input)
                 # Try to get filename from file object's name attribute
-                if hasattr(doc_input, 'name') and doc_input.name not in (None, 'unknown'):
+                if hasattr(doc_input, "name") and doc_input.name not in (None, "unknown"):
                     base_filename = Path(doc_input.name).stem
                 else:
                     base_filename = "document"
             else:
-                raise ValidationError(f"Unsupported input type for RTF conversion: {type(input_data)}",
-                                      parameter_name="input_data", parameter_value=input_data)
+                raise ValidationError(
+                    f"Unsupported input type for RTF conversion: {type(input_data)}",
+                    parameter_name="input_data",
+                    parameter_value=input_data,
+                )
 
         except ValidationError as e:
             raise e
@@ -178,9 +175,7 @@ class RtfToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         return Document(children=children, metadata=metadata.to_dict())
@@ -352,9 +347,7 @@ class RtfToAstConverter(BaseParser):
         image_data = image.content
 
         # Generate standardized image filename
-        filename, _ = self._attachment_sequencer(
-            base_stem=self._base_filename, format_type="general", extension="png"
-        )
+        filename, _ = self._attachment_sequencer(base_stem=self._base_filename, format_type="general", extension="png")
 
         # Process attachment using unified handler
         try:
@@ -406,7 +399,7 @@ class RtfToAstConverter(BaseParser):
         # Most RTF metadata is not easily accessible through the pyth library
         # We can extract some basic document statistics and content analysis
 
-        if not document or not hasattr(document, 'content') or not document.content:
+        if not document or not hasattr(document, "content") or not document.content:
             return metadata
 
         # Count different element types
@@ -445,42 +438,42 @@ class RtfToAstConverter(BaseParser):
 
         # Set document statistics
         if paragraph_count > 0:
-            metadata.custom['paragraph_count'] = paragraph_count
+            metadata.custom["paragraph_count"] = paragraph_count
 
         if list_count > 0:
-            metadata.custom['list_count'] = list_count
+            metadata.custom["list_count"] = list_count
 
         if image_count > 0:
-            metadata.custom['image_count'] = image_count
+            metadata.custom["image_count"] = image_count
 
         # Analyze text content
         if text_content:
-            full_text = ' '.join(str(t) for t in text_content if t)
+            full_text = " ".join(str(t) for t in text_content if t)
 
             # Word count
             words = full_text.split()
             if words:
-                metadata.custom['word_count'] = len(words)
+                metadata.custom["word_count"] = len(words)
 
             # Character count
             if full_text.strip():
-                metadata.custom['character_count'] = len(full_text.strip())
+                metadata.custom["character_count"] = len(full_text.strip())
 
             # Try to extract title from first significant text
             # Look for title-like content (short first line or heading)
-            text_lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+            text_lines = [line.strip() for line in full_text.split("\n") if line.strip()]
             if text_lines:
                 first_line = text_lines[0]
                 # If the first line is reasonably short and looks like a title
-                if len(first_line) < 100 and not first_line.endswith('.'):
+                if len(first_line) < 100 and not first_line.endswith("."):
                     # Check if it's likely a title (short, no sentence ending)
                     words_in_first = first_line.split()
                     if 1 <= len(words_in_first) <= 15:  # Reasonable title length
                         metadata.title = first_line
 
         # RTF document type
-        metadata.custom['document_type'] = 'rtf'
-        metadata.custom['format'] = 'Rich Text Format'
+        metadata.custom["document_type"] = "rtf"
+        metadata.custom["format"] = "Rich Text Format"
 
         return metadata
 

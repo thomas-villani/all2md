@@ -117,14 +117,11 @@ class RestructuredTextParser(BaseParser):
         # Parse RST to docutils document tree
         try:
             settings_overrides = {
-                'report_level': 5 if not self.options.strict_mode else 2,
-                'halt_level': 5 if not self.options.strict_mode else 3,
-                'warning_stream': None,
+                "report_level": 5 if not self.options.strict_mode else 2,
+                "halt_level": 5 if not self.options.strict_mode else 3,
+                "warning_stream": None,
             }
-            doctree = publish_doctree(
-                rst_content,
-                settings_overrides=settings_overrides
-            )
+            doctree = publish_doctree(rst_content, settings_overrides=settings_overrides)
         except Exception as e:
             raise ParsingError(f"Failed to parse RST: {e}") from e
 
@@ -317,33 +314,33 @@ class RestructuredTextParser(BaseParser):
         language = None
 
         # Check attributes dict - for code-block directives, classes = ['code', 'language']
-        if hasattr(node, 'get'):
-            classes = node.get('classes', [])
+        if hasattr(node, "get"):
+            classes = node.get("classes", [])
             if classes:
                 # If first class is 'code', use second class as language
-                if classes[0] == 'code' and len(classes) > 1:
+                if classes[0] == "code" and len(classes) > 1:
                     language = classes[1]
                 else:
                     # Otherwise first class is the language
                     language = classes[0]
                     # Remove 'code-' prefix if present
-                    if language and language.startswith('code-'):
+                    if language and language.startswith("code-"):
                         language = language[5:]
 
         # Fallback: check attributes dict
-        if not language and hasattr(node, 'attributes') and 'classes' in node.attributes:
-            classes = node.attributes['classes']
+        if not language and hasattr(node, "attributes") and "classes" in node.attributes:
+            classes = node.attributes["classes"]
             if classes:
-                if classes[0] == 'code' and len(classes) > 1:
+                if classes[0] == "code" and len(classes) > 1:
                     language = classes[1]
                 else:
                     language = classes[0]
-                    if language and language.startswith('code-'):
+                    if language and language.startswith("code-"):
                         language = language[5:]
 
         # Check 'language' attribute directly
-        if not language and hasattr(node, 'get'):
-            language = node.get('language', None)
+        if not language and hasattr(node, "get"):
+            language = node.get("language", None)
 
         return CodeBlock(content=content, language=language)
 
@@ -415,9 +412,9 @@ class RestructuredTextParser(BaseParser):
         start = 1
 
         # Try to get start number from attributes
-        if hasattr(node, 'attributes'):
-            if 'start' in node.attributes:
-                start = int(node.attributes['start'])
+        if hasattr(node, "attributes"):
+            if "start" in node.attributes:
+                start = int(node.attributes["start"])
 
         for child in node.children:
             if isinstance(child, docutils_nodes.list_item):
@@ -513,7 +510,7 @@ class RestructuredTextParser(BaseParser):
 
         header = None
         rows = []
-        alignments: list[Literal['left', 'center', 'right'] | None] = []
+        alignments: list[Literal["left", "center", "right"] | None] = []
 
         # Find tgroup which contains table structure
         tgroup = None
@@ -632,19 +629,19 @@ class RestructuredTextParser(BaseParser):
             return Code(content=node.astext())
         elif isinstance(node, docutils_nodes.reference):
             # Link node
-            url = node.get('refuri', '')
+            url = node.get("refuri", "")
             content = self._process_inline_nodes(node.children)
             return Link(url=url, content=content)
         elif isinstance(node, docutils_nodes.image):
             # Image node
-            url = node.get('uri', '')
-            alt_text = node.get('alt', '')
+            url = node.get("uri", "")
+            alt_text = node.get("alt", "")
             return Image(url=url, alt_text=alt_text)
-        elif hasattr(docutils_nodes, 'line_break') and isinstance(node, docutils_nodes.line_break):
+        elif hasattr(docutils_nodes, "line_break") and isinstance(node, docutils_nodes.line_break):
             return LineBreak(soft=False)
         else:
             # Unknown inline node - extract text if possible
-            if hasattr(node, 'astext'):
+            if hasattr(node, "astext"):
                 text = node.astext()
                 if text:
                     return Text(content=text)
@@ -683,7 +680,7 @@ class RestructuredTextParser(BaseParser):
                     elif isinstance(field, docutils_nodes.date):
                         metadata.creation_date = field.astext()
                     elif isinstance(field, docutils_nodes.version):
-                        metadata.custom['version'] = field.astext()
+                        metadata.custom["version"] = field.astext()
                     elif isinstance(field, docutils_nodes.field):
                         # Custom field
                         field_name = None
@@ -728,5 +725,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=RstParserOptions,
     renderer_options_class="all2md.options.rst.RstRendererOptions",
     description="Parse reStructuredText to AST and render AST to reStructuredText",
-    priority=10
+    priority=10,
 )

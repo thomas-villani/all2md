@@ -39,13 +39,7 @@ class ProgressContext:
 
     """
 
-    def __init__(
-            self,
-            use_rich: bool,
-            use_progress: bool,
-            total: int,
-            description: str
-    ):
+    def __init__(self, use_rich: bool, use_progress: bool, total: int, description: str):
         """Initialize progress context."""
         self.use_rich = use_rich
         self.use_progress = use_progress
@@ -77,13 +71,10 @@ class ProgressContext:
                     TextColumn("[progress.description]{task.description}"),
                     BarColumn(),
                     TaskProgressColumn(),
-                    console=self._console
+                    console=self._console,
                 )
                 self._progress_obj.__enter__()
-                self._task_id = self._progress_obj.add_task(
-                    f"[cyan]{self.description}...",
-                    total=self.total
-                )
+                self._task_id = self._progress_obj.add_task(f"[cyan]{self.description}...", total=self.total)
             except ImportError:
                 # Fall back to tqdm or plain
                 self.use_rich = False
@@ -92,12 +83,9 @@ class ProgressContext:
         elif self.use_progress:
             try:
                 from tqdm import tqdm
+
                 # Create tqdm progress bar (will be iterable-like)
-                self._progress_obj = tqdm(
-                    total=self.total,
-                    desc=self.description,
-                    unit="item"
-                )
+                self._progress_obj = tqdm(total=self.total, desc=self.description, unit="item")
             except ImportError:
                 # Fall back to plain
                 self.use_progress = False
@@ -132,7 +120,7 @@ class ProgressContext:
                 # tqdm
                 self._progress_obj.update(advance)
 
-    def log(self, message: str, level: str = 'info') -> None:
+    def log(self, message: str, level: str = "info") -> None:
         """Log a message (with color if using rich).
 
         Parameters
@@ -145,11 +133,11 @@ class ProgressContext:
         """
         if self.use_rich and self._console:
             # Color-coded messages for rich
-            if level == 'success':
+            if level == "success":
                 self._console.print(f"[green]{message}[/green]")
-            elif level == 'error':
+            elif level == "error":
                 self._console.print(f"[red]{message}[/red]")
-            elif level == 'warning':
+            elif level == "warning":
                 self._console.print(f"[yellow]{message}[/yellow]")
             else:
                 self._console.print(message)
@@ -168,7 +156,7 @@ class ProgressContext:
         """
         if self._progress_obj is not None and not self.use_rich:
             # tqdm has set_postfix_str
-            if hasattr(self._progress_obj, 'set_postfix_str'):
+            if hasattr(self._progress_obj, "set_postfix_str"):
                 self._progress_obj.set_postfix_str(text)
 
 
@@ -198,16 +186,13 @@ class SummaryRenderer:
         if self.use_rich:
             try:
                 from rich.console import Console
+
                 self._console = Console()
             except ImportError:
                 self.use_rich = False
 
     def render_conversion_summary(
-            self,
-            successful: int,
-            failed: int,
-            total: int,
-            title: str = "Conversion Summary"
+        self, successful: int, failed: int, total: int, title: str = "Conversion Summary"
     ) -> None:
         """Render a conversion summary table.
 
@@ -244,11 +229,7 @@ class SummaryRenderer:
             print(f"  Total:      {total}", file=sys.stderr)
 
     def render_two_column_table(
-            self,
-            rows: list[tuple[str, str]],
-            title: str,
-            col1_header: str = "Item",
-            col2_header: str = "Status"
+        self, rows: list[tuple[str, str]], title: str, col1_header: str = "Item", col2_header: str = "Status"
     ) -> None:
         """Render a generic two-column table.
 
@@ -285,4 +266,4 @@ class SummaryRenderer:
                 print(f"{col1:30} {col2}", file=sys.stderr)
 
 
-__all__ = ['ProgressContext', 'SummaryRenderer']
+__all__ = ["ProgressContext", "SummaryRenderer"]

@@ -56,81 +56,46 @@ class EpubRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Chapter splitting strategy: separator, heading, or auto",
             "choices": ["separator", "heading", "auto"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     chapter_split_heading_level: int = field(
         default=1,
-        metadata={
-            "help": "Heading level for chapter splits (H1 = level 1)",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Heading level for chapter splits (H1 = level 1)", "type": int, "importance": "advanced"},
     )
     title: str | None = field(
-        default=None,
-        metadata={
-            "help": "EPUB book title (None = use document metadata)",
-            "importance": "core"
-        }
+        default=None, metadata={"help": "EPUB book title (None = use document metadata)", "importance": "core"}
     )
     author: str | None = field(
-        default=None,
-        metadata={
-            "help": "EPUB book author (None = use document metadata)",
-            "importance": "core"
-        }
+        default=None, metadata={"help": "EPUB book author (None = use document metadata)", "importance": "core"}
     )
-    language: str = field(
-        default="en",
-        metadata={
-            "help": "EPUB language code (ISO 639-1)",
-            "importance": "core"
-        }
-    )
+    language: str = field(default="en", metadata={"help": "EPUB language code (ISO 639-1)", "importance": "core"})
     identifier: str | None = field(
-        default=None,
-        metadata={
-            "help": "Unique identifier (ISBN, UUID, etc.)",
-            "importance": "advanced"
-        }
+        default=None, metadata={"help": "Unique identifier (ISBN, UUID, etc.)", "importance": "advanced"}
     )
     chapter_title_template: str = field(
         default="Chapter {num}",
-        metadata={
-            "help": "Template for auto-generated chapter titles",
-            "importance": "advanced"
-        }
+        metadata={"help": "Template for auto-generated chapter titles", "importance": "advanced"},
     )
     use_heading_as_chapter_title: bool = field(
         default=True,
         metadata={
             "help": "Use first heading as chapter title in navigation",
             "cli_name": "no-use-heading-as-chapter-title",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     generate_toc: bool = field(
         default=True,
         metadata={
             "help": "Generate table of contents (NCX and nav.xhtml)",
             "cli_name": "no-generate-toc",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
-    include_cover: bool = field(
-        default=False,
-        metadata={
-            "help": "Include cover image in EPUB",
-            "importance": "core"
-        }
-    )
+    include_cover: bool = field(default=False, metadata={"help": "Include cover image in EPUB", "importance": "core"})
     cover_image_path: str | None = field(
-        default=None,
-        metadata={
-            "help": "Path to cover image file",
-            "importance": "advanced"
-        }
+        default=None, metadata={"help": "Path to cover image file", "importance": "advanced"}
     )
 
 
@@ -156,21 +121,16 @@ class EpubOptions(BaseParserOptions):
         metadata={
             "help": "Merge chapters into a single continuous document",
             "cli_name": "no-merge-chapters",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     include_toc: bool = field(
         default=True,
         metadata={
             "help": "Generate and prepend a Markdown Table of Contents",
             "cli_name": "no-include-toc",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
-    html_options: HtmlOptions | None = field(
-        default=None,
-        metadata={
-            "cli_flatten": True  # Nested, handled separately
-        }
-    )
+    html_options: HtmlOptions | None = field(default=None, metadata={"cli_flatten": True})  # Nested, handled separately

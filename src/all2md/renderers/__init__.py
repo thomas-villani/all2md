@@ -60,10 +60,10 @@ from all2md.renderers.mediawiki import MediaWikiRenderer
 from all2md.renderers.plaintext import PlainTextRenderer
 
 __all__ = [
-    'BaseRenderer',
-    'InlineContentMixin',
-    'MarkdownRenderer',
-    'IpynbRenderer',
-    'MediaWikiRenderer',
-    'PlainTextRenderer',
+    "BaseRenderer",
+    "InlineContentMixin",
+    "MarkdownRenderer",
+    "IpynbRenderer",
+    "MediaWikiRenderer",
+    "PlainTextRenderer",
 ]

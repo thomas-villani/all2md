@@ -45,28 +45,16 @@ class ZipOptions(BaseParserOptions):
 
     include_patterns: list[str] | None = field(
         default=None,
-        metadata={
-            "help": "Glob patterns for files to include",
-            "cli_name": "include",
-            "importance": "core"
-        }
+        metadata={"help": "Glob patterns for files to include", "cli_name": "include", "importance": "core"},
     )
 
     exclude_patterns: list[str] | None = field(
         default=None,
-        metadata={
-            "help": "Glob patterns for files to exclude",
-            "cli_name": "exclude",
-            "importance": "core"
-        }
+        metadata={"help": "Glob patterns for files to exclude", "cli_name": "exclude", "importance": "core"},
     )
 
     max_depth: int | None = field(
-        default=None,
-        metadata={
-            "help": "Maximum directory depth to traverse",
-            "importance": "advanced"
-        }
+        default=None, metadata={"help": "Maximum directory depth to traverse", "importance": "advanced"}
     )
 
     create_section_headings: bool = field(
@@ -74,8 +62,8 @@ class ZipOptions(BaseParserOptions):
         metadata={
             "help": "Create section headings for each file",
             "cli_name": "no-section-headings",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     preserve_directory_structure: bool = field(
@@ -83,17 +71,13 @@ class ZipOptions(BaseParserOptions):
         metadata={
             "help": "Include directory path in section headings",
             "cli_name": "no-preserve-directory",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     flatten_structure: bool = field(
         default=False,
-        metadata={
-            "help": "Flatten directory structure in output",
-            "cli_name": "flatten",
-            "importance": "advanced"
-        }
+        metadata={"help": "Flatten directory structure in output", "cli_name": "flatten", "importance": "advanced"},
     )
 
     extract_resource_files: bool = field(
@@ -101,8 +85,8 @@ class ZipOptions(BaseParserOptions):
         metadata={
             "help": "Extract non-parseable files to attachment directory",
             "cli_name": "no-extract-resources",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     skip_empty_files: bool = field(
@@ -110,8 +94,8 @@ class ZipOptions(BaseParserOptions):
         metadata={
             "help": "Skip files with no content or parse failures",
             "cli_name": "no-skip-empty",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
 
     include_resource_manifest: bool = field(
@@ -119,6 +103,6 @@ class ZipOptions(BaseParserOptions):
         metadata={
             "help": "Include manifest table of extracted resources",
             "cli_name": "no-resource-manifest",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )

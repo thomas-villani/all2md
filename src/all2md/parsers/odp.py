@@ -112,15 +112,12 @@ class OdpToAstConverter(BaseParser):
         from odf import opendocument
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix='.odp')
+        self._validate_zip_input(input_data, suffix=".odp")
 
         try:
             doc = opendocument.load(input_data)
         except Exception as e:
-            raise MalformedFileError(
-                f"Failed to open ODP document: {e!r}",
-                original_error=e
-            ) from e
+            raise MalformedFileError(f"Failed to open ODP document: {e!r}", original_error=e) from e
 
         return self.convert_to_ast(doc)
 
@@ -136,7 +133,7 @@ class OdpToAstConverter(BaseParser):
         children: list[Node] = []
 
         # For ODP, content is in doc.presentation
-        content_root = getattr(doc, 'presentation', None)
+        content_root = getattr(doc, "presentation", None)
 
         # Reset parser state to prevent leakage across parse calls
         self._attachment_footnotes = {}
@@ -170,8 +167,7 @@ class OdpToAstConverter(BaseParser):
             # Add slide separator if requested
             if slide_num > 1 and self.options.page_separator_template:
                 separator_text = self.options.page_separator_template.format(
-                    page_num=slide_num,
-                    total_pages=total_slides
+                    page_num=slide_num, total_pages=total_slides
                 )
                 children.append(Paragraph(content=[Text(content=separator_text)]))
 
@@ -190,9 +186,7 @@ class OdpToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         return Document(children=children, metadata=metadata.to_dict())
@@ -235,13 +229,13 @@ class OdpToAstConverter(BaseParser):
             return None
 
         indices: set[int | tuple[int, int | float]] = set()
-        for part in slides_spec.split(','):
+        for part in slides_spec.split(","):
             part = part.strip()
-            if '-' in part:
+            if "-" in part:
                 # Range
-                start_str, end_str = part.split('-', 1)
+                start_str, end_str = part.split("-", 1)
                 start = int(start_str) - 1 if start_str else 0
-                end = int(end_str) - 1 if end_str else float('inf')
+                end = int(end_str) - 1 if end_str else float("inf")
                 # We'll expand this during iteration
                 indices.add((start, end))
             else:
@@ -250,7 +244,7 @@ class OdpToAstConverter(BaseParser):
 
         # Expand ranges
         expanded: set[int] = set()
-        max_slide = metadata.custom.get('page_count', 100)  # Fallback to 100 if unknown
+        max_slide = metadata.custom.get("page_count", 100)  # Fallback to 100 if unknown
         for item in indices:
             if isinstance(item, tuple):
                 start, end = item
@@ -505,6 +499,7 @@ class OdpToAstConverter(BaseParser):
             if len(math_blocks) == 1:
                 return math_blocks[0]
             from typing import cast
+
             return cast(list[Node], math_blocks)
 
         return None
@@ -655,10 +650,7 @@ class OdpToAstConverter(BaseParser):
         # Process header (first row)
         header_cells = rows_elements[0].getElementsByType(table.TableCell)
         header_row = TableRow(
-            cells=[
-                TableCell(content=self._process_text_runs(cell, doc), alignment="center")
-                for cell in header_cells
-            ],
+            cells=[TableCell(content=self._process_text_runs(cell, doc), alignment="center") for cell in header_cells],
             is_header=True,
         )
 
@@ -669,8 +661,7 @@ class OdpToAstConverter(BaseParser):
             data_rows.append(
                 TableRow(
                     cells=[
-                        TableCell(content=self._process_text_runs(cell, doc), alignment="left")
-                        for cell in data_cells
+                        TableCell(content=self._process_text_runs(cell, doc), alignment="left") for cell in data_cells
                     ],
                     is_header=False,
                 )
@@ -753,11 +744,11 @@ class OdpToAstConverter(BaseParser):
         metadata = DocumentMetadata()
 
         # Access document metadata
-        if hasattr(document, 'meta'):
+        if hasattr(document, "meta"):
             meta = document.meta
 
             # Extract Dublin Core metadata
-            if hasattr(meta, 'getElementsByType'):
+            if hasattr(meta, "getElementsByType"):
                 from odf.dc import Creator, Description, Language, Subject, Title
                 from odf.meta import CreationDate, Generator, InitialCreator, Keyword
 
@@ -795,7 +786,8 @@ class OdpToAstConverter(BaseParser):
                         if kw_text:
                             # Split by common delimiters
                             import re
-                            parts = [k.strip() for k in re.split('[,;]', kw_text) if k.strip()]
+
+                            parts = [k.strip() for k in re.split("[,;]", kw_text) if k.strip()]
                             keyword_list.extend(parts)
                     if keyword_list:
                         metadata.keywords = keyword_list
@@ -816,25 +808,27 @@ class OdpToAstConverter(BaseParser):
                     metadata.language = str(languages[0]).strip()
 
         # Document type and statistics
-        metadata.custom['document_type'] = 'presentation'
+        metadata.custom["document_type"] = "presentation"
 
         # Count slides
-        if hasattr(document, 'presentation'):
+        if hasattr(document, "presentation"):
             try:
                 from odf.draw import Page
+
                 pages = document.presentation.getElementsByType(Page)
                 if pages:
-                    metadata.custom['page_count'] = len(pages)
-                    metadata.custom['slide_count'] = len(pages)
+                    metadata.custom["page_count"] = len(pages)
+                    metadata.custom["slide_count"] = len(pages)
             except Exception:
                 pass
 
             # Count tables
             try:
                 from odf.table import Table
+
                 tables = document.presentation.getElementsByType(Table)
                 if tables:
-                    metadata.custom['table_count'] = len(tables)
+                    metadata.custom["table_count"] = len(tables)
             except Exception:
                 pass
 
@@ -857,5 +851,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=OdpOptions,
     renderer_options_class=None,
     description="Convert OpenDocument Presentation files to Markdown",
-    priority=5
+    priority=5,
 )

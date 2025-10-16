@@ -689,8 +689,7 @@ def json_to_ast(json_str: str) -> Node:
         raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
     elif schema_version != 1:
         raise ValueError(
-            f"Unsupported schema version: {schema_version}. "
-            f"This version of all2md supports schema version 1 only."
+            f"Unsupported schema version: {schema_version}. " f"This version of all2md supports schema version 1 only."
         )
 
     return dict_to_ast(data)  # type: ignore

@@ -74,6 +74,7 @@ all2md.transforms : AST transformation system
 all2md.ast : AST node definitions and utilities
 
 """
+
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # Check Python version before any imports

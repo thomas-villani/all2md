@@ -72,10 +72,7 @@ def split_ast_by_separator(doc: Document) -> list[list[Node]]:
     return chunks
 
 
-def split_ast_by_heading(
-        doc: Document,
-        heading_level: int = 1
-) -> list[tuple[Heading | None, list[Node]]]:
+def split_ast_by_heading(doc: Document, heading_level: int = 1) -> list[tuple[Heading | None, list[Node]]]:
     """Split AST document into chunks based on heading level.
 
     This strategy splits the document when encountering a heading at
@@ -142,10 +139,7 @@ def split_ast_by_heading(
     return chunks
 
 
-def auto_split_ast(
-        doc: Document,
-        heading_level: int = 1
-) -> list[tuple[Heading | None, list[Node]]]:
+def auto_split_ast(doc: Document, heading_level: int = 1) -> list[tuple[Heading | None, list[Node]]]:
     """Automatically determine best splitting strategy for AST.
 
     This function tries separator-based splitting first (ThematicBreak).
@@ -198,10 +192,7 @@ def auto_split_ast(
     from all2md.ast.nodes import ThematicBreak
 
     # Check if document contains any ThematicBreak nodes
-    has_separators = any(
-        isinstance(node, ThematicBreak)
-        for node in doc.children
-    )
+    has_separators = any(isinstance(node, ThematicBreak) for node in doc.children)
 
     if has_separators:
         # Use separator-based splitting
@@ -249,7 +240,7 @@ def extract_heading_text(heading: Heading | None) -> str:
         for node in nodes:
             if isinstance(node, Text):
                 text_parts.append(node.content)
-            elif hasattr(node, 'content') and isinstance(node.content, list):
+            elif hasattr(node, "content") and isinstance(node.content, list):
                 collect_text(node.content)
 
     collect_text(heading.content)

@@ -15,6 +15,7 @@ from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 # FIXME: these should be `field()` objects
 
+
 @dataclass(frozen=True)
 class AstJsonParserOptions(BaseParserOptions):
     """Options for parsing JSON AST documents.

@@ -167,11 +167,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             else:
                 self.document.save(output)
         except Exception as e:
-            raise RenderingError(
-                f"Failed to render DOCX: {e!r}",
-                rendering_stage="rendering",
-                original_error=e
-            ) from e
+            raise RenderingError(f"Failed to render DOCX: {e!r}", rendering_stage="rendering", original_error=e) from e
         finally:
             # Clean up temp files
             self._cleanup_temp_files()
@@ -211,7 +207,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Set default font for Normal style
-        style = self.document.styles['Normal']
+        style = self.document.styles["Normal"]
         font = style.font
         font.name = self.options.default_font
         font.size = self._Pt(self.options.default_font_size)
@@ -255,16 +251,16 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return
 
         core_props = self.document.core_properties
-        if 'title' in metadata:
-            core_props.title = str(metadata['title'])
-        if 'author' in metadata:
-            core_props.author = str(metadata['author'])
-        if 'subject' in metadata:
-            core_props.subject = str(metadata['subject'])
-        if 'keywords' in metadata:
-            keywords = metadata['keywords']
+        if "title" in metadata:
+            core_props.title = str(metadata["title"])
+        if "author" in metadata:
+            core_props.author = str(metadata["author"])
+        if "subject" in metadata:
+            core_props.subject = str(metadata["subject"])
+        if "keywords" in metadata:
+            keywords = metadata["keywords"]
             if isinstance(keywords, list):
-                core_props.keywords = ', '.join(str(k) for k in keywords)
+                core_props.keywords = ", ".join(str(k) for k in keywords)
             else:
                 core_props.keywords = str(keywords)
 
@@ -287,7 +283,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Use built-in heading styles
             heading = self.document.add_heading(level=level)
             # Clear the heading text (add_heading adds empty text)
-            heading.text = ''
+            heading.text = ""
         else:
             # Use direct formatting
             heading = self.document.add_paragraph()
@@ -379,8 +375,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Hex color code (e.g., "F0F0F0")
 
         """
-        shading_elm = self._OxmlElement('w:shd')
-        shading_elm.set(self._qn('w:fill'), color)
+        shading_elm = self._OxmlElement("w:shd")
+        shading_elm.set(self._qn("w:fill"), color)
         paragraph._element.get_or_add_pPr().append(shading_elm)
 
     def visit_block_quote(self, node: BlockQuote) -> None:
@@ -438,9 +434,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Determine list style based on ordered/unordered
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
         if is_ordered:
-            para.style = 'List Number'
+            para.style = "List Number"
         else:
-            para.style = 'List Bullet'
+            para.style = "List Bullet"
 
         self._current_paragraph = para
 
@@ -520,7 +516,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """
         # Clear default paragraph
         if len(docx_cell.paragraphs) > 0:
-            docx_cell.paragraphs[0].text = ''
+            docx_cell.paragraphs[0].text = ""
             self._current_paragraph = docx_cell.paragraphs[0]
         else:
             self._current_paragraph = docx_cell.add_paragraph()
@@ -575,7 +571,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Add horizontal line using a simple text separator
         para = self.document.add_paragraph()
-        run = para.add_run('─' * 80)  # Em dash character
+        run = para.add_run("─" * 80)  # Em dash character
         run.font.color.rgb = self._RGBColor(192, 192, 192)  # Light gray
 
     def visit_html_block(self, node: HTMLBlock) -> None:
@@ -616,26 +612,26 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     text_parts.append(node.content)
                 elif isinstance(node, Code):
                     text_parts.append(node.content)
-                elif hasattr(node, 'content'):
+                elif hasattr(node, "content"):
                     if isinstance(node.content, list):
                         collect_text(node.content)
                     elif isinstance(node.content, str):
                         text_parts.append(node.content)
 
         collect_text(nodes)
-        return ''.join(text_parts)
+        return "".join(text_parts)
 
     def _render_inlines(
-            self,
-            paragraph: Paragraph,
-            nodes: list[Node],
-            bold: bool = False,
-            italic: bool = False,
-            underline: bool = False,
-            strike: bool = False,
-            superscript: bool = False,
-            subscript: bool = False,
-            code_font: bool = False,
+        self,
+        paragraph: Paragraph,
+        nodes: list[Node],
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
+        strike: bool = False,
+        superscript: bool = False,
+        subscript: bool = False,
+        code_font: bool = False,
     ) -> None:
         """Render inline nodes directly into a paragraph with formatting.
 
@@ -688,57 +684,99 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             elif isinstance(node, Strong):
                 # Recursively render with bold flag
                 self._render_inlines(
-                    paragraph, node.content,
-                    bold=True, italic=italic, underline=underline, strike=strike,
-                    superscript=superscript, subscript=subscript, code_font=code_font
+                    paragraph,
+                    node.content,
+                    bold=True,
+                    italic=italic,
+                    underline=underline,
+                    strike=strike,
+                    superscript=superscript,
+                    subscript=subscript,
+                    code_font=code_font,
                 )
 
             elif isinstance(node, Emphasis):
                 # Recursively render with italic flag
                 self._render_inlines(
-                    paragraph, node.content,
-                    bold=bold, italic=True, underline=underline, strike=strike,
-                    superscript=superscript, subscript=subscript, code_font=code_font
+                    paragraph,
+                    node.content,
+                    bold=bold,
+                    italic=True,
+                    underline=underline,
+                    strike=strike,
+                    superscript=superscript,
+                    subscript=subscript,
+                    code_font=code_font,
                 )
 
             elif isinstance(node, Underline):
                 # Recursively render with underline flag
                 self._render_inlines(
-                    paragraph, node.content,
-                    bold=bold, italic=italic, underline=True, strike=strike,
-                    superscript=superscript, subscript=subscript, code_font=code_font
+                    paragraph,
+                    node.content,
+                    bold=bold,
+                    italic=italic,
+                    underline=True,
+                    strike=strike,
+                    superscript=superscript,
+                    subscript=subscript,
+                    code_font=code_font,
                 )
 
             elif isinstance(node, Strikethrough):
                 # Recursively render with strike flag
                 self._render_inlines(
-                    paragraph, node.content,
-                    bold=bold, italic=italic, underline=underline, strike=True,
-                    superscript=superscript, subscript=subscript, code_font=code_font
+                    paragraph,
+                    node.content,
+                    bold=bold,
+                    italic=italic,
+                    underline=underline,
+                    strike=True,
+                    superscript=superscript,
+                    subscript=subscript,
+                    code_font=code_font,
                 )
 
             elif isinstance(node, Superscript):
                 # Recursively render with superscript flag
                 self._render_inlines(
-                    paragraph, node.content,
-                    bold=bold, italic=italic, underline=underline, strike=strike,
-                    superscript=True, subscript=subscript, code_font=code_font
+                    paragraph,
+                    node.content,
+                    bold=bold,
+                    italic=italic,
+                    underline=underline,
+                    strike=strike,
+                    superscript=True,
+                    subscript=subscript,
+                    code_font=code_font,
                 )
 
             elif isinstance(node, Subscript):
                 # Recursively render with subscript flag
                 self._render_inlines(
-                    paragraph, node.content,
-                    bold=bold, italic=italic, underline=underline, strike=strike,
-                    superscript=superscript, subscript=True, code_font=code_font
+                    paragraph,
+                    node.content,
+                    bold=bold,
+                    italic=italic,
+                    underline=underline,
+                    strike=strike,
+                    superscript=superscript,
+                    subscript=True,
+                    code_font=code_font,
                 )
 
             elif isinstance(node, Code):
                 # Render as code with code font
                 self._render_inlines(
-                    paragraph, [Text(content=node.content)],
-                    bold=bold, italic=italic, underline=underline, strike=strike,
-                    superscript=superscript, subscript=subscript, code_font=True
+                    paragraph,
+                    [Text(content=node.content)],
+                    bold=bold,
+                    italic=italic,
+                    underline=underline,
+                    strike=strike,
+                    superscript=superscript,
+                    subscript=subscript,
+                    code_font=True,
                 )
 
             elif isinstance(node, Link):
@@ -752,11 +790,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             else:
                 # For other inline nodes, try to process if they have content
-                if hasattr(node, 'content') and isinstance(node.content, list):
+                if hasattr(node, "content") and isinstance(node.content, list):
                     self._render_inlines(
-                        paragraph, node.content,
-                        bold=bold, italic=italic, underline=underline, strike=strike,
-                        superscript=superscript, subscript=subscript, code_font=code_font
+                        paragraph,
+                        node.content,
+                        bold=bold,
+                        italic=italic,
+                        underline=underline,
+                        strike=strike,
+                        superscript=superscript,
+                        subscript=subscript,
+                        code_font=code_font,
                     )
 
     def visit_text(self, node: Text) -> None:
@@ -863,26 +907,26 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # This is a complex operation in python-docx requiring XML manipulation
         part = paragraph.part
         r_id = part.relate_to(
-            url, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', is_external=True
+            url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True
         )
 
         # Create hyperlink element
-        hyperlink = self._OxmlElement('w:hyperlink')
-        hyperlink.set(self._qn('r:id'), r_id)
+        hyperlink = self._OxmlElement("w:hyperlink")
+        hyperlink.set(self._qn("r:id"), r_id)
 
         # Create run element
-        new_run = self._OxmlElement('w:r')
-        rPr = self._OxmlElement('w:rPr')
+        new_run = self._OxmlElement("w:r")
+        rPr = self._OxmlElement("w:rPr")
 
         # Add hyperlink style
-        r_style = self._OxmlElement('w:rStyle')
-        r_style.set(self._qn('w:val'), 'Hyperlink')
+        r_style = self._OxmlElement("w:rStyle")
+        r_style.set(self._qn("w:val"), "Hyperlink")
         rPr.append(r_style)
         new_run.append(rPr)
 
         # Create text element with xml:space="preserve" to prevent whitespace collapse
-        t = self._OxmlElement('w:t')
-        t.set(self._qn('xml:space'), 'preserve')
+        t = self._OxmlElement("w:t")
+        t.set(self._qn("xml:space"), "preserve")
         t.text = text
         new_run.append(t)
 
@@ -903,10 +947,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Handle different image sources
-            if node.url.startswith('data:'):
+            if node.url.startswith("data:"):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(node.url)
-            elif urlparse(node.url).scheme in ('http', 'https'):
+            elif urlparse(node.url).scheme in ("http", "https"):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(node.url)
             else:
@@ -929,9 +973,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to add image to DOCX: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to add image to DOCX: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to add image to DOCX: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
@@ -983,19 +1025,19 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 require_https=self.options.network.require_https,
                 max_size_bytes=self.options.max_asset_size_bytes,
                 timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success
+                require_head_success=self.options.network.require_head_success,
             )
 
             # Determine extension from URL
             parsed = urlparse(url)
             path_lower = parsed.path.lower()
-            if path_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
-                ext = path_lower.split('.')[-1]
+            if path_lower.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg")):
+                ext = path_lower.split(".")[-1]
             else:
-                ext = 'png'
+                ext = "png"
 
             # Write to temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}') as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as f:
                 f.write(image_data)
                 temp_path = f.name
 
@@ -1006,9 +1048,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to fetch remote image {url}: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to fetch remote image {url}: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to fetch remote image {url}: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
             return None
 
@@ -1120,7 +1160,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         if self._current_paragraph:
-            run = self._current_paragraph.add_run(f'[{node.identifier}]')
+            run = self._current_paragraph.add_run(f"[{node.identifier}]")
             run.font.superscript = True
 
     def visit_math_inline(self, node: MathInline) -> None:
@@ -1140,7 +1180,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if self._current_paragraph:
             content, notation = node.get_preferred_representation("latex")
             if notation == "latex":
-                text = f'${content}$'
+                text = f"${content}$"
             else:
                 text = content
 
@@ -1160,7 +1200,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return
 
         para = self.document.add_paragraph()
-        run = para.add_run(f'[{node.identifier}]: ')
+        run = para.add_run(f"[{node.identifier}]: ")
         run.font.superscript = True
 
         self._current_paragraph = para
@@ -1241,7 +1281,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         para = self.document.add_paragraph()
         content, notation = node.get_preferred_representation("latex")
         if notation == "latex":
-            text = f'$$\n{content}\n$$'
+            text = f"$$\n{content}\n$$"
         else:
             text = content
 

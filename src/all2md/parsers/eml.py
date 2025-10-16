@@ -285,10 +285,13 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
 
         # Convert HTML to Markdown
         from io import BytesIO
-        return to_markdown(BytesIO(html_content.encode("utf-8")),
-                           source_format="html",
-                           parser_options=html_options,
-                           renderer_options=md_options)
+
+        return to_markdown(
+            BytesIO(html_content.encode("utf-8")),
+            source_format="html",
+            parser_options=html_options,
+            renderer_options=md_options,
+        )
 
     except (ImportError, DependencyError):
         return html_content
@@ -431,17 +434,17 @@ def _normalize_header_value(value: str, header_name: str) -> str:
         return ""
 
     # Clean up whitespace
-    normalized = re.sub(r'\s+', ' ', value.strip())
+    normalized = re.sub(r"\s+", " ", value.strip())
 
     # Decode any encoded words
     try:
         decoded_parts = []
         for part, encoding in decode_header(normalized):
             if isinstance(part, bytes):
-                decoded_parts.append(part.decode(encoding or 'utf-8', errors='replace'))
+                decoded_parts.append(part.decode(encoding or "utf-8", errors="replace"))
             else:
                 decoded_parts.append(part)
-        return ''.join(decoded_parts)
+        return "".join(decoded_parts)
     except Exception:
         return normalized
 
@@ -524,7 +527,7 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
     email_matcher = re.compile(
         r"(From: (?P<from>.*?)\n(?:(?:Sent|Date):\s*(?P<date>.*?)\n)?"
         r"To: (?P<to>.*?)\n(?:Cc: (?P<cc>.*?)\n)?Subject: (?P<subject>.*?)\n)",
-        re.MULTILINE | re.DOTALL
+        re.MULTILINE | re.DOTALL,
     )
 
     # Common reply separator patterns
@@ -576,7 +579,7 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
         if part_match:
             d = part_match.groupdict()
             # Extract content after header
-            d["content"] = part[part_match.end():]
+            d["content"] = part[part_match.end() :]
             # Parse date if present
             if d.get("date"):
                 d["date"] = _parse_date_safely(d["date"])
@@ -734,7 +737,7 @@ def _clean_wrapped_urls(content: str, url_wrappers: list[str]) -> str:
         Content with wrapped URLs cleaned.
 
     """
-    lines = content.split('\n')
+    lines = content.split("\n")
     cleaned_lines = []
 
     for line in lines:
@@ -745,12 +748,12 @@ def _clean_wrapped_urls(content: str, url_wrappers: list[str]) -> str:
         # Also clean inline wrapped URLs by extracting the original URL
         for wrapper in url_wrappers:
             # Pattern to match wrapped URLs and extract original
-            pattern = rf'https://{re.escape(wrapper)}/[^?\s]*\?[^=]*=([^&\s]+)'
+            pattern = rf"https://{re.escape(wrapper)}/[^?\s]*\?[^=]*=([^&\s]+)"
             line = re.sub(pattern, _unwrap_url, line)
 
         cleaned_lines.append(line)
 
-    return '\n'.join(cleaned_lines)
+    return "\n".join(cleaned_lines)
 
 
 def _unwrap_url(match: re.Match[str]) -> str:
@@ -788,7 +791,7 @@ def _clean_quoted_content(content: str) -> str:
         Content with quotes cleaned and normalized.
 
     """
-    lines = content.split('\n')
+    lines = content.split("\n")
     cleaned_lines = []
 
     for line in lines:
@@ -799,21 +802,21 @@ def _clean_quoted_content(content: str) -> str:
         elif line.startswith("> "):
             # Standard quote prefix - remove it
             cleaned_lines.append(line[2:])
-        elif re.match(r'^>{2,}\s*', line):
+        elif re.match(r"^>{2,}\s*", line):
             # Multiple quote levels (>>, >>>, etc.)
             # Count quote levels and remove them
-            quote_match = re.match(r'^(>{2,})\s*', line)
+            quote_match = re.match(r"^(>{2,})\s*", line)
             if quote_match:
                 quote_prefix = quote_match.group(1)
-                cleaned_lines.append(line[len(quote_prefix):].lstrip())
-        elif line.strip().startswith('|'):
+                cleaned_lines.append(line[len(quote_prefix) :].lstrip())
+        elif line.strip().startswith("|"):
             # Some email clients use | for quoting
-            cleaned_lines.append(line.lstrip('| '))
+            cleaned_lines.append(line.lstrip("| "))
         else:
             # Regular line - keep as is
             cleaned_lines.append(line)
 
-    return '\n'.join(cleaned_lines)
+    return "\n".join(cleaned_lines)
 
 
 class EmlToAstConverter(BaseParser):
@@ -869,13 +872,13 @@ class EmlToAstConverter(BaseParser):
         try:
             if isinstance(input_data, (str, Path)):
                 # Use binary file reading to avoid encoding assumptions
-                with open(input_data, 'rb') as f:
+                with open(input_data, "rb") as f:
                     eml_msg = message_from_binary_file(f, policy=policy.default)
             elif isinstance(input_data, bytes):
                 eml_msg = message_from_bytes(input_data, policy=policy.default)
-            elif hasattr(input_data, 'read'):
+            elif hasattr(input_data, "read"):
                 # Handle IO[bytes] - read binary data and parse directly
-                if hasattr(input_data, 'seek'):
+                if hasattr(input_data, "seek"):
                     input_data.seek(0)  # Ensure we're at the beginning
                 content = input_data.read()
                 eml_msg = message_from_bytes(content, policy=policy.default)
@@ -935,7 +938,7 @@ class EmlToAstConverter(BaseParser):
             # Sort messages chronologically based on sort_order option
             messages.sort(
                 key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
-                reverse=(self.options.sort_order == "desc")
+                reverse=(self.options.sort_order == "desc"),
             )
 
             # Extract metadata from original message
@@ -950,9 +953,7 @@ class EmlToAstConverter(BaseParser):
             if isinstance(e, ParsingError):
                 raise
             raise ParsingError(
-                f"Failed to process email content: {str(e)}",
-                parsing_stage="content_processing",
-                original_error=e
+                f"Failed to process email content: {str(e)}", parsing_stage="content_processing", original_error=e
             ) from e
 
     def format_email_chain_as_ast(self, eml_chain: list[dict[str, Any]]) -> Document:
@@ -985,8 +986,8 @@ class EmlToAstConverter(BaseParser):
                 if item.get("cc"):
                     header_lines.append(f"cc: {item['cc']}")
 
-                if "date" in item and item['date'] is not None:
-                    formatted_date = self._format_date(item['date'])
+                if "date" in item and item["date"] is not None:
+                    formatted_date = self._format_date(item["date"])
                     if formatted_date:
                         header_lines.append(f"Date: {formatted_date}")
 
@@ -1010,9 +1011,7 @@ class EmlToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         return Document(children=children)
@@ -1037,7 +1036,7 @@ class EmlToAstConverter(BaseParser):
         nodes: list[Node] = []
 
         # Split content into paragraphs (by double newlines)
-        paragraphs = re.split(r'\n\n+', content.strip())
+        paragraphs = re.split(r"\n\n+", content.strip())
 
         for para_text in paragraphs:
             para_text = para_text.strip()
@@ -1091,12 +1090,12 @@ class EmlToAstConverter(BaseParser):
         metadata = DocumentMetadata()
 
         # Extract subject as title
-        subject = document.get('Subject', '')
+        subject = document.get("Subject", "")
         if subject:
             metadata.title = subject.strip()
 
         # Extract from address as author
-        from_header = document.get('From', '')
+        from_header = document.get("From", "")
         if from_header:
             # Parse email addresses
             from_list = getaddresses([from_header])
@@ -1110,55 +1109,55 @@ class EmlToAstConverter(BaseParser):
             metadata.creation_date = date_obj
 
         # Extract additional email-specific metadata
-        to_header = document.get('To', '')
+        to_header = document.get("To", "")
         if to_header:
             to_list = getaddresses([to_header])
-            metadata.custom['to'] = [f"{name} <{email}>" if name else email for name, email in to_list]
+            metadata.custom["to"] = [f"{name} <{email}>" if name else email for name, email in to_list]
 
-        cc_header = document.get('Cc', '')
+        cc_header = document.get("Cc", "")
         if cc_header:
             cc_list = getaddresses([cc_header])
-            metadata.custom['cc'] = [f"{name} <{email}>" if name else email for name, email in cc_list]
+            metadata.custom["cc"] = [f"{name} <{email}>" if name else email for name, email in cc_list]
 
         # Message ID
-        message_id = document.get('Message-ID', '')
+        message_id = document.get("Message-ID", "")
         if message_id:
-            metadata.custom['message_id'] = message_id.strip()
+            metadata.custom["message_id"] = message_id.strip()
 
         # Reply-To
-        reply_to = document.get('Reply-To', '')
+        reply_to = document.get("Reply-To", "")
         if reply_to:
-            metadata.custom['reply_to'] = reply_to.strip()
+            metadata.custom["reply_to"] = reply_to.strip()
 
         # In-Reply-To (for threading)
-        in_reply_to = document.get('In-Reply-To', '')
+        in_reply_to = document.get("In-Reply-To", "")
         if in_reply_to:
-            metadata.custom['in_reply_to'] = in_reply_to.strip()
+            metadata.custom["in_reply_to"] = in_reply_to.strip()
 
         # References (for threading)
-        references = document.get('References', '')
+        references = document.get("References", "")
         if references:
-            metadata.custom['references'] = references.strip()
+            metadata.custom["references"] = references.strip()
 
         # X-Mailer or User-Agent
-        mailer = document.get('X-Mailer', '') or document.get('User-Agent', '')
+        mailer = document.get("X-Mailer", "") or document.get("User-Agent", "")
         if mailer:
             metadata.creator = mailer.strip()
 
         # Priority/Importance
-        priority = document.get('X-Priority', '') or document.get('Importance', '')
+        priority = document.get("X-Priority", "") or document.get("Importance", "")
         if priority:
-            metadata.custom['priority'] = priority.strip()
+            metadata.custom["priority"] = priority.strip()
 
         # Content type
         content_type = document.get_content_type()
         if content_type:
-            metadata.custom['content_type'] = content_type
+            metadata.custom["content_type"] = content_type
 
         # Organization
-        org = document.get('Organization', '')
+        org = document.get("Organization", "")
         if org:
-            metadata.custom['organization'] = org.strip()
+            metadata.custom["organization"] = org.strip()
 
         return metadata
 
@@ -1182,5 +1181,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=EmlOptions,
     renderer_options_class=None,
     description="Convert email messages to Markdown",
-    priority=6
+    priority=6,
 )

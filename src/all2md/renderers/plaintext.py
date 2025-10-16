@@ -117,7 +117,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output = []
         document.accept(self)
 
-        result = ''.join(self._output)
+        result = "".join(self._output)
 
         # Apply line wrapping if enabled
         if self.options.max_line_width is not None and self.options.max_line_width > 0:
@@ -147,7 +147,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Protect tab characters from being expanded by textwrap
         # Use a unique placeholder that won't appear in normal text
         TAB_PLACEHOLDER = "\x00TAB\x00"
-        text = text.replace('\t', TAB_PLACEHOLDER)
+        text = text.replace("\t", TAB_PLACEHOLDER)
 
         # Split into paragraphs (preserve existing paragraph breaks)
         paragraphs = text.split(self.options.paragraph_separator)
@@ -157,7 +157,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             if para.strip():
                 # Check if paragraph contains hard line breaks (single newlines within paragraph)
                 # These should be preserved during wrapping
-                lines = para.split('\n')
+                lines = para.split("\n")
                 wrapped_lines = []
                 for line in lines:
                     if line.strip():
@@ -165,22 +165,19 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                         # max_line_width is guaranteed to be int here (checked above)
                         assert self.options.max_line_width is not None
                         wrapped = textwrap.fill(
-                            line,
-                            width=self.options.max_line_width,
-                            break_long_words=False,
-                            break_on_hyphens=False
+                            line, width=self.options.max_line_width, break_long_words=False, break_on_hyphens=False
                         )
                         wrapped_lines.append(wrapped)
                     else:
-                        wrapped_lines.append('')
-                wrapped_paragraphs.append('\n'.join(wrapped_lines))
+                        wrapped_lines.append("")
+                wrapped_paragraphs.append("\n".join(wrapped_lines))
             else:
-                wrapped_paragraphs.append('')
+                wrapped_paragraphs.append("")
 
         result = self.options.paragraph_separator.join(wrapped_paragraphs)
 
         # Restore tab characters
-        result = result.replace(TAB_PLACEHOLDER, '\t')
+        result = result.replace(TAB_PLACEHOLDER, "\t")
 
         return result
 
@@ -270,7 +267,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             item.accept(self)
             # Add newline after each item except the last
             if i < len(node.items) - 1:
-                self._output.append('\n')
+                self._output.append("\n")
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
@@ -290,12 +287,12 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 saved_output = self._output
                 self._output = []
                 child.accept(self)
-                child_content = ''.join(self._output)
+                child_content = "".join(self._output)
                 self._output = saved_output
                 self._output.append(child_content)
             else:
                 # Subsequent children on new lines
-                self._output.append('\n')
+                self._output.append("\n")
                 child.accept(self)
 
     def visit_table(self, node: Table) -> None:
@@ -318,7 +315,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             rows_output.append(self._render_table_row_to_string(row))
 
         # Join all rows with newlines
-        self._output.append('\n'.join(rows_output))
+        self._output.append("\n".join(rows_output))
 
     def _render_table_row_to_string(self, row: TableRow) -> str:
         """Render a table row as plain text with cell separators.
@@ -338,7 +335,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for cell in row.cells:
             content = self._render_inline_content(cell.content)
             # Remove newlines from cell content
-            content = content.replace('\n', ' ')
+            content = content.replace("\n", " ")
             cells_text.append(content)
 
         return self.options.table_cell_separator.join(cells_text)
@@ -469,9 +466,9 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         if node.soft:
-            self._output.append(' ')
+            self._output.append(" ")
         else:
-            self._output.append('\n')
+            self._output.append("\n")
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node (extract text only, ignore formatting).
@@ -582,7 +579,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         for i, (term, descriptions) in enumerate(node.items):
             if i > 0:
-                self._output.append('\n')
+                self._output.append("\n")
 
             # Render term
             term_content = self._render_inline_content(term.content)
@@ -590,7 +587,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             # Render descriptions
             for desc in descriptions:
-                self._output.append('\n')
+                self._output.append("\n")
                 for child in desc.content:
                     child.accept(self)
 

@@ -170,13 +170,12 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 output.write(buffer.read())
         except Exception as e:
             raise RenderingError(
-                f"Failed to write PPTX file: {e!r}",
-                rendering_stage="rendering",
-                original_error=e
+                f"Failed to write PPTX file: {e!r}", rendering_stage="rendering", original_error=e
             ) from e
         finally:
             # Clean up temporary files
             import os
+
             for temp_file in self._temp_files:
                 try:
                     if os.path.exists(temp_file):
@@ -198,10 +197,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self.render(doc, buffer)
         return buffer.getvalue()
 
-    def _split_into_slides(
-            self,
-            doc: Document
-    ) -> list[tuple[Heading | None, list[Node]]]:
+    def _split_into_slides(self, doc: Document) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into slides based on configured strategy.
 
         Parameters
@@ -224,24 +220,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         elif split_mode == "heading":
             # Split on heading level
-            return split_ast_by_heading(
-                doc,
-                heading_level=self.options.slide_split_heading_level
-            )
+            return split_ast_by_heading(doc, heading_level=self.options.slide_split_heading_level)
 
         else:  # "auto"
             # Auto-detect best strategy
-            return auto_split_ast(
-                doc,
-                heading_level=self.options.slide_split_heading_level
-            )
+            return auto_split_ast(doc, heading_level=self.options.slide_split_heading_level)
 
     def _create_slide(
-            self,
-            prs: "Presentation",
-            heading: Heading | None,
-            content_nodes: list[Node],
-            is_first: bool = False
+        self, prs: "Presentation", heading: Heading | None, content_nodes: list[Node], is_first: bool = False
     ) -> "Slide":
         """Create a slide with content.
 
@@ -320,7 +306,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         # Strategy 1: Look for text frame placeholders that aren't the title
         for shape in slide.placeholders:
-            if not hasattr(shape, 'text_frame'):
+            if not hasattr(shape, "text_frame"):
                 continue
 
             # Skip title placeholder (usually idx 0)
@@ -333,7 +319,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             # Try to find body/content placeholder by type
             try:
                 # PP_PLACEHOLDER type 2 is body/content
-                if hasattr(shape.placeholder_format, 'type') and shape.placeholder_format.type == 2:
+                if hasattr(shape.placeholder_format, "type") and shape.placeholder_format.type == 2:
                     content_placeholder = shape
                     break
             except Exception:
@@ -351,6 +337,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         else:
             # Create a text box for content
             from pptx.util import Inches
+
             left = Inches(0.5)
             top = Inches(1.5)
             width = Inches(9.0)
@@ -384,9 +371,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         # Calculate table dimensions
         num_rows = len(table.rows) + (1 if table.header else 0)
-        num_cols = len(table.header.cells) if table.header else (
-            len(table.rows[0].cells) if table.rows else 0
-        )
+        num_cols = len(table.header.cells) if table.header else (len(table.rows[0].cells) if table.rows else 0)
 
         if num_cols == 0 or num_rows == 0:
             return
@@ -437,10 +422,10 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             # Handle different image sources
             image_file = None
 
-            if image.url.startswith('data:'):
+            if image.url.startswith("data:"):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(image.url)
-            elif urlparse(image.url).scheme in ('http', 'https'):
+            elif urlparse(image.url).scheme in ("http", "https"):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(image.url)
             else:
@@ -462,9 +447,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                     logger.warning(f"Failed to add image to slide: {e}")
                     if self.options.fail_on_resource_errors:
                         raise RenderingError(
-                            f"Failed to add image to slide: {e!r}",
-                            rendering_stage="image_processing",
-                            original_error=e
+                            f"Failed to add image to slide: {e!r}", rendering_stage="image_processing", original_error=e
                         ) from e
 
         except Exception as e:
@@ -472,9 +455,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to render image {image.url}: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to render image {image.url}: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to render image {image.url}: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
@@ -499,9 +480,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to decode base64 image: {data_uri[:50]}...")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    "Failed to decode base64 image",
-                    rendering_stage="image_processing",
-                    original_error=None
+                    "Failed to decode base64 image", rendering_stage="image_processing", original_error=None
                 )
         return temp_path
 
@@ -537,21 +516,21 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 require_https=self.options.network.require_https,
                 max_size_bytes=self.options.max_asset_size_bytes,
                 timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success
+                require_head_success=self.options.network.require_head_success,
             )
 
             # Determine file extension from URL or content type
             parsed = urlparse(url)
             path_lower = parsed.path.lower()
 
-            if path_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
-                ext = path_lower.split('.')[-1]
+            if path_lower.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg")):
+                ext = path_lower.split(".")[-1]
             else:
                 # Default to png
-                ext = 'png'
+                ext = "png"
 
             # Write to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}') as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as f:
                 f.write(image_data)
                 temp_path = f.name
 
@@ -563,9 +542,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             logger.warning(f"Failed to fetch remote image {url}: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to fetch remote image {url}: {e!r}",
-                    rendering_stage="image_processing",
-                    original_error=e
+                    f"Failed to fetch remote image {url}: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
             return None
 
@@ -590,7 +567,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             for node in node_list:
                 if isinstance(node, Text):
                     text_parts.append(node.content)
-                elif hasattr(node, 'content'):
+                elif hasattr(node, "content"):
                     if isinstance(node.content, list):
                         collect_text(node.content)
                     elif isinstance(node.content, str):
@@ -723,7 +700,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         run = self._current_paragraph.add_run()
         run.text = node.content
-        run.font.name = 'Courier New'
+        run.font.name = "Courier New"
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Render a CodeBlock node.
@@ -740,7 +717,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         p = self._current_textbox.add_paragraph()
         run = p.add_run()
         run.text = node.content
-        run.font.name = 'Courier New'
+        run.font.name = "Courier New"
         run.font.size = self._Pt(self.options.default_font_size - 2)
 
     def visit_list(self, node: List) -> None:
@@ -755,7 +732,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Track ordered/unordered and initialize counter for ordered lists
         self._list_ordered_stack.append(node.ordered)
         if node.ordered:
-            self._list_item_counters.append(node.start if hasattr(node, 'start') else 1)
+            self._list_item_counters.append(node.start if hasattr(node, "start") else 1)
         else:
             self._list_item_counters.append(0)  # Not used for unordered
 
@@ -842,11 +819,12 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 # Enable bullet numbering by adding/updating buFont, buChar, or buAutoNum
                 # For simple bullets, we add a buChar element (bullet character)
                 from pptx.oxml import parse_xml
+
                 # Check if bullet is already configured
-                ns = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
-                if pPr.find('.//a:buChar', namespaces=ns) is None:
+                ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+                if pPr.find(".//a:buChar", namespaces=ns) is None:
                     # Add bullet character (standard bullet: U+2022)
-                    xml_ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+                    xml_ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
                     bu_char_xml = f'<a:buChar xmlns:a="{xml_ns}" char="\u2022"/>'
                     bu_char = parse_xml(bu_char_xml)
                     pPr.append(bu_char)

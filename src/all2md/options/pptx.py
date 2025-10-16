@@ -95,146 +95,78 @@ class PptxRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Slide splitting strategy: separator, heading, or auto",
             "choices": ["separator", "heading", "auto"],
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     slide_split_heading_level: int = field(
         default=2,
-        metadata={
-            "help": "Heading level for slide splits (H2 = level 2)",
-            "type": int,
-            "importance": "advanced"
-        }
+        metadata={"help": "Heading level for slide splits (H2 = level 2)", "type": int, "importance": "advanced"},
     )
     default_layout: str = field(
-        default="Title and Content",
-        metadata={
-            "help": "Default slide layout name",
-            "importance": "advanced"
-        }
+        default="Title and Content", metadata={"help": "Default slide layout name", "importance": "advanced"}
     )
     title_slide_layout: str = field(
-        default="Title Slide",
-        metadata={
-            "help": "Layout for first slide",
-            "importance": "advanced"
-        }
+        default="Title Slide", metadata={"help": "Layout for first slide", "importance": "advanced"}
     )
     use_heading_as_slide_title: bool = field(
         default=True,
         metadata={
             "help": "Use first heading as slide title",
             "cli_name": "no-use-heading-as-slide-title",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     template_path: str | None = field(
-        default=None,
-        metadata={
-            "help": "Path to .pptx template file (None = default)",
-            "importance": "core"
-        }
+        default=None, metadata={"help": "Path to .pptx template file (None = default)", "importance": "core"}
     )
     default_font: str = field(
-        default="Calibri",
-        metadata={
-            "help": "Default font for slide content",
-            "importance": "core"
-        }
+        default="Calibri", metadata={"help": "Default font for slide content", "importance": "core"}
     )
     default_font_size: int = field(
-        default=18,
-        metadata={
-            "help": "Default font size for body text",
-            "type": int,
-            "importance": "core"
-        }
+        default=18, metadata={"help": "Default font size for body text", "type": int, "importance": "core"}
     )
     title_font_size: int = field(
-        default=44,
-        metadata={
-            "help": "Font size for slide titles",
-            "type": int,
-            "importance": "advanced"
-        }
+        default=44, metadata={"help": "Font size for slide titles", "type": int, "importance": "advanced"}
     )
     list_number_spacing: int = field(
         default=1,
         metadata={
             "help": "Number of spaces after number prefix in ordered lists",
             "type": int,
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     list_indent_per_level: float = field(
         default=0.5,
         metadata={
             "help": "Indentation per nesting level for lists (in inches)",
             "type": float,
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     table_left: float = field(
-        default=0.5,
-        metadata={
-            "help": "Left position for tables in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=0.5, metadata={"help": "Left position for tables in inches", "type": float, "importance": "advanced"}
     )
     table_top: float = field(
-        default=2.0,
-        metadata={
-            "help": "Top position for tables in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=2.0, metadata={"help": "Top position for tables in inches", "type": float, "importance": "advanced"}
     )
     table_width: float = field(
-        default=9.0,
-        metadata={
-            "help": "Width for tables in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=9.0, metadata={"help": "Width for tables in inches", "type": float, "importance": "advanced"}
     )
     table_height_per_row: float = field(
-        default=0.5,
-        metadata={
-            "help": "Height per row for tables in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=0.5, metadata={"help": "Height per row for tables in inches", "type": float, "importance": "advanced"}
     )
     image_left: float = field(
-        default=1.0,
-        metadata={
-            "help": "Left position for images in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=1.0, metadata={"help": "Left position for images in inches", "type": float, "importance": "advanced"}
     )
     image_top: float = field(
-        default=2.5,
-        metadata={
-            "help": "Top position for images in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=2.5, metadata={"help": "Top position for images in inches", "type": float, "importance": "advanced"}
     )
     image_width: float = field(
-        default=4.0,
-        metadata={
-            "help": "Width for images in inches",
-            "type": float,
-            "importance": "advanced"
-        }
+        default=4.0, metadata={"help": "Width for images in inches", "type": float, "importance": "advanced"}
     )
     network: NetworkFetchOptions = field(
-        default_factory=NetworkFetchOptions,
-        metadata={
-            "help": "Network security options for fetching remote images"
-        }
+        default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
     )
 
 
@@ -263,52 +195,41 @@ class PptxOptions(PaginatedParserOptions):
     """
 
     include_slide_numbers: bool = field(
-        default=DEFAULT_SLIDE_NUMBERS,
-        metadata={
-            "help": "Include slide numbers in output",
-            "importance": "core"
-        }
+        default=DEFAULT_SLIDE_NUMBERS, metadata={"help": "Include slide numbers in output", "importance": "core"}
     )
     include_notes: bool = field(
         default=True,
-        metadata={
-            "help": "Include speaker notes from slides",
-            "cli_name": "no-include-notes",
-            "importance": "core"
-        }
+        metadata={"help": "Include speaker notes from slides", "cli_name": "no-include-notes", "importance": "core"},
     )
 
     # Advanced PPTX options
     slides: str | None = field(
         default=None,
-        metadata={
-            "help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)",
-            "importance": "core"
-        }
+        metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)", "importance": "core"},
     )
     charts_mode: Literal["data", "mermaid", "both"] = field(
         default="data",
         metadata={
             "help": "Chart conversion mode: 'data' (default, tables only), "
-                    "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
+            "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
             "choices": ["data", "mermaid", "both"],
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )
     include_titles_as_h2: bool = field(
         default=True,
         metadata={
             "help": "Include slide titles as H2 headings",
             "cli_name": "no-include-titles-as-h2",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     strict_list_detection: bool = field(
         default=False,
         metadata={
             "help": "Use strict list detection (XML-only, no heuristics). "
-                    "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
-                    "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
-            "importance": "advanced"
-        }
+            "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
+            "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
+            "importance": "advanced",
+        },
     )

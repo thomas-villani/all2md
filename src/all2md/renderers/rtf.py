@@ -1,4 +1,5 @@
 """RTF rendering from AST using the pyth3 toolkit."""
+
 from __future__ import annotations
 
 import logging
@@ -124,8 +125,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         for child in nodes:
             if isinstance(child, Text):
                 parts.append(child.content)
-            elif isinstance(child, (Strong, Emphasis, Underline, Strikethrough,
-                                    Subscript, Superscript)):
+            elif isinstance(child, (Strong, Emphasis, Underline, Strikethrough, Subscript, Superscript)):
                 parts.append(self._render_plain_text(child.content))
             elif isinstance(child, Link):
                 parts.append(self._render_plain_text(child.content))
@@ -138,7 +138,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
             elif isinstance(child, MathInline):
                 content, _ = child.get_preferred_representation("latex")
                 parts.append(content)
-        return ''.join(parts)
+        return "".join(parts)
 
     def _prefix_paragraph(self, paragraph: Any, prefix: str) -> Any:
         """Return a copy of a paragraph with prefix text prepended."""
@@ -154,7 +154,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
             cell_texts.append(cell_text.strip())
         line = " | ".join(cell_texts)
         if header:
-            underline = "-+-".join('-' * len(text) if text else '-' for text in cell_texts)
+            underline = "-+-".join("-" * len(text) if text else "-" for text in cell_texts)
             return f"{line}\n{underline}"
         return line
 
@@ -207,7 +207,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
             return None
         if self.options.bold_headings:
             for run in runs:
-                run['bold'] = True
+                run["bold"] = True
         return self._Paragraph(content=runs)
 
     def visit_paragraph(self, node: Paragraph) -> Any:
@@ -319,7 +319,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
 
     def visit_thematic_break(self, node: ThematicBreak) -> Any:  # noqa: ARG002
         """Render a thematic break as an em-dash divider."""
-        return self._Paragraph(content=[self._create_text_run('—' * 10)])
+        return self._Paragraph(content=[self._create_text_run("—" * 10)])
 
     def visit_html_block(self, node: HTMLBlock) -> Any:
         """Render raw HTML blocks as literal text with a debug hint."""
@@ -354,7 +354,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         """Render a hyperlink, preserving URL metadata."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['url'] = node.url
+            run["url"] = node.url
         return runs
 
     def visit_image(self, node: Image) -> Any:
@@ -373,14 +373,14 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         """Render emphasized content with italic styling."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['italic'] = True
+            run["italic"] = True
         return runs
 
     def visit_strong(self, node: Strong) -> Any:
         """Render strong content with bold styling."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['bold'] = True
+            run["bold"] = True
         return runs
 
     def visit_code(self, node: Code) -> Any:
@@ -389,34 +389,34 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
 
     def visit_line_break(self, node: LineBreak) -> Any:  # noqa: ARG002
         """Render a soft or hard line break as a newline character."""
-        return [self._create_text_run('\n')]
+        return [self._create_text_run("\n")]
 
     def visit_strikethrough(self, node: Strikethrough) -> Any:
         """Render strikethrough content with the strike property."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['strike'] = True
+            run["strike"] = True
         return runs
 
     def visit_subscript(self, node: Subscript) -> Any:
         """Render subscript content using the subscript style."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['sub'] = True
+            run["sub"] = True
         return runs
 
     def visit_superscript(self, node: Superscript) -> Any:
         """Render superscript content using the superscript style."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['super'] = True
+            run["super"] = True
         return runs
 
     def visit_underline(self, node: Underline) -> Any:
         """Render underlined content using the underline style."""
         runs = self._render_inline(node.content)
         for run in runs:
-            run['underline'] = True
+            run["underline"] = True
         return runs
 
     def visit_html_inline(self, node: HTMLInline) -> Any:

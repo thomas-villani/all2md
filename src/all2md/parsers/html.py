@@ -95,6 +95,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
     chardet_encoding = None
     try:
         import chardet
+
         with open(str(file_path), "rb") as f:
             raw_data = f.read()
         detection = chardet.detect(raw_data)
@@ -134,7 +135,7 @@ def _read_html_file_with_encoding_fallback(file_path: Union[str, Path]) -> str:
     raise ParsingError(
         f"Failed to read HTML file with any encoding: {last_error}",
         parsing_stage="file_reading",
-        original_error=last_error
+        original_error=last_error,
     )
 
 
@@ -204,9 +205,7 @@ class HtmlToAstConverter(BaseParser):
                     html_content = _read_html_file_with_encoding_fallback(input_data)
                 except Exception as e:
                     raise FileAccessError(
-                        file_path=str(input_data),
-                        message=f"Failed to read HTML file: {e!r}",
-                        original_error=e
+                        file_path=str(input_data), message=f"Failed to read HTML file: {e!r}", original_error=e
                     ) from e
             else:
                 # It's HTML content as a string
@@ -217,9 +216,7 @@ class HtmlToAstConverter(BaseParser):
                 html_content = input_data.decode("utf-8")
             except UnicodeDecodeError as e:
                 raise MalformedFileError(
-                    f"Failed to decode HTML bytes as UTF-8: {e!r}",
-                    file_path=None,
-                    original_error=e
+                    f"Failed to decode HTML bytes as UTF-8: {e!r}", file_path=None, original_error=e
                 ) from e
         else:
             # Use validate_and_convert_input for other types (file-like objects)
@@ -248,9 +245,7 @@ class HtmlToAstConverter(BaseParser):
                     raise
                 else:
                     raise MalformedFileError(
-                        f"Failed to process HTML input: {e!r}",
-                        file_path=None,
-                        original_error=e
+                        f"Failed to process HTML input: {e!r}", file_path=None, original_error=e
                     ) from e
 
         # Convert the HTML content to AST
@@ -280,15 +275,10 @@ class HtmlToAstConverter(BaseParser):
         from bs4.element import Comment, Tag
 
         # Emit started event
-        self._emit_progress(
-            "started",
-            "Converting HTML document",
-            current=0,
-            total=1
-        )
+        self._emit_progress("started", "Converting HTML document", current=0, total=1)
 
         # Sanitize null bytes from HTML to prevent XSS bypass
-        html_content = html_content.replace('\x00', '')
+        html_content = html_content.replace("\x00", "")
 
         soup = BeautifulSoup(html_content, "html.parser")
 
@@ -300,16 +290,16 @@ class HtmlToAstConverter(BaseParser):
         # Strip dangerous elements if requested
         if self.options.strip_dangerous_elements:
             # Remove script and style tags completely (including all content for security)
-            for tag in soup.find_all(['script', 'style']):
+            for tag in soup.find_all(["script", "style"]):
                 # Decompose completely to avoid any script content in output
                 tag.decompose()
 
             # Collect other dangerous elements and elements with dangerous attributes
             elements_to_remove = []
             for element in soup.find_all():
-                if hasattr(element, 'name'):
+                if hasattr(element, "name"):
                     # Check for other dangerous elements (not script/style, already removed)
-                    if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ['script', 'style']:
+                    if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ["script", "style"]:
                         elements_to_remove.append(element)
                     # Check for dangerous attributes
                     elif not self._sanitize_element(element):
@@ -357,7 +347,7 @@ class HtmlToAstConverter(BaseParser):
         if self.options.strip_dangerous_elements:
             elements_to_remove = []
             for element in soup.find_all():
-                if hasattr(element, 'name'):
+                if hasattr(element, "name"):
                     # Use _sanitize_element to check for dangerous attributes
                     if not self._sanitize_element(element):
                         elements_to_remove.append(element)
@@ -399,18 +389,11 @@ class HtmlToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         # Emit finished event
-        self._emit_progress(
-            "finished",
-            "HTML conversion completed",
-            current=1,
-            total=1
-        )
+        self._emit_progress("finished", "HTML conversion completed", current=1, total=1)
 
         return Document(children=children, metadata=metadata.to_dict())
 
@@ -581,10 +564,7 @@ class HtmlToAstConverter(BaseParser):
             if itemscopes:
                 microdata_items = []
                 for scope in itemscopes:
-                    item = {
-                        "type": scope.get("itemtype", ""),
-                        "properties": {}
-                    }
+                    item = {"type": scope.get("itemtype", ""), "properties": {}}
 
                     # Find all itemprop elements within this scope
                     props = scope.find_all(attrs={"itemprop": True})
@@ -613,6 +593,7 @@ class HtmlToAstConverter(BaseParser):
             json_ld_scripts = document.find_all("script", type="application/ld+json")
             if json_ld_scripts:
                 import json
+
                 json_ld_data = []
                 for script in json_ld_scripts:
                     try:
@@ -673,7 +654,7 @@ class HtmlToAstConverter(BaseParser):
             # Apply whitespace collapsing if enabled
             if self.options.collapse_whitespace:
                 # Collapse multiple spaces/newlines into single space
-                text = re.sub(r'\s+', ' ', text)
+                text = re.sub(r"\s+", " ", text)
 
             if text.strip():
                 return Text(content=text)
@@ -981,7 +962,7 @@ class HtmlToAstConverter(BaseParser):
 
         # Process remaining content
         for child in node.children:
-            if hasattr(child, 'name') and child.name == "summary":
+            if hasattr(child, "name") and child.name == "summary":
                 continue  # Skip summary, already processed
 
             ast_nodes = self._process_node_to_ast(child)
@@ -1200,14 +1181,12 @@ class HtmlToAstConverter(BaseParser):
                 allow_local_files=self.options.local_files.allow_local_files,
                 local_file_allowlist=self.options.local_files.local_file_allowlist,
                 local_file_denylist=self.options.local_files.local_file_denylist,
-                allow_cwd_files=self.options.local_files.allow_cwd_files
+                allow_cwd_files=self.options.local_files.allow_cwd_files,
             )
 
             if not is_allowed:
                 # Local file access denied - return image with empty URL and alt text only
-                logger.warning(
-                    f"Local file access denied for file:// URL (security policy): {resolved_src[:100]}"
-                )
+                logger.warning(f"Local file access denied for file:// URL (security policy): {resolved_src[:100]}")
                 return Image(url="", alt_text=alt_text, title=title)
 
         # Current attachment mode (may change on error)
@@ -1387,7 +1366,7 @@ class HtmlToAstConverter(BaseParser):
                 require_https=self.options.network.require_https,
                 max_size_bytes=self.options.max_asset_size_bytes,
                 timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success
+                require_head_success=self.options.network.require_head_success,
             )
         except NetworkSecurityError as e:
             logger.warning(f"Network security validation failed for {url}: {e}")
@@ -1416,7 +1395,7 @@ class HtmlToAstConverter(BaseParser):
             return match.group(2)
 
         # Match ![alt] (no URL)
-        alt_only_match = re.match(r'^!\[([^]]*)]$', markdown_image)
+        alt_only_match = re.match(r"^!\[([^]]*)]$", markdown_image)
         if alt_only_match:
             return ""
 
@@ -1489,17 +1468,17 @@ class HtmlToAstConverter(BaseParser):
 
         # Language alias mapping for common abbreviations
         aliases = {
-            'js': 'javascript',
-            'ts': 'typescript',
-            'py': 'python',
-            'rb': 'ruby',
-            'sh': 'bash',
-            'yml': 'yaml',
-            'md': 'markdown',
-            'cs': 'csharp',
-            'fs': 'fsharp',
-            'kt': 'kotlin',
-            'rs': 'rust',
+            "js": "javascript",
+            "ts": "typescript",
+            "py": "python",
+            "rb": "ruby",
+            "sh": "bash",
+            "yml": "yaml",
+            "md": "markdown",
+            "cs": "csharp",
+            "fs": "fsharp",
+            "kt": "kotlin",
+            "rs": "rust",
         }
 
         # Check class attribute
@@ -1532,11 +1511,11 @@ class HtmlToAstConverter(BaseParser):
                     return sanitize_language_identifier(aliases.get(lang, lang))
                 # Use the class as-is if it's a simple language name (only if we haven't found one yet)
                 elif (
-                        not language
-                        and cls
-                        and not cls.startswith("hljs")
-                        and not cls.startswith("highlight")
-                        and cls != "brush:"
+                    not language
+                    and cls
+                    and not cls.startswith("hljs")
+                    and not cls.startswith("highlight")
+                    and cls != "brush:"
                 ):
                     language = aliases.get(cls, cls)
 

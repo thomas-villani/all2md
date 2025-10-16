@@ -41,8 +41,8 @@ class SourceCodeOptions(BaseParserOptions):
         metadata={
             "help": "Automatically detect programming language from file extension",
             "cli_name": "no-detect-language",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     language_override: str | None = field(
@@ -50,8 +50,8 @@ class SourceCodeOptions(BaseParserOptions):
         metadata={
             "help": "Override language identifier for syntax highlighting",
             "cli_name": "language",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
     include_filename: bool = field(
@@ -59,6 +59,6 @@ class SourceCodeOptions(BaseParserOptions):
         metadata={
             "help": "Include filename as comment in code block",
             "cli_name": "include-filename",
-            "importance": "advanced"
-        }
+            "importance": "advanced",
+        },
     )

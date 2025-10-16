@@ -79,11 +79,7 @@ class OrgParser(BaseParser):
 
     """
 
-    def __init__(
-            self,
-            options: OrgParserOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: OrgParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the Org parser with options and progress callback."""
         options = options or OrgParserOptions()
         super().__init__(options, progress_callback)
@@ -135,7 +131,8 @@ class OrgParser(BaseParser):
         # Process root node body first (plain text without headings)
         # Use format='raw' to preserve link syntax
         root_body = (
-            root.get_body(format='raw').strip() if hasattr(root, 'get_body')
+            root.get_body(format="raw").strip()
+            if hasattr(root, "get_body")
             else (root.body.strip() if root.body else "")
         )
         if root_body:
@@ -210,7 +207,8 @@ class OrgParser(BaseParser):
         # Process body content
         # Use format='raw' to preserve link syntax
         body_text = (
-            node.get_body(format='raw').strip() if hasattr(node, 'get_body')
+            node.get_body(format="raw").strip()
+            if hasattr(node, "get_body")
             else (node.body.strip() if node.body else "")
         )
         if body_text:
@@ -264,12 +262,12 @@ class OrgParser(BaseParser):
 
         # Extract priority
         priority = None
-        if hasattr(node, 'priority') and node.priority:
+        if hasattr(node, "priority") and node.priority:
             priority = node.priority
 
         # Extract tags (controlled by parse_tags option)
         tags = []
-        if self.options.parse_tags and hasattr(node, 'tags') and node.tags:
+        if self.options.parse_tags and hasattr(node, "tags") and node.tags:
             tags = list(node.tags)
 
         # Parse inline content from heading text
@@ -277,27 +275,23 @@ class OrgParser(BaseParser):
         heading_text = node.heading
         if manually_extracted_todo and todo_state:
             # Remove the TODO keyword from heading text
-            heading_text = heading_text[len(todo_state):].lstrip()
+            heading_text = heading_text[len(todo_state) :].lstrip()
         content = self._parse_inline(heading_text)
 
         # Build metadata
         heading_metadata: dict[str, Any] = {}
         if todo_state:
-            heading_metadata['org_todo_state'] = todo_state
+            heading_metadata["org_todo_state"] = todo_state
         if priority:
-            heading_metadata['org_priority'] = priority
+            heading_metadata["org_priority"] = priority
         if tags:
-            heading_metadata['org_tags'] = tags
+            heading_metadata["org_tags"] = tags
 
         # Extract properties if enabled
-        if self.options.parse_properties and hasattr(node, 'properties') and node.properties:
-            heading_metadata['org_properties'] = dict(node.properties)
+        if self.options.parse_properties and hasattr(node, "properties") and node.properties:
+            heading_metadata["org_properties"] = dict(node.properties)
 
-        return Heading(
-            level=level,
-            content=content,
-            metadata=heading_metadata
-        )
+        return Heading(level=level, content=content, metadata=heading_metadata)
 
     def _process_body(self, body_text: str) -> list[Node]:
         """Process body text into AST nodes.
@@ -316,7 +310,7 @@ class OrgParser(BaseParser):
         result: list[Node] = []
 
         # Split into blocks (separated by blank lines)
-        blocks = re.split(r'\n\n+', body_text)
+        blocks = re.split(r"\n\n+", body_text)
 
         for block in blocks:
             block = block.strip()
@@ -324,28 +318,28 @@ class OrgParser(BaseParser):
                 continue
 
             # Check for code blocks (#+BEGIN_SRC / #+END_SRC)
-            if block.startswith('#+BEGIN_SRC') or block.startswith('#+begin_src'):
+            if block.startswith("#+BEGIN_SRC") or block.startswith("#+begin_src"):
                 code_block = self._parse_code_block(block)
                 if code_block:
                     result.append(code_block)
                 continue
 
             # Check for tables (lines starting with |)
-            if block.startswith('|'):
+            if block.startswith("|"):
                 table = self._parse_table(block)
                 if table:
                     result.append(table)
                 continue
 
             # Check for lists (lines starting with -, +, *, or numbers)
-            if re.match(r'^[\-\+\*]|\d+[\.\)]', block):
+            if re.match(r"^[\-\+\*]|\d+[\.\)]", block):
                 list_node = self._parse_list(block)
                 if list_node:
                     result.append(list_node)
                 continue
 
             # Check for block quotes (lines starting with :)
-            if all(line.strip().startswith(':') or not line.strip() for line in block.split('\n')):
+            if all(line.strip().startswith(":") or not line.strip() for line in block.split("\n")):
                 quote = self._parse_block_quote(block)
                 if quote:
                     result.append(quote)
@@ -405,20 +399,20 @@ class OrgParser(BaseParser):
         # Note: orgparse strips [[]] from links, so we detect plain URLs instead
         # Matches: *bold*, /italic/, =code=, ~verbatim~, _underline_, +strikethrough+, URLs
         pattern = re.compile(
-            r'\*([^*]+)\*|'  # *bold*
-            r'/([^/]+)/|'  # /italic/
-            r'=([^=]+)=|'  # =code=
-            r'~([^~]+)~|'  # ~verbatim~
-            r'_([^_]+)_|'  # _underline_
-            r'\+([^+]+)\+|'  # +strikethrough+
-            r'\[\[([^\]]+?)(?:\]\[([^\]]+))?\]\]|'  # [[url]] or [[url][desc]] (if not processed)
+            r"\*([^*]+)\*|"  # *bold*
+            r"/([^/]+)/|"  # /italic/
+            r"=([^=]+)=|"  # =code=
+            r"~([^~]+)~|"  # ~verbatim~
+            r"_([^_]+)_|"  # _underline_
+            r"\+([^+]+)\+|"  # +strikethrough+
+            r"\[\[([^\]]+?)(?:\]\[([^\]]+))?\]\]|"  # [[url]] or [[url][desc]] (if not processed)
             r'(?:https?|ftp)://[^\s<>"{}|\\^`\[\]]+'  # Plain URLs (after orgparse processing)
         )
 
         for match in pattern.finditer(text):
             # Add any text before this match
             if match.start() > pos:
-                result.append(Text(content=text[pos:match.start()]))
+                result.append(Text(content=text[pos : match.start()]))
 
             # Process the match
             if match.group(1):  # *bold*
@@ -438,10 +432,11 @@ class OrgParser(BaseParser):
                 description = match.group(8) if match.group(8) else url
 
                 # Check if it's an image link
-                if url.startswith('file:') or any(
-                        url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
+                if url.startswith("file:") or any(
+                    url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".svg"]
+                ):
                     # Remove 'file:' prefix if present
-                    image_url = url[5:] if url.startswith('file:') else url
+                    image_url = url[5:] if url.startswith("file:") else url
                     # Sanitize URL to prevent XSS attacks
                     image_url = sanitize_url(image_url)
                     result.append(Image(url=image_url, alt_text=description))
@@ -453,7 +448,7 @@ class OrgParser(BaseParser):
             else:  # Plain URL (orgparse stripped the brackets)
                 url = match.group(0)
                 # Check if it's an image URL
-                if any(url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']):
+                if any(url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".svg"]):
                     # Sanitize URL to prevent XSS attacks
                     url = sanitize_url(url)
                     result.append(Image(url=url, alt_text=url))
@@ -485,14 +480,14 @@ class OrgParser(BaseParser):
             Code block AST node
 
         """
-        lines = block.split('\n')
+        lines = block.split("\n")
         if len(lines) < 2:
             return None
 
         # Extract language from first line
         first_line = lines[0].strip()
         language = None
-        if ' ' in first_line:
+        if " " in first_line:
             parts = first_line.split(None, 1)
             if len(parts) > 1:
                 language = parts[1].strip()
@@ -501,15 +496,15 @@ class OrgParser(BaseParser):
         code_lines = []
         in_code = False
         for line in lines:
-            if line.strip().lower().startswith('#+begin_src'):
+            if line.strip().lower().startswith("#+begin_src"):
                 in_code = True
                 continue
-            if line.strip().lower().startswith('#+end_src'):
+            if line.strip().lower().startswith("#+end_src"):
                 break
             if in_code:
                 code_lines.append(line)
 
-        code_content = '\n'.join(code_lines)
+        code_content = "\n".join(code_lines)
         return CodeBlock(content=code_content, language=language)
 
     def _parse_table(self, block: str) -> Table | None:
@@ -526,22 +521,22 @@ class OrgParser(BaseParser):
             Table AST node
 
         """
-        lines = block.split('\n')
+        lines = block.split("\n")
         rows: list[TableRow] = []
         header: Optional[TableRow] = None
 
         for line in lines:
             line = line.strip()
-            if not line or line.startswith('|---') or line.startswith('|==='):
+            if not line or line.startswith("|---") or line.startswith("|==="):
                 # Separator line - indicates header row above it
                 if rows and not header:
                     header = rows.pop()
                     header = TableRow(cells=header.cells, is_header=True)
                 continue
 
-            if line.startswith('|'):
+            if line.startswith("|"):
                 # Parse table row
-                cells_text = [cell.strip() for cell in line.split('|')[1:-1]]
+                cells_text = [cell.strip() for cell in line.split("|")[1:-1]]
                 cells = [TableCell(content=self._parse_inline(cell_text)) for cell_text in cells_text]
                 rows.append(TableRow(cells=cells, is_header=False))
 
@@ -561,13 +556,13 @@ class OrgParser(BaseParser):
             List AST node
 
         """
-        lines = block.split('\n')
+        lines = block.split("\n")
         items: list[ListItem] = []
         ordered = False
 
         # Check if ordered or unordered
         first_line = lines[0].strip()
-        if re.match(r'^\d+[\.\)]', first_line):
+        if re.match(r"^\d+[\.\)]", first_line):
             ordered = True
 
         for line in lines:
@@ -577,9 +572,9 @@ class OrgParser(BaseParser):
 
             # Match list item
             if ordered:
-                match = re.match(r'^\d+[\.\)]\s+(.+)$', line_stripped)
+                match = re.match(r"^\d+[\.\)]\s+(.+)$", line_stripped)
             else:
-                match = re.match(r'^[\-\+\*]\s+(.+)$', line_stripped)
+                match = re.match(r"^[\-\+\*]\s+(.+)$", line_stripped)
 
             if match:
                 item_text = match.group(1)
@@ -602,16 +597,16 @@ class OrgParser(BaseParser):
             Block quote AST node
 
         """
-        lines = block.split('\n')
+        lines = block.split("\n")
         # Remove leading : from each line
         clean_lines = []
         for line in lines:
-            if line.strip().startswith(':'):
+            if line.strip().startswith(":"):
                 clean_lines.append(line.strip()[1:].strip())
             else:
                 clean_lines.append(line)
 
-        quote_text = '\n'.join(clean_lines)
+        quote_text = "\n".join(clean_lines)
         content = self._parse_inline(quote_text)
         return BlockQuote(children=[Paragraph(content=content)])
 
@@ -639,38 +634,38 @@ class OrgParser(BaseParser):
         metadata = DocumentMetadata()
 
         # Extract file-level properties (#+TITLE:, #+AUTHOR:, etc.)
-        if hasattr(document, 'get_file_property'):
-            title = document.get_file_property('TITLE')
+        if hasattr(document, "get_file_property"):
+            title = document.get_file_property("TITLE")
             if title:
                 metadata.title = title
 
-            author = document.get_file_property('AUTHOR')
+            author = document.get_file_property("AUTHOR")
             if author:
                 metadata.author = author
 
-            date = document.get_file_property('DATE')
+            date = document.get_file_property("DATE")
             if date:
                 metadata.creation_date = date
 
         # Also check properties (drawer-style properties)
-        if hasattr(document, 'properties') and document.properties:
+        if hasattr(document, "properties") and document.properties:
             props = document.properties
-            if 'TITLE' in props and not metadata.title:
-                metadata.title = props['TITLE']
-            if 'AUTHOR' in props and not metadata.author:
-                metadata.author = props['AUTHOR']
-            if 'DATE' in props and not metadata.creation_date:
-                metadata.creation_date = props['DATE']
+            if "TITLE" in props and not metadata.title:
+                metadata.title = props["TITLE"]
+            if "AUTHOR" in props and not metadata.author:
+                metadata.author = props["AUTHOR"]
+            if "DATE" in props and not metadata.creation_date:
+                metadata.creation_date = props["DATE"]
 
             # Store other properties in custom
             for key, value in props.items():
-                if key.upper() not in ['TITLE', 'AUTHOR', 'DATE']:
+                if key.upper() not in ["TITLE", "AUTHOR", "DATE"]:
                     metadata.custom[key.lower()] = value
 
         # If no title from properties, try to get from first heading
         if not metadata.title and document.children:
             first_child = document.children[0]
-            if hasattr(first_child, 'heading') and first_child.heading:
+            if hasattr(first_child, "heading") and first_child.heading:
                 metadata.title = first_child.heading
 
         return metadata
@@ -692,5 +687,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=OrgParserOptions,
     renderer_options_class="all2md.options.org.OrgRendererOptions",
     description="Parse Org-Mode to AST and render AST to Org-Mode",
-    priority=10
+    priority=10,
 )

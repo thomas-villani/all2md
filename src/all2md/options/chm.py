@@ -40,21 +40,16 @@ class ChmOptions(BaseParserOptions):
         metadata={
             "help": "Generate and prepend a Markdown Table of Contents from CHM TOC",
             "cli_name": "no-include-toc",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
     merge_pages: bool = field(
         default=True,
         metadata={
             "help": "Merge all pages into a single continuous document",
             "cli_name": "no-merge-pages",
-            "importance": "core"
-        }
+            "importance": "core",
+        },
     )
 
-    html_options: HtmlOptions | None = field(
-        default=None,
-        metadata={
-            "cli_flatten": True  # Nested, handled separately
-        }
-    )
+    html_options: HtmlOptions | None = field(default=None, metadata={"cli_flatten": True})  # Nested, handled separately

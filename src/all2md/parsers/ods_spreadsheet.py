@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_ods_images(
-        doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
+    doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
 ) -> tuple[list[Node], dict[str, str]]:
     """Extract images from an ODS table and convert to Image AST nodes.
 
@@ -89,7 +89,7 @@ def _extract_ods_images(
 
                 for odf_img in odf_images:
                     # Get the image reference (href)
-                    href = odf_img.getAttribute('href')
+                    href = odf_img.getAttribute("href")
                     if not href:
                         continue
 
@@ -98,9 +98,9 @@ def _extract_ods_images(
                     try:
                         # Images are stored as Pictures/imagename.ext in the ODF package
                         # The href is like Pictures/10000000000001F4000001F4ABC123.png
-                        if hasattr(doc, 'Pictures') and href in doc.Pictures:
+                        if hasattr(doc, "Pictures") and href in doc.Pictures:
                             image_bytes = doc.Pictures[href]
-                        elif hasattr(doc, 'getMediaByPath'):
+                        elif hasattr(doc, "getMediaByPath"):
                             image_bytes = doc.getMediaByPath(href)
                     except Exception:
                         logger.debug(f"Could not access image {href} from ODS document")
@@ -110,19 +110,16 @@ def _extract_ods_images(
 
                     # Determine file extension from href
                     extension = "png"  # default
-                    if '.' in href:
-                        extension = href.rsplit('.', 1)[-1].lower()
+                    if "." in href:
+                        extension = href.rsplit(".", 1)[-1].lower()
 
                     # Generate filename
                     image_filename, _ = attachment_sequencer(
-                        base_stem=base_filename,
-                        format_type="general",
-                        extension=extension,
-                        attachment_type="img"
+                        base_stem=base_filename, format_type="general", extension=extension, attachment_type="img"
                     )
 
                     # Get alt text from frame or image
-                    alt_text = frame.getAttribute('name') or "image"
+                    alt_text = frame.getAttribute("name") or "image"
 
                     # Process attachment
                     result = process_attachment(
@@ -192,8 +189,8 @@ def _extract_ods_charts(table: Any, base_filename: str, options: Any) -> list[No
 
                 for obj in objects:
                     # Check if this is a chart object
-                    href = obj.getAttribute('href')
-                    if not href or 'Object' not in str(href):
+                    href = obj.getAttribute("href")
+                    if not href or "Object" not in str(href):
                         continue
 
                     if options.chart_mode == "data":
@@ -203,12 +200,7 @@ def _extract_ods_charts(table: Any, base_filename: str, options: Any) -> list[No
                         chart_nodes.append(
                             Paragraph(
                                 content=[
-                                    Text(
-                                        content=(
-                                            "[Chart detected - data extraction not yet "
-                                            "implemented for ODS]"
-                                        )
-                                    )
+                                    Text(content=("[Chart detected - data extraction not yet " "implemented for ODS]"))
                                 ]
                             )
                         )
@@ -237,8 +229,8 @@ class OdsSpreadsheetToAstConverter(BaseParser):
     """
 
     def __init__(
-            self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
-            ):
+        self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
+    ):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
 
@@ -276,7 +268,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         from odf import opendocument
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix='.ods')
+        self._validate_zip_input(input_data, suffix=".ods")
 
         # Load ODS document
         try:
@@ -285,10 +277,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
             )
             doc = opendocument.load(doc_input)
         except Exception as e:
-            raise MalformedFileError(
-                f"Failed to parse ODS file: {e!r}",
-                original_error=e
-            ) from e
+            raise MalformedFileError(f"Failed to parse ODS file: {e!r}", original_error=e) from e
 
         return self.ods_to_ast(doc)
 
@@ -317,13 +306,14 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         # Determine base filename for attachments
         base_filename = "spreadsheet"
         try:
-            if hasattr(doc, 'meta'):
+            if hasattr(doc, "meta"):
                 from odf.dc import Title
+
                 titles = doc.meta.getElementsByType(Title)
                 if titles and len(titles) > 0:
                     title_text = str(titles[0]).strip()
                     if title_text:
-                        base_filename = title_text.replace(' ', '_')
+                        base_filename = title_text.replace(" ", "_")
         except Exception:
             pass
 
@@ -376,11 +366,11 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                 for cell in cells:
                     cell_text = ""
                     for node in cell.childNodes:
-                        if hasattr(node, 'data'):
+                        if hasattr(node, "data"):
                             cell_text += str(node.data)
-                        elif hasattr(node, 'childNodes'):
+                        elif hasattr(node, "childNodes"):
                             for subnode in node.childNodes:
-                                if hasattr(subnode, 'data'):
+                                if hasattr(subnode, "data"):
                                     cell_text += str(subnode.data)
 
                     # Handle cell repetition
@@ -460,13 +450,11 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                 children.append(table_node)
 
             # Add truncation indicator if needed
-            truncated = (self.options.max_rows is not None and len(rows_elem) - 1 > self.options.max_rows) or \
-                        (self.options.max_cols is not None and any(
-                            len(row) > self.options.max_cols for row in raw_rows))
+            truncated = (self.options.max_rows is not None and len(rows_elem) - 1 > self.options.max_rows) or (
+                self.options.max_cols is not None and any(len(row) > self.options.max_cols for row in raw_rows)
+            )
             if truncated:
-                children.append(
-                    Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")])
-                )
+                children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))
 
             # Extract images from table
             table_images, table_footnotes = _extract_ods_images(
@@ -482,9 +470,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
-                children,
-                self._attachment_footnotes,
-                self.options.attachments_footnotes_section
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
         return Document(children=children, metadata=metadata.to_dict())
@@ -507,7 +493,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         # Try to extract metadata from document properties
         try:
-            if hasattr(document, 'meta'):
+            if hasattr(document, "meta"):
                 from odf.dc import Creator, Description, Title
                 from odf.meta import CreationDate
 
@@ -554,5 +540,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=OdsSpreadsheetOptions,
     renderer_options_class=None,
     description="Convert OpenDocument Spreadsheet files to Markdown tables",
-    priority=6
+    priority=6,
 )

@@ -47,15 +47,15 @@ def escape_asciidoc(text: str) -> str:
     # | - For tables
     # : - For definition lists and block attributes
     special_chars = {
-        '[': r'\[',
-        ']': r'\]',
-        '*': r'\*',
-        '_': r'\_',
-        '`': r'\`',
-        '+': r'\+',
-        '#': r'\#',
-        '|': r'\|',
-        ':': r'\:',
+        "[": r"\[",
+        "]": r"\]",
+        "*": r"\*",
+        "_": r"\_",
+        "`": r"\`",
+        "+": r"\+",
+        "#": r"\#",
+        "|": r"\|",
+        ":": r"\:",
     }
 
     result = text
@@ -91,10 +91,10 @@ def escape_asciidoc_attribute(text: str) -> str:
         return text
 
     # For attributes, escape quotes and newlines
-    result = text.replace('\\', '\\\\')  # Escape backslashes first
+    result = text.replace("\\", "\\\\")  # Escape backslashes first
     result = result.replace('"', '\\"')
-    result = result.replace('\n', '\\n')
-    result = result.replace('\r', '\\r')
+    result = result.replace("\n", "\\n")
+    result = result.replace("\r", "\\r")
 
     return result
 
@@ -131,15 +131,15 @@ def escape_rst(text: str) -> str:
     # | - For substitution references
     # : - For field lists (at line start, but safer to escape)
     special_chars = {
-        '*': r'\*',
-        '_': r'\_',
-        '`': r'\`',
-        '[': r'\[',
-        ']': r'\]',
-        '<': r'\<',
-        '>': r'\>',
-        '|': r'\|',
-        ':': r'\:',
+        "*": r"\*",
+        "_": r"\_",
+        "`": r"\`",
+        "[": r"\[",
+        "]": r"\]",
+        "<": r"\<",
+        ">": r"\>",
+        "|": r"\|",
+        ":": r"\:",
     }
 
     result = text
@@ -179,18 +179,18 @@ def escape_markdown_context_aware(text: str, context: str = "text") -> str:
 
     if context == "table":
         # In table cells, pipes must be escaped
-        return text.replace('|', r'\|')
+        return text.replace("|", r"\|")
 
     elif context == "link":
         # In link text, escape square brackets
-        result = text.replace('[', r'\[')
-        result = result.replace(']', r'\]')
+        result = text.replace("[", r"\[")
+        result = result.replace("]", r"\]")
         return result
 
     elif context == "image_alt":
         # In image alt text, escape square brackets
-        result = text.replace('[', r'\[')
-        result = result.replace(']', r'\]')
+        result = text.replace("[", r"\[")
+        result = result.replace("]", r"\]")
         return result
 
     else:  # context == "text" or default
@@ -205,17 +205,17 @@ def escape_markdown_context_aware(text: str, context: str = "text") -> str:
         # # - Headers
         # We're conservative here; context-specific escaping is better
         # but this provides a baseline
-        special_chars = r'\`*_{}[]#'
-        result = ''
+        special_chars = r"\`*_{}[]#"
+        result = ""
         for char in text:
             if char in special_chars:
-                result += '\\' + char
+                result += "\\" + char
             else:
                 result += char
         return result
 
 
-def escape_inline_code(code: str, delimiter: str = '`') -> tuple[str, str]:
+def escape_inline_code(code: str, delimiter: str = "`") -> tuple[str, str]:
     """Escape inline code and determine appropriate delimiter.
 
     Handles cases where code contains the delimiter character by
@@ -265,7 +265,7 @@ def escape_inline_code(code: str, delimiter: str = '`') -> tuple[str, str]:
 
     # If code starts/ends with delimiter char, add spaces
     if code.startswith(delimiter) or code.endswith(delimiter):
-        code = ' ' + code + ' '
+        code = " " + code + " "
 
     return code, final_delimiter
 

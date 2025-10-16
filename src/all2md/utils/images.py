@@ -61,39 +61,39 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
 
     # Match data URI pattern: data:{mime};base64,{data}
     # Use a more robust regex that captures the full MIME type (e.g., image/svg+xml)
-    match = re.match(r'^data:(?P<mime>[^;]+);base64,(?P<data>.+)', data_uri)
+    match = re.match(r"^data:(?P<mime>[^;]+);base64,(?P<data>.+)", data_uri)
     if not match:
         logger.debug(f"Invalid data URI format: regex match failed for URI starting with '{data_uri[:50]}...'")
         return None, None
 
-    mime_type = match.group('mime').lower()
-    base64_data = match.group('data')
+    mime_type = match.group("mime").lower()
+    base64_data = match.group("data")
 
     # Map MIME types to file extensions
     mime_to_ext = {
-        'image/png': 'png',
-        'image/jpeg': 'jpg',
-        'image/jpg': 'jpg',
-        'image/gif': 'gif',
-        'image/webp': 'webp',
-        'image/svg+xml': 'svg',
-        'image/bmp': 'bmp',
-        'image/tiff': 'tiff',
-        'image/tif': 'tif',
-        'image/x-icon': 'ico',
-        'image/vnd.microsoft.icon': 'ico',
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/gif": "gif",
+        "image/webp": "webp",
+        "image/svg+xml": "svg",
+        "image/bmp": "bmp",
+        "image/tiff": "tiff",
+        "image/tif": "tif",
+        "image/x-icon": "ico",
+        "image/vnd.microsoft.icon": "ico",
     }
 
     # Get extension from MIME type, or try to extract from simple MIME types
     image_format = mime_to_ext.get(mime_type)
     if not image_format:
         # Try to extract format from MIME type if it's simple (e.g., "image/png" -> "png")
-        if mime_type.startswith('image/'):
-            potential_format = mime_type.split('/')[-1].lower()
+        if mime_type.startswith("image/"):
+            potential_format = mime_type.split("/")[-1].lower()
             # Only accept if it's alphanumeric (no special chars except hyphen)
-            if re.match(r'^[a-z0-9\-]+$', potential_format):
+            if re.match(r"^[a-z0-9\-]+$", potential_format):
                 # Remove common MIME type prefixes
-                potential_format = potential_format.replace('x-', '')
+                potential_format = potential_format.replace("x-", "")
                 image_format = potential_format
 
         if not image_format:
@@ -102,7 +102,7 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
             return None, None
 
     # Validate format is a known image type
-    valid_formats = {'png', 'jpeg', 'jpg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'ico'}
+    valid_formats = {"png", "jpeg", "jpg", "gif", "webp", "svg", "bmp", "tiff", "tif", "ico"}
     if image_format not in valid_formats:
         logger.debug(f"Invalid image format: {image_format} (not in valid formats list)")
         return None, None
@@ -118,9 +118,7 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
 
 
 def decode_base64_image_to_file(
-        data_uri: str,
-        output_dir: str | Path | None = None,
-        delete_on_exit: bool = True
+    data_uri: str, output_dir: str | Path | None = None, delete_on_exit: bool = True
 ) -> str | None:
     """Decode a base64 data URI and write to a temporary file.
 
@@ -164,7 +162,7 @@ def decode_base64_image_to_file(
 
     try:
         # Create temporary file
-        suffix = f'.{image_format}'
+        suffix = f".{image_format}"
         dir_path = str(output_dir) if output_dir else None
 
         # Use mkstemp to create temp file that persists after creation
@@ -172,7 +170,7 @@ def decode_base64_image_to_file(
 
         # Write the image data
         try:
-            with os.fdopen(fd, 'wb') as f:
+            with os.fdopen(fd, "wb") as f:
                 f.write(image_data)
         except Exception:
             # If writing fails, clean up the file
@@ -184,8 +182,10 @@ def decode_base64_image_to_file(
 
         # Register cleanup handler if delete_on_exit is True
         if delete_on_exit:
+
             def cleanup_temp_file(path: str = temp_path) -> None:
                 Path(path).unlink(missing_ok=True)
+
             atexit.register(cleanup_temp_file)
 
         return temp_path
@@ -231,13 +231,13 @@ def parse_image_data_uri(data_uri: str) -> dict[str, Any] | None:
 
     # Match pattern: data:{mime}[;param1][;param2]...,{data}
     # This handles data URIs with multiple parameters like charset, base64 encoding, etc.
-    match = re.match(r'^data:(?P<mime>[^,;]+)(?P<params>(?:;[^,]+)*),(?P<data>.*)', data_uri)
+    match = re.match(r"^data:(?P<mime>[^,;]+)(?P<params>(?:;[^,]+)*),(?P<data>.*)", data_uri)
     if not match:
         return None
 
-    mime_type = match.group('mime')
-    params_str = match.group('params')
-    data = match.group('data')
+    mime_type = match.group("mime")
+    params_str = match.group("params")
+    data = match.group("data")
 
     # Parse parameters
     params = []
@@ -246,41 +246,41 @@ def parse_image_data_uri(data_uri: str) -> dict[str, Any] | None:
 
     if params_str:
         # Split by semicolon and strip whitespace
-        params = [p.strip() for p in params_str.split(';') if p.strip()]
+        params = [p.strip() for p in params_str.split(";") if p.strip()]
 
         # Check for base64 encoding
-        if 'base64' in params:
-            encoding = 'base64'
+        if "base64" in params:
+            encoding = "base64"
 
         # Extract charset if present
         for param in params:
-            if param.startswith('charset='):
-                charset = param.split('=', 1)[1]
+            if param.startswith("charset="):
+                charset = param.split("=", 1)[1]
                 break
 
     # If no encoding specified, assume URL-encoded (standard for data URIs without base64)
     if not encoding:
-        encoding = 'url'
+        encoding = "url"
 
     # Extract format from MIME type (e.g., "image/png" -> "png", "image/svg+xml" -> "svg")
     image_format = None
-    if mime_type.startswith('image/'):
+    if mime_type.startswith("image/"):
         # Handle complex MIME types like image/svg+xml
-        format_part = mime_type.split('/')[-1].lower()
+        format_part = mime_type.split("/")[-1].lower()
         # Map known formats
         format_map = {
-            'svg+xml': 'svg',
-            'jpeg': 'jpg',
+            "svg+xml": "svg",
+            "jpeg": "jpg",
         }
         image_format = format_map.get(format_part, format_part)
 
     return {
-        'mime_type': mime_type,
-        'format': image_format or '',
-        'encoding': encoding,
-        'data': data,
-        'params': params,
-        'charset': charset or '',
+        "mime_type": mime_type,
+        "format": image_format or "",
+        "encoding": encoding,
+        "data": data,
+        "params": params,
+        "charset": charset or "",
     }
 
 
@@ -308,7 +308,7 @@ def is_data_uri(uri: str) -> bool:
     if not uri or not isinstance(uri, str):
         return False
 
-    return uri.startswith('data:')
+    return uri.startswith("data:")
 
 
 def detect_image_format_from_bytes(data: bytes, max_bytes: int = 32) -> str | None:
@@ -356,39 +356,39 @@ def detect_image_format_from_bytes(data: bytes, max_bytes: int = 32) -> str | No
 
     # Check magic bytes for each format
     # PNG: 89 50 4E 47 0D 0A 1A 0A
-    if data.startswith(b'\x89PNG\r\n\x1a\n'):
-        return 'png'
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
 
     # JPEG: FF D8 FF
-    if data.startswith(b'\xff\xd8\xff'):
-        return 'jpg'
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
 
     # GIF: "GIF87a" or "GIF89a"
-    if data.startswith(b'GIF87a') or data.startswith(b'GIF89a'):
-        return 'gif'
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "gif"
 
     # WebP: "RIFF" followed by file size, then "WEBP"
-    if len(data) >= 12 and data.startswith(b'RIFF') and data[8:12] == b'WEBP':
-        return 'webp'
+    if len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "webp"
 
     # BMP: "BM"
-    if data.startswith(b'BM'):
-        return 'bmp'
+    if data.startswith(b"BM"):
+        return "bmp"
 
     # TIFF: Little-endian (II*\x00) or Big-endian (MM\x00*)
-    if data.startswith(b'II*\x00') or data.startswith(b'MM\x00*'):
-        return 'tiff'
+    if data.startswith(b"II*\x00") or data.startswith(b"MM\x00*"):
+        return "tiff"
 
     # ICO: 00 00 01 00
-    if data.startswith(b'\x00\x00\x01\x00'):
-        return 'ico'
+    if data.startswith(b"\x00\x00\x01\x00"):
+        return "ico"
 
     # SVG: XML-based, starts with "<svg" or "<?xml"
     # Strip leading whitespace and check
     stripped = data.lstrip()
-    if stripped.startswith(b'<svg') or stripped.startswith(b'<?xml'):
+    if stripped.startswith(b"<svg") or stripped.startswith(b"<?xml"):
         # For <?xml, we should check further for <svg but that's likely beyond first bytes
-        return 'svg'
+        return "svg"
 
     return None
 
@@ -418,9 +418,9 @@ def get_image_format_from_path(path: str | Path) -> str | None:
         return None
 
     path_obj = Path(path)
-    suffix = path_obj.suffix.lower().lstrip('.')
+    suffix = path_obj.suffix.lower().lstrip(".")
 
     # List of common image formats
-    image_formats = {'png', 'jpeg', 'jpg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'ico'}
+    image_formats = {"png", "jpeg", "jpg", "gif", "webp", "svg", "bmp", "tiff", "tif", "ico"}
 
     return suffix if suffix in image_formats else None
