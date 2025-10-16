@@ -129,8 +129,8 @@ class CsvToAstConverter(BaseParser):
 
         """
         # If explicitly set, use that
-        if self.options.csv_delimiter:
-            return self.options.csv_delimiter
+        if self.options.delimiter:
+            return self.options.delimiter
 
         # Check file extension for TSV
         if isinstance(input_data, (str, Path)):
@@ -186,13 +186,13 @@ class CsvToAstConverter(BaseParser):
         dialect_obj: type[csv.Dialect]
 
         # If any custom dialect options are set, create custom dialect
-        if (self.options.csv_delimiter or self.options.csv_quotechar or
-                self.options.csv_escapechar or self.options.csv_doublequote is not None):
+        if (self.options.delimiter or self.options.quote_char or
+                self.options.escape_char or self.options.double_quote is not None):
             dialect_obj = _make_csv_dialect(
-                delimiter=self.options.csv_delimiter or delimiter,
-                quotechar=self.options.csv_quotechar,
-                escapechar=self.options.csv_escapechar,
-                doublequote=self.options.csv_doublequote
+                delimiter=self.options.delimiter or delimiter,
+                quotechar=self.options.quote_char,
+                escapechar=self.options.escape_char,
+                doublequote=self.options.double_quote
             )
         elif self.options.detect_csv_dialect:
             try:
@@ -405,7 +405,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[],
     renderer_required_packages=[],
     import_error_message="CSV/TSV conversion uses Python standard library (no dependencies)",
-    parser_options_class="CsvOptions",
+    parser_options_class=CsvOptions,
     renderer_options_class=None,
     description="Convert CSV and TSV files to Markdown tables",
     priority=6

@@ -15,7 +15,6 @@ name = "all2md"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "rich" },
     { name = "tomli-w" },
 ]
 
@@ -126,6 +125,7 @@ rst = [
 ]
 rtf = [
     { name = "pyth3" },
+    { name = "six" },
 ]
 sanitizer = [
     { name = "bleach" },
@@ -180,10 +180,10 @@ requires-dist = [
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
     { name = "reportlab", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "reportlab", marker = "extra == 'pdf-render'", specifier = ">=4.0.0" },
-    { name = "rich", specifier = ">=14.1.0" },
     { name = "rich", marker = "extra == 'all'", specifier = ">=14.2.0" },
     { name = "rich", marker = "extra == 'cli-extras'", specifier = ">=14.2.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.3" },
+    { name = "six", marker = "extra == 'rtf'", specifier = ">=1.16.0" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=8.2.3" },
     { name = "sphinx-copybutton", marker = "extra == 'dev'", specifier = ">=0.5.2" },
     { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=3.0.2" },

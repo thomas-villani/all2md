@@ -668,9 +668,9 @@ class Pipeline:
         except Exception as e:
             diagnostics['transforms'] = f"Error resolving transforms: {e}"
 
-        # List registered hooks by target
+        # List registered hooks by target (using public API instead of accessing _hooks)
         hooks_info: dict[str, list[dict[str, Any]]] = {}
-        for target, hook_list in self.hook_manager._hooks.items():
+        for target, hook_list in self.hook_manager.list_hooks().items():
             hooks_info[target] = [
                 {
                     'priority': priority,

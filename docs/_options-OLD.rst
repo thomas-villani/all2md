@@ -850,16 +850,16 @@ Parameters
 ----------
 detect_csv_dialect : bool, default True
     Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set).
-delimiter : str | None, default None
+csv_delimiter : str | None, default None
     Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|').
     When set, disables dialect detection.
-quote_char : str | None, default None
+csv_quotechar : str | None, default None
     Override quote character (e.g., '"', "'").
     When set, uses this for quoting.
-escape_char : str | None, default None
+csv_escapechar : str | None, default None
     Override escape character (e.g., '\\\\').
     When set, uses this for escaping.
-double_quote : bool | None, default None
+csv_doublequote : bool | None, default None
     Enable/disable double quoting (two quote chars = one literal quote).
     When set, overrides dialect's doublequote setting.
 has_header : bool, default True
@@ -977,7 +977,7 @@ dialect_sample_size : int, default 4096
 
 **detect_csv_dialect**
 
-   Enable csv.Sniffer-based dialect detection (ignored if delimiter is set)
+   Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set)
 
    :Type: ``bool``
    :CLI flag: ``--csv-no-detect-csv-dialect``
@@ -993,39 +993,39 @@ dialect_sample_size : int, default 4096
    :Default: ``4096``
    :Importance: advanced
 
-**delimiter**
+**csv_delimiter**
 
    Override CSV/TSV delimiter (e.g., ',', '\t', ';', '|')
 
    :Type: ``Optional[str]``
-   :CLI flag: ``--csv-delimiter``
+   :CLI flag: ``--csv-csv-delimiter``
    :Default: ``None``
    :Importance: core
 
-**quote_char**
+**csv_quotechar**
 
    Override quote character (e.g., '"', "'")
 
    :Type: ``Optional[str]``
-   :CLI flag: ``--csv-quote-char``
+   :CLI flag: ``--csv-csv-quotechar``
    :Default: ``None``
    :Importance: advanced
 
-**escape_char**
+**csv_escapechar**
 
    Override escape character (e.g., '\\')
 
    :Type: ``Optional[str]``
-   :CLI flag: ``--csv-escape-char``
+   :CLI flag: ``--csv-csv-escapechar``
    :Default: ``None``
    :Importance: advanced
 
-**double_quote**
+**csv_doublequote**
 
    Enable/disable double quoting (two quote chars = one literal quote)
 
    :Type: ``Optional[bool]``
-   :CLI flag: ``--csv-double-quote``
+   :CLI flag: ``--csv-csv-doublequote``
    :Default: ``None``
    :Importance: advanced
 
@@ -3604,7 +3604,7 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x7fb9cf8a8a90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3614,7 +3614,7 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x7fb9cf8a8a90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -6557,8 +6557,8 @@ line_length : int, default 80
     Target line length for wrapping text.
 hard_line_break_mode : {"line_block", "raw"}, default "line_block"
     How to render hard line breaks:
-    - "line_block": Use RST line block syntax (``\\n| ``), the standard approach
-    - "raw": Use plain newline (``\\n``), less faithful but simpler in complex containers
+    - "line_block": Use RST line block syntax (``\n| ``), the standard approach
+    - "raw": Use plain newline (``\n``), less faithful but simpler in complex containers
 
 Notes
 -----
@@ -6764,57 +6764,6 @@ Inherited from `BaseParserOptions`
    :CLI flag: ``--rtf-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-RTF Renderer Options
-^^^^^^^^^^^^^^^^^^^^
-
-Configuration options for rendering AST documents to RTF.
-
-Parameters
-----------
-font_family : {"roman", "swiss"}, default "roman"
-    Base font family to pass to ``pyth``'s ``Rtf15Writer``. The ``roman``
-    family maps to Times New Roman, while ``swiss`` maps to Calibri.
-bold_headings : bool, default True
-    When True, heading text is rendered with the RTF bold style to
-    distinguish it from body paragraphs.
-
-**fail_on_resource_errors**
-
-   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
-
-   :Type: ``bool``
-   :CLI flag: ``--rtf-renderer-fail-on-resource-errors``
-   :Default: ``False``
-   :Importance: advanced
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--rtf-renderer-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**font_family**
-
-   Base font family for the entire RTF document
-
-   :Type: ``Literal['roman', 'swiss']``
-   :CLI flag: ``--rtf-renderer-font-family``
-   :Default: ``'roman'``
-   :Choices: ``roman``, ``swiss``
-   :Importance: core
-
-**bold_headings**
-
-   Render heading content in bold
-
-   :Type: ``bool``
-   :CLI flag: ``--rtf-renderer-no-bold-headings``
-   :Default: ``True``
-   :Importance: core
 
 SOURCECODE Options
 ~~~~~~~~~~~~~~~~~~
@@ -7744,7 +7693,7 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x7fb9cf8a8a90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -7754,7 +7703,7 @@ html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "esc
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000122A7770A60>``
+   :Default: ``<object object at 0x7fb9cf8a8a90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

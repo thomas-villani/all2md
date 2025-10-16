@@ -445,14 +445,14 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "-o",
         "--output",
         type=Path,
-        default=Path(__file__).resolve().parent / "source" / "options.rst",
+        default=Path(__file__).resolve().parent / "options.rst",
         help="Output .rst path (defaults to docs/source/options.rst)",
     )
     parser.add_argument(
         "-n",
         "--narrative",
         type=Path,
-        default=Path(__file__).resolve().parent / "source" / "options-narrative.rst",
+        default=Path(__file__).resolve().parent / "_options-narrative.rst",
         help="Narrative preface file",
     )
     return parser.parse_args(argv)

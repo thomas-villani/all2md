@@ -472,10 +472,11 @@ class HookManager:
         """
         return target in self._hooks and len(self._hooks[target]) > 0
 
-    def get_node_type(self, node: Node) -> Optional[NodeType]:
+    @staticmethod
+    def get_node_type(node: Node) -> Optional[NodeType]:
         """Get the node type string for a node instance.
 
-        This method supports subclasses by using isinstance checks rather than
+        This static method supports subclasses by using isinstance checks rather than
         exact type matching. If a node is a subclass of a known type, it will
         be identified by its parent type.
 
@@ -499,6 +500,18 @@ class HookManager:
         Performance: Uses module-level _NODE_TYPE_MAP constant to avoid
         reconstructing the mapping on every call (hot path optimization).
 
+        This is a static method because it doesn't depend on instance state,
+        only on the module-level _NODE_TYPE_MAP constant. This allows it to be
+        called without instantiating HookManager.
+
+        Examples
+        --------
+        >>> from all2md.ast.nodes import Image
+        >>> img = Image(url="test.png", alt_text="Test")
+        >>> node_type = HookManager.get_node_type(img)
+        >>> print(node_type)
+        'image'
+
         """
         # Use isinstance to support subclasses
         # Iterate over module-level constant (avoids repeated dict construction)
@@ -507,6 +520,31 @@ class HookManager:
                 return cast(NodeType, node_type)
 
         return None
+
+    def list_hooks(self) -> dict[HookTarget, list[tuple[int, HookCallable]]]:
+        """List all registered hooks with their priorities.
+
+        This method provides a public API for enumerating hooks without
+        exposing the internal _hooks dictionary structure.
+
+        Returns
+        -------
+        dict[HookTarget, list[tuple[int, HookCallable]]]
+            Dictionary mapping hook targets to lists of (priority, hook) tuples.
+            The returned dictionary is a shallow copy to prevent external
+            modifications to internal state.
+
+        Examples
+        --------
+        >>> manager = HookManager()
+        >>> manager.register_hook('image', my_hook, priority=50)
+        >>> hooks = manager.list_hooks()
+        >>> print(hooks)
+        {'image': [(50, <function my_hook>)]}
+
+        """
+        # Return a shallow copy to prevent external modification
+        return dict(self._hooks)
 
     def clear(self) -> None:
         """Clear all registered hooks.

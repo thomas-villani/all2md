@@ -35,7 +35,7 @@ from all2md.options.org import OrgParserOptions, OrgRendererOptions
 from all2md.options.pdf import PdfOptions, PdfRendererOptions
 from all2md.options.pptx import PptxOptions, PptxRendererOptions
 from all2md.options.rst import RstParserOptions, RstRendererOptions
-from all2md.options.rtf import RtfOptions
+from all2md.options.rtf import RtfOptions, RtfRendererOptions
 from all2md.options.sourcecode import SourceCodeOptions
 from all2md.options.txt import PlainTextOptions
 from all2md.options.xlsx import XlsxOptions
@@ -108,6 +108,7 @@ __all__ = [
     "PptxRendererOptions",
     "RstParserOptions",
     "RstRendererOptions",
+    "RtfRendererOptions",
     "RtfOptions",
     "SourceCodeOptions",
     "PlainTextOptions",

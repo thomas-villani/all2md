@@ -172,8 +172,6 @@ class RemoveNodesTransform(NodeTransformer):
             )
 
         self.node_types = set(node_types)
-        # Use centralized node type mapping from HookManager
-        self._hook_manager = HookManager()
 
     def transform(self, node: Node) -> Node | None:
         """Transform node, removing it if it matches specified types.
@@ -189,8 +187,8 @@ class RemoveNodesTransform(NodeTransformer):
             None if node should be removed, otherwise transformed node
 
         """
-        # Get node type string using centralized mapping
-        node_type = self._hook_manager.get_node_type(node)
+        # Get node type string using static method (no instantiation needed)
+        node_type = HookManager.get_node_type(node)
 
         # Remove if it matches (node_type can be None for unknown types)
         if node_type and node_type in self.node_types:
@@ -500,7 +498,7 @@ class AddHeadingIdsTransform(NodeTransformer):
 
 
 class RemoveBoilerplateTextTransform(NodeTransformer):
-    """Remove paragraphs matching common boilerplate patterns.
+    r"""Remove paragraphs matching common boilerplate patterns.
 
     This transform removes paragraphs whose text matches predefined
     patterns like "CONFIDENTIAL", "Page X of Y", etc. Useful for
@@ -528,10 +526,10 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
         >>> transform = RemoveBoilerplateTextTransform()
         >>> cleaned_doc = transform.transform(document)
 
-    Custom patterns:
+    Custom patterns with anchoring:
 
         >>> transform = RemoveBoilerplateTextTransform(
-        ...     patterns=[r"^DRAFT$", r"^INTERNAL$"]
+        ...     patterns=[r"^DRAFT$", r"^INTERNAL ONLY$", r"^Page \d+ of \d+$"]
         ... )
         >>> cleaned_doc = transform.transform(document)
 
@@ -542,10 +540,23 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
 
     Notes
     -----
-    For security reasons, this transform validates user-supplied regex patterns
-    to prevent ReDoS attacks. Default patterns are pre-validated and trusted.
-    Patterns with nested quantifiers or excessive backtracking potential are
-    rejected. See `validate_user_regex_pattern()` for details.
+    **Pattern Matching Semantics**: This transform uses Python's `re.match()`,
+    which implicitly anchors at the start of the string (equivalent to adding
+    `^` at the beginning). For exact matching of entire paragraphs, patterns
+    should include an end anchor (`$`). For example:
+
+    - `r"CONFIDENTIAL"` - Matches paragraphs starting with "CONFIDENTIAL"
+    - `r"CONFIDENTIAL$"` - Matches paragraphs that are exactly "CONFIDENTIAL"
+      or start with "CONFIDENTIAL" followed by only whitespace
+    - `r"^CONFIDENTIAL$"` - Explicitly anchored (redundant `^`, but clearer)
+
+    If you need to match patterns anywhere in the text (not just at the start),
+    use `re.search()` semantics by implementing a custom transform.
+
+    **Security**: For security reasons, this transform validates user-supplied
+    regex patterns to prevent ReDoS attacks. Default patterns are pre-validated
+    and trusted. Patterns with nested quantifiers or excessive backtracking
+    potential are rejected. See `validate_user_regex_pattern()` for details.
 
     **Truncation Behavior**: Text longer than MAX_TEXT_LENGTH_FOR_REGEX
     (10000 characters) is truncated before matching for ReDoS protection.
@@ -980,34 +991,16 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
             # Extract footnote label from alt_text, metadata, or fallback
             source_text = node.alt_text or node.metadata.get('original_filename') or "attachment"
             base_label = sanitize_footnote_label(source_text)
-
-            if base_label:
-                # Handle duplicate labels with numeric suffix
-                if base_label in self._label_counts:
-                    self._label_counts[base_label] += 1
-                    label = f"{base_label}-{self._label_counts[base_label]}"
-                else:
-                    self._label_counts[base_label] = 1
-                    label = base_label
-
-                self._footnote_refs[label] = source_text
+            # Use helper to add label with automatic duplicate handling
+            self._add_footnote_label(base_label, source_text)
 
         if self.add_definitions_for_links and isinstance(node, Link) and not node.url:
             # Extract label from link content or metadata
             link_text = self._get_link_text(node)
             source_text = link_text or node.metadata.get('original_filename') or "attachment"
             base_label = sanitize_footnote_label(source_text)
-
-            if base_label:
-                # Handle duplicate labels with numeric suffix
-                if base_label in self._label_counts:
-                    self._label_counts[base_label] += 1
-                    label = f"{base_label}-{self._label_counts[base_label]}"
-                else:
-                    self._label_counts[base_label] = 1
-                    label = base_label
-
-                self._footnote_refs[label] = source_text
+            # Use helper to add label with automatic duplicate handling
+            self._add_footnote_label(base_label, source_text)
 
         # Recurse into children
         if hasattr(node, 'children') and isinstance(node.children, list):
@@ -1018,6 +1011,34 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
         if hasattr(node, 'content') and isinstance(node.content, list):
             for child in node.content:
                 self._collect_footnote_refs(child)
+
+    def _add_footnote_label(self, base_label: str, source_text: str) -> None:
+        """Add a footnote label with automatic duplicate handling.
+
+        This helper method handles the common logic for adding footnote labels
+        with numeric suffixes when duplicates are encountered. It updates both
+        _label_counts and _footnote_refs.
+
+        Parameters
+        ----------
+        base_label : str
+            Base label to use (will be made unique if necessary)
+        source_text : str
+            Source text to store in the footnote reference
+
+        """
+        if not base_label:
+            return
+
+        # Handle duplicate labels with numeric suffix
+        if base_label in self._label_counts:
+            self._label_counts[base_label] += 1
+            label = f"{base_label}-{self._label_counts[base_label]}"
+        else:
+            self._label_counts[base_label] = 1
+            label = base_label
+
+        self._footnote_refs[label] = source_text
 
     def _get_link_text(self, node: Link) -> str:
         """Extract text content from link node.
@@ -1324,6 +1345,13 @@ class GenerateTocTransform(NodeTransformer):
         list of Node
             List of nodes representing the TOC
 
+        Notes
+        -----
+        This method handles documents that don't start with level 1 headings
+        by calculating the minimum heading level and using that as the base.
+        For example, a document starting with H2 will use parent_level=1,
+        allowing H2 headings to appear at the top level of the TOC.
+
         """
         toc_nodes: list[Node] = []
 
@@ -1336,7 +1364,10 @@ class GenerateTocTransform(NodeTransformer):
 
         # Build nested list structure
         if self._headings:
-            toc_list, _ = self._build_toc_list(0, 0)
+            # Calculate minimum heading level to handle documents not starting at H1
+            min_level = min(level for level, _, _ in self._headings)
+            # Start with parent_level = min_level - 1 so min_level headings appear at top level
+            toc_list, _ = self._build_toc_list(0, min_level - 1)
             if toc_list:
                 toc_nodes.append(toc_list)
 

@@ -25,16 +25,16 @@ class CsvOptions(BaseParserOptions):
     ----------
     detect_csv_dialect : bool, default True
         Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set).
-    csv_delimiter : str | None, default None
+    delimiter : str | None, default None
         Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|').
         When set, disables dialect detection.
-    csv_quotechar : str | None, default None
+    quote_char : str | None, default None
         Override quote character (e.g., '"', "'").
         When set, uses this for quoting.
-    csv_escapechar : str | None, default None
+    escape_char : str | None, default None
         Override escape character (e.g., '\\\\').
         When set, uses this for escaping.
-    csv_doublequote : bool | None, default None
+    double_quote : bool | None, default None
         Enable/disable double quoting (two quote chars = one literal quote).
         When set, overrides dialect's doublequote setting.
     has_header : bool, default True
@@ -62,7 +62,7 @@ class CsvOptions(BaseParserOptions):
     detect_csv_dialect: bool = field(
         default=True,
         metadata={
-            "help": "Enable csv.Sniffer-based dialect detection (ignored if csv_delimiter is set)",
+            "help": "Enable csv.Sniffer-based dialect detection (ignored if delimiter is set)",
             "cli_name": "no-detect-csv-dialect",
             "importance": "advanced"
         }
@@ -75,28 +75,28 @@ class CsvOptions(BaseParserOptions):
             "importance": "advanced"
         }
     )
-    csv_delimiter: Optional[str] = field(
+    delimiter: Optional[str] = field(
         default=None,
         metadata={
             "help": "Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|')",
             "importance": "core"
         }
     )
-    csv_quotechar: Optional[str] = field(
+    quote_char: Optional[str] = field(
         default=None,
         metadata={
             "help": "Override quote character (e.g., '\"', \"'\")",
             "importance": "advanced"
         }
     )
-    csv_escapechar: Optional[str] = field(
+    escape_char: Optional[str] = field(
         default=None,
         metadata={
             "help": "Override escape character (e.g., '\\\\')",
             "importance": "advanced"
         }
     )
-    csv_doublequote: Optional[bool] = field(
+    double_quote: Optional[bool] = field(
         default=None,
         metadata={
             "help": "Enable/disable double quoting (two quote chars = one literal quote)",

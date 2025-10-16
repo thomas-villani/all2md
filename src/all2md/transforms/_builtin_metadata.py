@@ -88,14 +88,12 @@ LINK_REWRITER_METADATA = TransformMetadata(
     parameters={
         'pattern': ParameterSpec(
             type=str,
-            default="",
             required=True,
             help="Regex pattern to match in URLs",
             cli_flag='--link-pattern'
         ),
         'replacement': ParameterSpec(
             type=str,
-            default="",
             required=True,
             help="Replacement string for matched pattern",
             cli_flag='--link-replacement'
@@ -115,14 +113,12 @@ TEXT_REPLACER_METADATA = TransformMetadata(
     parameters={
         'find': ParameterSpec(
             type=str,
-            default="",
             required=True,
             help="Text to find",
             cli_flag='--find-text'
         ),
         'replace': ParameterSpec(
             type=str,
-            default="",
             required=True,
             help="Replacement text",
             cli_flag='--replace-text'

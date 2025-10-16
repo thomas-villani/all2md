@@ -14,7 +14,7 @@ class TestCsvDialectOptions:
         """Test using a custom delimiter (semicolon)."""
         csv_data = "Name;Age;City\nAlice;30;NYC\nBob;25;LA"
 
-        options = CsvOptions(csv_delimiter=";")
+        options = CsvOptions(delimiter=";")
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
@@ -37,7 +37,7 @@ class TestCsvDialectOptions:
         """Test using a custom quote character (single quote)."""
         csv_data = "Name,Description\n'Alice','Says ''hello'''\n'Bob','Normal text'"
 
-        options = CsvOptions(csv_quotechar="'", csv_doublequote=True)
+        options = CsvOptions(quote_char="'", double_quote=True)
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
@@ -53,7 +53,7 @@ class TestCsvDialectOptions:
         """Test using a custom escape character (backslash)."""
         csv_data = 'Name,Description\nAlice,"She said \\"hello\\""\nBob,"Normal text"'
 
-        options = CsvOptions(csv_escapechar="\\", csv_doublequote=False)
+        options = CsvOptions(escape_char="\\", double_quote=False)
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
@@ -70,7 +70,7 @@ class TestCsvDialectOptions:
         """Test using pipe as delimiter."""
         csv_data = "Name|Age|City\nAlice|30|NYC\nBob|25|LA"
 
-        options = CsvOptions(csv_delimiter="|")
+        options = CsvOptions(delimiter="|")
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
@@ -86,7 +86,7 @@ class TestCsvDialectOptions:
         """Test explicitly setting tab as delimiter."""
         csv_data = "Name\tAge\tCity\nAlice\t30\tNYC\nBob\t25\tLA"
 
-        options = CsvOptions(csv_delimiter="\t")
+        options = CsvOptions(delimiter="\t")
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
@@ -102,7 +102,7 @@ class TestCsvDialectOptions:
         # With doublequote=False, two quotes don't represent a single quote
         csv_data = 'Name,Value\n"Alice","100"\n"Bob","200"'
 
-        options = CsvOptions(csv_doublequote=False)
+        options = CsvOptions(double_quote=False)
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
@@ -117,9 +117,9 @@ class TestCsvDialectOptions:
         csv_data = "Name;Description\n'Alice';'She said ''hi'''\n'Bob';'Normal'"
 
         options = CsvOptions(
-            csv_delimiter=";",
-            csv_quotechar="'",
-            csv_doublequote=True
+            delimiter=";",
+            quote_char="'",
+            double_quote=True
         )
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
@@ -156,7 +156,7 @@ class TestCsvDialectDetection:
         """Test that explicit delimiter option overrides auto-detection."""
         csv_data = "Name;Age;City\nAlice;30;NYC\nBob;25;LA"
 
-        options = CsvOptions(detect_csv_dialect=True, csv_delimiter=";")
+        options = CsvOptions(detect_csv_dialect=True, delimiter=";")
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
