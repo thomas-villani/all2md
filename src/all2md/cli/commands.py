@@ -109,7 +109,7 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
     defaults: Dict[str, Any] = {}
 
     for field in fields(instance):
-        metadata = field.metadata or {}
+        metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
         if metadata.get('exclude_from_cli', False):
             continue
 
@@ -902,12 +902,12 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
 
                     for name, spec in metadata.parameters.items():
                         type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
-                        cli_flag = spec.get_cli_flag(name) if spec.should_expose() else 'N/A'
+                        flag: str = spec.get_cli_flag(name) if spec.should_expose() else 'N/A'
                         table.add_row(
                             name,
                             type_str,
                             str(spec.default) if spec.default is not None else 'None',
-                            cli_flag,
+                            flag,
                             spec.help or ''
                         )
 
@@ -949,7 +949,7 @@ def handle_list_transforms_command(args: list[str] | None = None) -> int:
                 for name, spec in metadata.parameters.items():
                     type_str = spec.type.__name__ if hasattr(spec.type, '__name__') else str(spec.type)
                     default_str = f"(default: {spec.default})" if spec.default is not None else ""
-                    cli_flag = spec.get_cli_flag(name) if spec.should_expose() else None
+                    cli_flag: str | None = spec.get_cli_flag(name) if spec.should_expose() else None
                     print(f"  {name} ({type_str}) {default_str}")
                     if spec.help:
                         print(f"    {spec.help}")
@@ -1180,8 +1180,8 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
                 rendered = convert(
                     file,
                     output=None,
-                    source_format=format_arg,  # type: ignore[arg-type]
-                    target_format=target_format,  # type: ignore[arg-type]
+                    source_format=format_arg,
+                    target_format=target_format,
                     transforms=transforms,
                     **effective_options,
                 )
@@ -1234,7 +1234,7 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
             convert(
                 file,
                 output=output_path,
-                source_format=format_arg,  # type: ignore[arg-type]
+                source_format=format_arg,
                 target_format=target_format,
                 transforms=transforms,
                 **effective_options,

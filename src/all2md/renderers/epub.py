@@ -106,10 +106,11 @@ class EpubRenderer(BaseRenderer):
 
         """
         from ebooklib import epub
+        from typing import cast
 
         # Clone document to avoid mutating the original AST during image URL rewriting.
         # This ensures the input document can be reused for rendering to other formats.
-        doc = clone_node(doc)
+        doc = cast(Document, clone_node(doc))
 
         # Create EPUB book
         book = epub.EpubBook()

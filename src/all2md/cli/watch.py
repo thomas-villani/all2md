@@ -246,7 +246,7 @@ def run_watch_mode(
         paths: List[Path],
         output_dir: Path,
         options: Dict[str, Any],
-        format_arg: str,
+        format_arg: DocumentFormat,
         transforms: Optional[list] = None,
         debounce: float = 1.0,
         preserve_structure: bool = False,
@@ -263,7 +263,7 @@ def run_watch_mode(
         Directory to write converted files
     options : Dict[str, Any]
         Conversion options
-    format_arg : str
+    format_arg : DocumentFormat
         Format specification
     transforms : list, optional
         Transform instances to apply

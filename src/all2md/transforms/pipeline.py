@@ -128,7 +128,7 @@ class HookAwareVisitor(NodeTransformer):
 
                 # Hook removed node
                 if result is None:
-                    return None  # type: ignore[unreachable]
+                    return None
 
                 # Validate that hook returned a Node instance
                 if not isinstance(result, Node):

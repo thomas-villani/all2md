@@ -41,7 +41,7 @@ CLI_METADATA_NEGATED_NAME = 'cli_negated_name'
 class TieredHelpAction(argparse.Action):
     """Custom help action that integrates the enhanced help formatter."""
 
-    def __init__(self, option_strings, dest=argparse.SUPPRESS, **kwargs):
+    def __init__(self, option_strings: list[str], dest: str = argparse.SUPPRESS, **kwargs: Any) -> None:
         """Initialize the tiered help action.
 
         Parameters
@@ -59,7 +59,7 @@ class TieredHelpAction(argparse.Action):
         kwargs.setdefault('metavar', 'SECTION')
         super().__init__(option_strings, dest, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None) -> None:
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Any, option_string: Optional[str] = None) -> None:
         """Execute the help action.
 
         Parameters
@@ -296,7 +296,7 @@ class DynamicCLIBuilder:
 
         # Handle boolean fields
         if resolved_type is bool:
-            default_value = MISSING
+            default_value: Any = MISSING
 
             if self._has_default(field):
                 candidate_default = self._get_default(field)
@@ -684,7 +684,7 @@ class DynamicCLIBuilder:
             resolved_field_type = self._resolve_field_type(field, options_class)
             underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
 
-            bool_default_value = MISSING
+            bool_default_value: Any = MISSING
             if underlying_field_type is bool and self._has_default(field):
                 candidate_default = self._get_default(field)
                 if isinstance(candidate_default, bool):
@@ -1500,7 +1500,7 @@ def validate_pygments_theme(theme_name: str) -> str:
         from pygments.styles import get_all_styles
     except ImportError:
         # Hardcoded for fallback
-        def get_all_styles():
+        def get_all_styles() -> list[str]:
             """Return list of available Pygments styles as fallback."""
             return [
                 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'bw', 'borland', 'coffee', 'colorful', 'default',

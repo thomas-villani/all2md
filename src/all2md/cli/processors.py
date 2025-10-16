@@ -425,10 +425,10 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
 
     """
     if not hasattr(parsed_args, 'transform_specs'):
-        parsed_args.transform_specs = []  # type: ignore[attr-defined]
+        parsed_args.transform_specs = []
 
     if not hasattr(parsed_args, 'transforms') or not parsed_args.transforms:
-        parsed_args.transform_specs = []  # type: ignore[attr-defined]
+        parsed_args.transform_specs = []
         return None
 
     try:
@@ -486,7 +486,7 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
             print(f"Error creating transform '{transform_name}': {e}", file=sys.stderr)
             raise argparse.ArgumentTypeError(f"Failed to create transform: {transform_name}") from e
 
-    parsed_args.transform_specs = transform_specs  # type: ignore[attr-defined]
+    parsed_args.transform_specs = transform_specs
 
     return transform_instances
 
@@ -610,7 +610,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
     return options
 
 
-def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], str, Optional[list]]:
+def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
     """Set up conversion options and build transforms.
 
     Parameters
@@ -620,7 +620,7 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
 
     Returns
     -------
-    Tuple[Dict[str, Any], str, Optional[list]]
+    Tuple[Dict[str, Any], DocumentFormat, Optional[list]]
         Tuple of (options_dict, format_arg, transforms)
 
     Raises
@@ -662,7 +662,7 @@ def setup_and_validate_options(parsed_args: argparse.Namespace) -> Tuple[Dict[st
     # Map CLI arguments to options (CLI args take highest priority)
     builder = DynamicCLIBuilder()
     options = builder.map_args_to_options(parsed_args, config_from_file)
-    format_arg = parsed_args.format if parsed_args.format != "auto" else "auto"
+    format_arg = cast(DocumentFormat, parsed_args.format if parsed_args.format != "auto" else "auto")
 
     # Apply security presets if specified
     options = apply_security_preset(parsed_args, options)
@@ -846,9 +846,9 @@ def process_multi_file(
     if rich_dependency_error:
         print(f"Warning: {rich_dependency_error}", file=sys.stderr)
 
-    # Process single file (without rich/progress)
-    # This includes cases where --rich is set but TTY check fails (piped output)
-    if len(files) == 1 and not should_use_rich and not parsed_args.progress:
+    # Process single file (without progress)
+    # Handle both rich and non-rich output modes
+    if len(files) == 1 and not parsed_args.progress:
         file = files[0]
 
         # Determine output path and target format

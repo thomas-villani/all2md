@@ -1372,7 +1372,7 @@ class AsciiDocParser(BaseParser):
             parse_block_fn=self._parse_block
         )
 
-        return BlockQuote(children=children)
+        return BlockQuote(children=cast(list[Node], children))
 
     def _parse_literal_block(self) -> CodeBlock:
         """Parse a literal block.
@@ -1446,7 +1446,7 @@ class AsciiDocParser(BaseParser):
         if 'id' in attrs:
             metadata['id'] = attrs['id']
 
-        return BlockQuote(children=children, metadata=metadata)
+        return BlockQuote(children=cast(list[Node], children), metadata=metadata)
 
     def _parse_example_block(self) -> BlockQuote:
         """Parse an example block.
@@ -1481,7 +1481,7 @@ class AsciiDocParser(BaseParser):
         if 'id' in attrs:
             metadata['id'] = attrs['id']
 
-        return BlockQuote(children=children, metadata=metadata)
+        return BlockQuote(children=cast(list[Node], children), metadata=metadata)
 
     def _parse_table(self) -> Table:
         """Parse a table.

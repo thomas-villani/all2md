@@ -43,7 +43,7 @@ class CloneFrozenMixin:
             New instance with specified fields updated
 
         """
-        return replace(self, **kwargs)  # type: ignore
+        return replace(self, **kwargs)
 
 
 @dataclass(frozen=True)

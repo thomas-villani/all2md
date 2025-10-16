@@ -136,7 +136,7 @@ def _lookup_importance(builder: DynamicCLIBuilder, dest: str) -> OptionImportanc
     if not resolved:
         return "core"
     _field, metadata = resolved
-    return metadata.get("importance", "core")  # type: ignore[return-value]
+    return metadata.get("importance", "core")
 
 
 def _format_default(value: Any) -> Optional[str]:
@@ -201,7 +201,7 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
                 default=getattr(action, "default", None),
                 metavar=getattr(action, "metavar", None),
                 choices=getattr(action, "choices", None),
-                importance=importance,  # type: ignore[arg-type]
+                importance=importance,
                 is_flag=nargs == 0 or is_flag_action,
                 group_title=title,
             )
@@ -507,7 +507,7 @@ class HelpRenderer:
         """
         output = self.render(selector)
         if self.use_rich:
-            from rich.console import Console  # type: ignore[import-not-found]
+            from rich.console import Console
 
             target = stream or sys.stdout
             console = Console(file=target, force_terminal=True)
@@ -517,8 +517,8 @@ class HelpRenderer:
             target = stream or sys.stdout
             print(output, file=target)
 
-    def _style_line(self, line: str):
-        from rich.text import Text  # type: ignore[import-not-found]
+    def _style_line(self, line: str) -> "Text":
+        from rich.text import Text
 
         if not line:
             return Text("")

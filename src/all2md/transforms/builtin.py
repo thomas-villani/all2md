@@ -1177,7 +1177,8 @@ class GenerateTocTransform(NodeTransformer):
         # Second pass: if set_ids_if_missing is True, inject IDs into headings
         if self.set_ids_if_missing and self._heading_id_map:
             # Create a new document with updated headings
-            node = self._inject_heading_ids(node)
+            from typing import cast
+            node = cast(Document, self._inject_heading_ids(node))
 
         # Generate TOC structure
         toc_nodes = self._generate_toc()
@@ -1310,8 +1311,8 @@ class GenerateTocTransform(NodeTransformer):
             else:
                 # For other node types, try to update children if they have that attribute
                 if hasattr(node, 'children'):
-                    from dataclasses import replace
-                    return replace(node, children=new_children)
+                    from all2md.ast.nodes import replace_node_children
+                    return replace_node_children(node, new_children)
 
         return node
 
