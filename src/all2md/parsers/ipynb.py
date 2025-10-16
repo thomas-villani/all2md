@@ -30,7 +30,6 @@ from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 logger = logging.getLogger(__name__)
 
-
 _IPYNB_MARKDOWN_FALLBACK_FLAG = "_ipynb_plaintext_markdown"
 
 
@@ -309,11 +308,11 @@ class IpynbToAstConverter(BaseParser):
         return str(source)
 
     def _process_output(
-        self,
-        output: dict[str, Any],
-        cell_index: int,
-        output_index: int,
-        cell_info: dict[str, Any],
+            self,
+            output: dict[str, Any],
+            cell_index: int,
+            output_index: int,
+            cell_info: dict[str, Any],
     ) -> Node | None:
         """Process a cell output to AST node.
 
@@ -431,12 +430,12 @@ class IpynbToAstConverter(BaseParser):
         return placeholder
 
     def _attach_ipynb_metadata(
-        self,
-        node: Node,
-        base_info: dict[str, Any],
-        *,
-        role: str,
-        **extra: Any,
+            self,
+            node: Node,
+            base_info: dict[str, Any],
+            *,
+            role: str,
+            **extra: Any,
     ) -> None:
         """Attach Jupyter-specific metadata to a node for renderer reconstruction."""
         node_metadata = dict(getattr(node, "metadata", {}) or {})

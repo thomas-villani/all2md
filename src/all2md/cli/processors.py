@@ -47,9 +47,9 @@ def _final_option_segment(remainder: str) -> str:
 
 
 def _filter_options_for_formats(
-    options: Dict[str, Any],
-    parser_format: str | None,
-    renderer_format: str | None,
+        options: Dict[str, Any],
+        parser_format: str | None,
+        renderer_format: str | None,
 ) -> Dict[str, Any]:
     """Project a namespaced options dict onto parser/renderer kwargs.
 
@@ -134,10 +134,10 @@ def _detect_format_for_path(input_path: Path | None) -> str | None:
 
 
 def prepare_options_for_execution(
-    options: Dict[str, Any],
-    input_path: Path | None,
-    parser_hint: str,
-    renderer_hint: str | None = None,
+        options: Dict[str, Any],
+        input_path: Path | None,
+        parser_hint: str,
+        renderer_hint: str | None = None,
 ) -> Dict[str, Any]:
     """Prepare CLI options for API consumption based on detected formats."""
     parser_format: str | None
@@ -156,12 +156,12 @@ def prepare_options_for_execution(
 
 
 def _process_items_with_progress(
-    items: List[Any],
-    process_fn: Any,
-    args: argparse.Namespace,
-    description: str,
-    log_success_msg: Optional[Any] = None,
-    log_error_msg: Optional[Any] = None,
+        items: List[Any],
+        process_fn: Any,
+        args: argparse.Namespace,
+        description: str,
+        log_success_msg: Optional[Any] = None,
+        log_error_msg: Optional[Any] = None,
 ) -> Tuple[int, List[Any], List[Tuple[Any, str]]]:
     """Process items with unified progress tracking.
 
@@ -608,7 +608,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
 
 
 def setup_and_validate_options(
-    parsed_args: argparse.Namespace,
+        parsed_args: argparse.Namespace,
 ) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
     """Set up conversion options and build transforms.
 
@@ -670,17 +670,17 @@ def setup_and_validate_options(
 
 
 def validate_arguments(
-    parsed_args: argparse.Namespace,
-    files: Optional[List[Path]] = None,
-    *,
-    logger: Optional[logging.Logger] = None,
+        parsed_args: argparse.Namespace,
+        files: Optional[List[Path]] = None,
+        *,
+        logger: Optional[logging.Logger] = None,
 ) -> bool:
     """Backward-compatible shim for CLI argument validation."""
     return _validate_arguments(parsed_args, files, logger=logger)
 
 
 def process_stdin(
-    parsed_args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
+        parsed_args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
     """Process input from stdin.
 
@@ -790,11 +790,11 @@ def process_stdin(
 
 
 def process_multi_file(
-    files: List[Path],
-    parsed_args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        files: List[Path],
+        parsed_args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Process multiple files with appropriate output handling.
 
@@ -957,11 +957,11 @@ def process_multi_file(
 
 
 def _create_output_package(
-    parsed_args: argparse.Namespace,
-    input_files: List[Path],
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        parsed_args: argparse.Namespace,
+        input_files: List[Path],
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Create output package (zip) after successful conversion.
 
@@ -1214,7 +1214,7 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
 
 def process_merge_from_list(
-    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
+        args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
     """Process files from a list file and merge them into a single document.
 
@@ -1788,11 +1788,11 @@ def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str
 
 
 def convert_single_file_for_collation(
-    input_path: Path,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
-    file_separator: str = "\n\n---\n\n",
+        input_path: Path,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
+        file_separator: str = "\n\n---\n\n",
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to markdown for collation.
 
@@ -1845,11 +1845,11 @@ def convert_single_file_for_collation(
 
 
 def process_files_collated(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Process files and collate them into a single output.
 
@@ -1948,12 +1948,12 @@ def process_files_collated(
 
 
 def generate_output_path(
-    input_file: Path,
-    output_dir: Optional[Path] = None,
-    preserve_structure: bool = False,
-    base_input_dir: Optional[Path] = None,
-    dry_run: bool = False,
-    target_format: str = "markdown",
+        input_file: Path,
+        output_dir: Optional[Path] = None,
+        preserve_structure: bool = False,
+        base_input_dir: Optional[Path] = None,
+        dry_run: bool = False,
+        target_format: str = "markdown",
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -2006,14 +2006,14 @@ def generate_output_path(
 
 
 def convert_single_file(
-    input_path: Path,
-    output_path: Optional[Path],
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
-    show_progress: bool = False,
-    target_format: str = "markdown",
-    transform_specs: Optional[list[TransformSpec]] = None,
+        input_path: Path,
+        output_path: Optional[Path],
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
+        show_progress: bool = False,
+        target_format: str = "markdown",
+        transform_specs: Optional[list[TransformSpec]] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2105,11 +2105,11 @@ def convert_single_file(
 
 
 def process_files_unified(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Process files with unified progress tracking (rich/tqdm/plain).
 
@@ -2231,8 +2231,9 @@ def process_files_unified(
 
     # Check if parallel processing is enabled
     use_parallel = (
-        hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
-    ) or (isinstance(args.parallel, int) and args.parallel != 1)
+                           hasattr(args,
+                                   "_provided_args") and "parallel" in args._provided_args and args.parallel is None
+                   ) or (isinstance(args.parallel, int) and args.parallel != 1)
 
     if use_parallel:
         # Parallel processing with progress
@@ -2337,11 +2338,11 @@ def process_files_unified(
 # This function is deprecated and no longer called. It has been replaced by
 # process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_with_rich_output(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Process files with rich terminal output.
 
@@ -2393,11 +2394,11 @@ def process_with_rich_output(
 
         # Show progress bar during conversion
         with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console,
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
         ) as progress:
             task_id = progress.add_task(f"[cyan]Converting {file.name}...", total=1)
 
@@ -2447,19 +2448,20 @@ def process_with_rich_output(
     transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        console=console,
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
     ) as progress:
 
         # Check if parallel processing is enabled
         # parallel can be: 1 (default, sequential), None (--parallel without value,
         # auto CPU count), or N (explicit worker count)
         use_parallel = (
-            hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
-        ) or (isinstance(args.parallel, int) and args.parallel != 1)
+                               hasattr(args,
+                                       "_provided_args") and "parallel" in args._provided_args and args.parallel is None
+                       ) or (isinstance(args.parallel, int) and args.parallel != 1)
 
         if use_parallel:
             # Parallel processing
@@ -2572,11 +2574,11 @@ def process_with_rich_output(
 # This function is deprecated and no longer called. It has been replaced by
 # process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_with_progress_bar(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Process files with tqdm progress bar.
 
@@ -2661,11 +2663,11 @@ def process_with_progress_bar(
 # This function is deprecated and no longer called. It has been replaced by
 # process_files_unified() which consolidates rich/tqdm/plain progress handling.
 def process_files_simple(
-    files: List[Path],
-    args: argparse.Namespace,
-    options: Dict[str, Any],
-    format_arg: str,
-    transforms: Optional[list] = None,
+        files: List[Path],
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list] = None,
 ) -> int:
     """Process files without progress indicators.
 

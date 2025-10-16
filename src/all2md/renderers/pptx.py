@@ -227,7 +227,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return auto_split_ast(doc, heading_level=self.options.slide_split_heading_level)
 
     def _create_slide(
-        self, prs: "Presentation", heading: Heading | None, content_nodes: list[Node], is_first: bool = False
+            self, prs: "Presentation", heading: Heading | None, content_nodes: list[Node], is_first: bool = False
     ) -> "Slide":
         """Create a slide with content.
 

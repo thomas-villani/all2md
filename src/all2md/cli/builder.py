@@ -59,7 +59,10 @@ class TieredHelpAction(argparse.Action):
         kwargs.setdefault('metavar', 'SECTION')
         super().__init__(option_strings, dest, **kwargs)
 
-    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Any, option_string: Optional[str] = None) -> None:
+    def __call__(
+            self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Any,
+            option_string: Optional[str] = None
+            ) -> None:
         """Execute the help action.
 
         Parameters

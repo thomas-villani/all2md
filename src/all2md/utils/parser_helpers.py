@@ -107,7 +107,7 @@ def validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: s
 
 @contextmanager
 def validated_zip_input(
-    input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip"
+        input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip"
 ) -> Generator[Union[str, Path, IO[bytes], bytes], None, None]:
     """Context manager for validated zip input with automatic cleanup.
 
@@ -198,7 +198,7 @@ def validated_zip_input(
 
 
 def append_attachment_footnotes(
-    children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
+        children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
 ) -> None:
     """Append attachment footnote definitions to document children.
 
@@ -249,7 +249,7 @@ def append_attachment_footnotes(
 
 
 def attachment_result_to_image_node(
-    attachment_result: dict[str, Any], fallback_alt_text: str = "image"
+        attachment_result: dict[str, Any], fallback_alt_text: str = "image"
 ) -> "Node | None":
     """Convert process_attachment result dict to Image AST node.
 
@@ -319,10 +319,10 @@ def attachment_result_to_image_node(
 
 
 def group_and_format_runs(
-    runs: Iterable[Any],
-    text_extractor: Callable[[Any], str],
-    format_extractor: Callable[[Any], tuple[bool, ...]],
-    format_builders: tuple[Callable[[list["Node"]], "Node"], ...] | None = None,
+        runs: Iterable[Any],
+        text_extractor: Callable[[Any], str],
+        format_extractor: Callable[[Any], tuple[bool, ...]],
+        format_builders: tuple[Callable[[list["Node"]], "Node"], ...] | None = None,
 ) -> list["Node"]:
     """Group text runs by formatting and build formatted AST nodes.
 
@@ -454,13 +454,13 @@ def group_and_format_runs(
 
 
 def parse_delimited_block(
-    current_token_fn: Callable[[], Any],
-    advance_fn: Callable[[], Any],
-    opening_delimiter_type: Any,
-    closing_delimiter_type: Any,
-    eof_type: Any,
-    collect_mode: str = "lines",
-    parse_block_fn: Callable[[], Any] | None = None,
+        current_token_fn: Callable[[], Any],
+        advance_fn: Callable[[], Any],
+        opening_delimiter_type: Any,
+        closing_delimiter_type: Any,
+        eof_type: Any,
+        collect_mode: str = "lines",
+        parse_block_fn: Callable[[], Any] | None = None,
 ) -> tuple[list[str] | list[Any], bool]:
     r"""Parse a delimited block with opening and closing delimiters.
 

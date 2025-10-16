@@ -53,11 +53,11 @@ class FootnoteCollector:
         return self._ensure_identifier(identifier, note_type=note_type)
 
     def register_definition(
-        self,
-        identifier: Optional[str],
-        content: List[Node],
-        *,
-        note_type: str = "footnote",
+            self,
+            identifier: Optional[str],
+            content: List[Node],
+            *,
+            note_type: str = "footnote",
     ) -> str:
         """Record a definition and return the canonical identifier."""
         canonical_id = self._ensure_identifier(identifier, note_type=note_type)

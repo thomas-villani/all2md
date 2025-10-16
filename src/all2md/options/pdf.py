@@ -470,7 +470,7 @@ class PdfOptions(PaginatedParserOptions):
         default=False,
         metadata={
             "help": "Placeholder for future lazy image loading support. Note: Full implementation would require "
-            "paginator interface for streaming large PDFs. Currently has no effect.",
+                    "paginator interface for streaming large PDFs. Currently has no effect.",
             "importance": "advanced",
         },
     )

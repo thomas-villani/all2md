@@ -97,11 +97,11 @@ class ValidationError(All2MdError):
     """
 
     def __init__(
-        self,
-        message: str,
-        parameter_name: str | None = None,
-        parameter_value: Any = None,
-        original_error: Exception | None = None,
+            self,
+            message: str,
+            parameter_name: str | None = None,
+            parameter_value: Any = None,
+            original_error: Exception | None = None,
     ):
         """Initialize the validation error with parameter details."""
         super().__init__(message, original_error=original_error)
@@ -251,11 +251,11 @@ class FormatError(All2MdError):
     """
 
     def __init__(
-        self,
-        message: str | None = None,
-        format_type: str | None = None,
-        supported_formats: list[str] | None = None,
-        original_error: Exception | None = None,
+            self,
+            message: str | None = None,
+            format_type: str | None = None,
+            supported_formats: list[str] | None = None,
+            original_error: Exception | None = None,
     ):
         """Initialize the format error."""
         if message is None:
@@ -329,7 +329,7 @@ class PasswordProtectedError(ParsingError):
     """
 
     def __init__(
-        self, message: str | None = None, filename: str | None = None, original_error: Exception | None = None
+            self, message: str | None = None, filename: str | None = None, original_error: Exception | None = None
     ):
         """Initialize the password protected error."""
         if message is None:
@@ -518,13 +518,13 @@ class DependencyError(All2MdError):
     """
 
     def __init__(
-        self,
-        converter_name: str,
-        missing_packages: list[tuple[str, str]],
-        version_mismatches: list[tuple[str, str, str]] | None = None,
-        install_command: str = "",
-        message: str | None = None,
-        original_import_error: ImportError | None = None,
+            self,
+            converter_name: str,
+            missing_packages: list[tuple[str, str]],
+            version_mismatches: list[tuple[str, str, str]] | None = None,
+            install_command: str = "",
+            message: str | None = None,
+            original_import_error: ImportError | None = None,
     ):
         """Initialize the dependency error with package details."""
         version_mismatches = version_mismatches or []

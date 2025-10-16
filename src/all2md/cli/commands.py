@@ -52,7 +52,6 @@ from all2md.transforms import registry as transform_registry
 
 logger = logging.getLogger(__name__)
 
-
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
 
 
@@ -417,10 +416,10 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
 
 
 def collect_input_files(
-    input_paths: List[str],
-    recursive: bool = False,
-    extensions: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
+        input_paths: List[str],
+        recursive: bool = False,
+        extensions: Optional[List[str]] = None,
+        exclude_patterns: Optional[List[str]] = None,
 ) -> List[Path]:
     """Collect all input files from provided paths.
 
@@ -1013,7 +1012,6 @@ def handle_convert_command(args: list[str] | None = None) -> int | None:
 
 
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
-
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 
     # Set up logging level

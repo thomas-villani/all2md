@@ -52,7 +52,6 @@ SPREADSHEET_FIELD_MAPPING: Mapping[str, Union[str, List[str]]] = {
     "modification_date": "modified",
 }
 
-
 CORE_METADATA_FIELDS: tuple[str, ...] = (
     "title",
     "author",
@@ -97,7 +96,6 @@ FIELD_NORMALIZATION_ALIASES: Mapping[str, str] = {
     "modified_at": "modification_date",
 }
 
-
 FIELD_VISIBILITY_MAP: Mapping[MetadataVisibility, tuple[str, ...]] = {
     "core": CORE_METADATA_FIELDS,
     "standard": CORE_METADATA_FIELDS + DESCRIPTIVE_METADATA_FIELDS,
@@ -132,11 +130,11 @@ def _normalize_field_name(field: str) -> str:
 
 
 ALL_KNOWN_FIELDS: tuple[str, ...] = (
-    CORE_METADATA_FIELDS
-    + DESCRIPTIVE_METADATA_FIELDS
-    + TECHNICAL_METADATA_FIELDS
-    + INTERNAL_METADATA_FIELDS
-    + ("accessed_date", "source")
+        CORE_METADATA_FIELDS
+        + DESCRIPTIVE_METADATA_FIELDS
+        + TECHNICAL_METADATA_FIELDS
+        + INTERNAL_METADATA_FIELDS
+        + ("accessed_date", "source")
 )
 
 
@@ -206,7 +204,7 @@ def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any
 
 
 def prepare_metadata_for_render(
-    metadata: Union["DocumentMetadata", Mapping[str, Any], None], policy: MetadataRenderPolicy | None = None
+        metadata: Union["DocumentMetadata", Mapping[str, Any], None], policy: MetadataRenderPolicy | None = None
 ) -> Dict[str, Any]:
     """Return metadata filtered for rendering according to the policy."""
     if not metadata:
@@ -421,8 +419,9 @@ def format_yaml_value(value: Any) -> str:
             if isinstance(item, str):
                 # Quote if contains special YAML chars
                 if any(
-                    c in str(item)
-                    for c in [":", "#", '"', "'", "|", ">", "\n", "[", "]", "{", "}", ",", "&", "*", "!", "%", "@", "`"]
+                        c in str(item)
+                        for c in
+                        [":", "#", '"', "'", "|", ">", "\n", "[", "]", "{", "}", ",", "&", "*", "!", "%", "@", "`"]
                 ):
                     escaped = str(item).replace("\\", "\\\\").replace('"', '\\"')
                     items.append(f'"{escaped}"')
@@ -443,16 +442,16 @@ def format_yaml_value(value: Any) -> str:
     elif isinstance(value, str):
         # Check if string needs quoting
         needs_quote = (
-            ":" in value
-            or "#" in value
-            or '"' in value
-            or "'" in value
-            or "\n" in value
-            or value.startswith((" ", "\t"))
-            or value.endswith((" ", "\t"))
-            or value in ["true", "false", "null", "yes", "no", "on", "off"]
-            or value.startswith(("|", ">", "-", "*", "&", "!", "%", "@", "`"))
-            or (value and value[0].isdigit() and "." in value)  # Might be confused with number
+                ":" in value
+                or "#" in value
+                or '"' in value
+                or "'" in value
+                or "\n" in value
+                or value.startswith((" ", "\t"))
+                or value.endswith((" ", "\t"))
+                or value in ["true", "false", "null", "yes", "no", "on", "off"]
+                or value.startswith(("|", ">", "-", "*", "&", "!", "%", "@", "`"))
+                or (value and value[0].isdigit() and "." in value)  # Might be confused with number
         )
 
         if needs_quote:
@@ -466,7 +465,7 @@ def format_yaml_value(value: Any) -> str:
 
 
 def format_yaml_frontmatter(
-    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
+        metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as YAML front matter.
 
@@ -531,7 +530,7 @@ def format_yaml_frontmatter(
 
 
 def format_toml_frontmatter(
-    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
+        metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as TOML front matter.
 
@@ -609,7 +608,7 @@ def format_toml_frontmatter(
 
 
 def format_json_frontmatter(
-    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
+        metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     r"""Format metadata as JSON front matter.
 
@@ -719,7 +718,8 @@ def extract_keywords_from_string(keywords_str: str) -> List[str]:
 
 
 def map_properties_to_metadata(
-    props_obj: Any, field_mapping: Mapping[str, Union[str, List[str]]], custom_handlers: Optional[Dict[str, Any]] = None
+        props_obj: Any, field_mapping: Mapping[str, Union[str, List[str]]],
+        custom_handlers: Optional[Dict[str, Any]] = None
 ) -> DocumentMetadata:
     """Map properties from a document object to DocumentMetadata using field mappings.
 
@@ -797,7 +797,7 @@ def map_properties_to_metadata(
 
 
 def extract_dict_metadata(
-    metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
+        metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
 ) -> DocumentMetadata:
     """Extract metadata from a dictionary (useful for PDF and similar formats).
 
@@ -828,10 +828,10 @@ def extract_dict_metadata(
 
 
 def prepend_metadata_if_enabled(
-    content: str,
-    metadata: Optional[DocumentMetadata],
-    extract_metadata: bool,
-    policy: MetadataRenderPolicy | None = None,
+        content: str,
+        metadata: Optional[DocumentMetadata],
+        extract_metadata: bool,
+        policy: MetadataRenderPolicy | None = None,
 ) -> str:
     """Prepend metadata to content if extraction is enabled.
 
@@ -860,7 +860,7 @@ def prepend_metadata_if_enabled(
 
 
 def enrich_metadata_with_conversion_info(
-    metadata: DocumentMetadata, input_data: Any, content: str = "", page_count: Optional[int] = None
+        metadata: DocumentMetadata, input_data: Any, content: str = "", page_count: Optional[int] = None
 ) -> DocumentMetadata:
     """Enrich metadata with conversion-specific information.
 

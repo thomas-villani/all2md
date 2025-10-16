@@ -19,10 +19,10 @@ from all2md.ast import Table, TableCell, TableRow, Text
 
 
 def build_chart_table(
-    categories: list[str],
-    series_data: list[tuple[str, list[Any]]],
-    category_header: str = "Category",
-    alignments: list[str] | None = None,
+        categories: list[str],
+        series_data: list[tuple[str, list[Any]]],
+        category_header: str = "Category",
+        alignments: list[str] | None = None,
 ) -> Table | None:
     """Convert chart series data to AST Table node.
 

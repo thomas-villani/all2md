@@ -118,7 +118,7 @@ def decode_base64_image(data_uri: str) -> tuple[bytes | None, str | None]:
 
 
 def decode_base64_image_to_file(
-    data_uri: str, output_dir: str | Path | None = None, delete_on_exit: bool = True
+        data_uri: str, output_dir: str | Path | None = None, delete_on_exit: bool = True
 ) -> str | None:
     """Decode a base64 data URI and write to a temporary file.
 
@@ -182,7 +182,6 @@ def decode_base64_image_to_file(
 
         # Register cleanup handler if delete_on_exit is True
         if delete_on_exit:
-
             def cleanup_temp_file(path: str = temp_path) -> None:
                 Path(path).unlink(missing_ok=True)
 

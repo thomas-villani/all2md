@@ -211,7 +211,7 @@ class PptxOptions(PaginatedParserOptions):
         default="data",
         metadata={
             "help": "Chart conversion mode: 'data' (default, tables only), "
-            "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
+                    "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
             "choices": ["data", "mermaid", "both"],
             "importance": "advanced",
         },
@@ -228,8 +228,8 @@ class PptxOptions(PaginatedParserOptions):
         default=False,
         metadata={
             "help": "Use strict list detection (XML-only, no heuristics). "
-            "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
-            "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
+                    "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
+                    "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
             "importance": "advanced",
         },
     )

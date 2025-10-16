@@ -62,7 +62,7 @@ def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseR
 
 
 def _collect_nested_dataclass_kwargs(
-    options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
+        options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
 ) -> dict:
     """Collect kwargs that belong to nested dataclass fields.
 
@@ -235,7 +235,7 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) 
 
 
 def _split_kwargs_for_parser_and_renderer(
-    parser_format: DocumentFormat, renderer_format: DocumentFormat, kwargs: dict
+        parser_format: DocumentFormat, renderer_format: DocumentFormat, kwargs: dict
 ) -> tuple[dict, dict]:
     """Split kwargs between parser and renderer based on their field names.
 
@@ -291,16 +291,16 @@ def _split_kwargs_for_parser_and_renderer(
 
 
 def to_markdown(
-    source: Union[str, Path, IO[bytes], bytes],
-    *,
-    parser_options: Optional[BaseParserOptions] = None,
-    renderer_options: Optional[MarkdownOptions] = None,
-    source_format: DocumentFormat = "auto",
-    flavor: Optional[str] = None,
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    **kwargs: Any,
+        source: Union[str, Path, IO[bytes], bytes],
+        *,
+        parser_options: Optional[BaseParserOptions] = None,
+        renderer_options: Optional[MarkdownOptions] = None,
+        source_format: DocumentFormat = "auto",
+        flavor: Optional[str] = None,
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs: Any,
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
 
@@ -521,12 +521,12 @@ def to_markdown(
 
 
 def to_ast(
-    source: Union[str, Path, IO[bytes], bytes],
-    *,
-    parser_options: Optional[BaseParserOptions] = None,
-    source_format: DocumentFormat = "auto",
-    progress_callback: Optional[ProgressCallback] = None,
-    **kwargs: Any,
+        source: Union[str, Path, IO[bytes], bytes],
+        *,
+        parser_options: Optional[BaseParserOptions] = None,
+        source_format: DocumentFormat = "auto",
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs: Any,
 ) -> "Document":
     """Convert document to AST (Abstract Syntax Tree) format.
 
@@ -628,15 +628,15 @@ def to_ast(
 
 
 def from_ast(
-    ast_doc: Document,
-    target_format: DocumentFormat,
-    output: Union[str, Path, IO[bytes], IO[str], None] = None,
-    *,
-    renderer_options: Optional[BaseRendererOptions] = None,
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    **kwargs: Any,
+        ast_doc: Document,
+        target_format: DocumentFormat,
+        output: Union[str, Path, IO[bytes], IO[str], None] = None,
+        *,
+        renderer_options: Optional[BaseRendererOptions] = None,
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Render AST document to a target format.
 
@@ -735,16 +735,16 @@ def from_ast(
 
 
 def from_markdown(
-    source: Union[str, Path, IO[bytes], IO[str]],
-    target_format: DocumentFormat,
-    output: Union[str, Path, IO[bytes], IO[str], None] = None,
-    *,
-    parser_options: Optional[MarkdownParserOptions] = None,
-    renderer_options: Optional[BaseRendererOptions] = None,
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    **kwargs: Any,
+        source: Union[str, Path, IO[bytes], IO[str]],
+        target_format: DocumentFormat,
+        output: Union[str, Path, IO[bytes], IO[str], None] = None,
+        *,
+        parser_options: Optional[MarkdownParserOptions] = None,
+        renderer_options: Optional[BaseRendererOptions] = None,
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs: Any,
 ) -> Union[None, str, bytes]:
     r"""Convert Markdown content to another format.
 
@@ -829,19 +829,19 @@ def from_markdown(
 
 
 def convert(
-    source: Union[str, Path, IO[bytes], IO[str], bytes],
-    output: Union[str, Path, IO[bytes], IO[str], None] = None,
-    *,
-    parser_options: Optional[BaseParserOptions] = None,
-    renderer_options: Optional[BaseRendererOptions] = None,
-    source_format: DocumentFormat = "auto",
-    target_format: DocumentFormat = "auto",
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    renderer: Optional[Union[str, type, object]] = None,
-    flavor: Optional[str] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    **kwargs: Any,
+        source: Union[str, Path, IO[bytes], IO[str], bytes],
+        output: Union[str, Path, IO[bytes], IO[str], None] = None,
+        *,
+        parser_options: Optional[BaseParserOptions] = None,
+        renderer_options: Optional[BaseRendererOptions] = None,
+        source_format: DocumentFormat = "auto",
+        target_format: DocumentFormat = "auto",
+        transforms: Optional[list] = None,
+        hooks: Optional[dict] = None,
+        renderer: Optional[Union[str, type, object]] = None,
+        flavor: Optional[str] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Convert between document formats.
 

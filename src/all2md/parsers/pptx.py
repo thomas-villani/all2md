@@ -449,8 +449,8 @@ class PptxToAstConverter(BaseParser):
         return self._standard_data_to_table(categories, series_rows)
 
     def _scatter_data_to_table(
-        self,
-        series_data: list[tuple[str, list[float], list[float]]],
+            self,
+            series_data: list[tuple[str, list[float], list[float]]],
     ) -> AstTable | None:
         if not series_data:
             return None
@@ -479,9 +479,9 @@ class PptxToAstConverter(BaseParser):
         return AstTable(header=header_row, rows=all_rows)
 
     def _standard_data_to_table(
-        self,
-        categories: list[str],
-        series_rows: list[tuple[str, list[Any]]],
+            self,
+            categories: list[str],
+            series_rows: list[tuple[str, list[Any]]],
     ) -> AstTable | None:
         if not series_rows:
             return None
@@ -492,9 +492,9 @@ class PptxToAstConverter(BaseParser):
         return build_chart_table(categories=categories, series_data=series_rows, category_header="Category")
 
     def _scatter_chart_to_mermaid(
-        self,
-        chart: Any,
-        series_data: list[tuple[str, list[float], list[float]]],
+            self,
+            chart: Any,
+            series_data: list[tuple[str, list[float], list[float]]],
     ) -> str | None:
         if not series_data:
             return None
@@ -549,11 +549,11 @@ class PptxToAstConverter(BaseParser):
         return "\n".join(lines)
 
     def _standard_chart_to_mermaid(
-        self,
-        chart: Any,
-        chart_type: Any,
-        categories: list[str],
-        series_rows: list[tuple[str, list[Any]]],
+            self,
+            chart: Any,
+            chart_type: Any,
+            categories: list[str],
+            series_rows: list[tuple[str, list[Any]]],
     ) -> str | None:
         if not series_rows:
             return None
@@ -1107,9 +1107,10 @@ def _detect_list_item(paragraph: Any, slide_context: dict | None = None, strict_
 
     # Check if this looks like a numbered list item based on context
     if (
-        slide_context
-        and slide_context.get("has_numbered_list", False)
-        and ("item" in text.lower() or "first" in text.lower() or "second" in text.lower() or "third" in text.lower())
+            slide_context
+            and slide_context.get("has_numbered_list", False)
+            and (
+            "item" in text.lower() or "first" in text.lower() or "second" in text.lower() or "third" in text.lower())
     ):
         return True, "number"
 
@@ -1152,11 +1153,11 @@ def _analyze_slide_context(frame: Any) -> dict:
         # Check if any paragraph looks like a numbered list
         text = paragraph.text.strip()
         if (
-            re.match(r"^\d+[\.\)]\s", text)
-            or "numbered" in text.lower()
-            or "first item" in text.lower()
-            or "second item" in text.lower()
-            or "third item" in text.lower()
+                re.match(r"^\d+[\.\)]\s", text)
+                or "numbered" in text.lower()
+                or "first item" in text.lower()
+                or "second item" in text.lower()
+                or "third item" in text.lower()
         ):
             context["has_numbered_list"] = True
 

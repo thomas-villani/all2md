@@ -636,10 +636,10 @@ class ConverterRegistry:
         return f".{format_name}" if not format_name.startswith(".") else format_name
 
     def check_dependencies(
-        self,
-        format_name: Optional[str] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
-        operation: str = "both",
+            self,
+            format_name: Optional[str] = None,
+            input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+            operation: str = "both",
     ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 
