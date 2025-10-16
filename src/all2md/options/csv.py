@@ -8,7 +8,6 @@ This module defines options for parsing CSV files with customizable dialects.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from all2md.constants import HeaderCaseOption
 from all2md.options.base import BaseParserOptions
@@ -75,28 +74,28 @@ class CsvOptions(BaseParserOptions):
             "importance": "advanced"
         }
     )
-    delimiter: Optional[str] = field(
+    delimiter: str | None = field(
         default=None,
         metadata={
             "help": "Override CSV/TSV delimiter (e.g., ',', '\\t', ';', '|')",
             "importance": "core"
         }
     )
-    quote_char: Optional[str] = field(
+    quote_char: str | None = field(
         default=None,
         metadata={
             "help": "Override quote character (e.g., '\"', \"'\")",
             "importance": "advanced"
         }
     )
-    escape_char: Optional[str] = field(
+    escape_char: str | None = field(
         default=None,
         metadata={
             "help": "Override escape character (e.g., '\\\\')",
             "importance": "advanced"
         }
     )
-    double_quote: Optional[bool] = field(
+    double_quote: bool | None = field(
         default=None,
         metadata={
             "help": "Enable/disable double quoting (two quote chars = one literal quote)",
@@ -111,7 +110,7 @@ class CsvOptions(BaseParserOptions):
             "importance": "core"
         }
     )
-    max_rows: Optional[int] = field(
+    max_rows: int | None = field(
         default=None,
         metadata={
             "help": "Maximum rows per table (None = unlimited)",
@@ -119,7 +118,7 @@ class CsvOptions(BaseParserOptions):
             "importance": "advanced"
         }
     )
-    max_cols: Optional[int] = field(
+    max_cols: int | None = field(
         default=None,
         metadata={
             "help": "Maximum columns per table (None = unlimited)",

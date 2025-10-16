@@ -206,3 +206,15 @@ class EmlOptions(BaseParserOptions):
             "importance": "core"
         }
     )
+
+    def __post_init__(self) -> None:
+        """Validate and ensure immutability by defensively copying mutable collections.
+
+        Calls parent class validation and adds defensive copying for url_wrappers.
+        """
+        # Call parent's __post_init__ for validation
+        super().__post_init__()
+
+        # Defensive copy of mutable collections to ensure immutability
+        if self.url_wrappers is not None:
+            object.__setattr__(self, "url_wrappers", list(self.url_wrappers))

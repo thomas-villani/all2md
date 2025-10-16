@@ -421,14 +421,11 @@ class TestTemplateValidation:
             Paragraph(content=[Text(content="Content")])
         ])
 
-        options = HtmlRendererOptions(
-            template_mode='replace',
-            template_file=None  # Missing template file
-        )
-        renderer = HtmlRenderer(options)
-
-        with pytest.raises(ValueError, match="template_file must be specified"):
-            renderer.render_to_string(doc)
+        with pytest.raises(ValueError, match="template_mode='replace' requires template_file to be set"):
+            options = HtmlRendererOptions(
+                template_mode='replace',
+                template_file=None  # Missing template file
+            )
 
     def test_standalone_ignored_with_template_mode(self, tmp_path):
         """Test that standalone is ignored when template_mode is set."""

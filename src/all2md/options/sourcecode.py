@@ -8,7 +8,6 @@ This module defines options for parsing source code files with syntax highlighti
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from all2md.options.base import BaseParserOptions
 
@@ -46,7 +45,7 @@ class SourceCodeOptions(BaseParserOptions):
         }
     )
 
-    language_override: Optional[str] = field(
+    language_override: str | None = field(
         default=None,
         metadata={
             "help": "Override language identifier for syntax highlighting",

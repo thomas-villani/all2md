@@ -8,7 +8,6 @@ This module defines options for parsing ZIP files with resource extraction.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from all2md.options.base import BaseParserOptions
 
@@ -44,7 +43,7 @@ class ZipOptions(BaseParserOptions):
 
     """
 
-    include_patterns: Optional[list[str]] = field(
+    include_patterns: list[str] | None = field(
         default=None,
         metadata={
             "help": "Glob patterns for files to include",
@@ -53,7 +52,7 @@ class ZipOptions(BaseParserOptions):
         }
     )
 
-    exclude_patterns: Optional[list[str]] = field(
+    exclude_patterns: list[str] | None = field(
         default=None,
         metadata={
             "help": "Glob patterns for files to exclude",
@@ -62,7 +61,7 @@ class ZipOptions(BaseParserOptions):
         }
     )
 
-    max_depth: Optional[int] = field(
+    max_depth: int | None = field(
         default=None,
         metadata={
             "help": "Maximum directory depth to traverse",

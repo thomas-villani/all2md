@@ -10,7 +10,6 @@ documents in JSON-serialized AST format.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
@@ -59,6 +58,6 @@ class AstJsonRendererOptions(BaseRendererOptions):
 
     """
 
-    indent: Optional[int] = 2
+    indent: int | None = 2
     ensure_ascii: bool = False
     sort_keys: bool = False

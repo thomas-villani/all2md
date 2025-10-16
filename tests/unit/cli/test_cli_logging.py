@@ -221,7 +221,7 @@ class TestTimingInstrumentation:
     """Test timing instrumentation in conversion pipeline."""
 
     @patch('all2md.to_ast')
-    @patch('all2md.transforms_module.render')
+    @patch('all2md.transforms.render')
     def test_trace_mode_logs_timing(self, mock_render, mock_to_ast, tmp_path, caplog):
         """Test that trace mode logs timing information."""
         from all2md import to_markdown
@@ -240,7 +240,7 @@ class TestTimingInstrumentation:
             assert len(timing_logs) >= 2
 
     @patch('all2md.to_ast')
-    @patch('all2md.transforms_module.render')
+    @patch('all2md.transforms.render')
     def test_normal_mode_no_timing(self, mock_render, mock_to_ast, tmp_path, caplog):
         """Test that normal mode doesn't log timing."""
         from all2md import to_markdown

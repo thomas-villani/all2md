@@ -8,8 +8,9 @@ cross-cutting concerns used throughout the conversion pipeline.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from all2md.constants import (
     DEFAULT_ALLOW_CWD_FILES,
@@ -25,6 +26,8 @@ from all2md.constants import (
     HeaderCaseOption,
 )
 from all2md.options.base import BaseParserOptions, CloneFrozenMixin
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -42,7 +45,9 @@ class NetworkFetchOptions(CloneFrozenMixin):
         When False, prevents SSRF attacks by blocking all network requests.
     allowed_hosts : list[str] | None, default None
         List of allowed hostnames or CIDR blocks for remote fetching.
-        If None, all hosts are allowed (subject to other security constraints).
+        If None and allow_remote_fetch=True, all hosts are allowed, which may pose
+        an SSRF (Server-Side Request Forgery) risk. A security warning will be logged.
+        In security-sensitive contexts, explicitly set this to an allowlist of trusted hosts.
     require_https : bool, default False
         Whether to require HTTPS for all remote URL fetching.
     network_timeout : float, default 10.0
@@ -130,7 +135,7 @@ class NetworkFetchOptions(CloneFrozenMixin):
     )
 
     def __post_init__(self) -> None:
-        """Validate numeric ranges for network fetch options.
+        """Validate numeric ranges and ensure immutability for network fetch options.
 
         Raises
         ------
@@ -138,6 +143,18 @@ class NetworkFetchOptions(CloneFrozenMixin):
             If any field value is outside its valid range.
 
         """
+        # Defensive copy of mutable collections to ensure immutability
+        if self.allowed_hosts is not None:
+            object.__setattr__(self, "allowed_hosts", list(self.allowed_hosts))
+
+        # Security validation: warn if remote fetch is enabled without host allowlist
+        if self.allow_remote_fetch and self.allowed_hosts is None:
+            logger.warning(
+                "Security warning: allow_remote_fetch=True with allowed_hosts=None allows "
+                "fetching from ANY remote host, which may pose an SSRF (Server-Side Request Forgery) risk. "
+                "Consider setting allowed_hosts to an explicit allowlist in security-sensitive contexts."
+            )
+
         # Validate positive timeout
         if self.network_timeout <= 0:
             raise ValueError(
@@ -214,6 +231,14 @@ class LocalFileAccessOptions(CloneFrozenMixin):
         }
     )
 
+    def __post_init__(self) -> None:
+        """Ensure immutability by defensively copying mutable collections."""
+        # Defensive copy of mutable collections to ensure immutability
+        if self.local_file_allowlist is not None:
+            object.__setattr__(self, "local_file_allowlist", list(self.local_file_allowlist))
+        if self.local_file_denylist is not None:
+            object.__setattr__(self, "local_file_denylist", list(self.local_file_denylist))
+
 
 @dataclass(frozen=True)
 class PaginatedParserOptions(BaseParserOptions):
@@ -280,7 +305,7 @@ class SpreadsheetParserOptions(BaseParserOptions):
 
     """
 
-    sheets: Union[list[str], str, None] = field(
+    sheets: list[str] | str | None = field(
         default=None,
         metadata={
             "help": "Sheet names to include (list or regex pattern). default = all sheets",
@@ -303,7 +328,7 @@ class SpreadsheetParserOptions(BaseParserOptions):
             "importance": "core"
         }
     )
-    max_rows: Optional[int] = field(
+    max_rows: int | None = field(
         default=None,
         metadata={
             "help": "Maximum rows per table (None = unlimited)",
@@ -311,7 +336,7 @@ class SpreadsheetParserOptions(BaseParserOptions):
             "importance": "advanced"
         }
     )
-    max_cols: Optional[int] = field(
+    max_cols: int | None = field(
         default=None,
         metadata={
             "help": "Maximum columns per table (None = unlimited)",

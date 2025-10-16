@@ -14,7 +14,7 @@ from docs.source.generate_options_doc import generate_options_document
 def test_generate_options_document(tmp_path: Path) -> None:
     """Generated documentation should include known sections and write output."""
     output_path = tmp_path / "options.rst"
-    narrative_path = Path("docs/source/_options-narrative.rst").resolve()
+    narrative_path = Path("../docs/source/_options-narrative.rst").resolve()
 
     document = generate_options_document(output_path, narrative_path)
 
