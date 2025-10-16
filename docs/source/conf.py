@@ -87,23 +87,24 @@ doctest_default_flags = 0
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
-
-def _generate_options_reference(_app) -> None:
-    """Build the generated options reference before the documentation build."""
-    from generate_options_doc import generate_options_document
-
-    output_path = DOCS_SOURCE_DIR / "options.rst"
-    narrative_path = DOCS_SOURCE_DIR / "_options-narrative.rst"
-    generate_options_document(output_path, narrative_path)
-
-
-def setup(app):
-    """Configure Sphinx application with custom hooks.
-
-    Parameters
-    ----------
-    app : sphinx.application.Sphinx
-        The Sphinx application instance.
-
-    """
-    app.connect("builder-inited", _generate_options_reference)
+# from generate_options_doc import generate_options_document
+#
+# def _generate_options_reference(_app) -> None:
+#     """Build the generated options reference before the documentation build."""
+#
+#
+#     output_path = DOCS_SOURCE_DIR / "options.rst"
+#     narrative_path = DOCS_SOURCE_DIR / "_options-narrative.rst"
+#     generate_options_document(output_path, narrative_path)
+#
+#
+# def setup(app):
+#     """Configure Sphinx application with custom hooks.
+#
+#     Parameters
+#     ----------
+#     app : sphinx.application.Sphinx
+#         The Sphinx application instance.
+#
+#     """
+#     app.connect("builder-inited", _generate_options_reference)

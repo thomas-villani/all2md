@@ -55,6 +55,7 @@ Convert AST to DOCX (with dynamic loading):
 
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.renderers.markdown import MarkdownRenderer
+from all2md.renderers.ipynb import IpynbRenderer
 from all2md.renderers.mediawiki import MediaWikiRenderer
 from all2md.renderers.plaintext import PlainTextRenderer
 
@@ -62,6 +63,7 @@ __all__ = [
     'BaseRenderer',
     'InlineContentMixin',
     'MarkdownRenderer',
+    'IpynbRenderer',
     'MediaWikiRenderer',
     'PlainTextRenderer',
 ]

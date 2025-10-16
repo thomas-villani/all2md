@@ -23,7 +23,7 @@ from all2md.options.docx import DocxOptions, DocxRendererOptions
 from all2md.options.eml import EmlOptions
 from all2md.options.epub import EpubOptions, EpubRendererOptions
 from all2md.options.html import HtmlOptions, HtmlRendererOptions
-from all2md.options.ipynb import IpynbOptions
+from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
 from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
 from all2md.options.mediawiki import MediaWikiOptions
@@ -91,6 +91,7 @@ __all__ = [
     "HtmlRendererOptions",
     "HtmlOptions",
     "IpynbOptions",
+    "IpynbRendererOptions",
     "LatexRendererOptions",
     "LatexOptions",
     "MarkdownOptions",

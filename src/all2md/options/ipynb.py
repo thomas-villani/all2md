@@ -8,9 +8,11 @@ This module defines options for parsing .ipynb files with cell handling.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_LINES, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.markdown import MarkdownOptions
 
 
 @dataclass(frozen=True)
@@ -105,3 +107,135 @@ class IpynbOptions(BaseParserOptions):
             raise ValueError(
                 f"image_quality must be in range [1, 100], got {self.image_quality}"
             )
+
+
+@dataclass(frozen=True)
+class IpynbRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST documents to Jupyter notebooks.
+
+    These options control notebook metadata inference, attachment handling, and
+    preservation of notebook-specific metadata to support near round-tripping
+    between AST and .ipynb formats.
+
+    Parameters
+    ----------
+    nbformat : int or "auto", default 4
+        Major notebook format version to emit. When "auto", use the version
+        discovered in the source document metadata and fall back to 4.
+    nbformat_minor : int or "auto", default "auto"
+        Minor notebook format revision. "auto" preserves the original value
+        from document metadata when available.
+    default_language : str, default "python"
+        Fallback programming language when the document does not provide one.
+    default_kernel_name : str, default "python3"
+        Fallback kernel name for kernelspec metadata when inference fails.
+    default_kernel_display_name : str, default "Python 3"
+        Fallback kernel display name when inference fails.
+    infer_language_from_document : bool, default True
+        When True, prefer `Document.metadata["language"]` (and related fields)
+        before `default_language`.
+    infer_kernel_from_document : bool, default True
+        When True, attempt to build kernelspec metadata from document metadata
+        (e.g., `custom["kernel"]`) before falling back to defaults.
+    include_trusted_metadata : bool, default False
+        When False, strip `trusted` flags from cell metadata for safer output.
+    include_ui_metadata : bool, default False
+        When False, drop UI hints such as `collapsed`, `scrolled`, and widget
+        metadata to avoid propagating viewer state.
+    preserve_unknown_metadata : bool, default True
+        When True, retain metadata keys that are not explicitly filtered out.
+    inline_attachments : bool, default True
+        Whether to emit attachments inline (base64-encoded) in the notebook
+        instead of delegating to external download locations.
+    markdown_options : MarkdownOptions or None, default None
+        Optional Markdown renderer configuration used when consolidating AST
+        nodes into markdown notebook cells. When None, a default renderer is
+        constructed per cell.
+
+    """
+
+    nbformat: int | Literal["auto"] = field(
+        default=4,
+        metadata={
+            "help": "Major notebook format version (auto = preserve from source)",
+            "importance": "advanced",
+            "choices": ["auto", 4, 5],
+        }
+    )
+    nbformat_minor: int | Literal["auto"] = field(
+        default="auto",
+        metadata={
+            "help": "Minor notebook format revision (auto = preserve from source)",
+            "importance": "advanced",
+        }
+    )
+    default_language: str = field(
+        default="python",
+        metadata={
+            "help": "Fallback programming language for language_info",
+            "importance": "core",
+        }
+    )
+    default_kernel_name: str = field(
+        default="python3",
+        metadata={
+            "help": "Fallback kernelspec name when inference fails",
+            "importance": "core",
+        }
+    )
+    default_kernel_display_name: str = field(
+        default="Python 3",
+        metadata={
+            "help": "Fallback kernelspec display name when inference fails",
+            "importance": "core",
+        }
+    )
+    infer_language_from_document: bool = field(
+        default=True,
+        metadata={
+            "help": "Infer language from Document metadata before using defaults",
+            "importance": "advanced",
+        }
+    )
+    infer_kernel_from_document: bool = field(
+        default=True,
+        metadata={
+            "help": "Infer kernelspec information from Document metadata when present",
+            "importance": "advanced",
+        }
+    )
+    include_trusted_metadata: bool = field(
+        default=False,
+        metadata={
+            "help": "Preserve cell.metadata.trusted values in output notebook",
+            "importance": "advanced",
+        }
+    )
+    include_ui_metadata: bool = field(
+        default=False,
+        metadata={
+            "help": "Preserve UI metadata like collapsed/scrolled/widget state",
+            "importance": "advanced",
+        }
+    )
+    preserve_unknown_metadata: bool = field(
+        default=True,
+        metadata={
+            "help": "Retain unrecognized metadata keys instead of dropping them",
+            "importance": "advanced",
+        }
+    )
+    inline_attachments: bool = field(
+        default=True,
+        metadata={
+            "help": "Embed attachments directly inside notebook cells",
+            "importance": "core",
+        }
+    )
+    markdown_options: MarkdownOptions | None = field(
+        default=None,
+        metadata={
+            "help": "Override markdown renderer configuration for markdown cells",
+            "importance": "advanced",
+        }
+    )

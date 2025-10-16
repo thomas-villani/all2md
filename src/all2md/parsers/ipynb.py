@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from copy import deepcopy
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
@@ -20,7 +21,7 @@ from all2md.ast import CodeBlock, Document, Node, Paragraph, Text
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options.ipynb import IpynbOptions
+from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
@@ -28,6 +29,9 @@ from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 logger = logging.getLogger(__name__)
+
+
+_IPYNB_MARKDOWN_FALLBACK_FLAG = "_ipynb_plaintext_markdown"
 
 
 def _collapse_output(text: str, limit: int | None, message: str) -> str:
@@ -176,58 +180,117 @@ class IpynbToAstConverter(BaseParser):
 
         # Extract and attach metadata
         metadata = self.extract_metadata(notebook)
-        return Document(children=children, metadata=metadata.to_dict())
+        metadata_dict = metadata.to_dict()
+        notebook_metadata = deepcopy(notebook.get("metadata", {}))
+        nbformat = notebook.get("nbformat", 4)
+        nbformat_minor = notebook.get("nbformat_minor", 5)
+
+        ipynb_bundle: dict[str, Any] = {
+            "metadata": notebook_metadata,
+            "nbformat": nbformat,
+            "nbformat_minor": nbformat_minor,
+        }
+
+        # Merge with any existing ipynb notebook metadata
+        existing_bundle = metadata_dict.get("ipynb_notebook")
+        if isinstance(existing_bundle, dict):
+            merged_bundle = {**existing_bundle, **ipynb_bundle}
+        else:
+            merged_bundle = ipynb_bundle
+
+        metadata_dict["ipynb_notebook"] = merged_bundle
+
+        return Document(children=children, metadata=metadata_dict)
 
     def _process_cell(self, cell: dict[str, Any], cell_index: int, language: str) -> list[Node]:
-        """Process a notebook cell to AST nodes.
+        """Process a notebook cell to AST nodes with metadata for round-tripping."""
 
-        Parameters
-        ----------
-        cell : dict
-            Cell data
-        cell_index : int
-            Cell index in notebook
-        language : str
-            Programming language for code cells
-
-        Returns
-        -------
-        list[Node]
-            List of AST nodes for this cell
-
-        """
         cell_type = cell.get("cell_type")
         nodes: list[Node] = []
 
+        cell_metadata = deepcopy(cell.get("metadata", {})) if cell.get("metadata") else {}
+        attachments = cell.get("attachments")
+        source = self._get_source(cell)
+
+        base_info: dict[str, Any] = {
+            "cell_type": cell_type,
+            "cell_index": cell_index,
+            "cell_id": cell.get("id")
+                       or cell_metadata.get("id")
+                       or f"cell-{cell_index + 1}",
+            "cell_metadata": deepcopy(cell_metadata),
+            "source": source,
+        }
+
+        if attachments:
+            base_info["attachments"] = deepcopy(attachments)
+
         if cell_type == "markdown":
-            # Markdown cells: parse safely to avoid XSS via HTMLInline
-            source = self._get_source(cell)
+            markdown_nodes: list[Node] = []
             if source.strip():
-                # Parse markdown content safely
                 markdown_nodes = self._parse_markdown_cell(source)
-                nodes.extend(markdown_nodes)
+
+            # Ensure we have at least one node when attachments exist so the cell survives round-trip
+            if not markdown_nodes and attachments:
+                markdown_nodes = [Paragraph(content=[Text(content="")])]
+
+            for segment_index, markdown_node in enumerate(markdown_nodes):
+                info = deepcopy(base_info)
+                if segment_index > 0 and info.get("attachments") is not None:
+                    info.pop("attachments")
+                node_meta = getattr(markdown_node, "metadata", {})
+                fallback_plain = bool(node_meta.pop(_IPYNB_MARKDOWN_FALLBACK_FLAG, False))
+                extras: dict[str, Any] = {"segment_index": segment_index}
+                if fallback_plain:
+                    extras["markdown_plaintext"] = True
+                self._attach_ipynb_metadata(
+                    markdown_node,
+                    info,
+                    role="body",
+                    **extras,
+                )
+            nodes.extend(markdown_nodes)
 
         elif cell_type == "code":
-            # Code cells: create CodeBlock
-            source = self._get_source(cell)
-            if source.strip() and self.options.include_inputs:
-                code_content = source.strip()
+            base_info["execution_count"] = cell.get("execution_count")
+            base_info["language"] = language
+            base_info["raw_outputs"] = deepcopy(cell.get("outputs", []))
 
-                # Add execution count if requested
+            if self.options.include_inputs:
+                code_content = source
+
                 if self.options.show_execution_count:
                     execution_count = cell.get("execution_count")
                     if execution_count is not None:
-                        # Prepend execution count as a comment
-                        code_content = f"# In [{execution_count}]:\n{code_content}"
+                        code_content = f"# In [{execution_count}]:\n{source}"
+                        base_info["execution_count_was_inlined"] = True
 
-                nodes.append(CodeBlock(language=language, content=code_content))
+                code_node = CodeBlock(language=language, content=code_content)
+                self._attach_ipynb_metadata(code_node, base_info, role="input")
+                nodes.append(code_node)
 
-            # Process outputs if enabled
             if self.options.include_outputs:
                 for j, output in enumerate(cell.get("outputs", [])):
-                    output_node = self._process_output(output, cell_index, j)
+                    output_node = self._process_output(output, cell_index, j, base_info)
                     if output_node:
                         nodes.append(output_node)
+
+        elif cell_type == "raw":
+            if source or attachments:
+                raw_node = CodeBlock(language=None, content=source)
+                self._attach_ipynb_metadata(raw_node, base_info, role="body")
+                nodes.append(raw_node)
+
+        else:
+            logger.debug(
+                "Encountered unsupported cell type '%s' at index %s; preserving as raw text",
+                cell_type,
+                cell_index,
+            )
+            if source:
+                fallback_node = Paragraph(content=[Text(content=source)])
+                self._attach_ipynb_metadata(fallback_node, base_info, role="body")
+                nodes.append(fallback_node)
 
         return nodes
 
@@ -250,7 +313,13 @@ class IpynbToAstConverter(BaseParser):
             return "".join(source)
         return str(source)
 
-    def _process_output(self, output: dict[str, Any], cell_index: int, output_index: int) -> Node | None:
+    def _process_output(
+            self,
+            output: dict[str, Any],
+            cell_index: int,
+            output_index: int,
+            cell_info: dict[str, Any],
+    ) -> Node | None:
         """Process a cell output to AST node.
 
         Parameters
@@ -268,25 +337,41 @@ class IpynbToAstConverter(BaseParser):
             AST node for output
 
         """
-        output_type = output.get("output_type")
+        raw_output = deepcopy(output)
+        output_type = raw_output.get("output_type")
 
         # Filter by output_types if specified
         if self.options.output_types is not None:
             if output_type not in self.options.output_types:
                 return None
 
+        def attach_metadata(node: Node, **extra: Any) -> Node:
+            info_subset = dict(cell_info)
+            info_subset.pop("raw_outputs", None)
+            self._attach_ipynb_metadata(
+                node,
+                info_subset,
+                role="output",
+                output_index=output_index,
+                output_type=output_type,
+                output=raw_output,
+                **extra,
+            )
+            return node
+
         if output_type == "stream":
-            text = "".join(output.get("text", []))
+            text = "".join(raw_output.get("text", []))
             if text.strip():
                 collapsed_text = _collapse_output(
                     text,
                     self.options.truncate_long_outputs,
                     self.options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
                 )
-                return CodeBlock(language="", content=collapsed_text.strip())
+                node = CodeBlock(language="", content=collapsed_text.strip())
+                return attach_metadata(node)
 
         elif output_type in ("execute_result", "display_data"):
-            data = output.get("data", {})
+            data = raw_output.get("data", {})
 
             # Try to process as image first
             for mime_type in IPYNB_SUPPORTED_IMAGE_MIMETYPES:
@@ -315,7 +400,7 @@ class IpynbToAstConverter(BaseParser):
                         # Convert result to Image node using helper
                         image_node = attachment_result_to_image_node(result, fallback_alt_text="cell output")
                         if image_node:
-                            return image_node
+                            return attach_metadata(image_node, mime_type=mime_type)
 
                     except (ValueError, TypeError) as e:
                         logger.warning(f"Could not decode base64 image in cell {cell_index + 1}: {e}")
@@ -330,9 +415,43 @@ class IpynbToAstConverter(BaseParser):
                         self.options.truncate_long_outputs,
                         self.options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
                     )
-                    return CodeBlock(language="", content=collapsed_text.strip())
+                    node = CodeBlock(language="", content=collapsed_text.strip())
+                    return attach_metadata(node)
 
-        return None
+        elif output_type == "error":
+            traceback_lines = raw_output.get("traceback") or []
+            if traceback_lines:
+                text = "\n".join(traceback_lines)
+                collapsed_text = _collapse_output(
+                    text,
+                    self.options.truncate_long_outputs,
+                    self.options.truncate_output_message or DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
+                )
+                node = CodeBlock(language="", content=collapsed_text.strip())
+                return attach_metadata(node, is_traceback=True)
+
+        # Preserve unhandled outputs for round-trip fidelity
+        placeholder = CodeBlock(language="", content="")
+        attach_metadata(placeholder, placeholder=True)
+        return placeholder
+
+    def _attach_ipynb_metadata(
+            self,
+            node: Node,
+            base_info: dict[str, Any],
+            *,
+            role: str,
+            **extra: Any,
+    ) -> None:
+        """Attach Jupyter-specific metadata to a node for renderer reconstruction."""
+
+        node_metadata = dict(getattr(node, "metadata", {}) or {})
+        ipynb_meta = deepcopy(base_info)
+        ipynb_meta["role"] = role
+        if extra:
+            ipynb_meta.update(extra)
+        node_metadata["ipynb"] = ipynb_meta
+        node.metadata = node_metadata
 
     def _parse_markdown_cell(self, source: str) -> list[Node]:
         """Parse markdown cell content into AST nodes safely.
@@ -371,7 +490,9 @@ class IpynbToAstConverter(BaseParser):
             # In this case, we should still preserve the content as plain text
             if not doc.children and source.strip():
                 logger.debug("Markdown parser returned empty document for cell with content, treating as plain text")
-                return [Paragraph(content=[Text(content=source)])]
+                fallback_node = Paragraph(content=[Text(content=source)])
+                fallback_node.metadata[_IPYNB_MARKDOWN_FALLBACK_FLAG] = True
+                return [fallback_node]
 
             # Return the children nodes (we don't want the Document wrapper)
             return doc.children if doc.children else []
@@ -379,7 +500,9 @@ class IpynbToAstConverter(BaseParser):
         except Exception:
             # Fallback to simple text paragraph if markdown parsing fails
             logger.warning("Failed to parse markdown cell, falling back to plain text")
-            return [Paragraph(content=[Text(content=source)])]
+            fallback_node = Paragraph(content=[Text(content=source)])
+            fallback_node.metadata[_IPYNB_MARKDOWN_FALLBACK_FLAG] = True
+            return [fallback_node]
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from Jupyter notebook.
@@ -504,11 +627,11 @@ CONVERTER_METADATA = ConverterMetadata(
         (b'{ "cells":', 0),
     ],
     parser_class=IpynbToAstConverter,
-    renderer_class=None,
+    renderer_class="IpynbRenderer",
     parser_required_packages=[],
     renderer_required_packages=[],
     parser_options_class=IpynbOptions,
-    renderer_options_class=None,
-    description="Convert Jupyter Notebooks to Markdown",
+    renderer_options_class=IpynbRendererOptions,
+    description="Convert Jupyter Notebooks between AST and .ipynb",
     priority=7
 )
