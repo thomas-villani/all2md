@@ -84,6 +84,21 @@ class BaseRendererOptions(CloneFrozenMixin):
         }
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for base renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate positive asset size limit
+        if self.max_asset_size_bytes <= 0:
+            raise ValueError(
+                f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}"
+            )
+
 
 @dataclass(frozen=True)
 class BaseParserOptions(CloneFrozenMixin):
@@ -185,3 +200,18 @@ class BaseParserOptions(CloneFrozenMixin):
 
         }
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for base parser options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate positive asset size limit
+        if self.max_asset_size_bytes <= 0:
+            raise ValueError(
+                f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}"
+            )

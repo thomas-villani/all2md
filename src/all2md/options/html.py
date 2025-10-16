@@ -268,6 +268,27 @@ class HtmlRendererOptions(BaseRendererOptions):
         }
     )
 
+    def __post_init__(self) -> None:
+        """Validate dependent field constraints.
+
+        Raises
+        ------
+        ValueError
+            If dependent field constraints are violated.
+
+        """
+        # Validate that template_mode requires template_file
+        if self.template_mode is not None and self.template_file is None:
+            raise ValueError(
+                f"template_mode='{self.template_mode}' requires template_file to be set"
+            )
+
+        # Validate that external CSS requires css_file
+        if self.css_style == "external" and self.css_file is None:
+            raise ValueError(
+                "css_style='external' requires css_file to be set"
+            )
+
 
 @dataclass(frozen=True)
 class HtmlOptions(BaseParserOptions):
@@ -293,6 +314,7 @@ class HtmlOptions(BaseParserOptions):
         Whitelist of allowed HTML attributes. Supports two modes:
         - Global allowlist: tuple of attribute names applied to all elements
         - Per-element allowlist: dict mapping element names to tuples of allowed attributes
+        Note: When using CLI, pass complex dict structures as JSON strings for proper parsing.
     base_url : str or None, default None
         Base URL for resolving relative hrefs in <a> tags. This is separate from
         attachment_base_url (used for images/assets). Allows precise control over
@@ -414,7 +436,9 @@ class HtmlOptions(BaseParserOptions):
             "help": "Whitelist of allowed HTML attributes. Can be a tuple of attribute names "
                     "(global allowlist) or a dict mapping element names to tuples of allowed "
                     "attributes (per-element allowlist). Examples: ('class', 'id') or "
-                    "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}",
+                    "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
+                    "CLI note: For complex dict structures, pass as JSON string: "
+                    "--allowed-attributes '{\"img\": [\"src\", \"alt\"], \"a\": [\"href\"]}'",
             "action": "append",
             "importance": "security"
         }

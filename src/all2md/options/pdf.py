@@ -500,6 +500,64 @@ class PdfOptions(PaginatedParserOptions):
         }
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges and dependent field constraints.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range or if dependent
+            field constraints are violated.
+
+        """
+        # Validate percentage-based thresholds (0-100)
+        if not 0 <= self.header_percentile_threshold <= 100:
+            raise ValueError(
+                f"header_percentile_threshold must be in range [0, 100], "
+                f"got {self.header_percentile_threshold}"
+            )
+        if not 0 <= self.link_overlap_threshold <= 100:
+            raise ValueError(
+                f"link_overlap_threshold must be in range [0, 100], "
+                f"got {self.link_overlap_threshold}"
+            )
+
+        # Validate quality settings (1-100)
+        if not 1 <= self.image_quality <= 100:
+            raise ValueError(
+                f"image_quality must be in range [1, 100], "
+                f"got {self.image_quality}"
+            )
+
+        # Validate ratio thresholds (0.0-1.0)
+        if not 0.0 <= self.table_ruling_line_threshold <= 1.0:
+            raise ValueError(
+                f"table_ruling_line_threshold must be in range [0.0, 1.0], "
+                f"got {self.table_ruling_line_threshold}"
+            )
+
+        # Validate positive values
+        if self.header_font_size_ratio <= 0:
+            raise ValueError(
+                f"header_font_size_ratio must be positive, "
+                f"got {self.header_font_size_ratio}"
+            )
+        if self.column_gap_threshold <= 0:
+            raise ValueError(
+                f"column_gap_threshold must be positive, "
+                f"got {self.column_gap_threshold}"
+            )
+
+        # Validate dependent fields: auto_trim vs manual trim settings
+        if self.auto_trim_headers_footers and (self.header_height > 0 or self.footer_height > 0):
+            import warnings
+            warnings.warn(
+                "auto_trim_headers_footers=True will override manual header_height and footer_height settings. "
+                "The auto-detection algorithm will determine optimal trim values.",
+                UserWarning,
+                stacklevel=2
+            )
+
 
 @dataclass(frozen=True)
 class PdfRendererOptions(BaseRendererOptions):
@@ -643,3 +701,42 @@ class PdfRendererOptions(BaseRendererOptions):
             "cli_flatten": True  # Handled via flattened fields
         }
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for PDF renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate positive line spacing
+        if self.line_spacing <= 0:
+            raise ValueError(
+                f"line_spacing must be positive, got {self.line_spacing}"
+            )
+
+        # Validate non-negative margins
+        if self.margin_top < 0:
+            raise ValueError(
+                f"margin_top must be non-negative, got {self.margin_top}"
+            )
+        if self.margin_bottom < 0:
+            raise ValueError(
+                f"margin_bottom must be non-negative, got {self.margin_bottom}"
+            )
+        if self.margin_left < 0:
+            raise ValueError(
+                f"margin_left must be non-negative, got {self.margin_left}"
+            )
+        if self.margin_right < 0:
+            raise ValueError(
+                f"margin_right must be non-negative, got {self.margin_right}"
+            )
+
+        # Validate positive font size
+        if self.font_size <= 0:
+            raise ValueError(
+                f"font_size must be positive, got {self.font_size}"
+            )

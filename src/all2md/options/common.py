@@ -129,6 +129,39 @@ class NetworkFetchOptions(CloneFrozenMixin):
         }
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for network fetch options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate positive timeout
+        if self.network_timeout <= 0:
+            raise ValueError(
+                f"network_timeout must be positive, got {self.network_timeout}"
+            )
+
+        # Validate positive rate limit
+        if self.max_requests_per_second <= 0:
+            raise ValueError(
+                f"max_requests_per_second must be positive, got {self.max_requests_per_second}"
+            )
+
+        # Validate positive concurrent requests
+        if self.max_concurrent_requests <= 0:
+            raise ValueError(
+                f"max_concurrent_requests must be positive, got {self.max_concurrent_requests}"
+            )
+
+        # Validate non-negative max redirects
+        if self.max_redirects < 0:
+            raise ValueError(
+                f"max_redirects must be non-negative, got {self.max_redirects}"
+            )
+
 
 @dataclass(frozen=True)
 class LocalFileAccessOptions(CloneFrozenMixin):

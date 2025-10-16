@@ -214,6 +214,14 @@ class MarkdownOptions(BaseRendererOptions):
             "importance": "core"
         }
     )
+    strict_flavor_validation: bool = field(
+        default=False,
+        metadata={
+            "help": "Raise errors on flavor-incompatible options instead of just warnings. "
+                    "When True, validate_flavor_compatibility warnings become ValueError exceptions.",
+            "importance": "advanced"
+        }
+    )
     unsupported_table_mode: UnsupportedTableMode | object = field(
         default=UNSET,
         metadata={
@@ -363,10 +371,19 @@ class MarkdownOptions(BaseRendererOptions):
     )
 
     def __post_init__(self) -> None:
-        """Apply flavor-aware defaults after initialization.
+        """Apply flavor-aware defaults and validate flavor compatibility.
 
         If unsupported_table_mode or unsupported_inline_mode are unset
-        (sentinel value), apply flavor-appropriate defaults.
+        (sentinel value), apply flavor-appropriate defaults. If
+        strict_flavor_validation is True, validate flavor compatibility
+        and raise errors for incompatible configurations.
+
+        Raises
+        ------
+        ValueError
+            If strict_flavor_validation is True and the options are
+            incompatible with the selected flavor.
+
         """
         flavor_defaults = get_flavor_defaults(self.flavor)
 
@@ -377,6 +394,15 @@ class MarkdownOptions(BaseRendererOptions):
         if self.unsupported_inline_mode is UNSET:
             object.__setattr__(self, 'unsupported_inline_mode',
                                flavor_defaults['unsupported_inline_mode'])
+
+        # If strict validation is enabled, check flavor compatibility
+        if self.strict_flavor_validation:
+            warnings = validate_flavor_compatibility(self.flavor, self)
+            if warnings:
+                raise ValueError(
+                    f"Flavor '{self.flavor}' validation errors:\n"
+                    + "\n".join(f"  - {w}" for w in warnings)
+                )
 
 
 @dataclass(frozen=True)

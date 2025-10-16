@@ -138,7 +138,7 @@ class TestCLIIntegration:
 
             # Check warning was printed
             captured = capsys.readouterr()
-            assert "Warning" in captured.err
+            assert "WARNING" in captured.err
             assert "attachment mode is 'alt_text'" in captured.err
 
     def test_logging_level_configuration(self):

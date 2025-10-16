@@ -90,3 +90,18 @@ class IpynbOptions(BaseParserOptions):
     )
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for IPYNB options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate image quality (1-100)
+        if not 1 <= self.image_quality <= 100:
+            raise ValueError(
+                f"image_quality must be in range [1, 100], got {self.image_quality}"
+            )
