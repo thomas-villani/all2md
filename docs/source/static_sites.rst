@@ -1483,59 +1483,12 @@ Complete documentation site with search and navigation:
    generator = DocsGenerator(source_dir='./docs', output_dir='./site')
    generator.generate()
 
-API Reference
--------------
-
-HtmlRendererOptions
-~~~~~~~~~~~~~~~~~~~
-
-Complete reference for HTML renderer options:
-
-.. autoclass:: all2md.renderers.html.HtmlRendererOptions
-   :members:
-   :noindex:
-
-Template Context Variables
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Variables available in Jinja templates:
-
-**content** (Markup)
-    Rendered HTML content, marked as safe
-
-**title** (str)
-    Document title from metadata or "Document"
-
-**metadata** (dict)
-    Complete metadata dictionary with all custom fields
-
-**headings** (list[dict])
-    List of heading information::
-
-        [
-            {'level': 1, 'id': 'heading-0', 'text': 'Introduction'},
-            {'level': 2, 'id': 'heading-1', 'text': 'Getting Started'},
-            ...
-        ]
-
-**toc_html** (Markup)
-    Pre-rendered table of contents HTML, marked as safe
-
-**footnotes** (list[dict])
-    List of footnote definitions::
-
-        [
-            {'identifier': 'fn1'},
-            {'identifier': 'fn2'},
-            ...
-        ]
-
-**ast_json** (str)
-    Complete document AST serialized to JSON format
 
 See Also
 --------
 
+* :py:class:~all2md.renderers.html.HtmlRendererOptions
+* :doc:`api/all2md.renderers.html` - Html Renderer
 * :doc:`bidirectional` - Markdown to HTML conversion basics
 * :doc:`options` - Complete options reference
 * :doc:`recipes` - More real-world examples

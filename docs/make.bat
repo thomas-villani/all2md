@@ -24,9 +24,9 @@ if errorlevel 9009 (
 	exit /b 1
 )
 
-if /I "%1"=="--nocolor" (
+if /I "%2"=="--nocolor" (
      set NO_COLOR=1
-     shift
+     echo ==Disabled color==
  )
 
 if "%1" == "" goto help

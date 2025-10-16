@@ -1084,23 +1084,14 @@ See Also
 
 - :doc:`ast_guide` - Complete AST documentation
 - :doc:`formats` - Supported input formats
+- :doc:`options` - Document parsing/rendering options
 - :doc:`transforms` - Document transformation guide
 - :doc:`recipes` - Real-world conversion patterns
+
 
 API Reference
 -------------
 
-.. autofunction:: all2md.from_markdown
-.. autofunction:: all2md.from_ast
-.. autoclass:: all2md.renderers.docx.DocxRenderer
-   :members:
-.. autoclass:: all2md.renderers.html.HtmlRenderer
-   :members:
-.. autoclass:: all2md.renderers.pdf.PdfRenderer
-   :members:
-.. autoclass:: all2md.renderers.epub.EpubRenderer
-   :members:
-.. autoclass:: all2md.renderers.pptx.PptxRenderer
-   :members:
-.. autoclass:: all2md.renderers.rst.RestructuredTextRenderer
-   :members:
+- :doc:`api/all2md.renderers` - Renderers API
+- :doc:`api/all2md.parsers` - Parsers API
+- :doc:`api/all2md.options` - Parser and renderer Options

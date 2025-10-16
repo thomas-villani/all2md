@@ -651,17 +651,3 @@ See Also
 
 - :doc:`ast_guide` - AST structure and node types
 - :doc:`plugins` - General plugin development guide
-- `TRANSFORMS.md <https://github.com/thomas.villani/all2md/blob/main/TRANSFORMS.md>`_ - Complete transform development guide
-
-API Reference
--------------
-
-.. autosummary::
-   :toctree: api/
-
-   all2md.transforms
-   all2md.transforms.metadata
-   all2md.transforms.registry
-   all2md.transforms.hooks
-   all2md.transforms.pipeline
-   all2md.transforms.builtin

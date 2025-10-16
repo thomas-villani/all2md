@@ -3193,7 +3193,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001B6288B0940>``
+   :Default: ``<object object at 0x000001580B5C0940>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3203,7 +3203,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001B6288B0940>``
+   :Default: ``<object object at 0x000001580B5C0940>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -5528,6 +5528,69 @@ generation from AST, including slide splitting strategies and layout.
    :Default: ``0.5``
    :Importance: advanced
 
+**table_left**
+
+   Left position for tables in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-table-left``
+   :Default: ``0.5``
+   :Importance: advanced
+
+**table_top**
+
+   Top position for tables in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-table-top``
+   :Default: ``2.0``
+   :Importance: advanced
+
+**table_width**
+
+   Width for tables in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-table-width``
+   :Default: ``9.0``
+   :Importance: advanced
+
+**table_height_per_row**
+
+   Height per row for tables in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-table-height-per-row``
+   :Default: ``0.5``
+   :Importance: advanced
+
+**image_left**
+
+   Left position for images in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-image-left``
+   :Default: ``1.0``
+   :Importance: advanced
+
+**image_top**
+
+   Top position for images in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-image-top``
+   :Default: ``2.5``
+   :Importance: advanced
+
+**image_width**
+
+   Width for images in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-image-width``
+   :Default: ``4.0``
+   :Importance: advanced
+
 **network**
 
    Network security options for fetching remote images
@@ -6680,7 +6743,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001B6288B0940>``
+   :Default: ``<object object at 0x000001580B5C0940>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -6690,7 +6753,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001B6288B0940>``
+   :Default: ``<object object at 0x000001580B5C0940>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
