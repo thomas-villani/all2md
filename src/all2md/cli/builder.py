@@ -234,10 +234,12 @@ class DynamicCLIBuilder:
         options_classes: Dict[str, Type[Any]] = {}
 
         from all2md.options import BaseParserOptions, BaseRendererOptions
+        from all2md.utils.input_sources import RemoteInputOptions
 
         options_classes['base'] = BaseParserOptions
         options_classes['renderer_base'] = BaseRendererOptions
         options_classes['markdown'] = MarkdownOptions
+        options_classes['remote_input'] = RemoteInputOptions
 
         registry.auto_discover()
 
@@ -1021,6 +1023,7 @@ Examples:
 
         # Add BaseOptions as universal options (no prefix)
         from all2md.options import BaseParserOptions
+        from all2md.utils.input_sources import RemoteInputOptions
         self.add_options_class_arguments(
             parser,
             BaseParserOptions,
@@ -1034,6 +1037,16 @@ Examples:
             MarkdownOptions,
             format_prefix="markdown",
             group_name="Common Markdown formatting options"
+        )
+
+        # Add remote input options (top-level, apply to all formats)
+        self._add_options_arguments_internal(
+            parser,
+            RemoteInputOptions,
+            format_prefix="remote-input",
+            group_name="Remote input options",
+            exclude_base_fields=False,
+            dest_prefix="remote_input",
         )
 
         # Auto-discover parsers and add their options

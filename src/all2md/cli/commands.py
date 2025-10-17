@@ -454,6 +454,10 @@ def collect_input_files(
         return path.suffix.lower() in normalized_exts
 
     for input_path_str in input_paths:
+        if input_path_str.startswith(("http://", "https://")):
+            files.append(Path(input_path_str))
+            continue
+
         input_path = Path(input_path_str)
 
         # Handle glob patterns

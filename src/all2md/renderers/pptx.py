@@ -10,6 +10,7 @@ to PowerPoint presentations. The renderer uses python-pptx to generate
 The rendering process splits the AST into slides using configurable
 strategies (separator-based or heading-based), converts each slide's
 content to PowerPoint shapes, and assembles a complete presentation.
+
 """
 
 from __future__ import annotations
@@ -103,6 +104,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         >>> options = PptxRendererOptions()
         >>> renderer = PptxRenderer(options)
         >>> renderer.render(doc, "output.pptx")
+
 
     """
 

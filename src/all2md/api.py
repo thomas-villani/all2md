@@ -17,8 +17,25 @@ from all2md.exceptions import All2MdError, DependencyError, FormatError, Parsing
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
 from all2md.progress import ProgressCallback
+from all2md.utils.input_sources import (
+    DocumentSource,
+    DocumentSourceRequest,
+    RemoteInputOptions,
+    default_loader,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_document_source(
+        source: Union[str, Path, IO[bytes], IO[str], bytes],
+        remote_input_options: RemoteInputOptions | None,
+) -> DocumentSource:
+    """Resolve raw input into a DocumentSource using the configured loader."""
+
+    loader = default_loader()
+    request = DocumentSourceRequest(raw_input=source, remote_options=remote_input_options)
+    return loader.load(request)
 
 
 def _get_parser_options_class_for_format(format: DocumentFormat) -> type[BaseParserOptions] | None:
@@ -300,6 +317,7 @@ def to_markdown(
         transforms: Optional[list] = None,
         hooks: Optional[dict] = None,
         progress_callback: Optional[ProgressCallback] = None,
+        remote_input_options: Optional[RemoteInputOptions] = None,
         **kwargs: Any,
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
@@ -336,6 +354,9 @@ def to_markdown(
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
+    remote_input_options : RemoteInputOptions, optional
+        Controls remote retrieval behaviour (network allowlists, size limits, etc.).
+        Defaults to None, which disables remote fetching.
     kwargs : Any
         Individual conversion options. Kwargs are intelligently split between
         parser and renderer based on field names. Parser-related kwargs override
@@ -382,21 +403,18 @@ def to_markdown(
         >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
 
     """
+    resolved_source = _resolve_document_source(source, remote_input_options)
+    detection_input = resolved_source.payload
+
     # Determine format first
     if source_format != "auto":
         actual_format: DocumentFormat = source_format
         logger.debug(f"Using explicitly specified format: {actual_format}")
-    elif isinstance(source, (str, Path)):
-        detected = registry.detect_format(source, hint=None)
-        if detected is None:
-            raise ValueError("Could not detect format from source")
-        actual_format = detected  # type: ignore[assignment]
     else:
-        if isinstance(source, bytes):
-            file: IO[bytes] = BytesIO(source)
+        if isinstance(detection_input, (str, Path)):
+            detected = registry.detect_format(detection_input, hint=None)
         else:
-            file: IO[bytes] = source  # type: ignore
-        detected = registry.detect_format(file, hint=None)
+            detected = registry.detect_format(detection_input, hint=None)
         if detected is None:
             raise ValueError("Could not detect format from source")
         actual_format = detected  # type: ignore[assignment]
@@ -436,19 +454,21 @@ def to_markdown(
         if logger.isEnabledFor(logging.DEBUG):
             start_time = time.perf_counter()
             ast_doc = to_ast(
-                source,
+                detection_input,
                 parser_options=final_parser_options,
                 source_format=actual_format,
                 progress_callback=progress_callback,
+                remote_input_options=remote_input_options,
             )
             parse_time = time.perf_counter() - start_time
             logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
         else:
             ast_doc = to_ast(
-                source,
+                detection_input,
                 parser_options=final_parser_options,
                 source_format=actual_format,
                 progress_callback=progress_callback,
+                remote_input_options=remote_input_options,
             )
     except DependencyError:
         raise
@@ -464,20 +484,21 @@ def to_markdown(
         else:
             # Plain text handling - return content directly without AST
             plain_text: str
-            if isinstance(source, (str, Path)):
+            data_source = detection_input
+            if isinstance(data_source, (str, Path)):
                 try:
-                    with open(source, "r", encoding="utf-8", errors="replace") as f:
+                    with open(data_source, "r", encoding="utf-8", errors="replace") as f:
                         plain_text = f.read()
                 except Exception as exc:
-                    raise ParsingError(f"Could not read file as UTF-8: {source}") from exc
-            elif isinstance(source, bytes):
+                    raise ParsingError(f"Could not read file as UTF-8: {data_source}") from exc
+            elif isinstance(data_source, bytes):
                 try:
-                    plain_text = source.decode("utf-8", errors="replace")
+                    plain_text = data_source.decode("utf-8", errors="replace")
                 except Exception as exc:
                     raise ParsingError("Could not decode bytes as UTF-8") from exc
             else:
                 # File-like object (IO[bytes])
-                file = source
+                file = data_source
                 file.seek(0)
                 try:
                     file_content = file.read()
@@ -526,6 +547,7 @@ def to_ast(
         parser_options: Optional[BaseParserOptions] = None,
         source_format: DocumentFormat = "auto",
         progress_callback: Optional[ProgressCallback] = None,
+        remote_input_options: Optional[RemoteInputOptions] = None,
         **kwargs: Any,
 ) -> "Document":
     """Convert document to AST (Abstract Syntax Tree) format.
@@ -549,6 +571,9 @@ def to_ast(
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
+    remote_input_options : RemoteInputOptions, optional
+        Controls remote retrieval behaviour for the source input. Defaults to None
+        (remote fetching disabled).
     kwargs : Any
         Individual parser options that override settings in parser_options.
 
@@ -591,8 +616,11 @@ def to_ast(
         >>> json_str = serialization.ast_to_json(ast_doc, indent=2)
 
     """
+    resolved_source = _resolve_document_source(source, remote_input_options)
+    resolved_payload = resolved_source.payload
+
     # Detect format
-    actual_format = source_format if source_format != "auto" else registry.detect_format(source)
+    actual_format = source_format if source_format != "auto" else registry.detect_format(resolved_payload)
 
     # Get converter metadata (returns a list, we just check if it exists)
     metadata_list = registry.get_format_info(actual_format)
@@ -618,7 +646,7 @@ def to_ast(
     try:
         parser_class = registry.get_parser(actual_format)
         parser = parser_class(options=final_parser_options, progress_callback=progress_callback)
-        ast_doc = parser.parse(source)
+        ast_doc = parser.parse(resolved_payload)
         return ast_doc
 
     except All2MdError:
@@ -841,6 +869,7 @@ def convert(
         renderer: Optional[Union[str, type, object]] = None,
         flavor: Optional[str] = None,
         progress_callback: Optional[ProgressCallback] = None,
+        remote_input_options: Optional[RemoteInputOptions] = None,
         **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Convert between document formats.
@@ -876,6 +905,9 @@ def convert(
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
+    remote_input_options : RemoteInputOptions, optional
+        Controls remote retrieval behaviour for the source input. Defaults to None
+        (remote fetching disabled).
     kwargs : Any
         Additional options split between parser and renderer
 
@@ -921,9 +953,14 @@ def convert(
     transforms = transforms or []
     hooks = hooks or {}
 
+    resolved_source = _resolve_document_source(source, remote_input_options)
+    resolved_payload = resolved_source.payload
+
     # Detect source format
     actual_source_format = (
-        source_format if source_format != "auto" else registry.detect_format(source)  # type: ignore[arg-type]
+        source_format
+        if source_format != "auto"
+        else registry.detect_format(resolved_payload)  # type: ignore[arg-type]
     )
 
     # Determine target format
@@ -955,10 +992,11 @@ def convert(
         final_parser_options = parser_options
 
     ast_document = to_ast(
-        source,  # type: ignore[arg-type]
+        resolved_payload,  # type: ignore[arg-type]
         parser_options=final_parser_options,
         source_format=actual_source_format,  # type: ignore[arg-type]
         progress_callback=progress_callback,
+        remote_input_options=remote_input_options,
     )
 
     # Prepare renderer options

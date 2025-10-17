@@ -31,7 +31,9 @@ from email.message import Message
 from typing import Any, Literal
 from urllib.parse import urlparse
 
+from all2md.constants import DEFAULT_USER_AGENT
 from all2md.exceptions import NetworkSecurityError
+from all2md.utils.decorators import requires_dependencies
 
 logger = logging.getLogger(__name__)
 
@@ -367,9 +369,10 @@ def validate_url_security(url: str, allowed_hosts: list[str] | None = None, requ
     logger.debug(f"URL security validation passed for: {url}")
 
 
+@requires_dependencies("network", [("httpx", "httpx", ">=0.28.1")])
 def create_secure_http_client(
         timeout: float = 10.0, max_redirects: int = 5, allowed_hosts: list[str] | None = None,
-        require_https: bool = True
+        require_https: bool = True, user_agent: str | None = None
 ) -> Any:
     """Create httpx client with security constraints.
 
@@ -433,7 +436,7 @@ def create_secure_http_client(
         timeout=timeout,
         follow_redirects=True,
         event_hooks={"request": [validate_request_url], "response": [validate_response_redirects]},
-        headers={"User-Agent": "all2md-image-fetcher/1.0"},
+        headers={"User-Agent": os.getenv("ALL2MD_USER_AGENT", DEFAULT_USER_AGENT)},
     )
 
     return client
@@ -448,6 +451,7 @@ def fetch_content_securely(
         expected_content_types: list[str] | None = None,
         require_head_success: bool = True,
         rate_limiter: RateLimiter | None = None,
+        user_agent: str | None = None
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -562,6 +566,7 @@ def fetch_content_securely(
                 logger.debug(f"Successfully fetched {total_size} bytes from {url}")
                 return content
 
+    # TODO: improve this.
     except Exception as e:
         if isinstance(e, NetworkSecurityError):
             raise

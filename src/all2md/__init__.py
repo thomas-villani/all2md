@@ -124,6 +124,7 @@ from all2md.options.txt import PlainTextOptions
 from all2md.options.xlsx import XlsxOptions
 from all2md.options.zip import ZipOptions
 from all2md.progress import ProgressCallback, ProgressEvent
+from all2md.utils.input_sources import RemoteInputOptions
 
 # Import parsers to trigger registration
 # Import AST module for advanced users
@@ -189,6 +190,7 @@ __all__ = [
     "PlainTextOptions",
     "XlsxOptions",
     "ZipOptions",
+    "RemoteInputOptions",
     # Exceptions
     "DependencyError",
     "All2MdError",

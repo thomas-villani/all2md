@@ -129,6 +129,8 @@ DEFAULT_AUTOLINK_BARE_URLS = False
 DEFAULT_TABLE_PIPE_ESCAPE = True
 DEFAULT_MARKDOWN_HTML_SANITIZATION: HtmlPassthroughMode = "escape"  # Secure by default
 
+DEFAULT_USER_AGENT = "all2md-fetcher/1.0"
+
 # =============================================================================
 # PDF-specific Constants
 # =============================================================================

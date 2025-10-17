@@ -14,9 +14,11 @@ from unittest.mock import Mock, patch
 import pytest
 
 from all2md.cli import create_parser, process_detect_only, process_dry_run
+from all2md.cli.builder import DynamicCLIBuilder
 from all2md.cli.commands import handle_list_formats_command
 from all2md.cli.processors import apply_security_preset, prepare_options_for_execution
 from all2md.exceptions import DependencyError
+from all2md.utils.input_sources import RemoteInputOptions
 
 
 @pytest.mark.unit
@@ -562,6 +564,68 @@ class TestSecurityPresetOptionsMapping:
         finally:
             temp_file.unlink()
 
+
+@pytest.mark.unit
+class TestRemoteInputOptions:
+    """Verify remote input CLI flags and configuration plumbing."""
+
+    def test_remote_input_cli_flags_map_into_options(self, tmp_path):
+        """Ensure CLI flags populate RemoteInputOptions via option mapping."""
+        builder = DynamicCLIBuilder()
+        parser = builder.build_parser()
+
+        args = parser.parse_args([
+            '--remote-input-enabled',
+            '--remote-input-allowed-hosts', 'example.com,api.example.com',
+            '--remote-input-max-size', '2048',
+            str(tmp_path / 'sample.pdf'),
+        ])
+
+        options = builder.map_args_to_options(args)
+        assert options['remote_input.allow_remote_input'] is True
+        assert options['remote_input.allowed_hosts'] == ['example.com', 'api.example.com']
+        assert options['remote_input.max_size_bytes'] == 2048
+
+        prepared = prepare_options_for_execution(options, tmp_path / 'sample.pdf', 'auto', 'markdown')
+        remote_opts = prepared.pop('remote_input_options', None)
+        assert isinstance(remote_opts, RemoteInputOptions)
+        assert remote_opts.allow_remote_input is True
+        assert remote_opts.allowed_hosts == ['example.com', 'api.example.com']
+        assert remote_opts.max_size_bytes == 2048
+        assert 'remote_input.allow_remote_input' not in prepared
+
+    def test_remote_input_config_overrides_apply(self, tmp_path):
+        """Remote input config entries should hydrate RemoteInputOptions."""
+        builder = DynamicCLIBuilder()
+        parser = builder.build_parser()
+        args = parser.parse_args([str(tmp_path / 'sample.pdf')])
+
+        config = {
+            'remote_input': {
+                'allow_remote_input': True,
+                'timeout': 5.5,
+            }
+        }
+
+        options = builder.map_args_to_options(args, json_options=config)
+        prepared = prepare_options_for_execution(options, tmp_path / 'sample.pdf', 'auto', 'markdown')
+        remote_opts = prepared.pop('remote_input_options', None)
+        assert isinstance(remote_opts, RemoteInputOptions)
+        assert remote_opts.allow_remote_input is True
+        assert pytest.approx(remote_opts.timeout) == 5.5
+        assert 'remote_input.allow_remote_input' not in prepared
+
+    def test_remote_input_environment_defaults_apply(self, monkeypatch, tmp_path):
+        """Environment variables should set parser defaults for remote input options."""
+        monkeypatch.setenv('ALL2MD_REMOTE_INPUT_ALLOW_REMOTE_INPUT', 'true')
+        monkeypatch.setenv('ALL2MD_REMOTE_INPUT_ALLOWED_HOSTS', 'example.com')
+
+        builder = DynamicCLIBuilder()
+        parser = builder.build_parser()
+        args = parser.parse_args([str(tmp_path / 'remote.pdf')])
+
+        assert getattr(args, 'remote_input.allow_remote_input') is True
+        assert getattr(args, 'remote_input.allowed_hosts') == ['example.com']
 
 @pytest.mark.unit
 class TestOptionPreparation:

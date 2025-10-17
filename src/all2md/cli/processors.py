@@ -28,6 +28,7 @@ from all2md.cli.validation import validate_arguments as _validate_arguments
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
+from all2md.utils.input_sources import RemoteInputOptions
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,27 @@ def _filter_options_for_formats(
     return filtered
 
 
+def _extract_remote_input_options(options: Dict[str, Any]) -> tuple[RemoteInputOptions | None, Dict[str, Any]]:
+    """Split remote input configuration from the general options dict."""
+
+    remote_prefix = "remote_input."
+    remote_kwargs: Dict[str, Any] = {}
+    remaining: Dict[str, Any] = {}
+
+    for key, value in options.items():
+        if key.startswith(remote_prefix):
+            field_name = key[len(remote_prefix):]
+            if field_name == 'allowed_hosts' and isinstance(value, str):
+                remote_kwargs[field_name] = [host.strip() for host in value.split(',') if host.strip()]
+            else:
+                remote_kwargs[field_name] = value
+        else:
+            remaining[key] = value
+
+    remote_options = RemoteInputOptions(**remote_kwargs) if remote_kwargs else None
+    return remote_options, remaining
+
+
 def _detect_format_for_path(input_path: Path | None) -> str | None:
     """Best-effort format detection for an input path."""
     if input_path is None:
@@ -151,8 +173,11 @@ def prepare_options_for_execution(
         renderer_format = renderer_hint
     else:
         renderer_format = None
-
-    return _filter_options_for_formats(options, parser_format, renderer_format)
+    remote_options, remaining = _extract_remote_input_options(options)
+    filtered = _filter_options_for_formats(remaining, parser_format, renderer_format)
+    if remote_options:
+        filtered["remote_input_options"] = remote_options
+    return filtered
 
 
 def _process_items_with_progress(
@@ -1816,16 +1841,36 @@ def convert_single_file_for_collation(
 
     """
     try:
+        raw_input_str = str(input_path)
+        normalized_input = raw_input_str
+        if raw_input_str.startswith('https:/') and not raw_input_str.startswith('https://'):
+            normalized_input = raw_input_str.replace('https:/', 'https://', 1)
+        elif raw_input_str.startswith('http:/') and not raw_input_str.startswith('http://'):
+            normalized_input = raw_input_str.replace('http:/', 'http://', 1)
+
+        is_remote_input = normalized_input.startswith(('http://', 'https://'))
+        path_hint: Optional[Path] = None
+
+        if is_remote_input:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(normalized_input)
+            if parsed.path:
+                path_hint = Path(parsed.path)
+
         effective_options = prepare_options_for_execution(
             options,
-            input_path,
+            path_hint if is_remote_input and path_hint else input_path,
             format_arg,
             "markdown",
         )
 
         # Convert the document
         markdown_content = to_markdown(
-            input_path, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **effective_options
+            normalized_input if is_remote_input else input_path,
+            source_format=cast(DocumentFormat, format_arg),
+            transforms=transforms,
+            **effective_options,
         )
 
         # Add file header and separator
@@ -2048,6 +2093,23 @@ def convert_single_file(
         if local_transforms is None and transform_specs:
             local_transforms = _instantiate_transforms_from_specs(transform_specs)
 
+        raw_input_str = str(input_path)
+        normalized_input = raw_input_str
+        if raw_input_str.startswith('https:/') and not raw_input_str.startswith('https://'):
+            normalized_input = raw_input_str.replace('https:/', 'https://', 1)
+        elif raw_input_str.startswith('http:/') and not raw_input_str.startswith('http://'):
+            normalized_input = raw_input_str.replace('http:/', 'http://', 1)
+
+        is_remote_input = normalized_input.startswith(('http://', 'https://'))
+        path_hint: Optional[Path] = None
+
+        if is_remote_input:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(normalized_input)
+            if parsed.path:
+                path_hint = Path(parsed.path)
+
         renderer_hint = target_format
         if renderer_hint == "auto" and output_path:
             try:
@@ -2059,7 +2121,7 @@ def convert_single_file(
 
         effective_options = prepare_options_for_execution(
             options,
-            input_path,
+            path_hint if is_remote_input and path_hint else input_path,
             format_arg,
             renderer_hint,
         )
@@ -2068,7 +2130,7 @@ def convert_single_file(
         if output_path:
             # Write to file - convert() handles the target format correctly
             convert(
-                input_path,
+                normalized_input if is_remote_input else input_path,
                 output=output_path,
                 source_format=cast(DocumentFormat, format_arg),
                 target_format=cast(DocumentFormat, target_format),
@@ -2079,7 +2141,7 @@ def convert_single_file(
         else:
             # Output to stdout - only markdown is supported for stdout
             result = convert(
-                input_path,
+                normalized_input if is_remote_input else input_path,
                 output=None,
                 source_format=cast(DocumentFormat, format_arg),
                 target_format="markdown",
