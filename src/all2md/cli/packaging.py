@@ -13,8 +13,11 @@ from typing import Any, Dict, List, Optional, cast
 logger = logging.getLogger(__name__)
 
 
+from all2md.cli.input_items import CLIInputItem
+
+
 def create_package_from_conversions(
-        input_files: List[Path],
+        input_items: List[CLIInputItem],
         zip_path: Path,
         target_format: str = "markdown",
         options: Optional[Dict[str, Any]] = None,
@@ -29,8 +32,8 @@ def create_package_from_conversions(
 
     Parameters
     ----------
-    input_files : List[Path]
-        List of input files to convert and package
+    input_items : List[CLIInputItem]
+        List of input items to convert and package
     zip_path : Path
         Path for the output zip file
     target_format : str, default="markdown"
@@ -80,15 +83,15 @@ def create_package_from_conversions(
 
     # Create zip and process files incrementally
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for input_file in input_files:
+        for index, item in enumerate(input_items, start=1):
             try:
                 # Generate output name
-                output_name = input_file.stem + extension
+                output_name = f"{item.derive_output_stem(index)}{extension}"
 
                 # Convert to BytesIO buffer (always binary)
                 buffer = BytesIO()
                 convert(
-                    source=input_file,
+                    source=item.raw_input,
                     output=buffer,
                     source_format=cast(Any, source_format),
                     target_format=cast(Any, target_format),
@@ -103,7 +106,7 @@ def create_package_from_conversions(
                 total_size += len(content_bytes)
                 file_count += 1
 
-                logger.debug(f"Packaged {input_file.name} -> {output_name}")
+                logger.debug(f"Packaged {item.display_name} -> {output_name}")
 
                 # Explicitly release buffer memory
                 buffer.close()
@@ -111,7 +114,7 @@ def create_package_from_conversions(
                 del content_bytes
 
             except Exception as e:
-                logger.warning(f"Failed to convert {input_file}: {e}")
+                logger.warning(f"Failed to convert {item.display_name}: {e}")
                 continue
 
     # Get final zip size

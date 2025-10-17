@@ -68,7 +68,6 @@ from all2md.cli.processors import (
     process_detect_only,
     process_dry_run,
     process_multi_file,
-    process_stdin,
     setup_and_validate_options,
 )
 from all2md.cli.validation import (
@@ -88,7 +87,6 @@ __all__ = [
     "process_detect_only",
     "process_dry_run",
     "process_multi_file",
-    "process_stdin",
     "collect_argument_problems",
     "report_validation_problems",
     "validate_arguments",
@@ -152,25 +150,10 @@ def main(args: list[str] | None = None) -> int:
     # Configure logging with file handler if --log-file is specified
     _configure_logging(log_level, log_file=parsed_args.log_file, trace_mode=parsed_args.trace)
 
-    # Handle stdin input
-    if len(parsed_args.input) == 1 and parsed_args.input[0] == "-":
-        # Set up options and validate
-        try:
-            options, format_arg, transforms = setup_and_validate_options(parsed_args)
-        except argparse.ArgumentTypeError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return EXIT_VALIDATION_ERROR
-
-        # Validate arguments
-        if not validate_arguments(parsed_args, logger=logger):
-            return EXIT_VALIDATION_ERROR
-
-        return process_stdin(parsed_args, options, format_arg, transforms)
-
     # Multi-file/directory processing
-    files = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
+    items = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
 
-    if not files:
+    if not items:
         if parsed_args.exclude:
             print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
         else:
@@ -188,11 +171,11 @@ def main(args: list[str] | None = None) -> int:
             if updated_patterns:
                 parsed_args.exclude = updated_patterns
                 # Re-collect files with updated exclusion patterns
-                files = collect_input_files(
+                items = collect_input_files(
                     parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude
                 )
 
-                if not files:
+                if not items:
                     if parsed_args.exclude:
                         print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
                     else:
@@ -203,7 +186,7 @@ def main(args: list[str] | None = None) -> int:
             return EXIT_VALIDATION_ERROR
 
     # Validate arguments
-    if not validate_arguments(parsed_args, files, logger=logger):
+    if not validate_arguments(parsed_args, items, logger=logger):
         return EXIT_VALIDATION_ERROR
 
     # Set up options
@@ -239,7 +222,7 @@ def main(args: list[str] | None = None) -> int:
         )
 
     # Delegate to multi-file processor
-    return process_multi_file(files, parsed_args, options, format_arg, transforms)
+    return process_multi_file(items, parsed_args, options, format_arg, transforms)
 
 
 if __name__ == "__main__":

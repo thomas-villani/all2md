@@ -18,6 +18,7 @@ from dataclasses import fields, is_dataclass
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse, unquote
 
 from all2md.api import convert
 from all2md.cli.builder import (
@@ -29,14 +30,12 @@ from all2md.cli.builder import (
     get_exit_code_for_exception,
 )
 from all2md.cli.help_formatter import display_help
+from all2md.cli.input_items import CLIInputItem
 from all2md.cli.processors import (
-    _get_rich_markdown_kwargs,
-    _should_use_rich_output,
-    prepare_options_for_execution,
     process_detect_only,
     process_dry_run,
     process_files_collated,
-    process_stdin,
+    process_multi_file,
     setup_and_validate_options,
 )
 from all2md.cli.validation import (
@@ -53,6 +52,71 @@ from all2md.transforms import registry as transform_registry
 logger = logging.getLogger(__name__)
 
 ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
+
+
+def _is_probable_uri(candidate: str) -> bool:
+    """Return True when the candidate string looks like a URI input."""
+
+    if "://" not in candidate:
+        lowered = candidate.lower()
+        return lowered.startswith("http:/") or lowered.startswith("https:/")
+
+    parsed = urlparse(candidate)
+    return bool(parsed.scheme and parsed.netloc)
+
+
+def _derive_path_hint_from_uri(uri: str) -> tuple[Path | None, dict[str, str]]:
+    """Extract best-effort Path hint and metadata from a URI."""
+
+    parsed = urlparse(uri)
+    metadata: dict[str, str] = {}
+    if parsed.netloc:
+        metadata["remote_host"] = parsed.netloc
+
+    path_text = unquote(parsed.path or "")
+    if not path_text:
+        return None, metadata
+
+    name = Path(path_text).name
+    if not name:
+        return None, metadata
+
+    return Path(name), metadata
+
+
+def _normalize_uri_key(uri: str) -> str:
+    """Return a normalized key for URI de-duplication."""
+
+    parsed = urlparse(uri)
+    scheme = parsed.scheme.lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path or ""
+    # Preserve query/fragment as they affect resource identity
+    query = f"?{parsed.query}" if parsed.query else ""
+    fragment = f"#{parsed.fragment}" if parsed.fragment else ""
+    return f"{scheme}://{netloc}{path}{query}{fragment}"
+
+
+def _matches_exclusion(item: CLIInputItem, pattern: str) -> bool:
+    """Check if the item should be excluded based on the provided glob pattern."""
+
+    candidates = [item.display_name]
+
+    if item.path_hint:
+        candidates.append(str(item.path_hint))
+        candidates.append(item.path_hint.name)
+
+    best_path = item.best_path()
+    if best_path:
+        candidates.append(str(best_path))
+        try:
+            relative = best_path.relative_to(Path.cwd())
+            candidates.append(str(relative))
+        except ValueError:
+            pass
+        candidates.append(best_path.name)
+
+    return any(fnmatch.fnmatch(candidate, pattern) for candidate in candidates)
 
 
 def _serialize_config_value(value: Any) -> Any:
@@ -420,94 +484,123 @@ def collect_input_files(
         recursive: bool = False,
         extensions: Optional[List[str]] = None,
         exclude_patterns: Optional[List[str]] = None,
-) -> List[Path]:
-    """Collect all input files from provided paths.
+) -> List[CLIInputItem]:
+    """Collect CLI input items from provided arguments.
 
-    Parameters
-    ----------
-    input_paths : List[str]
-        List of file paths, directory paths, or glob patterns
-    recursive : bool
-        Whether to process directories recursively
-    extensions : List[str], optional
-        File extensions to filter (e.g., ['.pdf', '.docx'])
-    exclude_patterns : List[str], optional
-        Glob patterns to exclude from processing
-
-    Returns
-    -------
-    List[Path]
-        List of file paths to process
-
+    Supports local filesystem paths, directories, shell globs, URIs, and stdin.
+    Local paths are expanded to files, filtered by extension when requested, and
+    deduplicated. Remote inputs are preserved as strings to maintain compatibility
+    with the document loader infrastructure.
     """
-    files: List[Path] = []
 
-    # Default to all allowed extensions if not specified
     if extensions is None:
         extensions = ALL_ALLOWED_EXTENSIONS.copy()
 
     normalized_exts = {ext.lower() for ext in extensions} if extensions else None
+
+    local_candidates: List[Path] = []
+    remote_items: Dict[str, CLIInputItem] = {}
+    stdin_item: Optional[CLIInputItem] = None
+    stdin_data: bytes | None = None
 
     def extension_allowed(path: Path) -> bool:
         if normalized_exts is None:
             return True
         return path.suffix.lower() in normalized_exts
 
-    for input_path_str in input_paths:
-        if input_path_str.startswith(("http://", "https://")):
-            files.append(Path(input_path_str))
+    for raw_argument in input_paths:
+        if raw_argument == "-":
+            if stdin_item is not None:
+                continue
+            if stdin_data is None:
+                stdin_data = sys.stdin.buffer.read()
+            stdin_item = CLIInputItem(
+                raw_input=stdin_data or b"",
+                kind="stdin_bytes",
+                display_name="<stdin>",
+                original_argument=raw_argument,
+            )
             continue
 
-        input_path = Path(input_path_str)
+        if _is_probable_uri(raw_argument):
+            path_hint, metadata = _derive_path_hint_from_uri(raw_argument)
+            key = _normalize_uri_key(raw_argument)
+            if key in remote_items:
+                continue
+            remote_items[key] = CLIInputItem(
+                raw_input=raw_argument,
+                kind="remote_uri",
+                display_name=raw_argument,
+                path_hint=path_hint,
+                original_argument=raw_argument,
+                metadata=metadata,
+            )
+            continue
 
-        # Handle glob patterns
-        if "*" in input_path_str:
-            for matched in Path.cwd().glob(input_path_str):
-                if matched.is_file() and extension_allowed(matched):
-                    files.append(matched)
+        input_path = Path(raw_argument)
+        matched_paths: List[Path] = []
+
+        if any(char in raw_argument for char in "*?["):
+            matched_paths.extend(Path.cwd().glob(raw_argument))
         elif input_path.is_file():
-            # Single file
-            if extension_allowed(input_path):
-                files.append(input_path)
+            matched_paths.append(input_path)
         elif input_path.is_dir():
-            # Directory - collect files
             iterator = input_path.rglob("*") if recursive else input_path.iterdir()
             for child in iterator:
-                if not child.is_file():
-                    continue
-                if extension_allowed(child):
-                    files.append(child)
+                if child.is_file():
+                    matched_paths.append(child)
         else:
             logging.warning(f"Path does not exist: {input_path}")
+            continue
 
-    # Remove duplicates and sort
-    files = sorted(set(files))
+        for candidate in matched_paths:
+            if not candidate.is_file():
+                continue
+            if not extension_allowed(candidate):
+                continue
+            local_candidates.append(candidate)
 
-    # Apply exclusion patterns
+    # Deduplicate and sort local paths for deterministic ordering
+    unique_local: Dict[str, Path] = {}
+    for candidate in local_candidates:
+        try:
+            key = str(candidate.resolve())
+        except OSError:
+            key = str(candidate)
+        unique_local[key] = candidate
+
+    sorted_local_paths = sorted(unique_local.values())
+
+    local_items: List[CLIInputItem] = [
+        CLIInputItem(
+            raw_input=path,
+            kind="local_file",
+            display_name=str(path),
+            path_hint=path,
+            original_argument=str(path),
+        )
+        for path in sorted_local_paths
+    ]
+
+    all_items: List[CLIInputItem] = []
+
+    all_items.extend(remote_items.values())
+    all_items.extend(local_items)
+    if stdin_item is not None:
+        all_items.append(stdin_item)
+
     if exclude_patterns:
-        filtered_files = []
-        for file in files:
-            exclude_file = False
-            for pattern in exclude_patterns:
-                # Check against filename and absolute path
-                if fnmatch.fnmatch(str(file), pattern) or fnmatch.fnmatch(file.name, pattern):
-                    exclude_file = True
-                    break
+        filtered: List[CLIInputItem] = []
+        for item in all_items:
+            if any(_matches_exclusion(item, pattern) for pattern in exclude_patterns):
+                continue
+            filtered.append(item)
+        all_items = filtered
 
-                # Try relative path if file is in current working directory
-                try:
-                    relative_path = file.relative_to(Path.cwd())
-                    if fnmatch.fnmatch(str(relative_path), pattern):
-                        exclude_file = True
-                        break
-                except ValueError:
-                    # File is not in current working directory, skip relative path check
-                    pass
-            if not exclude_file:
-                filtered_files.append(file)
-        files = filtered_files
+    # Deterministic ordering for downstream processing
+    all_items.sort(key=lambda item: item.display_name.lower())
 
-    return files
+    return all_items
 
 
 def _create_list_formats_parser() -> argparse.ArgumentParser:
@@ -976,6 +1069,7 @@ def handle_help_command(args: list[str] | None = None) -> int | None:
 
 def handle_convert_command(args: list[str] | None = None) -> int | None:
     """Handle the `convert` subcommand for bidirectional conversions."""
+    # TODO: remove this legacy command once users have fully transitioned to the top-level CLI.
     if not args:
         args = sys.argv[1:]
 
@@ -1032,221 +1126,13 @@ def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     if not validate_arguments(parsed_args, logger=logger):
         return EXIT_VALIDATION_ERROR
 
-    if len(parsed_args.input) == 1 and parsed_args.input[0] == "-":
-        return process_stdin(parsed_args, options, format_arg, transforms)
+    items = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
 
-    files = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
-
-    if not files:
+    if not items:
         print("Error: No valid input files found", file=sys.stderr)
         return EXIT_FILE_ERROR
 
-    # Handle detection-only / dry-run using existing processors
-    if parsed_args.detect_only:
-        return process_detect_only(files, parsed_args, format_arg)
-
-    if parsed_args.dry_run:
-        return process_dry_run(files, parsed_args, format_arg)
-
-    if not parsed_args.out and not parsed_args.output_dir and len(files) > 1:
-        print("Error: Multiple inputs require --output-dir or --out", file=sys.stderr)
-        return EXIT_VALIDATION_ERROR
-
-    if parsed_args.out and len(files) > 1:
-        print("Error: --out can only be used with a single input file", file=sys.stderr)
-        return EXIT_VALIDATION_ERROR
-
-    if parsed_args.output_dir and parsed_args.output_type == "auto":
-        print("Error: --output-dir requires --output-type to determine file extensions", file=sys.stderr)
-        return EXIT_VALIDATION_ERROR
-
-    # TODO: Why only supported with markdown? Should be easy to implement with other formats as well.
-    if parsed_args.collate:
-        if parsed_args.output_type not in ("auto", "markdown"):
-            print("Error: --collate is only supported for markdown output", file=sys.stderr)
-            return EXIT_VALIDATION_ERROR
-        return process_files_collated(files, parsed_args, options, format_arg, transforms)
-
-    base_input_dir: Optional[Path] = None
-    if parsed_args.preserve_structure and len(files) > 0:
-        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
-
-    use_progress = parsed_args.progress or len(files) > 1
-    progress_iterator = files
-    progress_context = None
-
-    if use_progress:
-        try:
-            from tqdm import tqdm
-
-            progress_iterator = tqdm(files, desc="Converting files", unit="file")
-            progress_context = progress_iterator
-        except ImportError:
-            print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
-            use_progress = False
-
-    successes: list[tuple[Path, Optional[Path]]] = []
-    failures: list[tuple[Path, str, int]] = []
-
-    def determine_output_path(input_file: Path) -> Optional[Path]:
-        if parsed_args.out:
-            return Path(parsed_args.out)
-        if parsed_args.output_dir:
-            ext = registry.get_default_extension_for_format(parsed_args.output_type)
-            stem = input_file.stem
-            relative_parent = Path()
-            if parsed_args.preserve_structure and base_input_dir:
-                try:
-                    relative_parent = input_file.parent.relative_to(base_input_dir)
-                except ValueError:
-                    relative_parent = Path()
-            target_dir = Path(parsed_args.output_dir) / relative_parent
-            target_dir.mkdir(parents=True, exist_ok=True)
-            return target_dir / f"{stem}{ext}"
-        return None
-
-    iterator = progress_iterator if use_progress else files
-
-    for file in iterator:
-        output_path = determine_output_path(file)
-
-        if output_path and parsed_args.out:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        try:
-            target_format = parsed_args.output_type
-            renderer_hint = target_format
-
-            if output_path is None:
-                target_format = "markdown"
-                renderer_hint = "markdown"
-            elif renderer_hint == "auto" and output_path:
-                try:
-                    detected_target = registry.detect_format(output_path)
-                    if detected_target and detected_target != "txt":
-                        renderer_hint = detected_target
-                except Exception:
-                    renderer_hint = "auto"
-
-            effective_options = prepare_options_for_execution(
-                options,
-                file,
-                format_arg,
-                renderer_hint,
-            )
-
-            if output_path is None:
-                rendered = convert(
-                    file,
-                    output=None,
-                    source_format=format_arg,
-                    target_format=target_format,
-                    transforms=transforms,
-                    **effective_options,
-                )
-
-                if isinstance(rendered, bytes):
-                    rendered_text = rendered.decode("utf-8", errors="replace")
-                else:
-                    rendered_text = rendered or ""
-
-                if parsed_args.pager:
-                    try:
-                        try:
-                            use_rich_output = _should_use_rich_output(parsed_args)
-                            rich_error: str | None = None
-                        except DependencyError as exc:
-                            use_rich_output = False
-                            rich_error = str(exc)
-
-                        if use_rich_output:
-                            from rich.console import Console
-                            from rich.markdown import Markdown
-
-                            console = Console()
-                            # Get Rich markdown kwargs from CLI args
-                            rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
-                            # Capture Rich output with ANSI codes
-                            with console.capture() as capture:
-                                console.print(Markdown(rendered_text, **rich_kwargs))
-                            content_to_page = capture.get()
-                            is_rich = True
-                        else:
-                            content_to_page = rendered_text
-                            is_rich = False
-
-                        if rich_error:
-                            print(f"Warning: {rich_error}", file=sys.stderr)
-
-                        # Import the helper function
-                        from all2md.cli.processors import _page_content
-
-                        # Try to page the content using available pager
-                        if not _page_content(content_to_page, is_rich=is_rich):
-                            # If paging fails, just print the content
-                            print(content_to_page)
-                    except ImportError:
-                        print(rendered_text)
-                else:
-                    print(rendered_text)
-                successes.append((file, None))
-                continue
-
-            convert(
-                file,
-                output=output_path,
-                source_format=format_arg,
-                target_format=target_format,
-                transforms=transforms,
-                **effective_options,
-            )
-
-            successes.append((file, output_path))
-
-            if not parsed_args.rich:
-                print(f"Converted {file} -> {output_path}")
-
-        except Exception as exc:
-            exit_code = get_exit_code_for_exception(exc)
-            failures.append((file, str(exc), exit_code))
-            print(f"Error converting {file}: {exc}", file=sys.stderr)
-            if not parsed_args.skip_errors:
-                break
-
-    if progress_context is not None:
-        progress_context.close()
-
-    if parsed_args.rich and successes and not parsed_args.no_summary:
-        try:
-            from rich.console import Console
-            from rich.table import Table
-
-            console = Console()
-            table = Table(title="Conversion Summary")
-            table.add_column("File", style="cyan")
-            table.add_column("Output", style="green")
-
-            for src, dest in successes:
-                table.add_row(str(src), str(dest) if dest else "stdout")
-
-            if failures:
-                table_fail = Table(title="Failures", style="red")
-                table_fail.add_column("File")
-                table_fail.add_column("Error")
-                for src, message, _ in failures:
-                    table_fail.add_row(str(src), message)
-                console.print(table)
-                console.print(table_fail)
-            else:
-                console.print(table)
-
-        except ImportError:
-            pass
-
-    if failures:
-        return max(exit_code for _, _, exit_code in failures)
-
-    return EXIT_SUCCESS
+    return process_multi_file(items, parsed_args, options, format_arg, transforms)
 
 
 def handle_config_generate_command(args: list[str] | None = None) -> int:

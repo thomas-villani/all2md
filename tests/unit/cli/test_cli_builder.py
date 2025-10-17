@@ -14,6 +14,7 @@ import pytest
 
 from all2md.ast.transforms import NodeTransformer
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
+from all2md.cli.input_items import CLIInputItem
 from all2md.cli.commands import (
     _run_convert_command,
     collect_input_files,
@@ -933,15 +934,19 @@ class TestNewCLIFeatures:
             # Test specific extensions
             files = collect_input_files([str(temp_path)], extensions=['.pdf'])
             assert files
-            assert all(f.suffix.lower() == '.pdf' for f in files)
+            assert all(item.suffix.lower() == '.pdf' for item in files)
 
             # Glob patterns should exclude directories even when matched
             with patch('pathlib.Path.cwd', return_value=temp_path):
                 globbed = collect_input_files(['*'], extensions=['.pdf'])
-                assert all(p.is_file() for p in globbed)
-                names = {p.name for p in globbed}
+                assert all(
+                    entry.best_path() is not None and entry.best_path().is_file()
+                    for entry in globbed
+                    if entry.is_local_file()
+                )
+                names = {entry.name for entry in globbed}
                 assert 'subdir' not in names
-                assert {p.suffix.lower() for p in globbed} == {'.pdf'}
+                assert {entry.suffix.lower() for entry in globbed} == {'.pdf'}
 
     def test_output_path_generation(self):
         """Test output path generation logic."""
@@ -997,9 +1002,16 @@ class TestNewCLIFeatures:
 
     def test_run_convert_command_collate_delegates(self):
         """Ensure the convert subcommand delegates to the collate processor."""
+        mock_item = CLIInputItem(
+            raw_input=Path('dummy.pdf'),
+            kind='local_file',
+            display_name='dummy.pdf',
+            path_hint=Path('dummy.pdf'),
+        )
+
         with (
-            patch('all2md.cli.commands.process_files_collated', return_value=0) as mock_collate,
-            patch('all2md.cli.commands.collect_input_files', return_value=[Path('dummy.pdf')]),
+            patch('all2md.cli.processors.process_files_collated', return_value=0) as mock_collate,
+            patch('all2md.cli.commands.collect_input_files', return_value=[mock_item]),
             patch('all2md.cli.commands.setup_and_validate_options', return_value=({}, 'pdf', None)),
             patch('all2md.cli.commands.validate_arguments', return_value=True),
         ):
@@ -1238,7 +1250,20 @@ class TestNewEnhancedCLIFeatures:
             (temp_path / "file1.pdf").write_text("test")
             (temp_path / "file2.docx").write_text("test")
 
-            files = [temp_path / "file1.pdf", temp_path / "file2.docx"]
+            items = [
+                CLIInputItem(
+                    raw_input=temp_path / "file1.pdf",
+                    kind='local_file',
+                    display_name=str(temp_path / "file1.pdf"),
+                    path_hint=temp_path / "file1.pdf",
+                ),
+                CLIInputItem(
+                    raw_input=temp_path / "file2.docx",
+                    kind='local_file',
+                    display_name=str(temp_path / "file2.docx"),
+                    path_hint=temp_path / "file2.docx",
+                ),
+            ]
 
             # Create mock args
             args = Mock()
@@ -1260,7 +1285,7 @@ class TestNewEnhancedCLIFeatures:
             sys.stdout = captured_output
 
             try:
-                result = process_dry_run(files, args, "auto")
+                result = process_dry_run(items, args, "auto")
                 output = captured_output.getvalue()
 
                 # Should return 0 (success)
@@ -1268,14 +1293,14 @@ class TestNewEnhancedCLIFeatures:
 
                 # Should mention dry run mode
                 assert "DRY RUN MODE" in output
-                assert "Found 2 file(s)" in output
+                assert "Found 2 input(s)" in output
 
                 # Should list files
                 assert "file1.pdf" in output
                 assert "file2.docx" in output
 
                 # Should not actually convert
-                assert "No files were actually converted" in output
+                assert "No inputs were converted" in output
 
             finally:
                 sys.stdout = sys.__stdout__
@@ -1292,7 +1317,14 @@ class TestNewEnhancedCLIFeatures:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             (temp_path / "test.pdf").write_text("test")
-            files = [temp_path / "test.pdf"]
+            items = [
+                CLIInputItem(
+                    raw_input=temp_path / "test.pdf",
+                    kind='local_file',
+                    display_name=str(temp_path / "test.pdf"),
+                    path_hint=temp_path / "test.pdf",
+                )
+            ]
 
             args = Mock()
             args.rich = True
@@ -1311,12 +1343,12 @@ class TestNewEnhancedCLIFeatures:
             # Test with rich available
             with patch('rich.console.Console'):
                 with patch('rich.table.Table'):
-                    result = process_dry_run(files, args, "auto")
+                    result = process_dry_run(items, args, "auto")
                     assert result == 0
 
             # Test with rich disabled (fallback path)
             args.rich = False  # Test fallback without rich
-            result = process_dry_run(files, args, "auto")
+            result = process_dry_run(items, args, "auto")
             assert result == 0  # Should work with simple text output
 
     def test_enhanced_cli_help_includes_new_features(self):

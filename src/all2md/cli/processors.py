@@ -15,7 +15,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
-from all2md import convert, to_ast, to_markdown
+from all2md import convert, from_ast, to_ast, to_markdown
+from all2md.ast.nodes import Document as ASTDocument, Heading, Text, ThematicBreak
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
@@ -24,6 +25,7 @@ from all2md.cli.builder import (
     DynamicCLIBuilder,
     get_exit_code_for_exception,
 )
+from all2md.cli.input_items import CLIInputItem
 from all2md.cli.validation import validate_arguments as _validate_arguments
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
@@ -34,6 +36,73 @@ logger = logging.getLogger(__name__)
 
 _OPTION_COMPAT_WARNINGS: set[str] = set()
 
+
+def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
+    """Return the shared base directory for local inputs when preserving structure."""
+
+    if not preserve_structure:
+        return None
+
+    local_dirs: List[str] = []
+    for item in items:
+        if not item.is_local_file():
+            continue
+        path = item.best_path()
+        if not path:
+            continue
+        try:
+            local_dirs.append(str(path.parent.resolve()))
+        except OSError:
+            local_dirs.append(str(path.parent))
+
+    if not local_dirs:
+        return None
+
+    try:
+        return Path(os.path.commonpath(local_dirs))
+    except ValueError:
+        return None
+
+
+def _relative_parent(item: CLIInputItem, base_input_dir: Optional[Path]) -> Path:
+    """Return the relative parent path for output generation."""
+
+    if not base_input_dir or not item.is_local_file():
+        return Path()
+
+    path = item.best_path()
+    if not path:
+        return Path()
+
+    try:
+        return path.parent.resolve().relative_to(base_input_dir)
+    except (ValueError, OSError):
+        return Path()
+
+
+def _generate_output_path_for_item(
+        item: CLIInputItem,
+        output_dir: Optional[Path],
+        preserve_structure: bool,
+        base_input_dir: Optional[Path],
+        target_format: str,
+        index: int,
+        *,
+        dry_run: bool = False,
+) -> Optional[Path]:
+    """Generate an output path for a CLI input item, handling remote sources."""
+
+    if output_dir is None:
+        return None
+
+    extension = registry.get_default_extension_for_format(target_format)
+    stem = item.derive_output_stem(index)
+    relative_parent = _relative_parent(item, base_input_dir) if preserve_structure else Path()
+
+    output_path = output_dir / relative_parent / f"{stem}{extension}"
+    if not dry_run:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    return output_path
 
 class TransformSpec(TypedDict):
     """Serializable specification for reconstructing a transform instance."""
@@ -696,7 +765,7 @@ def setup_and_validate_options(
 
 def validate_arguments(
         parsed_args: argparse.Namespace,
-        files: Optional[List[Path]] = None,
+        files: Optional[List[CLIInputItem]] = None,
         *,
         logger: Optional[logging.Logger] = None,
 ) -> bool:
@@ -815,7 +884,7 @@ def process_stdin(
 
 
 def process_multi_file(
-        files: List[Path],
+        items: List[CLIInputItem],
         parsed_args: argparse.Namespace,
         options: Dict[str, Any],
         format_arg: str,
@@ -825,8 +894,8 @@ def process_multi_file(
 
     Parameters
     ----------
-    files : List[Path]
-        List of files to process
+    items : List[CLIInputItem]
+        List of CLI input items to process
     parsed_args : argparse.Namespace
         Parsed command line arguments
     options : Dict[str, Any]
@@ -842,129 +911,16 @@ def process_multi_file(
         Exit code (0 for success, highest error code otherwise; see constants.py for complete list)
 
     """
-    # Import processing functions
-
-    # Handle detect-only mode
+    # Handle detect-only / dry-run at the top for clarity
     if parsed_args.detect_only:
-        return process_detect_only(files, parsed_args, format_arg)
+        return process_detect_only(items, parsed_args, format_arg)
 
-    # Handle dry run mode
     if parsed_args.dry_run:
-        return process_dry_run(files, parsed_args, format_arg)
-
-    try:
-        should_use_rich = _should_use_rich_output(parsed_args)
-        rich_dependency_error: Optional[str] = None
-    except DependencyError as exc:
-        should_use_rich = False
-        rich_dependency_error = str(exc)
-
-    if rich_dependency_error:
-        print(f"Warning: {rich_dependency_error}", file=sys.stderr)
-
-    # Process single file (without progress)
-    # Handle both rich and non-rich output modes
-    if len(files) == 1 and not parsed_args.progress:
-        file = files[0]
-
-        # Determine output path and target format
-        output_path: Optional[Path] = None
-        target_format = "markdown"  # default
-
-        if parsed_args.out:
-            output_path = Path(parsed_args.out)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Auto-detect target format from output filename if --output-type not explicitly provided
-            provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
-            if "output_type" not in provided_args:
-                from all2md.converter_registry import registry
-
-                detected = registry.detect_format(output_path)
-                target_format = detected if detected != "txt" else "markdown"
-            else:
-                target_format = parsed_args.output_type
-        elif parsed_args.output_dir:
-            target_format = getattr(parsed_args, "output_type", "markdown")
-            output_path = generate_output_path(
-                file, Path(parsed_args.output_dir), False, None, target_format=target_format
-            )
-        else:
-            target_format = "markdown"  # stdout, always markdown
-
-        # Handle pager for stdout output
-        if output_path is None and parsed_args.pager:
-            try:
-                effective_options = prepare_options_for_execution(
-                    options,
-                    file,
-                    format_arg,
-                    "markdown",
-                )
-
-                # Convert the document
-                markdown_content = to_markdown(
-                    file, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **effective_options
-                )
-
-                # Display with pager
-                if should_use_rich:
-                    from rich.console import Console
-                    from rich.markdown import Markdown
-
-                    console = Console()
-                    # Get Rich markdown kwargs from CLI args
-                    rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
-                    # Capture Rich output with ANSI codes
-                    with console.capture() as capture:
-                        console.print(Markdown(markdown_content, **rich_kwargs))
-                    content_to_page = capture.get()
-                    is_rich = True
-                else:
-                    content_to_page = markdown_content
-                    is_rich = False
-
-                # Try to page the content using available pager
-                if not _page_content(content_to_page, is_rich=is_rich):
-                    # If paging fails, just print the content
-                    print(content_to_page)
-
-                return 0
-            except ImportError:
-                print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-                # Fall through to regular conversion
-            except Exception as e:
-
-                exit_code = get_exit_code_for_exception(e)
-                if isinstance(e, (DependencyError, ImportError)):
-                    print(f"Missing dependency: {e}", file=sys.stderr)
-                else:
-                    print(f"Error: {e}", file=sys.stderr)
-                return exit_code
-
-        transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(parsed_args, "transform_specs", None))
-        exit_code, file_str, error = convert_single_file(
-            file,
-            output_path,
-            options,
-            format_arg,
-            transforms,
-            False,
-            target_format,
-            transform_specs_for_workers,
-        )
-
-        if exit_code == 0:
-            if output_path:
-                print(f"Converted {file} -> {output_path}", file=sys.stderr)
-            return 0
-        else:
-            print(f"Error: {error}", file=sys.stderr)
-            return exit_code
+        return process_dry_run(items, parsed_args, format_arg)
 
     # If --zip is specified, skip disk writes and package directly to zip
     if parsed_args.zip:
-        return _create_output_package(parsed_args, files, options, format_arg, transforms)
+        return _create_output_package(parsed_args, items, options, format_arg, transforms)
 
     # Check for merge-from-list mode (takes precedence over collate)
     if hasattr(parsed_args, "merge_from_list") and parsed_args.merge_from_list:
@@ -972,18 +928,18 @@ def process_multi_file(
 
     # Otherwise, process files normally to disk
     if parsed_args.collate:
-        exit_code = process_files_collated(files, parsed_args, options, format_arg, transforms)
+        exit_code = process_files_collated(items, parsed_args, options, format_arg, transforms)
     else:
         # Use unified processing function for all modes (rich/progress/simple)
         # This consolidates process_with_rich_output, process_with_progress_bar, and process_files_simple
-        exit_code = process_files_unified(files, parsed_args, options, format_arg, transforms)
+        exit_code = process_files_unified(items, parsed_args, options, format_arg, transforms)
 
     return exit_code
 
 
 def _create_output_package(
         parsed_args: argparse.Namespace,
-        input_files: List[Path],
+        input_items: List[CLIInputItem],
         options: Dict[str, Any],
         format_arg: str,
         transforms: Optional[list] = None,
@@ -998,8 +954,8 @@ def _create_output_package(
     ----------
     parsed_args : argparse.Namespace
         Parsed command line arguments
-    input_files : List[Path]
-        List of input files to convert and package
+    input_items : List[CLIInputItem]
+        List of input items to convert and package
     options : Dict[str, Any]
         Conversion options to pass to convert()
     format_arg : str
@@ -1038,7 +994,7 @@ def _create_output_package(
         # Create the zip package directly from conversions
         # Pass user-specified options and transforms
         created_zip = create_package_from_conversions(
-            input_files=input_files,
+            input_items=input_items,
             zip_path=zip_path,
             target_format=target_format,
             options=options,
@@ -1414,24 +1370,8 @@ def process_merge_from_list(
         return get_exit_code_for_exception(e)
 
 
-def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg: str) -> int:
-    """Process files in detect-only mode - show format detection without conversion plan.
-
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to detect formats for
-    args : argparse.Namespace
-        Command-line arguments
-    format_arg : str
-        Format specification
-
-    Returns
-    -------
-    int
-        Exit code (0 for success, 1 if any detection issues)
-
-    """
+def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
+    """Process inputs in detect-only mode - show format detection without conversion plan."""
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement
 
@@ -1439,31 +1379,35 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
     registry.auto_discover()
 
     print("DETECT-ONLY MODE - Format Detection Results")
-    print(f"Analyzing {len(files)} file(s)")
+    print(f"Analyzing {len(items)} input(s)")
     print()
 
     # Gather detection info
     detection_results: list[dict[str, Any]] = []
     any_issues = False
 
-    for file in files:
+    for item in items:
         # Detect format
         if format_arg != "auto":
             detected_format = format_arg
             detection_method = "explicit (--format)"
         else:
-            detected_format = registry.detect_format(file)
+            detected_format = registry.detect_format(item.raw_input)
 
             # Determine detection method
             metadata_list = registry.get_format_info(detected_format)
             metadata = metadata_list[0] if metadata_list else None
-            if metadata and file.suffix.lower() in metadata.extensions:
+            suffix = item.suffix.lower() if item.suffix else ""
+            if metadata and suffix in metadata.extensions:
                 detection_method = "file extension"
             else:
                 # Check MIME type
                 import mimetypes
 
-                mime_type, _ = mimetypes.guess_type(str(file))
+                guess_target = item.display_name
+                if item.path_hint:
+                    guess_target = str(item.path_hint)
+                mime_type, _ = mimetypes.guess_type(guess_target)
                 if mime_type and metadata and mime_type in metadata.mime_types:
                     detection_method = "MIME type"
                 else:
@@ -1507,7 +1451,7 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
 
         detection_results.append(
             {
-                "file": file,
+                "item": item,
                 "format": detected_format,
                 "method": detection_method,
                 "available": converter_available,
@@ -1526,7 +1470,7 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
 
             # Main detection table
             table = Table(title="Format Detection Results")
-            table.add_column("File", style="cyan", no_wrap=False)
+            table.add_column("Input", style="cyan", no_wrap=False)
             table.add_column("Detected Format", style="yellow")
             table.add_column("Detection Method", style="magenta")
             table.add_column("Converter Status", style="white")
@@ -1537,7 +1481,7 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
                 else:
                     status = "[red][X] Unavailable[/red]"
 
-                table.add_row(str(result["file"]), result["format"].upper(), result["method"], status)
+                table.add_row(result["item"].display_name, result["format"].upper(), result["method"], status)
 
             console.print(table)
 
@@ -1546,7 +1490,7 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
                 console.print("\n[bold yellow]Dependency Issues:[/bold yellow]")
                 for result in detection_results:
                     if not result["available"]:
-                        console.print(f"\n[cyan]{result['file']}[/cyan] ({result['format'].upper()}):")
+                        console.print(f"\n[cyan]{result['item'].display_name}[/cyan] ({result['format'].upper()}):")
                         for pkg_name, status, installed, required in result["deps"]:
                             if status == "missing":
                                 console.print(f"  [red][X] {pkg_name} - Not installed[/red]")
@@ -1567,7 +1511,7 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
         # Plain text output
         for i, result in enumerate(detection_results, 1):
             status = "[OK]" if result["available"] else "[X]"
-            print(f"{i:3d}. {status} {result['file']}")
+            print(f"{i:3d}. {status} {result['item'].display_name}")
             print(f"     Format: {result['format'].upper()}")
             print(f"     Detection: {result['method']}")
 
@@ -1590,81 +1534,60 @@ def process_detect_only(files: List[Path], args: argparse.Namespace, format_arg:
 
             print()
 
-    print(f"\nTotal files analyzed: {len(detection_results)}")
+    print(f"\nTotal inputs analyzed: {len(detection_results)}")
     if any_issues:
         unavailable_count = sum(1 for r in detection_results if not r["available"])
-        print(f"Files with unavailable parsers: {unavailable_count}")
+        print(f"Inputs with unavailable parsers: {unavailable_count}")
         return EXIT_DEPENDENCY_ERROR
     else:
         print("All detected parsers are available")
         return 0
 
 
-def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str) -> int:
-    """Process files in dry run mode - show what would be done without doing it.
+def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
+    """Show what would be processed without performing any conversions."""
 
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to process
-    args : argparse.Namespace
-        Command-line arguments
-    format_arg : str
-        Format specification
-
-    Returns
-    -------
-    int
-        Exit code (always 0 for dry run)
-
-    """
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement
 
-    # Determine base input directory for structure preservation
-    base_input_dir = None
-    if args.preserve_structure and len(files) > 0:
-        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
+    base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
 
-    # Auto-discover parsers for format detection
     registry.auto_discover()
 
     print("DRY RUN MODE - Showing what would be processed")
-    print(f"Found {len(files)} file(s) to convert")
+    print(f"Found {len(items)} input(s) to convert")
     print()
 
-    # Gather format detection information for each file
-    file_info_list: list[dict[str, Any]] = []
-    for file in files:
-        # Detect format for this file
+    file_info_list: List[Dict[str, Any]] = []
+
+    for index, item in enumerate(items, start=1):
         if format_arg != "auto":
             detected_format = format_arg
             detection_method = "explicit (--format)"
         else:
-            detected_format = registry.detect_format(file)
-            # Try to determine detection method
-            all_extensions = []
+            detected_format = registry.detect_format(item.raw_input)
+
+            all_extensions: List[str] = []
             for fmt_name in registry.list_formats():
                 fmt_info_list = registry.get_format_info(fmt_name)
                 if fmt_info_list:
-                    # Collect extensions from all converters for this format
                     for fmt_info in fmt_info_list:
                         all_extensions.extend(fmt_info.extensions)
-            if file.suffix.lower() in all_extensions:
-                detection_method = "extension"
-            else:
-                detection_method = "content analysis"
 
-        # Get converter metadata
+            suffix = item.suffix.lower() if item.suffix else ""
+            detection_method = "extension" if suffix in all_extensions else "content analysis"
+
         converter_metadata_list = registry.get_format_info(detected_format)
         converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
 
-        # Check if converter is available using context-aware dependency checking
         converter_available = True
-        dependency_issues = []
+        dependency_issues: List[str] = []
+
         if converter_metadata:
-            # Use context-aware checking to get accurate dependency requirements for this file
-            required_packages = converter_metadata.get_required_packages_for_content(content=None, input_data=str(file))
+            required_packages = converter_metadata.get_required_packages_for_content(
+                content=None,
+                input_data=item.display_name,
+            )
 
             if required_packages:
                 for pkg_name, _import_name, version_spec in required_packages:
@@ -1685,12 +1608,13 @@ def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str
 
         file_info_list.append(
             {
-                "file": file,
+                "item": item,
                 "detected_format": detected_format,
                 "detection_method": detection_method,
                 "converter_available": converter_available,
                 "dependency_issues": dependency_issues,
                 "converter_metadata": converter_metadata,
+                "index": index,
             }
         )
 
@@ -1701,38 +1625,35 @@ def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str
 
             console = Console()
             table = Table(title="Dry Run - Planned Conversions")
-            table.add_column("Input File", style="cyan", no_wrap=False)
+            table.add_column("Input", style="cyan", no_wrap=False)
             table.add_column("Output", style="green", no_wrap=False)
             table.add_column("Format", style="yellow")
             table.add_column("Detection", style="magenta")
             table.add_column("Status", style="white")
 
             for info in file_info_list:
-                file = info["file"]
+                item = info["item"]
 
                 if args.collate:
-                    # For collation, all files go to one output
-                    if args.out:
-                        output_str = str(Path(args.out))
-                    else:
-                        output_str = "stdout (collated)"
+                    output_str = str(Path(args.out)) if args.out else "stdout (collated)"
                 else:
-                    # Individual file processing
                     if len(file_info_list) == 1 and args.out and not args.output_dir:
-                        output_path = Path(args.out)
-                    else:
+                        output_str = str(Path(args.out))
+                    elif args.output_dir:
                         target_format = getattr(args, "output_type", "markdown")
-                        output_path = generate_output_path(
-                            file,
-                            Path(args.output_dir) if args.output_dir else None,
+                        computed = _generate_output_path_for_item(
+                            item,
+                            Path(args.output_dir),
                             args.preserve_structure,
                             base_input_dir,
+                            target_format,
+                            info["index"],
                             dry_run=True,
-                            target_format=target_format,
                         )
-                    output_str = str(output_path)
+                        output_str = str(computed)
+                    else:
+                        output_str = "stdout"
 
-                # Format status with color coding
                 if info["converter_available"]:
                     status = "[green][OK] Ready[/green]"
                 else:
@@ -1741,59 +1662,59 @@ def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str
                         issues += "..."
                     status = f"[red][X] {issues}[/red]"
 
-                table.add_row(str(file), output_str, info["detected_format"].upper(), info["detection_method"], status)
+                table.add_row(
+                    item.display_name,
+                    output_str,
+                    info["detected_format"].upper(),
+                    info["detection_method"],
+                    status,
+                )
 
             console.print(table)
 
         except ImportError:
-            # Fallback to simple output
             args.rich = False
 
     if not args.rich:
-        # Simple text output
-        for i, info in enumerate(file_info_list, 1):
-            file = info["file"]
+        for info in file_info_list:
+            item = info["item"]
+            print(f"{item.display_name}")
+            print(f"  Format: {info['detected_format'].upper()} ({info['detection_method']})")
+
+            if info["converter_available"]:
+                print("  Status: ready")
+            else:
+                issues_str = ", ".join(info["dependency_issues"]) or "dependency issues"
+                print(f"  Status: missing requirements ({issues_str})")
 
             if args.collate:
-                if args.out:
-                    output_str = f" -> {args.out} (collated)"
-                else:
-                    output_str = " -> stdout (collated)"
+                destination = str(Path(args.out)) if args.out else "stdout (collated)"
             else:
                 if len(file_info_list) == 1 and args.out and not args.output_dir:
-                    output_path = Path(args.out)
-                else:
+                    destination = str(Path(args.out))
+                elif args.output_dir:
                     target_format = getattr(args, "output_type", "markdown")
-                    output_path = generate_output_path(
-                        file,
-                        Path(args.output_dir) if args.output_dir else None,
+                    generated = _generate_output_path_for_item(
+                        item,
+                        Path(args.output_dir),
                         args.preserve_structure,
                         base_input_dir,
+                        target_format,
+                        info["index"],
                         dry_run=True,
-                        target_format=target_format,
                     )
-                output_str = f" -> {output_path}"
+                    destination = str(generated)
+                else:
+                    destination = "stdout"
 
-            # Format detection and status
-            status = "[OK]" if info["converter_available"] else "[X]"
-            format_str = f"[{info['detected_format'].upper()}, {info['detection_method']}]"
+            print(f"  Output: {destination}")
+            print()
 
-            print(f"{i:3d}. {status} {file}{output_str}")
-            print(f"     Format: {format_str}")
-
-            if not info["converter_available"]:
-                issues_str = ", ".join(info["dependency_issues"])
-                print(f"     Issues: {issues_str}")
-
-            print()  # Blank line between files
-
-    print()
     print("Options that would be used:")
     if args.format != "auto":
         print(f"  Format: {args.format}")
     if args.recursive:
         print("  Recursive directory processing: enabled")
-    # Check if parallel was explicitly provided
     parallel_provided = hasattr(args, "_provided_args") and "parallel" in args._provided_args
     if parallel_provided and args.parallel is None:
         worker_count = os.cpu_count() or "auto"
@@ -1803,193 +1724,169 @@ def process_dry_run(files: List[Path], args: argparse.Namespace, format_arg: str
     if args.preserve_structure:
         print("  Preserve directory structure: enabled")
     if args.collate:
-        print("  Collate multiple files: enabled")
+        print("  Collate multiple inputs: enabled")
     if args.exclude:
         print(f"  Exclusion patterns: {', '.join(args.exclude)}")
 
     print()
-    print("No files were actually converted (dry run mode).")
+    print("No inputs were converted (dry run mode).")
     return 0
 
 
-def convert_single_file_for_collation(
-        input_path: Path,
+def _convert_item_to_ast_for_collation(
+        item: CLIInputItem,
         options: Dict[str, Any],
         format_arg: str,
-        transforms: Optional[list] = None,
-        file_separator: str = "\n\n---\n\n",
-) -> Tuple[int, str, Optional[str]]:
-    """Convert a single file to markdown for collation.
+) -> Tuple[int, Optional[ASTDocument], Optional[str]]:
+    """Load an input item into an AST for collation."""
 
-    Parameters
-    ----------
-    input_path : Path
-        Input file path
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform instances to apply
-    file_separator : str
-        Separator to add between files
-
-    Returns
-    -------
-    Tuple[int, str, Optional[str]]
-        Exit code (0 for success), markdown content, and error message if failed
-
-    """
     try:
-        raw_input_str = str(input_path)
-        normalized_input = raw_input_str
-        if raw_input_str.startswith('https:/') and not raw_input_str.startswith('https://'):
-            normalized_input = raw_input_str.replace('https:/', 'https://', 1)
-        elif raw_input_str.startswith('http:/') and not raw_input_str.startswith('http://'):
-            normalized_input = raw_input_str.replace('http:/', 'http://', 1)
-
-        is_remote_input = normalized_input.startswith(('http://', 'https://'))
-        path_hint: Optional[Path] = None
-
-        if is_remote_input:
-            from urllib.parse import urlparse
-
-            parsed = urlparse(normalized_input)
-            if parsed.path:
-                path_hint = Path(parsed.path)
-
+        detection_hint = item.best_path()
         effective_options = prepare_options_for_execution(
             options,
-            path_hint if is_remote_input and path_hint else input_path,
+            detection_hint,
             format_arg,
-            "markdown",
+            renderer_hint=None,
         )
 
-        # Convert the document
-        markdown_content = to_markdown(
-            normalized_input if is_remote_input else input_path,
+        ast_document = to_ast(
+            item.raw_input,
             source_format=cast(DocumentFormat, format_arg),
-            transforms=transforms,
             **effective_options,
         )
 
-        # Add file header and separator
-        header = f"# File: {input_path.name}\n\n"
-        content_with_header = header + markdown_content
+        return EXIT_SUCCESS, ast_document, None
 
-        return EXIT_SUCCESS, content_with_header, None
-
-    except Exception as e:
-        exit_code = get_exit_code_for_exception(e)
-        error_msg = str(e)
-        if isinstance(e, ImportError):
-            error_msg = f"Missing dependency: {e}"
-        elif not isinstance(e, All2MdError):
-            error_msg = f"Unexpected error: {e}"
-        return exit_code, "", error_msg
+    except Exception as exc:
+        exit_code = get_exit_code_for_exception(exc)
+        error_msg = str(exc)
+        if isinstance(exc, ImportError):
+            error_msg = f"Missing dependency: {exc}"
+        elif not isinstance(exc, All2MdError):
+            error_msg = f"Unexpected error: {exc}"
+        return exit_code, None, error_msg
 
 
 def process_files_collated(
-        files: List[Path],
+        items: List[CLIInputItem],
         args: argparse.Namespace,
         options: Dict[str, Any],
         format_arg: str,
         transforms: Optional[list] = None,
 ) -> int:
-    """Process files and collate them into a single output.
+    """Collate multiple inputs into a single output using an AST pipeline."""
 
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to process
-    args : argparse.Namespace
-        Command-line arguments
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform functions to apply
+    from all2md.cli.progress import ProgressContext, SummaryRenderer
 
-    Returns
-    -------
-    int
-        Exit code (0 for success, highest error code otherwise)
+    collected_documents: List[ASTDocument] = []
+    failures: List[Tuple[CLIInputItem, str, int]] = []
 
-    """
-    collated_content = []
-    failed = []
-    file_separator = "\n\n---\n\n"
-    max_exit_code = EXIT_SUCCESS
-
-    # Determine output path
-    output_path = None
-    if args.out:
-        output_path = Path(args.out)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Helper function to process files
-    def process_file(file: Path) -> int:
-        """Process a single file for collation.
-
-        Returns
-        -------
-        int
-            Exit code (0 for success)
-
-        """
-        nonlocal max_exit_code
-        exit_code, content, error = convert_single_file_for_collation(
-            file, options, format_arg, transforms, file_separator
-        )
-        if exit_code == EXIT_SUCCESS:
-            collated_content.append(content)
-        else:
-            failed.append((file, error))
-            max_exit_code = max(max_exit_code, exit_code)
-        return exit_code
-
-    # Use unified progress tracking with ProgressContext
-    from all2md.cli.progress import ProgressContext
-
-    show_progress = args.progress or args.rich or len(files) > 1
     use_rich = args.rich
+    show_progress = args.progress or args.rich or len(items) > 1
 
-    with ProgressContext(use_rich, show_progress, len(files), "Converting and collating files") as progress:
-        for file in files:
-            progress.set_postfix(f"Processing {file.name}")
-            exit_code = process_file(file)
+    with ProgressContext(use_rich, show_progress, len(items), "Loading documents") as progress:
+        for offset, item in enumerate(items, start=1):
+            progress.set_postfix(f"Processing {item.name}")
+            exit_code, document, error = _convert_item_to_ast_for_collation(item, options, format_arg)
 
-            if exit_code == EXIT_SUCCESS:
-                progress.log(f"[OK] Processed {file}", level="success")
+            if exit_code == EXIT_SUCCESS and document:
+                heading = Heading(level=1, content=[Text(f"File: {item.name}")])
+                composed_children = [heading, *document.children]
+                composed_doc = ASTDocument(children=composed_children, metadata=document.metadata)
+                collected_documents.append(composed_doc)
+                progress.log(f"[OK] {item.display_name}", level="success")
             else:
-                error_msg = failed[-1][1] if failed else "Unknown error"
-                progress.log(f"[ERROR] {file}: {error_msg}", level="error")
+                message = error or "Unknown error"
+                failures.append((item, message, exit_code))
+                progress.log(f"[ERROR] {item.display_name}: {message}", level="error")
                 if not args.skip_errors:
                     break
 
             progress.update()
 
-    # Output the collated result
-    if collated_content:
-        final_content = file_separator.join(collated_content)
+    if not collected_documents:
+        print("Error: No inputs were successfully processed", file=sys.stderr)
+        return max((code for _, _, code in failures), default=EXIT_INPUT_ERROR)
 
+    merged_children: List[Any] = []
+    for index, document in enumerate(collected_documents):
+        merged_children.extend(document.children)
+        if index != len(collected_documents) - 1:
+            merged_children.append(ThematicBreak())
+
+    merged_document = ASTDocument(children=merged_children)
+
+    if transforms:
+        for transform in transforms:
+            transformed = transform.transform(merged_document)
+            assert isinstance(transformed, ASTDocument), "Transform should return Document"
+            merged_document = transformed
+
+    output_path: Optional[Path] = None
+    if args.out:
+        output_path = Path(args.out)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    target_format = args.output_type
+    if target_format == "auto":
         if output_path:
-            output_path.write_text(final_content, encoding="utf-8")
-            print(f"Collated {len(collated_content)} files -> {output_path}", file=sys.stderr)
+            try:
+                detected_target = registry.detect_format(output_path)
+                target_format = detected_target if detected_target != "txt" else "markdown"
+            except Exception:
+                target_format = "markdown"
         else:
-            print(final_content)
+            target_format = "markdown"
 
-    # Summary using unified renderer
-    if not args.no_summary:
-        from all2md.cli.progress import SummaryRenderer
+    render_options = prepare_options_for_execution(
+        options,
+        None,
+        format_arg,
+        target_format,
+    )
+    render_options.pop("remote_input_options", None)
 
-        renderer = SummaryRenderer(use_rich=args.rich)
-        renderer.render_conversion_summary(
-            successful=len(collated_content), failed=len(failed), total=len(files), title="Collation Summary"
+    try:
+        result = from_ast(
+            merged_document,
+            target_format=cast(DocumentFormat, target_format),
+            output=output_path,
+            transforms=None,
+            **render_options,
         )
 
-    return max_exit_code
+        if result is not None and output_path is None:
+            if isinstance(result, bytes):
+                print(result.decode("utf-8", errors="replace"))
+            else:
+                print(result)
+        elif output_path is None and result is None:
+            print("", end="")
+
+        if output_path:
+            print(
+                f"Collated {len(collected_documents)} input(s) -> {output_path}",
+                file=sys.stderr,
+            )
+
+    except Exception as exc:
+        exit_code = get_exit_code_for_exception(exc)
+        print(f"Error rendering collated document: {exc}", file=sys.stderr)
+        return exit_code
+
+    if not args.no_summary:
+        renderer = SummaryRenderer(use_rich=args.rich)
+        renderer.render_conversion_summary(
+            successful=len(collected_documents),
+            failed=len(failures),
+            total=len(items),
+            title="Collation Summary",
+        )
+
+    if failures:
+        return max(code for _, _, code in failures)
+
+    return EXIT_SUCCESS
 
 
 def generate_output_path(
@@ -2051,7 +1948,7 @@ def generate_output_path(
 
 
 def convert_single_file(
-        input_path: Path,
+        input_item: CLIInputItem,
         output_path: Optional[Path],
         options: Dict[str, Any],
         format_arg: str,
@@ -2064,8 +1961,8 @@ def convert_single_file(
 
     Parameters
     ----------
-    input_path : Path
-        Input file path
+    input_item : CLIInputItem
+        CLI input item describing the source
     output_path : Path, optional
         Output file path. If None, prints to stdout (markdown only)
     options : Dict[str, Any]
@@ -2093,22 +1990,12 @@ def convert_single_file(
         if local_transforms is None and transform_specs:
             local_transforms = _instantiate_transforms_from_specs(transform_specs)
 
-        raw_input_str = str(input_path)
-        normalized_input = raw_input_str
-        if raw_input_str.startswith('https:/') and not raw_input_str.startswith('https://'):
-            normalized_input = raw_input_str.replace('https:/', 'https://', 1)
-        elif raw_input_str.startswith('http:/') and not raw_input_str.startswith('http://'):
-            normalized_input = raw_input_str.replace('http:/', 'http://', 1)
-
-        is_remote_input = normalized_input.startswith(('http://', 'https://'))
-        path_hint: Optional[Path] = None
-
-        if is_remote_input:
-            from urllib.parse import urlparse
-
-            parsed = urlparse(normalized_input)
-            if parsed.path:
-                path_hint = Path(parsed.path)
+        source_value: Any = input_item.raw_input
+        if isinstance(source_value, str):
+            if source_value.startswith("https:/") and not source_value.startswith("https://"):
+                source_value = source_value.replace("https:/", "https://", 1)
+            elif source_value.startswith("http:/") and not source_value.startswith("http://"):
+                source_value = source_value.replace("http:/", "http://", 1)
 
         renderer_hint = target_format
         if renderer_hint == "auto" and output_path:
@@ -2121,89 +2008,60 @@ def convert_single_file(
 
         effective_options = prepare_options_for_execution(
             options,
-            path_hint if is_remote_input and path_hint else input_path,
+            input_item.best_path(),
             format_arg,
             renderer_hint,
         )
 
-        # Convert the document using the convert() API for bidirectional conversion
         if output_path:
-            # Write to file - convert() handles the target format correctly
             convert(
-                normalized_input if is_remote_input else input_path,
+                source_value,
                 output=output_path,
                 source_format=cast(DocumentFormat, format_arg),
                 target_format=cast(DocumentFormat, target_format),
                 transforms=local_transforms,
                 **effective_options,
             )
-            return EXIT_SUCCESS, str(input_path), None
-        else:
-            # Output to stdout - only markdown is supported for stdout
-            result = convert(
-                normalized_input if is_remote_input else input_path,
-                output=None,
-                source_format=cast(DocumentFormat, format_arg),
-                target_format="markdown",
-                transforms=local_transforms,
-                **effective_options,
-            )
-            # convert() returns str for markdown, bytes for binary formats
-            if isinstance(result, bytes):
-                # This shouldn't happen for markdown, but handle it just in case
-                print(result.decode("utf-8", errors="replace"))
-            else:
-                print(result)
-            return EXIT_SUCCESS, str(input_path), None
+            return EXIT_SUCCESS, input_item.display_name, None
 
-    except Exception as e:
-        exit_code = get_exit_code_for_exception(e)
-        error_msg = str(e)
-        if isinstance(e, ImportError):
-            error_msg = f"Missing dependency: {e}"
-        elif not isinstance(e, All2MdError):
-            error_msg = f"Unexpected error: {e}"
-        return exit_code, str(input_path), error_msg
+        result = convert(
+            source_value,
+            output=None,
+            source_format=cast(DocumentFormat, format_arg),
+            target_format="markdown",
+            transforms=local_transforms,
+            **effective_options,
+        )
+
+        if isinstance(result, bytes):
+            print(result.decode("utf-8", errors="replace"))
+        else:
+            print(result)
+
+        return EXIT_SUCCESS, input_item.display_name, None
+
+    except Exception as exc:
+        exit_code = get_exit_code_for_exception(exc)
+        error_msg = str(exc)
+        if isinstance(exc, ImportError):
+            error_msg = f"Missing dependency: {exc}"
+        elif not isinstance(exc, All2MdError):
+            error_msg = f"Unexpected error: {exc}"
+        return exit_code, input_item.display_name, error_msg
 
 
 def process_files_unified(
-        files: List[Path],
+        items: List[CLIInputItem],
         args: argparse.Namespace,
         options: Dict[str, Any],
         format_arg: str,
         transforms: Optional[list] = None,
 ) -> int:
-    """Process files with unified progress tracking (rich/tqdm/plain).
+    """Process CLI inputs with unified progress handling."""
 
-    This function consolidates the functionality of process_with_rich_output,
-    process_with_progress_bar, and process_files_simple into a single
-    implementation using the unified ProgressContext and SummaryRenderer.
-
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to process
-    args : argparse.Namespace
-        Command-line arguments
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform instances to apply
-
-    Returns
-    -------
-    int
-        Exit code (0 for success, highest error code otherwise)
-
-    """
     from all2md.cli.progress import ProgressContext, SummaryRenderer
 
-    # Determine base input directory for structure preservation
-    base_input_dir = None
-    if args.preserve_structure and len(files) > 0:
-        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
+    base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
 
     try:
         should_use_rich = _should_use_rich_output(args)
@@ -2215,109 +2073,56 @@ def process_files_unified(
     if rich_dependency_error:
         print(f"Warning: {rich_dependency_error}", file=sys.stderr)
 
-    # Special case: single file to stdout with rich formatting
-    if len(files) == 1 and not args.out and not args.output_dir:
-        file = files[0]
-
-        # Check if we should use rich output for this
-        if should_use_rich:
-            # Import rich components
-            from rich.markdown import Markdown
-
-            try:
-                from rich.console import Console
-
-                console = Console()
-
-                # Show progress during conversion
-                with ProgressContext(True, True, 1, f"Converting {file.name}") as progress:
-                    try:
-                        # Convert the document
-                        effective_options = prepare_options_for_execution(
-                            options,
-                            file,
-                            format_arg,
-                            "markdown",
-                        )
-                        markdown_content = to_markdown(
-                            file, source_format=cast(Any, format_arg), transforms=transforms, **effective_options
-                        )
-                        progress.update()
-                    except Exception as e:
-                        exit_code = get_exit_code_for_exception(e)
-                        error = str(e)
-                        if isinstance(e, ImportError):
-                            error = f"Missing dependency: {e}"
-                        elif not isinstance(e, All2MdError):
-                            error = f"Unexpected error: {e}"
-                        progress.log(f"[ERROR] {file}: {error}", level="error")
-                        return exit_code
-
-                # After progress completes, print the rich-formatted output
-                rich_kwargs = _get_rich_markdown_kwargs(args)
-                console.print(Markdown(markdown_content, **rich_kwargs))
-                return EXIT_SUCCESS
-
-            except ImportError:
-                # Fall back to plain output
-                pass
-
-        # Plain output (no rich)
-        try:
-            effective_options = prepare_options_for_execution(
-                options,
-                file,
-                format_arg,
-                "markdown",
-            )
-            markdown_content = to_markdown(
-                file, source_format=cast(Any, format_arg), transforms=transforms, **effective_options
-            )
-            print(markdown_content)
-            return EXIT_SUCCESS
-        except Exception as e:
-            exit_code = get_exit_code_for_exception(e)
-            print(f"Error: {e}", file=sys.stderr)
-            return exit_code
-
-    # Multi-file processing
-    results: list[tuple[Path, Path | None]] = []
-    failed: list[tuple[Path, str | None]] = []
-    max_exit_code = EXIT_SUCCESS
-
-    # Determine if progress should be shown
-    show_progress = args.progress or (should_use_rich and args.rich) or len(files) > 1
-    use_rich = should_use_rich
+    # Special case: single item to stdout
+    if len(items) == 1 and not args.out and not args.output_dir:
+        return _render_single_item_to_stdout(items[0], args, options, format_arg, transforms, should_use_rich)
 
     transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
-    # Check if parallel processing is enabled
+    planned_tasks: List[Tuple[CLIInputItem, Optional[Path], str, int]] = []
+    target_format_default = getattr(args, "output_type", "markdown")
+
+    output_dir = Path(args.output_dir) if args.output_dir else None
+
+    for index, item in enumerate(items, start=1):
+        target_format = target_format_default
+        output_path: Optional[Path] = None
+
+        if args.out and len(items) == 1:
+            output_path = Path(args.out)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        elif output_dir:
+            output_path = _generate_output_path_for_item(
+                item,
+                output_dir,
+                args.preserve_structure,
+                base_input_dir,
+                target_format,
+                index,
+            )
+
+        planned_tasks.append((item, output_path, target_format, index))
+
+    show_progress = args.progress or (should_use_rich and args.rich) or len(items) > 1
+    use_rich = should_use_rich
+
+    results: List[Tuple[CLIInputItem, Optional[Path]]] = []
+    failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
+    max_exit_code = EXIT_SUCCESS
+
     use_parallel = (
-                           hasattr(args,
-                                   "_provided_args") and "parallel" in args._provided_args and args.parallel is None
-                   ) or (isinstance(args.parallel, int) and args.parallel != 1)
+        hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
+    ) or (isinstance(args.parallel, int) and args.parallel != 1)
 
     if use_parallel:
-        # Parallel processing with progress
         max_workers = args.parallel if args.parallel else os.cpu_count()
 
-        with ProgressContext(use_rich, show_progress, len(files), "Converting files") as progress:
+        with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                futures = {}
-
-                # Submit files to executor
-                for file in files:
-                    target_format = getattr(args, "output_type", "markdown")
-                    output_path = generate_output_path(
-                        file,
-                        Path(args.output_dir) if args.output_dir else None,
-                        args.preserve_structure,
-                        base_input_dir,
-                        target_format=target_format,
-                    )
-                    future = executor.submit(
+                futures = {
+                    executor.submit(
                         convert_single_file,
-                        file,
+                        item,
                         output_path,
                         options,
                         format_arg,
@@ -2325,45 +2130,35 @@ def process_files_unified(
                         False,
                         target_format,
                         transform_specs_for_workers,
-                    )
-                    futures[future] = (file, output_path)
+                    ): (item, output_path)
+                    for item, output_path, target_format, _ in planned_tasks
+                }
 
-                # Process results as they complete
                 for future in as_completed(futures):
-                    file, output_path = futures[future]
-                    result_exit_code, result_file_str, result_error = future.result()
+                    item, output_path = futures[future]
+                    exit_code, _, error = future.result()
 
-                    if result_exit_code == EXIT_SUCCESS:
-                        results.append((file, output_path))
+                    if exit_code == EXIT_SUCCESS:
+                        results.append((item, output_path))
+                        message = f"[OK] {item.display_name}"
                         if output_path:
-                            progress.log(f"[OK] {file} -> {output_path}", level="success")
-                        else:
-                            progress.log(f"[OK] Converted {file}", level="success")
+                            message = f"[OK] {item.display_name} -> {output_path}"
+                        progress.log(message, level="success")
                     else:
-                        failed.append((file, result_error))
-                        progress.log(f"[ERROR] {file}: {result_error}", level="error")
-                        max_exit_code = max(max_exit_code, result_exit_code)
+                        failures.append((item, error, exit_code))
+                        progress.log(f"[ERROR] {item.display_name}: {error}", level="error")
+                        max_exit_code = max(max_exit_code, exit_code)
                         if not args.skip_errors:
                             break
 
                     progress.update()
     else:
-        # Sequential processing with progress
-        with ProgressContext(use_rich, show_progress, len(files), "Converting files") as progress:
-            for file in files:
-                progress.set_postfix(f"Processing {file.name}")
+        with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
+            for item, output_path, target_format, index in planned_tasks:
+                progress.set_postfix(f"Processing {item.name}")
 
-                target_format = getattr(args, "output_type", "markdown")
-                output_path = generate_output_path(
-                    file,
-                    Path(args.output_dir) if args.output_dir else None,
-                    args.preserve_structure,
-                    base_input_dir,
-                    target_format=target_format,
-                )
-
-                result_exit_code, result_file_str, result_error = convert_single_file(
-                    file,
+                exit_code, _, error = convert_single_file(
+                    item,
                     output_path,
                     options,
                     format_arg,
@@ -2373,27 +2168,33 @@ def process_files_unified(
                     transform_specs_for_workers,
                 )
 
-                if result_exit_code == EXIT_SUCCESS:
-                    results.append((file, output_path))
+                if exit_code == EXIT_SUCCESS:
+                    results.append((item, output_path))
+                    message = f"[OK] {item.display_name}"
                     if output_path:
-                        progress.log(f"[OK] {file} -> {output_path}", level="success")
-                    else:
-                        progress.log(f"[OK] Converted {file}", level="success")
+                        message = f"[OK] {item.display_name} -> {output_path}"
+                    progress.log(message, level="success")
                 else:
-                    failed.append((file, result_error))
-                    progress.log(f"[ERROR] {file}: {result_error}", level="error")
-                    max_exit_code = max(max_exit_code, result_exit_code)
+                    failures.append((item, error, exit_code))
+                    progress.log(f"[ERROR] {item.display_name}: {error}", level="error")
+                    max_exit_code = max(max_exit_code, exit_code)
                     if not args.skip_errors:
                         break
 
                 progress.update()
 
-    # Show summary for multi-file processing
-    if not args.no_summary and len(files) > 1:
+    if not args.no_summary and len(items) > 1:
         renderer = SummaryRenderer(use_rich=use_rich)
-        renderer.render_conversion_summary(successful=len(results), failed=len(failed), total=len(files))
+        renderer.render_conversion_summary(
+            successful=len(results),
+            failed=len(failures),
+            total=len(items),
+        )
 
-    return max_exit_code
+    if failures:
+        return max_exit_code
+
+    return EXIT_SUCCESS
 
 
 # TODO: remove - replaced by process_files_unified()
@@ -2793,3 +2594,55 @@ def process_files_simple(
                 break
 
     return max_exit_code
+def _render_single_item_to_stdout(
+        item: CLIInputItem,
+        args: argparse.Namespace,
+        options: Dict[str, Any],
+        format_arg: str,
+        transforms: Optional[list],
+        should_use_rich: bool,
+) -> int:
+    """Render a single item to stdout, respecting pager and rich flags."""
+
+    try:
+        effective_options = prepare_options_for_execution(
+            options,
+            item.best_path(),
+            format_arg,
+            "markdown",
+        )
+        markdown_content = to_markdown(
+            item.raw_input,
+            source_format=cast(DocumentFormat, format_arg),
+            transforms=transforms,
+            **effective_options,
+        )
+    except Exception as exc:
+        exit_code = get_exit_code_for_exception(exc)
+        print(f"Error: {exc}", file=sys.stderr)
+        return exit_code
+
+    if args.pager:
+        try:
+            from rich.console import Console
+            from rich.markdown import Markdown
+
+            if should_use_rich:
+                console = Console()
+                rich_kwargs = _get_rich_markdown_kwargs(args)
+                with console.capture() as capture:
+                    console.print(Markdown(markdown_content, **rich_kwargs))
+                content_to_page = capture.get()
+                is_rich = True
+            else:
+                content_to_page = markdown_content
+                is_rich = False
+
+            if not _page_content(content_to_page, is_rich=is_rich):
+                print(content_to_page)
+            return EXIT_SUCCESS
+        except ImportError:
+            print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+
+    print(markdown_content)
+    return EXIT_SUCCESS

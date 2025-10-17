@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from all2md.cli.input_items import CLIInputItem
 
 class ValidationSeverity(str, Enum):
     """Severity levels for validation problems."""
@@ -34,7 +35,7 @@ class ValidationProblem:
 
 def collect_argument_problems(
         parsed_args: argparse.Namespace,
-        files: Optional[List[Path]] = None,
+        files: Optional[List[CLIInputItem]] = None,
 ) -> list[ValidationProblem]:
     """Collect validation problems for parsed CLI arguments."""
     problems: list[ValidationProblem] = []
@@ -94,7 +95,7 @@ def report_validation_problems(
 
 def validate_arguments(
         parsed_args: argparse.Namespace,
-        files: Optional[List[Path]] = None,
+        files: Optional[List[CLIInputItem]] = None,
         *,
         logger: Optional[logging.Logger] = None,
 ) -> bool:
