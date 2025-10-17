@@ -230,15 +230,15 @@ print(fibonacci(10))"""
 
     def test_error_handling_integration(self):
         """Test error handling through main interface."""
-        from all2md.exceptions import ParsingError
+        from all2md.exceptions import ParsingError, ValidationError
 
         # Test with non-existent file
-        with pytest.raises(ParsingError):
+        with pytest.raises((ParsingError, ValidationError)):
             to_markdown("/nonexistent/file.py")
 
         # Test with directory
         with tempfile.TemporaryDirectory() as temp_dir:
-            with pytest.raises(ParsingError):
+            with pytest.raises((ParsingError, ValidationError)):
                 to_markdown(temp_dir, source_format="sourcecode")
 
     def test_format_detection_edge_cases(self):

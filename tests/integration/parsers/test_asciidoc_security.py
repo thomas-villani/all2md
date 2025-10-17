@@ -91,7 +91,11 @@ class TestAsciiDocUrlSanitization:
 
     def test_autolink_safe_url_preserved(self):
         """Test that safe URLs in autolinks are preserved."""
-        asciidoc_content = """https://example.com/page"""
+        asciidoc_content = """= Test Document
+
+This document contains a safe URL: https://example.com/page
+
+More content here."""
 
         result = to_markdown(asciidoc_content, source_format="asciidoc")
 

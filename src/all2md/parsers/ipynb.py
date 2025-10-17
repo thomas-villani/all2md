@@ -204,6 +204,14 @@ class IpynbToAstConverter(BaseParser):
         cell_type = cell.get("cell_type")
         nodes: list[Node] = []
 
+        # Skip cells with missing or invalid cell_type
+        if not cell_type or not isinstance(cell_type, str):
+            logger.debug(
+                "Skipping cell at index %s with missing or invalid cell_type",
+                cell_index,
+            )
+            return nodes
+
         cell_metadata = deepcopy(cell.get("metadata", {})) if cell.get("metadata") else {}
         attachments = cell.get("attachments")
         source = self._get_source(cell)
@@ -224,9 +232,14 @@ class IpynbToAstConverter(BaseParser):
             if source.strip():
                 markdown_nodes = self._parse_markdown_cell(source)
 
-            # Ensure we have at least one node when attachments exist so the cell survives round-trip
-            if not markdown_nodes and attachments:
-                markdown_nodes = [Paragraph(content=[Text(content="")])]
+            # Handle empty markdown cells based on skip_empty_cells option
+            if not markdown_nodes:
+                # If skip_empty_cells is False OR there are attachments, preserve the empty cell
+                if not self.options.skip_empty_cells or attachments:
+                    markdown_nodes = [Paragraph(content=[Text(content="")])]
+                else:
+                    # Skip empty cell entirely
+                    return nodes
 
             for segment_index, markdown_node in enumerate(markdown_nodes):
                 info = deepcopy(base_info)
@@ -250,18 +263,25 @@ class IpynbToAstConverter(BaseParser):
             base_info["language"] = language
             base_info["raw_outputs"] = deepcopy(cell.get("outputs", []))
 
+            # Skip empty code cells if configured (unless they have outputs or attachments)
+            has_outputs = cell.get("outputs") and len(cell.get("outputs", [])) > 0
+            if self.options.skip_empty_cells and not source.strip() and not has_outputs and not attachments:
+                return nodes
+
             if self.options.include_inputs:
-                code_content = source
+                # Only create input node if source is non-empty OR skip_empty_cells is False
+                if source.strip() or not self.options.skip_empty_cells:
+                    code_content = source
 
-                if self.options.show_execution_count:
-                    execution_count = cell.get("execution_count")
-                    if execution_count is not None:
-                        code_content = f"# In [{execution_count}]:\n{source}"
-                        base_info["execution_count_was_inlined"] = True
+                    if self.options.show_execution_count:
+                        execution_count = cell.get("execution_count")
+                        if execution_count is not None:
+                            code_content = f"# In [{execution_count}]:\n{source}"
+                            base_info["execution_count_was_inlined"] = True
 
-                code_node = CodeBlock(language=language, content=code_content)
-                self._attach_ipynb_metadata(code_node, base_info, role="input")
-                nodes.append(code_node)
+                    code_node = CodeBlock(language=language, content=code_content)
+                    self._attach_ipynb_metadata(code_node, base_info, role="input")
+                    nodes.append(code_node)
 
             if self.options.include_outputs:
                 for j, output in enumerate(cell.get("outputs", [])):

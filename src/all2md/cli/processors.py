@@ -10,6 +10,8 @@ import argparse
 import json
 import logging
 import os
+import platform
+import pydoc
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -29,6 +31,7 @@ from all2md.cli.input_items import CLIInputItem
 from all2md.cli.validation import validate_arguments as _validate_arguments
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
+from all2md.transforms import registry as transform_registry
 from all2md.exceptions import All2MdError, DependencyError
 from all2md.utils.input_sources import RemoteInputOptions
 
@@ -447,6 +450,37 @@ def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
     return kwargs
 
 
+def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> tuple[str, bool]:
+    """Apply Rich formatting to markdown content if requested.
+
+    Parameters
+    ----------
+    markdown_content : str
+        Plain markdown content to format
+    args : argparse.Namespace
+        Parsed command line arguments
+
+    Returns
+    -------
+    tuple[str, bool]
+        Tuple of (formatted_content, is_rich_formatted)
+        Returns (plain_markdown, False) if rich is unavailable or not requested
+
+    """
+    try:
+        from rich.console import Console
+        from rich.markdown import Markdown
+
+        console = Console()
+        rich_kwargs = _get_rich_markdown_kwargs(args)
+        with console.capture() as capture:
+            console.print(Markdown(markdown_content, **rich_kwargs))
+        return capture.get(), True
+    except ImportError:
+        print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+        return markdown_content, False
+
+
 def _page_content(content: str, is_rich: bool = False) -> bool:
     """Page content using pydoc.pager.
 
@@ -463,8 +497,6 @@ def _page_content(content: str, is_rich: bool = False) -> bool:
         True if paging succeeded, False if should fall back to printing
 
     """
-    import platform
-    import pydoc
 
     # Check if using Rich formatting on Windows/WSL
     # Plain text paging works fine on Windows, but Rich ANSI codes don't display well
@@ -599,7 +631,6 @@ def _instantiate_transforms_from_specs(transform_specs: list[TransformSpec]) -> 
     if not transform_specs:
         return []
 
-    from all2md.transforms import registry as transform_registry
 
     instances: list[Any] = []
     for spec in transform_specs:
@@ -640,7 +671,6 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
     - max_attachment_size_bytes -> BaseParserOptions (top-level, no prefix)
 
     """
-    import sys
 
     # Track which preset is being used (highest security wins)
     preset_used = None
@@ -762,7 +792,7 @@ def setup_and_validate_options(
 
     return options, format_arg, transforms
 
-
+# TODO: remove, no longer used.
 def validate_arguments(
         parsed_args: argparse.Namespace,
         files: Optional[List[CLIInputItem]] = None,
@@ -772,7 +802,7 @@ def validate_arguments(
     """Backward-compatible shim for CLI argument validation."""
     return _validate_arguments(parsed_args, files, logger=logger)
 
-
+# TODO: no longer used, remove.
 def process_stdin(
         parsed_args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
@@ -826,44 +856,29 @@ def process_stdin(
             output_path.write_text(markdown_content, encoding="utf-8")
             print(f"Converted stdin -> {output_path}", file=sys.stderr)
         else:
-            if parsed_args.pager:
-                try:
-                    try:
-                        use_rich_output = _should_use_rich_output(parsed_args)
-                        rich_error: str | None = None
-                    except DependencyError as exc:
-                        use_rich_output = False
-                        rich_error = str(exc)
+            # Determine if we should use rich output
+            try:
+                use_rich_output = _should_use_rich_output(parsed_args)
+                rich_error: str | None = None
+            except DependencyError as exc:
+                use_rich_output = False
+                rich_error = str(exc)
 
-                    if use_rich_output:
-                        from rich.console import Console
-                        from rich.markdown import Markdown
-
-                        console = Console()
-                        # Get Rich markdown kwargs from CLI args
-                        rich_kwargs = _get_rich_markdown_kwargs(parsed_args)
-                        # Capture Rich output with ANSI codes
-                        with console.capture() as capture:
-                            console.print(Markdown(markdown_content, **rich_kwargs))
-                        content_to_page = capture.get()
-                        is_rich = True
-                    else:
-                        content_to_page = markdown_content
-                        is_rich = False
-
-                    if rich_error:
-                        print(f"Warning: {rich_error}", file=sys.stderr)
-
-                    # Try to page the content using available pager
-                    if not _page_content(content_to_page, is_rich=is_rich):
-                        # If paging fails, just print the content
-                        print(content_to_page)
-                except ImportError:
-                    msg = "Warning: Rich library not installed. Install with: pip install all2md[rich]"
-                    print(msg, file=sys.stderr)
-                    print(markdown_content)
+            # Apply rich formatting if requested
+            if use_rich_output:
+                content_to_output, is_rich = _apply_rich_formatting(markdown_content, parsed_args)
             else:
-                print(markdown_content)
+                content_to_output, is_rich = markdown_content, False
+
+            if rich_error:
+                print(f"Warning: {rich_error}", file=sys.stderr)
+
+            # Apply paging if requested
+            if parsed_args.pager:
+                if not _page_content(content_to_output, is_rich=is_rich):
+                    print(content_to_output)
+            else:
+                print(content_to_output)
 
         return 0
 
@@ -1121,7 +1136,7 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
     Reading from stdin:
 
-        >>> echo "chapter1.pdf\\tIntro" | all2md --merge-from-list - --out book.md
+        $ echo "chapter1.pdf\\tIntro" | all2md --merge-from-list - --out book.md
 
     """
     try:
@@ -2622,27 +2637,17 @@ def _render_single_item_to_stdout(
         print(f"Error: {exc}", file=sys.stderr)
         return exit_code
 
+    # Apply rich formatting if requested
+    if should_use_rich:
+        content_to_output, is_rich = _apply_rich_formatting(markdown_content, args)
+    else:
+        content_to_output, is_rich = markdown_content, False
+
+    # Apply paging if requested
     if args.pager:
-        try:
-            from rich.console import Console
-            from rich.markdown import Markdown
+        if not _page_content(content_to_output, is_rich=is_rich):
+            print(content_to_output)
+    else:
+        print(content_to_output)
 
-            if should_use_rich:
-                console = Console()
-                rich_kwargs = _get_rich_markdown_kwargs(args)
-                with console.capture() as capture:
-                    console.print(Markdown(markdown_content, **rich_kwargs))
-                content_to_page = capture.get()
-                is_rich = True
-            else:
-                content_to_page = markdown_content
-                is_rich = False
-
-            if not _page_content(content_to_page, is_rich=is_rich):
-                print(content_to_page)
-            return EXIT_SUCCESS
-        except ImportError:
-            print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-
-    print(markdown_content)
     return EXIT_SUCCESS

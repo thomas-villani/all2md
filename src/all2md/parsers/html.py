@@ -664,6 +664,12 @@ class HtmlToAstConverter(BaseParser):
         if not hasattr(node, "name"):
             return None
 
+        # Skip script/style nodes regardless of sanitization settings. These tags never
+        # produce meaningful markdown output and can leak inline JavaScript/CSS into the
+        # rendered document if treated as generic blocks.
+        if node.name in ("script", "style"):
+            return None
+
         # Dispatch based on element type
         if node.name == "br":
             # Handle <br> based on br_handling option

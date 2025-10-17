@@ -28,6 +28,10 @@ class IpynbOptions(BaseParserOptions):
         Whether to include cell input (source code) in output.
     include_outputs : bool, default True
         Whether to include cell outputs in the markdown.
+    skip_empty_cells : bool, default True
+        Whether to skip cells with no content. When False, empty cells are preserved
+        as empty blocks to maintain round-trip fidelity. When True, empty cells are
+        omitted for cleaner output.
     show_execution_count : bool, default False
         Whether to show execution counts for code cells.
     output_types : list[str] or None, default ["stream", "execute_result", "display_data"]
@@ -59,6 +63,14 @@ class IpynbOptions(BaseParserOptions):
             "help": "Include cell outputs in the markdown",
             "cli_name": "no-include-outputs",
             "importance": "core",
+        },
+    )
+    skip_empty_cells: bool = field(
+        default=True,
+        metadata={
+            "help": "Skip cells with no content (preserves round-trip fidelity when False)",
+            "cli_name": "no-skip-empty-cells",
+            "importance": "advanced",
         },
     )
     show_execution_count: bool = field(

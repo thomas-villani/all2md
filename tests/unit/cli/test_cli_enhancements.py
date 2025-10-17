@@ -181,6 +181,7 @@ class TestDetectOnlyMode:
     def test_detect_only_basic(self, mock_check_installed, mock_check_version, mock_registry):
         """Test basic detect-only functionality."""
         from pathlib import Path
+        from all2md.cli.input_items import CLIInputItem
 
         # Setup mocks
         mock_registry.auto_discover = Mock()
@@ -204,7 +205,14 @@ class TestDetectOnlyMode:
             test_file = Path(f.name)
 
         try:
-            result = process_detect_only([test_file], args, 'auto')
+            # Create CLIInputItem from Path
+            item = CLIInputItem(
+                raw_input=test_file,
+                kind='local_file',
+                display_name=test_file.name,
+                path_hint=test_file,
+            )
+            result = process_detect_only([item], args, 'auto')
             assert result == 0
         finally:
             test_file.unlink()
@@ -318,6 +326,7 @@ class TestEnhancedDryRun:
     def test_dry_run_shows_format_detection(self, mock_check_installed, mock_check_version, mock_registry):
         """Test that enhanced dry-run shows format detection info."""
         from pathlib import Path
+        from all2md.cli.input_items import CLIInputItem
 
         # Setup mocks
         mock_registry.auto_discover = Mock()
@@ -350,7 +359,14 @@ class TestEnhancedDryRun:
             test_file = Path(f.name)
 
         try:
-            result = process_dry_run([test_file], args, 'auto')
+            # Create CLIInputItem from Path
+            item = CLIInputItem(
+                raw_input=test_file,
+                kind='local_file',
+                display_name=test_file.name,
+                path_hint=test_file,
+            )
+            result = process_dry_run([item], args, 'auto')
             assert result == 0
         finally:
             test_file.unlink()

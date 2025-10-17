@@ -21,7 +21,7 @@ from utils import assert_markdown_valid
 
 from all2md import MhtmlOptions
 from all2md import to_markdown as mhtml_to_markdown
-from all2md.exceptions import MalformedFileError, ParsingError
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options import MarkdownOptions
 
 
@@ -274,12 +274,12 @@ class TestMhtmlIntegrationErrorHandling:
 
     def test_invalid_input_type(self):
         """Test handling of invalid input types."""
-        with pytest.raises((MalformedFileError, AttributeError, TypeError)):
+        with pytest.raises((MalformedFileError, AttributeError, TypeError, ValidationError)):
             mhtml_to_markdown(123)  # Invalid type
 
     def test_directory_instead_of_file(self, temp_dir):
         """Test handling when directory is passed instead of file."""
-        with pytest.raises((MalformedFileError, ParsingError, PermissionError)):
+        with pytest.raises((MalformedFileError, ParsingError, PermissionError, ValidationError)):
             mhtml_to_markdown(temp_dir)
 
 

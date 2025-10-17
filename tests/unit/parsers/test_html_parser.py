@@ -593,6 +593,29 @@ class TestHtmlOptions:
         paragraphs = [child for child in doc.children if isinstance(child, Paragraph)]
         assert len(paragraphs) >= 1
 
+    def test_inline_script_dropped_by_default(self) -> None:
+        """Inline script nodes should be ignored even without sanitization enabled."""
+        html = """
+        <html>
+            <body>
+                <p>Hello</p>
+                <script>console.log('hi');</script>
+                <p>World</p>
+            </body>
+        </html>
+        """
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast(html)
+
+        # We should only get the textual content from the paragraphs
+        assert len(doc.children) == 2
+        assert all(isinstance(child, Paragraph) for child in doc.children)
+        paragraph_text = [
+            "".join(text.content for text in child.content if isinstance(text, Text))
+            for child in doc.children
+        ]
+        assert "console.log" not in " ".join(paragraph_text)
+
     def test_allowed_attributes_global_allowlist(self) -> None:
         """Test global attribute allowlist removes unwanted attributes."""
         html = '<div class="container" id="main" data-value="test" onclick="alert()">Content</div>'

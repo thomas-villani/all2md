@@ -12,6 +12,7 @@ class TestCreatePackageFromConversions:
     def test_create_package_basic(self, tmp_path):
         """Test basic package creation from text files."""
         from all2md.cli.packaging import create_package_from_conversions
+        from all2md.cli.input_items import CLIInputItem
 
         # Create test input files
         input1 = tmp_path / "input1.txt"
@@ -19,11 +20,25 @@ class TestCreatePackageFromConversions:
         input1.write_text("# Test Document 1\n\nContent here.")
         input2.write_text("# Test Document 2\n\nMore content.")
 
+        # Create CLIInputItem objects
+        item1 = CLIInputItem(
+            raw_input=input1,
+            kind='local_file',
+            display_name=input1.name,
+            path_hint=input1,
+        )
+        item2 = CLIInputItem(
+            raw_input=input2,
+            kind='local_file',
+            display_name=input2.name,
+            path_hint=input2,
+        )
+
         zip_path = tmp_path / "output.zip"
 
         # Create package
         result = create_package_from_conversions(
-            input_files=[input1, input2],
+            input_items=[item1, item2],
             zip_path=zip_path,
             target_format="markdown"
         )
@@ -41,14 +56,22 @@ class TestCreatePackageFromConversions:
     def test_create_package_different_formats(self, tmp_path):
         """Test package creation with different target formats."""
         from all2md.cli.packaging import create_package_from_conversions
+        from all2md.cli.input_items import CLIInputItem
 
         input_file = tmp_path / "test.txt"
         input_file.write_text("# Test\n\nSome content.")
 
+        item = CLIInputItem(
+            raw_input=input_file,
+            kind='local_file',
+            display_name=input_file.name,
+            path_hint=input_file,
+        )
+
         # Test HTML format
         zip_html = tmp_path / "output_html.zip"
         create_package_from_conversions(
-            input_files=[input_file],
+            input_items=[item],
             zip_path=zip_html,
             target_format="html"
         )
@@ -59,9 +82,17 @@ class TestCreatePackageFromConversions:
     def test_create_package_forces_base64(self, tmp_path):
         """Test that packaging forces base64 attachment mode."""
         from all2md.cli.packaging import create_package_from_conversions
+        from all2md.cli.input_items import CLIInputItem
 
         input_file = tmp_path / "test.txt"
         input_file.write_text("Test content")
+
+        item = CLIInputItem(
+            raw_input=input_file,
+            kind='local_file',
+            display_name=input_file.name,
+            path_hint=input_file,
+        )
 
         zip_path = tmp_path / "output.zip"
 
@@ -70,7 +101,7 @@ class TestCreatePackageFromConversions:
 
         # Package should override this to base64
         create_package_from_conversions(
-            input_files=[input_file],
+            input_items=[item],
             zip_path=zip_path,
             target_format="markdown",
             options=options
@@ -82,6 +113,7 @@ class TestCreatePackageFromConversions:
     def test_create_package_handles_conversion_errors(self, tmp_path):
         """Test that packaging continues on conversion errors."""
         from all2md.cli.packaging import create_package_from_conversions
+        from all2md.cli.input_items import CLIInputItem
 
         # Create one valid file and one that will fail
         valid_file = tmp_path / "valid.txt"
@@ -89,11 +121,25 @@ class TestCreatePackageFromConversions:
 
         invalid_file = tmp_path / "nonexistent.txt"  # Doesn't exist
 
+        valid_item = CLIInputItem(
+            raw_input=valid_file,
+            kind='local_file',
+            display_name=valid_file.name,
+            path_hint=valid_file,
+        )
+
+        invalid_item = CLIInputItem(
+            raw_input=invalid_file,
+            kind='local_file',
+            display_name=invalid_file.name,
+            path_hint=invalid_file,
+        )
+
         zip_path = tmp_path / "output.zip"
 
         # Should not raise, just skip invalid files
         result = create_package_from_conversions(
-            input_files=[valid_file, invalid_file],
+            input_items=[valid_item, invalid_item],
             zip_path=zip_path,
             target_format="markdown"
         )

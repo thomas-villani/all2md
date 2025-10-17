@@ -77,6 +77,8 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
     tmp_path,
 ) -> None:
     """convert_single_file should materialize transforms from serialized specs."""
+    from all2md.cli.input_items import CLIInputItem
+
     captured: dict[str, Any] = {}
 
     def fake_convert(*_, transforms=None, **__):  # type: ignore[no-untyped-def]
@@ -90,10 +92,18 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
     input_path.write_text('stub')
     output_path = tmp_path / 'output.md'
 
+    # Create CLIInputItem instead of using Path directly
+    input_item = CLIInputItem(
+        raw_input=input_path,
+        kind='local_file',
+        display_name=input_path.name,
+        path_hint=input_path,
+    )
+
     specs = [{'name': 'demo-transform', 'params': {}}]
 
     exit_code, _, error = convert_single_file(
-        input_path,
+        input_item,
         output_path,
         options={},
         format_arg='markdown',
@@ -138,3 +148,87 @@ def test_registry_default_extension_fallback(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(registry, 'get_format_info', lambda name: None)
 
     assert registry.get_default_extension_for_format('pptx') == '.pptx'
+
+
+@pytest.mark.unit
+def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test _apply_rich_formatting successfully renders markdown with Rich."""
+    from all2md.cli.processors import _apply_rich_formatting
+    import argparse
+
+    args = argparse.Namespace(
+        rich_code_theme='monokai',
+        rich_inline_code_theme=None,
+        rich_hyperlinks=True,
+        rich_justify='left',
+    )
+
+    markdown = "# Test\nThis is **bold** text."
+
+    # Mock Rich modules
+    class MockCapture:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def get(self):
+            return "RICH_RENDERED_CONTENT"
+
+    class MockConsole:
+        def capture(self):
+            return MockCapture()
+        def print(self, *args, **kwargs):
+            pass
+
+    class MockMarkdown:
+        def __init__(self, content, **kwargs):
+            pass
+
+    import sys
+    mock_rich = type(sys)('rich')
+    mock_rich.console = type(sys)('console')
+    mock_rich.console.Console = MockConsole
+    mock_rich.markdown = type(sys)('markdown')
+    mock_rich.markdown.Markdown = MockMarkdown
+
+    monkeypatch.setitem(sys.modules, 'rich', mock_rich)
+    monkeypatch.setitem(sys.modules, 'rich.console', mock_rich.console)
+    monkeypatch.setitem(sys.modules, 'rich.markdown', mock_rich.markdown)
+
+    content, is_rich = _apply_rich_formatting(markdown, args)
+
+    assert content == "RICH_RENDERED_CONTENT"
+    assert is_rich is True
+
+
+@pytest.mark.unit
+def test_apply_rich_formatting_import_error(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """Test _apply_rich_formatting handles ImportError gracefully."""
+    from all2md.cli.processors import _apply_rich_formatting
+    import argparse
+    import sys
+
+    args = argparse.Namespace()
+    markdown = "# Test\nPlain markdown."
+
+    # Remove rich from sys.modules to simulate ImportError
+    for key in list(sys.modules.keys()):
+        if key.startswith('rich'):
+            monkeypatch.delitem(sys.modules, key, raising=False)
+
+    # Prevent import of rich
+    def import_blocker(name, *args, **kwargs):
+        if name.startswith('rich'):
+            raise ImportError(f"No module named '{name}'")
+        return __import__(name, *args, **kwargs)
+
+    monkeypatch.setattr('builtins.__import__', import_blocker)
+
+    content, is_rich = _apply_rich_formatting(markdown, args)
+
+    assert content == markdown  # Should return plain markdown
+    assert is_rich is False
+
+    # Check warning was printed
+    captured = capsys.readouterr()
+    assert "Rich library not installed" in captured.err

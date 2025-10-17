@@ -197,7 +197,7 @@ def example_function():
         ])
 
         assert result.returncode == 0
-        assert "Warning" in result.stderr
+        assert "WARNING" in result.stderr
         assert "attachment mode is 'alt_text'" in result.stderr
 
     def test_debug_logging(self):

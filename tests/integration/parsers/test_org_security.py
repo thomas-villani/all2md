@@ -91,7 +91,11 @@ class TestOrgModeUrlSanitization:
 
     def test_plain_url_safe_preserved(self):
         """Test that plain safe URLs are preserved."""
-        org_content = """https://example.com/page"""
+        org_content = """* Test Document
+
+This document contains a safe URL: https://example.com/page
+
+More content here."""
 
         result = to_markdown(org_content, source_format="org")
 
