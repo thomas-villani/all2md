@@ -220,38 +220,34 @@ class TestEnhancedAbout:
 class TestTimingInstrumentation:
     """Test timing instrumentation in conversion pipeline."""
 
-    @patch('all2md.to_ast')
-    @patch('all2md.transforms.render')
-    def test_trace_mode_logs_timing(self, mock_render, mock_to_ast, tmp_path, caplog):
+    def test_trace_mode_logs_timing(self, tmp_path, caplog):
         """Test that trace mode logs timing information."""
         from all2md import to_markdown
 
-        # Set up mocks
-        mock_to_ast.return_value = MagicMock()
-        mock_render.return_value = "# Test"
+        # Create a simple markdown file (txt format takes special path without timing)
+        test_file = tmp_path / "test.md"
+        test_file.write_text("# Test\n\ntest content")
 
         # Enable DEBUG logging to capture timing logs
         with caplog.at_level(logging.DEBUG):
-            to_markdown(b"test content", source_format="txt")
+            to_markdown(test_file, source_format="markdown")
 
             # Check that timing logs were created
             timing_logs = [record for record in caplog.records if 'completed in' in record.message]
             # Should have at least parsing and rendering timing
             assert len(timing_logs) >= 2
 
-    @patch('all2md.to_ast')
-    @patch('all2md.transforms.render')
-    def test_normal_mode_no_timing(self, mock_render, mock_to_ast, tmp_path, caplog):
+    def test_normal_mode_no_timing(self, tmp_path, caplog):
         """Test that normal mode doesn't log timing."""
         from all2md import to_markdown
 
-        # Set up mocks
-        mock_to_ast.return_value = MagicMock()
-        mock_render.return_value = "# Test"
+        # Create a simple markdown file
+        test_file = tmp_path / "test.md"
+        test_file.write_text("# Test\n\ntest content")
 
         # Use WARNING level (normal mode)
         with caplog.at_level(logging.WARNING):
-            to_markdown(b"test content", source_format="txt")
+            to_markdown(test_file, source_format="markdown")
 
             # Should not have timing logs at WARNING level
             timing_logs = [record for record in caplog.records if 'completed in' in record.message]

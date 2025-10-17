@@ -648,7 +648,7 @@ class TestEdgeCases:
         assert isinstance(doc.children[3], CodeBlock)
 
     def test_unknown_cell_type_skipped(self) -> None:
-        """Test that unknown cell types are skipped."""
+        """Test that raw and unknown cell types are preserved for round-trip fidelity."""
         notebook = _create_test_notebook(
             cells=[
                 {
@@ -672,6 +672,14 @@ class TestEdgeCases:
         converter = IpynbToAstConverter()
         doc = converter.convert_to_ast(notebook, "python")
 
-        # Only markdown cell should be included
-        assert len(doc.children) == 1
-        assert isinstance(doc.children[0], Paragraph)
+        # All cells should be preserved for round-trip fidelity
+        # Markdown -> Paragraph, Raw -> CodeBlock, Unknown -> Paragraph
+        assert len(doc.children) == 3
+        assert isinstance(doc.children[0], Paragraph)  # markdown
+        assert isinstance(doc.children[1], CodeBlock)  # raw
+        assert isinstance(doc.children[2], Paragraph)  # unknown
+
+        # Verify metadata preserves cell types
+        assert doc.children[0].metadata.get('ipynb', {}).get('cell_type') == 'markdown'
+        assert doc.children[1].metadata.get('ipynb', {}).get('cell_type') == 'raw'
+        assert doc.children[2].metadata.get('ipynb', {}).get('cell_type') == 'unknown'

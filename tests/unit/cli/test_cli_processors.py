@@ -46,7 +46,9 @@ def dummy_transform_registry(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             return instance
 
     stub_registry = DummyRegistry()
+    # Patch both the module-level import and the processors import
     monkeypatch.setattr('all2md.transforms.registry', stub_registry)
+    monkeypatch.setattr('all2md.cli.processors.transform_registry', stub_registry)
 
     return {
         'metadata_instances': metadata_instances,
@@ -81,8 +83,10 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
 
     captured: dict[str, Any] = {}
 
-    def fake_convert(*_, transforms=None, **__):  # type: ignore[no-untyped-def]
-        captured['transforms'] = transforms
+    def fake_convert(source, output=None, **kwargs):  # type: ignore[no-untyped-def]
+        # Capture transforms parameter
+        captured['transforms'] = kwargs.get('transforms')
+        # Return None to indicate success (content written to output)
         return None
 
     monkeypatch.setattr(processors, 'convert', fake_convert)
@@ -113,7 +117,7 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
         transform_specs=specs,
     )
 
-    assert exit_code == EXIT_SUCCESS
+    assert exit_code == EXIT_SUCCESS, f"Expected EXIT_SUCCESS but got {exit_code}, error: {error}"
     assert error is None
 
     rebuilt = captured.get('transforms')

@@ -296,7 +296,7 @@ def example_function():
         assert "# Test Content" in output_file.read_text()
 
         # File output should show conversion message in stderr (status messages)
-        assert f"Converted {html_file} -> {output_file}" in result_file.stderr
+        assert f"[OK] {html_file} -> {output_file}" in result_file.stderr
 
     @pytest.mark.slow
     def test_large_html_file_performance(self):

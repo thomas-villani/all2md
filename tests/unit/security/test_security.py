@@ -869,11 +869,12 @@ class TestRemoveBoilerplateTransformSecurity:
         assert len(transform.patterns) > 0
 
     def test_limits_text_length(self):
-        """Test that RemoveBoilerplateTextTransform limits text length for matching."""
+        """Test that RemoveBoilerplateTextTransform preserves long text for safety."""
         from all2md.ast.nodes import Document, Paragraph, Text
         from all2md.constants import MAX_TEXT_LENGTH_FOR_REGEX
         from all2md.transforms.builtin import RemoveBoilerplateTextTransform
 
+        # Test default behavior: skip_if_truncated=True preserves long text
         transform = RemoveBoilerplateTextTransform(patterns=[r"^LONG"])
 
         # Create a paragraph with extremely long text
@@ -884,9 +885,19 @@ class TestRemoveBoilerplateTransformSecurity:
 
         result = transform.transform(doc)
 
-        # Should still process (pattern matches prefix)
-        # The paragraph should be removed because it starts with "LONG"
-        assert len(result.children) == 0
+        # With skip_if_truncated=True (default), long text is preserved to avoid
+        # false positives with end-anchored patterns like r"^LONG$"
+        assert len(result.children) == 1
+
+        # Test with skip_if_truncated=False: matches against truncated text
+        transform_unsafe = RemoveBoilerplateTextTransform(
+            patterns=[r"^LONG"],  # No end anchor, so safe to match truncated text
+            skip_if_truncated=False
+        )
+        result_unsafe = transform_unsafe.transform(doc)
+
+        # With skip_if_truncated=False, pattern matches the truncated prefix
+        assert len(result_unsafe.children) == 0
 
     def test_multiple_safe_patterns(self):
         """Test multiple safe user patterns."""

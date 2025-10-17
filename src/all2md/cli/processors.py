@@ -251,7 +251,7 @@ def prepare_options_for_execution(
         filtered["remote_input_options"] = remote_options
     return filtered
 
-
+# TODO: not used anymore, remove
 def _process_items_with_progress(
         items: List[Any],
         process_fn: Any,
@@ -938,7 +938,7 @@ def process_multi_file(
         return _create_output_package(parsed_args, items, options, format_arg, transforms)
 
     # Check for merge-from-list mode (takes precedence over collate)
-    if hasattr(parsed_args, "merge_from_list") and parsed_args.merge_from_list:
+    if parsed_args.merge_from_list:
         return process_merge_from_list(parsed_args, options, format_arg, transforms)
 
     # Otherwise, process files normally to disk
