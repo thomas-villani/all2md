@@ -156,25 +156,81 @@ ALL2MD_MCP_ALLOWED_WRITE_DIRS
    export ALL2MD_MCP_ALLOWED_WRITE_DIRS="/var/app/output"
    all2md-mcp --enable-from-md
 
-ALL2MD_MCP_ATTACHMENT_MODE
+ALL2MD_MCP_ENABLE_DOC_EDIT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Purpose:** Default attachment handling mode for MCP server.
+**Purpose:** Enable/disable the ``edit_document`` tool in MCP server.
 
-**Type:** String
+**Type:** Boolean
 
-**Default:** ``base64``
+**Default:** ``false`` (disabled for security - prevents document manipulation)
 
-**Valid Values:** ``skip``, ``alt_text``, ``base64``
+**Valid Values:** ``true``, ``false``, ``1``, ``0``, ``yes``, ``no``
 
-**Note:** The ``download`` mode is intentionally not available in MCP for security.
+**Description:**
+
+When enabled, allows LLMs to edit documents by applying AST transformations.
+This is disabled by default because it allows modification of document content.
 
 **Example:**
 
 .. code-block:: bash
 
-   # Skip all attachments for maximum speed
-   export ALL2MD_MCP_ATTACHMENT_MODE=skip
+   # Enable document editing (allows LLM to modify documents)
+   export ALL2MD_MCP_ENABLE_DOC_EDIT=true
+   all2md-mcp
+
+ALL2MD_MCP_INCLUDE_IMAGES
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Control whether images are included in markdown output for vision-enabled LLMs.
+
+**Type:** Boolean
+
+**Default:** ``false``
+
+**Valid Values:** ``true``, ``false``, ``1``, ``0``, ``yes``, ``no``
+
+**Description:**
+
+Controls image handling in MCP server output:
+
+* **true**: Images embedded as base64 (vision-enabled LLMs can see them)
+* **false**: Images replaced with alt text only (faster, text-only LLMs)
+
+**Note:** With ``ALL2MD_DISABLE_NETWORK=true`` (default), only works for embedded
+images (PDF, DOCX, PPTX), not for external HTML images that require fetching.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Enable images for vision-enabled LLMs
+   export ALL2MD_MCP_INCLUDE_IMAGES=true
+   all2md-mcp
+
+ALL2MD_MCP_FLAVOR
+~~~~~~~~~~~~~~~~~
+
+**Purpose:** Set the markdown flavor/dialect used by MCP server.
+
+**Type:** String
+
+**Default:** ``gfm``
+
+**Valid Values:** ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
+
+**Description:**
+
+Controls the markdown syntax flavor used for conversion. Different flavors have
+different syntax rules for tables, footnotes, and other elements.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Use CommonMark flavor
+   export ALL2MD_MCP_FLAVOR=commonmark
    all2md-mcp
 
 ALL2MD_MCP_LOG_LEVEL
@@ -482,9 +538,11 @@ MCP Server Deployment
    # Production MCP server with strict security
    export ALL2MD_MCP_ENABLE_TO_MD=true
    export ALL2MD_MCP_ENABLE_FROM_MD=false
+   export ALL2MD_MCP_ENABLE_DOC_EDIT=false
    export ALL2MD_MCP_ALLOWED_READ_DIRS="/var/app/uploads"
    export ALL2MD_MCP_ALLOWED_WRITE_DIRS="/var/app/output"
-   export ALL2MD_MCP_ATTACHMENT_MODE=skip
+   export ALL2MD_MCP_INCLUDE_IMAGES=false
+   export ALL2MD_MCP_FLAVOR=gfm
    export ALL2MD_DISABLE_NETWORK=true
    export ALL2MD_MCP_LOG_LEVEL=WARNING
 
@@ -505,7 +563,8 @@ MCP Server Deployment
    Environment="ALL2MD_DISABLE_NETWORK=true"
    Environment="ALL2MD_MCP_ALLOWED_READ_DIRS=/var/app/uploads"
    Environment="ALL2MD_MCP_ALLOWED_WRITE_DIRS=/var/app/output"
-   Environment="ALL2MD_MCP_ATTACHMENT_MODE=skip"
+   Environment="ALL2MD_MCP_INCLUDE_IMAGES=false"
+   Environment="ALL2MD_MCP_FLAVOR=gfm"
    Environment="ALL2MD_MCP_LOG_LEVEL=INFO"
    ExecStart=/usr/local/bin/all2md-mcp
    Restart=always
@@ -658,9 +717,11 @@ Quick Reference
 
    export ALL2MD_MCP_ENABLE_TO_MD=true
    export ALL2MD_MCP_ENABLE_FROM_MD=false
+   export ALL2MD_MCP_ENABLE_DOC_EDIT=false
    export ALL2MD_MCP_ALLOWED_READ_DIRS="/path/to/docs"
    export ALL2MD_MCP_ALLOWED_WRITE_DIRS="/path/to/output"
-   export ALL2MD_MCP_ATTACHMENT_MODE=base64
+   export ALL2MD_MCP_INCLUDE_IMAGES=false
+   export ALL2MD_MCP_FLAVOR=gfm
    export ALL2MD_DISABLE_NETWORK=true
    export ALL2MD_MCP_LOG_LEVEL=INFO
 

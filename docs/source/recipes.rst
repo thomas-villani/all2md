@@ -159,9 +159,7 @@ Creating Text-Only Archive from Website
    def create_website_archive(html_dir: str, output_file: str):
        md_options = MarkdownOptions(
            escape_special=False,  # Keep text readable
-           use_hash_headings=True,
-           page_separator="=" * 80,
-           page_separator_template="Page: {page_num} - {filename}"
+           use_hash_headings=True
        )
 
        html_options = HtmlOptions(
@@ -735,7 +733,7 @@ Use the built-in progress callback system for fine-grained progress tracking:
 
    # Use the monitor
    monitor = ProgressMonitor()
-   markdown = to_markdown("document.pdf", progress=monitor.callback)
+   markdown = to_markdown("document.pdf", progress_callback=monitor.callback)
 
 **GUI Integration Example:**
 
@@ -761,7 +759,7 @@ Use the built-in progress callback system for fine-grained progress tracking:
 
        def convert(self, filepath):
            threading.Thread(
-               target=lambda: to_markdown(filepath, progress=self.progress_callback),
+               target=lambda: to_markdown(filepath, progress_callback=self.progress_callback),
                daemon=True
            ).start()
 

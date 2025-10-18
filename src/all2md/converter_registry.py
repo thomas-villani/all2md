@@ -426,7 +426,10 @@ class ConverterRegistry:
             f"Tried {len(self._converters[format_name])} converter(s)."
         )
 
-    def detect_format(self, input_data: Union[str, Path, IO[bytes], bytes], hint: Optional[str] = None) -> str:
+    def detect_format(self,
+                      input_data: Union[str, Path, IO[bytes], bytes],
+                      hint: Optional[str] = None,
+                      ) -> str:
         """Detect format from input data.
 
         Uses multiple strategies:
@@ -461,9 +464,9 @@ class ConverterRegistry:
                 logger.debug(f"Format detected from filename: {format_name}")
                 return format_name
 
-        # For file-like objects, try to get filename
-        elif hasattr(input_data, "name"):
-            file_obj_name: str | None = getattr(input_data, "name", None)
+        # For file-like objects, try to get filename.
+        elif hasattr(input_data, "name") or hasattr(input_data, "filename"):
+            file_obj_name: str | None = getattr(input_data, "name", None) or getattr(input_data, "filename", None)
             if file_obj_name and file_obj_name != "unknown":
                 format_name = self._detect_by_filename(file_obj_name)
                 if format_name:
@@ -481,7 +484,10 @@ class ConverterRegistry:
                     content = f.read(1024)
             except Exception:
                 pass
-        elif isinstance(input_data, io.IOBase):
+        elif isinstance(input_data, io.IOBase) or (
+                hasattr(input_data, "read") and hasattr(input_data, "tell")
+                and hasattr("input_data", "read") and hasattr(input_data, "seek")
+        ):
             # Save position and read sample
             try:
                 pos = input_data.tell()

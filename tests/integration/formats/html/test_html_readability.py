@@ -46,7 +46,7 @@ def test_parser_with_readability_discards_navigation() -> None:
     """HtmlToAstConverter should prefer readability output when enabled."""
 
     html_content = FIXTURE_PATH.read_text(encoding="utf-8")
-    options = HtmlOptions(use_readability=True, extract_title=True)
+    options = HtmlOptions(extract_readable=True, extract_title=True)
     document = HtmlToAstConverter(options).convert_to_ast(html_content)
 
     assert document.children, "Expected children in converted document"
@@ -76,7 +76,7 @@ def test_markdown_output_changes_with_readability() -> None:
     readability_markdown = to_markdown(
         html_content,
         source_format="html",
-        parser_options=HtmlOptions(use_readability=True, extract_title=True),
+        parser_options=HtmlOptions(extract_readable=True, extract_title=True),
     )
 
     assert "Home" in standard_markdown

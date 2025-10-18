@@ -280,7 +280,7 @@ class HtmlToAstConverter(BaseParser):
         html_content = html_content.replace("\x00", "")
 
         readability_title: str | None = None
-        if self.options.use_readability:
+        if self.options.extract_readable:
             html_content, readability_title = self._extract_readable_html(html_content)
 
         from bs4 import BeautifulSoup
@@ -411,7 +411,9 @@ class HtmlToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _extract_readable_html(self, html_content: str) -> tuple[str, str | None]:
+    @staticmethod
+    @requires_dependencies("html", [("readability-lxml", "readability", ">=0.8.1")])
+    def _extract_readable_html(html_content: str) -> tuple[str, str | None]:
         """Extract the readable article content using readability-lxml.
 
         Parameters
@@ -426,27 +428,8 @@ class HtmlToAstConverter(BaseParser):
             and an optional title discovered by readability.
 
         """
-        try:
-            readability_module = importlib.import_module("readability")
-        except ImportError as exc:
-            raise DependencyError(
-                converter_name="html",
-                missing_packages=[("readability-lxml", "")],
-                install_command="pip install readability-lxml",
-                message="HTML readability extraction requires the optional dependency 'readability-lxml'.",
-                original_import_error=exc,
-            ) from exc
-
-        document_cls = getattr(readability_module, "Document", None)
-        if document_cls is None:
-            logger.warning("'readability' module does not expose Document; skipping readability extraction")
-            return html_content, None
-
-        try:
-            readability_doc = document_cls(html_content)
-        except Exception as exc:  # pragma: no cover - defensive safeguard
-            logger.warning("Failed to initialize readability Document: %s", exc)
-            return html_content, None
+        import readability
+        readability_doc = readability.Document(html_content)
 
         try:
             summary_html = readability_doc.summary(html_partial=True)
@@ -460,14 +443,7 @@ class HtmlToAstConverter(BaseParser):
 
         logger.debug("Readability extraction succeeded; using article-only HTML content")
 
-        readable_title: str | None = None
-        try:
-            if hasattr(readability_doc, "short_title"):
-                readable_title = readability_doc.short_title()
-            else:
-                readable_title = readability_doc.title()
-        except Exception:
-            readable_title = None
+        readable_title = readability_doc.short_title() or readability_doc.title()
 
         return str(summary_html), readable_title.strip() if isinstance(readable_title, str) and readable_title.strip() else None
 

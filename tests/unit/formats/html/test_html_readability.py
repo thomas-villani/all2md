@@ -68,7 +68,7 @@ def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
         "</body></html>"
     )
 
-    options = HtmlOptions(use_readability=True, extract_title=True)
+    options = HtmlOptions(extract_readable=True, extract_title=True)
     converter = HtmlToAstConverter(options)
     document = converter.convert_to_ast(html_input)
 
@@ -97,7 +97,7 @@ def test_html_readability_missing_dependency(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(importlib, "import_module", fake_import)
 
-    converter = HtmlToAstConverter(HtmlOptions(use_readability=True))
+    converter = HtmlToAstConverter(HtmlOptions(extract_readable=True))
 
     with pytest.raises(DependencyError) as exc_info:
         converter.convert_to_ast("<html><body><p>content</p></body></html>")

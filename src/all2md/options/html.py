@@ -315,7 +315,7 @@ class HtmlOptions(BaseParserOptions):
         ... })
 
     Extract only the readable article content:
-        >>> options = HtmlOptions(use_readability=True)
+        >>> options = HtmlOptions(extract_readable=True)
 
     """
 
@@ -377,10 +377,11 @@ class HtmlOptions(BaseParserOptions):
             "importance": "core",
         },
     )
-    use_readability: bool = field(
+    extract_readable: bool = field(
         default=False,
         metadata={
-            "help": "Extract main article content using readability-lxml",
+            "help": "Extract main article content by stripping navigation and other non-readable content "
+                    "using readability-lxml",
             "importance": "advanced",
         },
     )

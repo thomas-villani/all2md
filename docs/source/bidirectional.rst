@@ -63,9 +63,9 @@ For more control, work with the AST:
    # Parse Markdown to AST
    doc_ast = to_ast('document.md')
 
-   # Render to different formats (returns str/bytes directly)
-   docx_bytes = from_ast(doc_ast, target_format='docx')  # Returns bytes
-   html_string = from_ast(doc_ast, target_format='html')  # Returns str
+   # Render to different formats (returns str/bytes when output=None)
+   docx_bytes = from_ast(doc_ast, target_format='docx')  # Returns bytes (binary format)
+   html_string = from_ast(doc_ast, target_format='html')  # Returns str (text format)
 
 Markdown to Word (DOCX)
 ------------------------
@@ -83,9 +83,9 @@ Basic Conversion
 
    # With options
    options = DocxRendererOptions(
-       preserve_formatting=True,
        default_font='Arial',
-       default_font_size=12
+       default_font_size=12,
+       use_styles=True
    )
    from_markdown('report.md', target_format='docx', output='report.docx', renderer_options=options)
 
@@ -147,7 +147,6 @@ Advanced DOCX Customization
 
    # Customize rendering
    options = DocxRendererOptions(
-       preserve_formatting=True,
        default_font='Calibri',
        default_font_size=11,
        code_font='Courier New',
@@ -236,6 +235,18 @@ Standalone HTML Documents
    # Result is a complete HTML document
    with open('article.html', 'w', encoding='utf-8') as f:
        f.write(html)
+
+.. warning::
+   When using ``math_renderer='mathjax'``, you must also enable remote script loading
+   by setting ``allow_remote_scripts=True`` in the HTML options. This is required for
+   MathJax CDN access but disabled by default for security.
+
+   .. code-block:: python
+
+      options = HtmlRendererOptions(
+          math_renderer='mathjax',
+          allow_remote_scripts=True  # Required for MathJax CDN
+      )
 
 .. note::
    For comprehensive coverage of HTML templating for static site generation,
@@ -674,7 +685,7 @@ Best Practices
           from_markdown('document.md', target_format='pdf', output='output.pdf')
       except RenderingError as e:
           print(f"Rendering failed: {e}")
-          print(f"Stage: {e.conversion_stage}")
+          print(f"Stage: {e.rendering_stage}")
 
 4. **Test Round-Trip Fidelity**
 

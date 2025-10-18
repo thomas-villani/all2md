@@ -34,45 +34,113 @@ A typical plugin package should have the following structure:
 Implementing the Converter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. **Create the converter function**
+1. **Create a parser class**
 
-Your converter function should accept the same signature as built-in converters:
+Your parser should inherit from ``BaseParser`` and implement both the ``parse()`` and
+``extract_metadata()`` methods:
 
 .. code-block:: python
 
-    # all2md_myformat/converter.py
+    # all2md_myformat/parser.py
     from pathlib import Path
-    from typing import IO, Union
+    from typing import IO, Any, Optional, Union
+    from all2md.parsers.base import BaseParser
+    from all2md.ast import Document, Paragraph, Text
     from all2md.options import BaseParserOptions
+    from all2md.progress import ProgressCallback
+    from all2md.utils.metadata import DocumentMetadata
+    from all2md.exceptions import ParsingError
 
-    def myformat_to_markdown(
-        input_data: Union[str, Path, IO[bytes]],
-        options: BaseParserOptions | None = None
-    ) -> str:
-        """Convert MyFormat documents to Markdown.
+    class MyFormatParser(BaseParser):
+        """Convert MyFormat documents to AST representation.
 
         Parameters
         ----------
-        input_data : str, Path, or IO[bytes]
-            The document to convert
-        options : BaseParserOptions | None
+        options : BaseParserOptions or None
             Conversion options
-
-        Returns
-        -------
-        str
-            The document content in Markdown format
+        progress_callback : ProgressCallback or None
+            Optional callback for progress updates during parsing
         """
-        # Your conversion logic here
-        if isinstance(input_data, (str, Path)):
-            with open(input_data, 'rb') as f:
-                content = f.read()
-        else:
-            content = input_data.read()
 
-        # Process the content and convert to markdown
-        markdown_output = process_myformat_content(content, options)
-        return markdown_output
+        def __init__(
+            self,
+            options: BaseParserOptions | None = None,
+            progress_callback: Optional[ProgressCallback] = None
+        ):
+            """Initialize the parser with options and progress callback."""
+            super().__init__(options or BaseParserOptions(), progress_callback)
+
+        def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+            """Parse MyFormat input into an AST Document.
+
+            Parameters
+            ----------
+            input_data : str, Path, IO[bytes], or bytes
+                The input document to parse
+
+            Returns
+            -------
+            Document
+                AST Document node representing the parsed document structure
+
+            Raises
+            ------
+            ParsingError
+                If parsing fails due to invalid format or corruption
+            """
+            # Emit started event for progress tracking
+            self._emit_progress("started", "Converting MyFormat document", current=0, total=1)
+
+            # Read content based on input type
+            try:
+                if isinstance(input_data, (str, Path)):
+                    with open(input_data, 'rb') as f:
+                        content = f.read()
+                elif isinstance(input_data, bytes):
+                    content = input_data
+                else:
+                    content = input_data.read()
+            except Exception as e:
+                raise ParsingError(f"Failed to read MyFormat file: {e}") from e
+
+            # Process the content and build AST
+            children = self._convert_to_ast_nodes(content)
+
+            # Emit finished event
+            self._emit_progress("finished", "MyFormat conversion completed", current=1, total=1)
+
+            return Document(children=children)
+
+        def extract_metadata(self, document: Any) -> DocumentMetadata:
+            """Extract metadata from MyFormat document.
+
+            Parameters
+            ----------
+            document : Any
+                The loaded document object (format-specific type)
+
+            Returns
+            -------
+            DocumentMetadata
+                Extracted metadata including title, author, dates, keywords, etc.
+                Returns empty DocumentMetadata if no metadata is available.
+            """
+            metadata = DocumentMetadata()
+            # Extract metadata from your format here
+            # Example:
+            # metadata.title = document.get("title")
+            # metadata.author = document.get("author")
+            return metadata
+
+        def _convert_to_ast_nodes(self, content: bytes) -> list:
+            """Convert format-specific content to AST nodes.
+
+            This is a helper method for your conversion logic.
+            """
+            # Your conversion logic here
+            # Example: parse content and return AST nodes
+            text = content.decode('utf-8', errors='replace')
+            return [Paragraph(content=[Text(content=text)])]
 
 2. **Define the converter metadata**
 
@@ -80,8 +148,9 @@ Create a ``ConverterMetadata`` object that describes your converter:
 
 .. code-block:: python
 
-    # all2md_myformat/converter.py (continued)
+    # all2md_myformat/parser.py (continued)
     from all2md.converter_metadata import ConverterMetadata
+    from all2md.options import BaseParserOptions
 
     CONVERTER_METADATA = ConverterMetadata(
         format_name="myformat",
@@ -91,8 +160,10 @@ Create a ``ConverterMetadata`` object that describes your converter:
             (b"MYFORMAT", 0),  # File signature at offset 0
             (b"MYF\x01", 0),   # Alternative signature
         ],
-        parser_class="all2md_myformat.parser.MyFormatParser",  # Fully qualified parser class
-        renderer_class="MarkdownRenderer",  # Simple class name looks in all2md.renderers.markdown
+        parser_class=MyFormatParser,  # Direct class reference (recommended for plugins)
+        # Or use fully qualified string: "all2md_myformat.parser.MyFormatParser"
+        renderer_class="all2md.renderers.markdown.MarkdownRenderer",  # Full module path
+        renders_as_string=True,  # True if renderer produces string output
         parser_required_packages=[
             ("myformat-parser", "myformat_parser", ">=1.0.0"),
             ("some-dependency", "some_dep", ""),
@@ -105,8 +176,9 @@ Create a ``ConverterMetadata`` object that describes your converter:
             "MyFormat conversion requires 'myformat-parser' version 1.0.0 or later. "
             "Install with: pip install 'myformat-parser>=1.0.0'"
         ),
-        parser_options_class="BaseParserOptions",  # See Custom Options Classes section below
-        renderer_options_class="MarkdownOptions",  # Options for markdown rendering
+        parser_options_class=BaseParserOptions,  # Direct class reference
+        # Or use string: "all2md.options.BaseParserOptions"
+        renderer_options_class="all2md.options.markdown.MarkdownOptions",
         description="Convert MyFormat documents to Markdown with advanced features",
         priority=5  # Higher numbers = higher priority for format detection
     )
@@ -136,7 +208,7 @@ Configure your ``pyproject.toml`` to register the plugin:
     ]
 
     [project.entry-points."all2md.converters"]
-    myformat = "all2md_myformat.converter:CONVERTER_METADATA"
+    myformat = "all2md_myformat.parser:CONVERTER_METADATA"
 
     [project.urls]
     Homepage = "https://github.com/yourusername/all2md-myformat"
@@ -148,51 +220,66 @@ Advanced Features
 Custom Options Classes
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-For complex converters, you may want to define custom options. The ``options_class`` attribute in ``ConverterMetadata`` supports three different ways to specify the options class:
+For complex converters, you may want to define custom options. The ``parser_options_class``
+and ``renderer_options_class`` attributes in ``ConverterMetadata`` support two ways to
+specify options classes:
 
-**Method 1: Simple Class Name (Built-in Converters)**
+**Method 1: Direct Class Reference (Recommended)**
 
-For options classes defined in ``all2md.options``:
+Pass the class object directly:
+
+.. code-block:: python
+
+    from all2md.options import BaseParserOptions
+
+    CONVERTER_METADATA = ConverterMetadata(
+        # ... other fields ...
+        parser_options_class=BaseParserOptions,  # Direct class reference
+        renderer_options_class=MarkdownOptions,
+        # ... rest of metadata ...
+    )
+
+**Method 2: Fully Qualified Class Name (String)**
+
+Use a string with the full module path:
 
 .. code-block:: python
 
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
-        options_class="BaseParserOptions",  # Looks in all2md.options module
+        parser_options_class="all2md.options.BaseParserOptions",  # String reference
+        renderer_options_class="all2md.options.markdown.MarkdownOptions",
         # ... rest of metadata ...
     )
 
-**Method 2: Fully Qualified Class Name (Recommended for Plugins)**
+**Creating Custom Options**
 
 For custom options classes in your plugin package:
 
 .. code-block:: python
 
     # all2md_myformat/options.py
-    from dataclasses import dataclass
-    from all2md.options import BaseParserOptions
+    from dataclasses import dataclass, field
+    from all2md.options.base import BaseParserOptions
 
     @dataclass
     class MyFormatOptions(BaseParserOptions):
         """Options for MyFormat conversion."""
 
-        extract_metadata: bool = True
-        preserve_formatting: bool = False
-        custom_parser_mode: str = "strict"
+        extract_metadata: bool = field(
+            default=True,
+            metadata={"help": "Extract document metadata"}
+        )
+        preserve_formatting: bool = field(
+            default=False,
+            metadata={"help": "Preserve original formatting"}
+        )
+        custom_parser_mode: str = field(
+            default="strict",
+            metadata={"help": "Parser mode: strict, lenient, or auto"}
+        )
 
-Then reference it with the full module path:
-
-.. code-block:: python
-
-    CONVERTER_METADATA = ConverterMetadata(
-        # ... other fields ...
-        options_class="all2md_myformat.options.MyFormatOptions",
-        # ... rest of metadata ...
-    )
-
-**Method 3: Direct Class Reference**
-
-You can also pass the class directly:
+Then reference it in your metadata (either direct or string reference):
 
 .. code-block:: python
 
@@ -200,47 +287,84 @@ You can also pass the class directly:
 
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
-        options_class=MyFormatOptions,  # Direct class reference
+        parser_options_class=MyFormatOptions,  # Direct reference
+        # Or: parser_options_class="all2md_myformat.options.MyFormatOptions",
         # ... rest of metadata ...
     )
 
 **No Options Class**
 
-If your converter doesn't need options:
+If your converter doesn't need custom options, use ``BaseParserOptions``:
 
 .. code-block:: python
 
+    from all2md.options import BaseParserOptions
+
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
-        options_class=None,  # No options class needed
+        parser_options_class=BaseParserOptions,
         # ... rest of metadata ...
     )
 
 Error Handling
 ~~~~~~~~~~~~~~
 
-Implement robust error handling in your converter:
+Implement robust error handling in your parser class:
 
 .. code-block:: python
 
     from all2md.exceptions import DependencyError, ParsingError
+    from all2md.utils.decorators import requires_dependencies
 
-    def myformat_to_markdown(input_data, options=None):
-        try:
-            # Your conversion logic
-            pass
-        except ImportError as e:
-            raise DependencyError(
-                converter_name="myformat",
-                missing_packages=[("myformat-lib", "myformat-lib", ">=1.0")],
-                original_error=e
-            )
-        except Exception as e:
-            raise ParsingError(
-                f"Failed to convert MyFormat document: {e}",
-                conversion_stage="parsing",
-                original_error=e
-            )
+    class MyFormatParser(BaseParser):
+        """Parser with proper error handling."""
+
+        @requires_dependencies("myformat", [("myformat-lib", "myformat_lib", ">=1.0")])
+        def parse(self, input_data):
+            """Parse with dependency checking via decorator.
+
+            The @requires_dependencies decorator automatically raises DependencyError
+            with correct parameters if the required packages are missing.
+            """
+            try:
+                # Your conversion logic
+                pass
+            except Exception as e:
+                raise ParsingError(
+                    f"Failed to convert MyFormat document: {e}",
+                    parsing_stage="parsing",
+                    original_error=e
+                ) from e
+
+        def extract_metadata(self, document):
+            """Extract metadata with error handling."""
+            try:
+                # Metadata extraction logic
+                return DocumentMetadata()
+            except Exception as e:
+                # Log but don't fail - return empty metadata on error
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to extract metadata: {e}")
+                return DocumentMetadata()
+
+**Manual Dependency Error Handling**
+
+If you need to manually raise ``DependencyError`` (not recommended - use the decorator instead):
+
+.. code-block:: python
+
+    try:
+        import myformat_lib
+    except ImportError as e:
+        raise DependencyError(
+            converter_name="myformat",
+            missing_packages=[("myformat-lib", "myformat_lib", ">=1.0")],
+            version_mismatches=None,
+            install_command="pip install 'myformat-lib>=1.0'",
+            message=None,
+            original_import_error=e  # Note: parameter name is original_import_error
+        ) from e
 
 Format Detection
 ~~~~~~~~~~~~~~~~
@@ -272,24 +396,72 @@ Create comprehensive tests for your plugin:
 
     # tests/test_myformat_plugin.py
     import pytest
-    from all2md.converter_registry import registry
-    from all2md_myformat.converter import CONVERTER_METADATA
+    from pathlib import Path
+    from all2md.converter_registry import get_registry
+    from all2md.ast import Document
+    from all2md_myformat.parser import CONVERTER_METADATA, MyFormatParser
+    from all2md.options import BaseParserOptions
 
     def test_plugin_registration():
         """Test that the plugin is properly registered."""
+        registry = get_registry()
         assert "myformat" in registry.list_formats()
 
     def test_format_detection():
-        """Test format detection."""
+        """Test format detection by extension and magic bytes."""
+        registry = get_registry()
+        # Test extension detection
         assert registry.detect_format("test.myf") == "myformat"
-        assert registry.detect_format(b"MYFORMAT content") == "myformat"
+        # Test magic bytes detection
+        assert registry.detect_format(b"MYFORMAT content here") == "myformat"
 
-    def test_conversion():
-        """Test basic conversion functionality."""
-        test_content = create_test_myformat_content()
-        result = registry.get_converter("myformat")[0](test_content)
-        assert isinstance(result, str)
-        assert len(result) > 0
+    def test_parser_instantiation():
+        """Test that parser can be instantiated."""
+        parser = MyFormatParser()
+        assert parser is not None
+        assert isinstance(parser.options, BaseParserOptions)
+
+    def test_parse_from_bytes():
+        """Test parsing from bytes input."""
+        parser = MyFormatParser()
+        test_content = b"MYFORMAT test document content"
+        result = parser.parse(test_content)
+        assert isinstance(result, Document)
+        assert len(result.children) > 0
+
+    def test_parse_from_path(tmp_path):
+        """Test parsing from file path."""
+        # Create test file
+        test_file = tmp_path / "test.myf"
+        test_file.write_bytes(b"MYFORMAT test document content")
+
+        # Parse
+        parser = MyFormatParser()
+        result = parser.parse(test_file)
+        assert isinstance(result, Document)
+        assert len(result.children) > 0
+
+    def test_metadata_extraction():
+        """Test metadata extraction."""
+        parser = MyFormatParser()
+        # Create mock document object
+        mock_doc = {"title": "Test Document", "author": "Test Author"}
+        metadata = parser.extract_metadata(mock_doc)
+        assert metadata is not None
+        # Add assertions based on your metadata extraction logic
+
+    def test_error_handling():
+        """Test that appropriate errors are raised."""
+        parser = MyFormatParser()
+        with pytest.raises(Exception):  # ParsingError or similar
+            parser.parse(b"INVALID content that should fail")
+
+    def test_with_options():
+        """Test parsing with custom options."""
+        options = BaseParserOptions()
+        parser = MyFormatParser(options=options)
+        result = parser.parse(b"MYFORMAT test content")
+        assert isinstance(result, Document)
 
 Publishing Your Plugin
 ----------------------

@@ -304,7 +304,8 @@ def _split_kwargs_for_parser_and_renderer(
 
     return parser_kwargs, renderer_kwargs
 
-
+# TODO: allow a filename hint to be passed optionally as a hint to source format?
+# This would be quite good in server environments, where often we have a file stream and a file name.
 def to_markdown(
     source: Union[str, Path, IO[bytes], bytes],
     *,

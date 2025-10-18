@@ -536,17 +536,9 @@ Simple Flask application with document conversion:
        if not allowed_file(file.filename):
            return jsonify({'error': 'File type not allowed'}), 400
 
-       # Save to temporary file
-       filename = secure_filename(file.filename)
-       suffix = Path(filename).suffix
-
-       with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-           file.save(tmp.name)
-           tmp_path = tmp.name
-
        try:
            # Convert document
-           markdown = to_markdown(tmp_path, attachment_mode='skip')
+           markdown = to_markdown(file, attachment_mode='skip')
 
            return Response(
                markdown,
