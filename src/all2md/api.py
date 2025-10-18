@@ -409,10 +409,14 @@ def to_markdown(
         actual_format: DocumentFormat = source_format
         logger.debug(f"Using explicitly specified format: {actual_format}")
     else:
-        if isinstance(detection_input, (str, Path)):
-            detected = registry.detect_format(detection_input, hint=None)
+        # Type narrow to exclude IO[str] for detect_format
+        if isinstance(detection_input, (str, Path, bytes)) or (
+            hasattr(detection_input, "read") and hasattr(detection_input, "mode") and "b" in getattr(detection_input, "mode", "")
+        ):
+            detected = registry.detect_format(detection_input, hint=None)  # type: ignore[arg-type]
         else:
-            detected = registry.detect_format(detection_input, hint=None)
+            # For IO[str], we cannot detect format from stream, raise error
+            raise ValueError("Cannot auto-detect format from text-mode stream. Please specify source_format explicitly.")
         if detected is None:
             raise ValueError("Could not detect format from source")
         actual_format = detected  # type: ignore[assignment]
@@ -449,10 +453,20 @@ def to_markdown(
     # Convert to AST
     try:
         # Log timing for parsing stage in trace mode
+        # Type narrow for to_ast (exclude IO[str])
+        ast_input: Union[str, Path, IO[bytes], bytes]
+        if isinstance(detection_input, (str, Path, bytes)):
+            ast_input = detection_input
+        elif hasattr(detection_input, "read"):
+            # Cast IO types - we already validated it's not IO[str] above
+            ast_input = cast(Union[IO[bytes]], detection_input)
+        else:
+            raise ValueError("Invalid input type after format detection")
+
         if logger.isEnabledFor(logging.DEBUG):
             start_time = time.perf_counter()
             ast_doc = to_ast(
-                detection_input,
+                ast_input,
                 parser_options=final_parser_options,
                 source_format=actual_format,
                 progress_callback=progress_callback,
@@ -462,7 +476,7 @@ def to_markdown(
             logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
         else:
             ast_doc = to_ast(
-                detection_input,
+                ast_input,
                 parser_options=final_parser_options,
                 source_format=actual_format,
                 progress_callback=progress_callback,
@@ -495,8 +509,8 @@ def to_markdown(
                 except Exception as exc:
                     raise ParsingError("Could not decode bytes as UTF-8") from exc
             else:
-                # File-like object (IO[bytes])
-                file = data_source
+                # File-like object (must be IO[bytes] since we excluded IO[str] earlier)
+                file = cast(IO[bytes], data_source)
                 file.seek(0)
                 try:
                     file_content = file.read()
@@ -618,7 +632,16 @@ def to_ast(
     resolved_payload = resolved_source.payload
 
     # Detect format
-    actual_format = source_format if source_format != "auto" else registry.detect_format(resolved_payload)
+    # Type narrow to exclude IO[str] for detect_format
+    if source_format != "auto":
+        actual_format = source_format
+    else:
+        if isinstance(resolved_payload, (str, Path, bytes)) or (
+            hasattr(resolved_payload, "read") and hasattr(resolved_payload, "mode") and "b" in getattr(resolved_payload, "mode", "")
+        ):
+            actual_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
+        else:
+            raise ValueError("Cannot auto-detect format from text-mode stream. Please specify source_format explicitly.")
 
     # Get converter metadata (returns a list, we just check if it exists)
     metadata_list = registry.get_format_info(actual_format)
@@ -955,9 +978,16 @@ def convert(
     resolved_payload = resolved_source.payload
 
     # Detect source format
-    actual_source_format = (
-        source_format if source_format != "auto" else registry.detect_format(resolved_payload)  # type: ignore[arg-type]
-    )
+    # Type narrow to exclude IO[str] for detect_format
+    if source_format != "auto":
+        actual_source_format = source_format
+    else:
+        if isinstance(resolved_payload, (str, Path, bytes)) or (
+            hasattr(resolved_payload, "read") and hasattr(resolved_payload, "mode") and "b" in getattr(resolved_payload, "mode", "")
+        ):
+            actual_source_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
+        else:
+            raise ValueError("Cannot auto-detect format from text-mode stream. Please specify source_format explicitly.")
 
     # Determine target format
     actual_target_format: str
@@ -988,9 +1018,9 @@ def convert(
         final_parser_options = parser_options
 
     ast_document = to_ast(
-        resolved_payload,  # type: ignore[arg-type]
+        resolved_payload,
         parser_options=final_parser_options,
-        source_format=actual_source_format,  # type: ignore[arg-type]
+        source_format=cast(DocumentFormat, actual_source_format),
         progress_callback=progress_callback,
         remote_input_options=remote_input_options,
     )

@@ -50,6 +50,16 @@ class NamedBytesIO(BytesIO):
     """BytesIO variant that carries a display name for downstream consumers."""
 
     def __init__(self, initial_bytes: bytes, name: str | None = None) -> None:
+        """Initialize a named bytes IO stream.
+
+        Parameters
+        ----------
+        initial_bytes : bytes
+            Initial byte content
+        name : str or None, optional
+            Display name for the stream
+
+        """
         super().__init__(initial_bytes)
         self._display_name = name or "inline-bytes"
 
@@ -105,6 +115,7 @@ class RemoteInputOptions:
     # Placeholder for future rate limiting / credentials fields
 
     def __post_init__(self) -> None:
+        """Normalize allowed_hosts to a list after initialization."""
         if self.allowed_hosts is not None:
             object.__setattr__(self, "allowed_hosts", list(self.allowed_hosts))
 
@@ -118,7 +129,7 @@ class RemoteInputOptions:
             "max_size_bytes": self.max_size_bytes,
         }
         data.update(kwargs)
-        return RemoteInputOptions(**data)
+        return RemoteInputOptions(**data)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)
@@ -146,7 +157,7 @@ class DocumentSourceRequest:
 class DocumentSource:
     """Resolved document payload returned by retrievers."""
 
-    payload: Union[str, Path, IO[bytes], bytes]
+    payload: Union[str, Path, IO[bytes], IO[str], bytes]
     display_name: str
     origin_uri: str | None = None
 
@@ -180,6 +191,7 @@ class DocumentSourceLoader:
     retrievers: Sequence[DocumentSourceRetriever]
 
     def __post_init__(self) -> None:
+        """Validate and sort retrievers by priority after initialization."""
         if not self.retrievers:
             raise ValidationError("DocumentSourceLoader requires at least one retriever")
         # Normalize ordering so higher priority retrievers run first
@@ -206,6 +218,19 @@ class LocalPathRetriever(DocumentSourceRetriever):
     priority = 100
 
     def can_handle(self, request: DocumentSourceRequest) -> bool:
+        """Check if request can be handled as a local file path.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request to check
+
+        Returns
+        -------
+        bool
+            True if the request is a local file path, False otherwise
+
+        """
         value = request.raw_input
         if isinstance(value, Path):
             return value.exists() and value.is_file()
@@ -214,6 +239,24 @@ class LocalPathRetriever(DocumentSourceRetriever):
         return False
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
+        """Load a document from a local file path.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request containing the file path
+
+        Returns
+        -------
+        DocumentSource
+            The loaded document source
+
+        Raises
+        ------
+        ValidationError
+            If the path doesn't exist or is not a file
+
+        """
         value = request.raw_input
         path = Path(value) if isinstance(value, (str, Path)) else Path(str(value))
         if not path.exists():
@@ -237,9 +280,44 @@ class HttpRetriever(DocumentSourceRetriever):
     priority = 80
 
     def can_handle(self, request: DocumentSourceRequest) -> bool:
+        """Check if request can be handled as an HTTP(S) URL.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request to check
+
+        Returns
+        -------
+        bool
+            True if the request is an HTTP(S) URL, False otherwise
+
+        """
         return request.scheme() in {"http", "https"}
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
+        """Load a document from an HTTP(S) URL.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request containing the URL
+
+        Returns
+        -------
+        DocumentSource
+            The loaded document source
+
+        Raises
+        ------
+        ValidationError
+            If network access is disabled or remote input is not allowed
+        NetworkSecurityError
+            If the request fails security checks
+        DependencyError
+            If httpx is not installed
+
+        """
         if is_network_disabled():
             raise ValidationError(
                 "Network access is disabled via ALL2MD_DISABLE_NETWORK.",
@@ -295,9 +373,37 @@ class BytesRetriever(DocumentSourceRetriever):
     priority = 50
 
     def can_handle(self, request: DocumentSourceRequest) -> bool:
+        """Check if request can be handled as raw bytes.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request to check
+
+        Returns
+        -------
+        bool
+            True if the request is raw bytes, False otherwise
+
+        """
         return isinstance(request.raw_input, bytes)
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
+        """Load a document from raw bytes.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request containing raw bytes
+
+        Returns
+        -------
+        DocumentSource
+            The loaded document source
+
+        """
+        # We know raw_input is bytes because can_handle() checks isinstance(request.raw_input, bytes)
+        assert isinstance(request.raw_input, bytes)
         payload = NamedBytesIO(request.raw_input)
         return DocumentSource(payload=payload, display_name=payload.name, origin_uri=None)
 
@@ -308,10 +414,36 @@ class FileObjectRetriever(DocumentSourceRetriever):
     priority = 40
 
     def can_handle(self, request: DocumentSourceRequest) -> bool:
+        """Check if request can be handled as a file-like object.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request to check
+
+        Returns
+        -------
+        bool
+            True if the request is a file-like object, False otherwise
+
+        """
         value = request.raw_input
         return hasattr(value, "read") and not isinstance(value, (str, bytes, Path))
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
+        """Load a document from a file-like object.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request containing the file-like object
+
+        Returns
+        -------
+        DocumentSource
+            The loaded document source
+
+        """
         stream = request.raw_input
         display_name = getattr(stream, "name", "stream")
         return DocumentSource(payload=stream, display_name=str(display_name), origin_uri=None)
@@ -323,6 +455,19 @@ class TextContentRetriever(DocumentSourceRetriever):
     priority = 30
 
     def can_handle(self, request: DocumentSourceRequest) -> bool:
+        """Check if request can be handled as inline text content.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request to check
+
+        Returns
+        -------
+        bool
+            True if the request is inline text, False otherwise
+
+        """
         value = request.raw_input
         if not isinstance(value, str):
             return False
@@ -332,6 +477,19 @@ class TextContentRetriever(DocumentSourceRetriever):
         return True
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
+        """Load a document from inline text content.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request containing inline text
+
+        Returns
+        -------
+        DocumentSource
+            The loaded document source
+
+        """
         text = request.raw_input
         return DocumentSource(payload=text, display_name="inline-text", origin_uri=None)
 

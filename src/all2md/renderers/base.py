@@ -18,7 +18,7 @@ from typing import IO, Any, Dict, Mapping, Union
 from all2md.ast import Document
 from all2md.ast.nodes import Node
 from all2md.options.base import BaseRendererOptions
-from all2md.utils.metadata import MetadataRenderPolicy, prepare_metadata_for_render
+from all2md.utils.metadata import DocumentMetadata, MetadataRenderPolicy, prepare_metadata_for_render
 
 
 class BaseRenderer(ABC):

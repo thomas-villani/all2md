@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Iterable, Union
+from typing import IO, Any, Iterable, Union, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -85,6 +85,15 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         self._writer_cls = Rtf15Writer
         self._pyth_loaded = True
 
+    def _assert_dependencies_loaded(self) -> None:
+        """Assert that all pyth dependencies have been loaded (for type narrowing)."""
+        assert self._Document is not None
+        assert self._Paragraph is not None
+        assert self._Text is not None
+        assert self._List is not None
+        assert self._ListEntry is not None
+        assert self._writer_cls is not None
+
     def _normalize_blocks(self, value: Any) -> list[Any]:
         """Flatten renderer results into a list of paragraph-like objects."""
         if value is None:
@@ -109,7 +118,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
 
     def _create_text_run(self, text: str) -> Any:
         """Create a pyth Text run with the supplied content."""
-        return self._Text(content=[text])
+        return cast(Any, self._Text)(content=[text])
 
     def _render_inline(self, nodes: Iterable[Any]) -> list[Any]:
         """Render inline nodes to a list of pyth Text runs."""
@@ -144,7 +153,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         """Return a copy of a paragraph with prefix text prepended."""
         runs = [self._create_text_run(prefix)]
         runs.extend(paragraph.content)
-        return self._Paragraph(content=runs)
+        return cast(Any, self._Paragraph)(content=runs)
 
     def _render_table_row(self, row: TableRow, header: bool = False) -> str:
         """Render a table row to a pipe-delimited fallback string."""
@@ -162,9 +171,10 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render a document to an RTF stream or file."""
         self._ensure_dependencies()
+        self._assert_dependencies_loaded()
         try:
             pyth_doc = doc.accept(self)
-            buffer = self._writer_cls.write(pyth_doc, fontFamily=self.options.font_family)
+            buffer = cast(Any, self._writer_cls).write(pyth_doc, fontFamily=self.options.font_family)
             text = buffer.getvalue() if hasattr(buffer, "getvalue") else buffer
             if isinstance(text, bytes):
                 text = text.decode("utf-8")
@@ -180,8 +190,9 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     def render_to_string(self, doc: Document) -> str:
         """Render a document to an in-memory RTF string."""
         self._ensure_dependencies()
+        self._assert_dependencies_loaded()
         pyth_doc = doc.accept(self)
-        buffer = self._writer_cls.write(pyth_doc, fontFamily=self.options.font_family)
+        buffer = cast(Any, self._writer_cls).write(pyth_doc, fontFamily=self.options.font_family)
         text = buffer.getvalue() if hasattr(buffer, "getvalue") else buffer
         if isinstance(text, bytes):
             text = text.decode("utf-8")
@@ -190,6 +201,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     def visit_document(self, node: Document) -> Any:
         """Convert the root document node to a pyth document."""
         self._ensure_dependencies()
+        self._assert_dependencies_loaded()
         properties: dict[str, str] = {}
         for key in ("title", "author", "subject"):
             value = (node.metadata or {}).get(key)
@@ -198,7 +210,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         content: list[Any] = []
         for child in node.children:
             content.extend(self._normalize_blocks(child.accept(self)))
-        return self._Document(properties=properties, content=content)
+        return cast(Any, self._Document)(properties=properties, content=content)
 
     def visit_heading(self, node: Heading) -> Any:
         """Render a heading node with optional bold styling."""
@@ -208,14 +220,14 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         if self.options.bold_headings:
             for run in runs:
                 run["bold"] = True
-        return self._Paragraph(content=runs)
+        return cast(Any, self._Paragraph)(content=runs)
 
     def visit_paragraph(self, node: Paragraph) -> Any:
         """Render a paragraph node to a pyth paragraph."""
         runs = self._render_inline(node.content)
         if not runs:
             return None
-        return self._Paragraph(content=runs)
+        return cast(Any, self._Paragraph)(content=runs)
 
     def visit_code_block(self, node: CodeBlock) -> Any:
         """Render a fenced or indented code block as indented text paragraphs."""
@@ -223,15 +235,16 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         paragraphs: list[Any] = []
         for line in lines:
             run = self._create_text_run(line)
-            paragraphs.append(self._Paragraph(content=[run]))
+            paragraphs.append(cast(Any, self._Paragraph)(content=[run]))
         return paragraphs
 
     def visit_block_quote(self, node: BlockQuote) -> Any:
         """Render a block quote by prefixing contained paragraphs."""
         paragraphs: list[Any] = []
+        Paragraph_cls = cast(Any, self._Paragraph)
         for child in node.children:
             for block in self._normalize_blocks(child.accept(self)):
-                if isinstance(block, self._Paragraph):
+                if isinstance(block, Paragraph_cls):
                     paragraphs.append(self._prefix_paragraph(block, "> "))
                 else:
                     paragraphs.append(block)
@@ -243,43 +256,48 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         for item in node.items:
             entries.extend(self._normalize_blocks(item.accept(self)))
         normalized_entries: list[Any] = []
+        ListEntry_cls = cast(Any, self._ListEntry)
+        Paragraph_cls = cast(Any, self._Paragraph)
+        List_cls = cast(Any, self._List)
         for entry in entries:
-            if isinstance(entry, self._ListEntry):
+            if isinstance(entry, ListEntry_cls):
                 normalized_entries.append(entry)
-            elif isinstance(entry, self._Paragraph):
-                normalized_entries.append(self._ListEntry(content=[entry]))
-            elif isinstance(entry, self._List):
-                normalized_entries.append(self._ListEntry(content=[entry]))
-        return self._List(content=normalized_entries)
+            elif isinstance(entry, Paragraph_cls):
+                normalized_entries.append(ListEntry_cls(content=[entry]))
+            elif isinstance(entry, List_cls):
+                normalized_entries.append(ListEntry_cls(content=[entry]))
+        return List_cls(content=normalized_entries)
 
     def visit_list_item(self, node: ListItem) -> Any:
         """Render a list item, preserving task status when present."""
         paragraphs: list[Any] = []
         for child in node.children:
             paragraphs.extend(self._normalize_blocks(child.accept(self)))
+        Paragraph_cls = cast(Any, self._Paragraph)
         if node.task_status in {"checked", "unchecked"}:
             marker = "[x] " if node.task_status == "checked" else "[ ] "
             if paragraphs:
                 first = paragraphs[0]
-                if isinstance(first, self._Paragraph):
+                if isinstance(first, Paragraph_cls):
                     first.content.insert(0, self._create_text_run(marker))
             else:
-                paragraphs.append(self._Paragraph(content=[self._create_text_run(marker)]))
+                paragraphs.append(Paragraph_cls(content=[self._create_text_run(marker)]))
         if not paragraphs:
-            paragraphs.append(self._Paragraph(content=[self._create_text_run("")]))
-        return self._ListEntry(content=paragraphs)
+            paragraphs.append(Paragraph_cls(content=[self._create_text_run("")]))
+        return cast(Any, self._ListEntry)(content=paragraphs)
 
     def visit_table(self, node: Table) -> Any:
         """Render a table as a series of plain-text paragraphs."""
         paragraphs: list[Any] = []
+        Paragraph_cls = cast(Any, self._Paragraph)
         if node.header:
             header = self._render_table_row(node.header, header=True)
-            paragraphs.append(self._Paragraph(content=[self._create_text_run(header)]))
+            paragraphs.append(Paragraph_cls(content=[self._create_text_run(header)]))
         for row in node.rows:
             line = self._render_table_row(row)
-            paragraphs.append(self._Paragraph(content=[self._create_text_run(line)]))
+            paragraphs.append(Paragraph_cls(content=[self._create_text_run(line)]))
         if node.caption:
-            paragraphs.append(self._Paragraph(content=[self._create_text_run(node.caption)]))
+            paragraphs.append(Paragraph_cls(content=[self._create_text_run(node.caption)]))
         return paragraphs
 
     def visit_table_row(self, node: TableRow) -> Any:
@@ -293,13 +311,14 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     def visit_definition_list(self, node: DefinitionList) -> Any:
         """Render a definition list as paragraphs with indented descriptions."""
         paragraphs: list[Any] = []
+        Paragraph_cls = cast(Any, self._Paragraph)
         for term, descriptions in node.items:
             term_runs = self._render_inline(term.content)
             if term_runs:
-                paragraphs.append(self._Paragraph(content=term_runs))
+                paragraphs.append(Paragraph_cls(content=term_runs))
             for desc in descriptions:
                 for block in self._normalize_blocks(desc.accept(self)):
-                    if isinstance(block, self._Paragraph):
+                    if isinstance(block, Paragraph_cls):
                         paragraphs.append(self._prefix_paragraph(block, "    "))
                     else:
                         paragraphs.append(block)
@@ -308,7 +327,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     def visit_definition_term(self, node: DefinitionTerm) -> Any:
         """Render a definition term to a paragraph."""
         runs = self._render_inline(node.content)
-        return self._Paragraph(content=runs) if runs else None
+        return cast(Any, self._Paragraph)(content=runs) if runs else None
 
     def visit_definition_description(self, node: DefinitionDescription) -> Any:
         """Render a definition description's block content."""
@@ -319,20 +338,21 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
 
     def visit_thematic_break(self, node: ThematicBreak) -> Any:  # noqa: ARG002
         """Render a thematic break as an em-dash divider."""
-        return self._Paragraph(content=[self._create_text_run("—" * 10)])
+        return cast(Any, self._Paragraph)(content=[self._create_text_run("—" * 10)])
 
     def visit_html_block(self, node: HTMLBlock) -> Any:
         """Render raw HTML blocks as literal text with a debug hint."""
         logger.debug("Rendering HTML block as plain text for RTF output")
-        return self._Paragraph(content=[self._create_text_run(node.content)])
+        return cast(Any, self._Paragraph)(content=[self._create_text_run(node.content)])
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> Any:
         """Render a footnote definition with indentation."""
-        intro = self._Paragraph(content=[self._create_text_run(f"[^{node.identifier}]:")])
+        Paragraph_cls = cast(Any, self._Paragraph)
+        intro = Paragraph_cls(content=[self._create_text_run(f"[^{node.identifier}]:")])
         content: list[Any] = [intro]
         for child in node.content:
             for block in self._normalize_blocks(child.accept(self)):
-                if isinstance(block, self._Paragraph):
+                if isinstance(block, Paragraph_cls):
                     content.append(self._prefix_paragraph(block, "    "))
                 else:
                     content.append(block)
@@ -342,7 +362,8 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         """Render a display math block using its preferred representation."""
         content, _ = node.get_preferred_representation("latex")
         lines = content.splitlines() or [content]
-        paragraphs = [self._Paragraph(content=[self._create_text_run(line)]) for line in lines]
+        Paragraph_cls = cast(Any, self._Paragraph)
+        paragraphs = [Paragraph_cls(content=[self._create_text_run(line)]) for line in lines]
         return paragraphs
 
     def visit_math_inline(self, node: MathInline) -> Any:

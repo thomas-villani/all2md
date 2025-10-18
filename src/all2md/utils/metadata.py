@@ -247,23 +247,23 @@ def prepare_metadata_for_render(
         output.append((output_key, value))
         added_fields.add(canonical)
 
-    for field in FIELD_OUTPUT_ORDER:
-        if field not in normalized:
+    for field_name in FIELD_OUTPUT_ORDER:
+        if field_name not in normalized:
             continue
-        if field not in visibility_fields and field not in include_fields:
+        if field_name not in visibility_fields and field_name not in include_fields:
             continue
-        add_field(field)
+        add_field(field_name)
 
     if policy.include_custom_fields:
-        for field in sorted(custom_fields):
-            if field in added_fields:
+        for field_name in sorted(custom_fields):
+            if field_name in added_fields:
                 continue
-            if field in exclude_fields and field not in include_fields:
+            if field_name in exclude_fields and field_name not in include_fields:
                 continue
-            add_field(field)
+            add_field(field_name)
 
-    for field in include_fields:
-        add_field(field)
+    for field_name in include_fields:
+        add_field(field_name)
 
     return dict(output)
 

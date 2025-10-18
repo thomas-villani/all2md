@@ -37,6 +37,14 @@ class IpynbRenderer(BaseRenderer):
     """Render an all2md AST document into a Jupyter notebook (ipynb)."""
 
     def __init__(self, options: IpynbRendererOptions | None = None):
+        """Initialize the Jupyter notebook renderer.
+
+        Parameters
+        ----------
+        options : IpynbRendererOptions or None, optional
+            Renderer options for Jupyter notebooks
+
+        """
         options = options or IpynbRendererOptions()
         super().__init__(options)
         self.options: IpynbRendererOptions = options
@@ -45,7 +53,7 @@ class IpynbRenderer(BaseRenderer):
     # Public API
     # ---------------------------------------------------------------------
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
         """Render the AST document to a file path or binary stream."""
         notebook_str = self.render_to_string(doc)
         data = notebook_str.encode("utf-8")
@@ -54,11 +62,16 @@ class IpynbRenderer(BaseRenderer):
             Path(output).write_bytes(data)
             return
 
-        try:
-            output.write(data)
-        except TypeError:
-            # Fall back to writing str for text-mode streams
-            output.write(notebook_str)
+        # Handle both binary and text streams
+        import io
+        from typing import cast
+
+        if isinstance(output, (io.BytesIO, io.BufferedWriter)) or (hasattr(output, "mode") and "b" in getattr(output, "mode", "")):
+            # Binary stream
+            cast(IO[bytes], output).write(data)
+        else:
+            # Text mode stream
+            cast(IO[str], output).write(notebook_str)
 
     def render_to_string(self, doc: Document) -> str:
         """Render the AST document to an in-memory JSON string."""
@@ -71,7 +84,7 @@ class IpynbRenderer(BaseRenderer):
 
     def _build_notebook(self, document: Document) -> Dict[str, Any]:
         bundle = self._extract_notebook_bundle(document)
-        metadata = self._prepare_metadata(document, bundle)
+        metadata = self._build_notebook_metadata(document, bundle)
         nbformat = self._resolve_nbformat(bundle)
         nbformat_minor = self._resolve_nbformat_minor(bundle, nbformat)
         cells = self._collect_cells(document)
@@ -114,7 +127,7 @@ class IpynbRenderer(BaseRenderer):
     # Metadata handling
     # ------------------------------------------------------------------
 
-    def _prepare_metadata(self, document: Document, bundle: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_notebook_metadata(self, document: Document, bundle: Dict[str, Any]) -> Dict[str, Any]:
         """Construct notebook-level metadata with inference heuristics."""
         metadata = bundle.get("metadata")
         if not isinstance(metadata, dict):
@@ -357,7 +370,8 @@ class IpynbRenderer(BaseRenderer):
             code_node = next((n for n in cell.body_nodes if isinstance(n, CodeBlock)), None)
             if code_node is not None:
                 metadata = getattr(code_node, "metadata", {}) or {}
-                ipynb_meta = metadata.get("ipynb") if isinstance(metadata.get("ipynb"), dict) else {}
+                ipynb_value = metadata.get("ipynb")
+                ipynb_meta: dict[Any, Any] = ipynb_value if isinstance(ipynb_value, dict) else {}
                 original = ipynb_meta.get("source")
                 content = code_node.content
 

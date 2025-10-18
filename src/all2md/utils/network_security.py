@@ -396,6 +396,8 @@ def create_secure_http_client(
         List of allowed hostnames or CIDR blocks
     require_https : bool, default True
         If True, only HTTPS URLs are allowed
+    user_agent : str | None, default None
+        Custom User-Agent header for requests (currently unused)
 
     Returns
     -------
@@ -476,6 +478,8 @@ def fetch_content_securely(
         Require a successful HEAD request prior to GET.
     rate_limiter : RateLimiter | None, default None
         Optional rate limiter to control request rate and concurrency
+    user_agent : str | None, default None
+        Custom User-Agent header for requests (currently unused)
 
     Returns
     -------

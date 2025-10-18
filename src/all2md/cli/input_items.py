@@ -22,12 +22,36 @@ class CLIInputItem:
     metadata: dict[str, str] = field(default_factory=dict)
 
     def is_local_file(self) -> bool:
+        """Check if this input represents a local file.
+
+        Returns
+        -------
+        bool
+            True if the input is a local file, False otherwise
+
+        """
         return self.kind == "local_file"
 
     def is_remote(self) -> bool:
+        """Check if this input represents a remote URI.
+
+        Returns
+        -------
+        bool
+            True if the input is a remote URI, False otherwise
+
+        """
         return self.kind == "remote_uri"
 
     def is_stdin(self) -> bool:
+        """Check if this input represents stdin bytes.
+
+        Returns
+        -------
+        bool
+            True if the input is from stdin, False otherwise
+
+        """
         return self.kind == "stdin_bytes"
 
     def best_path(self) -> Path | None:

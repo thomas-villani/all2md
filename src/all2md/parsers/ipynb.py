@@ -344,6 +344,8 @@ class IpynbToAstConverter(BaseParser):
             Cell index
         output_index : int
             Output index within cell
+        cell_info : dict
+            Cell metadata and information
 
         Returns
         -------

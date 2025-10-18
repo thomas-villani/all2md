@@ -503,7 +503,7 @@ def example_function():
 
         # Should attempt ODT processing (may fail since it's not real ODT)
         # But should not crash due to format detection
-        assert result.returncode in [0, 1, 2]
+        assert result.returncode == 4
 
     @pytest.mark.odf
     def test_odf_nonexistent_file(self):
@@ -1810,10 +1810,8 @@ class TestExitCodes:
             text=True,
             input=""
         )
-
-        # Should return error (likely 1 for general error)
-        assert result.returncode != 0
-        assert "Error" in result.stderr
+        assert result.returncode == 4
+        assert "Error: No valid input files found" in result.stderr
 
 
 @pytest.mark.e2e

@@ -1633,7 +1633,7 @@ def process_files_collated(
     show_progress = args.progress or args.rich or len(items) > 1
 
     with ProgressContext(use_rich, show_progress, len(items), "Loading documents") as progress:
-        for offset, item in enumerate(items, start=1):
+        for _offset, item in enumerate(items, start=1):
             progress.set_postfix(f"Processing {item.name}")
             exit_code, document, error = _convert_item_to_ast_for_collation(item, options, format_arg)
 
@@ -1888,8 +1888,7 @@ def convert_single_file(
             sys.stdout.buffer.flush()
         elif isinstance(result, str):
             print(result)
-        elif result is not None:
-            print(str(result))
+        # result can only be bytes, str, or None at this point
 
         return EXIT_SUCCESS, input_item.display_name, None
 
@@ -2015,7 +2014,7 @@ def process_files_unified(
                     progress.update()
     else:
         with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
-            for item, output_path, target_format, index in planned_tasks:
+            for item, output_path, target_format, _index in planned_tasks:
                 progress.set_postfix(f"Processing {item.name}")
 
                 exit_code, _, error = convert_single_file(
@@ -2084,6 +2083,21 @@ def _render_single_item_to_stdout(
                 transforms=transforms,
                 **effective_options,
             )
+
+            # Apply rich formatting if requested
+            if should_use_rich:
+                content_to_output, is_rich = _apply_rich_formatting(markdown_content, args)
+            else:
+                content_to_output, is_rich = markdown_content, False
+
+            # Apply paging if requested
+            if args.pager:
+                if not _page_content(content_to_output, is_rich=is_rich):
+                    print(content_to_output)
+            else:
+                print(content_to_output)
+
+            return EXIT_SUCCESS
         else:
             result = convert(
                 item.raw_input,
@@ -2099,12 +2113,11 @@ def _render_single_item_to_stdout(
                 sys.stdout.buffer.flush()
                 return EXIT_SUCCESS
 
-            text_output: str | None
+            text_output: str
             if isinstance(result, str):
                 text_output = result
-            elif result is not None:
-                text_output = str(result)
             else:
+                # result can only be None at this point (already handled bytes)
                 text_output = ""
 
             rendered = False
@@ -2123,18 +2136,3 @@ def _render_single_item_to_stdout(
         exit_code = get_exit_code_for_exception(exc)
         print(f"Error: {exc}", file=sys.stderr)
         return exit_code
-
-    # Apply rich formatting if requested
-    if should_use_rich:
-        content_to_output, is_rich = _apply_rich_formatting(markdown_content, args)
-    else:
-        content_to_output, is_rich = markdown_content, False
-
-    # Apply paging if requested
-    if args.pager:
-        if not _page_content(content_to_output, is_rich=is_rich):
-            print(content_to_output)
-    else:
-        print(content_to_output)
-
-    return EXIT_SUCCESS

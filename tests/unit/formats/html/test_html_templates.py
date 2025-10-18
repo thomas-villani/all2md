@@ -417,12 +417,8 @@ class TestTemplateValidation:
 
     def test_template_mode_requires_file(self):
         """Test that template_mode requires template_file."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ])
-
         with pytest.raises(ValueError, match="template_mode='replace' requires template_file to be set"):
-            options = HtmlRendererOptions(
+            HtmlRendererOptions(
                 template_mode='replace',
                 template_file=None  # Missing template file
             )

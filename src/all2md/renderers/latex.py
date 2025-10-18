@@ -12,7 +12,7 @@ for controlling output format and can generate complete documents or fragments.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Dict, Union
+from typing import IO, Any, Dict, Union
 
 from all2md.ast.nodes import (
     BlockQuote,

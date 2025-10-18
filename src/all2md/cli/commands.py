@@ -502,12 +502,13 @@ def collect_input_files(
                 continue
             if stdin_data is None:
                 stdin_data = sys.stdin.buffer.read()
-            stdin_item = CLIInputItem(
-                raw_input=stdin_data or b"",
-                kind="stdin_bytes",
-                display_name="<stdin>",
-                original_argument=raw_argument,
-            )
+            if len(stdin_data) > 0:
+                stdin_item = CLIInputItem(
+                    raw_input=stdin_data or b"",
+                    kind="stdin_bytes",
+                    display_name="<stdin>",
+                    original_argument=raw_argument,
+                )
             continue
 
         if _is_probable_uri(raw_argument):

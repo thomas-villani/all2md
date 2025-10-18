@@ -10,9 +10,9 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
-logger = logging.getLogger(__name__)
-
 from all2md.cli.input_items import CLIInputItem
+
+logger = logging.getLogger(__name__)
 
 
 def create_package_from_conversions(
