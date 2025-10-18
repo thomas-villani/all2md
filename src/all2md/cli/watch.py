@@ -24,6 +24,7 @@ except ImportError:
 
         pass
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,16 +55,16 @@ class ConversionEventHandler(FileSystemEventHandler):
     """
 
     def __init__(
-            self,
-            paths_to_watch: List[Path],
-            output_dir: Path,
-            options: Dict[str, Any],
-            format_arg: DocumentFormat,
-            transforms: Optional[list] = None,
-            debounce_seconds: float = 1.0,
-            preserve_structure: bool = False,
-            recursive: bool = False,
-            exclude_patterns: Optional[List[str]] = None,
+        self,
+        paths_to_watch: List[Path],
+        output_dir: Path,
+        options: Dict[str, Any],
+        format_arg: DocumentFormat,
+        transforms: Optional[list] = None,
+        debounce_seconds: float = 1.0,
+        preserve_structure: bool = False,
+        recursive: bool = False,
+        exclude_patterns: Optional[List[str]] = None,
     ) -> None:
         """Initialize the conversion event handler with watch settings."""
         self.paths_to_watch = paths_to_watch
@@ -237,15 +238,15 @@ class ConversionEventHandler(FileSystemEventHandler):
 
 
 def run_watch_mode(
-        paths: List[Path],
-        output_dir: Path,
-        options: Dict[str, Any],
-        format_arg: DocumentFormat,
-        transforms: Optional[list] = None,
-        debounce: float = 1.0,
-        preserve_structure: bool = False,
-        recursive: bool = False,
-        exclude_patterns: Optional[List[str]] = None,
+    paths: List[Path],
+    output_dir: Path,
+    options: Dict[str, Any],
+    format_arg: DocumentFormat,
+    transforms: Optional[list] = None,
+    debounce: float = 1.0,
+    preserve_structure: bool = False,
+    recursive: bool = False,
+    exclude_patterns: Optional[List[str]] = None,
 ) -> int:
     """Run watch mode to monitor and convert files on change.
 

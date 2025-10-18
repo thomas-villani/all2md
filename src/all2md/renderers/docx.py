@@ -622,16 +622,16 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         return "".join(text_parts)
 
     def _render_inlines(
-            self,
-            paragraph: Paragraph,
-            nodes: list[Node],
-            bold: bool = False,
-            italic: bool = False,
-            underline: bool = False,
-            strike: bool = False,
-            superscript: bool = False,
-            subscript: bool = False,
-            code_font: bool = False,
+        self,
+        paragraph: Paragraph,
+        nodes: list[Node],
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
+        strike: bool = False,
+        superscript: bool = False,
+        subscript: bool = False,
+        code_font: bool = False,
     ) -> None:
         """Render inline nodes directly into a paragraph with formatting.
 

@@ -181,6 +181,7 @@ class TestDetectOnlyMode:
     def test_detect_only_basic(self, mock_check_installed, mock_check_version, mock_registry):
         """Test basic detect-only functionality."""
         from pathlib import Path
+
         from all2md.cli.input_items import CLIInputItem
 
         # Setup mocks
@@ -326,6 +327,7 @@ class TestEnhancedDryRun:
     def test_dry_run_shows_format_detection(self, mock_check_installed, mock_check_version, mock_registry):
         """Test that enhanced dry-run shows format detection info."""
         from pathlib import Path
+
         from all2md.cli.input_items import CLIInputItem
 
         # Setup mocks

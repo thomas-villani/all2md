@@ -11,8 +11,8 @@ class TestCreatePackageFromConversions:
 
     def test_create_package_basic(self, tmp_path):
         """Test basic package creation from text files."""
-        from all2md.cli.packaging import create_package_from_conversions
         from all2md.cli.input_items import CLIInputItem
+        from all2md.cli.packaging import create_package_from_conversions
 
         # Create test input files
         input1 = tmp_path / "input1.txt"
@@ -55,8 +55,8 @@ class TestCreatePackageFromConversions:
 
     def test_create_package_different_formats(self, tmp_path):
         """Test package creation with different target formats."""
-        from all2md.cli.packaging import create_package_from_conversions
         from all2md.cli.input_items import CLIInputItem
+        from all2md.cli.packaging import create_package_from_conversions
 
         input_file = tmp_path / "test.txt"
         input_file.write_text("# Test\n\nSome content.")
@@ -81,8 +81,8 @@ class TestCreatePackageFromConversions:
 
     def test_create_package_forces_base64(self, tmp_path):
         """Test that packaging forces base64 attachment mode."""
-        from all2md.cli.packaging import create_package_from_conversions
         from all2md.cli.input_items import CLIInputItem
+        from all2md.cli.packaging import create_package_from_conversions
 
         input_file = tmp_path / "test.txt"
         input_file.write_text("Test content")
@@ -112,8 +112,8 @@ class TestCreatePackageFromConversions:
 
     def test_create_package_handles_conversion_errors(self, tmp_path):
         """Test that packaging continues on conversion errors."""
-        from all2md.cli.packaging import create_package_from_conversions
         from all2md.cli.input_items import CLIInputItem
+        from all2md.cli.packaging import create_package_from_conversions
 
         # Create one valid file and one that will fail
         valid_file = tmp_path / "valid.txt"

@@ -1,6 +1,6 @@
-import pytest
-
 from pathlib import Path
+
+import pytest
 
 from all2md.exceptions import ValidationError
 from all2md.utils.input_sources import (

@@ -62,7 +62,7 @@ class TieredHelpAction(argparse.Action):
     def __call__(
             self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Any,
             option_string: Optional[str] = None
-            ) -> None:
+    ) -> None:
         """Execute the help action.
 
         Parameters

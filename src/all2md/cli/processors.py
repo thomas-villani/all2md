@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 from all2md import convert, from_ast, to_ast, to_markdown
-from all2md.ast.nodes import Document as ASTDocument, Heading, Text, ThematicBreak
+from all2md.ast.nodes import Document as ASTDocument
+from all2md.ast.nodes import Heading, Text, ThematicBreak
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
@@ -28,11 +29,10 @@ from all2md.cli.builder import (
     get_exit_code_for_exception,
 )
 from all2md.cli.input_items import CLIInputItem
-from all2md.cli.validation import validate_arguments as _validate_arguments
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
-from all2md.transforms import registry as transform_registry
 from all2md.exceptions import All2MdError, DependencyError
+from all2md.transforms import registry as transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,6 @@ _OPTION_COMPAT_WARNINGS: set[str] = set()
 
 def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
     """Return the shared base directory for local inputs when preserving structure."""
-
     if not preserve_structure:
         return None
 
@@ -69,7 +68,6 @@ def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool)
 
 def _relative_parent(item: CLIInputItem, base_input_dir: Optional[Path]) -> Path:
     """Return the relative parent path for output generation."""
-
     if not base_input_dir or not item.is_local_file():
         return Path()
 
@@ -84,17 +82,16 @@ def _relative_parent(item: CLIInputItem, base_input_dir: Optional[Path]) -> Path
 
 
 def _generate_output_path_for_item(
-        item: CLIInputItem,
-        output_dir: Optional[Path],
-        preserve_structure: bool,
-        base_input_dir: Optional[Path],
-        target_format: str,
-        index: int,
-        *,
-        dry_run: bool = False,
+    item: CLIInputItem,
+    output_dir: Optional[Path],
+    preserve_structure: bool,
+    base_input_dir: Optional[Path],
+    target_format: str,
+    index: int,
+    *,
+    dry_run: bool = False,
 ) -> Optional[Path]:
     """Generate an output path for a CLI input item, handling remote sources."""
-
     if output_dir is None:
         return None
 
@@ -106,6 +103,7 @@ def _generate_output_path_for_item(
     if not dry_run:
         output_path.parent.mkdir(parents=True, exist_ok=True)
     return output_path
+
 
 class TransformSpec(TypedDict):
     """Serializable specification for reconstructing a transform instance."""
@@ -120,9 +118,9 @@ def _final_option_segment(remainder: str) -> str:
 
 
 def _filter_options_for_formats(
-        options: Dict[str, Any],
-        parser_format: str | None,
-        renderer_format: str | None,
+    options: Dict[str, Any],
+    parser_format: str | None,
+    renderer_format: str | None,
 ) -> Dict[str, Any]:
     """Project a namespaced options dict onto parser/renderer kwargs.
 
@@ -194,16 +192,15 @@ def _filter_options_for_formats(
 
 def _extract_remote_input_options(options: Dict[str, Any]) -> tuple[RemoteInputOptions | None, Dict[str, Any]]:
     """Split remote input configuration from the general options dict."""
-
     remote_prefix = "remote_input."
     remote_kwargs: Dict[str, Any] = {}
     remaining: Dict[str, Any] = {}
 
     for key, value in options.items():
         if key.startswith(remote_prefix):
-            field_name = key[len(remote_prefix):]
-            if field_name == 'allowed_hosts' and isinstance(value, str):
-                remote_kwargs[field_name] = [host.strip() for host in value.split(',') if host.strip()]
+            field_name = key[len(remote_prefix) :]
+            if field_name == "allowed_hosts" and isinstance(value, str):
+                remote_kwargs[field_name] = [host.strip() for host in value.split(",") if host.strip()]
             else:
                 remote_kwargs[field_name] = value
         else:
@@ -228,10 +225,10 @@ def _detect_format_for_path(input_path: Path | None) -> str | None:
 
 
 def prepare_options_for_execution(
-        options: Dict[str, Any],
-        input_path: Path | None,
-        parser_hint: str,
-        renderer_hint: str | None = None,
+    options: Dict[str, Any],
+    input_path: Path | None,
+    parser_hint: str,
+    renderer_hint: str | None = None,
 ) -> Dict[str, Any]:
     """Prepare CLI options for API consumption based on detected formats."""
     parser_format: str | None
@@ -382,10 +379,10 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
         print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
         return markdown_content, False
 
+
 # TODO: we can do better than this, I think we have better utils in another module
 def _determine_syntax_language(target_format: str) -> str:
     """Return the Rich/Pygments lexer name for a given renderer target."""
-
     lookup = {
         "html": "html",
         "asciidoc": "asciidoc",
@@ -404,7 +401,6 @@ def _determine_syntax_language(target_format: str) -> str:
 
 def _render_rich_text_output(text: str, args: argparse.Namespace, target_format: str) -> bool:
     """Attempt to render non-markdown text with Rich Syntax."""
-
     try:
         from rich.console import Console
         from rich.syntax import Syntax
@@ -445,7 +441,6 @@ def _page_content(content: str, is_rich: bool = False) -> bool:
         True if paging succeeded, False if should fall back to printing
 
     """
-
     # Check if using Rich formatting on Windows/WSL
     # Plain text paging works fine on Windows, but Rich ANSI codes don't display well
     if is_rich:
@@ -579,7 +574,6 @@ def _instantiate_transforms_from_specs(transform_specs: list[TransformSpec]) -> 
     if not transform_specs:
         return []
 
-
     instances: list[Any] = []
     for spec in transform_specs:
         name = spec["name"]
@@ -619,7 +613,6 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
     - max_attachment_size_bytes -> BaseParserOptions (top-level, no prefix)
 
     """
-
     # Track which preset is being used (highest security wins)
     preset_used = None
 
@@ -680,7 +673,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
 
 
 def setup_and_validate_options(
-        parsed_args: argparse.Namespace,
+    parsed_args: argparse.Namespace,
 ) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
     """Set up conversion options and build transforms.
 
@@ -742,11 +735,11 @@ def setup_and_validate_options(
 
 
 def process_multi_file(
-        items: List[CLIInputItem],
-        parsed_args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    items: List[CLIInputItem],
+    parsed_args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process multiple files with appropriate output handling.
 
@@ -796,11 +789,11 @@ def process_multi_file(
 
 
 def _create_output_package(
-        parsed_args: argparse.Namespace,
-        input_items: List[CLIInputItem],
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    parsed_args: argparse.Namespace,
+    input_items: List[CLIInputItem],
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Create output package (zip) after successful conversion.
 
@@ -1053,7 +1046,7 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
 
 def process_merge_from_list(
-        args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
+    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
     """Process files from a list file and merge them into a single document.
 
@@ -1404,7 +1397,6 @@ def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, for
 
 def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
     """Show what would be processed without performing any conversions."""
-
     from all2md.converter_registry import registry
     from all2md.dependencies import check_version_requirement
 
@@ -1592,12 +1584,11 @@ def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_
 
 
 def _convert_item_to_ast_for_collation(
-        item: CLIInputItem,
-        options: Dict[str, Any],
-        format_arg: str,
+    item: CLIInputItem,
+    options: Dict[str, Any],
+    format_arg: str,
 ) -> Tuple[int, Optional[ASTDocument], Optional[str]]:
     """Load an input item into an AST for collation."""
-
     try:
         detection_hint = item.best_path()
         effective_options = prepare_options_for_execution(
@@ -1626,14 +1617,13 @@ def _convert_item_to_ast_for_collation(
 
 
 def process_files_collated(
-        items: List[CLIInputItem],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Collate multiple inputs into a single output using an AST pipeline."""
-
     from all2md.cli.progress import ProgressContext, SummaryRenderer
 
     collected_documents: List[ASTDocument] = []
@@ -1748,12 +1738,12 @@ def process_files_collated(
 
 
 def generate_output_path(
-        input_file: Path,
-        output_dir: Optional[Path] = None,
-        preserve_structure: bool = False,
-        base_input_dir: Optional[Path] = None,
-        dry_run: bool = False,
-        target_format: str = "markdown",
+    input_file: Path,
+    output_dir: Optional[Path] = None,
+    preserve_structure: bool = False,
+    base_input_dir: Optional[Path] = None,
+    dry_run: bool = False,
+    target_format: str = "markdown",
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -1806,14 +1796,14 @@ def generate_output_path(
 
 
 def convert_single_file(
-        input_item: CLIInputItem,
-        output_path: Optional[Path],
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-        show_progress: bool = False,
-        target_format: str = "markdown",
-        transform_specs: Optional[list[TransformSpec]] = None,
+    input_item: CLIInputItem,
+    output_path: Optional[Path],
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
+    show_progress: bool = False,
+    target_format: str = "markdown",
+    transform_specs: Optional[list[TransformSpec]] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -1914,14 +1904,13 @@ def convert_single_file(
 
 
 def process_files_unified(
-        items: List[CLIInputItem],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process CLI inputs with unified progress handling."""
-
     from all2md.cli.progress import ProgressContext, SummaryRenderer
 
     base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
@@ -1953,7 +1942,6 @@ def process_files_unified(
     transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     planned_tasks: List[Tuple[CLIInputItem, Optional[Path], str, int]] = []
-
 
     output_dir = Path(args.output_dir) if args.output_dir else None
 
@@ -2070,19 +2058,16 @@ def process_files_unified(
     return EXIT_SUCCESS
 
 
-
-
 def _render_single_item_to_stdout(
-        item: CLIInputItem,
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list],
-        should_use_rich: bool,
-        target_format: str,
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    should_use_rich: bool,
+    target_format: str,
 ) -> int:
     """Render a single item to stdout, respecting pager and rich flags."""
-
     try:
         render_target = target_format if target_format != "auto" else "markdown"
         effective_options = prepare_options_for_execution(

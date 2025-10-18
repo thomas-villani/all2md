@@ -380,10 +380,10 @@ class HelpRenderer:
         return "\n".join(lines)
 
     def _render_sections(
-            self,
-            sections: Sequence[HelpSection],
-            *,
-            core_only: bool,
+        self,
+        sections: Sequence[HelpSection],
+        *,
+        core_only: bool,
     ) -> list[str]:
         lines: list[str] = []
 
@@ -412,11 +412,11 @@ class HelpRenderer:
         return lines
 
     def _render_section_block(
-            self,
-            section: HelpSection,
-            options: Sequence[OptionEntry],
-            *,
-            indent_section: str,
+        self,
+        section: HelpSection,
+        options: Sequence[OptionEntry],
+        *,
+        indent_section: str,
     ) -> list[str]:
         lines: list[str] = []
         section_prefix = indent_section
@@ -438,10 +438,10 @@ class HelpRenderer:
         return lines
 
     def _render_section_placeholder(
-            self,
-            section: HelpSection,
-            *,
-            indent_section: str,
+        self,
+        section: HelpSection,
+        *,
+        indent_section: str,
     ) -> list[str]:
         lines: list[str] = []
         section_prefix = indent_section
@@ -464,10 +464,10 @@ class HelpRenderer:
         return lines
 
     def _format_option_line(
-            self,
-            option: OptionEntry,
-            option_indent: str,
-            desc_indent: str,
+        self,
+        option: OptionEntry,
+        option_indent: str,
+        desc_indent: str,
     ) -> list[str]:
         option_strings = ", ".join(option.option_strings)
         header = f"{option_indent}{option_strings}"
@@ -536,7 +536,7 @@ class HelpRenderer:
 
         if stripped.startswith("usage:"):
             text.append("usage:", style="bold yellow")
-            text.append(stripped[len("usage:"):], style="white")
+            text.append(stripped[len("usage:") :], style="white")
             return text
 
         if stripped.lower().startswith("subcommands"):
@@ -594,10 +594,10 @@ def build_help_renderer(*, use_rich: bool = False) -> HelpRenderer:
 
 
 def display_help(
-        selector: str = "quick",
-        *,
-        use_rich: Optional[bool] = None,
-        stream: Optional[Any] = None,
+    selector: str = "quick",
+    *,
+    use_rich: Optional[bool] = None,
+    stream: Optional[Any] = None,
 ) -> None:
     """Render help for ``selector`` to stdout (or ``stream``) with optional rich output.
 

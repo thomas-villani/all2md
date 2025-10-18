@@ -10,11 +10,11 @@ implementations.
 from __future__ import annotations
 
 import abc
+import os
 from dataclasses import dataclass, field
 from io import BytesIO
-import os
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Union, Sequence
+from typing import IO, Any, Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
 from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationError
@@ -25,15 +25,14 @@ InputType = Union[str, Path, IO[bytes], IO[str], bytes]
 
 def _looks_like_path(value: str) -> bool:
     """Heuristic to determine if a string appears to reference a filesystem path."""
-
     if not value:
         return False
     lowered = value.lower()
     if lowered.startswith(("http://", "https://", "http:/", "https:/")):
         return False
-    if '\n' in value or '\r' in value:
+    if "\n" in value or "\r" in value:
         return False
-    if '<' in value or '>' in value:
+    if "<" in value or ">" in value:
         return False
     if value.startswith((os.sep, "./", "../", "~")):
         return True
@@ -41,7 +40,7 @@ def _looks_like_path(value: str) -> bool:
         return True
     if os.sep in value:
         return True
-    if len(value) >= 2 and value[1] == ':' and value[0].isalpha():
+    if len(value) >= 2 and value[1] == ":" and value[0].isalpha():
         return True
     suffix = Path(value).suffix
     return bool(suffix)
@@ -57,7 +56,6 @@ class NamedBytesIO(BytesIO):
     @property
     def name(self) -> str:
         """Best-effort filename used for format detection and logging."""
-
         return self._display_name
 
 
@@ -112,7 +110,6 @@ class RemoteInputOptions:
 
     def create_updated(self, **kwargs: Any) -> "RemoteInputOptions":
         """Return a copy of this options object with updated fields."""
-
         data = {
             "allow_remote_input": self.allow_remote_input,
             "allowed_hosts": list(self.allowed_hosts) if self.allowed_hosts is not None else None,
@@ -138,10 +135,10 @@ class DocumentSourceRequest:
         if isinstance(value, (str, Path)):
             text = str(value)
             lower_text = text.lower()
-            if '://' in lower_text:
-                return lower_text.split('://', 1)[0]
-            if lower_text.startswith(('http:/', 'https:/')):
-                return lower_text.split(':/', 1)[0]
+            if "://" in lower_text:
+                return lower_text.split("://", 1)[0]
+            if lower_text.startswith(("http:/", "https:/")):
+                return lower_text.split(":/", 1)[0]
         return None
 
 
@@ -155,7 +152,6 @@ class DocumentSource:
 
     def as_path(self) -> Path | None:
         """Return payload as Path when available."""
-
         if isinstance(self.payload, Path):
             return self.payload
         if isinstance(self.payload, str):
@@ -191,7 +187,6 @@ class DocumentSourceLoader:
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
         """Resolve a request by delegating to the first capable retriever."""
-
         for retriever in self.retrievers:
             if retriever.can_handle(request):
                 return retriever.load(request)
@@ -203,6 +198,7 @@ class DocumentSourceLoader:
             parameter_value=request.raw_input,
         )
 
+
 # TODO: allow file:// urls?
 class LocalPathRetriever(DocumentSourceRetriever):
     """Resolver for local filesystem paths."""
@@ -213,7 +209,7 @@ class LocalPathRetriever(DocumentSourceRetriever):
         value = request.raw_input
         if isinstance(value, Path):
             return value.exists() and value.is_file()
-        if isinstance(value, str) and '://' not in value and _looks_like_path(value):
+        if isinstance(value, str) and "://" not in value and _looks_like_path(value):
             return Path(value).exists()
         return False
 
@@ -351,7 +347,6 @@ DEFAULT_RETRIEVERS: tuple[DocumentSourceRetriever, ...] = (
 
 def default_loader(additional_retrievers: Optional[Iterable[DocumentSourceRetriever]] = None) -> DocumentSourceLoader:
     """Create a loader with built-in retrievers and optional extensions."""
-
     retriever_list: list[DocumentSourceRetriever] = list(DEFAULT_RETRIEVERS)
     if additional_retrievers:
         retriever_list.extend(additional_retrievers)

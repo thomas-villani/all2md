@@ -24,17 +24,17 @@ class TrackingStoreAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            nargs: Optional[Union[int, str]] = None,
-            const: Optional[Any] = None,
-            default: Optional[Any] = None,
-            type: Optional[Callable[[str], Any]] = None,
-            choices: Optional[Sequence[Any]] = None,
-            required: bool = False,
-            help: Optional[str] = None,
-            metavar: Optional[Union[str, tuple[str, ...]]] = None,
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[Any] = None,
+        type: Optional[Callable[[str], Any]] = None,
+        choices: Optional[Sequence[Any]] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None,
     ) -> None:
         """Initialize the tracking store action.
 
@@ -89,11 +89,11 @@ class TrackingStoreAction(argparse.Action):
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None,
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Store the value and mark it as explicitly provided.
 
@@ -125,12 +125,12 @@ class TrackingStoreTrueAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            default: bool = False,
-            required: bool = False,
-            help: Optional[str] = None,
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        default: bool = False,
+        required: bool = False,
+        help: Optional[str] = None,
     ) -> None:
         """Initialize the tracking store_true action.
 
@@ -160,11 +160,11 @@ class TrackingStoreTrueAction(argparse.Action):
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None,
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Store True and mark as explicitly provided.
 
@@ -195,12 +195,12 @@ class TrackingStoreFalseAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            default: bool = True,
-            required: bool = False,
-            help: Optional[str] = None,
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        default: bool = True,
+        required: bool = False,
+        help: Optional[str] = None,
     ) -> None:
         """Initialize the tracking store_false action.
 
@@ -237,11 +237,11 @@ class TrackingStoreFalseAction(argparse.Action):
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None,
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Store False and mark as explicitly provided.
 
@@ -273,17 +273,17 @@ class TrackingAppendAction(argparse.Action):
     """
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            nargs: Optional[Union[int, str]] = None,
-            const: Optional[Any] = None,
-            default: Optional[list] = None,
-            type: Optional[Callable[[str], Any]] = None,
-            choices: Optional[Sequence[Any]] = None,
-            required: bool = False,
-            help: Optional[str] = None,
-            metavar: Optional[Union[str, tuple[str, ...]]] = None,
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[list] = None,
+        type: Optional[Callable[[str], Any]] = None,
+        choices: Optional[Sequence[Any]] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None,
     ) -> None:
         """Initialize the tracking append action.
 
@@ -339,11 +339,11 @@ class TrackingAppendAction(argparse.Action):
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None,
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Append the value and mark as explicitly provided.
 
@@ -404,15 +404,15 @@ class TrackingPositiveIntAction(argparse.Action):
     """Action that validates positive integers with tracking and environment variable support."""
 
     def __init__(
-            self,
-            option_strings: Sequence[str],
-            dest: str,
-            nargs: Optional[Union[int, str]] = None,
-            const: Optional[Any] = None,
-            default: Optional[int] = None,
-            required: bool = False,
-            help: Optional[str] = None,
-            metavar: Optional[Union[str, tuple[str, ...]]] = None,
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Optional[Union[int, str]] = None,
+        const: Optional[Any] = None,
+        default: Optional[int] = None,
+        required: bool = False,
+        help: Optional[str] = None,
+        metavar: Optional[Union[str, tuple[str, ...]]] = None,
     ) -> None:
         """Initialize the tracking positive int action.
 
@@ -461,11 +461,11 @@ class TrackingPositiveIntAction(argparse.Action):
         )
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None,
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Validate and convert to positive integer.
 
@@ -511,7 +511,7 @@ class DynamicVersionAction(argparse._VersionAction):
     """
 
     def __init__(
-            self, option_strings: Sequence[str], version_callback: Optional[Callable[[], str]] = None, **kwargs: Any
+        self, option_strings: Sequence[str], version_callback: Optional[Callable[[], str]] = None, **kwargs: Any
     ) -> None:
         """Initialize with a callback to get version dynamically.
 
@@ -540,11 +540,11 @@ class DynamicVersionAction(argparse._VersionAction):
         super().__init__(option_strings, **kwargs)
 
     def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: Union[str, Sequence[Any], None],
-            option_string: Optional[str] = None,
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: Optional[str] = None,
     ) -> None:
         """Display version and exit."""
         version = self.version

@@ -74,6 +74,7 @@ from ._builtin_metadata import (
     TEXT_REPLACER_METADATA,
     WORD_COUNT_METADATA,
 )
+
 # Built-in transforms
 from .builtin import (
     AddAttachmentFootnotesTransform,
@@ -88,11 +89,14 @@ from .builtin import (
     RemoveNodesTransform,
     TextReplacerTransform,
 )
+
 # Core classes
 from .hooks import HookCallable, HookContext, HookManager, HookPoint, HookTarget, NodeType
 from .metadata import ParameterSpec, TransformMetadata
+
 # Pipeline
 from .pipeline import HookAwareVisitor, Pipeline, apply, render
+
 # Registry
 from .registry import TransformRegistry, registry
 

@@ -14,7 +14,6 @@ import pytest
 
 from all2md.ast.transforms import NodeTransformer
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
-from all2md.cli.input_items import CLIInputItem
 from all2md.cli.commands import (
     _run_convert_command,
     collect_input_files,
@@ -22,6 +21,7 @@ from all2md.cli.commands import (
     save_config_to_file,
 )
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
+from all2md.cli.input_items import CLIInputItem
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
 from all2md.transforms import ParameterSpec, TransformMetadata
 
@@ -533,7 +533,7 @@ class TestCLIParser:
         parser = create_parser()
 
         # Valid format choices
-        valid_formats = ["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "spreadsheet", "image", "txt"]
+        valid_formats = ["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "txt"]
         for fmt in valid_formats:
             args = parser.parse_args(["test.pdf", "--format", fmt])
             assert args.format == fmt

@@ -28,7 +28,8 @@ from pathlib import Path
 from typing import Any, BinaryIO, Union
 
 from all2md.constants import MARKDOWN_SPECIAL_CHARS
-from all2md.exceptions import FileNotFoundError as All2MdFileNotFoundError, PageRangeError, ValidationError
+from all2md.exceptions import FileNotFoundError as All2MdFileNotFoundError
+from all2md.exceptions import PageRangeError, ValidationError
 
 # Type aliases for clarity
 PathLike = Union[str, Path]
@@ -179,7 +180,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
 
 
 def validate_and_convert_input(
-        input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
+    input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
 ) -> tuple[Any, str]:
     """Validate input and convert to appropriate format for processing.
 

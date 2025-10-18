@@ -67,7 +67,7 @@ class NetworkFetchOptions(CloneFrozenMixin):
         default=DEFAULT_ALLOW_REMOTE_FETCH,
         metadata={
             "help": "Allow fetching remote URLs for images and other resources. "
-                    "When False, prevents SSRF attacks by blocking all network requests.",
+            "When False, prevents SSRF attacks by blocking all network requests.",
             "importance": "security",
         },
     )
@@ -75,7 +75,7 @@ class NetworkFetchOptions(CloneFrozenMixin):
         default=DEFAULT_ALLOWED_HOSTS,
         metadata={
             "help": "List of allowed hostnames or CIDR blocks for remote fetching. "
-                    "If None, all hosts are allowed (subject to other security constraints).",
+            "If None, all hosts are allowed (subject to other security constraints).",
             "importance": "security",
         },
     )
@@ -226,7 +226,7 @@ class PaginatedParserOptions(BaseParserOptions):
         default=DEFAULT_PAGE_SEPARATOR,
         metadata={
             "help": "Template for page/slide separators. Supports placeholders: {page_num}, {total_pages}. This "
-                    "string is inserted between pages/slides",
+            "string is inserted between pages/slides",
             "importance": "advanced",
         },
     )

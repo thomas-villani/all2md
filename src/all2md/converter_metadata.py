@@ -196,16 +196,16 @@ class ConverterMetadata:
 
         for pattern, offset in self.magic_bytes:
             if len(check_bytes) >= offset + len(pattern):
-                if check_bytes[offset: offset + len(pattern)] == pattern:
+                if check_bytes[offset : offset + len(pattern)] == pattern:
                     return True
 
         return False
 
     def get_required_packages_for_content(
-            self,
-            content: Optional[bytes] = None,
-            input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
-            operation: str = "parse",
+        self,
+        content: Optional[bytes] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        operation: str = "parse",
     ) -> list[tuple[str, str, str]]:
         """Get required packages for specific content, allowing context-aware dependency checking.
 

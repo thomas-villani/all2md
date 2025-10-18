@@ -32,7 +32,6 @@ class CLIInputItem:
 
     def best_path(self) -> Path | None:
         """Return the most useful Path representation for this input, when available."""
-
         if self.is_local_file() and isinstance(self.raw_input, Path):
             return self.raw_input
         return self.path_hint
@@ -40,7 +39,6 @@ class CLIInputItem:
     @property
     def name(self) -> str:
         """Return a human-friendly display name."""
-
         hint = self.path_hint
         if hint and hint.name:
             return hint.name
@@ -51,7 +49,6 @@ class CLIInputItem:
     @property
     def stem(self) -> str:
         """Return the best-effort stem for this input."""
-
         hint = self.path_hint
         if hint and hint.stem:
             return hint.stem
@@ -65,7 +62,6 @@ class CLIInputItem:
     @property
     def suffix(self) -> str:
         """Return the suffix (including leading dot) when available."""
-
         hint = self.path_hint
         if hint and hint.suffix:
             return hint.suffix
@@ -78,7 +74,6 @@ class CLIInputItem:
 
     def derive_output_stem(self, index: int) -> str:
         """Return a deterministic stem suitable for output naming."""
-
         if self.path_hint and self.path_hint.stem:
             return self.path_hint.stem
 

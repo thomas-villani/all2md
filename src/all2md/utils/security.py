@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 def validate_local_file_access(
-        file_url: str,
-        allow_local_files: bool = False,
-        local_file_allowlist: list[str] | None = None,
-        local_file_denylist: list[str] | None = None,
-        allow_cwd_files: bool = True,
+    file_url: str,
+    allow_local_files: bool = False,
+    local_file_allowlist: list[str] | None = None,
+    local_file_denylist: list[str] | None = None,
+    allow_cwd_files: bool = True,
 ) -> bool:
     """Validate if access to a local file URL is allowed based on security settings.
 
@@ -163,10 +163,10 @@ def validate_local_file_access(
 
 
 def validate_zip_archive(
-        file_path: Union[str, Path],
-        max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
-        max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,  # 1GB
-        max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
+    file_path: Union[str, Path],
+    max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
+    max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,  # 1GB
+    max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
 ) -> None:
     """Validate a ZIP archive for security threats before processing.
 
@@ -598,13 +598,13 @@ def is_url_scheme_dangerous(url: str) -> bool:
             # data: URLs can be safe (like data:image/png) or dangerous (like data:text/html)
             # Check if it's a dangerous data URL type
             if any(
-                    danger in url_lower
-                    for danger in (
-                            "data:text/html",
-                            "data:text/javascript",
-                            "data:application/javascript",
-                            "data:application/x-javascript",
-                    )
+                danger in url_lower
+                for danger in (
+                    "data:text/html",
+                    "data:text/javascript",
+                    "data:application/javascript",
+                    "data:application/x-javascript",
+                )
             ):
                 return True
 

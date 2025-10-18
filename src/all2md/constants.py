@@ -451,9 +451,16 @@ DOCUMENT_EXTENSIONS = [
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
 
+# TODO: Make sure this list is complete! It governs the CLI
 DocumentFormat = Literal[
     "auto",  # Auto-detect from filename/content
+    "asciidoc",
     "ast",  # JSON-serialized AST format
+    "csv",
+    "epub",
+    "latex",
+    "mhtml",
+    "odp",
     "pdf",  # PDF documents
     "docx",  # Word documents
     "pptx",  # PowerPoint presentations
@@ -465,7 +472,6 @@ DocumentFormat = Literal[
     "txt",  # Plain text
     "markdown",  # Markdown documents
     "eml",  # Email messages
-    "image",  # Image files (PNG, JPEG, GIF)
     "ipynb",  # Jupyter Notebooks
     "odf",  # OpenDocument Format
     "epub",  # EPUB e-books
@@ -473,5 +479,5 @@ DocumentFormat = Literal[
     "org",
     "odt",
     "xlsx",
-    "zip"
+    "zip",
 ]

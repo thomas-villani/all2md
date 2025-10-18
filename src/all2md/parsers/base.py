@@ -19,8 +19,15 @@ from all2md.ast import Document, Node
 from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.parser_helpers import append_attachment_footnotes as _append_attachment_footnotes_helper, \
-    validate_zip_input as _validate_zip_input_helper, validated_zip_input as _validated_zip_input_helper
+from all2md.utils.parser_helpers import (
+    append_attachment_footnotes as _append_attachment_footnotes_helper,
+)
+from all2md.utils.parser_helpers import (
+    validate_zip_input as _validate_zip_input_helper,
+)
+from all2md.utils.parser_helpers import (
+    validated_zip_input as _validated_zip_input_helper,
+)
 
 
 class BaseParser(ABC):
@@ -265,7 +272,7 @@ class BaseParser(ABC):
 
     @staticmethod
     def _append_attachment_footnotes(
-            children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
+        children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
     ) -> None:
         """Append attachment footnote definitions to document children.
 

@@ -82,7 +82,7 @@ class MarkdownToAstConverter(BaseParser):
     """
 
     def __init__(
-            self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+        self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the Markdown parser with options and progress callback."""
         options = options or MarkdownParserOptions()

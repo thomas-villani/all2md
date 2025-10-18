@@ -305,8 +305,9 @@ def test_registry_default_extension_fallback(monkeypatch: pytest.MonkeyPatch) ->
 @pytest.mark.unit
 def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test _apply_rich_formatting successfully renders markdown with Rich."""
-    from all2md.cli.processors import _apply_rich_formatting
     import argparse
+
+    from all2md.cli.processors import _apply_rich_formatting
 
     args = argparse.Namespace(
         rich_code_theme='monokai',
@@ -356,9 +357,10 @@ def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.unit
 def test_apply_rich_formatting_import_error(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     """Test _apply_rich_formatting handles ImportError gracefully."""
-    from all2md.cli.processors import _apply_rich_formatting
     import argparse
     import sys
+
+    from all2md.cli.processors import _apply_rich_formatting
 
     args = argparse.Namespace()
     markdown = "# Test\nPlain markdown."

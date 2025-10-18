@@ -18,16 +18,13 @@ from dataclasses import fields, is_dataclass
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
 
-from all2md.api import convert
 from all2md.cli.builder import (
     EXIT_FILE_ERROR,
-    EXIT_SUCCESS,
     EXIT_VALIDATION_ERROR,
     DynamicCLIBuilder,
     create_parser,
-    get_exit_code_for_exception,
 )
 from all2md.cli.help_formatter import display_help
 from all2md.cli.input_items import CLIInputItem
@@ -38,22 +35,20 @@ from all2md.cli.processors import (
 from all2md.cli.validation import (
     validate_arguments,
 )
-from all2md.constants import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS
+from all2md.constants import DOCUMENT_EXTENSIONS, PLAINTEXT_EXTENSIONS
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
-from all2md.exceptions import DependencyError
 from all2md.logging_utils import configure_logging as configure_root_logging
 from all2md.transforms import registry as transform_registry
 
 logger = logging.getLogger(__name__)
 
-ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
+ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS
 
 
 def _is_probable_uri(candidate: str) -> bool:
     """Return True when the candidate string looks like a URI input."""
-
     if "://" not in candidate:
         lowered = candidate.lower()
         return lowered.startswith("http:/") or lowered.startswith("https:/")
@@ -64,7 +59,6 @@ def _is_probable_uri(candidate: str) -> bool:
 
 def _derive_path_hint_from_uri(uri: str) -> tuple[Path | None, dict[str, str]]:
     """Extract best-effort Path hint and metadata from a URI."""
-
     parsed = urlparse(uri)
     metadata: dict[str, str] = {}
     if parsed.netloc:
@@ -83,7 +77,6 @@ def _derive_path_hint_from_uri(uri: str) -> tuple[Path | None, dict[str, str]]:
 
 def _normalize_uri_key(uri: str) -> str:
     """Return a normalized key for URI de-duplication."""
-
     parsed = urlparse(uri)
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
@@ -96,7 +89,6 @@ def _normalize_uri_key(uri: str) -> str:
 
 def _matches_exclusion(item: CLIInputItem, pattern: str) -> bool:
     """Check if the item should be excluded based on the provided glob pattern."""
-
     candidates = [item.display_name]
 
     if item.path_hint:
@@ -477,10 +469,10 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
 
 
 def collect_input_files(
-        input_paths: List[str],
-        recursive: bool = False,
-        extensions: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+    input_paths: List[str],
+    recursive: bool = False,
+    extensions: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
 ) -> List[CLIInputItem]:
     """Collect CLI input items from provided arguments.
 
@@ -489,7 +481,6 @@ def collect_input_files(
     deduplicated. Remote inputs are preserved as strings to maintain compatibility
     with the document loader infrastructure.
     """
-
     if extensions is None:
         extensions = ALL_ALLOWED_EXTENSIONS.copy()
 

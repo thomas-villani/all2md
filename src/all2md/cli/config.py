@@ -217,7 +217,7 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
 
 
 def load_config_with_priority(
-        explicit_path: Optional[str] = None, env_var_path: Optional[str] = None
+    explicit_path: Optional[str] = None, env_var_path: Optional[str] = None
 ) -> Dict[str, Any]:
     """Load configuration with proper priority handling.
 

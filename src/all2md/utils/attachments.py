@@ -25,11 +25,11 @@ import base64
 import logging
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import quote as url_quote, urljoin
-
-import unicodedata
+from urllib.parse import quote as url_quote
+from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 from all2md.utils.escape import escape_markdown_context_aware
@@ -81,7 +81,7 @@ def sanitize_footnote_label(attachment_name: str) -> str:
 
 
 def sanitize_attachment_filename(
-        filename: str, max_length: int = 255, preserve_case: bool = False, allow_unicode: bool = False
+    filename: str, max_length: int = 255, preserve_case: bool = False, allow_unicode: bool = False
 ) -> str:
     """Sanitize an attachment filename for secure file system storage.
 
@@ -340,14 +340,14 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
 
 
 def process_attachment(
-        attachment_data: bytes | None,
-        attachment_name: str,
-        alt_text: str = "",
-        attachment_mode: AttachmentMode = "alt_text",
-        attachment_output_dir: str | None = None,
-        attachment_base_url: str | None = None,
-        is_image: bool = True,
-        alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
+    attachment_data: bytes | None,
+    attachment_name: str,
+    alt_text: str = "",
+    attachment_mode: AttachmentMode = "alt_text",
+    attachment_output_dir: str | None = None,
+    attachment_base_url: str | None = None,
+    is_image: bool = True,
+    alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
 ) -> dict[str, Any]:
     """Process an attachment according to the specified mode.
 
@@ -391,7 +391,7 @@ def process_attachment(
 
     # Helper function to create result dict
     def _make_result(
-            markdown: str, url: str = "", footnote_label: str | None = None, footnote_content: str | None = None
+        markdown: str, url: str = "", footnote_label: str | None = None, footnote_content: str | None = None
     ) -> dict[str, Any]:
         return {
             "markdown": markdown,
@@ -402,7 +402,7 @@ def process_attachment(
 
     # Helper function to build attachment markdown (centralized logic)
     def _build_attachment_markdown(
-            is_image: bool, alt_text_mode: AltTextMode, text_content: str, attachment_name: str
+        is_image: bool, alt_text_mode: AltTextMode, text_content: str, attachment_name: str
     ) -> tuple[str, str | None, str | None]:
         """Build attachment markdown based on mode.
 
@@ -674,13 +674,13 @@ def extract_docx_image_data(parent: Any, blip_rId: str) -> tuple[bytes | None, s
 
 
 def generate_attachment_filename(
-        base_stem: str,
-        attachment_type: str = "img",
-        format_type: str = "general",
-        page_num: int | None = None,
-        slide_num: int | None = None,
-        sequence_num: int = 1,
-        extension: str = "png",
+    base_stem: str,
+    attachment_type: str = "img",
+    format_type: str = "general",
+    page_num: int | None = None,
+    slide_num: int | None = None,
+    sequence_num: int = 1,
+    extension: str = "png",
 ) -> str:
     """Generate standardized attachment filenames across all parsers.
 
@@ -766,10 +766,10 @@ class AttachmentSequencer(Protocol):
     """
 
     def __call__(
-            self,
-            base_stem: str,
-            format_type: str = "general",
-            **kwargs: Any,
+        self,
+        base_stem: str,
+        format_type: str = "general",
+        **kwargs: Any,
     ) -> tuple[str, int]:
         """Generate unique sequential filename for attachment."""
         ...
