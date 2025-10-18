@@ -251,105 +251,6 @@ def prepare_options_for_execution(
         filtered["remote_input_options"] = remote_options
     return filtered
 
-# TODO: not used anymore, remove
-def _process_items_with_progress(
-        items: List[Any],
-        process_fn: Any,
-        args: argparse.Namespace,
-        description: str,
-        log_success_msg: Optional[Any] = None,
-        log_error_msg: Optional[Any] = None,
-) -> Tuple[int, List[Any], List[Tuple[Any, str]]]:
-    """Process items with unified progress tracking.
-
-    This helper provides a consistent pattern for processing lists of items
-    with progress tracking (rich/tqdm/plain) and error handling.
-
-    Parameters
-    ----------
-    items : List[Any]
-        List of items to process
-    process_fn : Callable[[Any], int]
-        Processing function that takes an item and returns exit code (0 = success)
-        The function is responsible for its own error handling and should not raise.
-    args : argparse.Namespace
-        Command-line arguments containing rich, progress, skip_errors flags
-    description : str
-        Description for progress bar
-    log_success_msg : Callable[[Any], str], optional
-        Function to format success messages (takes item, returns message)
-    log_error_msg : Callable[[Any, str], str], optional
-        Function to format error messages (takes item and error, returns message)
-
-    Returns
-    -------
-    Tuple[int, List[Any], List[Tuple[Any, str]]]
-        Tuple of (max_exit_code, successful_items, failed_items_with_errors)
-
-    Notes
-    -----
-    This function centralizes the pattern:
-    1. Set up progress context (rich/tqdm/plain)
-    2. Loop through items
-    3. Process each item
-    4. Update progress
-    5. Handle errors (continue if skip_errors, otherwise break)
-    6. Return results
-
-    Examples
-    --------
-    >>> def process_file(file: Path) -> int:
-    ...     # Process file, return 0 on success
-    ...     return 0
-    >>> max_code, successes, failures = _process_items_with_progress(
-    ...     files,
-    ...     process_file,
-    ...     args,
-    ...     "Converting files",
-    ...     log_success_msg=lambda f: f"Processed {f}",
-    ...     log_error_msg=lambda f, e: f"Failed {f}: {e}"
-    ... )
-
-    """
-    from all2md.cli.progress import ProgressContext
-
-    # Determine if progress should be shown
-    show_progress = getattr(args, "progress", False) or getattr(args, "rich", False) or len(items) > 1
-
-    successes: List[Any] = []
-    failures: List[Tuple[Any, str]] = []
-    max_exit_code = EXIT_SUCCESS
-
-    # Use unified progress context
-    use_rich = getattr(args, "rich", False)
-    with ProgressContext(use_rich, show_progress, len(items), description) as progress:
-        for item in items:
-            # Process item (should return exit code)
-            exit_code = process_fn(item)
-
-            if exit_code == EXIT_SUCCESS:
-                successes.append(item)
-                if log_success_msg:
-                    msg = log_success_msg(item)
-                    progress.log(msg, level="success")
-            else:
-                # Item failed - error message should have been set by process_fn
-                # For now, we track it generically
-                failures.append((item, "Processing failed"))
-                max_exit_code = max(max_exit_code, exit_code)
-
-                if log_error_msg:
-                    msg = log_error_msg(item, "Processing failed")
-                    progress.log(msg, level="error")
-
-                # Check if we should continue or break
-                if not getattr(args, "skip_errors", False):
-                    break
-
-            progress.update()
-
-    return max_exit_code, successes, failures
-
 
 def _check_rich_available() -> bool:
     """Check if Rich library is available.
@@ -473,12 +374,59 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
 
         console = Console()
         rich_kwargs = _get_rich_markdown_kwargs(args)
+        no_wrap = getattr(args, "rich_no_word_wrap", False)
         with console.capture() as capture:
-            console.print(Markdown(markdown_content, **rich_kwargs))
+            console.print(Markdown(markdown_content, **rich_kwargs), no_wrap=no_wrap)
         return capture.get(), True
     except ImportError:
         print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
         return markdown_content, False
+
+# TODO: we can do better than this, I think we have better utils in another module
+def _determine_syntax_language(target_format: str) -> str:
+    """Return the Rich/Pygments lexer name for a given renderer target."""
+
+    lookup = {
+        "html": "html",
+        "asciidoc": "asciidoc",
+        "markdown": "markdown",
+        "rst": "rst",
+        "org": "org",
+        "txt": "text",
+        "sourcecode": "text",
+        "json": "json",
+        "yaml": "yaml",
+    }
+
+    normalized = target_format.lower()
+    return lookup.get(normalized, normalized)
+
+
+def _render_rich_text_output(text: str, args: argparse.Namespace, target_format: str) -> bool:
+    """Attempt to render non-markdown text with Rich Syntax."""
+
+    try:
+        from rich.console import Console
+        from rich.syntax import Syntax
+    except ImportError:
+        print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+        print(text)
+        return False
+
+    no_wrap = getattr(args, "rich_no_word_wrap", False)
+    theme = getattr(args, "rich_code_theme", "monokai") or "monokai"
+    language = _determine_syntax_language(target_format)
+
+    try:
+        syntax = Syntax(text, language, theme=theme, word_wrap=not no_wrap)
+    except Exception:
+        # Fallback to plain printing when Rich can't determine lexer
+        print(text)
+        return False
+
+    console = Console()
+    console.print(syntax, no_wrap=no_wrap)
+    return True
 
 
 def _page_content(content: str, is_rich: bool = False) -> bool:
@@ -791,111 +739,6 @@ def setup_and_validate_options(
     transforms = build_transform_instances(parsed_args)
 
     return options, format_arg, transforms
-
-# TODO: remove, no longer used.
-def validate_arguments(
-        parsed_args: argparse.Namespace,
-        files: Optional[List[CLIInputItem]] = None,
-        *,
-        logger: Optional[logging.Logger] = None,
-) -> bool:
-    """Backward-compatible shim for CLI argument validation."""
-    return _validate_arguments(parsed_args, files, logger=logger)
-
-# TODO: no longer used, remove.
-def process_stdin(
-        parsed_args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
-) -> int:
-    """Process input from stdin.
-
-    Parameters
-    ----------
-    parsed_args : argparse.Namespace
-        Parsed command line arguments
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform instances to apply
-
-    Returns
-    -------
-    int
-        Exit code (0 for success, see constants.py for complete exit code list)
-
-    """
-    # Read from stdin
-    try:
-        stdin_data = sys.stdin.buffer.read()
-        if not stdin_data:
-            print("Error: No data received from stdin", file=sys.stderr)
-            return 1
-    except Exception as e:
-        print(f"Error reading from stdin: {e}", file=sys.stderr)
-        return 1
-
-    # Process stdin data
-    input_source = stdin_data
-
-    try:
-        effective_options = prepare_options_for_execution(
-            options,
-            None,
-            format_arg,
-            "markdown",
-        )
-
-        markdown_content = to_markdown(
-            input_source, source_format=cast(DocumentFormat, format_arg), transforms=transforms, **effective_options
-        )
-
-        if parsed_args.out:
-            output_path = Path(parsed_args.out)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(markdown_content, encoding="utf-8")
-            print(f"Converted stdin -> {output_path}", file=sys.stderr)
-        else:
-            # Determine if we should use rich output
-            try:
-                use_rich_output = _should_use_rich_output(parsed_args)
-                rich_error: str | None = None
-            except DependencyError as exc:
-                use_rich_output = False
-                rich_error = str(exc)
-
-            # Apply rich formatting if requested
-            if use_rich_output:
-                content_to_output, is_rich = _apply_rich_formatting(markdown_content, parsed_args)
-            else:
-                content_to_output, is_rich = markdown_content, False
-
-            if rich_error:
-                print(f"Warning: {rich_error}", file=sys.stderr)
-
-            # Apply paging if requested
-            if parsed_args.pager:
-                if not _page_content(content_to_output, is_rich=is_rich):
-                    print(content_to_output)
-            else:
-                print(content_to_output)
-
-        return 0
-
-    except Exception as e:
-
-        exit_code = get_exit_code_for_exception(e)
-
-        # Print appropriate error message
-        if isinstance(e, (DependencyError, ImportError)):
-            print(f"Missing dependency: {e}", file=sys.stderr)
-            print("Install required dependencies with: pip install all2md[full]", file=sys.stderr)
-        elif isinstance(e, All2MdError):
-            print(f"Error: {e}", file=sys.stderr)
-        else:
-            print(f"Unexpected error: {e}", file=sys.stderr)
-
-        return exit_code
 
 
 def process_multi_file(
@@ -2039,19 +1882,24 @@ def convert_single_file(
             )
             return EXIT_SUCCESS, input_item.display_name, None
 
+        render_target = target_format if target_format != "auto" else "markdown"
+
         result = convert(
             source_value,
             output=None,
             source_format=cast(DocumentFormat, format_arg),
-            target_format="markdown",
+            target_format=cast(DocumentFormat, render_target),
             transforms=local_transforms,
             **effective_options,
         )
 
         if isinstance(result, bytes):
-            print(result.decode("utf-8", errors="replace"))
-        else:
+            sys.stdout.buffer.write(result)
+            sys.stdout.buffer.flush()
+        elif isinstance(result, str):
             print(result)
+        elif result is not None:
+            print(str(result))
 
         return EXIT_SUCCESS, input_item.display_name, None
 
@@ -2088,14 +1936,24 @@ def process_files_unified(
     if rich_dependency_error:
         print(f"Warning: {rich_dependency_error}", file=sys.stderr)
 
+    target_format_default = getattr(args, "output_type", "markdown")
+
     # Special case: single item to stdout
     if len(items) == 1 and not args.out and not args.output_dir:
-        return _render_single_item_to_stdout(items[0], args, options, format_arg, transforms, should_use_rich)
+        return _render_single_item_to_stdout(
+            items[0],
+            args,
+            options,
+            format_arg,
+            transforms,
+            should_use_rich,
+            target_format_default,
+        )
 
     transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
 
     planned_tasks: List[Tuple[CLIInputItem, Optional[Path], str, int]] = []
-    target_format_default = getattr(args, "output_type", "markdown")
+
 
     output_dir = Path(args.output_dir) if args.output_dir else None
 
@@ -2212,403 +2070,8 @@ def process_files_unified(
     return EXIT_SUCCESS
 
 
-# TODO: remove - replaced by process_files_unified()
-# This function is deprecated and no longer called. It has been replaced by
-# process_files_unified() which consolidates rich/tqdm/plain progress handling.
-def process_with_rich_output(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-) -> int:
-    """Process files with rich terminal output.
-
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to process
-    args : argparse.Namespace
-        Command-line arguments
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform instances to apply
-
-    Returns
-    -------
-    int
-        Exit code (0 for success, highest error code otherwise)
-
-    """
-    try:
-        from rich.console import Console
-        from rich.panel import Panel
-        from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
-        from rich.table import Table
-        from rich.text import Text
-    except ImportError:
-        print("Error: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
-        return EXIT_DEPENDENCY_ERROR
-
-    console = Console()
-
-    # Determine base input directory for structure preservation
-    base_input_dir = None
-    if args.preserve_structure and len(files) > 0:
-        # Find common parent directory
-        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
-
-    # Special case: single file to stdout with rich formatting
-    # Show progress bar during conversion, then print content after
-    if len(files) == 1 and not args.out and not args.output_dir:
-        file = files[0]
-
-        # Store the converted content
-        markdown_content = None
-        conversion_error = None
-
-        # Show progress bar during conversion
-        with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-        ) as progress:
-            task_id = progress.add_task(f"[cyan]Converting {file.name}...", total=1)
-
-            try:
-                # Convert the document
-                effective_options = prepare_options_for_execution(
-                    options,
-                    file,
-                    format_arg,
-                    "markdown",
-                )
-                markdown_content = to_markdown(file, source_format=cast(Any, format_arg), **effective_options)
-                progress.update(task_id, advance=1)
-            except Exception as e:
-                exit_code = get_exit_code_for_exception(e)
-                error = str(e)
-                if isinstance(e, ImportError):
-                    error = f"Missing dependency: {e}"
-                elif not isinstance(e, All2MdError):
-                    error = f"Unexpected error: {e}"
-                conversion_error = (exit_code, error)
-                progress.update(task_id, advance=1)
-
-        # After Progress context exits, the progress bar is finalized at the top
-        # Now print the content below
-        if conversion_error:
-            exit_code, error = conversion_error
-            console.print(f"[red]ERROR[/red] {file}: {error}")
-            return exit_code
-
-        if markdown_content:
-            from rich.markdown import Markdown
-
-            rich_kwargs = _get_rich_markdown_kwargs(args)
-            console.print(Markdown(markdown_content, **rich_kwargs))
-            return EXIT_SUCCESS
-
-    # Show header for multi-file processing
-    console.print(
-        Panel.fit(Text("all2md Document Converter", style="bold cyan"), subtitle=f"Processing {len(files)} file(s)")
-    )
-
-    results: list[tuple[Path, Path | None]] = []
-    failed: list[tuple[Path, str | None]] = []
-    max_exit_code = EXIT_SUCCESS
-
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
-
-    with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console,
-    ) as progress:
-
-        # Check if parallel processing is enabled
-        # parallel can be: 1 (default, sequential), None (--parallel without value,
-        # auto CPU count), or N (explicit worker count)
-        use_parallel = (
-                               hasattr(args,
-                                       "_provided_args") and "parallel" in args._provided_args and args.parallel is None
-                       ) or (isinstance(args.parallel, int) and args.parallel != 1)
-
-        if use_parallel:
-            # Parallel processing
-            task_id = progress.add_task("[cyan]Converting files...", total=len(files))
-
-            # Auto-detect CPU count if --parallel was provided without a value (None)
-            # Otherwise use the explicit worker count
-            max_workers = args.parallel if args.parallel else os.cpu_count()
-            with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                futures = {}
-
-                # Submit files to executor for parallel processing
-                for file in files:
-                    target_format = getattr(args, "output_type", "markdown")
-                    output_path = generate_output_path(
-                        file,
-                        Path(args.output_dir) if args.output_dir else None,
-                        args.preserve_structure,
-                        base_input_dir,
-                        target_format=target_format,
-                    )
-                    future = executor.submit(
-                        convert_single_file,
-                        file,
-                        output_path,
-                        options,
-                        format_arg,
-                        None,
-                        False,
-                        target_format,
-                        transform_specs_for_workers,
-                    )
-                    futures[future] = (file, output_path)
-
-                for future in as_completed(futures):
-                    file, output_path = futures[future]
-                    result_exit_code, result_file_str, result_error = future.result()
-
-                    if result_exit_code == EXIT_SUCCESS:
-                        results.append((file, output_path))
-                        if output_path:
-                            console.print(f"[green]OK[/green] {file} -> {output_path}")
-                        else:
-                            console.print(f"[green]OK[/green] Converted {file}")
-                    else:
-                        failed.append((file, result_error))
-                        console.print(f"[red]ERROR[/red] {file}: {result_error}")
-                        max_exit_code = max(max_exit_code, result_exit_code)
-                        if not args.skip_errors:
-                            break
-
-                    progress.update(task_id, advance=1)
-        else:
-            # Sequential processing
-            task_id = progress.add_task("[cyan]Converting files...", total=len(files))
-
-            for file in files:
-                target_format = getattr(args, "output_type", "markdown")
-                output_path = generate_output_path(
-                    file,
-                    Path(args.output_dir) if args.output_dir else None,
-                    args.preserve_structure,
-                    base_input_dir,
-                    target_format=target_format,
-                )
-
-                result_exit_code, result_file_str, result_error = convert_single_file(
-                    file,
-                    output_path,
-                    options,
-                    format_arg,
-                    transforms,
-                    False,
-                    target_format,
-                    transform_specs_for_workers,
-                )
-
-                if result_exit_code == EXIT_SUCCESS:
-                    results.append((file, output_path))
-                    if output_path:
-                        console.print(f"[green]OK[/green] {file} -> {output_path}")
-                    else:
-                        console.print(f"[green]OK[/green] Converted {file}")
-                else:
-                    failed.append((file, result_error))
-                    console.print(f"[red]ERROR[/red] {file}: {result_error}")
-                    max_exit_code = max(max_exit_code, result_exit_code)
-                    if not args.skip_errors:
-                        break
-
-                progress.update(task_id, advance=1)
-
-    # Show summary table only for multiple files
-    if not args.no_summary and len(files) > 1:
-        console.print()
-        table = Table(title="Conversion Summary")
-        table.add_column("Status", style="cyan", no_wrap=True)
-        table.add_column("Count", style="magenta")
-
-        table.add_row("+ Successful", str(len(results)))
-        table.add_row("- Failed", str(len(failed)))
-        table.add_row("Total", str(len(files)))
-
-        console.print(table)
-
-    return max_exit_code
 
 
-# TODO: remove - replaced by process_files_unified()
-# This function is deprecated and no longer called. It has been replaced by
-# process_files_unified() which consolidates rich/tqdm/plain progress handling.
-def process_with_progress_bar(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-) -> int:
-    """Process files with tqdm progress bar.
-
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to process
-    args : argparse.Namespace
-        Command-line arguments
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform functions to apply
-
-    Returns
-    -------
-    int
-        Exit code (0 for success, highest error code otherwise)
-
-    """
-    try:
-        from tqdm import tqdm
-    except ImportError:
-        print("Warning: tqdm not installed. Install with: pip install all2md[progress]", file=sys.stderr)
-        # Fall back to simple processing
-        return process_files_simple(files, args, options, format_arg)
-
-    # Determine base input directory for structure preservation
-    base_input_dir = None
-    if args.preserve_structure and len(files) > 0:
-        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
-
-    failed = []
-    max_exit_code = EXIT_SUCCESS
-
-    # Process files with progress bar
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
-
-    with tqdm(files, desc="Converting files", unit="file") as pbar:
-        for file in pbar:
-            pbar.set_postfix_str(f"Processing {file.name}")
-
-            target_format = getattr(args, "output_type", "markdown")
-            output_path = generate_output_path(
-                file,
-                Path(args.output_dir) if args.output_dir else None,
-                args.preserve_structure,
-                base_input_dir,
-                target_format=target_format,
-            )
-
-            exit_code, file_str, error = convert_single_file(
-                file,
-                output_path,
-                options,
-                format_arg,
-                transforms,
-                False,
-                target_format,
-                transform_specs_for_workers,
-            )
-
-            if exit_code == EXIT_SUCCESS:
-                print(f"Converted {file} -> {output_path}", file=sys.stderr)
-            else:
-                print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
-                failed.append((file, error))
-                max_exit_code = max(max_exit_code, exit_code)
-                if not args.skip_errors:
-                    break
-
-    # Summary
-    if not args.no_summary:
-        print(f"\nConversion complete: {len(files) - len(failed)}/{len(files)} files successful", file=sys.stderr)
-
-    return max_exit_code
-
-
-# TODO: remove - replaced by process_files_unified()
-# This function is deprecated and no longer called. It has been replaced by
-# process_files_unified() which consolidates rich/tqdm/plain progress handling.
-def process_files_simple(
-        files: List[Path],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-) -> int:
-    """Process files without progress indicators.
-
-    Parameters
-    ----------
-    files : List[Path]
-        List of files to process
-    args : argparse.Namespace
-        Command-line arguments
-    options : Dict[str, Any]
-        Conversion options
-    format_arg : str
-        Format specification
-    transforms : list, optional
-        List of transform functions to apply
-
-    Returns
-    -------
-    int
-        Exit code (0 for success, highest error code otherwise)
-
-    """
-    # Determine base input directory for structure preservation
-    base_input_dir = None
-    if args.preserve_structure and len(files) > 0:
-        base_input_dir = Path(os.path.commonpath([f.parent for f in files]))
-
-    failed = []
-    max_exit_code = EXIT_SUCCESS
-
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
-
-    for file in files:
-        target_format = getattr(args, "output_type", "markdown")
-        output_path = generate_output_path(
-            file,
-            Path(args.output_dir) if args.output_dir else None,
-            args.preserve_structure,
-            base_input_dir,
-            target_format=target_format,
-        )
-
-        exit_code, file_str, error = convert_single_file(
-            file,
-            output_path,
-            options,
-            format_arg,
-            transforms,
-            False,
-            target_format,
-            transform_specs_for_workers,
-        )
-
-        if exit_code == EXIT_SUCCESS:
-            print(f"Converted {file} -> {output_path}", file=sys.stderr)
-        else:
-            print(f"Error: Failed to convert {file}: {error}", file=sys.stderr)
-            failed.append((file, error))
-            max_exit_code = max(max_exit_code, exit_code)
-            if not args.skip_errors:
-                break
-
-    return max_exit_code
 def _render_single_item_to_stdout(
         item: CLIInputItem,
         args: argparse.Namespace,
@@ -2616,22 +2079,61 @@ def _render_single_item_to_stdout(
         format_arg: str,
         transforms: Optional[list],
         should_use_rich: bool,
+        target_format: str,
 ) -> int:
     """Render a single item to stdout, respecting pager and rich flags."""
 
     try:
+        render_target = target_format if target_format != "auto" else "markdown"
         effective_options = prepare_options_for_execution(
             options,
             item.best_path(),
             format_arg,
-            "markdown",
+            render_target,
         )
-        markdown_content = to_markdown(
-            item.raw_input,
-            source_format=cast(DocumentFormat, format_arg),
-            transforms=transforms,
-            **effective_options,
-        )
+
+        if render_target == "markdown":
+            markdown_content = to_markdown(
+                item.raw_input,
+                source_format=cast(DocumentFormat, format_arg),
+                transforms=transforms,
+                **effective_options,
+            )
+        else:
+            result = convert(
+                item.raw_input,
+                output=None,
+                source_format=cast(DocumentFormat, format_arg),
+                target_format=cast(DocumentFormat, render_target),
+                transforms=transforms,
+                **effective_options,
+            )
+
+            if isinstance(result, bytes):
+                sys.stdout.buffer.write(result)
+                sys.stdout.buffer.flush()
+                return EXIT_SUCCESS
+
+            text_output: str | None
+            if isinstance(result, str):
+                text_output = result
+            elif result is not None:
+                text_output = str(result)
+            else:
+                text_output = ""
+
+            rendered = False
+            if should_use_rich and args.rich and text_output is not None:
+                rendered = _render_rich_text_output(text_output, args, render_target)
+
+            if not rendered:
+                if args.pager and text_output is not None:
+                    if not _page_content(text_output, is_rich=False):
+                        print(text_output)
+                else:
+                    print(text_output)
+
+            return EXIT_SUCCESS
     except Exception as exc:
         exit_code = get_exit_code_for_exception(exc)
         print(f"Error: {exc}", file=sys.stderr)

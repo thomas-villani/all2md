@@ -126,6 +126,154 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
 
 
 @pytest.mark.unit
+def test_convert_single_file_streams_respect_target_format(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Streaming conversions should honour requested renderer output."""
+    from all2md.cli.input_items import CLIInputItem
+
+    captured: dict[str, Any] = {}
+
+    def fake_convert(*args, **kwargs):  # type: ignore[no-untyped-def]
+        source = args[0] if args else None
+        captured['source'] = source
+        captured['output'] = kwargs.get('output')
+        captured['source_format'] = kwargs.get('source_format')
+        captured['target_format'] = kwargs.get('target_format')
+        return "<html>payload</html>"
+
+    monkeypatch.setattr(processors, 'convert', fake_convert)
+    monkeypatch.setattr(processors, 'prepare_options_for_execution', lambda *args, **kwargs: {})
+
+    input_path = tmp_path / 'sample.txt'
+    input_path.write_text('stub')
+
+    input_item = CLIInputItem(
+        raw_input=input_path,
+        kind='local_file',
+        display_name=input_path.name,
+        path_hint=input_path,
+    )
+
+    exit_code, _, error = convert_single_file(
+        input_item,
+        output_path=None,
+        options={},
+        format_arg='txt',
+        transforms=None,
+        show_progress=False,
+        target_format='html',
+        transform_specs=None,
+    )
+
+    assert exit_code == EXIT_SUCCESS
+    assert error is None
+    assert captured['target_format'] == 'html'
+
+    std = capsys.readouterr()
+    assert std.out.strip() == "<html>payload</html>"
+
+
+@pytest.mark.unit
+def test_apply_rich_formatting_honours_no_wrap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Markdown rich rendering should respect the no-wrap flag."""
+    pytest.importorskip("rich")
+
+    from all2md.cli.processors import _apply_rich_formatting
+
+    class DummyCapture:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def get(self):
+            return "captured"
+
+    class DummyConsole:
+        def __init__(self):
+            self.print_calls: list[bool | None] = []
+
+        def print(self, _obj, *, no_wrap=None):
+            self.print_calls.append(no_wrap)
+
+        def capture(self):
+            return DummyCapture()
+
+    class DummyMarkdown:
+        def __init__(self, content, **_kwargs):
+            self.content = content
+
+    dummy_console = DummyConsole()
+
+    monkeypatch.setattr('rich.console.Console', lambda: dummy_console)
+    monkeypatch.setattr('rich.markdown.Markdown', DummyMarkdown)
+
+    args = argparse.Namespace(rich_no_word_wrap=True)
+    text, is_rich = _apply_rich_formatting("data", args)
+
+    assert text == "captured"
+    assert is_rich is True
+    assert dummy_console.print_calls == [True]
+
+
+@pytest.mark.unit
+def test_render_single_item_to_stdout_invokes_rich_syntax(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Non-markdown stdout rendering should delegate to rich syntax when available."""
+    pytest.importorskip("rich")
+
+    from all2md.cli.input_items import CLIInputItem
+
+    call_args: dict[str, Any] = {}
+
+    def fake_convert(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return "<html/>"
+
+    def fake_render(text: str, args: argparse.Namespace, fmt: str) -> bool:
+        call_args['text'] = text
+        call_args['format'] = fmt
+        call_args['no_wrap'] = getattr(args, 'rich_no_word_wrap', False)
+        return True
+
+    monkeypatch.setattr(processors, 'convert', fake_convert)
+    monkeypatch.setattr(processors, 'prepare_options_for_execution', lambda *args, **kwargs: {})
+    monkeypatch.setattr(processors, '_render_rich_text_output', fake_render)
+
+    input_path = tmp_path / 'sample.eml'
+    input_path.write_text('stub')
+
+    item = CLIInputItem(
+        raw_input=input_path,
+        kind='local_file',
+        display_name=input_path.name,
+        path_hint=input_path,
+    )
+
+    args = argparse.Namespace(rich=True, pager=False, rich_no_word_wrap=False)
+
+    exit_code = processors._render_single_item_to_stdout(
+        item,
+        args,
+        options={},
+        format_arg='eml',
+        transforms=None,
+        should_use_rich=True,
+        target_format='html',
+    )
+
+    assert exit_code == EXIT_SUCCESS
+    assert call_args['text'] == "<html/>"
+    assert call_args['format'] == 'html'
+    assert call_args['no_wrap'] is False
+
+
+@pytest.mark.unit
 def test_should_use_rich_output_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """_should_use_rich_output should raise DependencyError when rich is unavailable."""
     args = argparse.Namespace(rich=True, force_rich=False)

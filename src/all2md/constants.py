@@ -469,4 +469,9 @@ DocumentFormat = Literal[
     "ipynb",  # Jupyter Notebooks
     "odf",  # OpenDocument Format
     "epub",  # EPUB e-books
+    "rst",
+    "org",
+    "odt",
+    "xlsx",
+    "zip"
 ]

@@ -1288,7 +1288,7 @@ Examples:
             'assets_layout', 'watch', 'watch_debounce', 'collate',
             'no_summary', 'save_config', 'dry_run', 'detect_only', 'exclude',
             # Rich output customization arguments
-            'rich_code_theme', 'rich_inline_code_theme', 'rich_word_wrap',
+            'rich_code_theme', 'rich_inline_code_theme', 'rich_no_word_wrap',
             'rich_hyperlinks', 'rich_justify', 'force_rich',
             # Security presets from cli.create_parser
             'strict_html_sanitize', 'safe_mode', 'paranoid_mode',
@@ -1576,9 +1576,9 @@ def create_parser() -> argparse.ArgumentParser:
              'See --rich-code-theme for available themes.'
     )
     rich_group.add_argument(
-        '--rich-word-wrap',
+        '--rich-no-word-wrap',
         action=TrackingStoreTrueAction,
-        help='Enable word wrapping for long lines in rendered output'
+        help='Disable word wrapping in rich output (defaults to wrapping long lines)'
     )
     rich_group.add_argument(
         '--no-rich-hyperlinks',
