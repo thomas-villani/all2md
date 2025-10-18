@@ -409,14 +409,7 @@ def to_markdown(
         actual_format: DocumentFormat = source_format
         logger.debug(f"Using explicitly specified format: {actual_format}")
     else:
-        # Type narrow to exclude IO[str] for detect_format
-        if isinstance(detection_input, (str, Path, bytes)) or (
-            hasattr(detection_input, "read") and hasattr(detection_input, "mode") and "b" in getattr(detection_input, "mode", "")
-        ):
-            detected = registry.detect_format(detection_input, hint=None)  # type: ignore[arg-type]
-        else:
-            # For IO[str], we cannot detect format from stream, raise error
-            raise ValueError("Cannot auto-detect format from text-mode stream. Please specify source_format explicitly.")
+        detected = registry.detect_format(detection_input, hint=None)  # type: ignore[arg-type]
         if detected is None:
             raise ValueError("Could not detect format from source")
         actual_format = detected  # type: ignore[assignment]

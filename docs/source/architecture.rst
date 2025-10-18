@@ -28,9 +28,12 @@ High-Level Data Flow
    │                  (all2md/__init__.py)                       │
    │                                                             │
    │  Entry points:                                              │
-   │  • to_markdown(input, source_format="auto")                        │
-   │  • to_ast(input, format="auto")                             │
-   │  • from_ast(ast, output_format="markdown")                  │
+   │  • to_markdown(source, *, source_format="auto", ...)        │
+   │  • to_ast(source, *, source_format="auto", ...)             │
+   │  • from_ast(ast_doc, target_format, output=None, ...)       │
+   │  • convert(source, output=None, *, source_format="auto",    │
+   │    target_format="auto", ...)                               │
+   │  • from_markdown(source, target_format, output=None, ...)   │
    └────────────────┬────────────────────────────────────────────┘
                     │
                     ├─── Format Detection ───────────────────────┐
@@ -110,16 +113,31 @@ Core Components
 1. Public API Layer
 ~~~~~~~~~~~~~~~~~~~
 
-**Location:** ``src/all2md/__init__.py``
+**Location:** ``src/all2md/api.py`` (re-exported from ``src/all2md/__init__.py``)
 
 **Key Functions:**
 
 .. code-block:: python
 
    # Primary conversion functions
-   to_markdown(input, source_format="auto", parser_options=None, renderer_options=None)
-   to_ast(input, format="auto", parser_options=None)
-   from_ast(ast, output_format="markdown", renderer_options=None)
+   to_markdown(source, *, source_format="auto", parser_options=None,
+               renderer_options=None, flavor=None, transforms=None,
+               hooks=None, progress_callback=None, remote_input_options=None, **kwargs)
+
+   to_ast(source, *, source_format="auto", parser_options=None,
+          progress_callback=None, remote_input_options=None, **kwargs)
+
+   from_ast(ast_doc, target_format, output=None, *, renderer_options=None,
+            transforms=None, hooks=None, progress_callback=None, **kwargs)
+
+   convert(source, output=None, *, source_format="auto", target_format="auto",
+           parser_options=None, renderer_options=None, transforms=None,
+           hooks=None, flavor=None, progress_callback=None,
+           remote_input_options=None, **kwargs)
+
+   from_markdown(source, target_format, output=None, *, parser_options=None,
+                 renderer_options=None, transforms=None, hooks=None,
+                 progress_callback=None, **kwargs)
 
 **Responsibilities:**
 
@@ -434,6 +452,8 @@ All nodes inherit from ``Node`` base class:
 * ``mediawiki.py`` - MediaWiki
 * ``org.py`` - Org-Mode
 * ``plaintext.py`` - Plain text
+* ``ipynb.py`` - Jupyter notebooks
+* ``rtf.py`` - Rich Text Format (requires pyth3)
 * ``ast_json.py`` - JSON AST format
 
 **Renderer Interface:**
@@ -441,11 +461,19 @@ All nodes inherit from ``Node`` base class:
 .. code-block:: python
 
    class BaseRenderer:
-       def __init__(self, options: MarkdownOptions):
+       def __init__(self, options: BaseRendererOptions | None = None):
            self.options = options
 
-       def render(self, document: Document) -> str | bytes:
-           """Convert AST Document to output format"""
+       def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+           """Write rendered AST to output file or stream"""
+           raise NotImplementedError
+
+       def render_to_string(self, doc: Document) -> str:
+           """Render AST to string (for text-based formats)"""
+           raise NotImplementedError
+
+       def render_to_bytes(self, doc: Document) -> bytes:
+           """Render AST to bytes (for binary formats)"""
            raise NotImplementedError
 
 **Renderer Responsibilities:**
@@ -454,14 +482,14 @@ All nodes inherit from ``Node`` base class:
 2. Traverse tree using visitor pattern
 3. Generate format-specific output
 4. Handle formatting options (heading style, list symbols, etc.)
-5. Return string (Markdown, HTML) or bytes (DOCX, PDF)
+5. Write output to file/stream (``render()``) or return directly (``render_to_string()`` / ``render_to_bytes()``)
 
 **Example Renderer Flow:**
 
 .. code-block:: python
 
    # Markdown Renderer simplified
-   def render(self, document: Document) -> str:
+   def render_to_string(self, document: Document) -> str:
        output = []
 
        for node in document.children:
@@ -471,6 +499,10 @@ All nodes inherit from ``Node`` base class:
                output.append(self._render_paragraph(node))
 
        return "\n".join(output)
+
+   def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+       content = self.render_to_string(doc)
+       self.write_text_output(content, output)
 
 ---
 
@@ -659,7 +691,7 @@ all2md uses optional dependencies grouped by format:
 * ``[pdf]`` - PyMuPDF
 * ``[docx]`` - python-docx, lxml
 * ``[pptx]`` - python-pptx
-* ``[html]`` - beautifulsoup4, lxml
+* ``[html]`` - beautifulsoup4, httpx, readability-lxml
 * ``[excel]`` - openpyxl
 * ``[odf]`` - odfpy
 * ``[epub]`` - ebooklib

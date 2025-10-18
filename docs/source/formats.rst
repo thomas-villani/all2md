@@ -86,6 +86,7 @@ HTML & Web Archives
 *Parsers:* ``HtmlToAstConverter`` & ``MhtmlToAstConverter`` — *Renderer:* ``HtmlRenderer``
 
 - Sanitisation-aware HTML conversion with configurable handling of inline tags and raw HTML blocks
+- Optional readability extraction (``--html-use-readability``) removes navigation chrome using readability-lxml
 - Secure remote fetching through ``NetworkFetchOptions`` (rate limiting, host allowlists, HTTPS enforcement)
 - Template modes (inject/replace/jinja) in the renderer power static-site pipelines (:doc:`static_sites`)
 
@@ -223,4 +224,3 @@ Next Steps
 - :doc:`options` — exhaustive dataclass reference including security helpers and Markdown flavours
 - :doc:`transforms` — manipulate content with built-in transforms (TOC generation, heading IDs, boilerplate removal)
 - :doc:`attachments` — deep dive on download/base64/annotation strategies shared by every parser
-

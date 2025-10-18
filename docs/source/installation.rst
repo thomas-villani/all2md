@@ -261,7 +261,7 @@ HTML Documents
 
    pip install all2md[html]
 
-**Dependencies:** BeautifulSoup4, httpx
+**Dependencies:** BeautifulSoup4, httpx, readability-lxml (for article extraction)
 
 **Formats:** HTML and MHTML files with intelligent content extraction
 
@@ -456,7 +456,7 @@ Clone and Install
 .. code-block:: bash
 
    # Clone the repository
-   git clone https://github.com/thomas.villani/all2md.git
+   git clone https://github.com/thomas-villani/all2md.git
    cd all2md
 
    # Install in development mode with all dependencies

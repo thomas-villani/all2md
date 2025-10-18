@@ -2091,6 +2091,15 @@ sanitization, and advanced formatting options.
    :Default: ``True``
    :Importance: core
 
+**use_readability**
+
+   Extract main article content using readability-lxml before parsing (optional dependency)
+
+   :Type: ``bool``
+   :CLI flag: ``--html-use-readability``
+   :Default: ``False``
+   :Importance: advanced
+
 **br_handling**
 
    How to handle <br> tags: 'newline' or 'space'

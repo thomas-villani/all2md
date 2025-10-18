@@ -214,7 +214,6 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
 
    from all2md import to_markdown, to_ast
    from all2md.renderers.markdown import MarkdownRenderer
-   from all2md.utils.flavors import GFMFlavor
 
    # Direct conversion (simple)
    markdown = to_markdown('document.pdf')
@@ -222,26 +221,22 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
    # AST conversion (advanced)
    doc_ast = to_ast('document.pdf')
 
-   # Analyze structure
-   from all2md.ast import NodeVisitor, Heading
-   class HeadingExtractor(NodeVisitor):
-       def __init__(self):
-           self.headings = []
-       def visit_heading(self, node: Heading):
-           self.headings.append(node)
+   # Analyze structure using extract_nodes
+   from all2md.ast.transforms import extract_nodes
+   from all2md.ast.nodes import Heading
 
-   extractor = HeadingExtractor()
-   doc_ast.accept(extractor)
-   print(f"Found {len(extractor.headings)} headings")
+   headings = extract_nodes(doc_ast, Heading)
+   print(f"Found {len(headings)} headings")
 
    # Transform AST
-   from all2md.ast import HeadingLevelTransformer
+   from all2md.ast.transforms import HeadingLevelTransformer
    transformer = HeadingLevelTransformer(offset=1)
    transformed = transformer.transform(doc_ast)
 
    # Render to GitHub Flavored Markdown
-   renderer = MarkdownRenderer(flavor=GFMFlavor())
-   gfm_markdown = renderer.render(transformed)
+   from all2md.options import MarkdownOptions
+   renderer = MarkdownRenderer(options=MarkdownOptions(flavor="gfm"))
+   gfm_markdown = renderer.render_to_string(transformed)
 
 **AST Node Types:**
 
@@ -473,7 +468,7 @@ HTML Documents
 - Custom element mapping
 - Comprehensive network security controls
 
-**Technology:** BeautifulSoup4 for robust HTML parsing, httpx for secure HTTP requests
+**Technology:** BeautifulSoup4 for robust HTML parsing, httpx for secure HTTP requests, optional readability-lxml for article extraction
 
 **Network Security:**
 
@@ -612,7 +607,7 @@ Pass a callback function to any conversion function:
            percentage = (event.current / event.total) * 100
            print(f"  Progress: {percentage:.1f}%")
 
-   markdown = to_markdown("document.pdf", progress=my_progress_handler)
+   markdown = to_markdown("document.pdf", progress_callback=my_progress_handler)
 
 Progress Event Types
 ~~~~~~~~~~~~~~~~~~~~~
@@ -620,8 +615,8 @@ Progress Event Types
 The ``ProgressEvent`` dataclass includes:
 
 * **started** - Conversion has begun
-* **page_done** - A page/section has been processed (PDF, PPTX)
-* **table_detected** - Table structure detected (PDF)
+* **item_done** - An item/page/section has been processed
+* **detected** - A structure was detected (e.g., table, column)
 * **finished** - Conversion completed successfully
 * **error** - An error occurred during processing
 
@@ -629,11 +624,15 @@ The ``ProgressEvent`` dataclass includes:
 
    @dataclass
    class ProgressEvent:
-       event_type: Literal["started", "page_done", "table_detected", "finished", "error"]
+       event_type: Literal["started", "item_done", "detected", "finished", "error"]
        message: str
        current: int = 0      # Current progress position
        total: int = 0        # Total items to process
        metadata: dict = {}   # Event-specific data
+
+.. note::
+
+   Legacy event types ``"page_done"`` and ``"table_detected"`` are deprecated but still supported for backwards compatibility. Use ``"item_done"`` and ``"detected"`` instead
 
 Event-Specific Handling
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -646,13 +645,12 @@ Different event types provide different metadata:
        if event.event_type == "started":
            print(f"Starting: {event.message}")
 
-       elif event.event_type == "page_done":
-           print(f"  Page {event.current}/{event.total} complete")
+       elif event.event_type == "item_done":
+           print(f"  Item {event.current}/{event.total} complete")
 
-       elif event.event_type == "table_detected":
-           table_count = event.metadata.get('table_count', 0)
-           page = event.metadata.get('page', '?')
-           print(f"  Found {table_count} tables on page {page}")
+       elif event.event_type == "detected":
+           detection_type = event.metadata.get('detection_type', 'structure')
+           print(f"  Detected {detection_type}: {event.message}")
 
        elif event.event_type == "finished":
            print(f"Complete: {event.message}")
@@ -715,11 +713,11 @@ All conversion functions support progress callbacks:
 
    from all2md import to_markdown, to_ast, convert, from_markdown
 
-   # All support the progress parameter
-   markdown = to_markdown("doc.pdf", progress=callback)
-   ast_doc = to_ast("doc.pdf", progress=callback)
-   convert("doc.pdf", "output.docx", progress=callback)
-   from_markdown("input.md", "html", progress=callback)
+   # All support the progress_callback parameter
+   markdown = to_markdown("doc.pdf", progress_callback=callback)
+   ast_doc = to_ast("doc.pdf", progress_callback=callback)
+   convert("doc.pdf", "output.docx", progress_callback=callback)
+   from_markdown("input.md", "html", progress_callback=callback)
 
 Dependency Management
 ---------------------

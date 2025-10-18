@@ -36,6 +36,7 @@ all = [
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "readability-lxml" },
     { name = "reportlab" },
     { name = "rich" },
     { name = "tqdm" },
@@ -68,6 +69,7 @@ dev = [
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "readability-lxml" },
     { name = "reportlab" },
     { name = "rich" },
     { name = "ruff" },
@@ -96,6 +98,9 @@ html = [
     { name = "beautifulsoup4" },
     { name = "chardet" },
     { name = "httpx" },
+]
+html-readability = [
+    { name = "readability-lxml" },
 ]
 latex = [
     { name = "pylatexenc" },
@@ -180,6 +185,8 @@ requires-dist = [
     { name = "python-docx", marker = "extra == 'docx-render'", specifier = ">=1.2.0" },
     { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
+    { name = "readability-lxml", marker = "extra == 'all'", specifier = ">=0.8.1" },
+    { name = "readability-lxml", marker = "extra == 'html-readability'", specifier = ">=0.8.1" },
     { name = "reportlab", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "reportlab", marker = "extra == 'pdf-render'", specifier = ">=4.0.0" },
     { name = "rich", marker = "extra == 'all'", specifier = ">=14.2.0" },
@@ -964,6 +971,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/92/aa/df863bcc39c5e0946263454aba394de8a9084dbaff8ad143846b0d844739/lxml-6.0.2-cp314-cp314t-win_arm64.whl", hash = "sha256:bb4c1847b303835d89d785a18801a883436cdfd5dc3d62947f9c49e24f0f5a2c", size = 3822205 },
 ]
 
+[package.optional-dependencies]
+html-clean = [
+    { name = "lxml-html-clean" },
+]
+
+[[package]]
+name = "lxml-html-clean"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lxml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d9/cb/c9c5bb2a9c47292e236a808dd233a03531f53b626f36259dcd32b49c76da/lxml_html_clean-0.4.3.tar.gz", hash = "sha256:c9df91925b00f836c807beab127aac82575110eacff54d0a75187914f1bd9d8c", size = 21498 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/4a/63a9540e3ca73709f4200564a737d63a4c8c9c4dd032bab8535f507c190a/lxml_html_clean-0.4.3-py3-none-any.whl", hash = "sha256:63fd7b0b9c3a2e4176611c2ca5d61c4c07ffca2de76c14059a81a2825833731e", size = 14177 },
+]
+
 [[package]]
 name = "markdown-it-py"
 version = "4.0.0"
@@ -1618,6 +1642,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/da/92/1446574745d74df0c92e6aa4a7b0b3130706a4142b2d1a5869f2eaa423c6/pyyaml-6.0.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:16249ee61e95f858e83976573de0f5b2893b3677ba71c9dd36b9cf8be9ac6d65", size = 829923 },
     { url = "https://files.pythonhosted.org/packages/f0/7a/1c7270340330e575b92f397352af856a8c06f230aa3e76f86b39d01b416a/pyyaml-6.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4ad1906908f2f5ae4e5a8ddfce73c320c2a1429ec52eafd27138b7f1cbe341c9", size = 174062 },
     { url = "https://files.pythonhosted.org/packages/f1/12/de94a39c2ef588c7e6455cfbe7343d3b2dc9d6b6b2f40c4c6565744c873d/pyyaml-6.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:ebc55a14a21cb14062aa4162f906cd962b28e2e9ea38f9b4391244cd8de4ae0b", size = 149341 },
+]
+
+[[package]]
+name = "readability-lxml"
+version = "0.8.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "chardet" },
+    { name = "cssselect" },
+    { name = "lxml", extra = ["html-clean"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/3e/dc87d97532ddad58af786ec89c7036182e352574c1cba37bf2bf783d2b15/readability_lxml-0.8.4.1.tar.gz", hash = "sha256:9d2924f5942dd7f37fb4da353263b22a3e877ccf922d0e45e348e4177b035a53", size = 22874 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/75/2cc58965097e351415af420be81c4665cf80da52a17ef43c01ffbe2caf91/readability_lxml-0.8.4.1-py3-none-any.whl", hash = "sha256:874c0cea22c3bf2b78c7f8df831bfaad3c0a89b7301d45a188db581652b4b465", size = 19912 },
 ]
 
 [[package]]

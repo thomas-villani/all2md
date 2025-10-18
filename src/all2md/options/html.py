@@ -314,6 +314,9 @@ class HtmlOptions(BaseParserOptions):
         ...     'div': ('class', 'id')
         ... })
 
+    Extract only the readable article content:
+        >>> options = HtmlOptions(use_readability=True)
+
     """
 
     extract_title: bool = field(
@@ -372,6 +375,13 @@ class HtmlOptions(BaseParserOptions):
             "help": "Collapse multiple spaces/newlines into single spaces",
             "cli_name": "no-collapse-whitespace",
             "importance": "core",
+        },
+    )
+    use_readability: bool = field(
+        default=False,
+        metadata={
+            "help": "Extract main article content using readability-lxml",
+            "importance": "advanced",
         },
     )
     br_handling: Literal["newline", "space"] = field(

@@ -12,6 +12,7 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import html
+import importlib
 import logging
 import os
 import re
@@ -47,6 +48,7 @@ from all2md.constants import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import (
+    DependencyError,
     FileAccessError,
     MalformedFileError,
     NetworkSecurityError,
@@ -271,14 +273,18 @@ class HtmlToAstConverter(BaseParser):
         self._in_code_block = False
         self._heading_level_offset = 0
 
-        from bs4 import BeautifulSoup
-        from bs4.element import Comment, Tag
-
         # Emit started event
         self._emit_progress("started", "Converting HTML document", current=0, total=1)
 
         # Sanitize null bytes from HTML to prevent XSS bypass
         html_content = html_content.replace("\x00", "")
+
+        readability_title: str | None = None
+        if self.options.use_readability:
+            html_content, readability_title = self._extract_readable_html(html_content)
+
+        from bs4 import BeautifulSoup
+        from bs4.element import Comment, Tag
 
         soup = BeautifulSoup(html_content, "html.parser")
 
@@ -361,6 +367,7 @@ class HtmlToAstConverter(BaseParser):
         children: list[Node] = []
 
         # Extract title if requested - this will offset all headings by 1 level
+        extracted_readability_title = False
         if self.options.extract_title:
             title_tag = soup.find("title")
             if isinstance(title_tag, Tag) and title_tag.string:
@@ -368,6 +375,13 @@ class HtmlToAstConverter(BaseParser):
                 children.append(title_heading)
                 # Demote all body headings by 1 level to make room for extracted title
                 self._heading_level_offset = 1
+                extracted_readability_title = True
+
+        if self.options.extract_title and not extracted_readability_title and readability_title:
+            title_heading = Heading(level=1, content=[Text(content=readability_title.strip())])
+            children.append(title_heading)
+            self._heading_level_offset = 1
+            extracted_readability_title = True
 
         # Process body or root element
         body = soup.find("body")
@@ -396,6 +410,66 @@ class HtmlToAstConverter(BaseParser):
         self._emit_progress("finished", "HTML conversion completed", current=1, total=1)
 
         return Document(children=children, metadata=metadata.to_dict())
+
+    def _extract_readable_html(self, html_content: str) -> tuple[str, str | None]:
+        """Extract the readable article content using readability-lxml.
+
+        Parameters
+        ----------
+        html_content : str
+            Raw HTML content to process.
+
+        Returns
+        -------
+        tuple[str, str | None]
+            A tuple containing the extracted readable HTML (or original content on failure)
+            and an optional title discovered by readability.
+
+        """
+        try:
+            readability_module = importlib.import_module("readability")
+        except ImportError as exc:
+            raise DependencyError(
+                converter_name="html",
+                missing_packages=[("readability-lxml", "")],
+                install_command="pip install readability-lxml",
+                message="HTML readability extraction requires the optional dependency 'readability-lxml'.",
+                original_import_error=exc,
+            ) from exc
+
+        document_cls = getattr(readability_module, "Document", None)
+        if document_cls is None:
+            logger.warning("'readability' module does not expose Document; skipping readability extraction")
+            return html_content, None
+
+        try:
+            readability_doc = document_cls(html_content)
+        except Exception as exc:  # pragma: no cover - defensive safeguard
+            logger.warning("Failed to initialize readability Document: %s", exc)
+            return html_content, None
+
+        try:
+            summary_html = readability_doc.summary(html_partial=True)
+        except Exception as exc:
+            logger.warning("Readability summary extraction failed: %s", exc)
+            return html_content, None
+
+        if not summary_html:
+            logger.debug("Readability summary returned empty content; falling back to original HTML")
+            return html_content, None
+
+        logger.debug("Readability extraction succeeded; using article-only HTML content")
+
+        readable_title: str | None = None
+        try:
+            if hasattr(readability_doc, "short_title"):
+                readable_title = readability_doc.short_title()
+            else:
+                readable_title = readability_doc.title()
+        except Exception:
+            readable_title = None
+
+        return str(summary_html), readable_title.strip() if isinstance(readable_title, str) and readable_title.strip() else None
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from HTML document.
@@ -1688,7 +1762,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renders_as_string=True,
     parser_required_packages=[("beautifulsoup4", "bs4", "")],
     renderer_required_packages=[],
-    optional_packages=[],
+    optional_packages=[("readability-lxml", "readability", "")],
     import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
     parser_options_class=HtmlOptions,
     renderer_options_class="all2md.options.html.HtmlRendererOptions",

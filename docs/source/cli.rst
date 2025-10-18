@@ -181,7 +181,7 @@ The generated configuration includes:
    # PDF conversion options
    [pdf]
    # Detect multi-column layouts
-   detect_columns = false
+   detect_columns = true
    # Skip extracting images from PDFs
    skip_image_extraction = false
    # Enable fallback table detection
@@ -300,13 +300,13 @@ This verifies:
 
 **Configuration Priority**
 
-Configuration sources are applied in this order (later sources override earlier):
+Configuration sources are applied in this order (highest to lowest priority):
 
-1. Auto-discovered config files (``.all2md.toml`` or ``.all2md.json``)
-2. Environment variable config (``ALL2MD_CONFIG``)
+1. CLI arguments (highest priority)
+2. ``--preset`` flag (see :ref:`presets` for available presets)
 3. Explicit ``--config`` flag
-4. ``--preset`` flag (see :ref:`presets` for available presets)
-5. CLI arguments (highest priority)
+4. Environment variable config (``ALL2MD_CONFIG``)
+5. Auto-discovered config files (``.all2md.toml`` or ``.all2md.json``, lowest priority)
 
 .. seealso::
 
@@ -1966,7 +1966,7 @@ To install missing dependencies, use pip with the appropriate extra:
    * ``[pdf]`` - PyMuPDF for PDF processing
    * ``[docx]`` - python-docx for Word documents
    * ``[pptx]`` - python-pptx for PowerPoint
-   * ``[html]`` - BeautifulSoup4 and httpx for HTML
+   * ``[html]`` - BeautifulSoup4, httpx, and readability-lxml for HTML parsing and article extraction
    * ``[epub]`` - ebooklib for EPUB e-books
    * ``[rtf]`` - pyth3 for Rich Text Format
    * ``[odf]`` - odfpy for OpenDocument formats
@@ -1998,7 +1998,7 @@ The ``list-formats`` command displays all supported file formats, their extensio
    ─────────────────────────────────────────────────────────────
    pdf            .pdf                   PyMuPDF         ✓ Available
    docx           .docx                  python-docx     ✓ Available
-   html           .html, .htm            BeautifulSoup4  ✓ Available
+   html           .html, .htm            BeautifulSoup4, readability-lxml  ✓ Available
    pptx           .pptx                  python-pptx     ✗ Missing
    ...
 

@@ -45,6 +45,9 @@ html = [
     "chardet>=5.2.0",
     "httpx>=0.28.1",
 ]
+html_readability = [
+    "readability-lxml>=0.8.1",
+]
 sanitizer = [
     "bleach>=6.2.0",
 ]
@@ -108,6 +111,7 @@ org = [
 all = [
     "beautifulsoup4>=4.14.2",
     "chardet>=5.2.0",
+    "readability-lxml>=0.8.1",
     "docutils>=0.20",
     "ebooklib>=0.19",
     "fastmcp>=2.0.0",
