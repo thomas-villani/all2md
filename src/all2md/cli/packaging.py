@@ -22,6 +22,7 @@ def create_package_from_conversions(
     options: Optional[Dict[str, Any]] = None,
     transforms: Optional[list] = None,
     source_format: str = "auto",
+    progress_callback: Optional[Any] = None,
 ) -> Path:
     """Create zip package by converting files directly to memory without disk I/O.
 
@@ -43,6 +44,8 @@ def create_package_from_conversions(
         AST transforms to apply during conversion
     source_format : str, default="auto"
         Source format (auto-detect if "auto")
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates
 
     Returns
     -------
@@ -95,6 +98,7 @@ def create_package_from_conversions(
                     source_format=cast(Any, source_format),
                     target_format=cast(Any, target_format),
                     transforms=transforms,
+                    progress_callback=progress_callback,
                     **conversion_options,
                 )
 

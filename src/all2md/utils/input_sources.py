@@ -18,6 +18,7 @@ from typing import IO, Any, Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
 from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationError
+from all2md.progress import ProgressCallback
 from all2md.utils.network_security import fetch_content_securely, is_network_disabled
 
 InputType = Union[str, Path, IO[bytes], IO[str], bytes]
@@ -139,6 +140,7 @@ class DocumentSourceRequest:
     raw_input: InputType
     remote_options: RemoteInputOptions | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    progress_callback: Optional[ProgressCallback] = None
 
     def scheme(self) -> str | None:
         """Best-effort scheme detection for string inputs."""
@@ -181,7 +183,23 @@ class DocumentSourceRetriever(abc.ABC):
 
     @abc.abstractmethod
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
-        """Load the document and return a resolved source."""
+        """Load the document and return a resolved source.
+
+        Parameters
+        ----------
+        request : DocumentSourceRequest
+            The request containing input source and optional progress callback
+
+        Returns
+        -------
+        DocumentSource
+            Resolved document source with payload
+
+        Notes
+        -----
+        Retrievers should emit progress events via request.progress_callback
+        when performing long-running operations like network downloads.
+        """
 
 
 @dataclass
@@ -342,6 +360,23 @@ class HttpRetriever(DocumentSourceRetriever):
                 parameter_value=remote_options.require_https,
             )
 
+        # Emit download started event
+        if request.progress_callback:
+            from all2md.progress import ProgressEvent
+
+            try:
+                request.progress_callback(
+                    ProgressEvent(
+                        event_type="started",
+                        message=f"Downloading {url}",
+                        current=0,
+                        total=0,
+                        metadata={"item_type": "download", "url": url},
+                    )
+                )
+            except Exception:  # pragma: no cover - don't let callback errors break fetch
+                pass
+
         try:
             content = fetch_content_securely(
                 url=url,
@@ -350,7 +385,41 @@ class HttpRetriever(DocumentSourceRetriever):
                 max_size_bytes=remote_options.max_size_bytes,
                 timeout=remote_options.timeout,
             )
+
+            # Emit download completed event
+            if request.progress_callback:
+                from all2md.progress import ProgressEvent
+
+                try:
+                    request.progress_callback(
+                        ProgressEvent(
+                            event_type="item_done",
+                            message=f"Downloaded {url}",
+                            current=1,
+                            total=1,
+                            metadata={"item_type": "download", "bytes": len(content), "url": url},
+                        )
+                    )
+                except Exception:  # pragma: no cover - don't let callback errors break processing
+                    pass
+
         except NetworkSecurityError:
+            # Emit error event
+            if request.progress_callback:
+                from all2md.progress import ProgressEvent
+
+                try:
+                    request.progress_callback(
+                        ProgressEvent(
+                            event_type="error",
+                            message=f"Download failed: {url}",
+                            current=0,
+                            total=1,
+                            metadata={"error": "Security error", "stage": "download", "url": url},
+                        )
+                    )
+                except Exception:  # pragma: no cover
+                    pass
             raise
         except ImportError as exc:
             raise DependencyError(
@@ -360,6 +429,22 @@ class HttpRetriever(DocumentSourceRetriever):
                 original_import_error=exc,
             ) from exc
         except Exception as exc:  # pragma: no cover - defensive fallback
+            # Emit error event
+            if request.progress_callback:
+                from all2md.progress import ProgressEvent
+
+                try:
+                    request.progress_callback(
+                        ProgressEvent(
+                            event_type="error",
+                            message=f"Download failed: {url}",
+                            current=0,
+                            total=1,
+                            metadata={"error": str(exc), "stage": "download", "url": url},
+                        )
+                    )
+                except Exception:  # pragma: no cover
+                    pass
             raise NetworkSecurityError(f"Failed to fetch remote document: {exc}") from exc
 
         name_hint = Path(parsed.path).name or "remote-document"

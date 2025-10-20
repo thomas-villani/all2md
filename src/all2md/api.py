@@ -29,10 +29,29 @@ logger = logging.getLogger(__name__)
 def _resolve_document_source(
     source: Union[str, Path, IO[bytes], IO[str], bytes],
     remote_input_options: RemoteInputOptions | None,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> DocumentSource:
-    """Resolve raw input into a DocumentSource using the configured loader."""
+    """Resolve raw input into a DocumentSource using the configured loader.
+
+    Parameters
+    ----------
+    source : Union[str, Path, IO[bytes], IO[str], bytes]
+        Source document data
+    remote_input_options : RemoteInputOptions or None
+        Options controlling remote document retrieval
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates during source resolution
+
+    Returns
+    -------
+    DocumentSource
+        Resolved document source
+
+    """
     loader = default_loader()
-    request = DocumentSourceRequest(raw_input=source, remote_options=remote_input_options)
+    request = DocumentSourceRequest(
+        raw_input=source, remote_options=remote_input_options, progress_callback=progress_callback
+    )
     return loader.load(request)
 
 
@@ -623,7 +642,7 @@ def to_ast(
         >>> json_str = serialization.ast_to_json(ast_doc, indent=2)
 
     """
-    resolved_source = _resolve_document_source(source, remote_input_options)
+    resolved_source = _resolve_document_source(source, remote_input_options, progress_callback)
     resolved_payload = resolved_source.payload
 
     # Detect format
@@ -973,7 +992,7 @@ def convert(
     transforms = transforms or []
     hooks = hooks or {}
 
-    resolved_source = _resolve_document_source(source, remote_input_options)
+    resolved_source = _resolve_document_source(source, remote_input_options, progress_callback)
     resolved_payload = resolved_source.payload
 
     # Detect source format

@@ -1,8 +1,7 @@
 # `all2md`: The Universal Document Conversion Library
 
 [![PyPI version](https://img.shields.io/pypi/v/all2md.svg)](https://pypi.org/project/all2md/)
-[![Build Status](https://img.shields.io/travis/com/thomas.villani/all2md.svg)](https://travis-ci.com/thomas.villani/all2md)
-[![Code Coverage](https://img.shields.io/codecov/c/github/thomas.villani/all2md.svg)](https://codecov.io/gh/thomas.villani/all2md)
+[![CI](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml)
 [![License](https://img.shields.io/pypi/l/all2md.svg)](https://opensource.org/licenses/MIT)
 [![Python Versions](https://img.shields.io/pypi/pyversions/all2md.svg)](https://pypi.org/project/all2md/)
 

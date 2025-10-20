@@ -488,7 +488,7 @@ class ConverterRegistry:
         elif isinstance(input_data, io.IOBase) or (
             hasattr(input_data, "read")
             and hasattr(input_data, "tell")
-            and hasattr("input_data", "read")
+            and hasattr(input_data, "read")
             and hasattr(input_data, "seek")
         ):
             # Save position and read sample
@@ -497,7 +497,8 @@ class ConverterRegistry:
                 input_data.seek(0)
                 content = input_data.read(1024)
                 input_data.seek(pos)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Error reading input as file: {e!r}")
                 pass
 
         # Normalize content to bytes if it's a string (from text streams)

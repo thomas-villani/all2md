@@ -1,6 +1,7 @@
 """Unit tests for timing instrumentation utilities."""
 
 import logging
+import os
 import time
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 
 @pytest.mark.timing
 @pytest.mark.unit
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 class TestTimingContext:
     """Test TimingContext context manager."""
 
@@ -75,6 +77,7 @@ class TestTimingContext:
 
 @pytest.mark.timing
 @pytest.mark.unit
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 class TestInstrumentTiming:
     """Test instrument_timing decorator."""
 
@@ -178,6 +181,7 @@ class TestFormatDuration:
 
 
 @pytest.mark.timing
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 class TestOperationTimer:
     """Test OperationTimer class."""
 

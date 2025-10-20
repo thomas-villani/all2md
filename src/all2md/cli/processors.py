@@ -1091,8 +1091,17 @@ def process_merge_from_list(
     show_progress = args.progress or args.rich or len(entries) > 1
 
     # Helper function to process a single file
-    def process_entry(file_path: Path, section_title: Optional[str]) -> int:
+    def process_entry(file_path: Path, section_title: Optional[str], progress_cb: Optional[Any] = None) -> int:
         """Process a single file for merging.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to file to process
+        section_title : Optional[str]
+            Optional section title
+        progress_cb : ProgressCallback, optional
+            Optional progress callback
 
         Returns
         -------
@@ -1110,7 +1119,9 @@ def process_merge_from_list(
                 format_arg,
             )
 
-            doc = to_ast(file_path, source_format=cast(DocumentFormat, format_arg), **effective_options)
+            doc = to_ast(
+                file_path, source_format=cast(DocumentFormat, format_arg), progress_callback=progress_cb, **effective_options
+            )
 
             # Add section title if provided and not disabled
             if section_title and not args.no_section_titles:
@@ -1136,13 +1147,16 @@ def process_merge_from_list(
             return exit_code
 
     # Use unified progress tracking with ProgressContext
-    from all2md.cli.progress import ProgressContext
+    from all2md.cli.progress import ProgressContext, create_progress_context_callback
 
     use_rich = args.rich
     with ProgressContext(use_rich, show_progress, len(entries), "Merging files from list") as progress:
+        # Create progress callback wrapper
+        progress_callback = create_progress_context_callback(progress) if show_progress else None
+
         for file_path, section_title in entries:
             progress.set_postfix(f"Processing {file_path.name}")
-            exit_code = process_entry(file_path, section_title)
+            exit_code = process_entry(file_path, section_title, progress_callback)
 
             if exit_code == EXIT_SUCCESS:
                 progress.log(f"[OK] Processed {file_path}", level="success")
@@ -1587,8 +1601,27 @@ def _convert_item_to_ast_for_collation(
     item: CLIInputItem,
     options: Dict[str, Any],
     format_arg: str,
+    progress_callback: Optional[Any] = None,
 ) -> Tuple[int, Optional[ASTDocument], Optional[str]]:
-    """Load an input item into an AST for collation."""
+    """Load an input item into an AST for collation.
+
+    Parameters
+    ----------
+    item : CLIInputItem
+        CLI input item to convert
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Format specification
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates
+
+    Returns
+    -------
+    Tuple[int, Optional[ASTDocument], Optional[str]]
+        Tuple of (exit_code, ast_document, error_message)
+
+    """
     try:
         detection_hint = item.best_path()
         effective_options = prepare_options_for_execution(
@@ -1601,6 +1634,7 @@ def _convert_item_to_ast_for_collation(
         ast_document = to_ast(
             item.raw_input,
             source_format=cast(DocumentFormat, format_arg),
+            progress_callback=progress_callback,
             **effective_options,
         )
 
@@ -1624,7 +1658,7 @@ def process_files_collated(
     transforms: Optional[list] = None,
 ) -> int:
     """Collate multiple inputs into a single output using an AST pipeline."""
-    from all2md.cli.progress import ProgressContext, SummaryRenderer
+    from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
 
     collected_documents: List[ASTDocument] = []
     failures: List[Tuple[CLIInputItem, str, int]] = []
@@ -1633,9 +1667,14 @@ def process_files_collated(
     show_progress = args.progress or args.rich or len(items) > 1
 
     with ProgressContext(use_rich, show_progress, len(items), "Loading documents") as progress:
+        # Create progress callback wrapper
+        progress_callback = create_progress_context_callback(progress) if show_progress else None
+
         for _offset, item in enumerate(items, start=1):
             progress.set_postfix(f"Processing {item.name}")
-            exit_code, document, error = _convert_item_to_ast_for_collation(item, options, format_arg)
+            exit_code, document, error = _convert_item_to_ast_for_collation(
+                item, options, format_arg, progress_callback
+            )
 
             if exit_code == EXIT_SUCCESS and document:
                 heading = Heading(level=1, content=[Text(f"File: {item.name}")])
@@ -1804,6 +1843,7 @@ def convert_single_file(
     show_progress: bool = False,
     target_format: str = "markdown",
     transform_specs: Optional[list[TransformSpec]] = None,
+    progress_callback: Optional[Any] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -1823,9 +1863,10 @@ def convert_single_file(
         Whether to show progress (currently unused)
     target_format : str, default 'markdown'
         Target output format (e.g., 'markdown', 'docx', 'pdf', 'html')
-
     transform_specs : list[TransformSpec], optional
-        Serializable transform specifications to rebuild in worker processes.
+        Serializable transform specifications to rebuild in worker processes
+    progress_callback : ProgressCallback, optional
+        Optional callback for progress updates
 
     Returns
     -------
@@ -1868,6 +1909,7 @@ def convert_single_file(
                 source_format=cast(DocumentFormat, format_arg),
                 target_format=cast(DocumentFormat, target_format),
                 transforms=local_transforms,
+                progress_callback=progress_callback,
                 **effective_options,
             )
             return EXIT_SUCCESS, input_item.display_name, None
@@ -1880,6 +1922,7 @@ def convert_single_file(
             source_format=cast(DocumentFormat, format_arg),
             target_format=cast(DocumentFormat, render_target),
             transforms=local_transforms,
+            progress_callback=progress_callback,
             **effective_options,
         )
 
@@ -1910,7 +1953,7 @@ def process_files_unified(
     transforms: Optional[list] = None,
 ) -> int:
     """Process CLI inputs with unified progress handling."""
-    from all2md.cli.progress import ProgressContext, SummaryRenderer
+    from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
 
     base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
 
@@ -2014,6 +2057,9 @@ def process_files_unified(
                     progress.update()
     else:
         with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
+            # Create progress callback wrapper for sequential processing
+            progress_callback = create_progress_context_callback(progress) if show_progress else None
+
             for item, output_path, target_format, _index in planned_tasks:
                 progress.set_postfix(f"Processing {item.name}")
 
@@ -2026,6 +2072,7 @@ def process_files_unified(
                     False,
                     target_format,
                     transform_specs_for_workers,
+                    progress_callback,
                 )
 
                 if exit_code == EXIT_SUCCESS:

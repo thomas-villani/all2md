@@ -266,4 +266,51 @@ class SummaryRenderer:
                 print(f"{col1:30} {col2}", file=sys.stderr)
 
 
-__all__ = ["ProgressContext", "SummaryRenderer"]
+def create_progress_context_callback(progress: "ProgressContext") -> "ProgressCallback":
+    """Create a callback that feeds progress events into ProgressContext.
+
+    This wrapper translates progress events from parsers and retrievers into
+    ProgressContext log messages, providing unified progress tracking across
+    the CLI.
+
+    Parameters
+    ----------
+    progress : ProgressContext
+        The progress context to feed events into
+
+    Returns
+    -------
+    ProgressCallback
+        Callback function that handles progress events
+
+    Examples
+    --------
+    >>> with ProgressContext(use_rich=True, use_progress=True, total=10, description="Processing") as progress:
+    ...     callback = create_progress_context_callback(progress)
+    ...     to_markdown("document.pdf", progress_callback=callback)
+
+    """
+    from all2md.progress import ProgressCallback, ProgressEvent
+
+    def callback(event: ProgressEvent) -> None:
+        """Handle progress event and log to context."""
+        if event.event_type == "started":
+            if event.metadata.get("item_type") == "download":
+                url = event.metadata.get("url", "")
+                progress.log(f"Downloading: {url}", level="info")
+        elif event.event_type == "item_done":
+            if event.metadata.get("item_type") == "download":
+                url = event.metadata.get("url", "")
+                bytes_count = event.metadata.get("bytes", 0)
+                size_kb = bytes_count / 1024 if bytes_count else 0
+                progress.log(f"Downloaded: {url} ({size_kb:.1f} KB)", level="success")
+        elif event.event_type == "error":
+            if event.metadata.get("stage") == "download":
+                url = event.metadata.get("url", "")
+                error = event.metadata.get("error", "Unknown error")
+                progress.log(f"Download failed: {url} - {error}", level="error")
+
+    return callback  # type: ignore[return-value]
+
+
+__all__ = ["ProgressContext", "SummaryRenderer", "create_progress_context_callback"]
