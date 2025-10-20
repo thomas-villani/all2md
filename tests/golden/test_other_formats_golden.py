@@ -7,6 +7,11 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
+from fixtures.generators.markdown_fixtures import (
+    create_markdown_with_code_and_lists,
+    create_markdown_with_tables,
+    markdown_bytes_io,
+)
 from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, save_pptx_to_bytes
 
 from all2md import PptxOptions, to_markdown
@@ -52,43 +57,16 @@ class TestMarkdownRoundtripGolden:
 
     def test_markdown_roundtrip_basic(self, snapshot):
         """Test basic markdown round-trip matches snapshot."""
-        markdown_input = """# Heading 1
+        markdown_stream = markdown_bytes_io(create_markdown_with_code_and_lists())
 
-This is a paragraph with **bold** and *italic* text.
-
-## Heading 2
-
-- List item 1
-- List item 2
-- List item 3
-
-### Heading 3
-
-1. Numbered item 1
-2. Numbered item 2
-
-```python
-def hello():
-    print("Hello, World!")
-```
-"""
-
-        result = to_markdown(BytesIO(markdown_input.encode('utf-8')), source_format='markdown')
+        result = to_markdown(markdown_stream, source_format='markdown')
         assert result == snapshot
 
     def test_markdown_roundtrip_with_table(self, snapshot):
         """Test markdown with table round-trip matches snapshot."""
-        markdown_input = """# Document with Table
+        markdown_stream = markdown_bytes_io(create_markdown_with_tables())
 
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Row 1    | Data 1   | Value 1  |
-| Row 2    | Data 2   | Value 2  |
-
-Text after table.
-"""
-
-        result = to_markdown(BytesIO(markdown_input.encode('utf-8')), source_format='markdown')
+        result = to_markdown(markdown_stream, source_format='markdown')
         assert result == snapshot
 
 

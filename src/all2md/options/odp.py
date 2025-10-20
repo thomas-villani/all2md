@@ -1,15 +1,17 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # all2md/options/odp.py
-"""Configuration options for ODP (OpenDocument Presentation) parsing.
+"""Configuration options for ODP (OpenDocument Presentation) parsing and rendering.
 
-This module defines options for parsing ODP presentation files.
+This module defines options for parsing and rendering ODP presentation files.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
-from all2md.options.common import PaginatedParserOptions
+from all2md.options.base import BaseRendererOptions
+from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
 
 @dataclass(frozen=True)
@@ -52,4 +54,82 @@ class OdpOptions(PaginatedParserOptions):
     slides: str | None = field(
         default=None,
         metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)", "importance": "core"},
+    )
+
+
+@dataclass(frozen=True)
+class OdpRendererOptions(BaseRendererOptions):
+    """Configuration options for rendering AST to ODP format.
+
+    This dataclass contains settings specific to OpenDocument Presentation
+    generation from AST, including slide splitting strategies and layout.
+
+    Parameters
+    ----------
+    slide_split_mode : {"separator", "heading", "auto"}, default "auto"
+        How to split the AST into slides:
+        - "separator": Split on ThematicBreak nodes
+        - "heading": Split on specific heading level
+        - "auto": Try separator first, fallback to heading-based splitting
+    slide_split_heading_level : int, default 2
+        Heading level to use for slide splits when using heading mode.
+    default_layout : str, default "Default"
+        Default slide layout name.
+    title_slide_layout : str, default "Title"
+        Layout name for the first slide.
+    use_heading_as_slide_title : bool, default True
+        Use first heading in slide content as slide title.
+    template_path : str or None, default None
+        Path to .odp template file. If None, uses default blank template.
+    default_font : str, default "Liberation Sans"
+        Default font for slide content.
+    default_font_size : int, default 18
+        Default font size in points for body text.
+    title_font_size : int, default 44
+        Font size for slide titles.
+    network : NetworkFetchOptions, default NetworkFetchOptions()
+        Network security options for fetching remote images in slides.
+
+    """
+
+    slide_split_mode: Literal["separator", "heading", "auto"] = field(
+        default="auto",
+        metadata={
+            "help": "Slide splitting strategy: separator, heading, or auto",
+            "choices": ["separator", "heading", "auto"],
+            "importance": "core",
+        },
+    )
+    slide_split_heading_level: int = field(
+        default=2,
+        metadata={"help": "Heading level for slide splits (H2 = level 2)", "type": int, "importance": "advanced"},
+    )
+    default_layout: str = field(
+        default="Default", metadata={"help": "Default slide layout name", "importance": "advanced"}
+    )
+    title_slide_layout: str = field(
+        default="Title", metadata={"help": "Layout for first slide", "importance": "advanced"}
+    )
+    use_heading_as_slide_title: bool = field(
+        default=True,
+        metadata={
+            "help": "Use first heading as slide title",
+            "cli_name": "no-use-heading-as-slide-title",
+            "importance": "core",
+        },
+    )
+    template_path: str | None = field(
+        default=None, metadata={"help": "Path to .odp template file (None = default)", "importance": "core"}
+    )
+    default_font: str = field(
+        default="Liberation Sans", metadata={"help": "Default font for slide content", "importance": "core"}
+    )
+    default_font_size: int = field(
+        default=18, metadata={"help": "Default font size for body text", "type": int, "importance": "core"}
+    )
+    title_font_size: int = field(
+        default=44, metadata={"help": "Font size for slide titles", "type": int, "importance": "advanced"}
+    )
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
     )

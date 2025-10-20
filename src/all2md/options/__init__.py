@@ -28,9 +28,9 @@ from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
 from all2md.options.mediawiki import MediaWikiOptions
 from all2md.options.mhtml import MhtmlOptions
-from all2md.options.odp import OdpOptions
+from all2md.options.odp import OdpOptions, OdpRendererOptions
 from all2md.options.ods import OdsSpreadsheetOptions
-from all2md.options.odt import OdtOptions
+from all2md.options.odt import OdtOptions, OdtRendererOptions
 from all2md.options.org import OrgParserOptions, OrgRendererOptions
 from all2md.options.pdf import PdfOptions, PdfRendererOptions
 from all2md.options.pptx import PptxOptions, PptxRendererOptions
@@ -99,8 +99,10 @@ __all__ = [
     "MediaWikiOptions",
     "MhtmlOptions",
     "OdpOptions",
+    "OdpRendererOptions",
     "OdsSpreadsheetOptions",
     "OdtOptions",
+    "OdtRendererOptions",
     "OrgParserOptions",
     "OrgRendererOptions",
     "PdfOptions",

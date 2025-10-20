@@ -29,7 +29,7 @@ except ImportError:
     PptxInches = None  # type: ignore[assignment,misc]
 
 # Import test utilities
-from tests.utils import MINIMAL_PNG_BYTES
+from utils import MINIMAL_PNG_BYTES
 
 
 class DocxTestGenerator:

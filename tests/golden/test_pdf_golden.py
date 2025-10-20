@@ -70,7 +70,8 @@ class TestPDFGoldenFromFiles:
 
         try:
             with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, source_format='pdf')
+                pdf_bytes = f.read()
+            result = to_markdown(BytesIO(pdf_bytes), source_format='pdf')
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")

@@ -1,7 +1,7 @@
 """ODF test fixture generators using odfpy library.
 
-This module provides functions to programmatically create ODT and ODP documents
-for testing various aspects of ODF-to-Markdown conversion.
+This module provides functions to programmatically create ODT, ODP, and ODS
+documents for testing various aspects of ODF-to-Markdown conversion.
 """
 
 import tempfile
@@ -9,7 +9,11 @@ from pathlib import Path
 
 try:
     from odf.draw import Frame, TextBox  # noqa: F401
-    from odf.opendocument import OpenDocumentPresentation, OpenDocumentText  # noqa: F401
+    from odf.opendocument import (  # noqa: F401
+        OpenDocumentPresentation,
+        OpenDocumentSpreadsheet,
+        OpenDocumentText,
+    )
     from odf.style import Style, TextProperties  # noqa: F401
     from odf.table import Table, TableCell, TableColumn, TableRow  # noqa: F401
     from odf.text import (  # noqa: F401
@@ -460,10 +464,17 @@ def save_odt_to_bytes(doc: 'OpenDocumentText') -> bytes:
         raise ImportError("odfpy library required for ODF fixture generation")
 
     # Save to temporary file and read back as bytes
-    with tempfile.NamedTemporaryFile() as tmp:
-        doc.save(tmp.name)
-        tmp.seek(0)
-        return tmp.read()
+    temp_file = tempfile.NamedTemporaryFile(suffix=".odt", delete=False)
+    temp_path = Path(temp_file.name)
+    temp_file.close()
+    try:
+        doc.save(str(temp_path))
+        return temp_path.read_bytes()
+    finally:
+        try:
+            temp_path.unlink()
+        except OSError:
+            pass
 
 
 def create_odp_with_slides() -> 'OpenDocumentPresentation':
@@ -566,6 +577,98 @@ def create_odp_with_slides() -> 'OpenDocumentPresentation':
     doc.presentation.addElement(slide2)
 
     return doc
+
+
+def create_ods_with_sheet() -> 'OpenDocumentSpreadsheet':
+    """Create an ODS spreadsheet with a single table of data.
+
+    Returns
+    -------
+    OpenDocumentSpreadsheet
+        Spreadsheet containing headers, data rows, and numeric values.
+
+    Raises
+    ------
+    ImportError
+        If odfpy library is not available.
+
+    """
+    if not HAS_ODFPY:
+        raise ImportError("odfpy library required for ODF fixture generation")
+
+    doc = OpenDocumentSpreadsheet()
+
+    table_element = Table(name="SalesData")
+
+    headers = ["Region", "Quarter", "Revenue"]
+    header_row = TableRow()
+    for header in headers:
+        cell = TableCell()
+        cell.addElement(P(text=header))
+        header_row.addElement(cell)
+    table_element.addElement(header_row)
+
+    rows = [
+        ("North", "Q1", "150000"),
+        ("North", "Q2", "165000"),
+        ("South", "Q1", "98000"),
+        ("South", "Q2", "105000"),
+    ]
+
+    for region, quarter, revenue in rows:
+        row = TableRow()
+        for value in (region, quarter, revenue):
+            cell = TableCell()
+            cell.addElement(P(text=str(value)))
+            row.addElement(cell)
+        table_element.addElement(row)
+
+    doc.spreadsheet.addElement(table_element)
+    return doc
+
+
+def save_ods_to_file(doc: 'OpenDocumentSpreadsheet', filepath: Path) -> None:
+    """Persist an ODS spreadsheet to disk."""
+    if not HAS_ODFPY:
+        raise ImportError("odfpy library required for ODF fixture generation")
+
+    doc.save(str(filepath))
+
+
+def save_ods_to_bytes(doc: 'OpenDocumentSpreadsheet') -> bytes:
+    """Serialize an ODS spreadsheet to bytes."""
+    if not HAS_ODFPY:
+        raise ImportError("odfpy library required for ODF fixture generation")
+
+    temp_file = tempfile.NamedTemporaryFile(suffix=".ods", delete=False)
+    temp_path = Path(temp_file.name)
+    temp_file.close()
+    try:
+        doc.save(str(temp_path))
+        return temp_path.read_bytes()
+    finally:
+        try:
+            temp_path.unlink()
+        except OSError:
+            pass
+
+
+def save_odp_to_bytes(doc: 'OpenDocumentPresentation') -> bytes:
+    """Serialize an ODP presentation to bytes."""
+    if not HAS_ODFPY:
+        raise ImportError("odfpy library required for ODF fixture generation")
+
+    temp_file = tempfile.NamedTemporaryFile(suffix=".odp", delete=False)
+    temp_path = Path(temp_file.name)
+    temp_file.close()
+    try:
+        doc.save(str(temp_path))
+        return temp_path.read_bytes()
+    finally:
+        try:
+            temp_path.unlink()
+        except OSError:
+            pass
 
 
 def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
