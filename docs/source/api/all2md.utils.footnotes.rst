@@ -1,5 +1,5 @@
-all2md.utils.footnotes module
-=============================
+all2md.utils.footnotes
+======================
 
 .. automodule:: all2md.utils.footnotes
    :members:

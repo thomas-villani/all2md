@@ -1,5 +1,5 @@
-all2md.renderers.epub module
-============================
+all2md.renderers.epub
+=====================
 
 .. automodule:: all2md.renderers.epub
    :members:

@@ -1,5 +1,5 @@
-all2md.cli.config module
-========================
+all2md.cli.config
+=================
 
 .. automodule:: all2md.cli.config
    :members:

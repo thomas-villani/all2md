@@ -100,7 +100,7 @@ class OrgRendererOptions(BaseRendererOptions):
     ----------
     heading_style : {"stars"}, default "stars"
         Style for rendering headings. Currently only "stars" is supported
-        (e.g., \* Level 1, \*\* Level 2, \*\*\* Level 3).
+        (e.g., * Level 1, ** Level 2, *** Level 3).
     preserve_drawers : bool, default False
         Whether to preserve drawer content in rendered output.
         When True, drawers stored in metadata are rendered back.

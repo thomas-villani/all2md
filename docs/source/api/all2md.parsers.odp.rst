@@ -1,5 +1,5 @@
-all2md.parsers.odp module
-=========================
+all2md.parsers.odp
+==================
 
 .. automodule:: all2md.parsers.odp
    :members:

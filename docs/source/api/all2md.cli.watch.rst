@@ -1,5 +1,5 @@
-all2md.cli.watch module
-=======================
+all2md.cli.watch
+================
 
 .. automodule:: all2md.cli.watch
    :members:

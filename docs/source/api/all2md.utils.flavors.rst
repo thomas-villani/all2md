@@ -1,5 +1,5 @@
-all2md.utils.flavors module
-===========================
+all2md.utils.flavors
+====================
 
 .. automodule:: all2md.utils.flavors
    :members:

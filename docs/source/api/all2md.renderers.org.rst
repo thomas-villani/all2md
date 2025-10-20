@@ -1,5 +1,5 @@
-all2md.renderers.org module
-===========================
+all2md.renderers.org
+====================
 
 .. automodule:: all2md.renderers.org
    :members:

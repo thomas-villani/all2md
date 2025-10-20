@@ -1,5 +1,5 @@
-all2md.options.ipynb module
-===========================
+all2md.options.ipynb
+====================
 
 .. automodule:: all2md.options.ipynb
    :members:

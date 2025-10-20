@@ -1,5 +1,5 @@
-all2md.utils.chart\_helpers module
-==================================
+all2md.utils.chart\_helpers
+===========================
 
 .. automodule:: all2md.utils.chart_helpers
    :members:

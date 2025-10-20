@@ -592,6 +592,109 @@ def collect_input_files(
     return all_items
 
 
+def parse_batch_list(list_path: Path | str) -> List[str]:
+    """Parse batch list file and return file paths.
+
+    Parameters
+    ----------
+    list_path : Path or str
+        Path to the list file containing file paths (one per line), or '-' to read from stdin
+
+    Returns
+    -------
+    List[str]
+        List of file path strings ready for collect_input_files()
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If the list file cannot be read or contains invalid entries
+
+    Notes
+    -----
+    List file format:
+    - One file path per line
+    - Lines starting with # are comments
+    - Blank lines are ignored
+    - File paths are resolved relative to the list file directory (or cwd if stdin)
+    - All paths are validated to exist
+    - Use '-' as the path to read the list from stdin
+
+    Examples
+    --------
+    List file content:
+
+        # Input files for processing
+        chapter1.pdf
+        chapter2.pdf
+        /absolute/path/to/file.docx
+
+    Reading from stdin:
+
+        $ echo "file1.pdf" | all2md --batch-from-list - --output-dir ./out
+
+    """
+    try:
+        # Check if reading from stdin
+        if list_path == "-" or str(list_path) == "-":
+            # Read from stdin
+            lines = sys.stdin.readlines()
+            # Resolve paths relative to current working directory
+            list_dir = Path.cwd()
+            source_desc = "stdin"
+        else:
+            # Read from file
+            list_path = Path(list_path)
+            if not list_path.exists():
+                raise argparse.ArgumentTypeError(f"Batch list file does not exist: {list_path}")
+
+            with open(list_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            # Resolve paths relative to list file directory
+            list_dir = list_path.parent
+            source_desc = str(list_path)
+
+        # Parse entries
+        file_paths: List[str] = []
+
+        for line_num, line in enumerate(lines, 1):
+            # Strip whitespace
+            line = line.strip()
+
+            # Skip comments and blank lines
+            if not line or line.startswith("#"):
+                continue
+
+            # Use the line as the file path (no separator like in merge-from-list)
+            file_path_str = line
+
+            # Resolve file path (relative to list file directory)
+            file_path = Path(file_path_str)
+            if not file_path.is_absolute():
+                file_path = list_dir / file_path
+
+            # Validate file exists
+            if not file_path.exists():
+                raise argparse.ArgumentTypeError(
+                    f"File not found in batch list (line {line_num}): {file_path_str}\n" f"Resolved path: {file_path}"
+                )
+
+            # Add to list as string (collect_input_files expects strings)
+            file_paths.append(str(file_path))
+
+        if not file_paths:
+            raise argparse.ArgumentTypeError(f"Batch list is empty or contains no valid entries: {source_desc}")
+
+        return file_paths
+
+    except argparse.ArgumentTypeError:
+        raise
+    except Exception as e:
+        source_desc = "stdin" if (list_path == "-" or str(list_path) == "-") else str(list_path)
+        raise argparse.ArgumentTypeError(f"Error reading batch list from {source_desc}: {e}") from e
+
+
 def _create_list_formats_parser() -> argparse.ArgumentParser:
     """Create argparse parser for list-formats command.
 

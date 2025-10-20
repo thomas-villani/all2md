@@ -88,8 +88,8 @@ class RstRendererOptions(BaseRendererOptions):
         - "simple": Simple tables with === separators
     code_directive_style : {"double_colon", "directive"}, default "directive"
         Code block rendering style:
-        - "double_colon": Use \`\`:: literal blocks\`\`
-        - "directive": Use \`\`.. code-block:: directive\`\`
+        - "double_colon": Use ``::`` literal blocks
+        - "directive": Use ``.. code-block::`` directive
     line_length : int, default 80
         Target line length for wrapping text.
     hard_line_break_mode : {"line_block", "raw"}, default "line_block"

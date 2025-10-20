@@ -1,5 +1,5 @@
-all2md.options.mhtml module
-===========================
+all2md.options.mhtml
+====================
 
 .. automodule:: all2md.options.mhtml
    :members:

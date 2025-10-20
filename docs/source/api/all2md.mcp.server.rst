@@ -1,5 +1,5 @@
-all2md.mcp.server module
-========================
+all2md.mcp.server
+=================
 
 .. automodule:: all2md.mcp.server
    :members:

@@ -1,6 +1,7 @@
-﻿all2md.transforms.registry
+all2md.transforms.registry
 ==========================
 
-.. currentmodule:: all2md.transforms
-
-.. autodata:: registry
+.. automodule:: all2md.transforms.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:

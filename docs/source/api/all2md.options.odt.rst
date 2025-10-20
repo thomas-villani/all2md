@@ -1,5 +1,5 @@
-all2md.options.odt module
-=========================
+all2md.options.odt
+==================
 
 .. automodule:: all2md.options.odt
    :members:

@@ -1,5 +1,5 @@
-all2md.cli.custom\_actions module
-=================================
+all2md.cli.custom\_actions
+==========================
 
 .. automodule:: all2md.cli.custom_actions
    :members:

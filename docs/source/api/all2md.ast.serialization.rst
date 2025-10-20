@@ -1,5 +1,5 @@
-all2md.ast.serialization module
-===============================
+all2md.ast.serialization
+========================
 
 .. automodule:: all2md.ast.serialization
    :members:

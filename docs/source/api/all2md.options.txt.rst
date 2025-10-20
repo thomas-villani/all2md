@@ -1,5 +1,5 @@
-all2md.options.txt module
-=========================
+all2md.options.txt
+==================
 
 .. automodule:: all2md.options.txt
    :members:

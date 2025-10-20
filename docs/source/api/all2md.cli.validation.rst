@@ -1,5 +1,5 @@
-all2md.cli.validation module
-============================
+all2md.cli.validation
+=====================
 
 .. automodule:: all2md.cli.validation
    :members:

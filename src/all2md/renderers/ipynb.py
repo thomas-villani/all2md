@@ -66,7 +66,9 @@ class IpynbRenderer(BaseRenderer):
         import io
         from typing import cast
 
-        if isinstance(output, (io.BytesIO, io.BufferedWriter)) or (hasattr(output, "mode") and "b" in getattr(output, "mode", "")):
+        if isinstance(output, (io.BytesIO, io.BufferedWriter)) or (
+            hasattr(output, "mode") and "b" in getattr(output, "mode", "")
+        ):
             # Binary stream
             cast(IO[bytes], output).write(data)
         else:

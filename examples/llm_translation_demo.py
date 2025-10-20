@@ -11,6 +11,7 @@ the AST. The workflow is:
 
 This works with any format supported by all2md, making it format-agnostic.
 """
+from typing import Callable
 
 from all2md.ast import Text
 from all2md.ast.transforms import NodeTransformer
@@ -40,7 +41,7 @@ class LLMTranslateTransform(NodeTransformer):
     def __init__(
         self,
         target_language: str,
-        llm_client: callable,
+        llm_client: Callable[[str, str], str],
         preserve_code: bool = True,
         preserve_links: bool = True
     ):

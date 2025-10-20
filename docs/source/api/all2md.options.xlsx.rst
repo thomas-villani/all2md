@@ -1,5 +1,5 @@
-all2md.options.xlsx module
-==========================
+all2md.options.xlsx
+===================
 
 .. automodule:: all2md.options.xlsx
    :members:

@@ -1,5 +1,5 @@
-all2md.parsers.ipynb module
-===========================
+all2md.parsers.ipynb
+====================
 
 .. automodule:: all2md.parsers.ipynb
    :members:

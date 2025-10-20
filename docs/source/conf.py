@@ -51,6 +51,11 @@ autosummary_generate = True
 templates_path = ["_templates"]
 exclude_patterns = []
 
+# Suppress warnings for ambiguous cross-references caused by re-exports in __init__.py
+# Objects like Document, Node, etc. are available at multiple import paths
+# (e.g., all2md.ast.Document and all2md.ast.nodes.Document)
+suppress_warnings = ['ref.python']
+
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,

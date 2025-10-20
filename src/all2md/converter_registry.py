@@ -426,10 +426,11 @@ class ConverterRegistry:
             f"Tried {len(self._converters[format_name])} converter(s)."
         )
 
-    def detect_format(self,
-                      input_data: Union[str, Path, IO[bytes], bytes],
-                      hint: Optional[str] = None,
-                      ) -> str:
+    def detect_format(
+        self,
+        input_data: Union[str, Path, IO[bytes], bytes],
+        hint: Optional[str] = None,
+    ) -> str:
         """Detect format from input data.
 
         Uses multiple strategies:
@@ -485,8 +486,10 @@ class ConverterRegistry:
             except Exception:
                 pass
         elif isinstance(input_data, io.IOBase) or (
-                hasattr(input_data, "read") and hasattr(input_data, "tell")
-                and hasattr("input_data", "read") and hasattr(input_data, "seek")
+            hasattr(input_data, "read")
+            and hasattr(input_data, "tell")
+            and hasattr("input_data", "read")
+            and hasattr(input_data, "seek")
         ):
             # Save position and read sample
             try:

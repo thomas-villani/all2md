@@ -1,5 +1,5 @@
-all2md.cli.packaging module
-===========================
+all2md.cli.packaging
+====================
 
 .. automodule:: all2md.cli.packaging
    :members:

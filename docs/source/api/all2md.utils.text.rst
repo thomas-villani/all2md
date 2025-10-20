@@ -1,5 +1,5 @@
-all2md.utils.text module
-========================
+all2md.utils.text
+=================
 
 .. automodule:: all2md.utils.text
    :members:

@@ -1,5 +1,5 @@
-all2md.renderers.pptx module
-============================
+all2md.renderers.pptx
+=====================
 
 .. automodule:: all2md.renderers.pptx
    :members:

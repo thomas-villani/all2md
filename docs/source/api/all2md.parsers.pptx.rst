@@ -1,5 +1,5 @@
-all2md.parsers.pptx module
-==========================
+all2md.parsers.pptx
+===================
 
 .. automodule:: all2md.parsers.pptx
    :members:

@@ -1,5 +1,5 @@
-all2md.cli.timing module
-========================
+all2md.cli.timing
+=================
 
 .. automodule:: all2md.cli.timing
    :members:

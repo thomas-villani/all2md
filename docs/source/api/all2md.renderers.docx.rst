@@ -1,5 +1,5 @@
-all2md.renderers.docx module
-============================
+all2md.renderers.docx
+=====================
 
 .. automodule:: all2md.renderers.docx
    :members:

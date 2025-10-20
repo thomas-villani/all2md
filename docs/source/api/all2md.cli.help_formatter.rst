@@ -1,5 +1,5 @@
-all2md.cli.help\_formatter module
-=================================
+all2md.cli.help\_formatter
+==========================
 
 .. automodule:: all2md.cli.help_formatter
    :members:

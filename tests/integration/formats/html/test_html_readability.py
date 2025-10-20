@@ -8,7 +8,6 @@ from all2md import HtmlOptions, to_markdown
 from all2md.ast import Heading
 from all2md.parsers.html import HtmlToAstConverter
 
-
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[3]
     / "fixtures"
@@ -19,19 +18,18 @@ FIXTURE_PATH = (
 
 def _flatten_text(nodes: list) -> str:
     """Collect text content from AST nodes for assertions."""
-
     parts: list[str] = []
 
     def visit(node: object) -> None:
         if hasattr(node, "content"):
-            value = getattr(node, "content")
+            value = node.content
             if isinstance(value, str):
                 parts.append(value)
             elif isinstance(value, list):
                 for child in value:
                     visit(child)
-        if hasattr(node, "children") and isinstance(getattr(node, "children"), list):
-            for child in getattr(node, "children"):
+        if hasattr(node, "children") and isinstance(node.children, list):
+            for child in node.children:
                 visit(child)
         if isinstance(node, str):
             parts.append(node)
@@ -44,7 +42,6 @@ def _flatten_text(nodes: list) -> str:
 
 def test_parser_with_readability_discards_navigation() -> None:
     """HtmlToAstConverter should prefer readability output when enabled."""
-
     html_content = FIXTURE_PATH.read_text(encoding="utf-8")
     options = HtmlOptions(extract_readable=True, extract_title=True)
     document = HtmlToAstConverter(options).convert_to_ast(html_content)
@@ -64,7 +61,6 @@ def test_parser_with_readability_discards_navigation() -> None:
 
 def test_markdown_output_changes_with_readability() -> None:
     """Using readability should remove navigation boilerplate from markdown output."""
-
     html_content = FIXTURE_PATH.read_text(encoding="utf-8")
 
     standard_markdown = to_markdown(

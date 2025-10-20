@@ -1,5 +1,5 @@
-all2md.parsers.eml module
-=========================
+all2md.parsers.eml
+==================
 
 .. automodule:: all2md.parsers.eml
    :members:

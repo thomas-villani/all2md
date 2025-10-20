@@ -1,0 +1,73 @@
+---
+title: Getting Started with Python
+author: Jane Smith
+date: 2025-01-15
+tags: python, tutorial, beginner, programming
+---
+
+@@ Introduction
+
+Python is a high-level, interpreted programming language known for its
+simplicity and readability. It was created by Guido van Rossum and first
+released in 1991. Python's design philosophy emphasizes code readability
+with the use of significant indentation.
+
+@@ Why Learn Python?
+
+Python is versatile and widely used across many domains:
+
+- Web development (Django, Flask)
+- Data science and machine learning (NumPy, pandas, scikit-learn)
+- Automation and scripting
+- Scientific computing
+- Game development
+
+@@ Your First Python Program
+
+Here's the classic "Hello, World!" program in Python:
+
+```python
+def main():
+    print("Hello, World!")
+
+if __name__ == "__main__":
+    main()
+```
+
+This simple program demonstrates Python's clean syntax and readability.
+
+@@ Basic Data Types
+
+Python has several built-in data types:
+
+- Integers: whole numbers like 42
+- Floats: decimal numbers like 3.14
+- Strings: text like "Hello"
+- Booleans: True or False
+- Lists: ordered collections like [1, 2, 3]
+
+@@ Example: Working with Lists
+
+Lists are one of Python's most versatile data structures:
+
+```python
+# Creating a list
+fruits = ["apple", "banana", "cherry"]
+
+# Adding items
+fruits.append("orange")
+
+# Accessing items
+first_fruit = fruits[0]  # "apple"
+
+# Iterating
+for fruit in fruits:
+    print(fruit)
+```
+
+@@ Conclusion
+
+Python is an excellent choice for beginners and experienced programmers
+alike. Its clear syntax and vast ecosystem of libraries make it suitable
+for almost any programming task. The best way to learn is to start
+coding and building projects!

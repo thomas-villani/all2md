@@ -1,20 +1,7 @@
-﻿all2md.transforms.pipeline
+all2md.transforms.pipeline
 ==========================
 
 .. automodule:: all2md.transforms.pipeline
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      apply
-      render
-   
-   .. rubric:: Classes
-
-   .. autosummary::
-   
-      HookAwareVisitor
-      Pipeline
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

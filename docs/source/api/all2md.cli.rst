@@ -1,10 +1,12 @@
-all2md.cli package
-==================
+all2md.cli
+==========
 
 .. automodule:: all2md.cli
    :members:
    :show-inheritance:
    :undoc-members:
+   :imported-members: False
+   :noindex:
 
 Submodules
 ----------
@@ -17,6 +19,7 @@ Submodules
    all2md.cli.config
    all2md.cli.custom_actions
    all2md.cli.help_formatter
+   all2md.cli.input_items
    all2md.cli.packaging
    all2md.cli.presets
    all2md.cli.processors

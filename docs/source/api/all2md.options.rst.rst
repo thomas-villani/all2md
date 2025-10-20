@@ -1,5 +1,5 @@
-all2md.options.rst module
-=========================
+all2md.options.rst
+==================
 
 .. automodule:: all2md.options.rst
    :members:

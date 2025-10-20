@@ -1,5 +1,5 @@
-all2md.utils.images module
-==========================
+all2md.utils.images
+===================
 
 .. automodule:: all2md.utils.images
    :members:

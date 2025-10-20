@@ -1,5 +1,5 @@
-all2md.parsers.sourcecode module
-================================
+all2md.parsers.sourcecode
+=========================
 
 .. automodule:: all2md.parsers.sourcecode
    :members:

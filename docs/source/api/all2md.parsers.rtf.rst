@@ -1,5 +1,5 @@
-all2md.parsers.rtf module
-=========================
+all2md.parsers.rtf
+==================
 
 .. automodule:: all2md.parsers.rtf
    :members:

@@ -1,5 +1,5 @@
-all2md.options.eml module
-=========================
+all2md.options.eml
+==================
 
 .. automodule:: all2md.options.eml
    :members:

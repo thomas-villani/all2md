@@ -1,5 +1,5 @@
-all2md.progress module
-======================
+all2md.progress
+===============
 
 .. automodule:: all2md.progress
    :members:

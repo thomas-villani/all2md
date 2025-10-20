@@ -1,5 +1,5 @@
-all2md.options.common module
-============================
+all2md.options.common
+=====================
 
 .. automodule:: all2md.options.common
    :members:

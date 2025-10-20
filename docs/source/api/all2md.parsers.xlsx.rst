@@ -1,5 +1,5 @@
-all2md.parsers.xlsx module
-==========================
+all2md.parsers.xlsx
+===================
 
 .. automodule:: all2md.parsers.xlsx
    :members:

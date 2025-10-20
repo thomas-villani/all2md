@@ -71,6 +71,31 @@ def collect_argument_problems(
             )
         )
 
+    # Check for conflicting batch/merge list options
+    batch_from_list = getattr(parsed_args, "batch_from_list", None)
+    merge_from_list = getattr(parsed_args, "merge_from_list", None)
+
+    if batch_from_list and merge_from_list:
+        problems.append(
+            ValidationProblem(
+                "--batch-from-list and --merge-from-list cannot be used together. "
+                "Use --batch-from-list to process files individually or --merge-from-list to combine them.",
+                ValidationSeverity.ERROR,
+            )
+        )
+
+    # Check for stdin conflicts with batch-from-list
+    input_list = getattr(parsed_args, "input", [])
+    if batch_from_list and batch_from_list != "-" and "-" in input_list:
+        problems.append(
+            ValidationProblem(
+                "--batch-from-list cannot be used with stdin input ('-'). "
+                "Either read the file list from stdin using '--batch-from-list -' "
+                "or provide file paths via stdin, not both.",
+                ValidationSeverity.ERROR,
+            )
+        )
+
     return problems
 
 

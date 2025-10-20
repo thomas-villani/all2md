@@ -1,5 +1,5 @@
-all2md.options.mediawiki module
-===============================
+all2md.options.mediawiki
+========================
 
 .. automodule:: all2md.options.mediawiki
    :members:

@@ -1,5 +1,5 @@
-all2md.ast.transforms module
-============================
+all2md.ast.transforms
+=====================
 
 .. automodule:: all2md.ast.transforms
    :members:

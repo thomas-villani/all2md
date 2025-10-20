@@ -1,5 +1,5 @@
-all2md.constants module
-=======================
+all2md.constants
+================
 
 .. automodule:: all2md.constants
    :members:

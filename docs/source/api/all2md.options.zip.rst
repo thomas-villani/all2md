@@ -1,5 +1,5 @@
-all2md.options.zip module
-=========================
+all2md.options.zip
+==================
 
 .. automodule:: all2md.options.zip
    :members:

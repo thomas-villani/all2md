@@ -1,5 +1,5 @@
-all2md.utils.metadata module
-============================
+all2md.utils.metadata
+=====================
 
 .. automodule:: all2md.utils.metadata
    :members:

@@ -1,5 +1,5 @@
-all2md.parsers.txt module
-=========================
+all2md.parsers.txt
+==================
 
 .. automodule:: all2md.parsers.txt
    :members:

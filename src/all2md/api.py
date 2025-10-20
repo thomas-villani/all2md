@@ -304,6 +304,7 @@ def _split_kwargs_for_parser_and_renderer(
 
     return parser_kwargs, renderer_kwargs
 
+
 # TODO: allow a filename hint to be passed optionally as a hint to source format?
 # This would be quite good in server environments, where often we have a file stream and a file name.
 def to_markdown(
@@ -631,11 +632,15 @@ def to_ast(
         actual_format = source_format
     else:
         if isinstance(resolved_payload, (str, Path, bytes)) or (
-            hasattr(resolved_payload, "read") and hasattr(resolved_payload, "mode") and "b" in getattr(resolved_payload, "mode", "")
+            hasattr(resolved_payload, "read")
+            and hasattr(resolved_payload, "mode")
+            and "b" in getattr(resolved_payload, "mode", "")
         ):
             actual_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
         else:
-            raise ValueError("Cannot auto-detect format from text-mode stream. Please specify source_format explicitly.")
+            raise ValueError(
+                "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."
+            )
 
     # Get converter metadata (returns a list, we just check if it exists)
     metadata_list = registry.get_format_info(actual_format)
@@ -977,11 +982,15 @@ def convert(
         actual_source_format = source_format
     else:
         if isinstance(resolved_payload, (str, Path, bytes)) or (
-            hasattr(resolved_payload, "read") and hasattr(resolved_payload, "mode") and "b" in getattr(resolved_payload, "mode", "")
+            hasattr(resolved_payload, "read")
+            and hasattr(resolved_payload, "mode")
+            and "b" in getattr(resolved_payload, "mode", "")
         ):
             actual_source_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
         else:
-            raise ValueError("Cannot auto-detect format from text-mode stream. Please specify source_format explicitly.")
+            raise ValueError(
+                "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."
+            )
 
     # Determine target format
     actual_target_format: str

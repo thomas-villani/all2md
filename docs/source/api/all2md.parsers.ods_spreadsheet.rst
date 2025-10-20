@@ -1,5 +1,5 @@
-all2md.parsers.ods\_spreadsheet module
-======================================
+all2md.parsers.ods\_spreadsheet
+===============================
 
 .. automodule:: all2md.parsers.ods_spreadsheet
    :members:

@@ -1,5 +1,5 @@
-all2md.options.markdown module
-==============================
+all2md.options.markdown
+=======================
 
 .. automodule:: all2md.options.markdown
    :members:

@@ -132,7 +132,10 @@ def main(args: list[str] | None = None) -> int:
             return 1
 
     # Ensure input is provided when not using special flags
-    if not parsed_args.input:
+    # Note: --batch-from-list and --merge-from-list provide input, so don't require parsed_args.input
+    has_batch_list = hasattr(parsed_args, "batch_from_list") and parsed_args.batch_from_list
+    has_merge_list = hasattr(parsed_args, "merge_from_list") and parsed_args.merge_from_list
+    if not parsed_args.input and not has_batch_list and not has_merge_list:
         print("Error: Input file is required", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
@@ -150,10 +153,23 @@ def main(args: list[str] | None = None) -> int:
     # Configure logging with file handler if --log-file is specified
     _configure_logging(log_level, log_file=parsed_args.log_file, trace_mode=parsed_args.trace)
 
+    # Expand input list from --batch-from-list if specified
+    if hasattr(parsed_args, "batch_from_list") and parsed_args.batch_from_list:
+        try:
+            from all2md.cli.commands import parse_batch_list
+
+            batch_paths = parse_batch_list(parsed_args.batch_from_list)
+            # Extend the input list with paths from the batch file
+            parsed_args.input.extend(batch_paths)
+        except argparse.ArgumentTypeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return EXIT_VALIDATION_ERROR
+
     # Multi-file/directory processing
     items = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
 
-    if not items:
+    # Allow empty items if using --merge-from-list (it has its own input handling)
+    if not items and not has_merge_list:
         if parsed_args.exclude:
             print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
         else:
@@ -175,7 +191,8 @@ def main(args: list[str] | None = None) -> int:
                     parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude
                 )
 
-                if not items:
+                # Allow empty items if using --merge-from-list (it has its own input handling)
+                if not items and not has_merge_list:
                     if parsed_args.exclude:
                         print("Error: No valid input files found (all files excluded by patterns)", file=sys.stderr)
                     else:

@@ -1,5 +1,5 @@
-all2md.options.latex module
-===========================
+all2md.options.latex
+====================
 
 .. automodule:: all2md.options.latex
    :members:

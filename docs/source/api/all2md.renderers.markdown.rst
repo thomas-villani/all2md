@@ -1,5 +1,5 @@
-all2md.renderers.markdown module
-================================
+all2md.renderers.markdown
+=========================
 
 .. automodule:: all2md.renderers.markdown
    :members:

@@ -1,5 +1,5 @@
-all2md.renderers.asciidoc module
-================================
+all2md.renderers.asciidoc
+=========================
 
 .. automodule:: all2md.renderers.asciidoc
    :members:

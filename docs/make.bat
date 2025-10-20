@@ -31,11 +31,29 @@ if /I "%2"=="--nocolor" (
 
 if "%1" == "" goto help
 
+REM Special target for regenerating API docs with custom templates
+if "%1" == "apidoc" goto apidoc
+
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+goto end
+
+:apidoc
+echo Regenerating API documentation with custom templates...
+sphinx-apidoc -o %SOURCEDIR%\api ..\src\all2md --templatedir=%SOURCEDIR%\_templates\apidoc --force --module-first --separate --maxdepth 4
+if errorlevel 1 (
+    echo.
+    echo Error: sphinx-apidoc failed
+    exit /b 1
+)
+echo API documentation regenerated successfully!
+echo The :imported-members: False directive was automatically added to package files.
 goto end
 
 :help
 %SPHINXBUILD% -M help %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+echo.
+echo Custom targets:
+echo   apidoc     Regenerate API documentation using custom templates
 
 :end
 endlocal

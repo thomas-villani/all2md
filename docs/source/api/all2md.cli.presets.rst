@@ -1,5 +1,5 @@
-all2md.cli.presets module
-=========================
+all2md.cli.presets
+==================
 
 .. automodule:: all2md.cli.presets
    :members:

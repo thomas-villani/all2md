@@ -1,10 +1,12 @@
-all2md.parsers package
-======================
+all2md.parsers
+==============
 
 .. automodule:: all2md.parsers
    :members:
    :show-inheritance:
    :undoc-members:
+   :imported-members: False
+   :noindex:
 
 Submodules
 ----------

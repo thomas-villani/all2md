@@ -1,5 +1,5 @@
-all2md.options.org module
-=========================
+all2md.options.org
+==================
 
 .. automodule:: all2md.options.org
    :members:

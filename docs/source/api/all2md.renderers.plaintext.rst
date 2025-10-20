@@ -1,5 +1,5 @@
-all2md.renderers.plaintext module
-=================================
+all2md.renderers.plaintext
+==========================
 
 .. automodule:: all2md.renderers.plaintext
    :members:

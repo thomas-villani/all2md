@@ -12,7 +12,6 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import html
-import importlib
 import logging
 import os
 import re
@@ -48,7 +47,6 @@ from all2md.constants import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import (
-    DependencyError,
     FileAccessError,
     MalformedFileError,
     NetworkSecurityError,
@@ -429,6 +427,7 @@ class HtmlToAstConverter(BaseParser):
 
         """
         import readability
+
         readability_doc = readability.Document(html_content)
 
         try:
@@ -445,7 +444,9 @@ class HtmlToAstConverter(BaseParser):
 
         readable_title = readability_doc.short_title() or readability_doc.title()
 
-        return str(summary_html), readable_title.strip() if isinstance(readable_title, str) and readable_title.strip() else None
+        return str(summary_html), (
+            readable_title.strip() if isinstance(readable_title, str) and readable_title.strip() else None
+        )
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from HTML document.

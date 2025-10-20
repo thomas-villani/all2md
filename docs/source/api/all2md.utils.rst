@@ -1,10 +1,12 @@
-all2md.utils package
-====================
+all2md.utils
+============
 
 .. automodule:: all2md.utils
    :members:
    :show-inheritance:
    :undoc-members:
+   :imported-members: False
+   :noindex:
 
 Submodules
 ----------
@@ -21,6 +23,7 @@ Submodules
    all2md.utils.html_sanitizer
    all2md.utils.html_utils
    all2md.utils.images
+   all2md.utils.input_sources
    all2md.utils.inputs
    all2md.utils.io_utils
    all2md.utils.metadata

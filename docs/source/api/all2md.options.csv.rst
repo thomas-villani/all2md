@@ -1,5 +1,5 @@
-all2md.options.csv module
-=========================
+all2md.options.csv
+==================
 
 .. automodule:: all2md.options.csv
    :members:

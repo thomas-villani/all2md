@@ -1,5 +1,5 @@
-all2md.options.sourcecode module
-================================
+all2md.options.sourcecode
+=========================
 
 .. automodule:: all2md.options.sourcecode
    :members:

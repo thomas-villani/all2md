@@ -1,5 +1,5 @@
-all2md.utils.escape module
-==========================
+all2md.utils.escape
+===================
 
 .. automodule:: all2md.utils.escape
    :members:

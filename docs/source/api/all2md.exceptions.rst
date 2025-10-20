@@ -1,5 +1,5 @@
-all2md.exceptions module
-========================
+all2md.exceptions
+=================
 
 .. automodule:: all2md.exceptions
    :members:

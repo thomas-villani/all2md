@@ -1,5 +1,5 @@
-all2md.api module
-=================
+all2md.api
+==========
 
 .. automodule:: all2md.api
    :members:

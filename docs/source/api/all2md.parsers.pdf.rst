@@ -1,5 +1,5 @@
-all2md.parsers.pdf module
-=========================
+all2md.parsers.pdf
+==================
 
 .. automodule:: all2md.parsers.pdf
    :members:

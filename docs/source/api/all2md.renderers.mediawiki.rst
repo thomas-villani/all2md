@@ -1,5 +1,5 @@
-all2md.renderers.mediawiki module
-=================================
+all2md.renderers.mediawiki
+==========================
 
 .. automodule:: all2md.renderers.mediawiki
    :members:

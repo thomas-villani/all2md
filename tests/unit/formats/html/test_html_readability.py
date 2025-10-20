@@ -15,7 +15,6 @@ from all2md.parsers.html import HtmlToAstConverter
 
 def _flatten_text(nodes: list) -> str:
     """Collect all text content from AST nodes for assertion convenience."""
-
     collected: list[str] = []
 
     def visit(node: object) -> None:
@@ -23,12 +22,12 @@ def _flatten_text(nodes: list) -> str:
             collected.append(node.content)
             return
 
-        if hasattr(node, "content") and isinstance(getattr(node, "content"), list):
-            for child in getattr(node, "content"):
+        if hasattr(node, "content") and isinstance(node.content, list):
+            for child in node.content:
                 visit(child)
 
-        if hasattr(node, "children") and isinstance(getattr(node, "children"), list):
-            for child in getattr(node, "children"):
+        if hasattr(node, "children") and isinstance(node.children, list):
+            for child in node.children:
                 visit(child)
 
     for entry in nodes:
@@ -39,7 +38,6 @@ def _flatten_text(nodes: list) -> str:
 
 def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure the converter prefers readability summary content when enabled."""
-
     captured: dict[str, str] = {}
     real_import = importlib.import_module
 
@@ -87,7 +85,6 @@ def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_html_readability_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify a helpful error is raised when readability-lxml is absent."""
-
     real_import = importlib.import_module
 
     def fake_import(name: str, package: str | None = None):

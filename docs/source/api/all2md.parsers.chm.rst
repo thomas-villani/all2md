@@ -1,5 +1,5 @@
-all2md.parsers.chm module
-=========================
+all2md.parsers.chm
+==================
 
 .. automodule:: all2md.parsers.chm
    :members:

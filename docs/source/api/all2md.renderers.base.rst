@@ -1,5 +1,5 @@
-all2md.renderers.base module
-============================
+all2md.renderers.base
+=====================
 
 .. automodule:: all2md.renderers.base
    :members:

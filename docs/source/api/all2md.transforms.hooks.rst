@@ -1,13 +1,7 @@
-﻿all2md.transforms.hooks
+all2md.transforms.hooks
 =======================
 
 .. automodule:: all2md.transforms.hooks
-
-   
-   .. rubric:: Classes
-
-   .. autosummary::
-   
-      HookContext
-      HookManager
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

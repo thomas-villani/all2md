@@ -103,3 +103,35 @@ def test_validate_arguments_uses_problem_reporting(monkeypatch):
     assert created["namespace"] is parsed
     assert reported["called"] is True
 
+
+def test_batch_from_list_merge_from_list_conflict():
+    """Test that --batch-from-list and --merge-from-list cannot be used together."""
+    parsed = make_namespace(batch_from_list="files.txt", merge_from_list="merge.txt")
+
+    problems = collect_argument_problems(parsed)
+
+    assert len(problems) == 1
+    assert problems[0].severity is ValidationSeverity.ERROR
+    assert "batch-from-list and --merge-from-list cannot be used together" in problems[0].message
+
+
+def test_batch_from_list_stdin_conflict():
+    """Test that --batch-from-list cannot be used with stdin input."""
+    parsed = make_namespace(batch_from_list="files.txt", input=["-"])
+
+    problems = collect_argument_problems(parsed)
+
+    assert len(problems) == 1
+    assert problems[0].severity is ValidationSeverity.ERROR
+    assert "cannot be used with stdin input" in problems[0].message
+
+
+def test_batch_from_list_stdin_allowed():
+    """Test that --batch-from-list can read from stdin itself."""
+    parsed = make_namespace(batch_from_list="-", input=[])
+
+    problems = collect_argument_problems(parsed)
+
+    # Should not have the stdin conflict error
+    assert not any("stdin input" in p.message for p in problems)
+

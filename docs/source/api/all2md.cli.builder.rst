@@ -1,5 +1,5 @@
-all2md.cli.builder module
-=========================
+all2md.cli.builder
+==================
 
 .. automodule:: all2md.cli.builder
    :members:

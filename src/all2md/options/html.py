@@ -381,7 +381,7 @@ class HtmlOptions(BaseParserOptions):
         default=False,
         metadata={
             "help": "Extract main article content by stripping navigation and other non-readable content "
-                    "using readability-lxml",
+            "using readability-lxml",
             "importance": "advanced",
         },
     )

@@ -1,5 +1,5 @@
-all2md.utils.spreadsheet module
-===============================
+all2md.utils.spreadsheet
+========================
 
 .. automodule:: all2md.utils.spreadsheet
    :members:

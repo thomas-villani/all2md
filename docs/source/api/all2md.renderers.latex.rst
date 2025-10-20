@@ -1,5 +1,5 @@
-all2md.renderers.latex module
-=============================
+all2md.renderers.latex
+======================
 
 .. automodule:: all2md.renderers.latex
    :members:

@@ -1,5 +1,5 @@
-all2md.mcp.security module
-==========================
+all2md.mcp.security
+===================
 
 .. automodule:: all2md.mcp.security
    :members:

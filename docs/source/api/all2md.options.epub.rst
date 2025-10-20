@@ -1,5 +1,5 @@
-all2md.options.epub module
-==========================
+all2md.options.epub
+===================
 
 .. automodule:: all2md.options.epub
    :members:

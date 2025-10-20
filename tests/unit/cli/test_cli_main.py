@@ -1633,3 +1633,77 @@ class TestEnhancedCLIIntegration:
             # Pattern 1 goes to file (convert)
             assert mock_to_markdown.call_count == 4
             assert mock_convert.call_count == 1
+
+    def test_batch_from_list_basic(self):
+        """Test basic --batch-from-list functionality."""
+        # Create test files
+        file1 = self.temp_dir / "file1.html"
+        file2 = self.temp_dir / "file2.html"
+        file1.write_text("<h1>File 1</h1>")
+        file2.write_text("<h1>File 2</h1>")
+
+        # Create batch list
+        batch_list = self.temp_dir / "batch.txt"
+        batch_list.write_text(f"{file1}\n{file2}\n")
+
+        output_dir = self.temp_dir / "output"
+
+        with patch("all2md.cli.processors.convert") as mock_convert:
+            mock_convert.side_effect = mock_convert_with_file_write("# File\n\nContent")
+
+            result = main(["--batch-from-list", str(batch_list), "--output-dir", str(output_dir), "--no-summary"])
+
+            assert result == 0
+            assert output_dir.exists()
+            # Both files should be processed
+            assert mock_convert.call_count == 2
+
+    def test_batch_from_list_with_comments(self):
+        """Test --batch-from-list with comments and empty lines."""
+        file1 = self.temp_dir / "file1.html"
+        file1.write_text("<h1>Test</h1>")
+
+        batch_list = self.temp_dir / "batch.txt"
+        batch_list.write_text(f"# This is a comment\n{file1}\n\n# Another comment\n")
+
+        output_dir = self.temp_dir / "output"
+
+        with patch("all2md.cli.processors.convert") as mock_convert:
+            mock_convert.side_effect = mock_convert_with_file_write("# Test")
+
+            result = main(["--batch-from-list", str(batch_list), "--output-dir", str(output_dir), "--no-summary"])
+
+            assert result == 0
+            # Only one file should be processed (comments ignored)
+            assert mock_convert.call_count == 1
+
+    def test_batch_from_list_merge_conflict(self, capsys):
+        """Test that --batch-from-list and --merge-from-list conflict."""
+        # Create test file
+        test_file = self.temp_dir / "file.txt"
+        test_file.write_text("test content")
+
+        batch_list = self.temp_dir / "batch.txt"
+        batch_list.write_text(f"{test_file}\n")
+
+        merge_list = self.temp_dir / "merge.txt"
+        merge_list.write_text(f"{test_file}\tSection 1\n")
+
+        result = main(["--batch-from-list", str(batch_list), "--merge-from-list", str(merge_list)])
+
+        # Should fail validation
+        assert result != 0
+        captured = capsys.readouterr()
+        assert "cannot be used together" in captured.err
+
+    def test_batch_from_list_nonexistent_file(self, capsys):
+        """Test error when file in batch list doesn't exist."""
+        batch_list = self.temp_dir / "batch.txt"
+        batch_list.write_text("nonexistent.pdf\n")
+
+        result = main(["--batch-from-list", str(batch_list)])
+
+        # Should fail with file not found error
+        assert result != 0
+        captured = capsys.readouterr()
+        assert "File not found" in captured.err or "not found" in captured.err.lower()

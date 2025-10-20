@@ -1,5 +1,5 @@
-all2md.parsers.latex module
-===========================
+all2md.parsers.latex
+====================
 
 .. automodule:: all2md.parsers.latex
    :members:

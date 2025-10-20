@@ -1,10 +1,12 @@
-all2md.renderers package
-========================
+all2md.renderers
+================
 
 .. automodule:: all2md.renderers
    :members:
    :show-inheritance:
    :undoc-members:
+   :imported-members: False
+   :noindex:
 
 Submodules
 ----------

@@ -1,5 +1,5 @@
-all2md.options.base module
-==========================
+all2md.options.base
+===================
 
 .. automodule:: all2md.options.base
    :members:

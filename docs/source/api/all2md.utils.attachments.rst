@@ -1,5 +1,5 @@
-all2md.utils.attachments module
-===============================
+all2md.utils.attachments
+========================
 
 .. automodule:: all2md.utils.attachments
    :members:

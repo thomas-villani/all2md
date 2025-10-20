@@ -1,5 +1,5 @@
-all2md.parsers.markdown module
-==============================
+all2md.parsers.markdown
+=======================
 
 .. automodule:: all2md.parsers.markdown
    :members:

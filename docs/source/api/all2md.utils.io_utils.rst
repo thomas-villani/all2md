@@ -1,5 +1,5 @@
-all2md.utils.io\_utils module
-=============================
+all2md.utils.io\_utils
+======================
 
 .. automodule:: all2md.utils.io_utils
    :members:

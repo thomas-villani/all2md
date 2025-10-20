@@ -1,5 +1,5 @@
-all2md.options.rtf module
-=========================
+all2md.options.rtf
+==================
 
 .. automodule:: all2md.options.rtf
    :members:

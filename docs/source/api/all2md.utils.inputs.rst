@@ -1,5 +1,5 @@
-all2md.utils.inputs module
-==========================
+all2md.utils.inputs
+===================
 
 .. automodule:: all2md.utils.inputs
    :members:

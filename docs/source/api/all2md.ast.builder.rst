@@ -1,5 +1,5 @@
-all2md.ast.builder module
-=========================
+all2md.ast.builder
+==================
 
 .. automodule:: all2md.ast.builder
    :members:

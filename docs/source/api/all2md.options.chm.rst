@@ -1,5 +1,5 @@
-all2md.options.chm module
-=========================
+all2md.options.chm
+==================
 
 .. automodule:: all2md.options.chm
    :members:

@@ -1296,7 +1296,9 @@ Examples:
             'transforms',
             # Merge-from-list arguments
             'merge_from_list', 'generate_toc', 'toc_title', 'toc_depth',
-            'toc_position', 'list_separator', 'no_section_titles'
+            'toc_position', 'list_separator', 'no_section_titles',
+            # Batch-from-list arguments
+            'batch_from_list'
         }
 
         # Process each argument
@@ -1692,6 +1694,15 @@ def create_parser() -> argparse.ArgumentParser:
         type=str,
         metavar='PATH',
         help='Merge files from a list file (TSV format: path[<tab>section_title])'
+    )
+
+    parser.add_argument(
+        '--batch-from-list',
+        action=TrackingStoreAction,
+        type=str,
+        metavar='PATH',
+        help='Process files from a list file (one path per line, # for comments). '
+             'Use "-" to read from stdin. Paths are processed individually unlike --merge-from-list.'
     )
 
     parser.add_argument(

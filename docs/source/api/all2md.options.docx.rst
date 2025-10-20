@@ -1,5 +1,5 @@
-all2md.options.docx module
-==========================
+all2md.options.docx
+===================
 
 .. automodule:: all2md.options.docx
    :members:

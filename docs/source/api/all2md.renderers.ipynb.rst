@@ -1,5 +1,5 @@
-all2md.renderers.ipynb module
-=============================
+all2md.renderers.ipynb
+======================
 
 .. automodule:: all2md.renderers.ipynb
    :members:

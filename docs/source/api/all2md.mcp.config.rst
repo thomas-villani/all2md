@@ -1,5 +1,5 @@
-all2md.mcp.config module
-========================
+all2md.mcp.config
+=================
 
 .. automodule:: all2md.mcp.config
    :members:

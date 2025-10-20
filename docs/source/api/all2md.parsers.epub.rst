@@ -1,5 +1,5 @@
-all2md.parsers.epub module
-==========================
+all2md.parsers.epub
+===================
 
 .. automodule:: all2md.parsers.epub
    :members:

@@ -1,5 +1,5 @@
-all2md.parsers.csv module
-=========================
+all2md.parsers.csv
+==================
 
 .. automodule:: all2md.parsers.csv
    :members:

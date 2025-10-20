@@ -1,5 +1,5 @@
-all2md.converter\_metadata module
-=================================
+all2md.converter\_metadata
+==========================
 
 .. automodule:: all2md.converter_metadata
    :members:

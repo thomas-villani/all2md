@@ -1,5 +1,5 @@
-all2md.parsers.mhtml module
-===========================
+all2md.parsers.mhtml
+====================
 
 .. automodule:: all2md.parsers.mhtml
    :members:

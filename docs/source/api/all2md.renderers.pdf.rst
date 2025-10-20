@@ -1,5 +1,5 @@
-all2md.renderers.pdf module
-===========================
+all2md.renderers.pdf
+====================
 
 .. automodule:: all2md.renderers.pdf
    :members:

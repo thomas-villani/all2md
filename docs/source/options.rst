@@ -43,8 +43,7 @@ CLI flag mapping follows the field path. For example ``HtmlOptions.network.requi
 Options Map
 -----------
 
-The table below shows where to look for the most commonly tuned converters. See :doc:`options` for the full,
-auto-generated reference including every field and default.
+The table below shows where to look for the most commonly tuned converters.
 
 .. list-table::
    :header-rows: 1
@@ -2091,12 +2090,12 @@ sanitization, and advanced formatting options.
    :Default: ``True``
    :Importance: core
 
-**use_readability**
+**extract_readable**
 
-   Extract main article content using readability-lxml before parsing (optional dependency)
+   Extract main article content by stripping navigation and other non-readable content using readability-lxml
 
    :Type: ``bool``
-   :CLI flag: ``--html-use-readability``
+   :CLI flag: ``--html-extract-readable``
    :Default: ``False``
    :Importance: advanced
 
@@ -2492,6 +2491,15 @@ including output handling and image conversion preferences.
    :CLI flag: ``--ipynb-no-include-outputs``
    :Default: ``True``
    :Importance: core
+
+**skip_empty_cells**
+
+   Skip cells with no content (preserves round-trip fidelity when False)
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-no-skip-empty-cells``
+   :Default: ``True``
+   :Importance: advanced
 
 **show_execution_count**
 
@@ -3274,7 +3282,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000023C151109B0>``
+   :Default: ``<object object at 0x0000022396D909C0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3284,7 +3292,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000023C151109B0>``
+   :Default: ``<object object at 0x0000022396D909C0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -3689,6 +3697,15 @@ primarily for handling embedded assets like images and local file security.
    :CLI flag: ``--mhtml-no-collapse-whitespace``
    :Default: ``True``
    :Importance: core
+
+**extract_readable**
+
+   Extract main article content by stripping navigation and other non-readable content using readability-lxml
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-extract-readable``
+   :Default: ``False``
+   :Importance: advanced
 
 **br_handling**
 
@@ -6905,7 +6922,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000023C151109B0>``
+   :Default: ``<object object at 0x0000022396D909C0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -6915,7 +6932,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000023C151109B0>``
+   :Default: ``<object object at 0x0000022396D909C0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

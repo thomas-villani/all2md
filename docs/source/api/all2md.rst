@@ -1,10 +1,12 @@
-all2md package
-==============
+all2md
+======
 
 .. automodule:: all2md
    :members:
    :show-inheritance:
    :undoc-members:
+   :imported-members: False
+   :noindex:
 
 Subpackages
 -----------

@@ -1,5 +1,5 @@
-all2md.logging\_utils module
-============================
+all2md.logging\_utils
+=====================
 
 .. automodule:: all2md.logging_utils
    :members:

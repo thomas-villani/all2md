@@ -1,5 +1,5 @@
-all2md.utils.html\_sanitizer module
-===================================
+all2md.utils.html\_sanitizer
+============================
 
 .. automodule:: all2md.utils.html_sanitizer
    :members:

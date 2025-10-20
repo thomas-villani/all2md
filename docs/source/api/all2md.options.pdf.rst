@@ -1,5 +1,5 @@
-all2md.options.pdf module
-=========================
+all2md.options.pdf
+==================
 
 .. automodule:: all2md.options.pdf
    :members:

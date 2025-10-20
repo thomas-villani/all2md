@@ -1,5 +1,5 @@
-all2md.parsers.asciidoc module
-==============================
+all2md.parsers.asciidoc
+=======================
 
 .. automodule:: all2md.parsers.asciidoc
    :members:

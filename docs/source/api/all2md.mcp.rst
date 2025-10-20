@@ -1,10 +1,12 @@
-all2md.mcp package
-==================
+all2md.mcp
+==========
 
 .. automodule:: all2md.mcp
    :members:
    :show-inheritance:
    :undoc-members:
+   :imported-members: False
+   :noindex:
 
 Submodules
 ----------

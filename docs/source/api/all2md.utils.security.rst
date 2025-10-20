@@ -1,5 +1,5 @@
-all2md.utils.security module
-============================
+all2md.utils.security
+=====================
 
 .. automodule:: all2md.utils.security
    :members:

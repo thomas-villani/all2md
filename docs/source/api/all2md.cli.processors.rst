@@ -1,5 +1,5 @@
-all2md.cli.processors module
-============================
+all2md.cli.processors
+=====================
 
 .. automodule:: all2md.cli.processors
    :members:
