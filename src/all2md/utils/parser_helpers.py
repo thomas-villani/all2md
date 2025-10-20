@@ -265,6 +265,7 @@ def attachment_result_to_image_node(
         - "markdown": str - Markdown representation (used as fallback)
         - "footnote_label": str | None - Footnote label if applicable
         - "footnote_content": str | None - Footnote content if applicable
+        - "source_data": str | None - Source of image data (e.g., "base64", "downloaded")
     fallback_alt_text : str, default "image"
         Alt text to use if not extractable from markdown
 
@@ -315,7 +316,13 @@ def attachment_result_to_image_node(
 
     # Create Image node
     # For alt_text mode without URL, pass empty string (renderer will handle)
-    return Image(url=url, alt_text=alt_text, title=None)
+    image_node = Image(url=url, alt_text=alt_text, title=None)
+
+    source_data = attachment_result.get("source_data")
+    if source_data:
+        image_node.metadata["source_data"] = source_data
+
+    return image_node
 
 
 def group_and_format_runs(

@@ -291,13 +291,8 @@ class TransformRegistry:
             # Get entry points for all2md.transforms group
             entry_points = importlib.metadata.entry_points()
 
-            # Handle different Python versions (3.10+ vs 3.9)
-            if hasattr(entry_points, "select"):
-                # Python 3.10+
-                transform_eps = entry_points.select(group="all2md.transforms")
-            else:
-                # Python 3.9 fallback
-                transform_eps = entry_points.get("all2md.transforms", [])  # type: ignore[attr-defined]
+            # Python 3.10+ only
+            transform_eps = entry_points.select(group="all2md.transforms")
 
             for ep in transform_eps:
                 try:

@@ -162,7 +162,7 @@ class HtmlToAstConverter(BaseParser):
         self._heading_level_offset = 0
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    @requires_dependencies("html", [("beautifulsoup4", "bs4", "")])
+    @requires_dependencies("html", [("beautifulsoup4", "bs4", ">=4.14.2")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse HTML document into an AST.
 
@@ -1737,10 +1737,9 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_class=HtmlToAstConverter,
     renderer_class="all2md.renderers.html.HtmlRenderer",
     renders_as_string=True,
-    parser_required_packages=[("beautifulsoup4", "bs4", "")],
+    parser_required_packages=[("beautifulsoup4", "bs4", ">=4.14.2")],
     renderer_required_packages=[],
-    optional_packages=[("readability-lxml", "readability", "")],
-    import_error_message=("HTML conversion requires 'beautifulsoup4'. Install with: pip install beautifulsoup4"),
+    optional_packages=[("readability-lxml", "readability", ">=0.8.1")],
     parser_options_class=HtmlOptions,
     renderer_options_class="all2md.options.html.HtmlRendererOptions",
     description="Convert HTML documents to/from AST",

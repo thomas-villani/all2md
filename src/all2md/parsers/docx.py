@@ -100,6 +100,8 @@ class ImageData:
         Footnote label if using footnote mode
     footnote_content : str or None
         Footnote content text
+    source_data : str or None
+        Source of the image data (e.g., "base64", "downloaded")
 
     """
 
@@ -108,6 +110,7 @@ class ImageData:
     title: str | None = None
     footnote_label: str | None = None
     footnote_content: str | None = None
+    source_data: str | None = None
 
 
 @dataclass
@@ -309,6 +312,8 @@ class DocxToAstConverter(BaseParser):
                     self._attachment_footnotes[block.footnote_label] = block.footnote_content
                 # Handle ImageData objects directly
                 image_node = Image(url=block.url, alt_text=block.alt_text, title=block.title)
+                if block.source_data:
+                    image_node.metadata["source_data"] = block.source_data
                 children.append(AstParagraph(content=[image_node]))
             elif isinstance(block, Paragraph):
                 nodes = self._process_paragraph_to_ast(block, doc)
@@ -1488,6 +1493,7 @@ def _iter_block_items(
                                 title=title,
                                 footnote_label=result.get("footnote_label"),
                                 footnote_content=result.get("footnote_content"),
+                                source_data=result.get("source_data"),
                             )
                         )
 

@@ -71,6 +71,7 @@ class TestMarkdownEscaping:
         # Alt text should be escaped
         assert r"\[" in markdown or "[text]" not in markdown
         assert "Alt" in markdown
+        assert result.get("source_data") == "base64"
 
     def test_download_mode_escapes_display_name(self, tmp_path):
         """Test that download mode escapes display name."""
@@ -87,6 +88,7 @@ class TestMarkdownEscaping:
         markdown = result['markdown']
         # Display name should be escaped
         assert r"\[" in markdown or "[name]" not in markdown
+        assert result.get("source_data") == "downloaded"
 
 
 class TestUrlQuoting:
@@ -112,6 +114,7 @@ class TestUrlQuoting:
         assert ".png" in url
         # Verify the filename is sanitized (spaces -> underscores)
         assert "my_image.png" in url or "my%5Fimage.png" in url
+        assert result.get("source_data") == "downloaded"
 
     def test_filename_with_special_chars_url_encoded(self, tmp_path):
         """Test that filenames with special characters are URL-encoded."""
@@ -130,6 +133,7 @@ class TestUrlQuoting:
         # After sanitization, & is removed: "filename.png"
         assert "https://example.com" in url
         assert "filename.png" in url
+        assert result.get("source_data") == "downloaded"
 
     def test_local_path_uses_posix_format(self, tmp_path):
         """Test that local paths use POSIX format with forward slashes."""
@@ -148,6 +152,7 @@ class TestUrlQuoting:
         assert "/" in url
         # Should not have backslashes (Windows style)
         assert "\\" not in url or Path(url).as_posix() == url
+        assert result.get("source_data") == "downloaded"
 
     def test_filename_with_hash_url_encoded(self, tmp_path):
         """Test that filenames with # are URL-encoded."""
@@ -166,6 +171,7 @@ class TestUrlQuoting:
         # After sanitization, # is removed: "file1.png"
         assert "https://example.com" in url
         assert "file1.png" in url
+        assert result.get("source_data") == "downloaded"
 
     def test_unicode_filename_url_encoded(self, tmp_path):
         """Test that Unicode filenames are URL-encoded."""
@@ -184,6 +190,7 @@ class TestUrlQuoting:
         # Should have a valid URL
         assert "https://example.com" in url
         assert ".png" in url
+        assert result.get("source_data") == "downloaded"
 
 
 class TestCombinedEscapingAndQuoting:
@@ -209,3 +216,4 @@ class TestCombinedEscapingAndQuoting:
         assert r"\[" in markdown or "[1]" not in markdown
         # Filename is sanitized (spaces -> underscores) then URL-encoded
         assert "my_file.png" in url or "my%5Ffile.png" in url
+        assert result.get("source_data") == "downloaded"

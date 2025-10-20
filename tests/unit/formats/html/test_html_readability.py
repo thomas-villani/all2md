@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -39,7 +40,6 @@ def _flatten_text(nodes: list) -> str:
 def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure the converter prefers readability summary content when enabled."""
     captured: dict[str, str] = {}
-    real_import = importlib.import_module
 
     class StubDocument:
         def __init__(self, html: str) -> None:
@@ -48,10 +48,16 @@ def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
         def summary(self, html_partial: bool = True) -> str:  # noqa: D401 - interface parity
             return "<html><body><article><p>Readable article body</p></article></body></html>"
 
+        def short_title(self) -> str:
+            return "Readable Title"
+
         def title(self) -> str:
             return "Readable Title"
 
     stub_module = SimpleNamespace(Document=StubDocument)
+
+    # Mock both importlib.import_module (for the decorator) and sys.modules (for the import statement)
+    real_import = importlib.import_module
 
     def fake_import(name: str, package: str | None = None):
         if name == "readability":
@@ -59,6 +65,9 @@ def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
         return real_import(name, package)
 
     monkeypatch.setattr(importlib, "import_module", fake_import)
+
+    # Also add to sys.modules so that "import readability" finds it
+    monkeypatch.setitem(sys.modules, "readability", stub_module)
 
     html_input = (
         "<html><head><title>Original Page</title></head><body>"
@@ -85,6 +94,10 @@ def test_html_readability_uses_summary(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_html_readability_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify a helpful error is raised when readability-lxml is absent."""
+    # Remove readability from sys.modules if it exists
+    monkeypatch.delitem(sys.modules, "readability", raising=False)
+
+    # Mock importlib.import_module to raise ImportError for readability
     real_import = importlib.import_module
 
     def fake_import(name: str, package: str | None = None):
@@ -101,4 +114,4 @@ def test_html_readability_missing_dependency(monkeypatch: pytest.MonkeyPatch) ->
 
     message = str(exc_info.value)
     assert "readability-lxml" in message
-    assert "requires the optional dependency" in message
+    assert "requires the following packages:" in message

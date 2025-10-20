@@ -1,6 +1,6 @@
 # all2md-watermark
 
-A watermark transform plugin for [all2md](https://github.com/thomas.villani/all2md) that adds watermark metadata to all images in a document.
+A watermark transform plugin for [all2md](https://github.com/thomas.villani/all2md) that embeds a visual watermark into images when their bytes are available (base64 or downloaded attachments). For other images it still records watermark metadata for downstream tools.
 
 ## Installation
 
@@ -28,11 +28,11 @@ markdown = to_markdown('document.pdf', transforms=[transform])
 ### From Command Line
 
 ```bash
-# Default watermark
-all2md document.pdf --transform watermark
+# Default watermark (embed watermark into inline image data)
+all2md document.pdf --attachment-mode base64 --transform watermark
 
-# Custom watermark text
-all2md document.pdf --transform watermark --watermark-text "DRAFT"
+# Custom watermark text while embedding into downloaded attachments
+all2md document.pdf --attachment-mode download --transform watermark --watermark-text "DRAFT"
 ```
 
 ### Using Transform Names
@@ -48,12 +48,12 @@ markdown = to_markdown('document.pdf', transforms=['watermark'])
 
 ## How It Works
 
-The watermark transform adds a `watermark` field to the metadata of each `Image` node in the document's AST. This metadata can be used by downstream processing tools to:
+The transform looks for the new `Image.metadata["source_data"]` flag exposed by all2md parsers:
 
-- Add visible watermarks to images
-- Track document confidentiality
-- Mark draft or final versions
-- Add custom labels to images
+- `base64`: the image bytes are embedded in the AST as a data URI
+- `downloaded`: the bytes were written to disk and the image URL points to the local file
+
+When either flag is present the plugin decodes the image with [Pillow](https://python-pillow.org), renders the watermark text as a semi-transparent overlay, and re-encodes the bytes (either back into the data URI or rewriting the downloaded file). For other images it still sets the `watermark` metadata field so downstream logic can decide how to handle them.
 
 ## Development
 
@@ -67,7 +67,7 @@ cd all2md-watermark
 # Install in development mode
 pip install -e .
 
-# Install with all2md development dependencies
+# Install with all2md development dependencies (includes Pillow for watermarking)
 pip install -e ".[dev]"
 ```
 

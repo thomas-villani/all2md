@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "all2md-watermark"
-version = "1.0.0"
+version = "1.1.0"
 description = "Watermark transform plugin for all2md"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -23,6 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "all2md>=0.1.0",
+    "Pillow>=10.0.0",
 ]
 
 [project.urls]

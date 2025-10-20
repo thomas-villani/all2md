@@ -386,19 +386,27 @@ def process_attachment(
         - "footnote_label": str | None - Footnote label if alt_text_mode is "footnote"
         - "footnote_content": str | None - Content for footnote definition
         - "url": str - URL/path for the attachment (empty for alt_text mode)
+        - "source_data": str | None - Source of the attachment data (e.g., "base64", "downloaded")
 
     """
 
     # Helper function to create result dict
     def _make_result(
-        markdown: str, url: str = "", footnote_label: str | None = None, footnote_content: str | None = None
+        markdown: str,
+        url: str = "",
+        footnote_label: str | None = None,
+        footnote_content: str | None = None,
+        source_data: str | None = None,
     ) -> dict[str, Any]:
-        return {
+        result = {
             "markdown": markdown,
             "url": url,
             "footnote_label": footnote_label,
             "footnote_content": footnote_content,
         }
+        if source_data:
+            result["source_data"] = source_data
+        return result
 
     # Helper function to build attachment markdown (centralized logic)
     def _build_attachment_markdown(
@@ -464,7 +472,12 @@ def process_attachment(
         )
         # For strict_markdown mode, set url to "#"
         url = "#" if alt_text_mode == "strict_markdown" else ""
-        return _make_result(markdown, url=url, footnote_label=footnote_label, footnote_content=footnote_content)
+        return _make_result(
+            markdown,
+            url=url,
+            footnote_label=footnote_label,
+            footnote_content=footnote_content,
+        )
 
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")
@@ -496,7 +509,7 @@ def process_attachment(
             # Escape alt text for images to prevent Markdown injection
             escaped_alt = escape_markdown_context_aware(alt_text or attachment_name, context="image_alt")
             markdown = f"![{escaped_alt}]({data_uri})"
-            return _make_result(markdown, url=data_uri)
+            return _make_result(markdown, url=data_uri, source_data="base64")
 
     if attachment_mode == "download":
         if not attachment_output_dir:
@@ -563,7 +576,7 @@ def process_attachment(
             escaped_display = escape_markdown_context_aware(display_name, context="link")
             markdown = f"[{escaped_display}]({url})"
 
-        return _make_result(markdown, url=url)
+        return _make_result(markdown, url=url, source_data="downloaded")
 
     # Fallback to alt_text mode if attachment data is missing or mode is unsupported
     logger.debug(
