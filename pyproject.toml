@@ -55,7 +55,7 @@ latex = [
     "pylatexenc>=2.10",
 ]
 chm = [
-    "pychm>=0.8.6"
+#    "pychm>=0.8.6"
 ]
 dev = [
     "all2md[all]",
@@ -107,6 +107,10 @@ rst = [
 org = [
     "orgparse>=0.4.20250520",
 ]
+archive = [
+    "py7zr>=0.22.0",
+    "rarfile>=4.2",
+]
 
 all = [
     "beautifulsoup4>=4.14.2",
@@ -121,15 +125,20 @@ all = [
     "odfpy>=1.4.1",
     "openpyxl>=3.1.5",
     "orgparse>=0.4.20250520",
+    "py7zr>=0.22.0",
     "pymupdf>=1.26.5",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "pyth3>=0.7",
     "pylatexenc>=2.10",
+    "rarfile>=4.2",
     "reportlab>=4.0.0",
     "rich>=14.2.0",
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
+]
+wiki = [
+    "mwparserfromhell>=0.7.2",
 ]
 
 [project.scripts]

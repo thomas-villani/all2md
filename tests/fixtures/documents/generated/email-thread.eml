@@ -1,0 +1,19 @@
+Subject: Re: Meeting Follow-up
+From: carol@example.com
+To: alice@example.com, bob@example.com
+Cc: project@example.com
+In-Reply-To: <initial-message@example.com>
+References: <initial-message@example.com> <followup@example.com>
+Date: Sun, 02 Mar 2025 16:45:00 -0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Hi team,
+
+Following up on the action items:
+- Alice will draft the proposal.
+- Bob will confirm timelines.
+- Carol will update stakeholders.
+
+Thanks!

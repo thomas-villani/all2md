@@ -15,7 +15,6 @@ import logging
 import re
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Union
 from urllib.parse import urlparse
 
 from all2md.constants import (
@@ -163,7 +162,7 @@ def validate_local_file_access(
 
 
 def validate_zip_archive(
-    file_path: Union[str, Path],
+    file_path: str | Path,
     max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
     max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,  # 1GB
     max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
@@ -248,11 +247,288 @@ def validate_zip_archive(
 
     except zipfile.BadZipFile as e:
         raise MalformedFileError(f"Invalid ZIP archive: {e}") from e
-    except (OSError, IOError) as e:
+    except OSError as e:
         raise MalformedFileError(f"Could not read ZIP archive: {e}") from e
 
 
-def validate_safe_extraction_path(output_dir: Union[str, Path], zip_entry_name: str) -> Path:
+def validate_tar_archive(
+    file_path: str | Path,
+    max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
+    max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,
+    max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
+) -> None:
+    """Validate a TAR archive for security threats before processing.
+
+    This function performs pre-validation checks on TAR archives to detect
+    potential security threats like tar bombs, path traversal attacks, and
+    excessive resource consumption.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the TAR archive to validate
+    max_compression_ratio : float, default 100.0
+        Maximum allowed compression ratio (uncompressed/compressed)
+    max_uncompressed_size : int, default 1073741824
+        Maximum total uncompressed size in bytes (default: 1GB)
+    max_entries : int, default 10000
+        Maximum number of entries in the archive
+
+    Raises
+    ------
+    ArchiveSecurityError
+        If the archive fails security validation
+    MalformedFileError
+        If the archive cannot be read for some other reason
+
+    """
+    import tarfile
+
+    from all2md.exceptions import ArchiveSecurityError
+
+    try:
+        with tarfile.open(file_path, "r:*") as tf:
+            members = tf.getmembers()
+
+            # Check number of entries
+            if len(members) > max_entries:
+                raise ArchiveSecurityError(
+                    f"TAR archive contains too many entries: {len(members)} > {max_entries}"
+                )
+
+            total_uncompressed = 0
+            total_compressed = 0
+
+            for member in members:
+                # Check for path traversal attempts
+                name = member.name
+                # Normalize backslashes to handle Windows paths
+                name_norm = name.replace("\\", "/")
+
+                # Check for Windows absolute paths (drive letters)
+                if ":" in name_norm and len(name_norm) >= 2 and name_norm[1] == ":":
+                    raise ArchiveSecurityError(f"TAR archive contains Windows absolute path: {member.name}")
+
+                p = PurePosixPath(name_norm)
+                if any(part == ".." for part in p.parts) or name_norm.startswith("/"):
+                    raise ArchiveSecurityError(f"TAR archive contains suspicious path: {member.name}")
+
+                # Accumulate sizes for compression ratio calculation
+                total_uncompressed += member.size
+                # TAR files don't track compressed size per member, estimate from file size
+                # For compressed TAR (gzip/bzip2/xz), we'll compare total file size
+
+            # Check total uncompressed size
+            if total_uncompressed > max_uncompressed_size:
+                raise ArchiveSecurityError(
+                    f"TAR archive uncompressed size too large: "
+                    f"{total_uncompressed / (1024 * 1024):.1f}MB > "
+                    f"{max_uncompressed_size / (1024 * 1024):.1f}MB"
+                )
+
+            # Check compression ratio (for compressed TAR files)
+            import os
+
+            if os.path.exists(file_path):
+                total_compressed = os.path.getsize(file_path)
+                if total_compressed > 0:
+                    compression_ratio = total_uncompressed / total_compressed
+                    if compression_ratio > max_compression_ratio:
+                        raise ArchiveSecurityError(
+                            f"TAR archive has suspicious compression ratio: {compression_ratio:.1f}:1"
+                        )
+
+    except tarfile.TarError as e:
+        raise MalformedFileError(f"Invalid TAR archive: {e}") from e
+    except OSError as e:
+        raise MalformedFileError(f"Could not read TAR archive: {e}") from e
+
+
+def validate_7z_archive(
+    file_path: str | Path,
+    max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
+    max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,
+    max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
+) -> None:
+    """Validate a 7Z archive for security threats before processing.
+
+    This function performs pre-validation checks on 7Z archives to detect
+    potential security threats like archive bombs, path traversal attacks, and
+    excessive resource consumption.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the 7Z archive to validate
+    max_compression_ratio : float, default 100.0
+        Maximum allowed compression ratio (uncompressed/compressed)
+    max_uncompressed_size : int, default 1073741824
+        Maximum total uncompressed size in bytes (default: 1GB)
+    max_entries : int, default 10000
+        Maximum number of entries in the archive
+
+    Raises
+    ------
+    ArchiveSecurityError
+        If the archive fails security validation
+    MalformedFileError
+        If the archive cannot be read for some other reason
+
+    """
+    try:
+        import py7zr
+    except ImportError:
+        # If py7zr is not installed, skip validation
+        # The parser will handle the import error
+        logger.debug("py7zr not installed, skipping 7Z validation")
+        return
+
+    from all2md.exceptions import ArchiveSecurityError
+
+    try:
+        with py7zr.SevenZipFile(file_path, mode="r") as sz:
+            all_files = sz.list()
+
+            # Check number of entries
+            if len(all_files) > max_entries:
+                raise ArchiveSecurityError(f"7Z archive contains too many entries: {len(all_files)} > {max_entries}")
+
+            total_uncompressed = 0
+            total_compressed = 0
+
+            for file_info in all_files:
+                # Check for path traversal attempts
+                name = file_info.filename
+                # Normalize backslashes to handle Windows paths
+                name_norm = name.replace("\\", "/")
+
+                # Check for Windows absolute paths (drive letters)
+                if ":" in name_norm and len(name_norm) >= 2 and name_norm[1] == ":":
+                    raise ArchiveSecurityError(f"7Z archive contains Windows absolute path: {file_info.filename}")
+
+                p = PurePosixPath(name_norm)
+                if any(part == ".." for part in p.parts) or name_norm.startswith("/"):
+                    raise ArchiveSecurityError(f"7Z archive contains suspicious path: {file_info.filename}")
+
+                # Accumulate sizes
+                total_uncompressed += file_info.uncompressed
+                total_compressed += file_info.compressed if file_info.compressed else 0
+
+            # Check total uncompressed size
+            if total_uncompressed > max_uncompressed_size:
+                raise ArchiveSecurityError(
+                    f"7Z archive uncompressed size too large: "
+                    f"{total_uncompressed / (1024 * 1024):.1f}MB > "
+                    f"{max_uncompressed_size / (1024 * 1024):.1f}MB"
+                )
+
+            # Check compression ratio
+            if total_compressed > 0:
+                compression_ratio = total_uncompressed / total_compressed
+                if compression_ratio > max_compression_ratio:
+                    raise ArchiveSecurityError(
+                        f"7Z archive has suspicious compression ratio: {compression_ratio:.1f}:1"
+                    )
+
+    except py7zr.Bad7zFile as e:
+        raise MalformedFileError(f"Invalid 7Z archive: {e}") from e
+    except OSError as e:
+        raise MalformedFileError(f"Could not read 7Z archive: {e}") from e
+
+
+def validate_rar_archive(
+    file_path: str | Path,
+    max_compression_ratio: float = DEFAULT_MAX_COMPRESSION_RATIO,
+    max_uncompressed_size: int = DEFAULT_MAX_UNCOMPRESSED_SIZE,
+    max_entries: int = DEFAULT_MAX_ZIP_ENTRIES,
+) -> None:
+    """Validate a RAR archive for security threats before processing.
+
+    This function performs pre-validation checks on RAR archives to detect
+    potential security threats like archive bombs, path traversal attacks, and
+    excessive resource consumption.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the RAR archive to validate
+    max_compression_ratio : float, default 100.0
+        Maximum allowed compression ratio (uncompressed/compressed)
+    max_uncompressed_size : int, default 1073741824
+        Maximum total uncompressed size in bytes (default: 1GB)
+    max_entries : int, default 10000
+        Maximum number of entries in the archive
+
+    Raises
+    ------
+    ArchiveSecurityError
+        If the archive fails security validation
+    MalformedFileError
+        If the archive cannot be read for some other reason
+
+    """
+    try:
+        import rarfile
+    except ImportError:
+        # If rarfile is not installed, skip validation
+        # The parser will handle the import error
+        logger.debug("rarfile not installed, skipping RAR validation")
+        return
+
+    from all2md.exceptions import ArchiveSecurityError
+
+    try:
+        with rarfile.RarFile(file_path) as rf:
+            members = rf.infolist()
+
+            # Check number of entries
+            if len(members) > max_entries:
+                raise ArchiveSecurityError(f"RAR archive contains too many entries: {len(members)} > {max_entries}")
+
+            total_uncompressed = 0
+            total_compressed = 0
+
+            for member in members:
+                # Check for path traversal attempts
+                name = member.filename
+                # Normalize backslashes to handle Windows paths
+                name_norm = name.replace("\\", "/")
+
+                # Check for Windows absolute paths (drive letters)
+                if ":" in name_norm and len(name_norm) >= 2 and name_norm[1] == ":":
+                    raise ArchiveSecurityError(f"RAR archive contains Windows absolute path: {member.filename}")
+
+                p = PurePosixPath(name_norm)
+                if any(part == ".." for part in p.parts) or name_norm.startswith("/"):
+                    raise ArchiveSecurityError(f"RAR archive contains suspicious path: {member.filename}")
+
+                # Accumulate sizes
+                total_uncompressed += member.file_size
+                total_compressed += member.compress_size
+
+            # Check total uncompressed size
+            if total_uncompressed > max_uncompressed_size:
+                raise ArchiveSecurityError(
+                    f"RAR archive uncompressed size too large: "
+                    f"{total_uncompressed / (1024 * 1024):.1f}MB > "
+                    f"{max_uncompressed_size / (1024 * 1024):.1f}MB"
+                )
+
+            # Check compression ratio
+            if total_compressed > 0:
+                compression_ratio = total_uncompressed / total_compressed
+                if compression_ratio > max_compression_ratio:
+                    raise ArchiveSecurityError(
+                        f"RAR archive has suspicious compression ratio: {compression_ratio:.1f}:1"
+                    )
+
+    except rarfile.BadRarFile as e:
+        raise MalformedFileError(f"Invalid RAR archive: {e}") from e
+    except OSError as e:
+        raise MalformedFileError(f"Could not read RAR archive: {e}") from e
+
+
+def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -> Path:
     """Validate and return a safe extraction path for a ZIP entry to prevent path traversal.
 
     This function prevents Zip Slip attacks by ensuring that extracted files

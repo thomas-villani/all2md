@@ -1,0 +1,5 @@
+ID,Notes,Amount
+INV-001,"Contains, comma",1000
+INV-002,"Quoted ""value"" field",850.50
+INV-003,"Multi-line
+comment entry",120

@@ -1,0 +1,29 @@
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	boundary="----MultipartBoundary--002"
+
+------MultipartBoundary--002
+Content-Type: text/html; charset=utf-8
+Content-Location: http://example.com/test.html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test MHTML with Image</title>
+</head>
+<body>
+    <h1>Test MHTML with Image</h1>
+    <p>This document contains an embedded image:</p>
+    <img src="cid:test_image.png" alt="Test image" width="100" height="100">
+    <p>Text after the image.</p>
+</body>
+</html>
+
+------MultipartBoundary--002
+Content-Type: image/png
+Content-ID: <test_image.png>
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQot2wAAAABJRU5ErkJggg==
+
+------MultipartBoundary--002--

@@ -154,6 +154,157 @@ Use full Jinja2 template engine with rich context:
 
    html = from_markdown('post.md', target_format='html', renderer_options=options)
 
+CLI Usage
+---------
+
+All static site generation features are available through the ``all2md`` command-line interface. This section shows practical CLI examples for common static site workflows.
+
+Basic HTML Conversion
+~~~~~~~~~~~~~~~~~~~~~~
+
+Convert Markdown to standalone HTML:
+
+.. code-block:: bash
+
+   # Convert single file to HTML
+   all2md article.md --output-type html --out article.html
+
+   # Convert with syntax highlighting disabled
+   all2md post.md --output-type html --no-syntax-highlighting --out post.html
+
+   # Generate HTML fragment (no <html>, <head>, <body> tags)
+   all2md content.md --output-type html --no-standalone --out content-fragment.html
+
+Using Inject Mode
+~~~~~~~~~~~~~~~~~~
+
+Inject converted content into an existing HTML layout at a CSS selector:
+
+.. code-block:: bash
+
+   # Inject into layout at #content selector (default)
+   all2md article.md --output-type html \
+       --html-template-mode inject \
+       --html-template-file layout.html \
+       --out article.html
+
+   # Inject at custom selector
+   all2md docs.md --output-type html \
+       --html-template-mode inject \
+       --html-template-file docs-layout.html \
+       --html-template-selector "#main-content" \
+       --out docs.html
+
+   # Append content instead of replacing
+   all2md update.md --output-type html \
+       --html-template-mode inject \
+       --html-template-file page.html \
+       --html-template-selector "#updates" \
+       --html-injection-mode append \
+       --out page.html
+
+Using Replace Mode
+~~~~~~~~~~~~~~~~~~~
+
+Replace placeholders in a template file:
+
+.. code-block:: bash
+
+   # Replace {CONTENT} placeholder in template
+   all2md post.md --output-type html \
+       --html-template-mode replace \
+       --html-template-file blog-template.html \
+       --out post.html
+
+   # Use custom placeholder
+   all2md article.md --output-type html \
+       --html-template-mode replace \
+       --html-template-file template.html \
+       --html-content-placeholder "{{MAIN_CONTENT}}" \
+       --out article.html
+
+   # Include table of contents
+   all2md guide.md --output-type html \
+       --html-template-mode replace \
+       --html-template-file template.html \
+       --html-include-toc \
+       --out guide.html
+
+Using Jinja Mode
+~~~~~~~~~~~~~~~~~
+
+Use Jinja2 templates with full context (content, metadata, headings, TOC):
+
+.. code-block:: bash
+
+   # Basic Jinja template rendering
+   all2md post.md --output-type html \
+       --html-template-mode jinja \
+       --html-template-file blog-post.html \
+       --out post.html
+
+   # With table of contents and syntax highlighting
+   all2md tutorial.md --output-type html \
+       --html-template-mode jinja \
+       --html-template-file tutorial-template.html \
+       --html-include-toc \
+       --html-syntax-highlighting \
+       --out tutorial.html
+
+Batch Conversion
+~~~~~~~~~~~~~~~~~
+
+Convert multiple files at once for static site generation:
+
+.. code-block:: bash
+
+   # Convert all markdown files in a directory (with parallel processing)
+   all2md posts/*.md --output-type html \
+       --html-template-mode jinja \
+       --html-template-file blog-post.html \
+       --output-dir public/ \
+       --parallel
+
+   # Recursive conversion with template
+   all2md docs/ --recursive --output-type html \
+       --html-template-mode inject \
+       --html-template-file docs-layout.html \
+       --output-dir site/docs/ \
+       --parallel
+
+   # Convert with custom CSS classes (Tailwind)
+   all2md content/*.md --output-type html \
+       --html-template-mode jinja \
+       --html-template-file page.html \
+       --html-css-class-map '{"Heading": "text-2xl font-bold", "Paragraph": "mb-4"}' \
+       --output-dir dist/ \
+       --parallel
+
+Complete CLI Example
+~~~~~~~~~~~~~~~~~~~~~
+
+Generate a complete blog site from markdown posts:
+
+.. code-block:: bash
+
+   #!/bin/bash
+   # Generate blog site with consistent layout
+
+   # Create output directory
+   mkdir -p public
+
+   # Convert all blog posts with Jinja template
+   all2md posts/*.md \
+       --output-type html \
+       --html-template-mode jinja \
+       --html-template-file templates/blog-post.html \
+       --html-include-toc \
+       --html-syntax-highlighting \
+       --output-dir public/ \
+       --parallel
+
+   echo "Blog site generated in public/"
+
 Template Modes
 --------------
 
@@ -1261,6 +1412,404 @@ Use consistent patterns across templates:
        <footer>{% block footer %}{% endblock %}</footer>
    </body>
    </html>
+
+Bash Script Example
+--------------------
+
+This section demonstrates a complete static site generation workflow using bash scripts and the ``all2md`` CLI. The example shows how to convert multiple blog posts and automatically generate an index page.
+
+Blog Post Template
+~~~~~~~~~~~~~~~~~~~
+
+First, create a Jinja2 template for blog posts (``templates/blog-post.html``):
+
+.. code-block:: html
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>{{ title }} | My Blog</title>
+       <meta name="author" content="{{ metadata.author }}">
+       <meta name="description" content="{{ metadata.description }}">
+       <style>
+           body {
+               max-width: 800px;
+               margin: 0 auto;
+               padding: 2rem;
+               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+               line-height: 1.6;
+               color: #333;
+           }
+           header {
+               border-bottom: 2px solid #333;
+               padding-bottom: 1rem;
+               margin-bottom: 2rem;
+           }
+           .site-title {
+               font-size: 1.5rem;
+               font-weight: bold;
+               text-decoration: none;
+               color: #333;
+           }
+           nav a {
+               margin-left: 1rem;
+               color: #666;
+               text-decoration: none;
+           }
+           nav a:hover {
+               color: #333;
+           }
+           .post-meta {
+               color: #666;
+               font-size: 0.9rem;
+               margin-bottom: 2rem;
+           }
+           .toc {
+               background: #f5f5f5;
+               padding: 1rem;
+               margin: 2rem 0;
+               border-left: 4px solid #333;
+           }
+           footer {
+               margin-top: 3rem;
+               padding-top: 1rem;
+               border-top: 1px solid #ddd;
+               color: #666;
+               font-size: 0.9rem;
+           }
+       </style>
+   </head>
+   <body>
+       <header>
+           <a href="/index.html" class="site-title">My Blog</a>
+           <nav>
+               <a href="/index.html">Home</a>
+               <a href="/about.html">About</a>
+           </nav>
+       </header>
+
+       <article>
+           <h1>{{ title }}</h1>
+           <div class="post-meta">
+               By {{ metadata.author }} on {{ metadata.date }}
+           </div>
+
+           {% if headings and headings|length > 2 %}
+           <aside class="toc">
+               <h2>Table of Contents</h2>
+               {{ toc_html }}
+           </aside>
+           {% endif %}
+
+           {{ content }}
+       </article>
+
+       <footer>
+           <p><a href="/index.html">← Back to all posts</a></p>
+       </footer>
+   </body>
+   </html>
+
+Site Generation Script
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Create a bash script (``generate-site.sh``) to convert posts and build the index page:
+
+.. code-block:: bash
+
+   #!/bin/bash
+   # Generate static blog site from Markdown posts
+   # Usage: ./generate-site.sh
+
+   set -e  # Exit on error
+
+   # Configuration
+   POSTS_DIR="posts"
+   OUTPUT_DIR="public"
+   TEMPLATE_FILE="templates/blog-post.html"
+
+   # Colors for output
+   GREEN='\033[0;32m'
+   BLUE='\033[0;34m'
+   NC='\033[0m' # No Color
+
+   echo -e "${BLUE}Starting blog generation...${NC}"
+
+   # Convert all markdown posts to HTML in one batch command
+   echo -e "${BLUE}Converting posts...${NC}"
+   all2md "$POSTS_DIR"/*.md \
+       --output-type html \
+       --html-template-mode jinja \
+       --html-template-file "$TEMPLATE_FILE" \
+       --html-include-toc \
+       --html-syntax-highlighting \
+       --output-dir "$OUTPUT_DIR" \
+       --parallel
+
+   echo -e "${GREEN}Posts converted${NC}"
+
+   # Generate index page
+   echo -e "${BLUE}Generating index page...${NC}"
+
+   # Create index.html with list of all posts
+   cat > "$OUTPUT_DIR/index.html" << 'EOF'
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>My Blog</title>
+       <style>
+           body {
+               max-width: 800px;
+               margin: 0 auto;
+               padding: 2rem;
+               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+               line-height: 1.6;
+               color: #333;
+           }
+           header {
+               border-bottom: 2px solid #333;
+               padding-bottom: 1rem;
+               margin-bottom: 2rem;
+           }
+           .site-title {
+               font-size: 2rem;
+               font-weight: bold;
+               margin-bottom: 0.5rem;
+           }
+           nav a {
+               margin-right: 1rem;
+               color: #666;
+               text-decoration: none;
+           }
+           nav a:hover {
+               color: #333;
+           }
+           .post-list {
+               list-style: none;
+               padding: 0;
+           }
+           .post-item {
+               margin-bottom: 2rem;
+               padding-bottom: 2rem;
+               border-bottom: 1px solid #eee;
+           }
+           .post-item:last-child {
+               border-bottom: none;
+           }
+           .post-title {
+               font-size: 1.5rem;
+               margin-bottom: 0.5rem;
+           }
+           .post-title a {
+               color: #333;
+               text-decoration: none;
+           }
+           .post-title a:hover {
+               color: #0066cc;
+           }
+           .post-meta {
+               color: #666;
+               font-size: 0.9rem;
+               margin-bottom: 0.5rem;
+           }
+           .post-excerpt {
+               color: #555;
+           }
+           footer {
+               margin-top: 3rem;
+               padding-top: 1rem;
+               border-top: 1px solid #ddd;
+               color: #666;
+               font-size: 0.9rem;
+               text-align: center;
+           }
+       </style>
+   </head>
+   <body>
+       <header>
+           <div class="site-title">My Blog</div>
+           <nav>
+               <a href="/index.html">Home</a>
+               <a href="/about.html">About</a>
+           </nav>
+       </header>
+
+       <main>
+           <h1>Recent Posts</h1>
+           <ul class="post-list">
+   EOF
+
+   # Extract metadata and add post entries
+   for md_file in "$POSTS_DIR"/*.md; do
+       if [ -f "$md_file" ]; then
+           basename=$(basename "$md_file" .md)
+
+           # Extract title from frontmatter (first line after ---)
+           title=$(sed -n '/^---$/,/^---$/p' "$md_file" | grep '^title:' | sed 's/^title: *//')
+           if [ -z "$title" ]; then
+               title="$basename"
+           fi
+
+           # Extract author
+           author=$(sed -n '/^---$/,/^---$/p' "$md_file" | grep '^author:' | sed 's/^author: *//')
+           if [ -z "$author" ]; then
+               author="Unknown"
+           fi
+
+           # Extract date
+           date=$(sed -n '/^---$/,/^---$/p' "$md_file" | grep '^date:' | sed 's/^date: *//')
+           if [ -z "$date" ]; then
+               date="No date"
+           fi
+
+           # Extract description/excerpt
+           description=$(sed -n '/^---$/,/^---$/p' "$md_file" | grep '^description:' | sed 's/^description: *//')
+           if [ -z "$description" ]; then
+               description=""
+           fi
+
+           # Add post entry to index
+           cat >> "$OUTPUT_DIR/index.html" << ENTRY
+               <li class="post-item">
+                   <h2 class="post-title"><a href="${basename}.html">${title}</a></h2>
+                   <div class="post-meta">By ${author} on ${date}</div>
+                   <p class="post-excerpt">${description}</p>
+               </li>
+   ENTRY
+       fi
+   done
+
+   # Close HTML
+   cat >> "$OUTPUT_DIR/index.html" << 'EOF'
+           </ul>
+       </main>
+
+       <footer>
+           <p>&copy; 2025 My Blog. All rights reserved.</p>
+       </footer>
+   </body>
+   </html>
+   EOF
+
+   echo -e "${GREEN}Index page generated${NC}"
+   echo -e "${GREEN}Site generation complete!${NC}"
+   echo -e "Output directory: ${BLUE}$OUTPUT_DIR${NC}"
+
+Example Markdown Post
+~~~~~~~~~~~~~~~~~~~~~
+
+Create blog posts with frontmatter metadata (``posts/welcome.md``):
+
+.. code-block:: markdown
+
+   ---
+   title: Welcome to My Blog
+   author: Jane Doe
+   date: 2025-01-15
+   description: Introduction to my new blog and what you can expect to read here.
+   ---
+
+   # Welcome!
+
+   This is my first blog post. I'm excited to share my thoughts on technology,
+   programming, and life.
+
+   ## What to Expect
+
+   I'll be writing about:
+
+   - Python programming tips
+   - Web development tutorials
+   - Book reviews
+   - Travel adventures
+
+   ## Getting Started
+
+   Check out my [about page](/about.html) to learn more about me.
+
+   Stay tuned for more posts!
+
+Running the Script
+~~~~~~~~~~~~~~~~~~
+
+Make the script executable and run it:
+
+.. code-block:: bash
+
+   chmod +x generate-site.sh
+   ./generate-site.sh
+
+This will:
+
+1. Convert all ``.md`` files in ``posts/`` to HTML using the Jinja template
+2. Extract metadata (title, author, date, description) from each post's frontmatter
+3. Generate ``index.html`` with a list of all posts and their metadata
+4. Output everything to the ``public/`` directory
+
+The resulting site structure:
+
+.. code-block:: text
+
+   public/
+   ├── index.html          # Homepage with post list
+   ├── welcome.html        # Individual post page
+   ├── second-post.html    # Another post
+   └── ...
+
+Customization
+~~~~~~~~~~~~~
+
+Extend the script for additional features:
+
+**Sort posts by date:**
+
+.. code-block:: bash
+
+   # Add before the post loop
+   posts_with_dates=()
+   for md_file in "$POSTS_DIR"/*.md; do
+       date=$(sed -n '/^---$/,/^---$/p' "$md_file" | grep '^date:' | sed 's/^date: *//')
+       posts_with_dates+=("$date|$md_file")
+   done
+
+   # Sort by date (newest first)
+   IFS=$'\n' sorted=($(sort -r <<<"${posts_with_dates[*]}"))
+   unset IFS
+
+**Add RSS feed generation:**
+
+.. code-block:: bash
+
+   # Generate RSS feed
+   cat > "$OUTPUT_DIR/feed.xml" << EOF
+   <?xml version="1.0" encoding="UTF-8"?>
+   <rss version="2.0">
+       <channel>
+           <title>My Blog</title>
+           <link>https://myblog.com</link>
+           <description>My personal blog</description>
+   EOF
+
+   # Add items from posts
+   # ... (extract metadata and generate RSS items)
+
+**Add sitemap.xml:**
+
+.. code-block:: bash
+
+   echo '<?xml version="1.0" encoding="UTF-8"?>' > "$OUTPUT_DIR/sitemap.xml"
+   echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> "$OUTPUT_DIR/sitemap.xml"
+
+   for html_file in "$OUTPUT_DIR"/*.html; do
+       basename=$(basename "$html_file")
+       echo "  <url><loc>https://myblog.com/$basename</loc></url>" >> "$OUTPUT_DIR/sitemap.xml"
+   done
+
+   echo '</urlset>' >> "$OUTPUT_DIR/sitemap.xml"
 
 Complete Working Examples
 --------------------------

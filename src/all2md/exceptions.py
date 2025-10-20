@@ -446,7 +446,6 @@ class SecurityError(All2MdError):
 
     """
 
-    pass
 
 
 class NetworkSecurityError(SecurityError):
@@ -463,7 +462,6 @@ class NetworkSecurityError(SecurityError):
 
     """
 
-    pass
 
 
 class ZipFileSecurityError(SecurityError):
@@ -480,7 +478,23 @@ class ZipFileSecurityError(SecurityError):
 
     """
 
-    pass
+
+
+class ArchiveSecurityError(SecurityError):
+    """Exception raised when an archive file security violation is detected.
+
+    This includes archive bombs, path traversal attempts, excessive compression, etc.
+    Applies to TAR, 7Z, and RAR archives.
+
+    Parameters
+    ----------
+    message : str
+        Description of the archive security violation
+    original_error : Exception, optional
+        The original exception that caused this error
+
+    """
+
 
 
 class DependencyError(All2MdError):

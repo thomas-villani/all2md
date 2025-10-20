@@ -1,0 +1,15 @@
+Subject: Project Update
+From: alice@example.com
+To: bob@example.com
+Date: Fri, 28 Feb 2025 12:30:00 -0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Hello Bob,
+
+Here is the latest update on the project.
+We completed the integration tests and deployed to staging.
+
+Regards,
+Alice

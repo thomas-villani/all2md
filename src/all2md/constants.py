@@ -366,6 +366,11 @@ DEFAULT_RST_PRESERVE_RAW_DIRECTIVES = False
 DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED = True
 DEFAULT_MEDIAWIKI_IMAGE_THUMB = True
 
+# MediaWiki Parser Options
+DEFAULT_MEDIAWIKI_PARSE_TEMPLATES = False
+DEFAULT_MEDIAWIKI_PARSE_TAGS = True
+DEFAULT_MEDIAWIKI_STRIP_COMMENTS = True
+
 # =============================================================================
 # Org-Mode Constants
 # =============================================================================

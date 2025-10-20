@@ -1,0 +1,16 @@
+Sample Document
+==============
+
+This is an example of plain text that contains a few paragraphs.
+It should convert to Markdown without any additional formatting.
+
+Another Section
+---------------
+
+Bullet-style lines:
+- Item one
+- Item two
+
+Numbered-style lines:
+1. First
+2. Second

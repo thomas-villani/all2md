@@ -1,0 +1,26 @@
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	boundary="----MultipartBoundary--001"
+
+------MultipartBoundary--001
+Content-Type: text/html; charset=utf-8
+Content-Location: http://example.com/test.html
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test MHTML Document</title>
+</head>
+<body>
+    <h1>Test MHTML Document</h1>
+    <p>This is a simple MHTML document with <strong>bold</strong> and <em>italic</em> text.</p>
+    <p>It also contains a <a href="https://example.com">link</a>.</p>
+    <ul>
+        <li>First item</li>
+        <li>Second item</li>
+        <li>Third item</li>
+    </ul>
+</body>
+</html>
+
+------MultipartBoundary--001--
