@@ -34,16 +34,20 @@ Installing with uv
 Basic Installation
 ~~~~~~~~~~~~~~~~~~
 
+To add all2md to your current project:
+
 .. code-block:: bash
 
-   # Install with uv
-   uv pip install all2md
+   # Add to current project
+   uv add all2md
 
-   # Install with specific formats
-   uv pip install all2md[pdf,docx,html]
+   # Add with specific formats
+   uv add "all2md[pdf,docx,html]"
 
-   # Install all formats
-   uv pip install all2md[all]
+   # Add with all formats
+   uv add "all2md[all]"
+
+This will automatically update your ``pyproject.toml`` and install the package.
 
 Using uv with Virtual Environments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -118,11 +122,20 @@ Linux and macOS
    # Install uv first (if not already installed)
    curl -LsSf https://astral.sh/uv/install.sh | sh
 
-   # Install all2md globally with uv
+   # Option 1: Install all2md globally (persistent)
+   uv tool install all2md
+   # Or with all format support:
    uv tool install all2md --with all2md[all]
 
-   # Verify installation
+   # Option 2: Run without installing (ephemeral environment)
+   uv tool run all2md document.pdf
+   # Or using the shorthand:
+   uvx all2md document.pdf
+
+   # Verify installation (for Option 1)
    all2md --version
+
+The ephemeral approach (``uv tool run`` / ``uvx``) creates a temporary environment for each invocation, which is useful for one-off conversions without permanent installation.
 
 Windows
 ~~~~~~~
@@ -158,11 +171,20 @@ Windows
    # Install uv first
    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-   # Install all2md globally with uv
+   # Option 1: Install all2md globally (persistent)
+   uv tool install all2md
+   # Or with all format support:
    uv tool install all2md --with all2md[all]
 
-   # Verify installation
+   # Option 2: Run without installing (ephemeral environment)
+   uv tool run all2md document.pdf
+   # Or using the shorthand:
+   uvx all2md document.pdf
+
+   # Verify installation (for Option 1)
    all2md --version
+
+The ephemeral approach (``uv tool run`` / ``uvx``) creates a temporary environment for each invocation, which is useful for one-off conversions without permanent installation.
 
 **Using Scoop (alternative):**
 
@@ -455,6 +477,8 @@ Prerequisites
 Clone and Install
 ~~~~~~~~~~~~~~~~~
 
+**Using pip:**
+
 .. code-block:: bash
 
    # Clone the repository
@@ -464,11 +488,26 @@ Clone and Install
    # Install in development mode with all dependencies
    pip install -e .[dev,all]
 
+**Using uv (recommended for faster setup):**
+
+.. code-block:: bash
+
+   # Clone the repository
+   git clone https://github.com/thomas-villani/all2md.git
+   cd all2md
+
+   # Sync dependencies from pyproject.toml
+   uv sync
+   # Or sync with all optional format dependencies:
+   uv sync --all-extras
+
 This installs:
 
 * All format dependencies
 * Development tools (pytest, mypy, ruff, sphinx)
 * The package in "editable" mode (changes reflect immediately)
+
+The ``uv sync`` command automatically creates a virtual environment and installs all dependencies defined in ``pyproject.toml``.
 
 Development Dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~

@@ -553,7 +553,7 @@ into AST representation using a custom parser.
 
 **support_unconstrained_formatting**
 
-   Support unconstrained formatting (e.g., ``**b**old`` for mid-word)
+   Support unconstrained formatting (e.g., **b**old for mid-word)
 
    :Type: ``bool``
    :CLI flag: ``--asciidoc-no-unconstrained-formatting``
@@ -3468,7 +3468,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001C7A98D09C0>``
+   :Default: ``<object object at 0x000001D3D91009C0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3478,7 +3478,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001C7A98D09C0>``
+   :Default: ``<object object at 0x000001D3D91009C0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -5504,14 +5504,15 @@ including page selection, image handling, and formatting preferences.
 Ocr Options
 +++++++++++
 
-Configuration options for OCR (Optical Character Recognition) in PDF parsing.
+Configuration options for OCR (Optical Character Recognition).
 
-This dataclass contains settings for detecting and extracting text from scanned
-or image-based PDF pages using Tesseract OCR engine.
+This dataclass contains settings for detecting and extracting text from
+images using Tesseract OCR engine. Can be used by any parser that needs
+to extract text from images (PDF scanned pages, standalone images, etc.).
 
 **enabled**
 
-   Enable OCR for scanned/image-based PDF pages
+   Enable OCR for image-based content
 
    :Type: ``bool``
    :CLI flag: ``--pdf-ocr-enabled``
@@ -5520,7 +5521,7 @@ or image-based PDF pages using Tesseract OCR engine.
 
 **mode**
 
-   OCR mode: 'auto' (detect scanned pages), 'force' (all pages), 'off' (disable)
+   OCR mode: 'auto' (detect when needed), 'force' (always), 'off' (disable)
 
    :Type: ``Literal['auto', 'force', 'off']``
    :CLI flag: ``--pdf-ocr-mode``
@@ -5548,7 +5549,7 @@ or image-based PDF pages using Tesseract OCR engine.
 
 **dpi**
 
-   DPI for rendering pages to images for OCR (150-600 recommended)
+   DPI for rendering images for OCR (150-600 recommended)
 
    :Type: ``int``
    :CLI flag: ``--pdf-ocr-dpi``
@@ -5557,7 +5558,7 @@ or image-based PDF pages using Tesseract OCR engine.
 
 **text_threshold**
 
-   Minimum characters to consider page text-based (for auto mode)
+   Minimum characters to consider content text-based (for auto mode)
 
    :Type: ``int``
    :CLI flag: ``--pdf-ocr-text-threshold``
@@ -5575,7 +5576,7 @@ or image-based PDF pages using Tesseract OCR engine.
 
 **preserve_existing_text**
 
-   Preserve PyMuPDF text when applying OCR (combine vs replace)
+   Preserve existing text when applying OCR (combine vs replace)
 
    :Type: ``bool``
    :CLI flag: ``--pdf-ocr-preserve-existing-text``
@@ -7576,7 +7577,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001C7A98D09C0>``
+   :Default: ``<object object at 0x000001D3D91009C0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -7586,7 +7587,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001C7A98D09C0>``
+   :Default: ``<object object at 0x000001D3D91009C0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

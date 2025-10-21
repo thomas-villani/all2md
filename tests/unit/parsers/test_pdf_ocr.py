@@ -6,7 +6,8 @@ with the PDF parser. Uses mocking to avoid dependency on Tesseract.
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from all2md.options.pdf import OCROptions, PdfOptions
+from all2md.options.common import OCROptions
+from all2md.options.pdf import PdfOptions
 from all2md.parsers.pdf import (
     _calculate_image_coverage,
     _should_use_ocr,

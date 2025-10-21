@@ -1247,7 +1247,7 @@ def _should_use_ocr(
 
     """
     # Import OCROptions type for type checking
-    from all2md.options.pdf import OCROptions
+    from all2md.options.common import OCROptions
 
     ocr_opts: OCROptions = options.ocr
 

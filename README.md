@@ -244,7 +244,7 @@ markdown_content = to_markdown(
 )
 
 # Convert a scanned PDF with OCR
-from all2md.options.pdf import OCROptions
+from all2md.options.common import OCROptions
 ocr_opts = OCROptions(enabled=True, mode="auto", languages="eng", dpi=300)
 pdf_opts_with_ocr = PdfOptions(ocr=ocr_opts)
 markdown_content = to_markdown('scanned.pdf', parser_options=pdf_opts_with_ocr)
