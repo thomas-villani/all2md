@@ -447,7 +447,6 @@ class SecurityError(All2MdError):
     """
 
 
-
 class NetworkSecurityError(SecurityError):
     """Exception raised when a network security violation is detected.
 
@@ -461,7 +460,6 @@ class NetworkSecurityError(SecurityError):
         The original exception that caused this error
 
     """
-
 
 
 class ZipFileSecurityError(SecurityError):
@@ -479,7 +477,6 @@ class ZipFileSecurityError(SecurityError):
     """
 
 
-
 class ArchiveSecurityError(SecurityError):
     """Exception raised when an archive file security violation is detected.
 
@@ -494,7 +491,6 @@ class ArchiveSecurityError(SecurityError):
         The original exception that caused this error
 
     """
-
 
 
 class DependencyError(All2MdError):

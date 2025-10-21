@@ -463,7 +463,7 @@ Feature Comparison
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 9 9 9 9 9 9 9 9 9 9
+   :widths: 18 7 7 7 7 7 7 7 7 7 7 7 7
 
    * - Feature
      - DOCX
@@ -471,12 +471,16 @@ Feature Comparison
      - PDF
      - EPUB
      - PPTX
+     - ODT
+     - ODP
      - RST
      - AsciiDoc
      - LaTeX
      - MediaWiki
      - Org-Mode
    * - Headings (H1-H6)
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -498,7 +502,11 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
    * - Lists (ordered/unordered)
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -520,6 +528,8 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
    * - Code blocks
      - ✓
      - ✓ (highlighting)
@@ -531,7 +541,11 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
    * - Inline code
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -553,6 +567,8 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
    * - Images
      - ✓
      - ✓
@@ -564,7 +580,11 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
    * - Block quotes
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -586,12 +606,16 @@ Feature Comparison
      - ✓
      - ✓
      - ✓
+     - ✓
+     - ✓
    * - Footnotes
      - ✓
      - ✓
      - ✓
      - ✓
      - ✗
+     - ✓
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -603,6 +627,8 @@ Feature Comparison
      - Partial
      - ✓
      - ✗
+     - ✓
+     - ✓
      - Partial
      - Partial
      - Partial
@@ -642,6 +668,16 @@ Limitations
 **RST:**
 - Some advanced Markdown extensions may not have RST equivalents
 - Directive syntax may differ from original
+
+**ODT:**
+- Images must be accessible at render time
+- Complex formatting may require manual adjustment
+- Font availability depends on LibreOffice installation
+
+**ODP:**
+- Images must be accessible at render time
+- Slide layouts are basic without custom templates
+- Font availability depends on LibreOffice installation
 
 Best Practices
 --------------

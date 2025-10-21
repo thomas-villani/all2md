@@ -83,14 +83,16 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **Email Message**             | `.eml`, `.msg`                                |       ✅       |       (N/A)    | (built-in)         |
 | **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |       (N/A)    | (built-in)         |
 | **EPUB E-book**               | `.epub`                                       |       ✅       |        ✅      | `epub`             |
-| **OpenDocument Text**         | `.odt`                                        |       ✅       |       (N/A)    | `odf`              |
-| **OpenDocument Presentation** | `.odp`                                        |       ✅       |       (N/A)    | `odf`              |
+| **OpenDocument Text**         | `.odt`                                        |       ✅       |        ✅      | `odf`              |
+| **OpenDocument Presentation** | `.odp`                                        |       ✅       |        ✅      | `odf`              |
 | **Excel Spreadsheet**         | `.xlsx`                                       |       ✅       |       (N/A)    | `spreadsheet`      |
 | **CSV / TSV**                 | `.csv`, `.tsv`                                |       ✅       |       (N/A)    | (built-in)         |
 | **Rich Text Format**          | `.rtf`                                        |       ✅       |       (N/A)    | `rtf`              |
 | **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `markdown`         |
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
+| **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `mediawiki`        |
 | **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
+| **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 
 ## Installation

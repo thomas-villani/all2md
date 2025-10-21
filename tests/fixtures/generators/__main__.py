@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -67,14 +66,13 @@ from fixtures.generators.mhtml_fixtures import (
     create_simple_mhtml,
 )
 from fixtures.generators.odf_fixtures import (
-    HAS_ODFPY,
     create_odp_with_slides,
+    create_ods_with_sheet,
     create_odt_with_formatting,
     create_odt_with_lists,
-    create_ods_with_sheet,
-    save_odt_to_bytes,
-    save_ods_to_bytes,
     save_odp_to_bytes,
+    save_ods_to_bytes,
+    save_odt_to_bytes,
 )
 from fixtures.generators.org_fixtures import create_org_agenda_document
 from fixtures.generators.plaintext_fixtures import (

@@ -111,12 +111,31 @@ class TestTarSecurity:
         tar_buffer = io.BytesIO()
         with tarfile.open(fileobj=tar_buffer, mode="w") as tf:
             # Create a single huge file (> 1GB uncompressed)
+            # We need to provide actual data matching the size, but we can use sparse data
+            # by writing in chunks to avoid memory issues
             huge_size = 1024 * 1024 * 1024 + 1  # Just over 1GB
             info = tarfile.TarInfo(name="huge.txt")
             info.size = huge_size
-            # Don't actually create the data, just set the size
-            # (tarfile will handle this)
-            tf.addfile(info, io.BytesIO(b""))  # Empty actual content
+
+            # Create a BytesIO with repeated data to reach the size
+            # We'll use a generator-based approach with a custom file-like object
+            class SparseData:
+                def __init__(self, size):
+                    self.size = size
+                    self.pos = 0
+
+                def read(self, n=-1):
+                    if n == -1:
+                        n = self.size - self.pos
+                    remaining = self.size - self.pos
+                    to_read = min(n, remaining)
+                    if to_read <= 0:
+                        return b""
+                    self.pos += to_read
+                    # Return repeated 'x' bytes
+                    return b"x" * to_read
+
+            tf.addfile(info, SparseData(huge_size))
 
         tar_data = tar_buffer.getvalue()
 

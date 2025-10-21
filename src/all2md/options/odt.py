@@ -110,9 +110,7 @@ class OdtRendererOptions(BaseRendererOptions):
     code_font: str = field(
         default="Liberation Mono", metadata={"help": "Font for code blocks and inline code", "importance": "core"}
     )
-    code_font_size: int = field(
-        default=10, metadata={"help": "Font size for code", "type": int, "importance": "core"}
-    )
+    code_font_size: int = field(default=10, metadata={"help": "Font size for code", "type": int, "importance": "core"})
     preserve_formatting: bool = field(
         default=True,
         metadata={

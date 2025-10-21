@@ -61,6 +61,7 @@ class WatermarkTransform(NodeTransformer):
     to include a semi-transparent watermark. For all other images the transform
     still records the watermark text in metadata so that other tooling can act
     on it if desired.
+
     """
 
     def __init__(self, text: str = "CONFIDENTIAL") -> None:
@@ -69,7 +70,6 @@ class WatermarkTransform(NodeTransformer):
 
     def visit_image(self, node: Image) -> Image:
         """Visit an image node and apply watermark when data is available."""
-
         node = super().visit_image(node)
 
         new_metadata = node.metadata.copy()

@@ -8,7 +8,6 @@ import pytest
 
 from all2md import to_ast, to_markdown
 from all2md.ast import Document, Heading
-from all2md.exceptions import ArchiveSecurityError, MalformedFileError
 from all2md.options.archive import ArchiveOptions
 from all2md.parsers.archive import ArchiveToAstConverter
 

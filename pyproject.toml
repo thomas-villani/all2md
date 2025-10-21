@@ -180,6 +180,7 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
+    "examples"
 ]
 
 # Enable fixing issues automatically when possible
@@ -196,10 +197,12 @@ select = [
     "I",  # import-related rules
 ]
 ignore = [
-    "C901",  # complexity (ignoring for now)
+#    "C901",  # complexity (ignoring for now)
     "D203",  # one-blank-line-before-class (incompatible with D211)
     "D213",  # multi-line-summary-second-line (incompatible with D212)
 ]
+[tool.ruff.lint.mccabe]
+max-complexity = 15
 
 # Relax rules for test files
 [tool.ruff.lint.per-file-ignores]
@@ -217,8 +220,6 @@ ignore = [
     "E402",  # Module level import not at top (common with pytest.skip)
     "E501",  # Line too long (tests often have long assertion lines)
 ]
-# Ignore undefined names in test file marked for refactoring
-"tests/integration/test_pptx_shapes_advanced.py" = ["F821"]
 
 
 [tool.mypy]
@@ -229,7 +230,7 @@ python_version = 3.12
 mypy_path = "stubs"
 
 # Paths to ignore (similar to ruff exclude)
-exclude = "build|dist|.venv|.mypy_cache"
+exclude = "build|dist|.venv|.mypy_cache|examples"
 
 # Enable strict optional checking
 strict_optional = true

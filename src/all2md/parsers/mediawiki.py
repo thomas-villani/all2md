@@ -503,7 +503,7 @@ class MediaWikiParser(BaseParser):
             if self.options.parse_tags and tag.attributes:
                 for attr in tag.attributes:
                     if str(attr.name).lower() == "lang":
-                        language = str(attr.value).strip().strip('"\'')
+                        language = str(attr.value).strip().strip("\"'")
                         break
             return CodeBlock(content=str(tag.contents), language=language)
         else:
@@ -617,14 +617,18 @@ class MediaWikiParser(BaseParser):
         if hasattr(first_node, "wiki_markup"):
             ordered = first_node.wiki_markup == "#"
 
+        # Determine expected marker character based on list type
+        expected_marker = "#" if ordered else "*"
+
         # Collect list items
         while i < len(nodes_list):
             node = nodes_list[i]
             node_type = type(node).__name__
 
-            # Check if this is a list marker
-            if node_type == "Tag" and hasattr(node, "wiki_markup") and node.wiki_markup in ("*", "#"):
-                # This is a list marker
+            # Check if this is a list marker of the same type as the first one
+            # Stop collecting if we encounter a different marker type
+            if node_type == "Tag" and hasattr(node, "wiki_markup") and node.wiki_markup == expected_marker:
+                # This is a list marker of the correct type
                 # Next node should be the item text
                 i += 1
                 if i < len(nodes_list):
@@ -643,7 +647,7 @@ class MediaWikiParser(BaseParser):
                 else:
                     break
             else:
-                # Not a list marker - end of list
+                # Not a list marker of the expected type - end of list
                 break
 
         if not items:
@@ -756,7 +760,7 @@ class MediaWikiParser(BaseParser):
                 cell_texts = cell_text.split("!!")
                 for ct in cell_texts:
                     # Remove cell attributes (e.g., style="...")
-                    ct = re.sub(r'^\s*[^|]*\|\s*', '', ct).strip()
+                    ct = re.sub(r"^\s*[^|]*\|\s*", "", ct).strip()
                     content = [Text(content=ct)]
                     current_row_cells.append(TableCell(content=content))
 
@@ -767,7 +771,7 @@ class MediaWikiParser(BaseParser):
                 cell_texts = cell_text.split("||")
                 for ct in cell_texts:
                     # Remove cell attributes
-                    ct = re.sub(r'^\s*[^|]*\|\s*', '', ct).strip()
+                    ct = re.sub(r"^\s*[^|]*\|\s*", "", ct).strip()
                     content = [Text(content=ct)]
                     current_row_cells.append(TableCell(content=content))
 

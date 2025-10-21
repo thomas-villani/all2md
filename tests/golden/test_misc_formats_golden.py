@@ -5,9 +5,6 @@ from __future__ import annotations
 from io import BytesIO
 
 import pytest
-
-from all2md import to_markdown
-from all2md.exceptions import DependencyError
 from fixtures.generators.eml_fixtures import (
     create_email_with_html_and_attachment,
     create_email_with_thread_headers,
@@ -23,6 +20,9 @@ from fixtures.generators.zip_fixtures import (
     create_zip_with_binary_assets,
     create_zip_with_subarchives,
 )
+
+from all2md import to_markdown
+from all2md.exceptions import DependencyError
 
 
 @pytest.mark.golden

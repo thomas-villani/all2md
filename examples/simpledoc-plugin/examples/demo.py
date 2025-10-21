@@ -7,7 +7,7 @@ and render documents.
 
 from pathlib import Path
 
-from all2md_simpledoc import SimpleDocParser, SimpleDocRenderer, SimpleDocOptions
+from all2md_simpledoc import SimpleDocParser, SimpleDocRenderer
 
 
 def demo_parsing():

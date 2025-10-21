@@ -329,6 +329,8 @@ OpenDocument Formats
 
 **Formats:** OpenDocument Text (.odt), Presentation (.odp), and Spreadsheet (.ods) files
 
+**Features:** Full bidirectional support for ODT and ODP (both parsing and rendering)
+
 Excel Spreadsheets
 ~~~~~~~~~~~~~~~~~~
 

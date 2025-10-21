@@ -292,9 +292,7 @@ def validate_tar_archive(
 
             # Check number of entries
             if len(members) > max_entries:
-                raise ArchiveSecurityError(
-                    f"TAR archive contains too many entries: {len(members)} > {max_entries}"
-                )
+                raise ArchiveSecurityError(f"TAR archive contains too many entries: {len(members)} > {max_entries}")
 
             total_uncompressed = 0
             total_compressed = 0
@@ -529,18 +527,18 @@ def validate_rar_archive(
 
 
 def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -> Path:
-    """Validate and return a safe extraction path for a ZIP entry to prevent path traversal.
+    """Validate and return a safe extraction path for a ZIP/archive entry to prevent path traversal.
 
     This function prevents Zip Slip attacks by ensuring that extracted files
     cannot escape the intended output directory through absolute paths or
-    parent directory traversal (..).
+    parent directory traversal (..). Works for ZIP and other archive formats.
 
     Parameters
     ----------
     output_dir : str or Path
         The base directory where files should be extracted
     zip_entry_name : str
-        The filename from the ZIP entry (ZipInfo.filename)
+        The filename from the archive entry (ZipInfo.filename or archive member name)
 
     Returns
     -------
@@ -549,7 +547,7 @@ def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -
 
     Raises
     ------
-    ZipFileSecurityError
+    ArchiveSecurityError
         If the path contains dangerous patterns or would escape output_dir
 
     Examples
@@ -558,24 +556,27 @@ def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -
     Path('/tmp/out/subdir/file.txt')
 
     >>> validate_safe_extraction_path("/tmp/out", "../etc/passwd")  # doctest: +SKIP
-    ZipFileSecurityError: Unsafe path in ZIP entry: ../etc/passwd
+    ArchiveSecurityError: Unsafe path in archive entry: ../etc/passwd
 
     >>> validate_safe_extraction_path("/tmp/out", "/etc/passwd")  # doctest: +SKIP
-    ZipFileSecurityError: Unsafe path in ZIP entry: /etc/passwd
+    ArchiveSecurityError: Unsafe path in archive entry: /etc/passwd
 
     Notes
     -----
     This function is critical for preventing Zip Slip vulnerabilities (CVE-2018-1000117
-    and related). Always use this when extracting ZIP entries to the filesystem.
+    and related). Always use this when extracting archive entries to the filesystem.
 
     See Also
     --------
     validate_zip_archive : Pre-validate ZIP archives for security threats
+    validate_tar_archive : Pre-validate TAR archives for security threats
 
     """
     import os
 
-    # Normalize to POSIX path (ZIP archives always use forward slashes)
+    from all2md.exceptions import ArchiveSecurityError
+
+    # Normalize to POSIX path (archives typically use forward slashes)
     # Replace backslashes with forward slashes to handle malformed entries
     normalized_name = zip_entry_name.replace("\\", "/")
 
@@ -584,23 +585,23 @@ def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -
     if ":" in normalized_name:
         # Check if it looks like a drive letter (single letter followed by colon)
         if len(normalized_name) >= 2 and normalized_name[1] == ":":
-            raise ZipFileSecurityError(f"Unsafe Windows absolute path in ZIP entry: {zip_entry_name}")
+            raise ArchiveSecurityError(f"Unsafe Windows absolute path in archive entry: {zip_entry_name}")
 
     # Use PurePosixPath to parse the normalized path
     try:
         rel_path = PurePosixPath(normalized_name)
     except Exception as e:
-        raise ZipFileSecurityError(f"Invalid path in ZIP entry: {zip_entry_name}") from e
+        raise ArchiveSecurityError(f"Invalid path in archive entry: {zip_entry_name}") from e
 
     # Reject absolute paths (starting with /)
     if rel_path.is_absolute():
-        raise ZipFileSecurityError(f"Unsafe absolute path in ZIP entry: {zip_entry_name}")
+        raise ArchiveSecurityError(f"Unsafe absolute path in archive entry: {zip_entry_name}")
 
     # Reject paths containing parent directory traversal or current directory
     # Check each component for dangerous patterns
     for part in rel_path.parts:
         if part in (".", ".."):
-            raise ZipFileSecurityError(f"Unsafe path component in ZIP entry: {zip_entry_name} (contains '{part}')")
+            raise ArchiveSecurityError(f"Unsafe path component in archive entry: {zip_entry_name} (contains '{part}')")
 
     # Convert output_dir to Path and resolve it
     output_dir_path = Path(output_dir).resolve()
@@ -614,7 +615,7 @@ def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -
     try:
         target_resolved = target_path.resolve()
     except Exception as e:
-        raise ZipFileSecurityError(f"Cannot resolve path for ZIP entry: {zip_entry_name}") from e
+        raise ArchiveSecurityError(f"Cannot resolve path for archive entry: {zip_entry_name}") from e
 
     # Ensure the resolved target is within the output directory
     # Use string comparison with os.sep to ensure proper prefix matching
@@ -626,7 +627,7 @@ def validate_safe_extraction_path(output_dir: str | Path, zip_entry_name: str) -
     # - /tmp/output vs /tmp/output-sibling
     # So we ensure the prefix is followed by a separator or is exactly the same
     if not (target_str.startswith(output_dir_str + os.sep) or target_str == output_dir_str):
-        raise ZipFileSecurityError(f"Path escapes output directory: {zip_entry_name} -> {target_str}")
+        raise ArchiveSecurityError(f"Path escapes output directory: {zip_entry_name} -> {target_str}")
 
     return target_resolved
 

@@ -6,9 +6,6 @@ import json
 from io import BytesIO
 
 import pytest
-
-from all2md import to_markdown
-from all2md.exceptions import DependencyError
 from fixtures.generators.csv_fixtures import (
     create_basic_csv,
     create_csv_with_special_characters,
@@ -23,12 +20,12 @@ from fixtures.generators.ipynb_fixtures import (
 from fixtures.generators.odf_fixtures import (
     HAS_ODFPY,
     create_odp_with_slides,
+    create_ods_with_sheet,
     create_odt_with_formatting,
     create_odt_with_lists,
-    create_ods_with_sheet,
-    save_odt_to_bytes,
-    save_ods_to_bytes,
     save_odp_to_bytes,
+    save_ods_to_bytes,
+    save_odt_to_bytes,
 )
 from fixtures.generators.xlsx_fixtures import (
     create_xlsx_basic_table,
@@ -36,6 +33,9 @@ from fixtures.generators.xlsx_fixtures import (
     create_xlsx_with_image,
     create_xlsx_with_multiple_sheets,
 )
+
+from all2md import to_markdown
+from all2md.exceptions import DependencyError
 
 
 @pytest.mark.golden

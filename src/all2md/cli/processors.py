@@ -1120,7 +1120,10 @@ def process_merge_from_list(
             )
 
             doc = to_ast(
-                file_path, source_format=cast(DocumentFormat, format_arg), progress_callback=progress_cb, **effective_options
+                file_path,
+                source_format=cast(DocumentFormat, format_arg),
+                progress_callback=progress_cb,
+                **effective_options,
             )
 
             # Add section title if provided and not disabled

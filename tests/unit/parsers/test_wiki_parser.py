@@ -28,7 +28,6 @@ from all2md.ast import (
     Image,
     Link,
     List,
-    ListItem,
     Paragraph,
     Strikethrough,
     Strong,

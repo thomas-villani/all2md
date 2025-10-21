@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md import to_ast, to_markdown
+from all2md import to_ast
 from all2md.progress import ProgressEvent
 from all2md.utils.input_sources import RemoteInputOptions
 
@@ -201,8 +201,9 @@ class TestCLIProgressContextCallback:
 
     def test_progress_context_callback_logs_download_events(self):
         """Test that progress context callback handles download events."""
-        from io import StringIO
         import sys
+        from io import StringIO
+
         from all2md.cli.progress import ProgressContext, create_progress_context_callback
 
         # Capture stderr output
@@ -242,8 +243,9 @@ class TestCLIProgressContextCallback:
 
     def test_progress_context_callback_handles_errors(self):
         """Test that progress context callback handles error events."""
-        from io import StringIO
         import sys
+        from io import StringIO
+
         from all2md.cli.progress import ProgressContext, create_progress_context_callback
 
         captured_output = StringIO()

@@ -7,11 +7,11 @@ including parser, renderer, options, and integration with the registry.
 import io
 
 import pytest
+from all2md_simpledoc import CONVERTER_METADATA, SimpleDocOptions, SimpleDocParser, SimpleDocRenderer
 
 from all2md.ast import CodeBlock, Document, Heading, List, ListItem, Paragraph, Text
 from all2md.exceptions import ParsingError
 from all2md.utils.metadata import DocumentMetadata
-from all2md_simpledoc import CONVERTER_METADATA, SimpleDocOptions, SimpleDocParser, SimpleDocRenderer
 
 
 class TestSimpleDocParser:
@@ -312,7 +312,7 @@ More content here.
 
         # Compare AST structure
         assert len(ast_doc.children) == len(ast_doc2.children)
-        assert all(type(a) == type(b) for a, b in zip(ast_doc.children, ast_doc2.children))
+        assert all(type(a) == type(b) for a, b in zip(ast_doc.children, ast_doc2.children, strict=False))
 
     def test_round_trip_with_metadata(self):
         """Test round-trip with frontmatter metadata."""

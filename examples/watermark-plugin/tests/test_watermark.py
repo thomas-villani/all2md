@@ -11,9 +11,8 @@ import pytest
 
 pytest.importorskip("PIL")
 
-from PIL import Image as PILImage
-
 from all2md_watermark import METADATA, WatermarkTransform
+from PIL import Image as PILImage
 
 from all2md.ast import Document, Image, Paragraph
 

@@ -535,6 +535,23 @@ class ArchiveToAstConverter(BaseParser):
             children.append(Paragraph(content=[Text(content="(Empty archive or no matching files)")]))
             return Document(children=children)
 
+        # For 7z archives, extract all files at once since py7zr.read() consumes the archive
+        file_data_cache: dict[str, bytes] = {}
+        if archive_type == "7z":
+            try:
+                data_dict = archive.read(file_list)
+                for fname, bio in data_dict.items():
+                    if hasattr(bio, "read"):
+                        file_data_cache[fname] = bio.read()
+                    elif isinstance(bio, bytes):
+                        file_data_cache[fname] = bio
+                    else:
+                        file_data_cache[fname] = b""
+            except Exception as e:
+                logger.warning(f"Failed to extract 7z files: {e}")
+                children.append(Paragraph(content=[Text(content=f"(Error extracting archive: {e!s})")]))
+                return Document(children=children)
+
         total_files = len(file_list)
         processed_count = 0
 
@@ -550,7 +567,11 @@ class ArchiveToAstConverter(BaseParser):
                 )
 
                 # Extract file content
-                file_data = self._read_archive_file(archive, archive_type, file_path)
+                # For 7z, use cached data; for others, read directly
+                if archive_type == "7z" and file_path in file_data_cache:
+                    file_data = file_data_cache[file_path]
+                else:
+                    file_data = self._read_archive_file(archive, archive_type, file_path)
 
                 # Skip empty files if configured
                 if not file_data and self.options.skip_empty_files:
@@ -700,9 +721,17 @@ class ArchiveToAstConverter(BaseParser):
                 return b""
             return f.read()
         if archive_type == "7z":
-            # Extract to memory
-            data = archive.read([file_path])
-            return data.get(file_path, b"")
+            # Extract to memory using readall() which returns dict[filename, BytesIO]
+            # py7zr.SevenZipFile.read() extracts files and returns dict of BytesIO objects
+            data_dict = archive.read([file_path])
+            # The dict maps filename to BytesIO object
+            if file_path in data_dict:
+                bio = data_dict[file_path]
+                if hasattr(bio, "read"):
+                    return bio.read()
+                # If it's already bytes (older py7zr versions)
+                return bio if isinstance(bio, bytes) else b""
+            return b""
         if archive_type == "rar":
             return archive.read(file_path)
         return b""

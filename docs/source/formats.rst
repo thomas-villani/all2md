@@ -66,11 +66,14 @@ PowerPoint Presentations (PPTX)
 OpenDocument Suite (ODT & ODP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*Parsers:* ``OdtToAstConverter`` & ``OdpToAstConverter``
+*Parsers:* ``OdtToAstConverter`` & ``OdpToAstConverter`` — *Renderers:* ``OdtRenderer`` & ``OdpRenderer``
 
-- Uses ``odfpy`` to preserve structure, lists, and embedded media
+- Full bidirectional conversion support for OpenDocument Text and Presentation formats
+- Uses ``odfpy`` to preserve structure, lists, tables, and embedded media
+- Parsers extract content while maintaining formatting and document structure
+- Renderers support Markdown-to-ODT/ODP conversion for round-trip workflows
 - Shares attachment controls and Markdown formatting via ``markdown_options``
-- Ideal companion for LibreOffice / OpenOffice pipelines
+- Ideal companion for LibreOffice / OpenOffice pipelines and cross-format document workflows
 
 Rich Text Format (RTF)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -153,10 +156,13 @@ Org Mode
 MediaWiki
 ~~~~~~~~~
 
-*Renderer only:* ``MediaWikiRenderer``
+*Parser:* ``MediaWikiParser`` — *Renderer:* ``MediaWikiRenderer``
 
-- Emits MediaWiki markup from the common AST, enabling Markdown → Wiki migrations
-- Combine with ``MarkdownToAstConverter`` (or any parser) to publish to wikis without manual rewriting
+- Full bidirectional conversion support for MediaWiki markup
+- Parser handles wiki tables, templates, categories, internal/external links, and formatting
+- Renderer emits MediaWiki markup from the common AST, enabling Markdown → Wiki migrations
+- Combine with any parser to publish to wikis without manual rewriting
+- Ideal for migrating between wiki platforms or converting wiki content to other formats
 
 LaTeX / TeX
 ~~~~~~~~~~~
@@ -192,6 +198,19 @@ Jupyter Notebooks (IPYNB)
 
 - Extracts code cells, rich outputs, and metadata with truncation controls for verbose outputs
 - Renderer can rebuild lightweight notebooks from Markdown content
+
+Archive Formats (TAR/7Z/RAR)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Parser:* ``ArchiveToAstConverter``
+
+- Supports TAR (including .tgz, .tar.gz, .tbz2, .tar.bz2, .txz, .tar.xz), 7Z, and RAR archives
+- Recursively extracts and converts parseable files to AST using appropriate format parsers
+- Automatically detects and processes nested archives
+- Supports file filtering with include/exclude patterns for selective extraction
+- Extracts resource files (images, binaries) to attachment directory when configured
+- Creates structured document with headings for each archive member
+- Handles compressed archives transparently with automatic decompression
 
 Source Code & Plain Text
 ~~~~~~~~~~~~~~~~~~~~~~~~~

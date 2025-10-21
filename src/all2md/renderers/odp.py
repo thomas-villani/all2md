@@ -146,7 +146,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 # Find existing master page
                 master_page = None
                 for mp in prs.masterstyles.childNodes:
-                    if mp.qname == (prs.STYLENS, 'master-page'):
+                    if mp.qname == (prs.STYLENS, "master-page"):
                         master_page = mp
                         break
             else:
@@ -154,10 +154,9 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
                 # Define basic page layout
                 page_layout = PageLayout(name="StandardLayout")
-                page_layout.addElement(PageLayoutProperties(
-                    margintop="1in", marginbottom="1in",
-                    marginleft="1in", marginright="1in"
-                ))
+                page_layout.addElement(
+                    PageLayoutProperties(margintop="1in", marginbottom="1in", marginleft="1in", marginright="1in")
+                )
                 prs.automaticstyles.addElement(page_layout)
 
                 # Create master page
@@ -267,10 +266,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         from odf.text import P
 
         # Create page (slide) with master page
-        page = Page(
-            name=f"page{id(heading) if heading else id(content_nodes)}",
-            masterpagename=self._master_page
-        )
+        page = Page(name=f"page{id(heading) if heading else id(content_nodes)}", masterpagename=self._master_page)
 
         # Determine title
         title = ""
@@ -288,12 +284,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         # Create title frame if we have a title
         if title:
-            title_frame = Frame(
-                width="9in",
-                height="1in",
-                x="0.5in",
-                y="0.5in"
-            )
+            title_frame = Frame(width="9in", height="1in", x="0.5in", y="0.5in")
             title_textbox = TextBox()
             title_para = P()
             title_para.addText(title)
@@ -302,12 +293,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             page.addElement(title_frame)
 
         # Create content frame
-        content_frame = Frame(
-            width="9in",
-            height="6in",
-            x="0.5in",
-            y="1.75in"
-        )
+        content_frame = Frame(width="9in", height="6in", x="0.5in", y="1.75in")
         content_textbox = TextBox()
 
         # Set current frame for rendering
@@ -367,6 +353,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 table_cell = TableCell()
                 cell_text = self._extract_text_from_nodes(cell.content)
                 from odf.text import P
+
                 para = P()
                 para.addText(cell_text)
                 table_cell.addElement(para)
@@ -380,6 +367,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 table_cell = TableCell()
                 cell_text = self._extract_text_from_nodes(cell.content)
                 from odf.text import P
+
                 para = P()
                 para.addText(cell_text)
                 table_cell.addElement(para)
@@ -389,6 +377,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         # Add table to page
         # Note: Tables in ODP typically go in a frame
         from odf.draw import Frame
+
         frame = Frame(width="8in", height="4in", x="1in", y="2in")
         frame.addElement(odf_table)
         page.addElement(frame)
@@ -429,7 +418,8 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
                 from odf.draw import Frame
                 from odf.draw import Image as OdfImage
-                ext = os.path.splitext(image_file)[1] or '.png'
+
+                ext = os.path.splitext(image_file)[1] or ".png"
                 image_name = f"Pictures/image_{id(image)}{ext}"
 
                 # Note: In a complete implementation, we would need to:
@@ -739,7 +729,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         # Render list items
         for item in node.items:
-            saved_list = getattr(self, '_current_list', None)
+            saved_list = getattr(self, "_current_list", None)
             self._current_list = odf_list
             item.accept(self)
             self._current_list = saved_list
@@ -787,7 +777,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         list_item.addElement(para)
 
         # Add to current list
-        if hasattr(self, '_current_list'):
+        if hasattr(self, "_current_list"):
             self._current_list.addElement(list_item)
 
         self._current_paragraph = None

@@ -411,7 +411,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
         for item in node.items:
             # Store current list for item to add to
-            saved_list = getattr(self, '_current_list', None)
+            saved_list = getattr(self, "_current_list", None)
             self._current_list = odf_list
             item.accept(self)
             self._current_list = saved_list
@@ -458,7 +458,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         list_item.addElement(para)
 
         # Add to current list
-        if hasattr(self, '_current_list'):
+        if hasattr(self, "_current_list"):
             self._current_list.addElement(list_item)
 
         self._current_paragraph = None
@@ -739,14 +739,15 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             # Add image to document
             if image_file:
                 # Read image data
-                with open(image_file, 'rb') as f:
+                with open(image_file, "rb") as f:
                     image_data = f.read()
 
                 # Add picture to document's manifest
 
                 # Generate unique name for image
                 import os
-                ext = os.path.splitext(image_file)[1] or '.png'
+
+                ext = os.path.splitext(image_file)[1] or ".png"
                 image_name = f"Pictures/image_{id(node)}{ext}"
 
                 # Add to document
