@@ -36,7 +36,6 @@ from all2md.cli.validation import (
     validate_arguments,
 )
 from all2md.constants import DOCUMENT_EXTENSIONS, PLAINTEXT_EXTENSIONS
-from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
 from all2md.logging_utils import configure_logging as configure_root_logging
@@ -469,10 +468,10 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
 
 
 def collect_input_files(
-    input_paths: List[str],
-    recursive: bool = False,
-    extensions: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
+        input_paths: List[str],
+        recursive: bool = False,
+        extensions: Optional[List[str]] = None,
+        exclude_patterns: Optional[List[str]] = None,
 ) -> List[CLIInputItem]:
     """Collect CLI input items from provided arguments.
 

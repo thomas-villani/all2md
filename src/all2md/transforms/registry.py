@@ -48,7 +48,6 @@ import logging
 from typing import Any, Optional
 
 from all2md.ast.transforms import NodeTransformer
-
 from .metadata import TransformMetadata
 
 logger = logging.getLogger(__name__)

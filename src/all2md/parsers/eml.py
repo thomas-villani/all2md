@@ -579,7 +579,7 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
         if part_match:
             d = part_match.groupdict()
             # Extract content after header
-            d["content"] = part[part_match.end() :]
+            d["content"] = part[part_match.end():]
             # Parse date if present
             if d.get("date"):
                 d["date"] = _parse_date_safely(d["date"])
@@ -808,7 +808,7 @@ def _clean_quoted_content(content: str) -> str:
             quote_match = re.match(r"^(>{2,})\s*", line)
             if quote_match:
                 quote_prefix = quote_match.group(1)
-                cleaned_lines.append(line[len(quote_prefix) :].lstrip())
+                cleaned_lines.append(line[len(quote_prefix):].lstrip())
         elif line.strip().startswith("|"):
             # Some email clients use | for quoting
             cleaned_lines.append(line.lstrip("| "))

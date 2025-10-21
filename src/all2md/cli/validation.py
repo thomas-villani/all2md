@@ -35,8 +35,8 @@ class ValidationProblem:
 
 
 def collect_argument_problems(
-    parsed_args: argparse.Namespace,
-    files: Optional[List[CLIInputItem]] = None,
+        parsed_args: argparse.Namespace,
+        files: Optional[List[CLIInputItem]] = None,
 ) -> list[ValidationProblem]:
     """Collect validation problems for parsed CLI arguments."""
     problems: list[ValidationProblem] = []
@@ -100,9 +100,9 @@ def collect_argument_problems(
 
 
 def report_validation_problems(
-    problems: Iterable[ValidationProblem],
-    *,
-    logger: Optional[logging.Logger] = None,
+        problems: Iterable[ValidationProblem],
+        *,
+        logger: Optional[logging.Logger] = None,
 ) -> bool:
     """Report validation problems via logging.
 
@@ -120,10 +120,10 @@ def report_validation_problems(
 
 
 def validate_arguments(
-    parsed_args: argparse.Namespace,
-    files: Optional[List[CLIInputItem]] = None,
-    *,
-    logger: Optional[logging.Logger] = None,
+        parsed_args: argparse.Namespace,
+        files: Optional[List[CLIInputItem]] = None,
+        *,
+        logger: Optional[logging.Logger] = None,
 ) -> bool:
     """Validate parsed arguments, logging any issues. Maintains legacy API."""
     problems = collect_argument_problems(parsed_args, files)

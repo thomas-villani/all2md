@@ -469,7 +469,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
 
 
 def resolve_links(
-    links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None
+        links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None
 ) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
@@ -588,11 +588,11 @@ def resolve_links(
 
 
 def extract_page_images(
-    page: "fitz.Page",
-    page_num: int,
-    options: PdfOptions | None = None,
-    base_filename: str = "document",
-    attachment_sequencer: Callable | None = None,
+        page: "fitz.Page",
+        page_num: int,
+        options: PdfOptions | None = None,
+        base_filename: str = "document",
+        attachment_sequencer: Callable | None = None,
 ) -> tuple[list[dict], dict[str, str]]:
     """Extract images from a PDF page with their positions.
 
@@ -783,7 +783,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
 
 
 def detect_tables_by_ruling_lines(
-    page: "fitz.Page", threshold: float = 0.5
+        page: "fitz.Page", threshold: float = 0.5
 ) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
@@ -918,11 +918,11 @@ class IdentifyHeaders:
     """
 
     def __init__(
-        self,
-        doc: Any,  # PyMuPDF Document object
-        pages: list[int] | range | None = None,
-        body_limit: float | None = None,
-        options: PdfOptions | None = None,
+            self,
+            doc: Any,  # PyMuPDF Document object
+            pages: list[int] | range | None = None,
+            body_limit: float | None = None,
+            options: PdfOptions | None = None,
     ) -> None:
         """Initialize header identification by analyzing font sizes.
 
@@ -1220,7 +1220,7 @@ class PdfToAstConverter(BaseParser):
                 # Handle different file-like object types
             elif input_type == "object":
                 if isinstance(doc_input, fitz.Document) or (
-                    hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
+                        hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
                 ):
                     doc = doc_input
                 else:
@@ -1635,12 +1635,12 @@ class PdfToAstConverter(BaseParser):
         return Document(children=children, metadata=metadata.to_dict())
 
     def _process_page_to_ast(
-        self,
-        page: "fitz.Page",
-        page_num: int,
-        base_filename: str,
-        attachment_sequencer: Callable[[str, str], tuple[str, int]],
-        total_pages: int = 0,
+            self,
+            page: "fitz.Page",
+            page_num: int,
+            base_filename: str,
+            attachment_sequencer: Callable[[str, str], tuple[str, int]],
+            total_pages: int = 0,
     ) -> list[Node]:
         """Process a PDF page to AST nodes.
 
@@ -2412,7 +2412,7 @@ class PdfToAstConverter(BaseParser):
             return None
 
     def _extract_table_from_ruling_rect(
-        self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
+            self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
     ) -> AstTable | None:
         """Extract table content from a bounding box using ruling lines.
 

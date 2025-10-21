@@ -112,7 +112,7 @@ class AstJsonParser(BaseParser):
     """
 
     def __init__(
-        self, options: AstJsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+            self, options: AstJsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the AST JSON parser."""
         super().__init__(options or AstJsonParserOptions(), progress_callback)

@@ -16,7 +16,7 @@ from typing import IO, Union, cast
 
 
 def write_content(
-    content: Union[str, bytes], output: Union[str, Path, IO[bytes], IO[str], None]
+        content: Union[str, bytes], output: Union[str, Path, IO[bytes], IO[str], None]
 ) -> Union[StringIO, BytesIO, None]:
     """Write content to output destination or return as file-like object.
 

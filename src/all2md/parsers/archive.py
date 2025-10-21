@@ -220,7 +220,7 @@ class ArchiveToAstConverter(BaseParser):
         return b""
 
     def _open_tar(
-        self, input_data: str | Path | IO[bytes] | bytes, archive_type: str
+            self, input_data: str | Path | IO[bytes] | bytes, archive_type: str
     ) -> tuple[tarfile.TarFile, Callable[[], None] | None]:
         """Open a TAR archive.
 
@@ -431,8 +431,8 @@ class ArchiveToAstConverter(BaseParser):
                 missing_packages=[("rarfile", ">=4.2")],
                 install_command="pip install all2md[archive]",
                 message="rarfile is required for RAR archive support. "
-                "Install with: pip install all2md[archive]. "
-                "Note: RAR extraction also requires UnRAR binary to be installed on your system.",
+                        "Install with: pip install all2md[archive]. "
+                        "Note: RAR extraction also requires UnRAR binary to be installed on your system.",
                 original_import_error=e,
             ) from e
 

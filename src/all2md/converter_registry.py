@@ -427,9 +427,9 @@ class ConverterRegistry:
         )
 
     def detect_format(
-        self,
-        input_data: Union[str, Path, IO[bytes], bytes],
-        hint: Optional[str] = None,
+            self,
+            input_data: Union[str, Path, IO[bytes], bytes],
+            hint: Optional[str] = None,
     ) -> str:
         """Detect format from input data.
 
@@ -486,10 +486,10 @@ class ConverterRegistry:
             except Exception:
                 pass
         elif isinstance(input_data, io.IOBase) or (
-            hasattr(input_data, "read")
-            and hasattr(input_data, "tell")
-            and hasattr(input_data, "read")
-            and hasattr(input_data, "seek")
+                hasattr(input_data, "read")
+                and hasattr(input_data, "tell")
+                and hasattr(input_data, "read")
+                and hasattr(input_data, "seek")
         ):
             # Save position and read sample
             try:
@@ -646,10 +646,10 @@ class ConverterRegistry:
         return f".{format_name}" if not format_name.startswith(".") else format_name
 
     def check_dependencies(
-        self,
-        format_name: Optional[str] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
-        operation: str = "both",
+            self,
+            format_name: Optional[str] = None,
+            input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+            operation: str = "both",
     ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 

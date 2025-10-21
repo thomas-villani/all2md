@@ -13,7 +13,6 @@ These metadata objects are exported via entry points in pyproject.toml.
 from __future__ import annotations
 
 from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
-
 from .builtin import (
     AddAttachmentFootnotesTransform,
     AddConversionTimestampTransform,

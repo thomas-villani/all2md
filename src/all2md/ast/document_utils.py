@@ -45,9 +45,10 @@ Generate a table of contents:
 from __future__ import annotations
 
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from typing import Callable, Literal
+
+import unicodedata
 
 from all2md.ast.nodes import (
     Document,
@@ -222,7 +223,7 @@ def get_all_sections(doc: Document, min_level: int = 1, max_level: int = 6) -> l
 
 
 def find_section_by_heading(
-    doc: Document, heading_text: str, level: int | None = None, case_sensitive: bool = False
+        doc: Document, heading_text: str, level: int | None = None, case_sensitive: bool = False
 ) -> Section | None:
     """Find the first section with a matching heading text.
 
@@ -365,7 +366,7 @@ def _resolve_target(doc: Document, target: str | int, case_sensitive: bool = Fal
 
 
 def add_section_after(
-    doc: Document, target: str | int, new_section: Section | Document, case_sensitive: bool = False
+        doc: Document, target: str | int, new_section: Section | Document, case_sensitive: bool = False
 ) -> Document:
     """Add a new section after the specified target section.
 
@@ -418,7 +419,7 @@ def add_section_after(
 
 
 def add_section_before(
-    doc: Document, target: str | int, new_section: Section | Document, case_sensitive: bool = False
+        doc: Document, target: str | int, new_section: Section | Document, case_sensitive: bool = False
 ) -> Document:
     """Add a new section before the specified target section.
 
@@ -503,13 +504,13 @@ def remove_section(doc: Document, target: str | int, case_sensitive: bool = Fals
         raise ValueError(f"Target section not found: {target}")
 
     # Remove section (heading + content)
-    new_children = doc.children[: target_section.start_index] + doc.children[target_section.end_index :]
+    new_children = doc.children[: target_section.start_index] + doc.children[target_section.end_index:]
 
     return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
 def replace_section(
-    doc: Document, target: str | int, new_content: Section | Document | list[Node], case_sensitive: bool = False
+        doc: Document, target: str | int, new_content: Section | Document | list[Node], case_sensitive: bool = False
 ) -> Document:
     """Replace a section with new content.
 
@@ -565,17 +566,17 @@ def replace_section(
         new_nodes = new_content
 
     # Replace section
-    new_children = doc.children[: target_section.start_index] + new_nodes + doc.children[target_section.end_index :]
+    new_children = doc.children[: target_section.start_index] + new_nodes + doc.children[target_section.end_index:]
 
     return Document(children=new_children, metadata=doc.metadata.copy(), source_location=doc.source_location)
 
 
 def insert_into_section(
-    doc: Document,
-    target: str | int,
-    content: Node | list[Node],
-    position: Literal["start", "end", "after_heading"] = "end",
-    case_sensitive: bool = False,
+        doc: Document,
+        target: str | int,
+        content: Node | list[Node],
+        position: Literal["start", "end", "after_heading"] = "end",
+        case_sensitive: bool = False,
 ) -> Document:
     """Insert content into an existing section.
 
@@ -714,7 +715,7 @@ def extract_section(doc: Document, target: str | int, case_sensitive: bool = Fal
 
 
 def generate_toc(
-    doc: Document, max_level: int = 3, style: Literal["markdown", "list", "nested"] = "markdown"
+        doc: Document, max_level: int = 3, style: Literal["markdown", "list", "nested"] = "markdown"
 ) -> str | List:
     """Generate a table of contents from document headings.
 
@@ -1062,10 +1063,10 @@ def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:
 
 
 def insert_toc(
-    doc: Document,
-    position: Literal["start", "after_first_heading"] = "start",
-    max_level: int = 3,
-    style: Literal["markdown", "list", "nested"] = "markdown",
+        doc: Document,
+        position: Literal["start", "after_first_heading"] = "start",
+        max_level: int = 3,
+        style: Literal["markdown", "list", "nested"] = "markdown",
 ) -> Document:
     """Insert a table of contents into the document.
 
@@ -1181,7 +1182,7 @@ def count_sections(doc: Document, level: int | None = None) -> int:
 
 
 def find_heading(
-    doc: Document, text: str, level: int | None = None, case_sensitive: bool = False
+        doc: Document, text: str, level: int | None = None, case_sensitive: bool = False
 ) -> tuple[int, Heading] | None:
     """Find a heading node in the document.
 

@@ -80,7 +80,7 @@ class MediaWikiParser(BaseParser):
     """
 
     def __init__(
-        self, options: MediaWikiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+            self, options: MediaWikiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the MediaWiki parser with options and progress callback."""
         options = options or MediaWikiParserOptions()

@@ -8,9 +8,9 @@ from typing import Optional
 
 
 def configure_logging(
-    log_level: int | str,
-    log_file: Optional[str] = None,
-    trace_mode: bool = False,
+        log_level: int | str,
+        log_file: Optional[str] = None,
+        trace_mode: bool = False,
 ) -> logging.Logger:
     """Configure root logging handlers shared across CLI and services.
 

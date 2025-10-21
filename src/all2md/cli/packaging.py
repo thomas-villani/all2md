@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def create_package_from_conversions(
-    input_items: List[CLIInputItem],
-    zip_path: Path,
-    target_format: str = "markdown",
-    options: Optional[Dict[str, Any]] = None,
-    transforms: Optional[list] = None,
-    source_format: str = "auto",
-    progress_callback: Optional[Any] = None,
+        input_items: List[CLIInputItem],
+        zip_path: Path,
+        target_format: str = "markdown",
+        options: Optional[Dict[str, Any]] = None,
+        transforms: Optional[list] = None,
+        source_format: str = "auto",
+        progress_callback: Optional[Any] = None,
 ) -> Path:
     """Create zip package by converting files directly to memory without disk I/O.
 

@@ -229,7 +229,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         default=DEFAULT_ALLOW_REMOTE_SCRIPTS,
         metadata={
             "help": "Allow loading remote scripts (e.g., MathJax/KaTeX CDN). "
-            "Default is False for security - opt-in required for CDN usage.",
+                    "Default is False for security - opt-in required for CDN usage.",
             "importance": "security",
         },
     )
@@ -381,7 +381,7 @@ class HtmlOptions(BaseParserOptions):
         default=False,
         metadata={
             "help": "Extract main article content by stripping navigation and other non-readable content "
-            "using readability-lxml",
+                    "using readability-lxml",
             "importance": "advanced",
         },
     )
@@ -405,11 +405,11 @@ class HtmlOptions(BaseParserOptions):
         default=None,
         metadata={
             "help": "Whitelist of allowed HTML attributes. Can be a tuple of attribute names "
-            "(global allowlist) or a dict mapping element names to tuples of allowed "
-            "attributes (per-element allowlist). Examples: ('class', 'id') or "
-            "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
-            "CLI note: For complex dict structures, pass as JSON string: "
-            '--allowed-attributes \'{"img": ["src", "alt"], "a": ["href"]}\'',
+                    "(global allowlist) or a dict mapping element names to tuples of allowed "
+                    "attributes (per-element allowlist). Examples: ('class', 'id') or "
+                    "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
+                    "CLI note: For complex dict structures, pass as JSON string: "
+                    '--allowed-attributes \'{"img": ["src", "alt"], "a": ["href"]}\'',
             "action": "append",
             "importance": "security",
         },
